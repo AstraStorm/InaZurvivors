@@ -1,5 +1,5 @@
 // Technical check of dist/: every resource the game asks for is there and intact, no credential or private file got in,
-// and every path uses the production base. Rights are checked by comprobar_derechos.mjs.
+// and every path uses the production base.
 // Usage: node tools/comprobar_build.mjs --recursos <carpeta>
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { createHash } from 'node:crypto';
