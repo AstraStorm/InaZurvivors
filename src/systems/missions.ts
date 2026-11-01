@@ -48,6 +48,23 @@ export const MISSIONS: MissionDef[] = [
   M('l_heroe', 'logro', 'Asciende a un futbolista a HÉROE', 'col_heroes', 1, 1500),
   M('l_rangoX', 'logro', 'Gana una partida en rango X', 'wins_X', 1, 2000),
   M('l_combo', 'logro', 'Aprende una técnica combinada', 'combos', 1, 500),
+  // Fix 1.11: more ways to earn fichas by playing (daily 3, weekly 10, achievements 8, per run 3)
+  M('d_victoria', 'diaria', 'Gana una partida', 'wins', 1, 50),
+  M('d_supervivencia', 'diaria', 'Aguanta 4 minutos en una partida', 'long_runs', 1, 40),
+  M('d_jefe', 'diaria', 'Derrota a un jefe', 'bosses', 1, 50),
+  M('d_ofensiva', 'diaria', 'Juega una partida en formación ofensiva', 'runs_ofensiva', 1, 30),
+  M('d_defensiva', 'diaria', 'Juega una partida en formación defensiva', 'runs_defensiva', 1, 30),
+  M('s_original', 'semanal', 'Juega 3 partidas con un capitán de la saga original', 'runs_era_original', 3, 150),
+  M('s_go', 'semanal', 'Juega 3 partidas con un capitán de la era GO', 'runs_era_go', 3, 150),
+  M('s_vr', 'semanal', 'Juega 2 partidas con un capitán de Victory Road', 'runs_era_vr', 2, 150),
+  M('s_favorito', 'semanal', 'Juega 3 partidas con 3 o más futbolistas de tu equipo favorito', 'runs_fav', 3, 200),
+  M('s_tecnicas', 'semanal', 'Usa 300 técnicas de cualquier elemento', 'uses_all', 300, 150),
+  M('s_eventos', 'semanal', 'Supera 6 altares o eventos', 'altars', 6, 200),
+  M('s_rangoB', 'semanal', 'Gana 3 partidas en rango B o superior', 'wins_hi_b', 3, 250),
+  M('l_royal', 'logro', 'Gana en la Royal Academy', 'wins_map_royal', 1, 300),
+  M('l_zeus', 'logro', 'Gana en el Estadio Zeus', 'wins_map_zeus', 1, 400),
+  M('l_equilibrada', 'logro', 'Gana con formación equilibrada', 'wins_equilibrada', 1, 250),
+  M('l_defensiva', 'logro', 'Gana con formación defensiva', 'wins_defensiva', 1, 250),
 ];
 
 /**
@@ -90,9 +107,16 @@ export function recordRun(s: SaveData, r: RunResult, now = new Date()) {
   const add: Record<string, number> = { runs: 1, kills: r.kills, time: Math.floor(r.timeSec), wins: r.victory ? 1 : 0,
     levels: Math.max(0, (r.level ?? 1) - 1), bosses: r.bossDefeated ? 1 : 0, altars: r.altars ?? 0, endless: Math.floor(r.endlessSec ?? 0),
     combos: r.combos?.length ?? 0 };
-  if (r.victory && r.rank) { add[`wins_${r.rank}`] = 1; if (['A', 'S', 'X'].includes(r.rank)) add.wins_hi = 1; }
+  if (r.victory && r.rank) { add[`wins_${r.rank}`] = 1; if (['A', 'S', 'X'].includes(r.rank)) add.wins_hi = 1; if (r.rank !== 'C') add.wins_hi_b = 1; }
   if (r.victory && r.formation) add[`wins_${r.formation}`] = 1;
+  // Fix 1.11 counters: formation played, era of the captain, favourite team, arena, long survivals
+  if (r.formation) add[`runs_${r.formation}`] = 1;
+  if (r.captainEra) add[`runs_era_${r.captainEra}`] = 1;
+  if ((r.favoriteOnPitch ?? 0) >= 3) add.runs_fav = 1;
+  if (r.victory) add[`wins_map_${r.mapId}`] = 1;
+  if (r.timeSec >= 240) add.long_runs = 1;
   for (const [k, v] of Object.entries(r.techUses ?? {})) add[`uses_${k}`] = v;
+  add.uses_all = Object.values(r.techUses ?? {}).reduce((a, v) => a + v, 0);
   const m = s.missions;
   for (const bag of [m.counters, m.daily.counters, m.weekly.counters]) for (const [k, v] of Object.entries(add)) bag[k] = (bag[k] ?? 0) + v;
   const best = (k: string, v: number) => { m.counters[k] = Math.max(m.counters[k] ?? 0, v); };

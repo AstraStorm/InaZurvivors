@@ -6,7 +6,7 @@
  */
 import { CHANGELOG } from './changelog';
 
-export const PUBLIC_VERSION = '1.1';
+export const PUBLIC_VERSION = '1.11';
 export const BUILD = CHANGELOG[0].version;
 export const RELEASED = false;
 export const VERSION_LABEL = RELEASED ? `v${PUBLIC_VERSION}` : `v${PUBLIC_VERSION} · pre-lanzamiento`;
@@ -26,6 +26,23 @@ export interface PublicRelease {
 
 /** Public news, newest first. Starts at v1.0: the internal versions before it are not part of the public history. */
 export const PUBLIC_RELEASES: PublicRelease[] = [
+  {
+    version: '1.11',
+    title: 'InaZurvivors Fix 1.11 — El capitán manda',
+    tagline: 'Solo tu capitán recibe daño, gachas por saga y un pase semanal gratis',
+    intro: 'Tus compañeros son apoyo invulnerable y solo el capitán puede caer. Llegan gachas por saga y por equipo con probabilidades exactas, un pase semanal gratuito, más misiones, objetos y mejoras, y una economía más exigente.',
+    features: [
+      { icon: '♜', title: 'Solo el capitán', text: 'Los compañeros no reciben daño ni bloquean tiros; la formación te da extras de ataque o de defensa.' },
+      { icon: '◎', title: 'Gachas por saga', text: 'Inazuma Eleven, GO y Victory Road, más una por equipo; probabilidades exactas a la vista.' },
+      { icon: '✦', title: 'Pase semanal', text: 'Siete recompensas gratis: tiradas, monedas y futbolistas Épico o superior.' },
+      { icon: '☼', title: 'Tienda ampliada', text: 'Diez ofertas al día con destacado, oferta y un fichaje de tu equipo favorito.' },
+      { icon: '✚', title: 'Revivir y más objetos', text: 'Revivir, Barrera, Protección elemental, Cazador de élites y más.' },
+      { icon: '✖', title: 'Causa de la derrota', text: 'Sabrás qué te derribó y cómo evitarlo.' },
+      { icon: '▲', title: 'HUD nuevo', text: 'Vida y experiencia grandes, estado crítico y escudo del equipo.' },
+      { icon: '⚡', title: 'Técnicas', text: 'Araña Gigante, Mordisco de serpiente y Telaraña con efectos propios; nivel visible (+X, Lv X o GX).' },
+    ],
+    start: ['Elige tu formación: ahora cambia cómo protegen tus compañeros', 'Reclama el día 1 del pase semanal', 'Prueba la gacha de tu equipo favorito'],
+  },
   {
     version: '1.1',
     title: 'InaZurvivors v1.1 — Más técnicas, más fichajes',

@@ -1,33 +1,38 @@
 /**
- * On-screen evolution names, separate from the internal 1-10 level. The family comes from the technique's growth byte
- * (command.dat offset 16: 101, 102, 103). Which suffix each code uses is a design table, not read from the ROM; thresholds
- * are configurable per family, and `OVERRIDES` can change one technique by id.
+ * On-screen level of a technique, separate from the internal 1-10 level. Every technique except talents shows how far it
+ * has grown, in the style of its saga: «+X» for the original games (growth byte 101/103 of command.dat), «Lv X» for GO and
+ * Chrono Stone (and growth 102), «G X» for Galaxy. The evolution ribbon is kept for the big steps (milestones), so not
+ * every level-up is announced as an evolution. `OVERRIDES` can change one technique by id.
  */
-export interface EvolutionFamily { id: string; stages: [level: number, label: string][] }
+export type EvolutionStyle = 'plus' | 'nivel' | 'grado' | 'ninguna';
+export interface EvolutionFamily { id: EvolutionStyle; label: (level: number) => string; milestones: number[] }
 
-export const FAMILIES: Record<string, EvolutionFamily> = {
-  plus: { id: 'plus', stages: [[4, '+1'], [7, '+2'], [10, '+3']] },
-  velocidad: { id: 'velocidad', stages: [[4, 'V2'], [7, 'V3'], [10, 'V4']] },
-  grado: { id: 'grado', stages: [[3, 'G2'], [5, 'G3'], [8, 'G4'], [10, 'G5']] },
-  ninguna: { id: 'ninguna', stages: [] },
+export const FAMILIES: Record<EvolutionStyle, EvolutionFamily> = {
+  plus: { id: 'plus', label: (lv) => (lv > 1 ? `+${lv - 1}` : ''), milestones: [4, 7, 10] },
+  nivel: { id: 'nivel', label: (lv) => `Lv ${lv}`, milestones: [4, 7, 10] },
+  grado: { id: 'grado', label: (lv) => `G${Math.ceil(lv / 2)}`, milestones: [3, 5, 7, 9] },
+  ninguna: { id: 'ninguna', label: () => '', milestones: [] },
 };
 
-const BY_GROWTH: Record<number, string> = { 101: 'plus', 102: 'velocidad', 103: 'grado' };
-export const OVERRIDES: Record<number, string> = {};
+const BY_GROWTH: Record<number, EvolutionStyle> = { 101: 'plus', 102: 'nivel', 103: 'plus' };
+export const OVERRIDES: Record<number, EvolutionStyle> = {};
 
-export function familyOf(t: { id: number; growth?: number | null }): EvolutionFamily {
-  return FAMILIES[OVERRIDES[t.id] ?? BY_GROWTH[t.growth ?? 0] ?? 'ninguna'];
+type Tech = { id: number; growth?: number | null; type?: string; source?: string };
+
+export function familyOf(t: Tech): EvolutionFamily {
+  if (t.type === 'talento') return FAMILIES.ninguna;
+  const style = OVERRIDES[t.id] ?? BY_GROWTH[t.growth ?? 0]
+    ?? (/wiki, [^)]*(GX|Galaxy)/.test(t.source ?? '') ? 'grado' : /wiki, [^)]*(GO|CS|Chrono)/.test(t.source ?? '') ? 'nivel' : 'plus');
+  return FAMILIES[style];
 }
 
-/** Suffix shown for a level ('' while still the base technique). */
-export function evolutionLabel(t: { id: number; growth?: number | null }, level: number): string {
-  let label = '';
-  for (const [at, l] of familyOf(t).stages) if (level >= at) label = l;
-  return label;
+/** Suffix shown for a level ('' for a talent, or a «+» technique still at its base level). */
+export function evolutionLabel(t: Tech, level: number): string {
+  return familyOf(t).label(Math.max(1, level));
 }
 
-/** Stage reached by going from `level` to `level + 1`, if any. */
-export function evolvesAt(t: { id: number; growth?: number | null }, level: number): string | null {
-  const a = evolutionLabel(t, level), b = evolutionLabel(t, level + 1);
-  return a !== b ? b : null;
+/** The label reached by going from `level` to `level + 1` when that is one of the family's big steps, else null. */
+export function evolvesAt(t: Tech, level: number): string | null {
+  const f = familyOf(t);
+  return f.milestones.includes(level + 1) ? f.label(level + 1) : null;
 }

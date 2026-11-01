@@ -181,6 +181,12 @@ export function makeFxTextures(scene: Phaser.Scene) {
   g.clear();
   token('fx:pk_lure', 0xff4f8b, () => { g.fillCircle(7, 7, 2); g.lineStyle(1, 0xffffff).strokeCircle(7, 7, 5); });
   token('fx:pk_ice', 0x7fe3ff, () => { g.fillRect(6, 2, 2, 10).fillRect(2, 6, 10, 2); });
+  token('fx:pk_revive', 0xffe27a, () => { g.fillRect(6, 2, 2, 10).fillRect(3, 5, 8, 2); g.fillStyle(0xffffff).fillRect(6, 3, 1, 3); });
+  token('fx:pk_barrier', 0x8fe8ff, () => { g.lineStyle(2, 0xffffff).strokeCircle(7, 7, 4); });
+  token('fx:pk_elem', 0x5ee0a0, () => { g.fillTriangle(7, 2, 3, 11, 11, 11); g.fillStyle(0x202020).fillRect(6, 6, 2, 3); });
+  token('fx:pk_elite', 0xff9a3a, () => { g.fillTriangle(2, 5, 7, 2, 12, 5); g.fillRect(3, 6, 8, 5); });
+  token('fx:pk_area', 0x6fd0ff, () => { g.lineStyle(1, 0xffffff).strokeCircle(7, 7, 5).strokeCircle(7, 7, 2); });
+  token('fx:pk_gamble', 0xb36bff, () => { g.fillRect(3, 3, 8, 8); g.fillStyle(0xffffff).fillRect(5, 5, 1, 1).fillRect(8, 8, 1, 1).fillRect(5, 8, 1, 1).fillRect(8, 5, 1, 1); });
   g.fillStyle(0x6d7a8c).fillRect(4, 10, 16, 22).fillStyle(0x8c9aae).fillRect(6, 10, 12, 20).fillStyle(0x3d4656).fillRect(2, 30, 20, 6).fillStyle(0xffffff).fillRect(10, 2, 4, 8).fillRect(8, 4, 8, 4).fillRect(9, 14, 6, 10);
   g.generateTexture('fx:altar', 24, 36);
   g.clear();
@@ -494,6 +500,105 @@ export class Fx {
    * El Olvido (The End): a black hole opens, its accretion disc spins, everything around is pulled in, then it closes
    * on itself and the ball is gone.
    */
+  /**
+   * Araña Gigante: a giant spider drops onto the area on its thread, plants eight jointed legs that strike the ground,
+   * and throws a web over the rivals in `caught`. Everything is tweened and destroys itself after `ms`.
+   */
+  spider(x: number, y: number, radius: number, level: number, ms: number, caught: { x: number; y: number }[], big = false) {
+    const s = this.scene;
+    const scale = (0.9 + level * 0.05) * (big ? 1.35 : 1);
+    const body = s.add.graphics().setDepth(8800).setPosition(x, y - 120);
+    const legs = s.add.graphics().setDepth(8799).setPosition(x, y);
+    const web = s.add.graphics().setDepth(8790).setPosition(x, y);
+    const thread = s.add.rectangle(x, y - 160, 1.5, 120, 0xe8e8e8, 0.8).setOrigin(0.5, 0).setDepth(8798);
+    // body: abdomen with a red hourglass, head and eyes
+    body.fillStyle(0x1a0a0a).fillEllipse(0, 6, 34 * scale, 30 * scale).fillEllipse(0, -12 * scale, 20 * scale, 16 * scale);
+    body.fillStyle(0xd8261a).fillTriangle(-5 * scale, 0, 5 * scale, 0, 0, 7 * scale).fillTriangle(-5 * scale, 14 * scale, 5 * scale, 14 * scale, 0, 7 * scale);
+    body.fillStyle(0xff4a2a);
+    for (const ex of [-6, -2, 2, 6]) body.fillCircle(ex * scale, -15 * scale, 1.6 * scale);
+    body.lineStyle(2, 0xff5a1a, 0.7).strokeEllipse(0, 6, 34 * scale, 30 * scale);
+    const drawLegs = (spread: number) => {
+      legs.clear().lineStyle(3 * scale, 0x2a0e0a);
+      for (let k = 0; k < 8; k++) {
+        const side = k < 4 ? -1 : 1, i = k % 4;
+        const a = (-0.9 + i * 0.6) * (side < 0 ? -1 : 1) + (side < 0 ? Math.PI : 0);
+        const kx = Math.cos(a) * 22 * scale * spread, ky = Math.sin(a) * 14 * scale * spread - 10 * scale;
+        const fx2 = Math.cos(a) * radius * 0.75 * spread, fy2 = Math.sin(a) * radius * 0.5 * spread + 6;
+        legs.lineBetween(0, 0, kx, ky).lineBetween(kx, ky, fx2, fy2);
+      }
+    };
+    legs.setAlpha(0);
+    s.tweens.add({ targets: body, y, duration: 260, ease: 'Bounce.easeOut' });
+    s.tweens.add({ targets: thread, y: y - 120, duration: 260, ease: 'Bounce.easeOut' });
+    const st = { spread: 0.3 };
+    s.tweens.add({ targets: st, spread: 1, duration: 220, delay: 240, ease: 'Back.easeOut', onStart: () => legs.setAlpha(1), onUpdate: () => drawLegs(st.spread),
+      onComplete: () => { this.shake(0.003, 90); this.ring(x, y + 6, radius, 0xff6a2a, 300, 2); } });
+    // the web: radial threads and rings, then a strand to every caught rival
+    s.time.delayedCall(420, () => {
+      web.lineStyle(1.2, 0xf4f4f4, 0.85);
+      for (let k = 0; k < 10; k++) { const a = (k / 10) * Math.PI * 2; web.lineBetween(0, 0, Math.cos(a) * radius, Math.sin(a) * radius * 0.6); }
+      for (let r = radius * 0.25; r <= radius; r += radius * 0.25) web.strokeEllipse(0, 0, r * 2, r * 1.2);
+      web.lineStyle(1.5, 0xffffff, 0.95);
+      for (const c of caught) {
+        web.lineBetween(0, 0, c.x - x, c.y - y);
+        web.strokeCircle(c.x - x, c.y - y, 7).lineBetween(c.x - x - 7, c.y - y, c.x - x + 7, c.y - y).lineBetween(c.x - x, c.y - y - 7, c.x - x, c.y - y + 7);
+      }
+    });
+    const fade = [body, legs, web, thread];
+    s.tweens.add({ targets: fade, alpha: 0, duration: 300, delay: ms, onComplete: () => fade.forEach((o) => o.destroy()) });
+  }
+
+  /** Telaraña: a web on the ground, self-destroying */
+  spiderWeb(x: number, y: number, radius: number) {
+    const web = this.scene.add.graphics().setDepth(8790).setPosition(x, y).lineStyle(1.2, 0xf4f4f4, 0.85);
+    for (let k = 0; k < 8; k++) { const a = (k / 8) * Math.PI * 2; web.lineBetween(0, 0, Math.cos(a) * radius, Math.sin(a) * radius * 0.6); }
+    for (let r = radius * 0.3; r <= radius; r += radius * 0.35) web.strokeEllipse(0, 0, r * 2, r * 1.2);
+    web.setScale(0.3);
+    this.scene.tweens.add({ targets: web, scale: 1, duration: 160, ease: 'Back.easeOut' });
+    this.scene.tweens.add({ targets: web, alpha: 0, duration: 300, delay: 700, onComplete: () => web.destroy() });
+  }
+
+  /**
+   * Mordisco de serpiente: a serpent body rises from the ground at the keeper, its head lunges at the target and the
+   * jaws snap shut. Self-destroying.
+   */
+  serpentBite(x0: number, y0: number, x1: number, y1: number, level: number, big = false) {
+    const s = this.scene;
+    const scale = (1 + level * 0.05) * (big ? 1.3 : 1);
+    const body = s.add.graphics().setDepth(8800);
+    const head = s.add.graphics().setDepth(8805).setPosition(x0, y0);
+    const ang = Math.atan2(y1 - y0, x1 - x0);
+    const draw = (t: number) => {
+      body.clear();
+      const hx = x0 + (x1 - x0) * t, hy = y0 + (y1 - y0) * t;
+      for (let k = 0; k <= 14; k++) {
+        const u = k / 14;
+        const px = x0 + (hx - x0) * u - Math.sin(ang) * Math.sin(u * Math.PI * 2.5 + t * 6) * 10 * scale * (1 - u);
+        const py = y0 + (hy - y0) * u + Math.cos(ang) * Math.sin(u * Math.PI * 2.5 + t * 6) * 10 * scale * (1 - u) - Math.sin(u * Math.PI) * 18;
+        const w = (4 + 5 * u) * scale;
+        body.fillStyle(k % 2 ? 0x3f7a2a : 0x8fb83a).fillCircle(px, py, w);
+      }
+      head.setPosition(hx, hy - 0);
+    };
+    const drawHead = (open: number) => {
+      head.clear().setRotation(ang);
+      head.fillStyle(0x4f8f2f).fillTriangle(0, -8 * scale - open, 22 * scale, -2 * scale - open, 0, 0 - open);
+      head.fillStyle(0x3f7a2a).fillTriangle(0, 8 * scale + open, 22 * scale, 2 * scale + open, 0, 0 + open);
+      head.fillStyle(0xfff6e0).fillTriangle(16 * scale, -2 * scale - open, 19 * scale, -2 * scale - open, 17 * scale, 5 * scale - open)
+        .fillTriangle(16 * scale, 2 * scale + open, 19 * scale, 2 * scale + open, 17 * scale, -5 * scale + open);
+      head.fillStyle(0xffe22a).fillCircle(6 * scale, -5 * scale - open, 2 * scale);
+    };
+    const st = { t: 0, open: 10 * scale };
+    drawHead(st.open); draw(0);
+    s.tweens.add({ targets: st, t: 1, duration: 240, ease: 'Quad.easeIn', onUpdate: () => draw(st.t),
+      onComplete: () => s.tweens.add({ targets: st, open: 0, duration: 70, onUpdate: () => drawHead(st.open), onComplete: () => {
+        this.burst('bosque', x1, y1, 10 + level, 50, true);
+        this.ring(x1, y1, 22 + level * 2, 0x8fff3a, 320, 2);
+        this.shake(0.003, 80);
+      } }) });
+    s.tweens.add({ targets: [body, head], alpha: 0, duration: 260, delay: 560, onComplete: () => { body.destroy(); head.destroy(); } });
+  }
+
   blackHole(x: number, y: number, radius: number, level: number, ms: number, big = false) {
     if (!this.free(4)) return;
     const r = radius * (big ? 0.62 : 0.5);

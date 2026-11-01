@@ -17,7 +17,7 @@ export const STAT_CARDS: ModDef[] = [
 ];
 
 export const PASSIVES: ModDef[] = [
-  { id: 'iman', label: 'Colgante imantado', description: '+25% radio de recogida', max: 3, icon: 1115, apply: (m) => { m.pickup *= 1.25; } },
+  { id: 'iman', label: 'Colgante imantado', description: '+20% radio de recogida (suma, máx. +100% entre todas las fuentes)', max: 3, icon: 1115, apply: (m) => { m.pickup += 0.2; } },
   { id: 'cuaderno', label: 'Cuaderno de tácticas', description: '+10% experiencia', max: 3, icon: 1114, apply: (m) => { m.xp *= 1.1; } },
   { id: 'campo', label: 'Campo amplio', description: '+10% área de técnicas', max: 3, icon: 2404, apply: (m) => { m.area *= 1.1; } },
   { id: 'trebol', label: 'Trébol de la suerte', description: '+8% objetos raros', max: 3, icon: 2405, apply: (m) => { m.luck += 0.08; } },

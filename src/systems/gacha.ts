@@ -2,6 +2,7 @@
 import type { Rarity, RosterEntry } from '../data/manifest';
 import { RARITY_ORDER } from '../data/manifest';
 import type { SaveData } from './save';
+import { rollWith } from './banners';
 
 /** Prices in Fichas de Fichaje. */
 export const PULL_COST = 8;
@@ -26,9 +27,9 @@ export function rollRarity(rng: Rng): Rarity {
 
 export interface PullResult { player: RosterEntry; isNew: boolean; stars: number; refund: number }
 
-/** One pull: rarity first, then a player of that rarity (falls back to lower rarities if empty). */
-export function pullOne(pool: RosterEntry[], save: SaveData, rng: Rng): PullResult {
-  let rarity = rollRarity(rng);
+/** One pull: rarity first (the banner's own odds when given), then a player of that rarity (lower rarities if empty). */
+export function pullOne(pool: RosterEntry[], save: SaveData, rng: Rng, rarityRoll?: () => Rarity): PullResult {
+  let rarity = rarityRoll ? rarityRoll() : rollRarity(rng);
   let candidates = pool.filter((p) => p.rarity === rarity);
   while (!candidates.length) {
     const i = RARITY_ORDER.indexOf(rarity);
@@ -70,12 +71,26 @@ export function effectiveOdds(pool: RosterEntry[]): Record<Rarity, number> {
   return out;
 }
 
-export function pull(pool: RosterEntry[], save: SaveData, count: 1 | 10, rng: Rng = Math.random): PullResult[] | null {
-  const cost = count === 10 ? MULTI_COST : PULL_COST;
+export interface PullOptions { cost?: number; multiCost?: number; odds?: Record<Rarity, number> }
+
+/**
+ * Charges and resolves a whole pull BEFORE any animation (the animation only shows it). With banner odds, a ×10 always
+ * holds at least one Épico or better: the last capsule is rolled again among Épico+ when the first nine had none.
+ */
+export function pull(pool: RosterEntry[], save: SaveData, count: 1 | 10, rng: Rng = Math.random, opt: PullOptions = {}): PullResult[] | null {
+  const cost = count === 10 ? opt.multiCost ?? MULTI_COST : opt.cost ?? PULL_COST;
   if (save.tokens < cost || !pool.length) return null;
   save.tokens -= cost;
   save.stats.pulls += count;
-  return Array.from({ length: count }, () => pullOne(pool, save, rng));
+  const odds = opt.odds;
+  const roll = odds ? (min?: Rarity) => () => rollWith(odds, rng, min) : () => undefined;
+  const out: PullResult[] = [];
+  for (let i = 0; i < count; i++) {
+    const guarantee = odds && count === 10 && i === 9 && !out.some((r) => RARITY_ORDER.indexOf(r.player.rarity) >= RARITY_ORDER.indexOf('epico'))
+      && pool.some((p) => RARITY_ORDER.indexOf(p.rarity) >= RARITY_ORDER.indexOf('epico'));
+    out.push(pullOne(pool, save, rng, roll(guarantee ? 'epico' : undefined)));
+  }
+  return out;
 }
 
 /** Adds a copy of an owned or new player through the same star rules as a pull. */

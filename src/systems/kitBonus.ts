@@ -18,7 +18,7 @@ const SPECIAL: Record<string, KitBonus> = {
   Brain: { name: 'Cálculo perfecto', description: '+10% experiencia y +1 opción de reroll.', apply: (e) => { e.xpMult *= 1.1; e.extraRerolls += 1; } },
   Otaku: { name: 'Combo friki', description: '+12% daño de técnicas combinadas.', apply: (e) => { e.comboMult *= 1.12; } },
   Shuriken: { name: 'Ninjutsu', description: '+6% velocidad y +4% crítico.', apply: (e) => { e.speedMult *= 1.06; e.critChance += 0.04; } },
-  Farm: { name: 'Fuerza de granja', description: '+10% vida del equipo.', apply: (e) => { e.hpMult *= 1.1; } },
+  Farm: { name: 'Fuerza de granja', description: '+10% vida del capitán.', apply: (e) => { e.hpMult *= 1.1; } },
   Kirkwood: { name: 'Triple ataque', description: '+5% daño y +5% área.', apply: (e) => { e.damageMult *= 1.05; e.areaMult *= 1.05; } },
   Emperadores_Oscuros: { name: 'Piedra Aqua', description: '+10% daño, pero +8% daño recibido.', apply: (e) => { e.damageMult *= 1.1; e.damageTakenMult *= 1.08; } },
   'Tormenta_de_Géminis': { name: 'Velocidad alienígena', description: '+10% velocidad del equipo.', apply: (e) => { e.speedMult *= 1.1; } },

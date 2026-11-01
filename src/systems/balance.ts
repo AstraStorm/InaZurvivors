@@ -12,6 +12,8 @@ export const CAPS = {
   /** at least this share of each hit always lands */
   damageTaken: 0.35,
   crit: 0.3, luck: 0.6, xp: 2, area: 1.7, pickup: 2.5,
+  /** pickup radius: base px, bonus percentages ADD up (never multiply each other), at most +100%, never past maxPx */
+  pickupBase: 46, pickupPerMember: 4, pickupBonusMax: 1, pickupMaxPx: 130,
   /** share of max HP per second */
   regen: 0.012,
   heroes: 2,
@@ -31,4 +33,12 @@ export const capLuck = (x: number) => Math.min(CAPS.luck, x);
 export const capXp = (x: number) => Math.min(CAPS.xp, x);
 export const capArea = (x: number) => Math.min(CAPS.area, x);
 export const capPickup = (x: number) => Math.min(CAPS.pickup, x);
+/**
+ * Effective pickup radius in px. `bonuses` are fractions (0.15 = +15%) from separate sources (permanent upgrade, cards,
+ * gear...): they are added, capped at +100%, applied once to the base, and the result never passes pickupMaxPx.
+ */
+export function pickupRadius(members: number, bonuses: number[]) {
+  const pct = Math.min(CAPS.pickupBonusMax, bonuses.reduce((a, b) => a + Math.max(0, b), 0));
+  return Math.min(CAPS.pickupMaxPx, Math.round((CAPS.pickupBase + members * CAPS.pickupPerMember) * (1 + pct)));
+}
 export const capRegen = (x: number) => Math.min(CAPS.regen, x);

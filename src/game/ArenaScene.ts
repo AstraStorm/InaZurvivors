@@ -13,7 +13,7 @@ import { MAX_TECH_LEVEL, techStats, type TechStats } from '../systems/techniques
 import { applyCard, drawCards, MAX_TEAM, newMemberState, type Card, type TeamMemberState } from '../systems/cards';
 import { baseMods, modDef } from '../systems/runmods';
 import { ALTAR_EVERY_SEC, ALTAR_ICON, ALTAR_INFO, ALTAR_WAIT_SEC, ALTAR_LABEL, ALTAR_MODE, ALTAR_RADIUS, ALTAR_COLOR, ALTAR_REWARD, ALTAR_TASK, ALTAR_TYPES, FIRST_ALTAR_SEC, createAltar, stepAltar, type Altar } from '../systems/altars';
-import { BAG_COINS, CHEST_COINS, DROPS, MAGNET_GAP_SEC, MAX_PICKUPS, rollDrop, rollXpTier, SHIELD_REDUCTION, XP_TIERS, type BuffId, type DropDef } from '../systems/items';
+import { BAG_COINS, CHEST_COINS, DROPS, MAGNET_GAP_SEC, MAX_PICKUPS, MAX_REVIVES, rollDrop, rollXpTier, SHIELD_REDUCTION, XP_TIERS, type BuffId, type DropDef } from '../systems/items';
 import { evolutionLabel, evolvesAt } from '../systems/evolution';
 import { starBonus } from '../systems/gacha';
 import { canStartGuardedMove, GUARD_LOCKOUT_SEC } from '../systems/combat';
@@ -22,12 +22,12 @@ import type { PerkEffects } from '../systems/perks';
 import type { Settings } from '../systems/save';
 import type { RunResult } from '../systems/economy';
 import { RANK_ORDER, rankDef, waveIntensity, type RankDef } from '../systems/difficulty';
-import { capArea, capCooldown, capCrit, capLuck, capPickup, capRegen, capSpeed, capTaken, capXp, CAPS, softCap } from '../systems/balance';
+import { capArea, capCooldown, capCrit, capLuck, pickupRadius, capRegen, capSpeed, capTaken, capXp, CAPS, softCap } from '../systems/balance';
 import { endlessActive, endlessCoins, endlessPhase, endlessScale } from '../systems/endless';
 import { bossKit, bossPhase, rivalKit, type AttackId, type BossKit } from '../systems/bossKit';
 import { chemistry } from '../systems/kitBonus';
 import { HERO_AURA } from '../systems/ascension';
-import { adaptedPassive, emptyFx, TALENTS, talentScale, type TalentFx } from '../systems/talents';
+import { adaptedPassive, CAP_ELEMENTAL, CAP_LAST_STAND, emptyFx, TALENTS, talentScale, type TalentFx } from '../systems/talents';
 import { COMBOS, COMBO_MAX_LEVEL, comboDamage, comboMembers, comboReady, type ComboDef } from '../systems/combos';
 import type { Rank } from '../systems/save';
 
@@ -109,13 +109,20 @@ interface Enemy {
   /** boss/miniboss pattern timer and the attack being telegraphed or performed */
   patternCd?: number; pattern?: { kind: AttackId; t: number; dx: number; dy: number; gfx?: Phaser.GameObjects.GameObject; n?: number };
   kit?: BossKit; phase?: number; lastAttack?: AttackId; rival?: boolean;
+  /** Araña Gigante: caught in the web (doesn't move) until this time; Mordisco de serpiente: poison damage per second */
+  webUntil?: number; poison?: { until: number; dps: number; acc: number };
 }
 
 /** width in radians of the opening of a shock wave */
 const SHOCK_GAP = 1.1;
 const BOMB_RADIUS = 52;
-interface EnemyShot { img: Phaser.GameObjects.Image; x: number; y: number; vx: number; vy: number; life: number; damage: number }
-interface Hazard { x: number; y: number; t: number; fall: number; r: number; damage: number; shadow: Phaser.GameObjects.Ellipse; ring: Phaser.GameObjects.Ellipse; ball?: Phaser.GameObjects.Image }
+/** names of the boss attacks when the character has no own name for them (defeat screen) */
+const ATTACK_LABEL: Record<AttackId, string> = { carga: 'carga', radial: 'disparo en estrella', abanico: 'disparo en abanico', espiral: 'espiral de balones',
+  lluvia: 'lluvia de balones', onda: 'onda de choque', invocacion: 'invocación', majin: 'golpe de la entidad' };
+interface EnemyShot { img: Phaser.GameObjects.Image; x: number; y: number; vx: number; vy: number; life: number; damage: number; src: HitSource }
+/** where a hit on the captain came from, for the defeat screen */
+export interface HitSource { by: string; attack: string; still?: boolean }
+interface Hazard { x: number; y: number; t: number; fall: number; r: number; damage: number; shadow: Phaser.GameObjects.Ellipse; ring: Phaser.GameObjects.Ellipse; ball?: Phaser.GameObjects.Image; src: HitSource }
 interface Projectile {
   ball: Phaser.GameObjects.Image; aura: Phaser.GameObjects.Arc; x: number; y: number; vx: number; vy: number; t: number;
   traj: Trajectory; style: FxStyle; damage: number; pierce: number; life: number; hits: Set<Enemy>; knock: number;
@@ -161,6 +168,11 @@ export class ArenaScene extends Phaser.Scene {
   /** shared i-frames: a crowd touching the squad at once costs one hit, not ten */
   private invulnUntil = 0;
   private hitsTaken: Record<string, number> = {};
+  /** who and what is hitting right now (set by bosses, shooters and hazards), and the last hit the captain took */
+  private hitSrc: HitSource = { by: '', attack: '' };
+  private lastHit: (HitSource & { dmg: number; at: number }) | null = null;
+  /** Revivir charges picked up this run (in-run item) */
+  private reviveCharges = 0;
   private guardBlocks = 0;
   private mods = baseMods();
   private taken: Record<string, number> = {};
@@ -199,7 +211,7 @@ export class ArenaScene extends Phaser.Scene {
   private runId = '';
   /** endless survival after the boss: start time, last reward tick, movement in the current tick (anti-AFK) */
   private endless: { since: number; nextTick: number; moved: number; ticks: number; nextBoss: number; nextMiniboss: number; killsAtTick: number; phase: number; bosses: number; coins: number; tokens: number } | null = null;
-  private shocks: { x: number; y: number; r: number; gap: number; damage: number; color: number; g: Phaser.GameObjects.Graphics; hit: boolean }[] = [];
+  private shocks: { x: number; y: number; r: number; gap: number; damage: number; color: number; g: Phaser.GameObjects.Graphics; hit: boolean; src: HitSource }[] = [];
   private campX = 0; private campY = 0; private campSince = 0; private campWarned = false; private nextCampHit = 0; private nextSurround = 0;
   private lastMagnetAt = -MAGNET_GAP_SEC;
   private altarAccepted = false; private altarWait = 0; private altarTag: Phaser.GameObjects.Text | null = null;
@@ -217,10 +229,10 @@ export class ArenaScene extends Phaser.Scene {
   init(data: ArenaInit) {
     this.cfg = data;
     this.members = []; this.enemies = []; this.projectiles = []; this.pickups = []; this.trail = [];
-    this.hp = this.maxHp = 100; this.xp = 0; this.level = 1; this.kills = 0; this.runTime = 0; this.spawnAcc = 0;
+    this.hp = this.maxHp = 100; this.xp = 0; this.level = 1; // «Ventaja inicial» is added once the scene knows xpNext this.kills = 0; this.runTime = 0; this.spawnAcc = 0;
     this.flowAcc = 0; this.fadeAcc = 0; this.minibossesSpawned = 0; this.minibossesKilled = 0; this.boss = null;
     this.bossSpawned = false; this.ended = false; this.rerolls = 2 + data.perks.extraRerolls; this.levelingUp = false;
-    this.formation = data.formation; this.formationChangedAt = -10; this.hurtAt = -10; this.heading = 0; this.capVx = 0; this.capVy = 0; this.invulnUntil = 0; this.hitsTaken = {};
+    this.formation = data.formation; this.formationChangedAt = -10; this.hurtAt = -10; this.heading = 0; this.capVx = 0; this.capVy = 0; this.invulnUntil = 0; this.hitsTaken = {}; this.lastHit = null; this.reviveCharges = 0; this.hitSrc = { by: '', attack: '' };
     this.rng = new Phaser.Math.RandomDataGenerator([String(data.seed ?? Date.now())]);
     this.mods = baseMods(); this.taken = {}; this.buffs = new Map(); this.bonusCoins = 0; this.lastUpgrade = null; this.techUses = {}; this.guardBlocks = 0;
     this.padHeld = {}; this.xpCombo = 0; this.xpComboUntil = 0; this.techById = {};
@@ -261,6 +273,7 @@ export class ArenaScene extends Phaser.Scene {
     this.arena = new Arena(this, map, settings.quality);
     this.arena.build();
     this.fx = new Fx(this, settings);
+    this.xp = Math.floor(this.xpNext() * this.cfg.perks.startXpFrac); // «Ventaja inicial»
     this.cameras.main.setBounds(0, 0, this.arena.widthPx, this.arena.heightPx).setZoom(this.zoomFor()).setBackgroundColor(map.ambience);
     // removed on shutdown: a listener left behind would touch a dead camera after the run ends
     const onResize = () => this.cameras.main?.setZoom(this.zoomFor());
@@ -345,7 +358,15 @@ export class ArenaScene extends Phaser.Scene {
     });
   }
 
-  private formationDamage() { return FORMATIONS[this.formation].damageMult; }
+  private formationDamage() { return FORMATIONS[this.formation].damageMult * this.formationTactic().damage * (this.buffOn('apuesta') ? 1.35 : 1); }
+  /** «Pizarra avanzada» strengthens what the active formation is about */
+  private formationTactic() {
+    const lv = this.cfg.perks.tactic;
+    return { damage: this.formation === 'ofensiva' ? 1 + 0.015 * lv : 1, taken: this.formation === 'defensiva' ? 1 - 0.015 * lv : 1,
+      combo: this.formation === 'equilibrada' ? 1 + 0.03 * lv : 1 };
+  }
+  /** effective pickup radius (px): permanent upgrade and cards add their percentages, capped (balance.ts) */
+  pickupRange() { return pickupRadius(this.members.length, [this.cfg.perks.magnetMult - 1, this.mods.pickup - 1]); }
 
   /** Talents of everyone on the pitch plus the adapted passives (talents.ts), refreshed twice a second. */
   private talents(): TalentFx {
@@ -398,12 +419,12 @@ export class ArenaScene extends Phaser.Scene {
     const allies = this.members.filter((o) => o !== this.members[0] && o.entry.element === captainElement).length;
     // the build as a whole has a soft limit; the formation and timed buffs stay outside it, they are decisions of the moment
     const fx = this.talents();
-    const talent = 1 + (fx.type[t.type] ?? 0) + (fx.element[String(t.element)] ?? 0) + (this.hp < this.maxHp * 0.3 ? fx.lastStand : 0);
+    const talent = 1 + (fx.type[t.type] ?? 0) + (fx.element[String(t.element)] ?? 0) + (this.hp < this.maxHp * 0.3 ? Math.min(CAP_LAST_STAND, fx.lastStand) : 0);
     const build = softCap(m.damageMult * boost * talent * this.mods.damage * (1 + this.cfg.perks.synergy * allies) * this.teamDamageBonus() * this.heroAura()
       * chemistry(this.cfg.kitTeam ?? '', this.members.map((x) => x.entry)));
     const s = techStats(t, this.techLevel(m, i), build * (this.buffOn('dano') ? 1.5 : 1) * this.formationDamage());
-    s.cooldownMs = Math.round(s.cooldownMs * capCooldown(this.mods.cooldown * this.cfg.perks.cooldownMult * (1 - fx.cooldown)) * (this.buffOn('recarga') ? 0.6 : 1));
-    s.radius = Math.round(s.radius * capArea(this.mods.area * this.cfg.perks.areaMult));
+    s.cooldownMs = Math.round(s.cooldownMs * capCooldown(this.mods.cooldown * this.cfg.perks.cooldownMult * (1 - fx.cooldown)) * (this.buffOn('recarga') ? 0.6 : 1) * FORMATIONS[this.formation].cooldownMult);
+    s.radius = Math.round(s.radius * capArea(this.mods.area * this.cfg.perks.areaMult * (this.buffOn('amplio') ? 1.2 : 1)));
     return s;
   }
 
@@ -460,6 +481,17 @@ export class ArenaScene extends Phaser.Scene {
       this.fx.ring(c.x, c.y - 10, 90, 0x8fe8ff, 600, 4);
       for (const e of this.enemies) { const [nx, ny] = norm(e.pos.x - c.x, e.pos.y - c.y); e.knockX += nx * 260; e.knockY += ny * 260; }
       this.banner('¡SEGUNDO ALIENTO!', '#8fe8ff');
+      sfx('evolve');
+    }
+    // Revivir (in-run item): one charge, one comeback, a short safety window
+    if (this.hp <= 0 && this.reviveCharges > 0) {
+      this.reviveCharges--;
+      this.hp = Math.round(this.maxHp * 0.4);
+      this.invulnUntil = this.runTime + 2.5;
+      const c = this.members[0].f;
+      this.fx.pillar(c.x, c.y + 4, 0xffe27a, 10);
+      for (const e of this.enemies) { const [nx, ny] = norm(e.pos.x - c.x, e.pos.y - c.y); e.knockX += nx * 220; e.knockY += ny * 220; }
+      this.banner(`¡REVIVIDO! · quedan ${this.reviveCharges}`, '#ffe27a');
       sfx('evolve');
     }
     if (this.hp <= 0) this.finish(false);
@@ -595,9 +627,12 @@ export class ArenaScene extends Phaser.Scene {
         const lv = this.techLevel(m, i);
         const style = m.styles[i];
         const [c1, c2] = STYLE_COLORS[style];
-        this.techById[t.id] = (this.techById[t.id] ?? 0) + 1;
-        const elementKey = t.element ?? 'neutro';
-        this.techUses[elementKey] = (this.techUses[elementKey] ?? 0) + 1;
+        // Fix 1.11: counted only when the technique really fires (not on a retry with no rival in reach)
+        const used = () => {
+          this.techById[t.id] = (this.techById[t.id] ?? 0) + 1;
+          const elementKey = t.element ?? 'neutro';
+          this.techUses[elementKey] = (this.techUses[elementKey] ?? 0) + 1;
+        };
         if (/colmillo de pantera/i.test(t.name)) {
           // signature move, deliberately strong: lunges at the closest rival and bites everything in a wide area
           const target = this.nearestEnemy(ox, oy, 150 + lv * 6);
@@ -616,6 +651,7 @@ export class ArenaScene extends Phaser.Scene {
             }
           });
           if (t.type === 'parada') this.hp = Math.min(this.maxHp, this.hp + Math.round(this.maxHp * s.heal));
+          used();
           m.cds[i] = Math.max(1600, s.cooldownMs * 0.6);
           m.maxCd[i] = m.cds[i];
           return;
@@ -659,6 +695,7 @@ export class ArenaScene extends Phaser.Scene {
         } else if (t.type === 'defensa') {
           const r = s.radius;
           const wall = /muro|pared|barrera|escudo|armadur|bloque|fortal/i.test(t.name);
+          const web = /telara[ñn]a|spider ?web/i.test(t.name);
           this.fx.ring(ox, oy + 8, r, c1, 320, 2 + Math.floor(lv / 2));
           if (wall) {
             const wv = this.add.rectangle(ox, oy + 2, r * 1.4, 10 + lv * 2, c1, 0.55).setStrokeStyle(2, c2).setDepth(m.f.y + 2);
@@ -670,8 +707,10 @@ export class ArenaScene extends Phaser.Scene {
             if (d < r + e.radius) {
               this.hit(e, s.damage, (e.pos.x - ox) / (d || 1) * s.knockback, (e.pos.y - oy) / (d || 1) * s.knockback, style);
               if (s.slow < 1) e.slowUntil = this.runTime + 1.5;
+              if (web) e.webUntil = this.runTime + 0.8 + lv * 0.08; // Telaraña: the rivals in it are caught for a moment
             }
           }
+          if (web) this.fx.spiderWeb(ox, oy + 8, r);
         } else if (t.type === 'parada') {
           const heal = Math.round(this.maxHp * s.heal);
           let cx = ox, cy = oy; // centre of the area hit
@@ -695,6 +734,33 @@ export class ArenaScene extends Phaser.Scene {
             }
             sfx('whoosh');
             this.time.delayedCall(700, () => { if (!this.ended) sfx('boom'); });
+          } else if (/ara[ñn]a gigante|giant spider/i.test(t.name)) {
+            // Araña Gigante: the spider lands on the rivals around the keeper and webs them: caught rivals can't move
+            // for a while (bosses only slow down) and the balls in the web stop dead
+            const target = this.nearestEnemy(ox, oy, 200 * this.cfg.perks.rangeMult);
+            if (!target) { m.cds[i] = 200; return; }
+            cx = target.pos.x; cy = target.pos.y - 10;
+            const webR = s.radius * 1.25;
+            const caught = this.enemies.filter((e) => Math.hypot(e.pos.x - cx, e.pos.y - 10 - cy) < webR + e.radius).slice(0, 6 + lv);
+            const hold = 1.4 + lv * 0.12;
+            for (const e of caught) { e.webUntil = this.runTime + hold; e.slowUntil = this.runTime + hold + 1; }
+            this.shots = this.shots.filter((b) => {
+              if (Math.hypot(b.x - cx, b.y - cy) >= webR) return true;
+              b.img.destroy();
+              return false;
+            });
+            this.fx.spider(cx, cy, webR, lv, 900, caught.map((e) => ({ x: e.pos.x, y: e.pos.y - 10 })), ['mitico', 'leyenda'].includes(m.entry.rarity));
+            sfx('whoosh');
+          } else if (/mordisco de serpiente|snake bite|serpent/i.test(t.name)) {
+            // Mordisco de serpiente: the serpent lunges at the closest rival in reach, bites and poisons the rivals around
+            // the bite (damage over 3 s on top of the hit)
+            const target = this.nearestEnemy(ox, oy, 210 * this.cfg.perks.rangeMult);
+            if (!target) { m.cds[i] = 200; return; }
+            cx = target.pos.x; cy = target.pos.y - 10;
+            this.fx.serpentBite(ox, oy - 6, cx, cy, lv, ['mitico', 'leyenda'].includes(m.entry.rarity));
+            const dps = Math.max(2, s.damage * 0.25);
+            for (const e of this.enemies) if (Math.hypot(e.pos.x - cx, e.pos.y - 10 - cy) < s.radius) e.poison = { until: this.runTime + 3, dps, acc: 0 };
+            sfx('whoosh');
           } else if (/m[aá]gica|majin/i.test(t.name)) {
             // Mano mágica (Majin The Hand): the Majin rises behind the keeper and raises its arm, then the hand blocks
             this.fx.entity('majin', ox, oy + 6, 900, ['mitico', 'leyenda'].includes(m.entry.rarity) || !!this.cfg.asc?.[String(m.entry.id)]?.hero);
@@ -715,6 +781,7 @@ export class ArenaScene extends Phaser.Scene {
           }
           if (heal > 0) this.fx.damageNumber(ox, oy - 26, heal, false);
         }
+        used();
         m.cds[i] = s.cooldownMs;
         m.maxCd[i] = s.cooldownMs;
       });
@@ -754,7 +821,7 @@ export class ArenaScene extends Phaser.Scene {
     this.time.delayedCall(360, () => {
       if (this.ended) return;
       const a = Math.atan2(target.pos.y - 12 - my, target.pos.x - mx);
-      const dmg = comboDamage(def, level, this.mods.damage * this.teamDamageBonus() * this.formationDamage() * this.cfg.perks.damageMult * this.cfg.perks.comboMult);
+      const dmg = comboDamage(def, level, this.mods.damage * this.teamDamageBonus() * this.formationDamage() * this.cfg.perks.damageMult * this.cfg.perks.comboMult * FORMATIONS[this.formation].comboMult * this.formationTactic().combo);
       const shots = def.effect === 'tiro-doble' ? [-0.12, 0.12] : [0];
       for (const off of shots) {
         const ang = a + off, speed = 260;
@@ -1020,19 +1087,18 @@ export class ArenaScene extends Phaser.Scene {
     const taken = FORMATIONS[this.formation].damageTakenMult;
     const cap = this.members[0].f;
     for (const e of this.enemies) {
-      let tx = cap.x, ty = cap.y, bd = Infinity;
-      let target: Member = this.members[0];
-      let guarded = false; // touching someone mid-dribble costs no shared HP
-      for (const m of this.members) {
-        const d = (m.f.x - e.pos.x) ** 2 + (m.f.y - e.pos.y) ** 2;
-        if (m.guardUntil > this.runTime) {
-          if (d < (12 + e.radius) ** 2) guarded = true;
-          continue;
-        }
-        if (d < bd) { bd = d; tx = m.f.x; ty = m.f.y; target = m; }
-      }
-      if (bd === Infinity) bd = (cap.x - e.pos.x) ** 2 + (cap.y - e.pos.y) ** 2;
+      // ONLY THE CAPTAIN TAKES DAMAGE: rivals chase the captain, and teammates are invulnerable support that bodies
+      // rivals away (a small push), never a target and never a way to lose health
+      let tx = cap.x, ty = cap.y;
+      const bd = (cap.x - e.pos.x) ** 2 + (cap.y - e.pos.y) ** 2;
+      const target: Member = this.members[0];
+      const guarded = this.members[0].guardUntil > this.runTime && bd < (12 + e.radius) ** 2; // the captain's dribble
       if (guarded) this.guardBlocks++;
+      for (let k = 1; k < this.members.length; k++) {
+        const m = this.members[k];
+        const dx = e.pos.x - m.f.x, dy = e.pos.y - m.f.y, d2 = dx * dx + dy * dy;
+        if (d2 < (10 + e.radius) ** 2 && e.kind !== 'boss') { const [nx, ny] = norm(dx, dy); e.knockX += nx * 18; e.knockY += ny * 18; }
+      }
       const dist = Math.sqrt(bd);
       let [fx, fy] = bd < 70 * 70 ? norm(tx - e.pos.x, ty - e.pos.y) : this.arena.flowDir(e.pos.x, e.pos.y, tx, ty);
       // flankers run for the spot ahead of the captain and to one side, so they cut the way instead of chasing it
@@ -1043,7 +1109,12 @@ export class ArenaScene extends Phaser.Scene {
       if (e.variant === 'shooter' && dist < 110) { fx = -fx * 0.7; fy = -fy * 0.7; }
       const held = this.freezeUntil <= this.runTime && (e.variant === 'shooter' || e.variant === 'bomber') && this.rivalBehaviour(e, dist, dt);
       if (e.dead) continue;
-      const spd = this.freezeUntil > this.runTime || held ? 0 : e.speed * (e.slowUntil > this.runTime ? 0.6 : 1);
+      if (e.poison && e.poison.until > this.runTime) {
+        e.poison.acc += e.poison.dps * dt / 1000;
+        if (e.poison.acc >= 1) { const v = Math.floor(e.poison.acc); e.poison.acc -= v; this.hit(e, v, 0, 0, 'tierra'); if (e.dead) continue; }
+      }
+      const webbed = (e.webUntil ?? 0) > this.runTime && e.kind !== 'boss'; // bosses tear the web: only slowed
+      const spd = this.freezeUntil > this.runTime || held || webbed ? 0 : e.speed * (e.slowUntil > this.runTime ? 0.6 : 1);
       if (this.lure && this.lure.until > this.runTime) { tx = this.lure.x; ty = this.lure.y; }
       this.arena.move(e.sprite, (fx * spd + e.knockX) * dt / 1000, (fy * spd + e.knockY) * dt / 1000, 4);
       e.knockX *= 0.86; e.knockY *= 0.86;
@@ -1056,8 +1127,9 @@ export class ArenaScene extends Phaser.Scene {
       }
       e.sprite.setDepth(e.pos.y);
       e.hitCd -= dt;
-      // contact with ANY teammate (captain or follower) hurts the shared bar; followers ignore props, never rivals
-      if (!guarded && this.freezeUntil <= this.runTime && Math.sqrt(bd) < 12 + e.radius && e.hitCd <= 0 && this.hurtSquad(target, e.damage, shield, taken)) {
+      // contact with the captain hurts; teammates are never hurt
+      if (!guarded && this.freezeUntil <= this.runTime && Math.sqrt(bd) < 12 + e.radius && e.hitCd <= 0
+        && this.hurtCaptain(e.damage, { by: e.unit.name, attack: e.kind === 'boss' || e.kind === 'miniboss' ? 'choque' : 'entrada' }, shield, taken)) {
         e.hitCd = 900;
         // the rival bounces off whoever it hit, which also makes the contact readable
         const [nx, ny] = norm(e.pos.x - target.f.x, e.pos.y - target.f.y);
@@ -1068,26 +1140,42 @@ export class ArenaScene extends Phaser.Scene {
     this.enemies = this.enemies.filter((e) => !e.dead);
   }
 
-  /** One hit on the shared bar through whichever teammate was touched. False while the shared i-frames last. */
-  private hurtSquad(target: Member, raw: number, shield = this.shield(), taken = FORMATIONS[this.formation].damageTakenMult) {
+  /**
+   * The only way to lose health: a hit on the CAPTAIN. Teammates are invulnerable (they have no health and never pass
+   * damage on). `src` records the real source for the defeat screen. False while the i-frames last.
+   */
+  private hurtCaptain(raw: number, src: HitSource, shield = this.shield(), taken = FORMATIONS[this.formation].damageTakenMult) {
+    const target = this.members[0];
     if (this.runTime < this.invulnUntil || this.ended) return false;
+    if (this.buffOn('barrera')) { // Barrera: this hit does nothing, and the barrier is gone
+      this.buffs.delete('barrera');
+      this.invulnUntil = this.runTime + 0.3;
+      this.fx.ring(target.f.x, target.f.y - 10, 30, 0x8fe8ff, 300, 3);
+      this.fx.label(target.f.x, target.f.y - 30, '¡Bloqueado!', '#8fe8ff');
+      return false;
+    }
+    const bossHit = !['entrada', 'disparo', 'explosión', 'lluvia de balones'].includes(src.attack);
+    if (bossHit) raw *= this.cfg.perks.bossTakenMult * (this.buffOn('proteccion') ? 0.6 : 1);
+    if (this.buffOn('apuesta')) raw *= 1.25;
+    taken *= this.formationTactic().taken;
     this.invulnUntil = this.runTime + 0.3;
     const gloves = this.members.some((m) => m.entry.position === 'GK') ? 1 - this.cfg.perks.gloveReduction : 1;
     const dmg = Math.max(1, Math.round(raw * capTaken((1 - shield) * gloves * (1 + this.talents().taken) * this.cfg.perks.damageTakenMult * (this.buffOn('escudo') ? 1 - SHIELD_REDUCTION : 1)) * taken));
     this.hp -= dmg;
     this.hurtAt = this.runTime;
-    const who = target === this.members[0] ? 'capitan' : 'companero';
-    this.hitsTaken[who] = (this.hitsTaken[who] ?? 0) + 1;
+    this.lastHit = { ...src, dmg, at: this.runTime };
+    this.hitsTaken.capitan = (this.hitsTaken.capitan ?? 0) + 1;
     if (this.cfg.settings.flashes) target.f.flash();
     if (this.cfg.settings.damageNumbers) this.fx.label(target.f.x, target.f.y - 30, `-${dmg}`, '#ff6a6a');
     sfx('hurt');
     return true;
   }
 
-  /** Teammate touching a point, if any (shots and hazards hit followers too). */
-  private memberAt(x: number, y: number, r: number): Member | null {
-    for (const m of this.members) if (m.guardUntil <= this.runTime && Math.hypot(m.f.x - x, m.f.y - 10 - y) < r) return m;
-    return null;
+  /** Teammate touching a point, if any: the captain can be hurt there, a follower only blocks (shots). */
+  /** Captain inside a circle (hazards, bombs). */
+  private captainIn(x: number, y: number, r: number, squash = 1.2) {
+    const c = this.members[0].f;
+    return Math.hypot(c.x - x, (c.y - y) * squash) < r;
   }
 
   /** Attack set of a boss, miniboss or rival, resolved once. */
@@ -1108,6 +1196,7 @@ export class ArenaScene extends Phaser.Scene {
     const s = dt / 1000;
     const cap = this.members[0].f;
     const kit = this.kitOf(e);
+    this.hitSrc = { by: e.unit.name, attack: (e.pattern && kit.names[e.pattern.kind]) || ATTACK_LABEL[e.pattern?.kind ?? 'carga'] };
     const main = e.kind === 'boss' || !!e.rival;
     const forced = this.endless ? Math.floor(endlessPhase(this.endlessMin()).id / 2) : 0;
     const phase = Math.max(forced, main ? bossPhase(e.hp, e.maxHp) : Math.min(1, bossPhase(e.hp, e.maxHp)));
@@ -1189,7 +1278,7 @@ export class ArenaScene extends Phaser.Scene {
       case 'lluvia':
         for (let k = 0, n = 5 + phase * 2; k < n; k++) {
           const a = this.rng.frac() * Math.PI * 2, d = k === 0 ? this.rng.between(10, 50) : this.rng.between(40, 170);
-          this.dropHazard(cap.x + Math.cos(a) * d, cap.y + Math.sin(a) * d * 0.8, e.damage);
+          this.dropHazard(cap.x + Math.cos(a) * d, cap.y + Math.sin(a) * d * 0.8, e.damage, { ...this.hitSrc });
         }
         break;
       case 'onda':
@@ -1208,9 +1297,10 @@ export class ArenaScene extends Phaser.Scene {
       }
       case 'majin': {
         if (p.t < 1.05) { e.knockX *= 0.5; e.knockY *= 0.5; return; }
-        for (const m of this.members) {
+        {
+          const m = this.members[0];
           const rx = m.f.x - e.pos.x, ry = m.f.y - 8 - e.pos.y, along = rx * p.dx + ry * p.dy, side = Math.abs(rx * p.dy - ry * p.dx);
-          if (along > 0 && along < 240 && side < 44) { this.hurtSquad(m, e.damage * 1.5); break; }
+          if (along > 0 && along < 240 && side < 44) this.hurtCaptain(e.damage * 1.5, this.hitSrc);
         }
         this.fx.shake(0.008, 220);
         this.fx.flashDisc(e.pos.x + p.dx * 120, e.pos.y - 8 + p.dy * 120, 90, this.kitOf(e).color, 300);
@@ -1226,7 +1316,7 @@ export class ArenaScene extends Phaser.Scene {
   /** Expanding wave with a gap that the player can run through. */
   private addShock(x: number, y: number, damage: number, color: number) {
     if (this.shocks.length >= 4) return;
-    this.shocks.push({ x, y, r: 16, gap: this.rng.frac() * Math.PI * 2, damage, color, g: this.add.graphics().setDepth(-9700), hit: false });
+    this.shocks.push({ x, y, r: 16, gap: this.rng.frac() * Math.PI * 2, damage, color, g: this.add.graphics().setDepth(-9700), hit: false, src: { ...this.hitSrc } });
     sfx('boom');
   }
 
@@ -1237,7 +1327,7 @@ export class ArenaScene extends Phaser.Scene {
       w.g.clear().lineStyle(7, w.color, 0.75).beginPath().arc(w.x, w.y, w.r, w.gap + SHOCK_GAP / 2, w.gap - SHOCK_GAP / 2 + Math.PI * 2).strokePath();
       const d = Math.hypot(c.x - w.x, c.y - w.y);
       const off = Math.abs(Phaser.Math.Angle.Wrap(Math.atan2(c.y - w.y, c.x - w.x) - w.gap));
-      if (!w.hit && Math.abs(d - w.r) < 11 && off > SHOCK_GAP / 2) { w.hit = true; this.hurtSquad(this.members[0], w.damage); }
+      if (!w.hit && Math.abs(d - w.r) < 11 && off > SHOCK_GAP / 2) { w.hit = true; this.hurtCaptain(w.damage, w.src); }
     }
     this.shocks = this.shocks.filter((w) => { if (w.r < 300) return true; w.g.destroy(); return false; });
   }
@@ -1250,6 +1340,7 @@ export class ArenaScene extends Phaser.Scene {
       if (e.aim) { // the red line stays still for 0.6 s: there is time to step aside
         e.aim.t += s;
         if (e.aim.t >= 0.6) {
+          this.hitSrc = { by: e.unit.name, attack: 'disparo' };
           this.enemyShot(e.pos.x, e.pos.y - 12, e.aim.dx * 170, e.aim.dy * 170, e.damage);
           e.aim.gfx.destroy(); e.aim = undefined; e.fireCd = 3.4;
           sfx('kick');
@@ -1268,7 +1359,7 @@ export class ArenaScene extends Phaser.Scene {
         e.fuse.t += s;
         e.sprite.setTint(Math.floor(e.fuse.t * 8) % 2 ? 0xffffff : 0xff5020);
         if (e.fuse.t >= 0.95) {
-          for (const m of this.members) if (Math.hypot(m.f.x - e.pos.x, (m.f.y - e.pos.y) * 1.2) < BOMB_RADIUS) { this.hurtSquad(m, e.damage * 1.6); break; }
+          if (this.captainIn(e.pos.x, e.pos.y, BOMB_RADIUS)) this.hurtCaptain(e.damage * 1.6, { by: e.unit.name, attack: 'explosión' });
           impact(this.fx, recipeFor({ name: 'Balón', element: 'Fuego', power: 40 }, 'comun'), e.pos.x, e.pos.y, BOMB_RADIUS, 3);
           sfx('boom');
           this.kill(e, 'fuego');
@@ -1290,7 +1381,7 @@ export class ArenaScene extends Phaser.Scene {
     if (this.runTime - this.campSince > 6 && this.runTime >= this.nextCampHit && !this.ended) {
       this.nextCampHit = this.runTime + (this.rank.id === 'C' ? 4 : 2.6);
       if (!this.campWarned) { this.campWarned = true; this.banner('¡No te quedes quieto!', '#ffb050'); }
-      for (let k = 0; k < 2; k++) this.dropHazard(c.x + this.rng.between(-14, 14), c.y + this.rng.between(-10, 10));
+      for (let k = 0; k < 2; k++) this.dropHazard(c.x + this.rng.between(-14, 14), c.y + this.rng.between(-10, 10), undefined, { by: '', attack: 'lluvia de balones', still: true });
     }
     const every = this.endless ? endlessPhase(this.endlessMin()).surroundEvery : this.rank.surroundEvery;
     if (!this.boss && every && this.runTime >= this.nextSurround && this.runTime > 55) {
@@ -1312,7 +1403,7 @@ export class ArenaScene extends Phaser.Scene {
   private enemyShot(x: number, y: number, vx: number, vy: number, damage: number) {
     if (this.shots.length >= 120) return; // long endless runs: a hard cap keeps the frame rate stable
     const img = this.add.image(x, y, 'fx:ball').setTint(0xff7a5a).setDepth(8800);
-    this.shots.push({ img, x, y, vx, vy, life: 4, damage });
+    this.shots.push({ img, x, y, vx, vy, life: 4, damage, src: { ...this.hitSrc } });
   }
 
   private updateShots(dt: number) {
@@ -1321,19 +1412,20 @@ export class ArenaScene extends Phaser.Scene {
       b.life -= s;
       b.x += b.vx * s; b.y += b.vy * s;
       b.img.setPosition(b.x, b.y).setRotation(b.img.rotation + s * 10);
-      const m = this.memberAt(b.x, b.y, 11);
-      if (m && this.hurtSquad(m, b.damage)) { this.fx.burst('fuego', b.x, b.y, 6, 40); b.life = 0; }
+      // balls go through teammates (they never block): only the captain can be hit. Formations only change stats.
+      const cap = this.members[0];
+      if (cap.guardUntil <= this.runTime && Math.hypot(cap.f.x - b.x, cap.f.y - 10 - b.y) < 11 && this.hurtCaptain(b.damage, b.src)) { this.fx.burst('fuego', b.x, b.y, 6, 40); b.life = 0; }
     }
     this.shots = this.shots.filter((b) => { if (b.life > 0) return true; b.img.destroy(); return false; });
   }
 
   /** One falling ball: warned for 1.1 s by its shadow and ring. */
-  private dropHazard(x: number, y: number, damage?: number) {
+  private dropHazard(x: number, y: number, damage?: number, src: HitSource = { by: '', attack: 'lluvia de balones' }) {
     if (this.hazards.length >= 40) return;
     const r = 26;
     const shadow = this.add.ellipse(x, y, 4, 3, 0x000000, 0.35).setDepth(-9700);
     const ring = this.add.ellipse(x, y, r * 2, r * 1.5).setStrokeStyle(2, 0xff5050, 0.9).setDepth(-9700);
-    this.hazards.push({ x, y, t: 0, fall: 1.1, r, damage: Math.round((damage ?? (5 + this.runTime / 60 * 2) * this.rank.damage) * this.endlessScaleNow().damage), shadow, ring });
+    this.hazards.push({ x, y, t: 0, fall: 1.1, r, damage: Math.round((damage ?? (5 + this.runTime / 60 * 2) * this.rank.damage) * this.endlessScaleNow().damage), shadow, ring, src });
   }
 
   /** Falling balls (every rank): a growing shadow for 1.1 s, then the impact. Hurts rivals too. */
@@ -1359,7 +1451,7 @@ export class ArenaScene extends Phaser.Scene {
       if (h.t < h.fall) continue;
       impact(this.fx, recipeFor({ name: 'Balón', element: null, power: 40 }, 'comun'), h.x, h.y, h.r, 3);
       sfx('boom');
-      for (const m of this.members) if (Math.hypot(m.f.x - h.x, (m.f.y - h.y) * 1.3) < h.r + 6) { this.hurtSquad(m, h.damage); break; }
+      if (this.captainIn(h.x, h.y, h.r + 6, 1.3)) this.hurtCaptain(h.damage, h.src);
       for (const e of this.enemies) if (!e.dead && Math.hypot(e.pos.x - h.x, e.pos.y - h.y) < h.r + e.radius) this.hit(e, h.damage * 2, 0, 0, 'energia');
       h.t = -1;
     }
@@ -1382,7 +1474,8 @@ export class ArenaScene extends Phaser.Scene {
     if (e.dead) return;
     const p = this.cfg.perks;
     if (this.rng.frac() < capCrit(p.critChance + this.talents().crit)) { dmg *= 1.8; crit = true; }
-    if (this.rng.frac() < p.elementalChance + this.talents().elemental) { dmg *= 1.2; e.slowUntil = this.runTime + 1.5; this.fx.burst(style, e.pos.x, e.pos.y - 10, 4, 30, true); }
+    if (this.buffOn('cazador') && (e.variant === 'elite' || e.kind === 'miniboss' || e.kind === 'boss')) dmg *= 1.4;
+    if (this.rng.frac() < Math.min(CAP_ELEMENTAL, p.elementalChance + this.talents().elemental)) { dmg *= 1.2; e.slowUntil = this.runTime + 1.5; this.fx.burst(style, e.pos.x, e.pos.y - 10, 4, 30, true); }
     const v = Math.max(1, Math.round(dmg));
     this.damageDealt += Math.min(v, Math.max(0, e.hp));
     e.hp -= v;
@@ -1399,11 +1492,21 @@ export class ArenaScene extends Phaser.Scene {
     if (e.hp <= 0) this.kill(e, style);
   }
 
+  /**
+   * Everything a rival leaves on the ground (aim line, bomb fuse, attack telegraph) goes with it, however it leaves:
+   * defeated, withdrawn, or at the end of the run.
+   */
+  private disposeTelegraphs(e: Enemy) {
+    for (const g of [e.aim?.gfx, e.fuse?.gfx, e.pattern?.gfx]) if (g) { this.tweens.killTweensOf(g); g.destroy(); }
+    e.aim = undefined; e.fuse = undefined;
+    if (e.pattern) e.pattern.gfx = undefined;
+  }
+
   private kill(e: Enemy, style: FxStyle) {
     e.dead = true;
     this.kills++;
     this.altarCount(e);
-    e.aim?.gfx.destroy(); e.fuse?.gfx.destroy(); e.pattern?.gfx?.destroy(); e.aim = undefined; e.fuse = undefined;
+    this.disposeTelegraphs(e);
     if (e === this.rival) this.rival = null;
     const x = e.pos.x, y = e.pos.y - 6;
     this.fx.burst(style, x, y - 4, 6, 50);
@@ -1427,7 +1530,7 @@ export class ArenaScene extends Phaser.Scene {
       const rand = () => this.rng.frac();
       if (e.variant === 'elite') { this.dropXp(x, y, XP_TIERS[2]); this.fx.ring(x, y - 6, 22, 0xffd27a, 300, 2); }
       else this.dropXp(x, y, rollXpTier(rand, capLuck(this.mods.luck + this.cfg.perks.luck + this.talents().luck)));
-      const d = rollDrop(rand, capLuck(this.mods.luck + this.cfg.perks.luck + this.talents().luck), this.magnetReady());
+      const d = rollDrop(rand, capLuck(this.mods.luck + this.cfg.perks.luck + this.talents().luck), this.magnetReady(), this.cfg.perks.specialLuck);
       if (d?.id === 'iman') this.lastMagnetAt = this.runTime;
       if (d) this.dropItem(x + 6, y, d);
     }
@@ -1471,7 +1574,7 @@ export class ArenaScene extends Phaser.Scene {
     this.fx.ring(c.x, c.y - 10, 24, 0xffffff, 260, 2);
     this.fx.burst('energia', c.x, c.y - 10, 8, 60, true);
     if (d.id === 'arroz' || d.id === 'chocolate') {
-      this.hp = Math.min(this.maxHp, this.hp + Math.round(this.maxHp * (d.id === 'arroz' ? 0.15 : 0.4)));
+      this.hp = Math.min(this.maxHp, this.hp + Math.round(this.maxHp * (d.id === 'arroz' ? 0.15 : 0.4) * this.cfg.perks.healMult));
       sfx('pickup');
     } else if (d.id === 'iman') {
       for (const o of this.pickups) if (o.kind === 'xp') { o.pulled = true; o.speed = Math.max(o.speed, 300); }
@@ -1502,6 +1605,10 @@ export class ArenaScene extends Phaser.Scene {
       for (const e of this.enemies) this.fx.flash(e.sprite, 0x9fe8ff, 300);
       this.fx.label(c.x, c.y - 34, d.label, '#9fe8ff');
       sfx('magnet');
+    } else if (d.id === 'revivir') {
+      if (this.reviveCharges < MAX_REVIVES) { this.reviveCharges++; this.banner(`REVIVIR · cargas ${this.reviveCharges}/${MAX_REVIVES}`, '#ffe27a'); }
+      else this.fx.label(c.x, c.y - 34, `Revivir al máximo (${MAX_REVIVES})`);
+      sfx('evolve');
     } else if (d.id === 'cofre') {
       this.bonusCoins += CHEST_COINS;
       this.fx.label(c.x, c.y - 34, `+${CHEST_COINS} monedas`);
@@ -1521,7 +1628,7 @@ export class ArenaScene extends Phaser.Scene {
    */
   private updatePickups(dt: number) {
     const cap = this.members[0].f;
-    const magnet = (46 + this.members.length * 4) * capPickup(this.cfg.perks.magnetMult * this.mods.pickup);
+    const magnet = this.pickupRange();
     const s = dt / 1000;
     const tx = cap.x, ty = cap.y - 10;
     for (const p of this.pickups) {
@@ -1800,7 +1907,7 @@ export class ArenaScene extends Phaser.Scene {
     this.altar = null;
     if (this.rival) { // never left behind: no ghost rival or marker after the event ends
       const e = this.rival; this.rival = null;
-      if (!e.dead) { e.dead = true; e.pattern?.gfx?.destroy(); this.fx.implode(e.pos.x, e.pos.y - 10, 30, 0xffffff, 260); e.sprite.destroy(); }
+      if (!e.dead) { e.dead = true; this.disposeTelegraphs(e); this.fx.implode(e.pos.x, e.pos.y - 10, 30, 0xffffff, 260); e.sprite.destroy(); }
     }
     this.nextAltarAt = this.runTime + ALTAR_EVERY_SEC;
   }
@@ -1959,9 +2066,11 @@ export class ArenaScene extends Phaser.Scene {
     for (const b of this.shots) b.img.destroy();
     for (const h of this.hazards) { h.shadow.destroy(); h.ring.destroy(); h.ball?.destroy(); }
     for (const w of this.shocks) w.g.destroy();
+    for (const e of this.enemies) this.disposeTelegraphs(e);
     this.shots = []; this.hazards = []; this.shocks = [];
     this.pushHud();
-    this.cfg.hooks.end({ mapId: this.cfg.map.id, rank: this.rank.id, victory: victory || !!this.endless, endlessSec: this.endless ? this.runTime - this.endless.since : 0, endlessPhase: this.endless ? endlessPhase(this.endlessMin()).name : undefined, endlessBosses: this.endless?.bosses ?? 0, endlessCoins: this.endless?.coins ?? 0, endlessTokens: this.endless?.tokens ?? 0, altars: this.altarsDone, damage: Math.round(this.damageDealt), runId: this.runId, captainId: this.members[0].entry.id, teamIds: this.members.map((m) => m.entry.id), timeSec: this.runTime, kills: this.kills, level: this.level,
+    const lost = !(victory || this.endless);
+    this.cfg.hooks.end({ death: (lost || (this.endless && this.hp <= 0)) && this.lastHit ? { ...this.lastHit } : undefined, mapId: this.cfg.map.id, rank: this.rank.id, victory: victory || !!this.endless, endlessSec: this.endless ? this.runTime - this.endless.since : 0, endlessPhase: this.endless ? endlessPhase(this.endlessMin()).name : undefined, endlessBosses: this.endless?.bosses ?? 0, endlessCoins: this.endless?.coins ?? 0, endlessTokens: this.endless?.tokens ?? 0, altars: this.altarsDone, damage: Math.round(this.damageDealt), runId: this.runId, captainId: this.members[0].entry.id, teamIds: this.members.map((m) => m.entry.id), timeSec: this.runTime, kills: this.kills, level: this.level,
       minibosses: this.minibossesKilled, bossDefeated: (victory || !!this.endless) && this.bossSpawned, reachedBoss: this.bossSpawned, bonusCoins: this.bonusCoins, bonusTokens: this.bonusTokens,
       formation: this.formation, techUses: this.techUses, techById: this.techById,
       maxTechLevel: Math.max(...this.members.flatMap((m) => Object.values(m.state.levels))), combos: [...this.combos.keys()] });
@@ -1973,6 +2082,23 @@ export class ArenaScene extends Phaser.Scene {
   selectFormation(id: FormationId) { this.setFormation(id); }
 
   /** Debug/test hook used by the browser smoke test. */
+  /** Real values of the build right now, for the pause screen (same formulas as combat). */
+  buildStats() {
+    const fx = this.talents();
+    const f = FORMATIONS[this.formation];
+    const gloves = this.members.some((m) => m.entry.position === 'GK') ? 1 - this.cfg.perks.gloveReduction : 1;
+    const taken = capTaken((1 - this.shield()) * gloves * (1 + fx.taken) * this.cfg.perks.damageTakenMult) * f.damageTakenMult;
+    return {
+      pickupPx: this.pickupRange(),
+      damageTakenPct: Math.round(taken * 100),
+      cooldownPct: Math.round(capCooldown(this.mods.cooldown * this.cfg.perks.cooldownMult * (1 - fx.cooldown)) * f.cooldownMult * 100),
+      areaPct: Math.round(capArea(this.mods.area * this.cfg.perks.areaMult) * 100),
+      luckPct: Math.round(capLuck(this.mods.luck + this.cfg.perks.luck + fx.luck) * 100),
+      revives: this.reviveCharges,
+      formation: f.label,
+    };
+  }
+
   debugState() {
     return { members: this.members.length, enemies: this.enemies.length, hp: this.hp, time: this.runTime, level: this.level,
       formation: this.formation, team: this.members.map((m) => ({ name: m.entry.name, x: Math.round(m.f.x), y: Math.round(m.f.y) })),

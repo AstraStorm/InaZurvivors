@@ -44,6 +44,8 @@ export interface SaveData {
   loadout: Record<string, number>;
   /** last manifest techRemaps step applied to this save (remapTechSlots) */
   techRev?: number;
+  /** Fix 1.11 weekly pass: rewards claimed in the current cycle (0-6) and the last day one was claimed */
+  weeklyPass?: { claimed: number; lastDay: string };
   /** "Mi Equipo": up to seven owned candidates for a run, captain first */
   squad: number[];
   /** run difficulty rank chosen last */

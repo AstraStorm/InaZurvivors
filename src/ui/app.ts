@@ -3,8 +3,12 @@
 import type Phaser from 'phaser';
 import type { Manifest, Rarity, RosterEntry, Technique } from '../data/manifest';
 import { ICON, RARITY_LABEL, RARITY_ORDER } from '../data/manifest';
+import { deathCause } from '../systems/deathCause';
+import { serverNow, syncServerTime, timeSource } from '../online/serverTime';
+import { PASS, claimPass, passStatus } from '../systems/weeklyPass';
+import { BANNERS, BANNER_ORDER, bannerPool, eraOf, featured, perPlayerOdds, rarityOdds, teamChoices, type BannerId } from '../systems/banners';
 import { exportSave, importSave, remapIds, remapTechSlots, storeSave, type SaveData, type ParticleLevel, type Rank } from '../systems/save';
-import { eligibleTeams, effectiveOdds, pull, recordHistory, DUPLICATE_REFUND, PULL_COST, MULTI_COST, MAX_STARS, starBonus, onboardingPull, type PullResult } from '../systems/gacha';
+import { eligibleTeams, pull, recordHistory, DUPLICATE_REFUND, PULL_COST, MAX_STARS, starBonus, onboardingPull, type PullResult } from '../systems/gacha';
 import { applyRun, isMapUnlocked, type RunResult } from '../systems/economy';
 import { statChanges, TYPE_LABEL, MAX_TECH_LEVEL } from '../systems/techniques';
 import { evolutionLabel, evolvesAt } from '../systems/evolution';
@@ -27,7 +31,7 @@ import { elementIcon } from './elements';
 import { ASC_BONUS, HERO_AURA, ascend, ascMultipliers, effectiveRarity, isHero, nextStep, sparesOf } from '../systems/ascension';
 import { USERNAME_MAX, validateUsername } from '../systems/username';
 import { ALTAR_COLOR, ALTAR_ICON, ALTAR_INFO, ALTAR_MODE, ALTAR_REWARD } from '../systems/altars';
-import { adaptedPassive, TALENTS } from '../systems/talents';
+import { adaptedPassive, passiveText, talentText } from '../systems/talents';
 import { accountId, adminBugReports, adminUpdateBug, amIAdmin, consumeAuthRedirect, deleteAccount, deleteMyBugReports, deleteShot, myBugReports, notifyBug, shotUrl, submitBugReport, uploadShot, getCloudSave, leaderboard, myPosition, myProfile, onlineConfigured, putCloudSave, reserveUsername, resetMyProgress, signedEmail, signedIn, signInWithGoogle, signOut, submitScore, usernameAvailable, type BoardQuery, type BugFilter, type BugRow, type CloudSave } from '../online/client';
 import { backup, linkPlan, progressOf, summarize, type SaveSummary } from '../online/cloudSync';
 import { epochOf, freshProgress, resetSummary } from '../systems/resetProgress';
@@ -80,7 +84,8 @@ async function shrinkShot(src: Blob | HTMLImageElement): Promise<Blob> {
 export class App {
   private root = document.getElementById('ui')!;
   private byId: Map<number, RosterEntry>;
-  private mugW: number;
+  /** width of each mugshot sheet: the last sheet of the atlas is smaller than the others */
+  private mugW: number[] = [];
   private iconW: number;
   private collectionFilter = { q: '', rarity: '', team: '', pos: '', element: '', saga: '', owned: false };
   private collectionView: 'equipos' | 'todos' | 'fichatron' = 'equipos';
@@ -103,7 +108,7 @@ export class App {
   constructor(private game: Phaser.Game, private m: Manifest, private save: SaveData,
     private mugFrames: Frames, private iconFrames: Frames) {
     this.byId = new Map(m.roster.map((p) => [p.id, p]));
-    this.mugW = Math.max(...Object.values(mugFrames).filter((f) => !f.sheet).map((f) => f.frame.x + f.frame.w));
+    for (const f of Object.values(mugFrames)) { const s = f.sheet ?? 0; this.mugW[s] = Math.max(this.mugW[s] ?? 0, f.frame.x + f.frame.w); }
     this.iconW = Math.max(...Object.values(iconFrames).map((f) => f.frame.x + f.frame.w));
     this.captainId = save.captainId;
     this.gear = buildGear(m.items.items);
@@ -137,6 +142,7 @@ export class App {
    * guest choice when there is no session); anyone with a profile gets a title screen to continue as they are.
    */
   async start() {
+    void syncServerTime(); // daily shop and weekly pass rotate on the server's clock for online players
     let after: (() => void) | null = null;
     if (onlineConfigured()) {
       const ret = await consumeAuthRedirect();
@@ -331,7 +337,7 @@ export class App {
     const k = size / 64;
     const sheet = this.m.atlases.mugshots.images?.[entry.sheet ?? 0] ?? this.m.atlases.mugshots.image;
     return `<span class="mug" data-kitmug="${id}" style="width:${size}px;height:${size}px;background-image:url(${sheet});`
-      + `background-position:-${f.x * k}px -${f.y * k}px;background-size:${this.mugW * k}px auto"></span>`;
+      + `background-position:-${f.x * k}px -${f.y * k}px;background-size:${(this.mugW[entry.sheet ?? 0] ?? 0) * k}px auto"></span>`;
   }
   icon(code: number, scale = 1) {
     const f = this.iconFrames[String(code)]?.frame;
@@ -642,6 +648,7 @@ export class App {
             ${tile('gacha', '◎', 'FICHAJES', `${this.save.tokens} fichas`, 'gacha')}
             ${tile('missions', '✔', 'MISIONES', 'Recompensas', '', pending)}
             ${tile('daily', '☼', 'TIENDA', 'Fichajes del día')}
+            ${tile('pass', '✦', 'PASE SEMANAL', passStatus(this.save, serverNow()).available ? '¡Recompensa lista!' : 'Vuelve mañana', '', passStatus(this.save, serverNow()).available ? 1 : 0)}
             ${tile('perks', '▲', 'MEJORAS', 'Potencia permanente')}
             ${tile('shop', '★', 'TÉCNICAS', 'Manuales y refuerzos')}
             ${tile('kits', '♦', 'EQUIPACIONES', 'Uniforme y escudo')}
@@ -687,6 +694,7 @@ export class App {
       if (go === 'devlog') this.devlog();
       if (go === 'ranking') this.ranking();
       if (go === 'hall') this.hallOfFame();
+      if (go === 'pass') this.weeklyPass();
       if (go === 'tutorial') this.tutorial();
     });
     document.getElementById('credits')!.addEventListener('click', () => this.credits());
@@ -1248,7 +1256,7 @@ export class App {
     const cap = squadOf(this.save, this.byId)[0] ?? this.unlockedRoster()[0];
     const mugs = squadOf(this.save, this.byId).slice(0, 5).map((p) => this.mug(p.id, 40)).join('');
     const slides: { title: string; text: string; art: string }[] = [
-      { title: 'Sobrevive y gana', text: 'Aguanta las oleadas de rivales hasta que llegue el jefe y derrótalo. Si la vida del equipo llega a cero, pierdes (pero te quedas las monedas).',
+      { title: 'Sobrevive y gana', text: 'Aguanta las oleadas de rivales hasta que llegue el jefe y derrótalo. Solo tu capitán recibe daño: si su vida llega a cero, pierdes (pero te quedas las monedas).',
         art: cap ? `<div class="tut-hero">${this.mug(cap.id, 96)}${charCanvas(cap.id, 3, 12)}</div>` : '' },
       { title: 'Muévete', text: 'WASD o flechas (o el joystick táctil / mando). Las técnicas se lanzan solas: tú solo te colocas. ¡Pruébalo aquí!',
         art: '<div class="tut-pitch" id="tutpitch"><span class="tut-ball" id="tutball">⚽</span></div><div class="keys"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></div>' },
@@ -1532,23 +1540,59 @@ export class App {
 
   dailyShop() {
     setMusicContext('menu');
-    const offers = rollDaily(this.save, this.m.roster);
+    const now = serverNow();
+    const offers = rollDaily(this.save, this.m.roster, now);
     this.persist();
-    const left = msToNextDay();
+    const left = msToNextDay(now);
+    const TAG: Record<string, string> = { destacado: '★ DESTACADO', favorito: '♥ TU EQUIPO', oferta: '¡OFERTA!' };
     const cards = offers.map((o) => {
       const p = this.byId.get(o.playerId)!;
       const sold = this.save.daily.bought.includes(o.playerId);
-      return `<div class="offer">${this.pcard(p, { badge: o.discount ? `-${o.discount}%` : undefined })}
+      return `<div class="offer${o.tag ? ` tag-${o.tag}` : ''}">${o.tag ? `<div class="offer-tag">${TAG[o.tag]}</div>` : ''}${this.pcard(p, { badge: o.discount ? `-${o.discount}%` : undefined })}
         <button class="btn small" data-offer="${o.playerId}" ${sold || this.save.coins < o.price ? 'disabled' : ''}>${sold ? 'Comprado' : `${o.price} ◉`}</button></div>`;
     }).join('');
     this.show(`<div class="screen">${this.titlebar('Tienda diaria', 'Menú')}
-      <div class="panel"><div class="note">Cambia cada día a medianoche, hora local de este equipo. Próxima rotación en ${Math.floor(left / 3600000)} h ${Math.floor(left / 60000) % 60} min. Comprar a alguien que ya tienes cuenta como duplicado.</div></div>
+      <div class="panel"><div class="note">Cambia cada día a medianoche (${timeSource() === 'servidor' ? 'hora del servidor' : 'hora de este dispositivo'}). Próxima rotación en ${Math.floor(left / 3600000)} h ${Math.floor(left / 60000) % 60} min. Comprar a alguien que ya tienes cuenta como duplicado.</div></div>
       <div class="grid daily-grid">${cards}</div></div>`);
     this.on('[data-back]', 'click', () => this.mainMenu());
     this.on('[data-offer]', 'click', (_e, el) => this.armed(el, () => {
-      if (buyOffer(this.save, this.m.roster, Number(el.dataset.offer))) { this.persist(); sfx('buy'); this.toast('¡Fichado!'); } else sfx('error');
+      if (buyOffer(this.save, this.m.roster, Number(el.dataset.offer), serverNow())) { this.persist(); sfx('buy'); this.toast('¡Fichado!'); } else sfx('error');
       this.dailyShop();
     }));
+  }
+
+  /** Free weekly pass: seven rewards, one claim per day (server day online), skipping days loses nothing. */
+  private passTeam = '';
+  weeklyPass() {
+    setMusicContext('menu');
+    const now = serverNow();
+    const st = passStatus(this.save, now);
+    const teams = teamChoices(this.m.roster, this.m.mainTeams ?? []);
+    if (!teams.some((t) => t.team === this.passTeam)) this.passTeam = (teams.find((t) => t.team === this.save.favoriteTeam) ?? teams[0])?.team ?? '';
+    const days = PASS.map((r, i) => {
+      const state = i < st.index ? 'reclamado' : i === st.index ? (st.available ? 'disponible' : 'bloqueado') : 'bloqueado';
+      const icon = r.kind === 'fichas' ? '◎' : r.kind === 'monedas' ? '◉' : '★';
+      return `<div class="pass-day ${state}"><small>Día ${i + 1}</small><b>${icon}</b><span>${esc(r.label)}</span><em>${state === 'reclamado' ? '✔ Reclamado' : state === 'disponible' ? '¡Disponible!' : i === st.index ? 'Mañana' : 'Bloqueado'}</em></div>`;
+    }).join('');
+    const next = PASS[st.index];
+    const teamPick = next.kind === 'jugador' && next.team ? `<label class="team-sel">Equipo objetivo: <select id="passteam">${teams.map((t) => `<option value="${esc(t.team)}" ${t.team === this.passTeam ? 'selected' : ''}>${esc(teamLabel(t.team))}</option>`).join('')}</select></label>` : '';
+    const left = msToNextDay(now);
+    this.show(`<div class="screen">${this.titlebar('Pase semanal', 'Menú')}
+      <div class="panel"><div class="note">Una recompensa por día (${timeSource() === 'servidor' ? 'hora del servidor' : 'hora de este dispositivo'}). Si te saltas días no pierdes nada: el pase espera en la siguiente recompensa. Tras el día 7 empieza un ciclo nuevo.</div></div>
+      <div class="pass-row">${days}</div>
+      <div class="panel" style="text-align:center">${st.available ? `<p>Hoy: <b>${esc(next.label)}</b></p>${teamPick}<p><button class="btn big" id="passclaim">Reclamar</button></p>`
+        : `<p>Ya has reclamado la recompensa de hoy. La siguiente (<b>${esc(next.label)}</b>) estará lista en ${Math.floor(left / 3600000)} h ${Math.floor(left / 60000) % 60} min.</p>`}</div></div>`);
+    this.on('[data-back]', 'click', () => this.mainMenu());
+    document.getElementById('passteam')?.addEventListener('change', (e) => { this.passTeam = (e.target as HTMLSelectElement).value; });
+    document.getElementById('passclaim')?.addEventListener('click', (e) => {
+      (e.target as HTMLButtonElement).disabled = true;
+      const res = claimPass(this.save, this.m.roster, serverNow(), Math.random, bannerPool(this.m.roster, 'equipo', this.passTeam));
+      if (!res) { sfx('error'); this.weeklyPass(); return; }
+      this.persist();
+      sfx('legend');
+      if (res.player) void this.capsuleShow([{ player: res.player, isNew: this.save.owned[String(res.player.id)]?.copies === 1, stars: this.save.owned[String(res.player.id)]?.stars ?? 0, refund: 0 }], 'Pase semanal').then(() => this.weeklyPass());
+      else { this.toast(`¡${res.reward.label}!`); this.weeklyPass(); }
+    });
   }
 
   kits() {
@@ -1586,7 +1630,7 @@ export class App {
       ${o ? `<div class="note">Estrellas ${o.stars}/${MAX_STARS} · Duplicados libres ${sparesOf(this.save, d.id)} (gastados ${o.spent ?? 0}) · Potencia: daño ×${starBonus(o.stars).damage.toFixed(2)}, vida ×${starBonus(o.stars).hp.toFixed(2)}</div>` : ''}
       ${o && (nextStep(this.save, d) || isHero(this.save, d.id)) ? `<p><button class="btn ${isHero(this.save, d.id) ? 'blue' : 'big'}" data-ascend="${d.id}">${isHero(this.save, d.id) ? '★ Ver HÉROE' : `▲ Ascensión (${sparesOf(this.save, d.id)}/${nextStep(this.save, d)!.cost})`}</button></p>` : ''}
       ${d.heroTech ? `<div class="note">Técnica de HÉROE: <b>${esc(d.heroTech.name)}</b>${isHero(this.save, d.id) ? ' (desbloqueada)' : ''}</div>` : ''}
-      ${(() => { const pa = adaptedPassive(d); return pa ? `<div class="note">Pasiva: <b>${esc(pa.name)}</b> · ${esc(pa.text)} <small>(adaptación de InaZurvivors)</small></div>` : d.techniques.filter((t) => t.type === 'talento').map((t) => `<div class="note">Talento: <b>${esc(t.name)}</b> · ${esc(TALENTS[t.id]?.text ?? '')} <small>(efecto adaptado)</small></div>`).join(''); })()}
+      ${(() => { const pa = adaptedPassive(d); return pa ? `<div class="note">Pasiva: <b>${esc(pa.name)}</b> · ${esc(passiveText(pa))} <small>(adaptación de InaZurvivors)</small></div>` : d.techniques.filter((t) => t.type === 'talento').map((t) => `<div class="note">Talento: <b>${esc(t.name)}</b> · ${esc(talentText(t.id, 1))} <small>(efecto adaptado; sube con el nivel de la técnica)</small></div>`).join(''); })()}
       <h3 style="margin-top:8px">Repertorio (2 técnicas activas en combate)</h3>
       ${reps.map((t, i) => (t ? `<div class="rep">${i === active ? '<span class="tag">Inicial</span>' : isLocked(t) && !isBought(this.save, d.id, i) ? '<span class="tag">Tienda</span>' : ''}${this.techHtml(t)}<div class="note">Maestría ${masteryLevel(this.save.mastery[String(t.id)] ?? 0)}/${MASTERY_USES.length} · +${masteryLevel(this.save.mastery[String(t.id)] ?? 0) * MASTERY_BONUS * 100}% daño · ${this.save.mastery[String(t.id)] ?? 0} usos</div></div>`
         : '<div class="rep"><div class="tech"><div class="note">Ficha pendiente: sin datos de origen para esta técnica.</div></div></div>')).join('')}
@@ -1598,9 +1642,20 @@ export class App {
   private cap(name: string) { const c = this.m.capsule; return c?.pieces[name] ? `${c.base}${c.pieces[name].file}` : ''; }
   private capColor(r: Rarity) { return this.m.capsule?.rarityColor?.[r] ?? 'rojo'; }
 
+  private gachaBanner: BannerId = 'original';
+  private gachaTeam = '';
   gacha() {
-    const real = effectiveOdds(this.m.roster);
-    const odds = RARITY_ORDER.map((r) => `<div class="odd"><span class="rar ${r}">${RARITY_LABEL[r].toUpperCase()}</span><i style="--w:${Math.max(1.5, real[r])}%;--c:${RARITY_COLOR[r]}"></i><b>${real[r] ? `${+real[r].toFixed(1)}%` : 'vacía'}</b></div>`).join('');
+    const banner = BANNERS[this.gachaBanner];
+    const teams = teamChoices(this.m.roster, this.m.mainTeams ?? []);
+    if (banner.id === 'equipo' && !teams.some((t) => t.team === this.gachaTeam)) this.gachaTeam = (teams.find((t) => t.team === this.save.favoriteTeam) ?? teams[0])?.team ?? '';
+    const pool = bannerPool(this.m.roster, banner.id, this.gachaTeam);
+    const real = rarityOdds(pool, banner.id);
+    const each = perPlayerOdds(pool, banner.id);
+    const PULL_COST = banner.cost, MULTI_COST = banner.multiCost;
+    const tabs = BANNER_ORDER.map((b) => `<button class="banner-tab${b === banner.id ? ' on' : ''}" data-banner="${b}" style="--bc:${BANNERS[b].color}"><b>${esc(BANNERS[b].label)}</b><small>${esc(BANNERS[b].tagline)}</small></button>`).join('');
+    const teamSel = banner.id === 'equipo' ? `<label class="team-sel">Equipo: <select id="gteam">${teams.map((t) => `<option value="${esc(t.team)}" ${t.team === this.gachaTeam ? 'selected' : ''}>${esc(teamLabel(t.team))} (${t.size})</option>`).join('')}</select></label>` : '';
+    const feat = featured(pool, 5).map((p) => `<span class="feat r-${p.rarity}" style="--rc:${RARITY_COLOR[p.rarity]}" title="${esc(p.name)}">${this.mug(p.id, 48)}<small>${esc(p.name)}</small></span>`).join('');
+    const odds = RARITY_ORDER.map((r) => `<div class="odd"><span class="rar ${r}">${RARITY_LABEL[r].toUpperCase()}</span><i style="--w:${Math.max(1.5, real[r])}%;--c:${RARITY_COLOR[r]}"></i><b>${real[r] ? `${+real[r].toFixed(2)}% · c/u ${+each[r].toFixed(3)}%` : 'vacía'}</b></div>`).join('');
     const empty = RARITY_ORDER.filter((r) => !real[r]).map((r) => RARITY_LABEL[r]);
     const hist = (this.save.gachaHistory ?? []).slice(0, 12).map((h) => {
       const p = this.byId.get(h.id);
@@ -1610,6 +1665,8 @@ export class App {
     const has = !!this.m.capsule;
     setMusicContext('gacha');
     this.show(`<div class="screen gacha-screen">${this.titlebar('Máquina de fichajes', 'Menú')}
+      <div class="banner-tabs">${tabs}</div>
+      <div class="banner-head" style="--bc:${banner.color}"><div><b>${esc(banner.label)}</b> · ${pool.length} futbolistas ${teamSel}<div class="note">×10 garantiza al menos un Épico o superior. ${banner.id === 'equipo' ? 'Solo futbolistas del equipo elegido; las rarezas altas tienen un tope por jugador.' : 'Cada futbolista está en una sola de las tres máquinas por sagas.'}</div></div><div class="feat-row">${feat}</div></div>
       <div class="ie3-machine">${has ? `<div class="ds-top"><img id="globe" src="${this.cap('globe0')}" alt=""></div>
         <div class="ds-bottom" style="background-image:url(${this.cap('panel_bottom')})">
           <img class="goal" src="${this.cap('goal_slot')}" alt=""><div class="knobwrap"><img class="kbase" src="${this.cap('knob_base')}" alt="">
@@ -1631,10 +1688,14 @@ export class App {
       <div class="panel" style="max-width:980px;margin:10px auto"><h3>Últimas tiradas</h3><div class="hist-row">${hist || '<span class="note">Aún no has tirado.</span>'}</div>
         <div class="note">Fichas = máquina de cápsulas · Monedas = mejoras y tiendas. Gráficos de la máquina: Inazuma Eleven 3 (hoja de The Spriters Resource, ripeada por Avegaille), recurso local.</div></div></div>`);
     this.on('[data-back]', 'click', () => this.mainMenu());
+    this.on('[data-banner]', 'click', (_e, el) => { if (this.pulling) return; this.gachaBanner = el.dataset.banner as BannerId; this.gacha(); });
+    document.getElementById('gteam')?.addEventListener('change', (e) => { this.gachaTeam = (e.target as HTMLSelectElement).value; this.gacha(); });
     this.on('[data-pull]', 'click', async (_e, el) => {
       if (this.pulling) return; // one transaction at a time: a double click can never charge twice
       this.pulling = true;
-      const res = pull(this.m.roster, this.save, Number(el.dataset.pull) as 1 | 10);
+      const b = BANNERS[this.gachaBanner];
+      const bpool = bannerPool(this.m.roster, b.id, this.gachaTeam);
+      const res = pull(bpool, this.save, Number(el.dataset.pull) as 1 | 10, Math.random, { cost: b.cost, multiCost: b.multiCost, odds: rarityOdds(bpool, b.id) });
       if (!res) { this.pulling = false; return; }
       recordHistory(this.save, res);
       addCounter(this.save, 'news', res.filter((x) => x.isNew).length);
@@ -2114,9 +2175,14 @@ export class App {
     this.lastMusicCtx = 'run';
     setMusicContext('run');
     this.show(`<div class="hud" id="hud"><div class="hurt" id="hurt"></div>
-      <div class="xp-strip" id="xpbar"><i></i></div>
-      <div class="vitals"><span class="hud-crest" title="${esc(this.save.crest ? teamLabel(this.save.crest) : 'InaZurvivors')}"><img src="${this.emblemOf(this.save.crest) || 'logo-192.png'}" alt=""></span><div class="lv-badge" id="lvbadge"><small>NV</small><b>1</b></div>
-        <div class="vbars"><div class="hp-bar" id="hpbar"><i class="ghost"></i><i class="fill"></i><span></span></div><div class="hud-stats"><span id="kills"></span><span class="st-coins" id="runcoins"></span><span class="st-tokens" id="runtokens"></span><span id="xptext"></span></div></div></div>
+      <div class="vitals cap-panel">
+        <div class="cap-crest" title="${esc(this.save.crest ? teamLabel(this.save.crest) : 'InaZurvivors')}"><img src="${this.emblemOf(this.save.crest) || 'logo-192.png'}" alt=""><small>${esc(this.save.crest ? teamLabel(this.save.crest) : 'InaZurvivors')}</small></div>
+        <div class="vbars">
+          <div class="cap-name"><b>${esc(team[0]?.name ?? 'Capitán')}</b><span>CAPITÁN</span><em class="crit-tag" id="crittag">¡CRÍTICO!</em></div>
+          <div class="hp-bar" id="hpbar"><i class="ghost"></i><i class="fill"></i><span></span></div>
+          <div class="xp-row"><div class="lv-badge" id="lvbadge"><small>NV</small><b>1</b></div><div class="xp-bar" id="xpbar"><i></i><span id="xptext"></span></div></div>
+          <div class="hud-stats"><span id="kills"></span><span class="st-coins" id="runcoins"></span><span class="st-tokens" id="runtokens"></span></div>
+        </div></div>
       <div class="res-chips" id="reson"></div>
       <div class="top-right"><div class="clock" id="clock"></div>
         <div class="formation-hud" id="fbtns">${FORMATION_ORDER.map((f) => `<button data-f="${f}" title="${esc(FORMATIONS[f].description)}">${FORMATION_ICON(f, 40)}<span><b>${FORMATIONS[f].key}</b> ${FORMATIONS[f].label}</span></button>`).join('')}</div>
@@ -2182,6 +2248,7 @@ export class App {
     }
   }
 
+  private lastHudHp: number | null = null;
   private renderHud(s: HudState) {
     const ch = document.getElementById('combohud');
     if (ch) {
@@ -2195,17 +2262,21 @@ export class App {
     const w = pct(s.hp, s.maxHp);
     (hp.querySelector('.fill') as HTMLElement).style.width = w;
     (hp.querySelector('.ghost') as HTMLElement).style.width = w;
-    hp.querySelector('span')!.textContent = `${Math.ceil(s.hp)} / ${s.maxHp}`;
-    hp.classList.toggle('low', s.hp / s.maxHp < 0.3);
+    hp.querySelector('span')!.textContent = `${Math.max(0, Math.ceil(s.hp))} / ${s.maxHp}`;
+    const low = s.hp / s.maxHp < 0.3;
+    hp.classList.toggle('low', low);
+    document.getElementById('crittag')?.classList.toggle('on', low);
+    // a big hit (8% of max health or more) shakes the bar; the ghost part shows what was just lost
+    const lost = (this.lastHudHp ?? s.hp) - s.hp;
+    if (lost >= s.maxHp * 0.08) { hp.classList.remove('hit'); void hp.offsetWidth; hp.classList.add('hit'); }
+    this.lastHudHp = s.hp;
     hp.classList.toggle('shielded', s.shield > 0);
     (document.querySelector('#xpbar i') as HTMLElement).style.width = pct(s.xp, s.xpNext);
-    document.getElementById('xptext')!.textContent = `EXP ${s.xp}/${s.xpNext}`;
+    document.getElementById('xptext')!.textContent = `${s.xp} / ${s.xpNext} EXP`;
     const badge = document.getElementById('lvbadge')!;
     if (badge.lastElementChild!.textContent !== String(s.level)) {
       badge.lastElementChild!.textContent = String(s.level);
-      badge.classList.remove('pop');
-      void badge.offsetWidth;
-      badge.classList.add('pop');
+      for (const el of [badge, document.getElementById('xpbar')!]) { el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop'); }
     }
     const stat = (id: string, text: string) => {
       const el = document.getElementById(id)!;
@@ -2373,7 +2444,7 @@ export class App {
         <div class="lv-type">MEJORA · ${TYPE_LABEL[t.type].toUpperCase()}</div>
         <div class="lv-art">${this.mug(p.id, 96)}${this.techBadge(t)}</div>
         <div class="lv-name">${esc(t.name)}${now ? ` ${esc(now)}` : ''}</div><div class="lv-sub">${esc(p.name)}</div>${this.techChips(t)}
-        <div class="lv-level">Nv ${c.toLevel - 1} <span>»</span> <b>${c.toLevel}</b><span class="pips">${pips}</span></div>
+        <div class="lv-level">${esc(evolutionLabel(t, c.toLevel - 1) || 'Base')} <span>»</span> <b>${esc(evolutionLabel(t, c.toLevel) || `Nv ${c.toLevel}`)}</b><span class="pips">${pips}</span></div>
         ${this.statDiff(t, c.toLevel - 1)}</button>`;
     }
     if (c.kind === 'learn') {
@@ -2401,7 +2472,7 @@ export class App {
         <div class="lv-art">${this.icon(d.icon, 5)}</div><div class="lv-name">${esc(d.label)}</div><div class="lv-sub">${esc(d.description)}</div></button>`;
     }
     return `<button class="lvcard heal" data-i="${i}"><div class="lv-type">RECUPERACIÓN</div><div class="lv-art">${this.icon(ICON.riceBall, 5)}</div>
-      <div class="lv-name">Bola de arroz</div><div class="lv-sub">Recupera ${Math.round(c.amount * 100)}% de la vida del equipo</div></button>`;
+      <div class="lv-name">Bola de arroz</div><div class="lv-sub">Recupera ${Math.round(c.amount * 100)}% de la vida del capitán</div></button>`;
   }
 
   private levelUpModal(cards: Card[], rerolls: number, reroll: () => Card[], level: number): Promise<Card> {
@@ -2458,6 +2529,10 @@ export class App {
       <div class="lvl-title">PAUSA</div>
       <p><button class="btn big" id="resume">▶ Continuar</button></p>
       <h3>Formación</h3><div class="formation-pick">${FORMATION_ORDER.map((f) => this.formationCard(f, false)).join('')}</div>
+      ${(() => { const b = this.arena()?.buildStats(); return b ? `<h3 style="margin-top:12px">Tu capitán ahora</h3><div class="build-stats">
+        <span>Daño recibido <b>${b.damageTakenPct}%</b></span><span>Recarga <b>${b.cooldownPct}%</b></span><span>Área <b>${b.areaPct}%</b></span>
+        <span>Suerte <b>+${b.luckPct}%</b></span><span>Recogida <b>${b.pickupPx} px</b> (máx. 130)</span><span>Revivir <b>${b.revives}</b></span></div>
+        <p class="note">Solo el capitán recibe daño: tus compañeros son invulnerables.</p>` : ''; })()}
       <h3 style="margin-top:12px">Efectos</h3><div class="seg" id="pp">${(['completo', 'reducido', 'desactivado'] as ParticleLevel[]).map((v) =>
         `<button data-v="${v}" class="${s.particles === v ? 'on' : ''}">Partículas ${v}</button>`).join('')}</div>
       <p><button class="btn small blue" id="toggleshake">Sacudida: ${s.shake > 0 ? 'sí' : 'no'}</button>
@@ -2485,6 +2560,9 @@ export class App {
     document.getElementById('pause')?.remove();
     const effects = perkEffects(this.save);
     const { rewards, total, records, tokens, tokenTotal } = applyRun(this.save, r, effects.coinMult, effects.rewardMult, effects.extraTokens);
+    const cap = this.byId.get(r.teamIds?.[0] ?? -1);
+    r.captainEra = cap ? eraOf(cap) : undefined;
+    r.favoriteOnPitch = (r.teamIds ?? []).filter((id) => this.save.favoriteTeam && this.byId.get(id)?.teams.includes(this.save.favoriteTeam)).length;
     recordRun(this.save, r);
     recordMastery(this.save, r.techById ?? {});
     const runId = r.runId ?? `${Date.now()}`;
@@ -2520,6 +2598,8 @@ export class App {
       <div class="panel" style="max-width:820px;margin:0 auto"><h3>${esc(map.name)} · ${RANKS[r.rank ?? 'C'].label}${r.victory ? ' · superada' : ''}</h3>
       <div class="result-grid">${stat('Tiempo', fmtTime(r.timeSec), records.includes('tiempo'), 0)}${stat('Eliminaciones', String(r.kills), records.includes('eliminaciones'), 1)}
         ${stat('Daño', (r.damage ?? 0).toLocaleString('es'), false, 2)}${stat('Nivel', String(r.level), records.includes('nivel'), 3)}${stat('Minijefes', String(r.minibosses), false, 4)}</div>
+      ${(() => { const c = deathCause(r.death); return c ? `<div class="res-death res-in" style="--d:700ms"><b>${r.victory ? 'Fin de la supervivencia infinita' : 'Causa de la derrota'}</b><span>${esc(c.line)}</span>
+        <span>Último golpe: ${r.death!.dmg} de daño a los ${fmtTime(r.death!.at)} · Sobreviviste ${fmtTime(r.timeSec)}</span><span class="note">Consejo: ${esc(c.tip)}</span></div>` : ''; })()}
       ${inf ? `<div class="res-inf res-in" style="--d:800ms"><b>Supervivencia infinita</b><span>Tiempo extra ${fmtTime(r.endlessSec ?? 0)} · Fase alcanzada: ${esc(r.endlessPhase ?? '')} · Jefes adicionales: ${r.endlessBosses ?? 0}</span><span>Recompensas del infinito: ${r.endlessCoins ?? 0} monedas y ${r.endlessTokens ?? 0} fichas${records.includes('infinito') ? ' · ¡Récord personal!' : ''}</span><span id="resrank"></span></div>` : ''}
       ${mvp ? `<div class="res-mvp res-in" style="--d:900ms"><span>Mejor jugador: <b>${esc(mvp.name)}</b> (más técnicas lanzadas)</span>${techs.length ? `<span>Técnicas más usadas: ${techs.map((t) => `${esc(t.name)} ×${t.n}`).join(' · ')}</span>` : ''}</div>` : ''}
       ${records.length ? `<div class="res-recs res-in" style="--d:1000ms">${records.map((x) => `<span>★ ${recName[x] ?? x}</span>`).join('')}</div>` : ''}

@@ -10,11 +10,11 @@ const P = (id: string, category: PerkCategory, label: string, description: strin
   ({ id, category, label, description, max, baseCost, step });
 
 export const PERKS: PerkDef[] = [
-  P('vida', 'Supervivencia', 'Resistencia', '+4% vida del equipo por nivel', 10, 120, 80),
+  P('vida', 'Supervivencia', 'Resistencia', '+4% vida del capitán por nivel', 10, 120, 80),
   P('armadura', 'Supervivencia', 'Defensa férrea', '-2% daño recibido por nivel', 8, 180, 110),
   P('regen', 'Supervivencia', 'Recuperación', '+0,06% de vida por segundo por nivel', 5, 220, 140),
   P('escudos', 'Supervivencia', 'Escudos duraderos', '+10% duración de objetos temporales', 5, 150, 90),
-  P('aliento', 'Supervivencia', 'Segundo aliento', 'Una vez por partida, al caer el equipo se levanta con un 30% de vida', 1, 3500, 0),
+  P('aliento', 'Supervivencia', 'Segundo aliento', 'Una vez por partida, al caer el capitán se levanta con un 30% de vida', 1, 3500, 0),
   P('dano', 'Combate', 'Potencia', '+3% daño de las supertécnicas por nivel', 10, 150, 100),
   P('area', 'Combate', 'Amplitud', '+4% área de técnicas por nivel', 8, 170, 100),
   P('alcance', 'Combate', 'Alcance', '+5% alcance de detección de tiros por nivel', 6, 140, 90),
@@ -37,10 +37,18 @@ export const PERKS: PerkDef[] = [
   P('seguimiento', 'Equipo', 'Velocidad', '+2% velocidad del equipo por nivel', 6, 150, 100),
   P('combinadas', 'Equipo', 'Química de equipo', '+8% daño de las técnicas combinadas', 5, 250, 160),
   P('sinergia', 'Equipo', 'Sinergia elemental', '+1,5% daño por cada compañero del mismo elemento que el capitán', 5, 220, 140),
+  // Fix 1.11
+  P('jefes', 'Supervivencia', 'Resistencia a jefes', '-3% daño de los ataques de jefes y minijefes por nivel (máx. -15%)', 5, 260, 160),
+  P('botiquin', 'Supervivencia', 'Botiquín', '+12% curación de bolas de arroz y chocolate por nivel (máx. +48%)', 4, 200, 130),
+  P('inicio', 'Progresión', 'Ventaja inicial', 'Empiezas la partida con un 20% de la experiencia del primer nivel por nivel (máx. 80%)', 4, 240, 160),
+  P('raros', 'Progresión', 'Ojo para lo raro', '+4% probabilidad de objetos especiales (Revivir, Barrera, cofres...) por nivel (máx. +16%)', 4, 260, 170),
+  P('tactica', 'Equipo', 'Pizarra avanzada', 'Potencia la formación activa por nivel: ofensiva +1,5% daño, equilibrada +3% combinadas, defensiva -1,5% daño recibido (máx. 5)', 5, 280, 180),
 ];
+/** Fix 1.11: every upgrade costs half as much again, so coins keep their value over many runs */
+export const PERK_PRICE = 1.5;
 
 export const perkLevel = (s: SaveData, id: string) => s.upgrades[id] ?? 0;
-export const perkCost = (p: PerkDef, level: number) => p.baseCost + p.step * level;
+export const perkCost = (p: PerkDef, level: number) => Math.round((p.baseCost + p.step * level) * PERK_PRICE / 10) * 10;
 
 export function buyPerk(s: SaveData, id: string): boolean {
   const p = PERKS.find((x) => x.id === id);
@@ -56,7 +64,7 @@ export function buyPerk(s: SaveData, id: string): boolean {
 /** Levels bought in a category unlock a bonus for that whole category. */
 export const MILESTONES = [10, 25];
 export const CATEGORY_BONUS: Record<PerkCategory, string> = {
-  Supervivencia: '+3% vida del equipo', Combate: '+3% daño', 'Progresión': '+3% experiencia', 'Economía': '+5% monedas', Equipo: '+2% velocidad',
+  Supervivencia: '+3% vida del capitán', Combate: '+3% daño', 'Progresión': '+3% experiencia', 'Economía': '+5% monedas', Equipo: '+2% velocidad',
 };
 
 export const categoryLevels = (s: SaveData, c: PerkCategory) => PERKS.filter((p) => p.category === c).reduce((a, p) => a + perkLevel(s, p.id), 0);
@@ -94,6 +102,9 @@ export interface PerkEffects {
   /** technique slots per player in a run (2 to 4) */
   techSlots: number;
   critChance: number; elementalChance: number; comboMult: number; eventMult: number; extraTokens: number; secondWind: boolean;
+  /** Fix 1.11: boss/miniboss attacks taken, share of the first level's experience at the start, healing of food items,
+   * «Pizarra avanzada» level, extra chance of special items */
+  bossTakenMult: number; startXpFrac: number; healMult: number; tactic: number; specialLuck: number;
 }
 
 export function perkEffects(s: SaveData): PerkEffects {
@@ -126,5 +137,10 @@ export function perkEffects(s: SaveData): PerkEffects {
     eventMult: 1 + 0.15 * l('eventos'),
     extraTokens: l('fichas'),
     secondWind: l('aliento') > 0,
+    bossTakenMult: 1 - 0.03 * l('jefes'),
+    startXpFrac: 0.2 * l('inicio'),
+    healMult: 1 + 0.12 * l('botiquin'),
+    tactic: l('tactica'),
+    specialLuck: 0.04 * l('raros'),
   };
 }

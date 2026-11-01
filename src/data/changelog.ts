@@ -15,6 +15,35 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: '4.6', date: '2026-11-01', title: 'Fix 1.11',
+    features: [
+      'Solo el capitán recibe daño: los compañeros son apoyo invulnerable, sin barra de vida; los balones los atraviesan y solo alcanzan al capitán.',
+      'Gachas por saga (Inazuma Eleven, GO, Victory Road) y por equipo (14/126 fichas, equipos de 8+ futbolistas), con destacados y probabilidades exactas por rareza y por futbolista; ×10 garantiza un Épico o superior.',
+      'Pase semanal gratuito de 7 días (fichas, futbolistas Épico+, monedas y un Épico+ del equipo elegido); saltarse días no pierde nada.',
+      'Tienda diaria de 10 ofertas: destacado, oferta del 40% y un fichaje del equipo favorito; rota por la hora del servidor cuando la función server_now está desplegada.',
+      '17 misiones nuevas (diarias, semanales y logros) y 5 mejoras permanentes nuevas con tope.',
+      'Objetos nuevos: Revivir (máx. 2 cargas), Barrera, Protección elemental, Cazador de élites, Balón amplio y Apuesta arriesgada.',
+      'Pantalla de causa de la derrota con el golpe real y un consejo; estadísticas del capitán en la pausa.',
+      'Araña Gigante, Mordisco de serpiente y Telaraña con manifestación y efecto propios (atrapar en la red, veneno).',
+      'Nivel visible de todas las técnicas salvo talentos: +X, Lv X o GX según su forma de evolucionar.',
+    ],
+    fixes: [
+      'Las telegrafías de rivales que se retiraban quedaban dibujadas en el suelo.',
+      'Radio de recogida: las bonificaciones se suman con tope en lugar de multiplicarse.',
+      'Talentos duplicados (¡Guapo +!, ¡Súper técnica!) y Pereza con efecto neto negativo; descripciones generadas de sus valores reales.',
+      'Los usos de técnica contaban también los intentos sin rival al alcance.',
+      'Minimapa tapando el reloj en móvil vertical.',
+      'Retratos rotos de los 80 futbolistas de la última hoja del atlas (Mark Brand, Chuck Hardy...): se escalaban con el ancho de la primera hoja.',
+      'La supervivencia infinita también muestra qué golpe tumbó al capitán.',
+      'Sin equipo favorito, la casilla de la tienda reservada a él se convierte en una oferta normal.',
+    ],
+    visuals: ['HUD del capitán: barra de vida grande con valores, daño fantasma, estado crítico, barra de experiencia con nivel y escudo del equipo; adaptado a 1920×1080, 1366×768, 1280×720 y móvil.'],
+    balance: ['Monedas por partida a la mitad aprox., mejoras ×1,5 y rango X ×2,2 (ECONOMIA_1.11.md); no se quita ninguna moneda.',
+      'Formaciones con identidad: ofensiva (+15% daño, -10% recarga), equilibrada (+20% combinadas), defensiva (-30% daño recibido, sin extras de ataque ni penalización); solo cambian estadísticas, los compañeros no bloquean tiros.',
+      'Mítico menos probable por futbolista que Legendario y Leyenda la más exclusiva.',
+      'Límites de talentos: daño con poca vida máx. +60%, efecto elemental máx. 40%.'],
+  },
+  {
     version: '4.5', date: '2026-11-01', title: 'Actualización 1.1',
     features: [
       'Introducción en cada visita: completa la primera vez y el logo animado después, con pantalla de bienvenida para quien ya tiene club.',

@@ -105,11 +105,13 @@ describe('techniques', () => {
     }
   });
   it('separates evolution names from internal levels by family', () => {
-    expect(evolutionLabel({ id: 1, growth: 101 }, 3)).toBe('');
-    expect(evolutionLabel({ id: 1, growth: 101 }, 4)).toBe('+1');
-    expect(evolutionLabel({ id: 1, growth: 103 }, 10)).toBe('G5');
-    expect(evolutionLabel({ id: 1, growth: null }, 10)).toBe('');
-    expect(evolvesAt({ id: 1, growth: 102 }, 6)).toBe('V3');
+    expect(evolutionLabel({ id: 1, growth: 101 }, 1)).toBe('');
+    expect(evolutionLabel({ id: 1, growth: 101 }, 4)).toBe('+3');
+    expect(evolutionLabel({ id: 1, growth: 102 }, 5)).toBe('Lv 5');
+    expect(evolutionLabel({ id: 1, growth: null, source: 'Moveset oficial (wiki, Galaxy): X' }, 10)).toBe('G5');
+    expect(evolutionLabel({ id: 1, growth: null, source: 'Moveset oficial (wiki, GO, Chrono Stone): X' }, 2)).toBe('Lv 2');
+    expect(evolutionLabel({ id: 1, growth: null, type: 'talento' }, 10)).toBe('');
+    expect(evolvesAt({ id: 1, growth: 102 }, 6)).toBe('Lv 7');
     expect(evolvesAt({ id: 1, growth: 102 }, 7)).toBeNull();
   });
 });
@@ -231,9 +233,11 @@ describe('formations', () => {
   it('has three formations with four slots and the requested bonuses', () => {
     expect(FORMATIONS.ofensiva.damageMult).toBeGreaterThan(1);
     expect(FORMATIONS.ofensiva.damageTakenMult).toBeGreaterThan(1);
-    expect(FORMATIONS.equilibrada.damageMult).toBe(1);
+    expect(FORMATIONS.ofensiva.cooldownMult).toBeLessThan(1);
+    expect(FORMATIONS.equilibrada.comboMult).toBeGreaterThan(1);
     expect(FORMATIONS.defensiva.damageTakenMult).toBeLessThan(1);
-    expect(FORMATIONS.defensiva.damageMult).toBeLessThan(1);
+    expect(FORMATIONS.defensiva.damageMult).toBe(1); // Fix 1.11: defence attacks as usual, only defensive extras
+    expect(FORMATIONS.defensiva.damageTakenMult).toBeLessThan(FORMATIONS.equilibrada.damageTakenMult);
     for (const f of Object.values(FORMATIONS)) expect(f.slots).toHaveLength(4);
   });
   it('rotates slots with the captain heading (offensive slots go forward)', () => {
@@ -663,7 +667,7 @@ describe('difficulty ranks', () => {
     const run = { mapId: 'raimon', victory: true, timeSec: 300, kills: 100, minibosses: 2, bossDefeated: true, reachedBoss: true };
     const c = applyRun(s, { ...run, rank: 'C' }).total;
     const x = applyRun(s, { ...run, rank: 'X' });
-    expect(x.total).toBeGreaterThan(c * 2.5);
+    expect(x.total).toBeGreaterThan(c * 1.8); // Fix 1.11: X pays ×2.2 (was ×3)
     expect(x.tokens.some((t) => t.label.includes('Rango X'))).toBe(true);
     expect(applyRun(s, { ...run, rank: 'X' }).tokens.some((t) => t.label.includes('Rango X'))).toBe(false);
     expect(s.clearedRanks.raimon).toEqual(['C', 'X']);
@@ -942,8 +946,8 @@ describe('reiniciar progreso', () => {
 describe('versión pública y reportes de bugs', () => {
   it('the public news start at v1.0 and no internal version leaks into them', async () => {
     const { PUBLIC_RELEASES, PUBLIC_VERSION, RELEASED, VERSION_LABEL, BUILD, TIKTOK_URL } = await import('../src/data/release');
-    expect(PUBLIC_VERSION).toBe('1.1');
-    expect(PUBLIC_RELEASES.map((r) => r.version)).toEqual(['1.1', '1.0']); // newest first, starting at v1.0
+    expect(PUBLIC_VERSION).toBe('1.11');
+    expect(PUBLIC_RELEASES.map((r) => r.version)).toEqual(['1.11', '1.1', '1.0']); // newest first, starting at v1.0
     expect(PUBLIC_RELEASES.at(-1)!.title).toBe('InaZurvivors v1.0 — ¡Comienza la aventura!');
     expect(JSON.stringify(PUBLIC_RELEASES)).not.toMatch(/\bv?[234]\.\d\b/);
     expect(BUILD).not.toBe('1.0');
@@ -1039,7 +1043,7 @@ describe('talentos y pasivas', () => {
   it('every ROM talent (51-81) has an effect, and level scales it', async () => {
     const { TALENTS, emptyFx, talentScale } = await import('../src/systems/talents');
     for (let id = 51; id <= 81; id++) { expect(TALENTS[id]?.text).toBeTruthy(); expect(TALENTS[id].name).toBeTruthy(); }
-    const f = emptyFx(); TALENTS[73].apply(f, talentScale(1)); expect(f.lastStand).toBeCloseTo(0.2);
+    const f = emptyFx(); TALENTS[73].apply(f, talentScale(1)); expect(f.lastStand).toBeCloseTo(0.15);
     const g = emptyFx(); TALENTS[78].apply(g, talentScale(3)); expect(g.element.Aire).toBeCloseTo(0.18);
   });
   it('a player without a talent gets a labelled passive that fits its position and rarity', async () => {

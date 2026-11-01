@@ -1,5 +1,6 @@
 /**
- * Team formations (captain + up to 4 AI teammates, 5 in total). Bonuses are PROVISIONAL balance values — tune here.
+ * Team formations (captain + up to 4 AI teammates, 5 in total). ONLY THE CAPTAIN TAKES DAMAGE: teammates are invulnerable
+ * support, so a formation changes how they attack and how they shield the captain, never their own health.
  * Slots are in the captain's local frame: +y = towards where the captain is facing (forward), +x = to the right.
  */
 export type FormationId = 'ofensiva' | 'equilibrada' | 'defensiva';
@@ -10,26 +11,30 @@ export interface Formation {
   key: string;
   /** multiplier on all damage dealt by the team */
   damageMult: number;
-  /** multiplier on damage received by the shared HP bar */
+  /** multiplier on damage received by the captain */
   damageTakenMult: number;
+  /** multiplier on every technique's cooldown (< 1 = more often) */
+  cooldownMult: number;
+  /** multiplier on combined techniques' damage (teammates in sync) */
+  comboMult: number;
   description: string;
   slots: [number, number][];
 }
 
 export const FORMATIONS: Record<FormationId, Formation> = {
   ofensiva: {
-    id: 'ofensiva', label: 'Ofensiva', key: '1', damageMult: 1.12, damageTakenMult: 1.2,
-    description: 'Compañeros adelantados. +15% daño, +15% daño recibido.',
+    id: 'ofensiva', label: 'Ofensiva', key: '1', damageMult: 1.15, damageTakenMult: 1.2, cooldownMult: 0.9, comboMult: 1,
+    description: 'Compañeros adelantados, presión total: +15% daño, técnicas un 10% más frecuentes. El capitán recibe un 20% más de daño.',
     slots: [[-30, 40], [30, 40], [-62, 16], [62, 16]],
   },
   equilibrada: {
-    id: 'equilibrada', label: 'Equilibrada', key: '2', damageMult: 1, damageTakenMult: 1,
-    description: 'Compañeros repartidos alrededor del capitán. Sin modificadores.',
+    id: 'equilibrada', label: 'Equilibrada', key: '2', damageMult: 1.05, damageTakenMult: 0.95, cooldownMult: 1, comboMult: 1.2,
+    description: 'Compañeros repartidos y coordinados: +5% daño, -5% daño recibido y técnicas combinadas un 20% más fuertes.',
     slots: [[-42, 6], [42, 6], [-24, -36], [24, -36]],
   },
   defensiva: {
-    id: 'defensiva', label: 'Defensiva', key: '3', damageMult: 0.85, damageTakenMult: 0.82,
-    description: 'Compañeros cerrando filas junto al capitán. -18% daño recibido, -15% daño.',
+    id: 'defensiva', label: 'Defensiva', key: '3', damageMult: 1, damageTakenMult: 0.7, cooldownMult: 1, comboMult: 1,
+    description: 'Muralla alrededor del capitán: -30% daño recibido. Tu equipo ataca igual, pero sin ningún extra de ataque.',
     slots: [[-22, 4], [22, 4], [-14, -22], [14, -22]],
   },
 };

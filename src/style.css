@@ -1018,3 +1018,79 @@ body.reduced-motion .ib-orbit, body.reduced-motion .ib-ball { animation: none; }
 .reveal.quake { animation: shake .35s infinite; }
 @media (prefers-reduced-motion: reduce) { .cap-sprite.roll-in, .cap-sprite.settle, .cap-sprite.charge, .reveal.quake { animation: none !important; } }
 .title-screen .wiz-next { justify-content: center; text-align: center; }
+.build-stats { display: flex; flex-wrap: wrap; gap: 6px 14px; justify-content: center; font-size: 10px; }
+.build-stats b { color: var(--yellow); }
+.res-death { display: flex; flex-direction: column; gap: 4px; max-width: 820px; margin: 10px auto; padding: 10px 14px; border: 2px solid #ff6a6a; background: #2a0a12cc; font-size: 11px; text-align: left; }
+.res-death b { color: #ff8a8a; }
+
+/* ---------------------------------------------------------------- Fix 1.11: captain panel (only the captain has health) */
+.xp-strip { display: none; }
+.vitals.cap-panel { top: 12px; left: 12px; width: min(560px, 46vw); gap: 10px; align-items: stretch; padding: 8px 10px 8px 8px;
+  background: linear-gradient(180deg, #0d2458e6, #050c22e6); border: 2px solid #7fd3ffb0; border-radius: 6px 18px 6px 18px; box-shadow: 0 4px 14px #000c; }
+.cap-crest { flex: none; width: 92px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+  background: radial-gradient(circle at 50% 40%, #2a5cc0, #0a1d48 75%); border: 2px solid #ffe24a; border-radius: 8px; padding: 6px 4px; box-shadow: inset 0 0 12px #000a; }
+.cap-crest img { width: 72px; height: 72px; object-fit: contain; image-rendering: pixelated; filter: drop-shadow(0 2px 2px #000); }
+.cap-crest small { font-size: 7px; line-height: 1.2; text-align: center; color: #ffe9a0; max-width: 88px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cap-panel .vbars { display: flex; flex-direction: column; gap: 5px; justify-content: center; }
+.cap-name { display: flex; align-items: baseline; gap: 8px; font-size: 11px; text-shadow: 2px 2px 0 #000; }
+.cap-name b { color: #fff; font-weight: normal; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cap-name span { font-size: 7px; color: #ffe24a; letter-spacing: 1px; }
+.crit-tag { margin-left: auto; font-style: normal; font-size: 9px; color: #ff6a6a; opacity: 0; }
+.crit-tag.on { opacity: 1; animation: pulse .45s infinite alternate; }
+.cap-panel .hp-bar { height: 34px; border-width: 3px; border-radius: 4px 14px 4px 14px; background: #1a0610f0; }
+.cap-panel .hp-bar span { font-size: 14px; line-height: 28px; letter-spacing: 1px; }
+.cap-panel .hp-bar .fill { box-shadow: inset 0 -6px 0 #0003, inset 0 4px 0 #fff4; }
+.cap-panel .hp-bar .ghost { background: linear-gradient(180deg, #fff2c0, #ff9a5a); }
+.cap-panel .hp-bar.low { border-color: #ff6a6a; box-shadow: 0 0 14px #ff3a3a; }
+.cap-panel .hp-bar.hit { animation: hpHit .32s ease-out; }
+@keyframes hpHit { 20% { transform: translateX(-4px); filter: brightness(1.8); } 45% { transform: translateX(4px); } 70% { transform: translateX(-2px); } }
+.xp-row { display: flex; align-items: center; gap: 8px; }
+.cap-panel .lv-badge { width: 40px; height: 40px; }
+.cap-panel .lv-badge b { font-size: 16px; }
+.xp-bar { position: relative; flex: 1; height: 16px; background: #050c22f0; border: 2px solid #6fd0ffc0; border-radius: 3px 10px 3px 10px; overflow: hidden; }
+.xp-bar i { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: linear-gradient(90deg, #2f7fe0, #6fd0ff 70%, #e8fbff); box-shadow: 0 0 10px #6fd0ff; transition: width .25s ease-out; }
+.xp-bar span { position: absolute; inset: 0; text-align: center; font-size: 9px; line-height: 12px; text-shadow: 1px 1px 0 #000; color: #e8f6ff; }
+.xp-bar.pop { animation: xpPop .6s ease-out; }
+@keyframes xpPop { 0% { box-shadow: 0 0 0 #fff; } 30% { box-shadow: 0 0 22px #9fe6ff; filter: brightness(1.8); } }
+.cap-panel .hud-stats { margin-top: 0; font-size: 9px; }
+.res-chips { top: 150px; }
+@media (max-width: 1366px) { .vitals.cap-panel { width: min(500px, 46vw); } .cap-crest { width: 80px; } .cap-crest img { width: 60px; height: 60px; } }
+@media (max-width: 1280px) { .vitals.cap-panel { width: min(470px, 48vw); } .cap-panel .hp-bar { height: 30px; } .cap-panel .hp-bar span { font-size: 12px; line-height: 24px; } }
+/* phone landscape: a compact panel, bars still thick enough to read */
+@media (max-height: 520px) {
+  .vitals.cap-panel { top: 6px; left: 6px; width: min(400px, 52vw); padding: 5px 7px 5px 5px; gap: 7px; }
+  .cap-crest { width: 58px; padding: 3px; } .cap-crest img { width: 44px; height: 44px; } .cap-crest small, .cap-name span { display: none; }
+  .cap-panel .hp-bar { height: 24px; } .cap-panel .hp-bar span { font-size: 11px; line-height: 18px; }
+  .cap-panel .lv-badge { width: 30px; height: 30px; } .cap-panel .lv-badge b { font-size: 12px; } .xp-bar { height: 13px; } .xp-bar span { font-size: 7px; line-height: 9px; }
+  .cap-panel .hud-stats { display: none; } .res-chips { display: none; }
+}
+/* phone portrait: the panel takes the full width at the top, the clock and formations go below it */
+@media (max-width: 620px) and (min-height: 521px) {
+  .vitals.cap-panel { width: calc(100vw - 16px); left: 8px; top: 8px; }
+  .cap-crest { width: 64px; } .cap-crest img { width: 50px; height: 50px; }
+  .cap-panel .hp-bar { height: 28px; } .cap-panel .hp-bar span { font-size: 12px; line-height: 22px; }
+  .hud .top-right { top: 152px; } .altar-hud { top: 192px; }
+  .minimap { top: 152px; left: 8px; right: auto; } /* Fix 1.11: was under the clock */
+}
+
+/* Fix 1.11: gacha banners */
+.banner-tabs { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; max-width: 980px; margin: 0 auto 8px; }
+.banner-tab { font: inherit; flex: 1 1 200px; padding: 8px 10px; color: #fff; text-align: left; cursor: pointer; background: linear-gradient(180deg, #132f6b, #06102b); border: 2px solid var(--frame-dim); border-left: 6px solid var(--bc); }
+.banner-tab b { display: block; font-size: 11px; font-weight: normal; color: var(--bc); } .banner-tab small { font-size: 8px; color: var(--muted); }
+.banner-tab.on { border-color: var(--bc); box-shadow: 0 0 12px var(--bc); background: linear-gradient(180deg, #1d468f, #0a1d48); }
+.banner-head { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; max-width: 980px; margin: 0 auto 10px; padding: 8px 12px; background: #06102bd0; border: 2px solid var(--bc); font-size: 10px; }
+.banner-head > div > b { color: var(--bc); font-weight: normal; font-size: 12px; }
+.feat-row { display: flex; gap: 6px; } .feat { display: flex; flex-direction: column; align-items: center; width: 58px; border: 2px solid var(--rc); background: #0a1d48; padding: 2px; }
+.feat small { font-size: 6px; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 54px; }
+.team-sel select { font: inherit; font-size: 10px; background: #0a1d48; color: #fff; border: 2px solid var(--frame-dim); }
+@media (max-width: 620px) { .banner-tab { flex-basis: 45%; } .feat-row { flex-wrap: wrap; } }
+.offer { position: relative; } .offer-tag { position: absolute; top: -8px; left: 50%; transform: translateX(-50%); z-index: 2; font-size: 7px; padding: 2px 6px; white-space: nowrap; background: #ffe24a; color: #3a2004; border: 2px solid #000; }
+.offer.tag-oferta .offer-tag { background: #ff5a5a; color: #fff; } .offer.tag-favorito .offer-tag { background: #ff8ad8; color: #3a0420; }
+
+/* Fix 1.11: weekly pass */
+.pass-row { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; max-width: 980px; margin: 10px auto; }
+.pass-day { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 4px; text-align: center; font-size: 8px; background: #0a1d48; border: 2px solid var(--frame-dim); }
+.pass-day b { font-size: 22px; font-weight: normal; color: var(--yellow); } .pass-day em { font-style: normal; font-size: 7px; color: var(--muted); }
+.pass-day.disponible { border-color: #ffe24a; box-shadow: 0 0 14px #ffe24a88; animation: pulse .8s infinite alternate; } .pass-day.disponible em { color: #ffe24a; }
+.pass-day.reclamado { opacity: .55; } .pass-day.reclamado em { color: #7dff9a; }
+@media (max-width: 620px) { .pass-row { grid-template-columns: repeat(4, minmax(0, 1fr)); } }

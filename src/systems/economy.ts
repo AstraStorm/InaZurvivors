@@ -23,6 +23,8 @@ export interface RunResult {
   damage?: number;
   runId?: string;
   captainId?: number;
+  /** the hit that beat the captain (defeats only): real source recorded by the scene */
+  death?: { by: string; attack: string; dmg: number; still?: boolean; at: number };
   /** ids on the pitch at the end, captain first */
   teamIds?: number[];
   /** altars and events completed */
@@ -33,6 +35,9 @@ export interface RunResult {
   endlessBosses?: number;
   endlessCoins?: number;
   endlessTokens?: number;
+  /** Fix 1.11 missions: era of the captain (banners.ts eraOf) and teammates of the favourite team on the pitch */
+  captainEra?: string;
+  favoriteOnPitch?: number;
   /** combined techniques learned during the run */
   combos?: string[];
 }
@@ -41,13 +46,14 @@ export interface Reward { label: string; coins: number }
 
 export function computeRewards(r: RunResult, rewardMult = 1): Reward[] {
   const out: Reward[] = [
-    { label: `Eliminaciones (${r.kills})`, coins: r.kills },
-    { label: `Supervivencia (${Math.floor(r.timeSec)} s)`, coins: Math.floor(r.timeSec / 2) },
+    // Fix 1.11: about half the coins of before, so upgrades take real effort (ECONOMIA_1.11.md)
+    { label: `Eliminaciones (${r.kills})`, coins: Math.floor(r.kills / 3) },
+    { label: `Supervivencia (${Math.floor(r.timeSec)} s)`, coins: Math.floor(r.timeSec / 4) },
   ];
-  if (r.minibosses) out.push({ label: `Minijefes (${r.minibosses})`, coins: 30 * r.minibosses });
-  if (r.reachedBoss) out.push({ label: 'Objetivo: llegar al jefe', coins: 40 });
-  if (r.bossDefeated) out.push({ label: 'Jefe derrotado', coins: Math.round(150 * rewardMult) });
-  if (r.victory) out.push({ label: 'Victoria', coins: Math.round(100 * rewardMult) });
+  if (r.minibosses) out.push({ label: `Minijefes (${r.minibosses})`, coins: 25 * r.minibosses });
+  if (r.reachedBoss) out.push({ label: 'Objetivo: llegar al jefe', coins: 30 });
+  if (r.bossDefeated) out.push({ label: 'Jefe derrotado', coins: Math.round(120 * rewardMult) });
+  if (r.victory) out.push({ label: 'Victoria', coins: Math.round(80 * rewardMult) });
   if (r.bonusCoins) out.push({ label: 'Cofres', coins: r.bonusCoins });
   return out;
 }

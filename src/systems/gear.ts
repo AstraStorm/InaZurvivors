@@ -19,7 +19,7 @@ function effectText(slot: GearSlot, tier: number, index: number) {
   const n = tier + 1;
   if (slot === 'botas') return `+${n * 3}% velocidad`;
   if (slot === 'guantes') return `-${n * 3}% daño recibido`;
-  if (slot === 'especial') return `+${n * 4}% vida del equipo`;
+  if (slot === 'especial') return `+${n * 4}% vida del capitán`;
   const kind = ACCESSORY[index % ACCESSORY.length];
   return kind === 'recarga' ? `-${n * 2}% recarga` : kind === 'suerte' ? `+${n * 4}% suerte` : `+${n * 3}% experiencia`;
 }
