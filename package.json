@@ -1,0 +1,36 @@
+{
+  "name": "inazuma-eleven-survivors",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "InaZurivors: fangame roguelite 2D gratuito y no oficial de Inazuma Eleven.",
+  "scripts": {
+    "gamedata": "python -I tools/run_gamedata.py",
+    "movil": "vite build && vite preview --host",
+    "assets:ie3": "tsx tools/sync-ie3.ts",
+    "assets:sync": "tsx tools/sync-assets.ts",
+    "assets:force": "tsx tools/sync-assets.ts --force",
+    "predev": "npm run assets:sync",
+    "dev": "vite",
+    "prebuild": "npm run assets:sync",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "build:pages": "tsc --noEmit && vite build"
+  },
+  "dependencies": {
+    "@fontsource/press-start-2p": "5.1.0",
+    "phaser": "3.90.0"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.2.17",
+    "@types/node": "20.17.6",
+    "@types/pngjs": "6.0.5",
+    "pngjs": "7.0.0",
+    "tsx": "4.19.2",
+    "typescript": "5.6.3",
+    "vite": "5.4.11",
+    "vitest": "2.1.5"
+  }
+}

@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="theme-color" content="#050c22" />
+  <title>InaZurivors</title>
+  <meta name="description" content="InaZurivors: roguelite de fútbol hecho por fans. Proyecto no oficial, sin ánimo de lucro." />
+  <meta property="og:title" content="InaZurivors" />
+  <meta property="og:description" content="Roguelite de fútbol hecho por fans. Proyecto no oficial." />
+  <link rel="icon" href="favicon.ico" sizes="any" />
+  <link rel="icon" href="icon-32.png" sizes="32x32" type="image/png" />
+  <link rel="icon" href="icon-16.png" sizes="16x16" type="image/png" />
+  <link rel="apple-touch-icon" href="icon-180.png" />
+  <style>
+    /* boot screen: plain CSS in the page itself, so something is on screen before any script or font arrives */
+    html, body { margin: 0; height: 100%; background: #050c22; }
+    #boot { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px;
+      color: #e8f2ff; font: 14px/1.4 monospace; background: radial-gradient(circle at 50% 40%, #12306e, #050c22 70%); z-index: 50; transition: opacity .35s; }
+    #boot img { width: 96px; height: 96px; image-rendering: pixelated; animation: bootPulse 1.2s ease-in-out infinite; }
+    #boot b { font-size: 22px; letter-spacing: 3px; color: #ffd21f; text-shadow: 2px 2px 0 #000; }
+    #boot .bar { width: min(320px, 70vw); height: 10px; border: 2px solid #4fc8ff; background: #0a1d48; }
+    #boot .bar i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #ffb020, #ffe24a); transition: width .2s; }
+    #boot.gone { opacity: 0; pointer-events: none; }
+    @keyframes bootPulse { 50% { transform: scale(1.06); } }
+    @media (prefers-reduced-motion: reduce) { #boot img { animation: none; } }
+  </style>
+</head>
+<body>
+  <div id="boot"><img src="logo-192.png" alt="" /><b>INAZURIVORS</b><div class="bar"><i id="boot-bar"></i></div><span id="boot-msg">Cargando…</span></div>
+  <div id="game"></div>
+  <div id="ui"></div>
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>

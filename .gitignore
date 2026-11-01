@@ -1,0 +1,8 @@
+node_modules/
+dist/
+.asset-cache.json
+*.log
+assets_external/
+*.nds
+*.sav
+.env.local

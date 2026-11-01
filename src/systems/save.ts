@@ -1,0 +1,305 @@
+/** Local save with schema version + migrations + validation. Pure logic + a thin localStorage adapter.
+ *  Never destroys data: an unreadable save is set aside under a recovery key and the last good copy is tried first. */
+
+export const SCHEMA_VERSION = 9;
+
+/** copies counts every pull; `spent` = duplicates consumed by ascensions; ascMitico/hero = ascension (ascension.ts) */
+export interface OwnedPlayer { stars: number; copies: number; obtainedAt: string; spent?: number; ascMitico?: boolean; hero?: boolean }
+
+export interface SaveData {
+  schemaVersion: number;
+  coins: number;
+  owned: Record<string, OwnedPlayer>;
+  captainId: number | null;
+  clearedMaps: string[];
+  stats: { runs: number; wins: number; kills: number; bestTimeSec: number; pulls: number; bestKills: number; bestLevel: number; bestEndless?: number };
+  settings: Settings;
+  upgrades: Record<string, number>;
+  formation: string;
+  /** the one-time welcome draft of 5 footballers has been done */
+  onboardingDone: boolean;
+  profile: Profile;
+  /** team chosen when the profile was created; null for profiles older than that step */
+  favoriteTeam: string | null;
+  missions: MissionState;
+  /** technique shop: repertoire techniques bought per player, permanent boosts per technique id */
+  shop: { techUnlocks: Record<string, number[]>; techBoosts: Record<string, number> };
+  /** equipment owned and what is worn in each slot */
+  gear: { owned: string[]; equipped: Record<string, string> };
+  introSeen: boolean;
+  /** gacha currency; coins pay for upgrades and shops */
+  tokens: number;
+  /** rewards already claimed per team */
+  teamRewards: Record<string, { crest?: boolean; kit?: boolean; captain?: boolean }>;
+  /** kit worn by the squad ('' = Raimon) and crest shown on the profile */
+  kit: string;
+  crest: string;
+  /** today's catalogue is stored when first rolled, so later roster or rarity changes can't reshuffle it */
+  daily: { key: string; bought: number[]; offers?: { playerId: number; price: number; discount: number }[] };
+  /** per-profile salt of the daily shop */
+  shopSeed: number;
+  /** lifetime uses per technique id */
+  mastery: Record<string, number>;
+  /** repertoire index each player starts a run with */
+  loadout: Record<string, number>;
+  /** "Mi Equipo": up to seven owned candidates for a run, captain first */
+  squad: number[];
+  /** run difficulty rank chosen last */
+  difficulty: Rank;
+  /** best rank cleared per arena */
+  clearedRanks: Record<string, Rank[]>;
+  /** pickups already explained once in a run */
+  seenItems: string[];
+  /** first-steps tutorial: shown on its own until completed or skipped; Options can replay it */
+  tutorial: 'pendiente' | 'hecho' | 'omitido';
+  /** last capsule pulls, newest first */
+  gachaHistory: { id: number; rarity: string; isNew: boolean; at: string }[];
+  /** devlog version the player has already opened */
+  devlogSeen: string;
+  /** best mark per arena+rank on this device (leaderboard.ts) */
+  bests?: Record<string, { map: string; rank: string; time: number; damage: number; captainId: number; at: string }>;
+  /** ids of runs already recorded, so a reload can't count one twice */
+  seenRuns?: string[];
+  /** username is permanent once the profile is created (and once reserved online) */
+  nameLocked?: boolean;
+  /** online account: reserved global username, if any */
+  onlineName?: string;
+  /** hall of fame: every victory with its squad (hallOfFame.ts) */
+  hall?: { runId: string; at: string; map: string; rank: string; team: number[]; time: number; kills: number; damage: number; endless: number }[];
+  /** version of the cloud copy this device last wrote (optimistic lock) */
+  cloudVersion?: number;
+  /** raised by «Reiniciar progreso»: a copy from an older epoch is stale and can never overwrite a newer one */
+  progressEpoch?: number;
+}
+
+export type Rank = 'C' | 'B' | 'A' | 'S' | 'X';
+
+export interface MissionState {
+  counters: Record<string, number>; // lifetime
+  daily: { key: string; counters: Record<string, number> };
+  weekly: { key: string; counters: Record<string, number> };
+  claimed: string[]; // claim ids (period-stamped for daily/weekly)
+  /** last player given as a mission duplicate (for the reward summary) */
+  lastDupe?: number;
+}
+
+export interface Profile { name: string; icon: { kind: 'emblem' | 'player' | 'coach'; id: number } }
+export const DEFAULT_PROFILE: Profile = { name: 'Entrenador', icon: { kind: 'emblem', id: 1 } };
+
+export type ParticleLevel = 'completo' | 'reducido' | 'desactivado';
+export interface Settings {
+  volume: number; // sound effects
+  musicVolume: number;
+  muted: boolean;
+  menuTrack: string; // '' = automatic
+  battleTrack: string; // '' = automatic rotation
+  particles: ParticleLevel;
+  shake: number; // 0..1
+  flashes: boolean;
+  damageNumbers: boolean;
+  reducedMotion: boolean;
+  uiScale: number;
+  quality: 'alta' | 'media' | 'baja';
+  moveKeys: 'ambos' | 'wasd' | 'flechas';
+  /** 'original' = music generated by the game; 'local' = OST exported from the player's own ROM */
+  musicSource: 'original' | 'local';
+  /** how much of the pitch the camera shows: 'cerca' frames the squad tightly */
+  camera: 'cerca' | 'normal' | 'lejos';
+}
+
+export const DEFAULT_SETTINGS: Settings = { volume: 0.5, musicVolume: 0.45, muted: false, menuTrack: '', battleTrack: '', particles: 'completo',
+  shake: 0.35, flashes: true, damageNumbers: true, reducedMotion: false, musicSource: 'local', uiScale: 1, quality: 'alta', moveKeys: 'ambos', camera: 'normal' };
+
+export const emptyMissions = (): MissionState => ({ counters: {}, daily: { key: '', counters: {} }, weekly: { key: '', counters: {} }, claimed: [] });
+
+export function newSave(starterIds: number[], captainId: number | null): SaveData {
+  const owned: Record<string, OwnedPlayer> = {};
+  for (const id of starterIds) owned[String(id)] = { stars: 0, copies: 1, obtainedAt: new Date(0).toISOString() };
+  return {
+    schemaVersion: SCHEMA_VERSION, coins: 200, owned, captainId, clearedMaps: [],
+    stats: { runs: 0, wins: 0, kills: 0, bestTimeSec: 0, pulls: 0, bestKills: 0, bestLevel: 0 },
+    settings: { ...DEFAULT_SETTINGS }, upgrades: {}, formation: 'equilibrada',
+    onboardingDone: starterIds.length > 0, profile: { ...DEFAULT_PROFILE, icon: { ...DEFAULT_PROFILE.icon } },
+    favoriteTeam: null, missions: emptyMissions(), shop: { techUnlocks: {}, techBoosts: {} }, gear: { owned: [], equipped: {} }, introSeen: false,
+    tokens: 20, teamRewards: {}, kit: '', crest: '', daily: { key: '', bought: [] }, shopSeed: Math.floor(Math.random() * 1e9),
+    mastery: {}, loadout: {}, squad: [], difficulty: 'C', clearedRanks: {}, seenItems: [], tutorial: 'pendiente', gachaHistory: [], devlogSeen: '',
+  };
+}
+
+type Migration = (s: any) => any; // eslint-disable-line @typescript-eslint/no-explicit-any
+/** migrations[n] upgrades a save from version n to n+1. */
+export const migrations: Record<number, Migration> = {
+  // v1 stored unlocked players as an id list and had no stats.pulls
+  1: (s) => {
+    const owned: Record<string, OwnedPlayer> = {};
+    for (const id of s.unlocked ?? []) owned[String(id)] = { stars: s.stars?.[id] ?? 0, copies: 1, obtainedAt: new Date(0).toISOString() };
+    const { unlocked: _u, stars: _s, ...rest } = s;
+    return { ...rest, owned, stats: { pulls: 0, ...(s.stats ?? {}) }, schemaVersion: 2 };
+  },
+  // v2 -> v3: visual/accessibility settings, permanent upgrades, formation, new records (owned/coins untouched)
+  2: (s) => ({
+    ...s,
+    settings: { ...DEFAULT_SETTINGS, ...(s.settings ?? {}) },
+    upgrades: s.upgrades ?? {},
+    formation: s.formation ?? 'equilibrada',
+    stats: { bestKills: 0, bestLevel: 0, ...(s.stats ?? {}) },
+    schemaVersion: 3,
+  }),
+  // v3 -> v4: one-time onboarding flag (already done if the profile owns players), profile, music settings, softer shake
+  3: (s) => ({
+    ...s,
+    onboardingDone: Object.keys(s.owned ?? {}).length > 0,
+    profile: s.profile ?? { ...DEFAULT_PROFILE, icon: { ...DEFAULT_PROFILE.icon } },
+    settings: { ...DEFAULT_SETTINGS, ...(s.settings ?? {}), shake: Math.min(s.settings?.shake ?? 0.35, 0.35) },
+    schemaVersion: 4,
+  }),
+  // v4 -> v5: favourite team, missions, technique shop, equipment, intro flag. Existing players skip the intro once.
+  4: (s) => ({
+    ...s,
+    favoriteTeam: s.favoriteTeam ?? null,
+    missions: s.missions ?? emptyMissions(),
+    shop: s.shop ?? { techUnlocks: {}, techBoosts: {} },
+    gear: s.gear ?? { owned: [], equipped: {} },
+    introSeen: s.introSeen ?? !!s.onboardingDone,
+    settings: { ...DEFAULT_SETTINGS, ...(s.settings ?? {}) },
+    schemaVersion: 5,
+  }),
+  // v5 -> v6: the game's own soundtrack becomes the default music
+  5: (s) => ({ ...s, settings: { ...(s.settings ?? {}), musicSource: 'local' }, schemaVersion: 6 }),
+  // v6 -> v7: gacha tokens (starter grant, coins untouched), team rewards, kits, daily shop. Collection unchanged.
+  6: (s) => ({ ...s, tokens: s.tokens ?? 30, teamRewards: s.teamRewards ?? {}, kit: s.kit ?? '', crest: s.crest ?? '',
+    daily: s.daily ?? { key: '', bought: [] }, shopSeed: s.shopSeed ?? Math.floor(Math.random() * 1e9), schemaVersion: 7 }),
+  // v7 -> v8: technique mastery and starting technique
+  7: (s) => ({ ...s, mastery: s.mastery ?? {}, loadout: s.loadout ?? {}, schemaVersion: 8 }),
+  // v8 -> v9 (InaZurivors 3.0): squad of seven, difficulty ranks, tutorial and gacha history. Existing players already
+  // know the game, so their tutorial is not forced on them (it stays in Options).
+  8: (s) => ({ ...s, squad: s.squad ?? [], difficulty: s.difficulty ?? 'C', clearedRanks: s.clearedRanks ?? {}, seenItems: s.seenItems ?? [],
+    tutorial: s.tutorial ?? (s.onboardingDone ? 'omitido' : 'pendiente'), gachaHistory: s.gachaHistory ?? [], devlogSeen: s.devlogSeen ?? '', schemaVersion: 9 }),
+};
+
+const num = (v: unknown, d: number) => (typeof v === 'number' && Number.isFinite(v) ? v : d);
+const obj = (v: unknown) => (v && typeof v === 'object' && !Array.isArray(v) ? v as Record<string, unknown> : null);
+
+/**
+ * Moves players owned under an old id to their current id (manifest idAliases): copies, stars, spent duplicates and
+ * ascensions add up; squad, captain, loadout and the hall of fame follow. Returns how many were moved.
+ */
+export function remapIds(s: SaveData, aliases: Record<string, number> = {}) {
+  let moved = 0;
+  for (const [from, to] of Object.entries(aliases)) {
+    const o = s.owned[from];
+    if (!o) continue;
+    const t = s.owned[String(to)];
+    if (t) {
+      t.copies += o.copies; t.stars = Math.min(5, Math.max(t.stars, o.stars)); t.spent = (t.spent ?? 0) + (o.spent ?? 0);
+      t.ascMitico ||= o.ascMitico; t.hero ||= o.hero;
+    } else s.owned[String(to)] = o;
+    delete s.owned[from];
+    const map = (id: number) => (String(id) === from ? to : id);
+    s.squad = [...new Set((s.squad ?? []).map(map))];
+    if (s.captainId !== null) s.captainId = map(s.captainId);
+    if (s.loadout[from] !== undefined && s.loadout[String(to)] === undefined) s.loadout[String(to)] = s.loadout[from];
+    for (const h of s.hall ?? []) h.team = h.team.map(map);
+    moved++;
+  }
+  return moved;
+}
+
+/** Repairs wrong field types without dropping valid progress. */
+export function validate(s: SaveData): SaveData {
+  s.coins = Math.max(0, Math.floor(num(s.coins, 0)));
+  s.tokens = Math.max(0, Math.floor(num(s.tokens, 0)));
+  const owned: Record<string, OwnedPlayer> = {};
+  for (const [k, v] of Object.entries(obj(s.owned) ?? {})) {
+    const o = obj(v);
+    if (!o || !/^\d+$/.test(k)) continue;
+    const copies = Math.max(1, Math.floor(num(o.copies, 1)));
+    owned[k] = { stars: Math.max(0, Math.floor(num(o.stars, 0))), copies, obtainedAt: String(o.obtainedAt ?? new Date(0).toISOString()) };
+    // ascension survives validation; spent duplicates can never exceed the duplicates there are
+    const spent = Math.min(copies - 1, Math.max(0, Math.floor(num(o.spent, 0))));
+    if (spent) owned[k].spent = spent;
+    if (o.ascMitico === true) owned[k].ascMitico = true;
+    if (o.hero === true) owned[k].hero = true;
+  }
+  s.owned = owned;
+  if (!Array.isArray(s.clearedMaps)) s.clearedMaps = [];
+  if (!obj(s.upgrades)) s.upgrades = {};
+  if (!Array.isArray(s.missions?.claimed)) s.missions = emptyMissions();
+  s.squad = Array.isArray(s.squad) ? [...new Set(s.squad.filter((id) => Number.isInteger(id) && owned[String(id)]))].slice(0, 7) : [];
+  if (!['C', 'B', 'A', 'S', 'X'].includes(s.difficulty)) s.difficulty = 'C';
+  if (!Array.isArray(s.seenItems)) s.seenItems = [];
+  if (!Array.isArray(s.gachaHistory)) s.gachaHistory = [];
+  if (!obj(s.clearedRanks)) s.clearedRanks = {};
+  if (s.progressEpoch !== undefined) s.progressEpoch = Math.max(0, Math.floor(num(s.progressEpoch, 0)));
+  return s;
+}
+
+/** True when the value looks like one of our saves at all. */
+function isSaveShape(raw: unknown) {
+  const o = obj(raw);
+  return !!o && (typeof o.schemaVersion === 'number' || 'coins' in o || 'owned' in o || 'unlocked' in o);
+}
+
+export function migrate(raw: any, starterIds: number[], captainId: number | null): SaveData { // eslint-disable-line @typescript-eslint/no-explicit-any
+  if (!raw || typeof raw !== 'object') return newSave(starterIds, captainId);
+  let s = { ...raw };
+  if (typeof s.schemaVersion !== 'number') s.schemaVersion = 1;
+  while (s.schemaVersion < SCHEMA_VERSION) {
+    const m = migrations[s.schemaVersion];
+    if (!m) throw new Error(`sin migración desde v${s.schemaVersion}`);
+    s = m(s);
+  }
+  const base = newSave(starterIds, captainId);
+  return validate({ ...base, ...s, stats: { ...base.stats, ...s.stats }, settings: { ...base.settings, ...s.settings },
+    profile: { ...base.profile, ...(s.profile ?? {}) } });
+}
+
+const KEY = 'ie-survivors-save';
+const BACKUP = `${KEY}.bak`;
+
+function parse(txt: string | null, starterIds: number[], captainId: number | null): SaveData | null {
+  if (!txt) return null;
+  const raw = JSON.parse(txt);
+  if (!isSaveShape(raw)) throw new Error('no es un guardado');
+  return migrate(raw, starterIds, captainId);
+}
+
+export function loadSave(starterIds: number[], captainId: number | null): SaveData {
+  let txt: string | null = null;
+  try { txt = localStorage.getItem(KEY); } catch { return newSave(starterIds, captainId); }
+  try {
+    return parse(txt, starterIds, captainId) ?? newSave(starterIds, captainId);
+  } catch {
+    // unreadable: keep it for manual recovery, then fall back to the last good copy
+    try { localStorage.setItem(`${KEY}.recovery-${Date.now()}`, txt ?? ''); } catch { /* storage full */ }
+    try {
+      const prev = parse(localStorage.getItem(BACKUP), starterIds, captainId);
+      if (prev) return prev;
+    } catch { /* backup unusable too */ }
+    return newSave(starterIds, captainId);
+  }
+}
+
+export function storeSave(s: SaveData): boolean {
+  try {
+    const prev = localStorage.getItem(KEY);
+    if (prev) localStorage.setItem(BACKUP, prev);
+    localStorage.setItem(KEY, JSON.stringify(s));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** The id stays the pre-rename one, so backups made before and after the InaZurivors rename import into each other. */
+export const exportSave = (s: SaveData) => JSON.stringify({ game: 'inazuma-eleven-survivors', title: 'InaZurivors', exportedAt: new Date().toISOString(), save: s }, null, 1);
+
+/** Parses an exported backup; throws with a readable message and leaves the current save alone when it is not valid. */
+export function importSave(text: string): SaveData {
+  let raw: unknown;
+  try { raw = JSON.parse(text); } catch { throw new Error('El archivo no es JSON válido.'); }
+  const o = obj(raw);
+  const inner = o?.game === 'inazuma-eleven-survivors' ? o.save : raw;
+  if (!isSaveShape(inner)) throw new Error('El archivo no es una copia de InaZurivors.');
+  return migrate(inner, [], null);
+}

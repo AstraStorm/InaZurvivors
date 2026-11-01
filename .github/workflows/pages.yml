@@ -1,0 +1,48 @@
+# Builds InaZurivors and deploys it to GitHub Pages. The game resources are committed in public/generated (made locally
+# with `npm run assets:sync`, which needs the extracted sprites), so CI only compiles: no sync step here.
+# Nothing runs until the repository exists on GitHub and Pages uses "GitHub Actions" as its source (see PUBLICACION.md).
+name: Deploy InaZurivors (web)
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npx vitest run tests/systems.test.ts tests/online.test.ts
+      - run: npx tsc --noEmit
+      - run: npx vite build
+        env:
+          # public values: the publishable key is meant for the browser; no secret ever goes here
+          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL || 'https://svtkmuxwdxdwvdvjchut.supabase.co' }}
+          VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY || 'sb_publishable_CNdrHsKes1JJV4TEsUbzXg_t7_0fnnW' }}
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
