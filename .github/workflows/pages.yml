@@ -48,7 +48,7 @@ jobs:
         if: env.PUBLICAR == 'true'
         uses: actions/checkout@v4
         with:
-          repository: AstraStorm/InaZurvivors-recursos
+          repository: AstraStorm/-InaZurvivors-recursos
           token: ${{ secrets.RECURSOS_TOKEN }}
           path: .recursos
           persist-credentials: false
