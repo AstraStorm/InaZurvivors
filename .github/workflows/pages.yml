@@ -1,6 +1,7 @@
 # The only InaZurvivors workflow. A push checks the code and compiles it without resources; nothing is deployed.
 # Deploying is a manual run with "publicar" on: it integrates only the groups authorised in config/autorizacion_recursos.json
 # and stops with an explicit error if a required group is missing (PUBLICACION.md).
+# The prueba-recursos job checks the private repository; it has no Pages permission and uploads nothing.
 name: Deploy InaZurvivors (web)
 
 on:
@@ -10,6 +11,10 @@ on:
     inputs:
       publicar:
         description: Integrar los recursos autorizados y desplegar
+        type: boolean
+        default: false
+      probar_recursos:
+        description: Probar el acceso a los recursos, sin desplegar
         type: boolean
         default: false
 
@@ -24,6 +29,56 @@ env:
   PUBLICAR: ${{ github.event_name == 'workflow_dispatch' && inputs.publicar }}
 
 jobs:
+  prueba-recursos:
+    if: (github.event_name == 'push' && contains(github.event.head_commit.message, '[prueba-recursos]')) || (github.event_name == 'workflow_dispatch' && inputs.probar_recursos)
+    runs-on: ubuntu-latest
+    env:
+      VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL || 'https://svtkmuxwdxdwvdvjchut.supabase.co' }}
+      VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY || 'sb_publishable_CNdrHsKes1JJV4TEsUbzXg_t7_0fnnW' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: El secreto existe
+        env:
+          RECURSOS_TOKEN: ${{ secrets.RECURSOS_TOKEN }}
+        run: |
+          if [ -z "$RECURSOS_TOKEN" ]; then echo "ERROR: falta el secreto RECURSOS_TOKEN"; exit 1; fi
+      - name: Descargar el commit de recursos
+        uses: actions/checkout@v4
+        with:
+          repository: AstraStorm/-InaZurvivors-recursos
+          ref: 30946bda8e74ac6388d97372686b9bbfff8d422a
+          token: ${{ secrets.RECURSOS_TOKEN }}
+          path: .recursos
+          persist-credentials: false
+      - name: El token no puede escribir
+        env:
+          RECURSOS_TOKEN: ${{ secrets.RECURSOS_TOKEN }}
+        run: |
+          B64=$(printf 'x-access-token:%s' "$RECURSOS_TOKEN" | base64 -w0)
+          echo "::add-mask::$B64"
+          if git -C .recursos -c http.extraheader="AUTHORIZATION: basic $B64" push --dry-run https://github.com/AstraStorm/-InaZurvivors-recursos.git HEAD:refs/heads/prueba-solo-lectura >/dev/null 2>&1; then
+            echo "ERROR: el token tiene permiso de escritura"; exit 1
+          fi
+      - name: Verificar todos los archivos
+        run: node tools/integrar_recursos.mjs --recursos .recursos --verificar
+      - name: La autorización sigue bloqueando el despliegue
+        run: |
+          if node tools/integrar_recursos.mjs --comprobar; then echo "ERROR: se esperaba autorización pendiente"; exit 1; fi
+      - name: Integrar como prueba no desplegable
+        run: node tools/integrar_recursos.mjs --recursos .recursos --prueba-local
+      - run: npx vite build
+      - name: Comprobar la build y las credenciales
+        env:
+          RECURSOS_TOKEN: ${{ secrets.RECURSOS_TOKEN }}
+        run: node tools/comprobar_build.mjs --recursos .recursos --prueba-local
+      - name: La build de prueba no se puede desplegar
+        run: |
+          if node tools/comprobar_build.mjs --recursos .recursos >/dev/null 2>&1; then echo "ERROR: la prueba pasaría como despliegue"; exit 1; fi
   build:
     runs-on: ubuntu-latest
     steps:
