@@ -52,13 +52,24 @@ export function computeRewards(r: RunResult, rewardMult = 1): Reward[] {
   return out;
 }
 
-/** Fichas de Fichaje earned by a run: a full run pays about one pull (10 fichas). */
-export function tokenRewards(r: RunResult, firstClear: boolean): Reward[] {
-  const out: Reward[] = [{ label: 'Partida jugada', coins: 3 }];
-  if (r.timeSec >= 180) out.push({ label: 'Tres minutos en el campo', coins: 2 });
-  if (r.bossDefeated) out.push({ label: 'Jefe derrotado', coins: 4 });
-  if (r.victory) out.push({ label: 'Victoria', coins: 3 });
-  if (firstClear) out.push({ label: 'Primera victoria en la arena', coins: 15 });
+/** a run only pays in full when the player really played: an idle captain is beaten before reaching this */
+export const ACTIVE_KILLS = 20;
+/** the first runs of a profile pay a welcome bonus, so the early collection grows fast */
+export const WELCOME_RUNS = 10;
+export const WELCOME_TOKENS = 5;
+
+/**
+ * Fichas de Fichaje earned by a run (a pull costs 8). An active defeat pays about one pull, a full victory more than two,
+ * and each of the first WELCOME_RUNS active runs adds WELCOME_TOKENS. `runsBefore`: runs finished before this one.
+ */
+export function tokenRewards(r: RunResult, firstClear: boolean, runsBefore = Infinity): Reward[] {
+  const active = r.kills >= ACTIVE_KILLS;
+  const out: Reward[] = [{ label: 'Partida jugada', coins: active ? 5 : 1 }];
+  if (active && runsBefore < WELCOME_RUNS) out.push({ label: `Bienvenida (partida ${runsBefore + 1} de ${WELCOME_RUNS})`, coins: WELCOME_TOKENS });
+  if (r.timeSec >= 180 && active) out.push({ label: 'Tres minutos en el campo', coins: 3 });
+  if (r.bossDefeated) out.push({ label: 'Jefe derrotado', coins: 6 });
+  if (r.victory) out.push({ label: 'Victoria', coins: 5 });
+  if (firstClear) out.push({ label: 'Primera victoria en la arena', coins: 20 });
   if (r.bonusTokens) out.push({ label: 'Fichas recogidas y altares', coins: r.bonusTokens });
   return out;
 }
@@ -84,7 +95,7 @@ export function applyRun(save: SaveData, r: RunResult, coinMult = 1, rewardMult 
     rewards.push({ label: `${rank.label} (×${rank.reward})`, coins: Math.round(base * (rank.reward - 1)) });
   }
   const total = rewards.reduce((a, x) => a + x.coins, 0);
-  const tokens = tokenRewards(r, r.victory && !save.clearedMaps.includes(r.mapId));
+  const tokens = tokenRewards(r, r.victory && !save.clearedMaps.includes(r.mapId), save.stats.runs);
   if (extraTokens && r.timeSec >= 180) tokens.push({ label: 'Ojeador', coins: extraTokens });
   if (r.victory && recordRankClear(save.clearedRanks ??= {}, r.mapId, rank.id)) tokens.push({ label: `Primera victoria en ${rank.label}`, coins: rank.firstClearTokens });
   const tokenTotal = tokens.reduce((a, x) => a + x.coins, 0);

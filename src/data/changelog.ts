@@ -15,6 +15,23 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: '4.5', date: '2026-11-01', title: 'Actualización 1.1',
+    features: [
+      'Introducción en cada visita: completa la primera vez y el logo animado después, con pantalla de bienvenida para quien ya tiene club.',
+      'Técnicas oficiales de GO, Chrono Stone y Galaxy (wiki) con nombre español: sustituyen a las del parche Great Road; 220 de 406 futbolistas con cuatro técnicas jugables (antes 20) y 139 con tres.',
+      'Nombres en español por nombre japonés (wiki en español) para técnicas que estaban en inglés o japonés.',
+      'Las compras de técnicas se trasladan a su nueva posición; si una técnica comprada desaparece, se devuelven sus monedas.',
+      'Repertorio de hasta 8 técnicas (4 jugables más talentos) visible en la ficha.',
+    ],
+    fixes: [
+      'La introducción salía en blanco: la pantalla se tomaba por repetida y se congelaban sus animaciones.',
+      'Shawn Froste ya no figura en Knights of Queen (registro 2529 de la ROM fuera del bloque del equipo).',
+      'Mark Evans Leyenda usa el retrato y la miniatura del Mark adulto (registro 430).',
+    ],
+    visuals: ['Gacha nuevo: manivela con aceleración y frenado, cápsula que rueda y se asienta, carga por rareza y apertura en dos mitades.'],
+    balance: ['Basara de Victory Road a Legendario como mínimo (15 cambios).', 'Economía: tirada a 8 fichas (×10 a 72), más fichas por partida activa, bienvenida en las 10 primeras partidas y misiones más generosas.'],
+  },
+  {
     version: '4.3', date: '2026-11-01', title: 'Gameplay',
     features: [
       'Rivales con comportamiento propio: tiradores, interceptores, bombas y tanques; rodeos y castigo por quedarse quieto.',

@@ -4,8 +4,8 @@ import { RARITY_ORDER } from '../data/manifest';
 import type { SaveData } from './save';
 
 /** Prices in Fichas de Fichaje. */
-export const PULL_COST = 10;
-export const MULTI_COST = 90; // 10 pulls
+export const PULL_COST = 8;
+export const MULTI_COST = 72; // 10 pulls for the price of 9
 export const MAX_STARS = 5;
 export const DUPLICATE_REFUND = 25; // coins when already at max stars
 

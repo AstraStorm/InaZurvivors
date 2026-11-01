@@ -3,7 +3,7 @@
 import type Phaser from 'phaser';
 import type { Manifest, Rarity, RosterEntry, Technique } from '../data/manifest';
 import { ICON, RARITY_LABEL, RARITY_ORDER } from '../data/manifest';
-import { exportSave, importSave, remapIds, storeSave, type SaveData, type ParticleLevel, type Rank } from '../systems/save';
+import { exportSave, importSave, remapIds, remapTechSlots, storeSave, type SaveData, type ParticleLevel, type Rank } from '../systems/save';
 import { eligibleTeams, effectiveOdds, pull, recordHistory, DUPLICATE_REFUND, PULL_COST, MULTI_COST, MAX_STARS, starBonus, onboardingPull, type PullResult } from '../systems/gacha';
 import { applyRun, isMapUnlocked, type RunResult } from '../systems/economy';
 import { statChanges, TYPE_LABEL, MAX_TECH_LEVEL } from '../systems/techniques';
@@ -109,6 +109,7 @@ export class App {
     this.gear = buildGear(m.items.items);
     rollPeriods(save);
     if (remapIds(save, m.idAliases)) storeSave(save); // characters now on another ROM record keep their progress
+    if (remapTechSlots(save, m.techRemaps) >= 0) storeSave(save); // repertoires that changed order keep their purchases
     if (m.profile && !iconAllowed(save, m.roster, m.profile.emblems, m.profile.coaches)) save.profile.icon = { kind: 'emblem', id: DEFAULT_EMBLEM };
     initPreviews(m);
     setTeamSagas(m.teamSagas);
@@ -131,8 +132,9 @@ export class App {
   }
 
   /**
-   * Entry point. The Google session is settled first (so a returning account lands on its own progress), then the intro
-   * the first time, then profile creation if needed, otherwise the main menu.
+   * Entry point. The Google session is settled first (so a returning account lands on its own progress), then the intro:
+   * whole the first time, only the animated logo afterwards. New players go on to profile creation (with the Google /
+   * guest choice when there is no session); anyone with a profile gets a title screen to continue as they are.
    */
   async start() {
     let after: (() => void) | null = null;
@@ -142,14 +144,40 @@ export class App {
       if (signedIn()) after = await this.resolveAccount();
       if (ret?.signedIn && !after) window.setTimeout(() => this.toast(this.save.onlineName ? `¡Hola de nuevo, ${this.save.onlineName}!` : '¡Conectado con Google!', 3500), 600);
     }
-    const go = () => { this.afterIntro(); after?.(); };
-    if (!this.save.introSeen) void this.intro().then(go);
-    else go();
+    const returning = this.save.onboardingDone;
+    // the public landing (index.html) sits over the game until «Jugar»: the intro waits for it instead of playing unseen
+    await new Promise<void>((ok) => {
+      const gone = () => !document.getElementById('landing') || getComputedStyle(document.getElementById('landing')!).display === 'none';
+      if (gone()) { ok(); return; }
+      const id = window.setInterval(() => { if (gone()) { window.clearInterval(id); ok(); } }, 100);
+    });
+    void this.intro(this.save.introSeen).then(() => {
+      if (!returning) { this.afterIntro(); after?.(); return; }
+      this.titleScreen(() => { this.mainMenu(); after?.(); });
+    });
   }
 
   private afterIntro() {
     if (!this.save.onboardingDone) this.createProfile(onlineConfigured() && !signedIn() ? 0 : 1);
     else this.mainMenu();
+  }
+
+  /** Returning player: their club is already here, one click (or key) carries on. A guest can still link Google. */
+  private titleScreen(next: () => void) {
+    const name = this.save.onlineName ?? this.save.profile.name;
+    const guest = onlineConfigured() && !signedIn();
+    this.show(`<div class="cine title-screen"><div class="cine-shot in"><div class="logo cine-logo"><h1>INA<span class="bolt">Z</span>URVIVORS</h1>
+      <div class="sub">ROGUELITE DE FÚTBOL · FANGAME</div></div>
+      <p class="cine-text">¡Hola de nuevo, ${esc(name)}!</p>
+      <p class="wiz-next"><button class="btn big" id="tscont">Continuar ▶</button></p>
+      ${guest ? '<p class="wiz-next"><button class="btn google-btn" id="tsgoogle"><span class="g-logo">G</span> Entrar con Google</button></p><p class="note">Ahora juegas como invitado: tu progreso está en este navegador.</p>' : ''}
+      </div></div>`, 'title');
+    let gone = false;
+    const go = () => { if (gone) return; gone = true; window.removeEventListener('keydown', key); next(); };
+    const key = (e: KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') go(); };
+    window.addEventListener('keydown', key);
+    document.getElementById('tscont')!.addEventListener('click', go);
+    document.getElementById('tsgoogle')?.addEventListener('click', () => { void signInWithGoogle(); });
   }
 
   /**
@@ -408,12 +436,14 @@ export class App {
   }
 
   // ------------------------------------------------------------- intro cinematic
-  private intro(): Promise<void> {
+  /** `short`: only the animated logo (every visit after the first). */
+  private intro(short = false): Promise<void> {
     this.stopScenes();
     setMusicContext('menu');
     const cast = [...this.m.roster].sort((a, b) => RARITY_ORDER.indexOf(b.rarity) - RARITY_ORDER.indexOf(a.rarity)).slice(0, 5);
     return new Promise((resolve) => {
-      this.show('<div class="cine"><div class="cine-shot" id="shot"></div><button class="btn small blue cine-skip" id="skip">Saltar ▶▶</button></div>');
+      // its own screen key: with an empty key show() took it for a repeat of the empty start screen and froze its animations
+      this.show('<div class="cine"><div class="cine-shot" id="shot"></div><button class="btn small blue cine-skip" id="skip">Saltar ▶▶</button></div>', 'intro');
       let i = 0, timer = 0, done = false;
       const finish = () => {
         if (done) return;
@@ -424,7 +454,7 @@ export class App {
         resolve();
       };
       const play = () => {
-        const shot = INTRO[i++];
+        const shot = (short ? INTRO.filter((s) => s.kind === 'logo') : INTRO)[i++];
         const box = document.getElementById('shot');
         if (!shot || !box) { finish(); return; }
         if (shot.kind === 'text') box.innerHTML = `<p class="cine-text">${esc(shot.text)}</p>`;
@@ -970,6 +1000,8 @@ export class App {
     const name = this.save.onlineName ?? next.onlineName; // the account's name, whatever the copy says
     for (const k of Object.keys(this.save)) delete (this.save as unknown as Record<string, unknown>)[k];
     Object.assign(this.save, next, { cloudVersion: cloud.version, onlineName: name });
+    remapIds(this.save, this.m.idAliases);
+    remapTechSlots(this.save, this.m.techRemaps);
     this.captainId = this.save.captainId;
     this.cloudLinked = true;
     this.cloudState = { status: 'ok', at: Date.now(), msg: '' };
@@ -1547,7 +1579,7 @@ export class App {
     const o = this.owned(d.id);
     const statNames: Record<string, string> = { kick: 'Tiro', body: 'Físico', guard: 'Defensa', control: 'Control', speed: 'Velocidad', guts: 'Agallas', stamina: 'Aguante' };
     const active = startingTech(d);
-    const reps = Array.from({ length: 4 }, (_, i) => d.techniques[i]);
+    const reps = Array.from({ length: Math.max(4, d.techniques.length) }, (_, i) => d.techniques[i]); // GO players can know more than 4
     return `<div class="panel detail r-${d.rarity}" style="--rc:${RARITY_COLOR[d.rarity]}"><div class="art">${this.mug(d.id, 128)}${charCanvas(d.id, 3, 12)}</div><div>
       <h3>${esc(d.name)} “${esc(d.nickname)}” ${this.rar(d)} ${this.elem(d)}</h3>
       <div class="note">${POS_LABEL[d.position]} · ${esc(d.teams.filter((t) => (this.m.mainTeams ?? []).includes(t)).slice(0, 5).map(teamLabel).join(', ') || 'Jugador de Fichatrón / Ojeador')}</div>
@@ -1619,13 +1651,15 @@ export class App {
     if (has) this.animateGlobe();
   }
 
+  /** ms between globe frames: idle shuffle, faster while the knob turns */
+  private globeMs = 520;
   private animateGlobe() {
     let i = 0;
     const tick = () => {
       const g = document.getElementById('globe') as HTMLImageElement | null;
       if (!g) return;
       g.src = this.cap(`globe${i++ % 3}`);
-      setTimeout(tick, 520);
+      setTimeout(tick, this.globeMs);
     };
     tick();
   }
@@ -1642,16 +1676,27 @@ export class App {
     }
     const k = document.getElementById('knob') as HTMLImageElement | null;
     if (!k) return;
-    sfx('whoosh');
-    // eased: speeds up and slows down instead of ticking at a constant rate
-    for (let f = 0; f < 24; f++) {
-      k.src = this.cap(`knob${String(f).padStart(2, '0')}`);
-      const t = f / 23;
-      await wait(14 + 36 * (1 - Math.sin(t * Math.PI)));
+    // one clockwise turn like a real crank: it starts heavy, runs, and brakes; a ratchet click every quarter turn
+    const TURN_MS = 1050;
+    const ease = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2);
+    const timeAt = (p: number) => { let lo = 0, hi = 1; for (let n = 0; n < 20; n++) { const m = (lo + hi) / 2; if (ease(m) < p) lo = m; else hi = m; } return lo * TURN_MS; };
+    const show = (f: number) => { k.src = this.cap(`knob${String(f).padStart(2, '0')}`); };
+    this.globeMs = 110;
+    let prev = 0;
+    for (let f = 1; f <= 24; f++) {
+      const at = timeAt(f / 24);
+      await wait(at - prev);
+      prev = at;
+      show(f % 24);
+      if (f % 6 === 0) sfx('click');
     }
+    // the spring of the crank pushes it a hair past and back
+    show(1); await wait(70); show(0);
+    this.globeMs = 520;
     const machine = document.querySelector('.ie3-machine');
     machine?.classList.add('shake');
-    await wait(450);
+    sfx('kick');
+    await wait(380);
     machine?.classList.remove('shake');
   }
 
@@ -1696,14 +1741,32 @@ export class App {
       const pause = async (ms: number) => { for (let t = 0; t < ms && !skipAnim; t += 30) await wait(30); };
       const seq = async () => {
         if (img) {
+          // falls out of the slot and rolls: each spin frame a little later than the last, as the roll loses speed
+          img.style.setProperty('--glow', RARITY_COLOR[p.rarity]);
           frame('spin0');
-          for (let k = 0; k < 12 && !skipAnim; k++) { frame(`spin${k % 6}`); await wait(60); }
-          img.classList.add('wobble');
-          await pause([500, 900, 1300, 1800][tier]);
-          img.classList.remove('wobble');
+          img.classList.add('roll-in');
+          const steps = 14 + tier * 2;
+          for (let k = 0; k < steps && !skipAnim; k++) { frame(`spin${k % 6}`); await wait(34 + 120 * (k / steps) ** 2); }
+          if (!skipAnim) sfx('kick');
+          img.classList.remove('roll-in');
+          img.classList.add('settle');
+          await pause(520);
+          img.classList.remove('settle');
+          // the rarity charges before the capsule opens: nothing for common, beats of its colour above, shaking for the best
+          if (tier > 0 || p.rarity === 'epico') {
+            img.classList.add('charge', `c${tier}`);
+            if (tier >= 2) ov.classList.add('charging');
+            for (let b = 0; b < tier + 1 && !skipAnim; b++) { sfx('click'); await pause(tier >= 2 ? 360 : 300); }
+            if (tier >= 2 && this.save.settings.shake > 0) ov.classList.add('quake');
+            await pause(tier * 220);
+          }
           frame('open');
-          await pause(140);
-          frame('top');
+          sfx('whoosh');
+          await pause(120);
+          // the two halves fly apart (the sheet's own frames) and the player comes out
+          for (const h of ['half0', 'half1', 'half2']) { frame(h); await pause(80); }
+          img.classList.remove('charge', `c${tier}`);
+          ov.classList.remove('quake');
           img.classList.add('pop');
         } else {
           await wait(900);

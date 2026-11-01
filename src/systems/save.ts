@@ -42,6 +42,8 @@ export interface SaveData {
   mastery: Record<string, number>;
   /** repertoire index each player starts a run with */
   loadout: Record<string, number>;
+  /** last manifest techRemaps step applied to this save (remapTechSlots) */
+  techRev?: number;
   /** "Mi Equipo": up to seven owned candidates for a run, captain first */
   squad: number[];
   /** run difficulty rank chosen last */
@@ -203,6 +205,34 @@ export function remapIds(s: SaveData, aliases: Record<string, number> = {}) {
     moved++;
   }
   return moved;
+}
+
+/**
+ * Moves technique purchases and the chosen starting technique to their new slots after a repertoire changed order
+ * (manifest techRemaps); an unlocked technique that left the repertoire is refunded. Each step applies once (techRev).
+ * Returns the coins refunded, or -1 when nothing changed.
+ */
+export function remapTechSlots(s: SaveData, steps: { rev: number; players: Record<string, { map: number[]; refund: number[] }> }[] = []) {
+  const from = s.techRev ?? 0;
+  let refunded = 0, changed = false;
+  for (const step of steps) {
+    if (step.rev <= from) continue;
+    changed = true;
+    for (const [pid, { map, refund }] of Object.entries(step.players)) {
+      const bought = s.shop.techUnlocks[pid];
+      if (bought) {
+        for (const i of bought) if ((map[i] ?? i) < 0) refunded += refund[i] ?? 0;
+        s.shop.techUnlocks[pid] = [...new Set(bought.map((i) => map[i] ?? i).filter((i) => i >= 0))];
+      }
+      if (s.loadout[pid] !== undefined) {
+        const to = map[s.loadout[pid]] ?? s.loadout[pid];
+        if (to < 0) delete s.loadout[pid]; else s.loadout[pid] = to;
+      }
+    }
+    s.techRev = Math.max(s.techRev ?? 0, step.rev);
+  }
+  s.coins += refunded;
+  return changed ? refunded : -1;
 }
 
 /** Repairs wrong field types without dropping valid progress. */

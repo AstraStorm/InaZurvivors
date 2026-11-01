@@ -25,13 +25,14 @@ export function techTier(t: Pick<Technique, 'power'>, rarity: Rarity) {
 export function recipeFor(t: Pick<Technique, 'name' | 'element' | 'power'>, rarity: Rarity): Recipe {
   const n = t.name;
   const style = fxStyle(t);
-  const id: RecipeId = /tormenta de fuego|bakunetsu|fire ?storm|llamarada|tornillo ardiente/i.test(n) ? 'fuego'
-    : /demon|diabl|infern|hell|sat[aá]n|maldit|dem[oó]n/i.test(n) ? 'demonio'
-    : /supernova|c[oó]smic|galax|astro|espacial|estelar|agujero/i.test(n) ? 'supernova'
-    : /tornado|torbellino|cicl[oó]n|remolino|ventisca|tormenta/i.test(n) ? 'tornado'
-      : /drag[oó]n|serpien/i.test(n) ? 'dragon'
-        : /f[eé]nix|c[oó]ndor|halc[oó]n|p[aá]jaro|[aá]guila/i.test(n) ? 'fenix'
-          : /divin|celest|[aá]ngel|sagrad|dios/i.test(n) ? 'divino'
+  // Spanish and English names: the GO movesets come from the wiki, most of them only in English
+  const id: RecipeId = /tormenta de fuego|bakunetsu|fire ?storm|llamarada|tornillo ardiente|inferno|blaze|flame/i.test(n) ? 'fuego'
+    : /demon|diabl|infern|hell|sat[aá]n|maldit|dem[oó]n|devil|majin|dark matter/i.test(n) ? 'demonio'
+    : /supernova|c[oó]smic|galax|astro|espacial|estelar|agujero|omega|cosmo|star|meteor|black hole/i.test(n) ? 'supernova'
+    : /tornado|torbellino|cicl[oó]n|remolino|ventisca|tormenta|hurricane|cyclone|typhoon|storm|whirl/i.test(n) ? 'tornado'
+      : /drag[oó]n|serpien|serpent|wyvern/i.test(n) ? 'dragon'
+        : /f[eé]nix|c[oó]ndor|halc[oó]n|p[aá]jaro|[aá]guila|phoenix|eagle|falcon|hawk|bird|wing|pegasus/i.test(n) ? 'fenix'
+          : /divin|celest|[aá]ngel|sagrad|dios|god|heaven|holy|angel|zeus|athena/i.test(n) ? 'divino'
             : trajectory(t) === 'meteoro' ? 'meteoro'
               : style === 'rayo' ? 'rayo' : style === 'hielo' ? 'hielo' : style === 'sombra' ? 'sombra'
                 : (t.power ?? 0) >= 60 ? 'canon' : 'basico';

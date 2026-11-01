@@ -6,7 +6,7 @@
  */
 import { CHANGELOG } from './changelog';
 
-export const PUBLIC_VERSION = '1.0';
+export const PUBLIC_VERSION = '1.1';
 export const BUILD = CHANGELOG[0].version;
 export const RELEASED = false;
 export const VERSION_LABEL = RELEASED ? `v${PUBLIC_VERSION}` : `v${PUBLIC_VERSION} · pre-lanzamiento`;
@@ -26,6 +26,20 @@ export interface PublicRelease {
 
 /** Public news, newest first. Starts at v1.0: the internal versions before it are not part of the public history. */
 export const PUBLIC_RELEASES: PublicRelease[] = [
+  {
+    version: '1.1',
+    title: 'InaZurvivors v1.1 — Más técnicas, más fichajes',
+    tagline: 'Técnicas de GO, nueva máquina de fichajes y vuelve la introducción',
+    intro: 'Los futbolistas de GO, Chrono Stone y Galaxy aprenden sus técnicas de los juegos originales, la máquina de fichajes gira como una de verdad y conseguir fichas es más rápido.',
+    features: [
+      { icon: '⚡', title: 'Técnicas de GO', text: 'Hasta cuatro técnicas jugables por futbolista de GO, Chrono Stone y Galaxy.' },
+      { icon: '◎', title: 'Máquina nueva', text: 'Manivela, cápsula que rueda y apertura con la intensidad de su rareza.' },
+      { icon: '▲', title: 'Más fichas', text: 'La tirada cuesta 8 fichas y las primeras partidas dan un extra.' },
+      { icon: '★', title: 'Basara', text: 'Los Basara de Victory Road son, como mínimo, Legendarios.' },
+      { icon: '▶', title: 'Introducción', text: 'Vuelve la presentación animada al abrir el juego.' },
+    ],
+    start: ['Abre el juego y disfruta la introducción', 'Pulsa Continuar con tu club', 'Prueba la nueva máquina de fichajes'],
+  },
   {
     version: '1.0',
     title: 'InaZurvivors v1.0 — ¡Comienza la aventura!',

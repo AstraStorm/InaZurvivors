@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { exportSave, importSave, migrate, newSave, SCHEMA_VERSION } from '../src/systems/save';
+import { exportSave, importSave, migrate, newSave, remapTechSlots, SCHEMA_VERSION } from '../src/systems/save';
 import { canStartGuardedMove, GUARD_LOCKOUT_SEC } from '../src/systems/combat';
-import { pull, pullOne, rollRarity, starBonus, MAX_STARS, RARITY_WEIGHTS } from '../src/systems/gacha';
+import { pull, pullOne, rollRarity, starBonus, MAX_STARS, MULTI_COST, PULL_COST, RARITY_WEIGHTS } from '../src/systems/gacha';
 import { techStats, statChanges, MAX_TECH_LEVEL } from '../src/systems/techniques';
 import { evolutionLabel, evolvesAt } from '../src/systems/evolution';
 import { PASSIVES, STAT_CARDS } from '../src/systems/runmods';
@@ -78,12 +78,12 @@ describe('gacha', () => {
   });
   it('charges tokens and refuses when poor', () => {
     const s = newSave([], null);
-    s.tokens = 9;
+    s.tokens = PULL_COST - 1;
     expect(pull(pool, s, 1)).toBeNull();
     s.tokens = 100;
     const big = Array.from({ length: 30 }, (_, i) => P(100 + i, 'comun'));
     expect(pull(big, s, 10, seq([0.1, 0.05, 0.1, 0.4, 0.2, 0.7, 0.3, 0.9]))?.length).toBe(10);
-    expect(s.tokens).toBe(10); // 90 paid
+    expect(s.tokens).toBe(100 - MULTI_COST);
   });
   it('stars add permanent power', () => {
     expect(starBonus(0).damage).toBe(1);
@@ -458,7 +458,7 @@ describe('v2.5 economy and rewards', () => {
     const s = newSave([], null);
     const c = s.coins, t = s.tokens;
     expect(pull([mk(9, 'comun', [])], s, 1)).toHaveLength(1);
-    expect([s.coins, s.tokens]).toEqual([c, t - 10]);
+    expect([s.coins, s.tokens]).toEqual([c, t - PULL_COST]);
   });
   it('team rewards count unique players, adapt to small teams and pay once', () => {
     const s = newSave([], null);
@@ -527,10 +527,15 @@ describe('v2.5 economy and rewards', () => {
     stepAltar(b, 1, true, 0);
     expect(stepAltar(b, 99, false, 0)).toBe('failed');
   });
-  it('a run pays roughly one pull of tokens', () => {
+  it('token economy: an active defeat pays about a pull, a victory two, idle runs almost nothing', () => {
+    const sum = (x: { coins: number }[]) => x.reduce((a, y) => a + y.coins, 0);
     const r = { mapId: 'raimon', victory: true, timeSec: 320, kills: 100, minibosses: 1, bossDefeated: true, reachedBoss: true };
-    expect(tokenRewards(r, false).reduce((a, x) => a + x.coins, 0)).toBeGreaterThanOrEqual(10);
-    expect(tokenRewards({ ...r, victory: false, bossDefeated: false, timeSec: 60 }, false).reduce((a, x) => a + x.coins, 0)).toBe(3);
+    expect(sum(tokenRewards(r, false))).toBeGreaterThanOrEqual(2 * PULL_COST);
+    const loss = { ...r, victory: false, bossDefeated: false, timeSec: 200 };
+    expect(sum(tokenRewards(loss, false))).toBeGreaterThanOrEqual(PULL_COST);
+    expect(sum(tokenRewards({ ...loss, kills: 3 }, false))).toBe(1); // idle: no welcome, no time bonus
+    expect(sum(tokenRewards(loss, false, 0)) - sum(tokenRewards(loss, false))).toBe(5); // welcome bonus for the first runs
+    expect(sum(tokenRewards(loss, false, 10))).toBe(sum(tokenRewards(loss, false)));
   });
 });
 
@@ -937,9 +942,9 @@ describe('reiniciar progreso', () => {
 describe('versión pública y reportes de bugs', () => {
   it('the public news start at v1.0 and no internal version leaks into them', async () => {
     const { PUBLIC_RELEASES, PUBLIC_VERSION, RELEASED, VERSION_LABEL, BUILD, TIKTOK_URL } = await import('../src/data/release');
-    expect(PUBLIC_VERSION).toBe('1.0');
-    expect(PUBLIC_RELEASES.map((r) => r.version)).toEqual(['1.0']);
-    expect(PUBLIC_RELEASES[0].title).toBe('InaZurvivors v1.0 — ¡Comienza la aventura!');
+    expect(PUBLIC_VERSION).toBe('1.1');
+    expect(PUBLIC_RELEASES.map((r) => r.version)).toEqual(['1.1', '1.0']); // newest first, starting at v1.0
+    expect(PUBLIC_RELEASES.at(-1)!.title).toBe('InaZurvivors v1.0 — ¡Comienza la aventura!');
     expect(JSON.stringify(PUBLIC_RELEASES)).not.toMatch(/\bv?[234]\.\d\b/);
     expect(BUILD).not.toBe('1.0');
     expect(RELEASED).toBe(false); // true only after a verified public deployment
@@ -1073,5 +1078,21 @@ describe('auditoría de rarezas', () => {
     expect((teamCaptain([m(1, 'leyenda'), m(2, 'mitico')]) as { id: number }).id).toBe(2);
     const pool = [m(1, 'mitico'), m(2, 'epico'), ...Array.from({ length: 30 }, (_, i) => ({ id: 100 + i, rarity: 'comun', teams: ['X'], techniques: [] }) as never)];
     for (let i = 0; i < 40; i++) expect(onboardingPull(pool, newSave([], null), Math.random, 'T')[0].id).toBe(2);
+  });
+});
+
+describe('technique slot remaps', () => {
+  it('moves purchases and the starting choice, refunds what left, and applies each step once', () => {
+    const s = newSave([], null);
+    s.coins = 0;
+    s.shop.techUnlocks['7'] = [1, 2];
+    s.loadout['7'] = 2;
+    const steps = [{ rev: 1, players: { 7: { map: [0, -1, 3], refund: [0, 500, 0] } } }];
+    expect(remapTechSlots(s, steps)).toBe(500);
+    expect(s.shop.techUnlocks['7']).toEqual([3]);
+    expect(s.loadout['7']).toBe(3);
+    expect(s.coins).toBe(500);
+    expect(remapTechSlots(s, steps)).toBe(-1); // already applied
+    expect(s.coins).toBe(500);
   });
 });

@@ -1005,3 +1005,16 @@ body.reduced-motion .ib-orbit, body.reduced-motion .ib-ball { animation: none; }
 @media (prefers-reduced-motion: reduce) { .pcard.r-mitico::after, .pcard.r-leyenda::after, .rarity-big { animation: none !important; } }
 /* the name is written InaZurvivors in the page and shown in capitals */
 .menu-logo h1 { text-transform: uppercase; }
+
+/* gacha 1.1: roll, settle, rarity charge */
+.cap-sprite.roll-in { animation: capRoll .9s cubic-bezier(.2,.8,.3,1) both; }
+@keyframes capRoll { 0% { transform: translate(-42vw, -38vh) rotate(-30deg); } 55% { transform: translate(4vw, 0) rotate(0); } 75% { transform: translate(-1vw, -3vh); } 100% { transform: translate(0, 0); } }
+.cap-sprite.settle { animation: capSettle .52s ease-out both; }
+@keyframes capSettle { 0% { transform: rotate(-11deg); } 30% { transform: rotate(7deg); } 55% { transform: rotate(-4deg); } 78% { transform: rotate(2deg); } 100% { transform: rotate(0); } }
+.cap-sprite.charge { animation: capCharge .3s ease-in-out infinite alternate; }
+.cap-sprite.charge.c2, .cap-sprite.charge.c3 { animation-duration: .18s; }
+@keyframes capCharge { from { filter: drop-shadow(0 0 2px var(--glow)); transform: scale(1); } to { filter: drop-shadow(0 0 22px var(--glow)) brightness(1.35); transform: scale(1.06); } }
+.reveal.charging .rays { opacity: 1; animation-duration: 3s; }
+.reveal.quake { animation: shake .35s infinite; }
+@media (prefers-reduced-motion: reduce) { .cap-sprite.roll-in, .cap-sprite.settle, .cap-sprite.charge, .reveal.quake { animation: none !important; } }
+.title-screen .wiz-next { justify-content: center; text-align: center; }

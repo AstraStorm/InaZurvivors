@@ -140,6 +140,12 @@ export interface Manifest {
   kits?: Record<string, { field: string; gk: string | null; fieldSkin?: Skin | null; gkSkin?: Skin | null; group?: number | null }>;
   /** old player id -> current id (a character now represented by another ROM record) */
   idAliases?: Record<string, number>;
+  /**
+   * Repertoires that changed order (tools/sync-assets.ts), oldest first: for each player, map[oldIndex] = newIndex or -1
+   * when the technique left; refund[oldIndex] = coins paid for unlocking a technique that left. Saves apply the steps
+   * newer than their techRev.
+   */
+  techRemaps?: { rev: number; players: Record<string, { map: number[]; refund: number[] }> }[];
   /** portrait torso ids available (GGKKSSCC) */
   kitBusts?: number[];
   problems: string[];
