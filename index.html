@@ -29,9 +29,11 @@
     #boot.gone { opacity: 0; pointer-events: none; }
     @keyframes bootPulse { 50% { transform: scale(1.06); } }
     @media (prefers-reduced-motion: reduce) { #boot img { animation: none; } }
-    /* public landing for first visits (and for anyone without JavaScript); returning players go straight to the game */
+    /* public landing on every visit, so anyone can see what the app is; only the return from Google sign-in skips it */
     #landing { position: fixed; inset: 0; z-index: 60; overflow-y: auto; background: #08142e; color: #f4f7ff; font: 16px/1.6 system-ui, sans-serif; }
     #landing .in { max-width: 760px; margin: 0 auto; padding: 32px 16px 48px; }
+    #landing .head { display: flex; align-items: center; gap: 16px; }
+    #landing .head img { width: 72px; height: 72px; image-rendering: pixelated; }
     #landing h1 { color: #ffe24a; font-size: 2.4rem; margin: 0; } #landing h2 { color: #7fd3ff; margin-top: 28px; }
     #landing a { color: #7fd3ff; } #landing li { margin: 4px 0; } #landing .note { color: #a9bde6; font-size: 14px; }
     #landing button { font: 700 18px system-ui, sans-serif; color: #08142e; background: #ffe24a; border: 0; border-radius: 6px; padding: 12px 28px; cursor: pointer; }
@@ -39,15 +41,15 @@
     .returning #landing { display: none; }
   </style>
   <script>
-    try { if (localStorage.getItem('ie-survivors-save') || /[?&#](code|error|access_token)=/.test(location.search + location.hash)) document.documentElement.classList.add('returning'); } catch (e) { /* storage blocked: show the landing */ }
+    if (/[?&#](code|error|access_token)=/.test(location.search + location.hash)) document.documentElement.classList.add('returning');
   </script>
 </head>
 <body>
   <main id="landing"><div class="in">
-    <h1>InaZurvivors</h1>
+    <div class="head"><img src="logo-192.png" alt="Logo de InaZurvivors" width="72" height="72" /><h1>InaZurvivors</h1></div>
     <p>InaZurvivors es un fangame roguelite de supervivencia, gratuito, sin ánimo de lucro y no oficial, inspirado en el universo de Inazuma Eleven. Se juega en el navegador: recluta futbolistas, mejora sus supertécnicas y aguanta oleadas de rivales cada vez más duras.</p>
-    <p><button type="button" onclick="document.getElementById('landing').remove()">Jugar gratis</button></p>
-    <p class="note">No hace falta cuenta para jugar.</p>
+    <p><button type="button" onclick="document.getElementById('landing').remove()">Jugar</button></p>
+    <p class="note">Gratis y sin cuenta obligatoria. Si ya juegas, conservas tu progreso y tu sesión.</p>
     <nav><a href="privacidad.html">Política de privacidad</a><a href="terminos.html">Condiciones del servicio</a><a href="https://github.com/AstraStorm/InaZurvivors">Código en GitHub</a></nav>
     <h2>Características</h2>
     <ul>
