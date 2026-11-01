@@ -38,7 +38,6 @@ export const PUBLIC_RELEASES: PublicRelease[] = [
       { icon: '♛', title: 'Ranking y pase', text: 'Grandes y a la vista en el menú, con podio y los siete días del pase.' },
       { icon: '✉', title: 'Códigos', text: 'Canjea regalos desde el menú. Una vez por cuenta.' },
       { icon: '◆', title: 'Eventos', text: 'El robot de las cadenas de partidos, flechas más claras y paneles que no tapan nada.' },
-      { icon: '♜', title: 'Equipo', text: 'Máximo 3 Legendarios, 2 Míticos y 1 Leyenda.' },
       { icon: '▲', title: 'Dificultad y móvil', text: 'Curva más suave al principio y controles táctiles para todo.' },
     ],
     start: ['Reclama tu pase semanal desde el menú', 'Canjea tu código en CÓDIGOS', 'Junta a Erik, Bobby y Mark para El Fénix'],

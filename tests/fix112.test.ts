@@ -51,28 +51,3 @@ describe('combined techniques (Fix 1.12)', async () => {
     expect(comboReady(fenix, [member('Erik Eagle', 5), member('Bobby Shearer', 5), member('Mark Evans', 5)])).toBe(true);
   });
 });
-
-describe('squad caps (Fix 1.12)', async () => {
-  const { newSave } = await import('../src/systems/save');
-  const { placeInSquad, squadOf, fillSquad } = await import('../src/systems/squad');
-  const mk = (id: number, rarity: string) => ({ id, rarity, teams: [], techniques: [] }) as never;
-  const roster = [1, 2, 3, 4].map((i) => mk(i, 'legendario')).concat([5, 6, 7].map((i) => mk(i, 'mitico')), [8, 9].map((i) => mk(i, 'leyenda')), [10, 11, 12].map((i) => mk(i, 'comun')));
-  const byId = new Map(roster.map((p: { id: number }) => [p.id, p])) as never;
-  const own = () => { const s = newSave([], null); for (const p of roster as { id: number }[]) s.owned[String(p.id)] = { copies: 1, stars: 0 } as never; return s; };
-  it('at most 3 Legendarios, 2 Míticos and 1 Leyenda', () => {
-    const s = own();
-    [1, 2, 3].forEach((id, i) => expect(placeInSquad(s, byId, i, id)).toBe(true));
-    expect(placeInSquad(s, byId, 3, 4)).toBe(false);
-    expect(placeInSquad(s, byId, 0, 4)).toBe(true); // swapping one for another is fine
-    expect(placeInSquad(s, byId, 3, 8)).toBe(true);
-    expect(placeInSquad(s, byId, 4, 9)).toBe(false);
-  });
-  it('filling and old squads respect the caps', () => {
-    const s = own();
-    fillSquad(s, roster as never);
-    const count = (r: string) => squadOf(s, byId).filter((p: { rarity: string }) => p.rarity === r).length;
-    expect([count('legendario'), count('mitico'), count('leyenda')]).toEqual([3, 2, 1]);
-    const old = own(); old.captainId = 1; old.squad = [1, 2, 3, 4, 5, 6, 7];
-    expect(squadOf(old, byId).map((p: { id: number }) => p.id)).toEqual([1, 2, 3, 5, 6]);
-  });
-});

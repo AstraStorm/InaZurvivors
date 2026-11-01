@@ -44,7 +44,7 @@ import { bindStick, initGamepad } from './gamepad';
 import { confetti, countUp, flyTo } from './rewardFx';
 import { MASTERY_BONUS, MASTERY_USES, masteryLevel, masteryProgress, recordMastery } from '../systems/mastery';
 import { MAX_TEAM, startingTech, type Card } from '../systems/cards';
-import { CAP_TEXT, SQUAD_SIZE, fillSquad, makeCaptain, placeInSquad, removeFromSquad, squadOf } from '../systems/squad';
+import { SQUAD_SIZE, fillSquad, makeCaptain, placeInSquad, removeFromSquad, squadOf } from '../systems/squad';
 import type { ArenaInit, ArenaScene, HudState, MarkerState, Poi } from '../game/ArenaScene';
 import { charCanvas, initPreviews, mountPreviews, setPreviewKit } from './sprites';
 import { sfx, setVolume } from '../game/sfx';
@@ -1526,7 +1526,7 @@ export class App {
       + (list.length ? '' : '<div class="note">Nadie coincide con el filtro.</div>');
     mountPreviews();
     box.querySelectorAll<HTMLElement>('.pcard[data-id]').forEach((el) => el.addEventListener('click', () => {
-      if (!placeInSquad(this.save, this.byId, this.squadSlot, Number(el.dataset.id))) { sfx('error'); this.toast(CAP_TEXT, 3000); return; }
+      placeInSquad(this.save, this.byId, this.squadSlot, Number(el.dataset.id));
       this.persist();
       sfx('powerup');
       const n = squadOf(this.save, this.byId).length;

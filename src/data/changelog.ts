@@ -22,7 +22,6 @@ export const CHANGELOG: Release[] = [
       'Ranking y pase semanal grandes en el menú principal, con podio, top 15 y posición propia.',
       'Códigos promocionales: ASTRA17 (validación en el servidor para cuentas, local para invitados).',
       'Pedestales: el robot de recepción de las cadenas de partidos.',
-      'Equipo: máximo 3 Legendarios, 2 Míticos y 1 Leyenda.',
       'Eventos aceptables con el mando; en táctil, botón sin mención a la tecla E.',
     ],
     fixes: [
