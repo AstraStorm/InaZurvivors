@@ -290,3 +290,27 @@ describe('reportar un bug (database)', () => {
     expect((await api('carla', `select * from public.my_bug_reports()`)).rows).toHaveLength(0);
   });
 });
+
+describe('promotional codes (Fix 1.12)', () => {
+  const redeem = (u: string, code: string, applied = false) => api(u, `select public.redeem_code($1, $2) as r`, [code, applied]).then((x) => (x.rows[0] as { r: Record<string, unknown> }).r);
+  it('ASTRA17 once per account: ok with a server-chosen Legendario, then used; unknown codes and guests are refused', async () => {
+    const first = await redeem('carla', 'astra17');
+    expect(first.status).toBe('ok');
+    const reward = first.reward as { tokens: number; coins: number; player: number };
+    expect(reward).toMatchObject({ tokens: 72, coins: 500 });
+    expect(Number.isInteger(reward.player)).toBe(true);
+    expect((await redeem('carla', 'ASTRA17')).status).toBe('used');
+    expect((await redeem('carla', 'NOEXISTE')).status).toBe('invalid');
+    await expect(api('', `select public.redeem_code('ASTRA17')`)).rejects.toThrow();
+  });
+  it('a guest redemption linked to an account blocks a second reward; tables are closed to the API', async () => {
+    expect((await redeem('astra', 'ASTRA17', true)).status).toBe('linked');
+    expect((await redeem('astra', 'ASTRA17')).status).toBe('used');
+    await expect(api('astra', `select * from private.promo_redemptions`)).rejects.toThrow();
+    await expect(api('astra', `select * from private.promo_codes`)).rejects.toThrow();
+  });
+  it('two requests at the same time give exactly one reward', async () => {
+    const both = await Promise.all([redeem('beto', 'ASTRA17'), redeem('beto', 'ASTRA17')]);
+    expect(both.filter((r) => r.status === 'ok')).toHaveLength(1);
+  });
+});

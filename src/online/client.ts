@@ -172,6 +172,9 @@ export const submitBugReport = (a: { clientId: string; category: string; severit
 export const myBugReports = () => rpc<BugRow[]>('my_bug_reports', {});
 export const deleteMyBugReports = () => rpc<(string | null)[]>('delete_my_bug_reports', {});
 export const amIAdmin = () => rpc<boolean>('am_i_admin', {});
+/** Fix 1.12: promotional codes (one per account, decided on the server) */
+export const redeemCode = (code: string, alreadyApplied = false) =>
+  rpc<{ status: 'ok' | 'used' | 'invalid' | 'linked'; reward?: { tokens: number; coins: number; player: number | null } }>('redeem_code', { p_code: code, p_already_applied: alreadyApplied });
 export const adminBugReports = (f: BugFilter) => rpc<BugRow[]>('admin_bug_reports', { p_category: f.category, p_severity: f.severity, p_status: f.status, p_from: f.from, p_to: f.to, p_order: f.order, p_limit: 200 });
 export const adminUpdateBug = (code: string, status: string | null, notes: string | null) => rpc<string>('admin_update_bug', { p_code: code, p_status: status, p_notes: notes });
 /** Asks the server to tell the author. Best effort: the report is already saved whatever happens here. */

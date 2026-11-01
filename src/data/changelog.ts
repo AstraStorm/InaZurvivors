@@ -15,6 +15,27 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: '4.7', date: '2026-11-02', title: 'Fix 1.12',
+    features: [
+      'Técnicas combinadas nuevas con animación propia: El Fénix, La Tierra, Remate caótico, Ventisca de fuego y La Tierra ∞; desbloqueo con retratos y nombre.',
+      'Tienda: 6 diarias, 2 destacadas, 1 del equipo favorito y 1 semanal, con filtros por rareza y tiempo restante.',
+      'Ranking y pase semanal grandes en el menú principal, con podio, top 15 y posición propia.',
+      'Códigos promocionales: ASTRA17 (validación en el servidor para cuentas, local para invitados).',
+      'Pedestales: el robot de recepción de las cadenas de partidos.',
+      'Equipo: máximo 3 Legendarios, 2 Míticos y 1 Leyenda.',
+      'Eventos aceptables con el mando; en táctil, botón sin mención a la tecla E.',
+    ],
+    fixes: [
+      'Una segunda partida sin recargar no reiniciaba tiempo ni eliminaciones (error introducido en la 1.11).',
+      'Las ofertas ya generadas el día de la actualización se quedaban con el diseño anterior.',
+      'La flecha de los eventos quedaba tapada por su icono.',
+      'El panel de evento se solapaba con el del capitán.',
+      'Barrido central de marcas de suelo sin dueño.',
+    ],
+    visuals: ['Hitstop en golpes fuertes, críticos con destello y sonido propio, recompensa por barrer grupos, tono variable de golpes e impactos que crecen con el nivel de la técnica.'],
+    balance: ['Curva continua: grupos sin escalones, oleadas que crecen y rivales especiales que llegan hasta el 2:30.', 'Precios de tienda: Común 200, Raro 600, Épico 1.800, Legendario 6.000, Mítico 25.000; Leyendas no se venden.'],
+  },
+  {
     version: '4.6', date: '2026-11-01', title: 'Fix 1.11',
     features: [
       'Solo el capitán recibe daño: los compañeros son apoyo invulnerable, sin barra de vida; los balones los atraviesan y solo alcanzan al capitán.',

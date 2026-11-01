@@ -124,6 +124,8 @@ export interface Manifest {
   bodies: { field?: BodyInfo; gk?: BodyInfo };
   roster: RosterEntry[];
   units: UnitInfo[];
+  /** Fix 1.12: unit id of the reception robot used as event pedestal */
+  eventRobot?: number | null;
   maps: MapInfo[];
   items: { atlas?: string; items: ItemInfo[] };
   /** mugshots are split over several sheets (images); each frame says which one holds it */

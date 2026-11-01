@@ -6,7 +6,7 @@
  */
 import { CHANGELOG } from './changelog';
 
-export const PUBLIC_VERSION = '1.11';
+export const PUBLIC_VERSION = '1.12';
 export const BUILD = CHANGELOG[0].version;
 export const RELEASED = false;
 export const VERSION_LABEL = RELEASED ? `v${PUBLIC_VERSION}` : `v${PUBLIC_VERSION} · pre-lanzamiento`;
@@ -26,6 +26,23 @@ export interface PublicRelease {
 
 /** Public news, newest first. Starts at v1.0: the internal versions before it are not part of the public history. */
 export const PUBLIC_RELEASES: PublicRelease[] = [
+  {
+    version: '1.12',
+    title: 'InaZurvivors Fix 1.12 — Más impacto, mejor en móvil',
+    tagline: 'Técnicas combinadas nuevas, tienda renovada, códigos de regalo y un menú con ranking y pase a lo grande',
+    intro: 'El combate pega más fuerte, llegan El Fénix, La Tierra y Remate caótico, y los eventos tienen a su robot. Además: tienda con diez ofertas, códigos promocionales, una dificultad más progresiva y un móvil mucho más cómodo.',
+    features: [
+      { icon: '★', title: 'Técnicas combinadas', text: 'El Fénix, La Tierra, Remate caótico, Ventisca de fuego y La Tierra ∞, cada una con su animación.' },
+      { icon: '⚡', title: 'Más impacto', text: 'Críticos, barridas de grupos y técnicas evolucionadas que se notan al golpear.' },
+      { icon: '☼', title: 'Tienda renovada', text: 'Seis ofertas diarias, dos destacadas, una de tu equipo y una semanal.' },
+      { icon: '♛', title: 'Ranking y pase', text: 'Grandes y a la vista en el menú, con podio y los siete días del pase.' },
+      { icon: '✉', title: 'Códigos', text: 'Canjea regalos desde el menú. Una vez por cuenta.' },
+      { icon: '◆', title: 'Eventos', text: 'El robot de las cadenas de partidos, flechas más claras y paneles que no tapan nada.' },
+      { icon: '♜', title: 'Equipo', text: 'Máximo 3 Legendarios, 2 Míticos y 1 Leyenda.' },
+      { icon: '▲', title: 'Dificultad y móvil', text: 'Curva más suave al principio y controles táctiles para todo.' },
+    ],
+    start: ['Reclama tu pase semanal desde el menú', 'Canjea tu código en CÓDIGOS', 'Junta a Erik, Bobby y Mark para El Fénix'],
+  },
   {
     version: '1.11',
     title: 'InaZurvivors Fix 1.11 — El capitán manda',

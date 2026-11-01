@@ -63,15 +63,17 @@ function noise(dur: number, gain: number, lp = 1200) {
 }
 
 /** Rate-limited so dozens of hits per frame don't stack into noise. */
-export function sfx(name: 'kick' | 'hit' | 'boom' | 'pickup' | 'levelup' | 'hurt' | 'reveal' | 'legend' | 'myth' | 'leyenda' | 'click' | 'whoosh' | 'magnet' | 'powerup' | 'evolve' | 'hover' | 'buy' | 'error', pitch = 1) {
+export function sfx(name: 'kick' | 'hit' | 'crit' | 'sweep' | 'boom' | 'pickup' | 'levelup' | 'hurt' | 'reveal' | 'legend' | 'myth' | 'leyenda' | 'click' | 'whoosh' | 'magnet' | 'powerup' | 'evolve' | 'hover' | 'buy' | 'error', pitch = 1) {
   const now = performance.now();
   if (name === 'hover') return;
-  const gap = name === 'hit' ? 110 : name === 'pickup' ? 90 : name === 'boom' ? 160 : 30;
+  const gap = name === 'hit' ? 110 : name === 'crit' ? 140 : name === 'sweep' ? 600 : name === 'pickup' ? 90 : name === 'boom' ? 160 : 30;
   if (now - (lastPlayed.get(name) ?? 0) < gap) return;
   lastPlayed.set(name, now);
   switch (name) {
     case 'kick': tone('triangle', 180, 60, 0.12, 0.35); noise(0.06, 0.15, 2000); break;
-    case 'hit': tone('square', 420, 160, 0.06, 0.08); break;
+    case 'hit': { const v = 0.85 + Math.random() * 0.3; tone('square', 420 * v, 160 * v, 0.06, 0.08); break; } // Fix 1.12: a little variation
+    case 'crit': tone('square', 900, 300, 0.09, 0.1); noise(0.05, 0.12, 4000); break;
+    case 'sweep': [392, 523, 659].forEach((f, i) => tone('triangle', f, f * 1.5, 0.1, 0.09, i * 0.04)); noise(0.12, 0.12, 1800); break;
     case 'boom': noise(0.35, 0.35, 700); tone('sine', 110, 40, 0.3, 0.3); break;
     case 'pickup': tone('triangle', 660 * pitch, 990 * pitch, 0.07, 0.09); break;
     case 'levelup': [523, 659, 784, 1046].forEach((f, i) => tone('square', f, f, 0.12, 0.08, i * 0.07)); break;

@@ -6,6 +6,7 @@ import { ICON, RARITY_LABEL, RARITY_ORDER } from '../data/manifest';
 import { deathCause } from '../systems/deathCause';
 import { serverNow, syncServerTime, timeSource } from '../online/serverTime';
 import { PASS, claimPass, passStatus } from '../systems/weeklyPass';
+import { applyReward, hasRedeemed, normalizeCode, redeemLocal, type CodeReward } from '../systems/promo';
 import { BANNERS, BANNER_ORDER, bannerPool, eraOf, featured, perPlayerOdds, rarityOdds, teamChoices, type BannerId } from '../systems/banners';
 import { exportSave, importSave, remapIds, remapTechSlots, storeSave, type SaveData, type ParticleLevel, type Rank } from '../systems/save';
 import { eligibleTeams, pull, recordHistory, DUPLICATE_REFUND, PULL_COST, MAX_STARS, starBonus, onboardingPull, type PullResult } from '../systems/gacha';
@@ -20,7 +21,7 @@ import { MAX_TECH_BOOST, boostCost, buyTechBoost, buyTechUnlock, isBought, isLoc
 import { GEAR_SLOTS, applyGear, buildGear, buyGear, equipGear, type GearItem } from '../systems/gear';
 import { SAGAS, sagaOf, setTeamLabels, setTeamSagas, teamLabel, teamNames } from '../data/sagas';
 import { canClaim, claimAllTeamRewards, claimTeamReward, grantFavorite, hasCrest, hasKit, teamCaptain, teamMembers, teamProgress, type TeamRewardKind } from '../systems/teamRewards';
-import { buyOffer, msToNextDay, rollDaily } from '../systems/dailyShop';
+import { buyOffer, isBought as isOfferBought, msToNextDay, msToNextWeek, PRICE, rollDaily, type Offer } from '../systems/dailyShop';
 import { RANKS, RANK_ORDER } from '../systems/difficulty';
 import { COMBOS } from '../systems/combos';
 import { CLUB_CHEMISTRY, kitBonus } from '../systems/kitBonus';
@@ -32,7 +33,8 @@ import { ASC_BONUS, HERO_AURA, ascend, ascMultipliers, effectiveRarity, isHero, 
 import { USERNAME_MAX, validateUsername } from '../systems/username';
 import { ALTAR_COLOR, ALTAR_ICON, ALTAR_INFO, ALTAR_MODE, ALTAR_REWARD } from '../systems/altars';
 import { adaptedPassive, passiveText, talentText } from '../systems/talents';
-import { accountId, adminBugReports, adminUpdateBug, amIAdmin, consumeAuthRedirect, deleteAccount, deleteMyBugReports, deleteShot, myBugReports, notifyBug, shotUrl, submitBugReport, uploadShot, getCloudSave, leaderboard, myPosition, myProfile, onlineConfigured, putCloudSave, reserveUsername, resetMyProgress, signedEmail, signedIn, signInWithGoogle, signOut, submitScore, usernameAvailable, type BoardQuery, type BugFilter, type BugRow, type CloudSave } from '../online/client';
+import { redeemCode } from '../online/client';
+import { accountId, adminBugReports, adminUpdateBug, amIAdmin, consumeAuthRedirect, deleteAccount, deleteMyBugReports, deleteShot, myBugReports, notifyBug, shotUrl, submitBugReport, uploadShot, getCloudSave, leaderboard, myPosition, myProfile, onlineConfigured, putCloudSave, reserveUsername, resetMyProgress, signedEmail, signedIn, signInWithGoogle, signOut, submitScore, usernameAvailable, type BoardQuery, type BoardRow, type BugFilter, type BugRow, type CloudSave } from '../online/client';
 import { backup, linkPlan, progressOf, summarize, type SaveSummary } from '../online/cloudSync';
 import { epochOf, freshProgress, resetSummary } from '../systems/resetProgress';
 import { localBoard, recordBest } from '../systems/leaderboard';
@@ -42,7 +44,7 @@ import { bindStick, initGamepad } from './gamepad';
 import { confetti, countUp, flyTo } from './rewardFx';
 import { MASTERY_BONUS, MASTERY_USES, masteryLevel, masteryProgress, recordMastery } from '../systems/mastery';
 import { MAX_TEAM, startingTech, type Card } from '../systems/cards';
-import { SQUAD_SIZE, fillSquad, makeCaptain, placeInSquad, removeFromSquad, squadOf } from '../systems/squad';
+import { CAP_TEXT, SQUAD_SIZE, fillSquad, makeCaptain, placeInSquad, removeFromSquad, squadOf } from '../systems/squad';
 import type { ArenaInit, ArenaScene, HudState, MarkerState, Poi } from '../game/ArenaScene';
 import { charCanvas, initPreviews, mountPreviews, setPreviewKit } from './sprites';
 import { sfx, setVolume } from '../game/sfx';
@@ -208,6 +210,7 @@ export class App {
       if (plan === 'bajar-nube' && cloud) this.adoptCloud(cloud, this.save.onboardingDone);
       else if (plan === 'elegir' && cloud && this.save.cloudVersion !== cloud.version) return () => { void this.linkCloud(true).then(() => { if (document.querySelector('.menu-root')) this.mainMenu(); }); };
       else if (this.save.onboardingDone) await this.linkCloud();
+      void this.linkGuestCodes();
       this.claimName();
       storeSave(this.save);
       return null;
@@ -215,6 +218,82 @@ export class App {
       this.cloudState = { status: 'error', at: Date.now(), msg: (e as Error).message };
       return null;
     }
+  }
+
+  /**
+   * Fix 1.12: codes redeemed as a guest are recorded on the account when the player signs in, so the account can't
+   * redeem them again (the reward is already in this save).
+   */
+  private async linkGuestCodes() {
+    for (const code of [...(this.save.guestCodes ?? [])]) {
+      try {
+        const r = await redeemCode(code, true);
+        if (r.status === 'linked' || r.status === 'used' || r.status === 'invalid') this.save.guestCodes = (this.save.guestCodes ?? []).filter((c) => c !== code);
+      } catch { return; } // offline: tried again next time
+    }
+    this.persist();
+  }
+
+  /** Fix 1.12: a combined technique was learned in the run: the participants' portraits close in and its name. */
+  private comboUnlock(c: { name: string; ids: number[] }) {
+    document.querySelector('.combo-unlock')?.remove();
+    const box = document.createElement('div');
+    box.className = 'combo-unlock';
+    box.innerHTML = `<div class="cu-mugs">${c.ids.map((id, i) => `<span style="--i:${i}">${this.mug(id, 96)}</span>`).join('')}</div>
+      <small>¡NUEVA TÉCNICA COMBINADA!</small><b>${esc(c.name)}</b>`;
+    document.body.appendChild(box);
+    sfx('legend');
+    setTimeout(() => box.classList.add('out'), 1700);
+    setTimeout(() => box.remove(), 2200);
+  }
+
+  /** Fix 1.12: promotional codes. Online the server decides (once per account); guests redeem on this device. */
+  codesModal() {
+    document.querySelector('.codes-modal')?.remove();
+    const box = document.createElement('div');
+    box.className = 'tut-modal codes-modal';
+    const online = onlineConfigured() && signedIn();
+    box.innerHTML = `<div class="panel codes-panel"><h2>✉ Canjear código</h2>
+      <p class="note">${online ? 'Cada código se canjea una sola vez por cuenta, en cualquier dispositivo.' : 'Como invitado el código se canjea en este navegador. Al entrar con Google tu cuenta quedará marcada y no podrás canjearlo otra vez.'}</p>
+      <div class="codes-row"><input id="code-in" maxlength="32" autocomplete="off" spellcheck="false" placeholder="CÓDIGO"><button class="btn" id="code-go">Canjear</button></div>
+      <p id="code-msg" class="code-msg" aria-live="polite"></p>
+      <div class="tut-nav"><span class="spacer"></span><button class="btn small blue" id="code-close">Cerrar</button></div></div>`;
+    document.body.appendChild(box);
+    const input = box.querySelector('#code-in') as HTMLInputElement, msg = box.querySelector('#code-msg') as HTMLElement, go = box.querySelector('#code-go') as HTMLButtonElement;
+    const say = (text: string, ok = false) => { msg.textContent = text; msg.className = `code-msg ${ok ? 'ok' : 'bad'}`; };
+    box.querySelector('#code-close')!.addEventListener('click', () => { box.remove(); this.mainMenu(); });
+    input.addEventListener('keydown', (e) => { if (e.key === 'Enter') go.click(); });
+    input.focus();
+    go.addEventListener('click', async () => {
+      const code = normalizeCode(input.value);
+      if (!code) return;
+      go.disabled = true;
+      say('Comprobando…');
+      let status: string, reward: CodeReward | undefined;
+      try {
+        if (online) {
+          const r = await redeemCode(code);
+          status = r.status; reward = r.reward ?? undefined;
+          if (status === 'ok' && reward) applyReward(this.save, code, reward);
+          if (status === 'used' && !hasRedeemed(this.save, code)) (this.save.redeemedCodes ??= []).push(code);
+        } else ({ status, reward } = redeemLocal(this.save, code, this.m.roster));
+      } catch { status = 'error'; }
+      go.disabled = false;
+      if (status === 'invalid') { sfx('error'); return say('Ese código no existe.'); }
+      if (status === 'used') { sfx('error'); return say('Ya has canjeado este código.'); }
+      if (status !== 'ok' || !reward) { sfx('error'); return say('Error de conexión. Inténtalo de nuevo.'); }
+      this.persist();
+      say(`¡Código válido! Recibes ${reward.tokens} fichas, ${reward.coins} monedas${reward.player !== null ? ' y un futbolista Legendario' : ''}.`, true);
+      sfx('legend');
+      const p = reward.player !== null ? this.byId.get(reward.player) : undefined;
+      if (p) {
+        box.remove();
+        const o = this.save.owned[String(p.id)];
+        await this.capsuleShow([{ player: p, isNew: o?.copies === 1, stars: o?.stars ?? 0, refund: 0 }], code === 'ASTRA17' ? '¡Regalo de bienvenida ASTRA17!' : `Código ${code}`);
+        this.toast(`+${reward.tokens} fichas · +${reward.coins} monedas`, 3500);
+        this.mainMenu();
+      }
+    });
   }
 
   /** The reserved global name is the profile name on every device. */
@@ -648,6 +727,7 @@ export class App {
             ${tile('gacha', '◎', 'FICHAJES', `${this.save.tokens} fichas`, 'gacha')}
             ${tile('missions', '✔', 'MISIONES', 'Recompensas', '', pending)}
             ${tile('daily', '☼', 'TIENDA', 'Fichajes del día')}
+            ${tile('codes', '✉', 'CÓDIGOS', 'Canjea regalos')}
             ${tile('pass', '✦', 'PASE SEMANAL', passStatus(this.save, serverNow()).available ? '¡Recompensa lista!' : 'Vuelve mañana', '', passStatus(this.save, serverNow()).available ? 1 : 0)}
             ${tile('perks', '▲', 'MEJORAS', 'Potencia permanente')}
             ${tile('shop', '★', 'TÉCNICAS', 'Manuales y refuerzos')}
@@ -663,7 +743,6 @@ export class App {
           <div class="hero-art">${this.mug(feat.id, 256)}<span class="hero-sprite">${charCanvas(feat.id, 3, 12)}</span></div>
           <div class="hero-plate"><small>${this.captainId === feat.id ? 'TU CAPITÁN' : 'TU ESTRELLA'}</small><b>${esc(feat.name)}</b><div>${this.rar(feat)} ${this.elem(feat)}</div></div></section>` : ''}
         <aside class="menu-right">
-          <button class="panel side menu-rank" data-go="ranking"><h3>♛ Ranking mundial</h3><div id="menurank">${onlineConfigured() ? '<div class="note">Cargando…</div>' : '<div class="note">Disponible cuando se active el servicio online. Mientras tanto, tus marcas están en RANKING.</div>'}</div></button>
           <button class="panel side update-card" data-go="devlog"><small>ACTUALIDAD · ${esc(VERSION_LABEL)}</small><b>${esc(CURRENT_PUBLIC.title)}</b>
             <span>${esc(CURRENT_PUBLIC.tagline)}: descubre qué trae y cómo empezar.</span>${unseenLog ? '<em>NUEVO</em>' : ''}</button>
           <div class="panel side"><h3>Desafíos</h3>${challenges.map((d) => `<div class="chal"><span>${esc(d.label)}</span><i style="--p:${Math.round(missionProgress(this.save, d) / d.goal * 100)}%"></i></div>`).join('') || '<div class="note">¡Todo completado por hoy!</div>'}</div>
@@ -672,6 +751,11 @@ export class App {
           <button class="btn small blue" data-go="tutorial">¿Cómo se juega?</button>
         </aside>
       </div>
+      <section class="menu-wide">
+        <div class="panel wide-rank"><div class="wide-head"><h3>♛ Ranking mundial</h3><button class="btn small" data-go="ranking">Ver todo</button></div>
+          <div id="menurank">${onlineConfigured() ? '<div class="note">Cargando…</div>' : '<div class="note">Disponible cuando se active el servicio online.</div>'}</div></div>
+        <div class="panel wide-pass" id="widepass">${this.passWidget()}</div>
+      </section>
       <footer class="menu-foot legal-foot"><span>Fangame gratuito, sin ánimo de lucro y no oficial, creado por AstraStorm17. Inazuma Eleven y todos sus derechos pertenecen a LEVEL-5 y sus respectivos titulares. Este proyecto no está afiliado, patrocinado ni aprobado por LEVEL-5. · <button id="credits" class="legal-link">Aviso legal</button> · ${esc(VERSION_LABEL)}</span></footer>
       ${musicUnlocked() ? '' : '<div class="audio-hint">Haz clic en cualquier parte para activar la música</div>'}</div>`, 'menu-mode');
     this.on('[data-go]', 'click', (_e, el) => {
@@ -695,6 +779,7 @@ export class App {
       if (go === 'ranking') this.ranking();
       if (go === 'hall') this.hallOfFame();
       if (go === 'pass') this.weeklyPass();
+      if (go === 'codes') this.codesModal();
       if (go === 'tutorial') this.tutorial();
     });
     document.getElementById('credits')!.addEventListener('click', () => this.credits());
@@ -710,6 +795,7 @@ export class App {
     });
     document.addEventListener('pointerdown', () => document.querySelector('.audio-hint')?.remove(), { once: true });
     if (onlineConfigured()) void this.fillMenuRank();
+    document.getElementById('wpclaim')?.addEventListener('click', (e) => { (e.target as HTMLButtonElement).disabled = true; this.claimPassNow(() => this.mainMenu()); });
     if (this.save.tutorial === 'pendiente' && this.save.onboardingDone) window.setTimeout(() => { if (this.screenKey === 'menu-mode') this.tutorial(); }, 400);
   }
 
@@ -841,6 +927,10 @@ export class App {
   }
 
   /** Main-menu TOP 5 of the global board (time survived, all arenas and ranks) and the player's own position. */
+  /**
+   * Fix 1.12: the big ranking of the main menu, from the real Supabase board: a podium for the top 3 (captain portrait,
+   * crest, rank, time, damage), places 4-15 in a scrolling list and the player's own position pinned below.
+   */
   private async fillMenuRank() {
     const box = document.getElementById('menurank');
     if (!box) return;
@@ -849,10 +939,49 @@ export class App {
       const [top, mine] = await Promise.all([leaderboard(q), signedIn() ? myPosition(q) : Promise.resolve(null)]);
       const el = document.getElementById('menurank');
       if (!el) return;
-      const line = (pos: number, name: string, rank: string, time: number, me = false) => `<div class="mr-row${me ? ' me' : ''}"><span>${pos <= 3 ? ['🥇', '🥈', '🥉'][pos - 1] : `#${pos}`}</span><b>${esc(name)}</b><i class="r-${rank}">${rank}</i><em>${fmtTime(time)}</em></div>`;
-      el.innerHTML = (top.slice(0, 5).map((r) => line(Number(r.pos), r.username, r.rank, r.time_sec)).join('') || '<div class="note">Aún nadie en el ranking: ¡sé el primero!</div>')
-        + (mine && Number(mine.pos) > 5 ? line(Number(mine.pos), mine.username, mine.rank, mine.time_sec, true) : '');
+      const crest = (c: string) => (c && this.emblemOf(c) ? `<img class="wr-crest" src="${this.emblemOf(c)}" alt="">` : '<span class="wr-crest"></span>');
+      const cap = (id: number) => this.byId.get(id);
+      const podium = top.slice(0, 3).map((r) => {
+        const p = cap(r.captain_id), pos = Number(r.pos);
+        return `<div class="wr-pod p${pos}"><span class="wr-medal">${['🥇', '🥈', '🥉'][pos - 1]}</span>
+          <span class="wr-mug${p ? ` r-${p.rarity}` : ''}">${p ? this.mug(p.id, pos === 1 ? 96 : 80) : ''}</span>
+          <b class="wr-name">${esc(r.username)}</b><small class="wr-cap">${p ? esc(p.name) : ''}</small>
+          <div class="wr-stats">${crest(r.crest)}<span class="rank-btn r-${r.rank}"><b>${r.rank}</b></span><span><b>${fmtTime(r.time_sec)}</b><small>tiempo</small></span><span><b>${Number(r.damage).toLocaleString('es')}</b><small>daño</small></span></div></div>`;
+      }).join('');
+      const row = (r: BoardRow, me = false) => {
+        const p = cap(r.captain_id);
+        return `<div class="wr-row${me ? ' me' : ''}"><span class="wr-pos">#${r.pos}</span><span class="wr-mini">${p ? this.mug(p.id, 40) : ''}</span>
+          <span class="wr-who"><b>${esc(r.username)}</b><small>${p ? esc(p.name) : ''}</small></span>${crest(r.crest)}
+          <span class="rank-btn r-${r.rank}"><b>${r.rank}</b></span><span class="wr-num"><b>${fmtTime(r.time_sec)}</b><small>${Number(r.damage).toLocaleString('es')} daño</small></span></div>`;
+      };
+      el.innerHTML = top.length
+        ? `<div class="wr-podium">${podium}</div><div class="wr-list">${top.slice(3, 15).map((r) => row(r)).join('')}</div>`
+          + (mine ? `<div class="wr-mine"><small>Tu posición</small>${row(mine, true)}</div>` : signedIn() ? '<div class="note">Juega una partida para aparecer en el ranking.</div>' : '<div class="note">Entra con Google para aparecer en el ranking.</div>')
+        : '<div class="note">Aún nadie en el ranking: ¡sé el primero!</div>';
     } catch { const el = document.getElementById('menurank'); if (el) el.innerHTML = '<div class="note">No se pudo cargar el ranking ahora.</div>'; }
+  }
+
+  /** Fix 1.12: the weekly pass in the main menu, the seven days at a glance (days 1, 4 and 7 stand out). */
+  private passWidget() {
+    const now = serverNow(), st = passStatus(this.save, now), left = msToNextDay(now);
+    const days = PASS.map((r, i) => {
+      const state = i < st.index ? 'reclamado' : i === st.index ? (st.available ? 'disponible' : 'siguiente') : 'bloqueado';
+      const icon = r.kind === 'fichas' ? '◎' : r.kind === 'monedas' ? '◉' : '★';
+      return `<div class="wp-day ${state}${[0, 3, 6].includes(i) ? ' big' : ''}"><small>DÍA ${i + 1}</small><b>${icon}</b><span>${esc(r.label)}</span><em>${state === 'reclamado' ? '✔' : state === 'disponible' ? '¡HOY!' : state === 'siguiente' ? 'Mañana' : '🔒'}</em></div>`;
+    }).join('');
+    return `<div class="wide-head"><h3>✦ Pase semanal</h3><small>${st.available ? '¡Tienes una recompensa lista!' : `Siguiente en ${Math.floor(left / 3600000)} h ${Math.floor(left / 60000) % 60} min`}</small></div>
+      <div class="wp-row">${days}</div>
+      <div class="wp-foot"><span>Día ${st.index + 1} de 7 · ${esc(PASS[st.index].label)}</span>${st.available ? '<button class="btn" id="wpclaim">Reclamar</button>' : '<button class="btn small" data-go="pass">Ver pase</button>'}</div>`;
+  }
+
+  /** Claims today's pass reward (team reward: the favourite team, or the one chosen on the pass screen). */
+  private claimPassNow(after: () => void) {
+    const res = claimPass(this.save, this.m.roster, serverNow(), Math.random, bannerPool(this.m.roster, 'equipo', this.passTeam || this.save.favoriteTeam || ''));
+    if (!res) { sfx('error'); after(); return; }
+    this.persist();
+    sfx('legend');
+    if (res.player) void this.capsuleShow([{ player: res.player, isNew: this.save.owned[String(res.player.id)]?.copies === 1, stars: this.save.owned[String(res.player.id)]?.stars ?? 0, refund: 0 }], 'Pase semanal').then(after);
+    else { this.toast(`¡${res.reward.label}!`); after(); }
   }
 
   /** Online account box (profile screen). Without a configured service it only says so: nothing pretends to be online. */
@@ -1397,7 +1526,7 @@ export class App {
       + (list.length ? '' : '<div class="note">Nadie coincide con el filtro.</div>');
     mountPreviews();
     box.querySelectorAll<HTMLElement>('.pcard[data-id]').forEach((el) => el.addEventListener('click', () => {
-      placeInSquad(this.save, this.byId, this.squadSlot, Number(el.dataset.id));
+      if (!placeInSquad(this.save, this.byId, this.squadSlot, Number(el.dataset.id))) { sfx('error'); this.toast(CAP_TEXT, 3000); return; }
       this.persist();
       sfx('powerup');
       const n = squadOf(this.save, this.byId).length;
@@ -1538,23 +1667,44 @@ export class App {
       }).join('')}</div></div>`;
   }
 
+  /**
+   * Fix 1.12 shop: a featured strip (2 featured, the favourite team's offer, the weekly special) over a grid of the six
+   * daily offers, with a rarity filter. Every offer shows portrait, name, rarity, team, price, state and time left.
+   */
+  private shopFilter = 'todas';
   dailyShop() {
     setMusicContext('menu');
     const now = serverNow();
     const offers = rollDaily(this.save, this.m.roster, now);
     this.persist();
-    const left = msToNextDay(now);
-    const TAG: Record<string, string> = { destacado: '★ DESTACADO', favorito: '♥ TU EQUIPO', oferta: '¡OFERTA!' };
-    const cards = offers.map((o) => {
+    const hm = (ms: number) => ms >= 86400000 ? `${Math.floor(ms / 86400000)} d ${Math.floor(ms / 3600000) % 24} h` : `${Math.floor(ms / 3600000)} h ${Math.floor(ms / 60000) % 60} min`;
+    const dayLeft = hm(msToNextDay(now)), weekLeft = hm(msToNextWeek(now));
+    const TAG: Record<string, string> = { destacado: '★ DESTACADO', favorito: '♥ TU EQUIPO', semanal: '◆ SEMANAL', diaria: 'DEL DÍA' };
+    const card = (o: Offer) => {
       const p = this.byId.get(o.playerId)!;
-      const sold = this.save.daily.bought.includes(o.playerId);
-      return `<div class="offer${o.tag ? ` tag-${o.tag}` : ''}">${o.tag ? `<div class="offer-tag">${TAG[o.tag]}</div>` : ''}${this.pcard(p, { badge: o.discount ? `-${o.discount}%` : undefined })}
-        <button class="btn small" data-offer="${o.playerId}" ${sold || this.save.coins < o.price ? 'disabled' : ''}>${sold ? 'Comprado' : `${o.price} ◉`}</button></div>`;
-    }).join('');
-    this.show(`<div class="screen">${this.titlebar('Tienda diaria', 'Menú')}
-      <div class="panel"><div class="note">Cambia cada día a medianoche (${timeSource() === 'servidor' ? 'hora del servidor' : 'hora de este dispositivo'}). Próxima rotación en ${Math.floor(left / 3600000)} h ${Math.floor(left / 60000) % 60} min. Comprar a alguien que ya tienes cuenta como duplicado.</div></div>
-      <div class="grid daily-grid">${cards}</div></div>`);
+      const sold = isOfferBought(this.save, o);
+      const team = p.teams[0] ? teamLabel(p.teams[0]) : '';
+      const owned = !!this.save.owned[String(p.id)];
+      return `<article class="shop-card r-${p.rarity}${sold ? ' sold' : ''}" data-rar="${p.rarity}" style="--rc:${RARITY_COLOR[p.rarity]}">
+        <div class="shop-tag tag-${o.tag ?? 'diaria'}">${TAG[o.tag ?? 'diaria']}</div>
+        ${o.discount ? `<div class="shop-off">-${o.discount}%</div>` : ''}
+        <div class="shop-art">${this.mug(p.id, 96)}</div>
+        <b class="shop-name">${esc(p.name)}</b>
+        <div class="shop-meta">${this.rar(p)}<small>${esc(team)}</small></div>
+        <div class="shop-state">${sold ? '✔ Comprado' : owned ? 'Ya lo tienes: cuenta como duplicado' : 'Nuevo para tu colección'}</div>
+        <small class="shop-left">${o.tag === 'semanal' ? `Cambia en ${weekLeft}` : `Cambia en ${dayLeft}`}</small>
+        <button class="btn small" data-offer="${o.playerId}" ${sold || this.save.coins < o.price ? 'disabled' : ''}>${sold ? 'Comprado' : `${o.discount ? `<s>${PRICE[p.rarity]}</s> ` : ''}${o.price} ◉`}</button>
+      </article>`;
+    };
+    const top = offers.filter((o) => o.tag && o.tag !== 'diaria'), day = offers.filter((o) => !o.tag || o.tag === 'diaria');
+    const rars = ['todas', ...RARITY_ORDER.filter((r) => offers.some((o) => this.byId.get(o.playerId)?.rarity === r))];
+    this.show(`<div class="screen shop-screen">${this.titlebar('Tienda', 'Menú')}
+      <div class="shop-head"><span>${offers.length} ofertas · ${timeSource() === 'servidor' ? 'hora del servidor' : 'hora de este dispositivo'}</span><span>Diarias: ${dayLeft} · Semanal: ${weekLeft}</span></div>
+      <h3 class="shop-sec">Destacados</h3><div class="shop-grid shop-top">${top.map(card).join('')}</div>
+      <h3 class="shop-sec">Del día <span class="shop-filters">${rars.map((r) => `<button class="chip${this.shopFilter === r ? ' on' : ''}" data-sf="${r}">${r === 'todas' ? 'Todas' : RARITY_LABEL[r as Rarity]}</button>`).join('')}</span></h3>
+      <div class="shop-grid shop-day">${day.filter((o) => this.shopFilter === 'todas' || this.byId.get(o.playerId)?.rarity === this.shopFilter).map(card).join('') || '<p class="note">Nada de esta rareza hoy.</p>'}</div></div>`);
     this.on('[data-back]', 'click', () => this.mainMenu());
+    this.on('[data-sf]', 'click', (_e, el) => { this.shopFilter = el.dataset.sf ?? 'todas'; this.dailyShop(); });
     this.on('[data-offer]', 'click', (_e, el) => this.armed(el, () => {
       if (buyOffer(this.save, this.m.roster, Number(el.dataset.offer), serverNow())) { this.persist(); sfx('buy'); this.toast('¡Fichado!'); } else sfx('error');
       this.dailyShop();
@@ -1586,12 +1736,7 @@ export class App {
     document.getElementById('passteam')?.addEventListener('change', (e) => { this.passTeam = (e.target as HTMLSelectElement).value; });
     document.getElementById('passclaim')?.addEventListener('click', (e) => {
       (e.target as HTMLButtonElement).disabled = true;
-      const res = claimPass(this.save, this.m.roster, serverNow(), Math.random, bannerPool(this.m.roster, 'equipo', this.passTeam));
-      if (!res) { sfx('error'); this.weeklyPass(); return; }
-      this.persist();
-      sfx('legend');
-      if (res.player) void this.capsuleShow([{ player: res.player, isNew: this.save.owned[String(res.player.id)]?.copies === 1, stars: this.save.owned[String(res.player.id)]?.stars ?? 0, refund: 0 }], 'Pase semanal').then(() => this.weeklyPass());
-      else { this.toast(`¡${res.reward.label}!`); this.weeklyPass(); }
+      this.claimPassNow(() => this.weeklyPass());
     });
   }
 
@@ -2210,6 +2355,7 @@ export class App {
         hud: (s) => this.renderHud(s),
         markers: (m) => this.renderMarkers(m),
         event: (r) => this.eventCard(r),
+        combo: (c) => this.comboUnlock(c),
         levelUp: (cards, rerolls, reroll, level) => this.levelUpModal(cards, rerolls, reroll, level),
         end: (r) => this.results(r),
         pause: () => this.pauseModal(),
@@ -2374,7 +2520,7 @@ export class App {
         card.innerHTML = `<div class="ev-head"><span class="ev-ic" style="color:#${ALTAR_COLOR[a.type].toString(16).padStart(6, '0')}">${ALTAR_ICON[a.type]}</span><div><b>${esc(a.label)}</b><small class="ev-d ev-${i.difficulty === 'Difícil' ? 'hard' : i.difficulty === 'Media' ? 'mid' : 'easy'}">${i.difficulty}</small></div></div>
           ${r ? `<div class="ev-rival">${r.id ? this.mug(r.id, 56) : ''}<div><b>${esc(r.name)}</b>${r.team ? `<small>${esc(teamLabel(r.team))}</small>` : ''}</div></div>` : ''}
           <p>${esc(i.description)}</p><dl><dt>Objetivo</dt><dd>${esc(a.task)}${a.goal > 1 ? ` (${a.goal})` : ''}</dd><dt>Tiempo</dt><dd>${Math.ceil(a.timeLeft)} s</dd><dt>Premio</dt><dd>${esc(ALTAR_REWARD[a.type])}</dd><dt>Fallas si</dt><dd>${esc(i.fail)}</dd></dl>
-          <button class="btn" id="evgo">Aceptar <kbd>E</kbd></button>`;
+          <button class="btn" id="evgo">Aceptar${document.body.classList.contains('touch') ? '' : ' <kbd>E</kbd>'}</button>`;
         card.querySelector('#evgo')!.addEventListener('click', () => this.arena()?.acceptAltar());
       }
     }
@@ -2412,6 +2558,7 @@ export class App {
       ctx.fillStyle = hex(p.color);
       const r = p.priority >= 3 ? 4 : 3;
       ctx.fillRect(p.x * sx - r / 2, p.y * sy - r / 2, r, r);
+      if (p.priority >= 3) { ctx.strokeStyle = hex(p.color); ctx.strokeRect(p.x * sx - 5, p.y * sy - 5, 10, 10); } // events stand out
     }
     ctx.fillStyle = '#fff'; ctx.fillRect(m.player.x * sx - 2, m.player.y * sy - 2, 4, 4);
     const off = m.pois.filter((p) => p.x < m.view.x || p.x > m.view.x + m.view.w || p.y < m.view.y || p.y > m.view.y + m.view.h);
@@ -2422,7 +2569,7 @@ export class App {
       const ang = Math.atan2(p.y - m.player.y, p.x - m.player.x);
       const k = Math.min((cx - 46) / (Math.abs(Math.cos(ang)) || 1e-6), (cy - 56) / (Math.abs(Math.sin(ang)) || 1e-6));
       const left = cx + Math.cos(ang) * k, top = cy + Math.sin(ang) * k;
-      return `<div class="edge-mark" style="left:${left | 0}px;top:${top | 0}px;--c:${hex(p.color)}"><i style="transform:rotate(${ang}rad)">▶</i><b>${esc(p.icon)}</b><small>${Math.round(dist(p) / 32)} m</small></div>`;
+      return `<div class="edge-mark" style="left:${left | 0}px;top:${top | 0}px;--c:${hex(p.color)}"><i style="transform:translate(${(Math.cos(ang) * 28) | 0}px,${(Math.sin(ang) * 28) | 0}px) rotate(${ang}rad)">▶</i><b>${esc(p.icon)}</b><small>${Math.round(dist(p) / 32)} m</small></div>`;
     }).join('');
   }
 

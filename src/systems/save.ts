@@ -35,7 +35,12 @@ export interface SaveData {
   kit: string;
   crest: string;
   /** today's catalogue is stored when first rolled, so later roster or rarity changes can't reshuffle it */
-  daily: { key: string; bought: number[]; offers?: { playerId: number; price: number; discount: number }[] };
+  daily: { key: string; bought: number[]; offers?: { playerId: number; price: number; discount: number; tag?: string }[]; layout?: number };
+  /** Fix 1.12: promotional codes redeemed by this save, and those redeemed as a guest still to be linked to an account */
+  redeemedCodes?: string[];
+  guestCodes?: string[];
+  /** Fix 1.12: the weekly special of the shop (one per week, bought once) */
+  weeklyShop?: { key: string; offer: { playerId: number; price: number; discount: number; tag?: string } | null; bought: boolean };
   /** per-profile salt of the daily shop */
   shopSeed: number;
   /** lifetime uses per technique id */

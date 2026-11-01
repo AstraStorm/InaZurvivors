@@ -1094,3 +1094,89 @@ body.reduced-motion .ib-orbit, body.reduced-motion .ib-ball { animation: none; }
 .pass-day.disponible { border-color: #ffe24a; box-shadow: 0 0 14px #ffe24a88; animation: pulse .8s infinite alternate; } .pass-day.disponible em { color: #ffe24a; }
 .pass-day.reclamado { opacity: .55; } .pass-day.reclamado em { color: #7dff9a; }
 @media (max-width: 620px) { .pass-row { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+
+/* Fix 1.12: shop */
+.shop-screen { max-width: 1180px; margin: 0 auto; }
+.shop-head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; padding: 8px 12px; margin: 0 0 6px; font-size: 9px; color: var(--muted); background: #06102bd0; border: 2px solid var(--frame-dim); }
+.shop-sec { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 14px 4px 8px; font-size: 12px; color: var(--yellow); }
+.shop-filters { display: flex; flex-wrap: wrap; gap: 4px; }
+.shop-filters .chip { font: inherit; font-size: 8px; padding: 4px 8px; color: #fff; background: #0a1d48; border: 2px solid var(--frame-dim); cursor: pointer; }
+.shop-filters .chip.on { border-color: var(--yellow); color: var(--yellow); }
+.shop-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px; }
+.shop-top { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
+.shop-card { position: relative; display: flex; flex-direction: column; align-items: center; gap: 5px; padding: 18px 8px 10px; text-align: center;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--rc) 22%, #0a1d48), #06102b); border: 2px solid var(--rc); box-shadow: 0 0 10px color-mix(in srgb, var(--rc) 40%, transparent); }
+.shop-top .shop-card { padding-top: 22px; box-shadow: 0 0 18px color-mix(in srgb, var(--rc) 60%, transparent); }
+.shop-card.sold { filter: grayscale(.7) brightness(.75); }
+.shop-tag { position: absolute; top: -9px; left: 50%; transform: translateX(-50%); padding: 2px 7px; font-size: 7px; white-space: nowrap; color: #3a2004; background: #ffe24a; border: 2px solid #000; }
+.shop-tag.tag-diaria { background: #9fb0c8; } .shop-tag.tag-favorito { background: #ff8ad8; color: #3a0420; } .shop-tag.tag-semanal { background: #5ee0ff; color: #032a3a; }
+.shop-off { position: absolute; top: 8px; right: 6px; padding: 2px 4px; font-size: 8px; color: #fff; background: #e23a3a; border: 2px solid #000; transform: rotate(8deg); }
+.shop-art .mug { border: 2px solid var(--rc); background-color: #0006; }
+.shop-name { font-size: 10px; font-weight: normal; color: #fff; }
+.shop-meta { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 4px; font-size: 7px; color: var(--muted); }
+.shop-state { font-size: 7px; color: #bfe8ff; min-height: 9px; } .shop-left { font-size: 7px; color: var(--muted); }
+.shop-card .btn s { opacity: .6; font-size: 8px; }
+@media (max-width: 620px) { .shop-grid, .shop-top { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; } }
+
+/* Fix 1.12: codes */
+.codes-panel { max-width: 480px; }
+.codes-row { display: flex; gap: 8px; margin: 10px 0; } .codes-row input { flex: 1; font: inherit; font-size: 14px; letter-spacing: 3px; text-transform: uppercase; padding: 8px; color: #fff; background: #06102b; border: 2px solid var(--frame); }
+.code-msg { min-height: 14px; font-size: 9px; } .code-msg.ok { color: #7dff9a; } .code-msg.bad { color: #ff8a8a; }
+
+/* Fix 1.12: wide ranking and weekly pass in the main menu */
+.menu-wide { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 14px; max-width: 1400px; margin: 14px auto 0; padding: 0 12px; }
+.menu-wide .panel { margin: 0; padding: 12px 14px; }
+.wide-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 8px; }
+.wide-head h3 { margin: 0; font-size: 14px; color: var(--yellow); } .wide-head small { font-size: 8px; color: var(--muted); }
+.wr-podium { display: grid; grid-template-columns: 1fr 1.15fr 1fr; align-items: end; gap: 8px; margin-bottom: 10px; }
+.wr-pod { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 10px 6px; text-align: center; background: linear-gradient(180deg, #1d468f, #06102b); border: 2px solid var(--frame-dim); }
+.wr-pod.p1 { order: 2; border-color: #ffd23f; box-shadow: 0 0 18px #ffd23f66; padding-top: 14px; } .wr-pod.p2 { order: 1; border-color: #cfd8e6; } .wr-pod.p3 { order: 3; border-color: #d98a4a; }
+.wr-medal { font-size: 20px; } .wr-mug .mug { border: 2px solid var(--frame); }
+.wr-name { font-size: 11px; font-weight: normal; color: #fff; word-break: break-word; } .wr-pod.p1 .wr-name { font-size: 13px; color: #ffe27a; }
+.wr-cap { font-size: 8px; color: #bfe8ff; }
+.wr-stats { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 6px; font-size: 8px; }
+.wr-stats span { display: flex; flex-direction: column; align-items: center; } .wr-stats small, .wr-num small { font-size: 7px; color: var(--muted); }
+.wr-crest { width: 22px; height: 22px; object-fit: contain; image-rendering: pixelated; }
+.wr-list { max-height: 260px; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; padding-right: 4px; }
+.wr-row { display: grid; grid-template-columns: 34px 40px minmax(0, 1fr) 24px 30px auto; align-items: center; gap: 8px; padding: 4px 6px; font-size: 9px; background: #0a1d48; border: 1px solid var(--frame-dim); }
+.wr-row.me { border-color: #7dff9a; background: #0f3a2a; } .wr-pos { color: var(--yellow); }
+.wr-who { display: flex; flex-direction: column; min-width: 0; } .wr-who b { font-weight: normal; color: #fff; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .wr-who small { font-size: 7px; color: #bfe8ff; }
+.wr-num { display: flex; flex-direction: column; align-items: flex-end; } .wr-mine { margin-top: 8px; } .wr-mine > small { font-size: 8px; color: #7dff9a; }
+.wp-row { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 5px; }
+.wp-day { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 8px 3px; text-align: center; font-size: 7px; background: #0a1d48; border: 2px solid var(--frame-dim); }
+.wp-day b { font-size: 18px; font-weight: normal; color: var(--yellow); } .wp-day span { min-height: 26px; color: #dfe8ff; } .wp-day em { font-style: normal; color: var(--muted); }
+.wp-day.big { background: linear-gradient(180deg, #3a2a08, #0a1d48); border-color: #ffb020; } .wp-day.big b { font-size: 24px; }
+.wp-day.disponible { border-color: #ffe24a; box-shadow: 0 0 14px #ffe24a99; animation: pulse .8s infinite alternate; } .wp-day.disponible em { color: #ffe24a; }
+.wp-day.reclamado { opacity: .5; } .wp-day.reclamado em { color: #7dff9a; } .wp-day.siguiente { border-style: dashed; }
+.wp-foot { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 10px; font-size: 9px; color: #dfe8ff; }
+@media (max-width: 900px) { .menu-wide { grid-template-columns: 1fr; } }
+@media (max-width: 620px) { .wp-row { grid-template-columns: repeat(4, minmax(0, 1fr)); } .wr-row { grid-template-columns: 30px 40px minmax(0, 1fr) 30px auto; } .wr-row .wr-crest { display: none; } }
+
+/* Fix 1.12: combined technique unlocked */
+.combo-unlock { position: fixed; left: 50%; top: 28%; transform: translate(-50%, -50%); z-index: 60; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 14px 22px;
+  pointer-events: none; text-align: center; background: radial-gradient(circle, #3a2a08ee, #06102bdd); border: 3px solid #ffd23f; box-shadow: 0 0 40px #ffd23f99; animation: cuIn .35s cubic-bezier(.2, 1.6, .4, 1); }
+.combo-unlock.out { opacity: 0; transform: translate(-50%, -60%); transition: all .45s; }
+.combo-unlock small { font-size: 9px; color: #fff; letter-spacing: 2px; } .combo-unlock b { font-size: 22px; font-weight: normal; color: #ffe24a; text-shadow: 3px 3px 0 #a33a00; }
+.cu-mugs { display: flex; gap: 10px; } .cu-mugs span { animation: cuMug .5s calc(var(--i) * 90ms) both; } .cu-mugs .mug { border: 3px solid #ffd23f; box-shadow: 0 0 14px #ffd23f; }
+@keyframes cuIn { from { transform: translate(-50%, -50%) scale(.3); opacity: 0; } }
+@keyframes cuMug { from { transform: translateY(30px) scale(.4); opacity: 0; } }
+@media (max-width: 620px) { .combo-unlock { top: 34%; padding: 10px 12px; } .combo-unlock b { font-size: 16px; } }
+
+/* Fix 1.12: the event panel sits under the captain panel and never over health, experience, teammates or the minimap */
+.altar-hud, .altar-hud.active { left: 12px; top: 168px; transform: none; translate: none; max-width: 300px; }
+.event-card { top: 176px; translate: none; z-index: 6; }
+.touch .event-card { left: auto; right: 8px; top: auto; bottom: 110px; width: min(250px, 62vw); pointer-events: auto; }
+.touch .event-card .btn { min-height: 44px; font-size: 12px; width: 100%; }
+@media (max-width: 1366px) { .altar-hud, .altar-hud.active { top: 162px; } .event-card { top: 170px; } }
+@media (max-height: 520px) { .altar-hud, .altar-hud.active { left: 8px; top: 106px; max-width: 42vw; } .touch .event-card { bottom: 8px; max-height: calc(100vh - 120px); overflow-y: auto; } .event-card p, .event-card dl { display: none; } }
+@media (max-width: 620px) and (min-height: 521px) { .altar-hud, .altar-hud.active { left: 8px; top: 232px; max-width: 70vw; } .touch .event-card { bottom: 120px; } }
+/* notch and rounded corners */
+.hud { padding-top: env(safe-area-inset-top); padding-left: env(safe-area-inset-left); padding-right: env(safe-area-inset-right); box-sizing: border-box; }
+.vitals.cap-panel { margin-top: env(safe-area-inset-top); margin-left: env(safe-area-inset-left); }
+.touch .btn, .touch .chip, .touch .fbtn { min-height: 40px; }
+.touch .joy { z-index: 1; }
+.menu-stage { flex: 1 0 auto; min-height: calc(100vh - 130px); } .menu-wide, .menu-foot { flex: 0 0 auto; }
+.menu-wide { width: 100%; box-sizing: border-box; }
+@media (max-width: 900px) { .menu-stage { min-height: 0; } .menu-root { height: auto; min-height: 100%; } #ui.menu-mode { overflow-y: auto; } }
+.edge-mark i { font-size: 20px; z-index: 1; color: var(--c); -webkit-text-stroke: 1px #000; }
+@media (max-height: 520px) { .touch .event-card { right: 146px; } }

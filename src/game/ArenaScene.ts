@@ -21,16 +21,17 @@ import { FORMATIONS, FORMATION_ORDER, headingFromVector, slotPositions, type For
 import type { PerkEffects } from '../systems/perks';
 import type { Settings } from '../systems/save';
 import type { RunResult } from '../systems/economy';
-import { RANK_ORDER, rankDef, waveIntensity, type RankDef } from '../systems/difficulty';
+import { burstSize, RANK_ORDER, rankDef, variantRamp, waveIntensity, type RankDef } from '../systems/difficulty';
 import { capArea, capCooldown, capCrit, capLuck, pickupRadius, capRegen, capSpeed, capTaken, capXp, CAPS, softCap } from '../systems/balance';
 import { endlessActive, endlessCoins, endlessPhase, endlessScale } from '../systems/endless';
 import { bossKit, bossPhase, rivalKit, type AttackId, type BossKit } from '../systems/bossKit';
 import { chemistry } from '../systems/kitBonus';
 import { HERO_AURA } from '../systems/ascension';
 import { dragon, handKind, keeperHand } from './fxTech';
-import { elementBurst } from './fxManif';
+import { orphans } from '../systems/groundSweep';
+import { chaosVortex, earthGlobe, elementBurst, fireIceTwin, phoenix, phoenixFlight, setLowPower, teamBeams } from './fxManif';
 import { adaptedPassive, CAP_ELEMENTAL, CAP_LAST_STAND, emptyFx, TALENTS, talentScale, type TalentFx } from '../systems/talents';
-import { COMBOS, COMBO_MAX_LEVEL, comboDamage, comboMembers, comboReady, type ComboDef } from '../systems/combos';
+import { COMBOS, COMBOS_BY_PRIORITY, COMBO_MAX_LEVEL, comboDamage, comboMembers, comboReady, type ComboDef } from '../systems/combos';
 import type { Rank } from '../systems/save';
 
 export interface HudTech { name: string; type: Technique['type']; level: number; evolution: string; cd: number }
@@ -69,6 +70,8 @@ export interface ArenaHooks {
   markers?(m: MarkerState): void;
   /** an event just ended: what happened, shown as a card */
   event?(r: { ok: boolean; title: string; detail: string }): void;
+  /** Fix 1.12: a combined technique was just learned: participants' portraits and its name */
+  combo?(c: { name: string; ids: number[] }): void;
 }
 
 export interface ArenaInit {
@@ -209,6 +212,14 @@ export class ArenaScene extends Phaser.Scene {
   private wavePhase = '';
   /** brief slow motion before the level-up cards: the moment reads, then the choice */
   private slowmoUntil = 0;
+  /** Fix 1.12 game feel: hitstop, and the kills of the last moment for the sweep reward */
+  private hitstopUntil = 0; private nextHitstop = 0; private recentKills: number[] = []; private nextSweepCheer = 0;
+  private hitstop(ms: number) {
+    const now = performance.now();
+    if (now < this.nextHitstop || this.cfg.settings.reducedMotion) return;
+    this.hitstopUntil = now + ms;
+    this.nextHitstop = now + ms + 260; // never chained: the game must not feel sticky
+  }
   private secondWindUsed = false;
   private altarsDone = 0;
   private damageDealt = 0;
@@ -232,15 +243,16 @@ export class ArenaScene extends Phaser.Scene {
 
   init(data: ArenaInit) {
     this.cfg = data;
+    this.nextSweep = 0; this.sweptOrphans = 0;
     this.members = []; this.enemies = []; this.projectiles = []; this.pickups = []; this.trail = [];
-    this.hp = this.maxHp = 100; this.xp = 0; this.level = 1; // «Ventaja inicial» is added once the scene knows xpNext this.kills = 0; this.runTime = 0; this.spawnAcc = 0;
+    this.hp = this.maxHp = 100; this.xp = 0; this.level = 1; this.kills = 0; this.runTime = 0; this.spawnAcc = 0;
     this.flowAcc = 0; this.fadeAcc = 0; this.minibossesSpawned = 0; this.minibossesKilled = 0; this.boss = null;
     this.bossSpawned = false; this.ended = false; this.rerolls = 2 + data.perks.extraRerolls; this.levelingUp = false;
     this.formation = data.formation; this.formationChangedAt = -10; this.hurtAt = -10; this.heading = 0; this.capVx = 0; this.capVy = 0; this.invulnUntil = 0; this.hitsTaken = {}; this.lastHit = null; this.reviveCharges = 0; this.hitSrc = { by: '', attack: '' };
     this.rng = new Phaser.Math.RandomDataGenerator([String(data.seed ?? Date.now())]);
     this.mods = baseMods(); this.taken = {}; this.buffs = new Map(); this.bonusCoins = 0; this.lastUpgrade = null; this.techUses = {}; this.guardBlocks = 0;
     this.padHeld = {}; this.xpCombo = 0; this.xpComboUntil = 0; this.techById = {};
-    this.rank = rankDef(data.rank); this.shots = []; this.hazards = []; this.nextHazardAt = 20; this.wavePhase = ''; this.combos = new Map(); this.slowmoUntil = 0; this.endless = null; this.secondWindUsed = false; this.altarsDone = 0; this.damageDealt = 0;
+    this.rank = rankDef(data.rank); this.shots = []; this.hazards = []; this.nextHazardAt = 20; this.wavePhase = ''; this.combos = new Map(); this.slowmoUntil = 0; this.hitstopUntil = 0; this.nextHitstop = 0; this.recentKills = []; this.nextSweepCheer = 0; this.endless = null; this.secondWindUsed = false; this.altarsDone = 0; this.damageDealt = 0;
     this.runId = crypto.randomUUID?.() ?? `${Date.now()}-${Math.random()}`; this.spawnAcc = 1.2; // first rivals within a second or two
     this.bonusTokens = 0; this.altar = null; this.altarGfx = []; this.altarTag = null; this.rival = null; this.altarRival = null; this.fxCache = null; this.fxAt = -1; this.reviveUsed = false; this.shocks = []; this.campSince = 0; this.campWarned = false; this.nextCampHit = 0; this.nextSurround = 60; this.lastMagnetAt = -MAGNET_GAP_SEC; this.nextAltarAt = FIRST_ALTAR_SEC; this.altarKills = 0; this.freezeUntil = 0; this.lure = null;
     setVolume(data.settings.volume);
@@ -260,7 +272,7 @@ export class ArenaScene extends Phaser.Scene {
     }
     for (const p of new Map([...unlocked, ...team].map((x) => [x.id, x])).values()) sheet(headKey(p.id), p.head);
     const units = new Map(m.units.map((u) => [u.id, u]));
-    for (const id of [...map.enemies, ...map.minibosses, ...(map.boss !== null ? [map.boss] : [])]) {
+    for (const id of [...map.enemies, ...map.minibosses, ...(map.boss !== null ? [map.boss] : []), ...(m.eventRobot ? [m.eventRobot] : [])]) {
       const u = units.get(id);
       if (u) sheet(`unit:${id}`, u);
     }
@@ -276,7 +288,8 @@ export class ArenaScene extends Phaser.Scene {
     const { map, settings } = this.cfg;
     this.arena = new Arena(this, map, settings.quality);
     this.arena.build();
-    this.fx = new Fx(this, settings);
+    this.fx = new Fx(this, { ...settings }); // a copy: adaptive quality must not change the saved settings
+    setLowPower(false); this.lowFps = 0;
     this.xp = Math.floor(this.xpNext() * this.cfg.perks.startXpFrac); // «Ventaja inicial»
     this.cameras.main.setBounds(0, 0, this.arena.widthPx, this.arena.heightPx).setZoom(this.zoomFor()).setBackgroundColor(map.ambience);
     // removed on shutdown: a listener left behind would touch a dead camera after the run ends
@@ -436,7 +449,9 @@ export class ArenaScene extends Phaser.Scene {
   // ------------------------------------------------------------- loop
   update(_t: number, dtRaw: number) {
     if (this.ended) return;
-    const dt = Math.min(dtRaw, 50) * (performance.now() < this.slowmoUntil ? 0.2 : 1);
+    const nowMs = performance.now();
+    // Fix 1.12: hitstop, a few frames almost frozen on the heaviest impacts (never in reduced motion)
+    const dt = Math.min(dtRaw, 50) * (nowMs < this.hitstopUntil ? 0.08 : nowMs < this.slowmoUntil ? 0.2 : 1);
     this.runTime += dt / 1000;
     this.moveTeam(dt);
     this.runTechniques(dt);
@@ -455,6 +470,11 @@ export class ArenaScene extends Phaser.Scene {
     this.updatePressure();
     this.updatePickups(dt);
     this.updateAltar(dt);
+    if (this.runTime >= this.nextSweep) { this.nextSweep = this.runTime + 1; this.sweepGround(); this.adaptQuality(); }
+    const pad = firstPad(); // Fix 1.12: A / Cross accepts the event, as E does
+    const padA = !!pad?.buttons[0]?.pressed;
+    if (padA && !this.padAWas) this.acceptAltar();
+    this.padAWas = padA;
     this.updateEndless();
     const still = Math.hypot(this.capVx, this.capVy) < 5; // Pereza heals only standing still
     const regen = capRegen(this.mods.regen + this.cfg.perks.regen + this.talents().regen + (still ? this.talents().idleRegen : 0));
@@ -835,27 +855,42 @@ export class ArenaScene extends Phaser.Scene {
     const recipe = recipeFor(t, 'legendario');
     const style = fxStyle(t);
     const [c1, c2] = STYLE_COLORS[style];
+    // Fix 1.12: the participants send their power to the meeting point and each combination has its own manifestation
+    const wind = def.effect === 'tierra' || def.effect === 'tierra-inf' ? 900 : def.effect === 'caos' || def.effect === 'fenix' ? 700 : 360;
     for (const m of who) {
-      m.f.hop(this, 9, 360);
+      m.f.hop(this, 9, wind);
       if (def.effect === 'tiro-rayo') this.fx.lightning(m.f.x, m.f.y - 12, mx, my);
       else this.fx.burst(style, m.f.x, m.f.y - 12, 10, 40, true);
     }
+    teamBeams(this, who.map((m) => ({ x: m.f.x, y: m.f.y - 12 })), mx, my, c1, wind);
+    if (def.effect === 'tierra' || def.effect === 'tierra-inf') { earthGlobe(this, mx, my - 40, 26 + level * 2, wind, def.effect === 'tierra-inf'); this.fx.pillar(mx, my + 10, 0xfff0a0, 8 + level); }
+    else if (def.effect === 'caos') chaosVortex(this, mx, my - 20, 34 + level * 2, wind);
+    else if (def.effect === 'ventisca' || def.effect === 'tiro-doble') fireIceTwin(this, mx, my, 30 + level * 2, wind);
+    else if (def.effect === 'fenix') phoenix(this, mx, my, 40 + level * 3, wind);
     this.fx.ring(mx, my, 34, c2, 360, 3);
     this.fx.label(mx, my - 30, def.name, '#ffe24a');
     sfx('evolve');
-    this.time.delayedCall(360, () => {
+    this.time.delayedCall(wind, () => {
       if (this.ended) return;
       const a = Math.atan2(target.pos.y - 12 - my, target.pos.x - mx);
       const dmg = comboDamage(def, level, this.mods.damage * this.teamDamageBonus() * this.formationDamage() * this.cfg.perks.damageMult * this.cfg.perks.comboMult * FORMATIONS[this.formation].comboMult * this.formationTactic().combo);
-      const shots = def.effect === 'tiro-doble' ? [-0.12, 0.12] : [0];
+      const twin = def.effect === 'tiro-doble' || def.effect === 'ventisca' || def.effect === 'caos';
+      const shots = twin ? [-0.12, 0.12] : [0];
+      const flight = Math.min(900, Math.hypot(target.pos.x - mx, target.pos.y - my) / 260 * 1000);
+      if (def.effect === 'fenix') phoenixFlight(this, mx, my, target.pos.x, target.pos.y - 10, 40 + level * 3, flight);
+      if (def.effect === 'tierra' || def.effect === 'tierra-inf') {
+        const globe = earthGlobe(this, mx, my - 40, 22 + level * 2, flight, def.effect === 'tierra-inf');
+        this.tweens.add({ targets: globe, x: target.pos.x, y: target.pos.y - 10, duration: flight, ease: 'Quad.easeIn' });
+        this.time.delayedCall(flight, () => { if (!this.ended) { this.fx.shake(0.008, 260); this.fx.flashDisc(target.pos.x, target.pos.y - 10, 90, 0xfff0a0, 320); } });
+      }
       for (const off of shots) {
         const ang = a + off, speed = 260;
-        const color = def.effect === 'tiro-doble' && off > 0 ? 0x8fe8ff : c1;
+        const color = twin && off > 0 ? 0x8fe8ff : c1;
         const scale = 1.7 + level * 0.1;
         const aura = this.add.circle(mx, my, 8 * scale, color, 0.4).setDepth(8900).setBlendMode(Phaser.BlendModes.ADD);
         const ball = this.add.image(mx, my, recipe.ballTexture).setScale(scale).setDepth(8901);
         this.projectiles.push({ ball, aura, x: mx, y: my, vx: Math.cos(ang) * speed, vy: Math.sin(ang) * speed, t: 0,
-          traj: def.effect === 'tiro-doble' ? 'espiral' : 'recta' as Trajectory, style: def.effect === 'tiro-doble' && off > 0 ? 'hielo' : style,
+          traj: twin ? 'espiral' : 'recta' as Trajectory, style: twin && off > 0 ? 'hielo' : style,
           damage: dmg, pierce: 4 + level, life: 1700, hits: new Set(), knock: 120, level: 6 + level, explode: true, scale, phase: off * 10,
           dragon: def.effect === 'tiro-dragon', recipe, blast: 40 + level * 6 });
       }
@@ -1010,6 +1045,12 @@ export class ArenaScene extends Phaser.Scene {
     p.exploded = true;
     const r = p.blast + (fromSky ? 8 : 0);
     impact(this.fx, p.recipe, x, y, r, p.level);
+    // Fix 1.12: the stage of the technique shows in its impact. Evolved (Lv 4+): a second shock ring; G2/G3 (Lv 7+):
+    // a flash and stronger rays; maximum (Lv 10): a column of light, a heavier shake and a brief hitstop
+    const [c1, c2] = STYLE_COLORS[p.style];
+    if (p.level >= 4) this.fx.ring(x, y, r * 1.5, c2, 420, 2);
+    if (p.level >= 7) { this.fx.flashDisc(x, y, r * 0.8, c1, 200); this.fx.rays(x, y, 10, r * 1.3, c2, 300); }
+    if (p.level >= 10) { this.fx.pillar(x, y + 6, c2, 10); this.hitstop(55); }
     if (p.level >= 7 || fromSky || p.recipe.tier >= 2) this.fx.shake(0.0012 + p.level * 0.00015, 80);
     sfx('boom');
     for (const e of this.enemies) {
@@ -1036,7 +1077,7 @@ export class ArenaScene extends Phaser.Scene {
     const R = this.rank;
     // plain rivals can come as elites (tough, golden, better drop) or runners (fast, fragile, icy tint)
     const roll = kind === 'enemy' || kind === 'creature' ? this.rng.frac() : 1;
-    const ramp = Math.min(1, this.runTime / 60);
+    const ramp = variantRamp(this.runTime);
     let variant: Enemy['variant'];
     let bar = 0;
     for (const [id, chance] of [['elite', (R.elite + (this.endless ? endlessPhase(this.endlessMin()).elite : 0)) * ramp], ['runner', R.runner * Math.min(1, this.runTime / 40)], ['shooter', R.shooter * ramp], ['flanker', R.flanker * ramp], ['bomber', R.bomber * ramp], ['tank', R.tank * ramp]] as [NonNullable<Enemy['variant']>, number][]) {
@@ -1104,7 +1145,7 @@ export class ArenaScene extends Phaser.Scene {
     while (this.spawnAcc > interval) {
       this.spawnAcc -= interval;
       if (this.enemies.length >= MAX_ENEMIES || !map.enemies.length) break;
-      const burst = 1 + Math.floor(frac * 2.6) + (this.members.length >= 5 ? 1 : 0) + (frac > 0.3 ? this.rank.burst : 0);
+      const burst = burstSize(Math.min(1, frac), this.members.length >= 5, this.rank.burst, this.rng.frac());
       for (let i = 0; i < burst; i++) {
         const u = units.get(map.enemies[this.rng.between(0, map.enemies.length - 1)]);
         if (u) this.spawnEnemy(u, u.kind === 'creature' ? 'creature' : 'enemy');
@@ -1523,7 +1564,12 @@ export class ArenaScene extends Phaser.Scene {
     }
     this.fx.damageNumber(e.pos.x, e.pos.y - 26 * (e.sprite.scale || 1), v, crit || v >= 40);
     if (style === 'hielo') e.speed *= 0.97;
-    sfx('hit');
+    if (crit) { // a critical reads at a glance: a burst of light and its own sound
+      this.fx.ring(e.pos.x, e.pos.y - 12, 16, 0xffe24a, 200, 3);
+      this.fx.rays(e.pos.x, e.pos.y - 12, 6, 22, 0xfff6c0, 180);
+      sfx('crit');
+    } else sfx('hit');
+    if (crit && v >= 60 || e.kind === 'boss' && v >= 80) this.hitstop(e.kind === 'boss' ? 70 : 45);
     if (e.hp <= 0) this.kill(e, style);
   }
 
@@ -1531,6 +1577,31 @@ export class ArenaScene extends Phaser.Scene {
    * Everything a rival leaves on the ground (aim line, bomb fuse, attack telegraph) goes with it, however it leaves:
    * defeated, withdrawn, or at the end of the run.
    */
+  /**
+   * Fix 1.12: adaptive quality. Three low seconds in a row (under 40 fps) drop the particles and the redraw rate of the
+   * drawn effects for the rest of the run; it never touches the player's saved settings.
+   */
+  private padAWas = false; private lowFps = 0;
+  private adaptQuality() {
+    if (this.game.loop.actualFps < 40) this.lowFps++; else this.lowFps = 0;
+    if (this.lowFps >= 3 && this.fx.settings.particles === 'completo') { this.fx.settings.particles = 'reducido'; setLowPower(true); }
+  }
+
+  /** Fix 1.12: ground marks with no live owner are removed (groundSweep.ts); the count is kept for QA (window.__ies). */
+  private nextSweep = 0;
+  sweptOrphans = 0;
+  private sweepGround() {
+    const owned = new Set<unknown>(this.altarGfx);
+    for (const e of this.enemies) if (!e.dead) for (const g of [e.aim?.gfx, e.fuse?.gfx, e.pattern?.gfx]) if (g) owned.add(g);
+    for (const h of this.hazards) { owned.add(h.shadow); owned.add(h.ring); }
+    for (const w of this.shocks) owned.add(w.g);
+    const list = this.children.list as unknown as (Phaser.GameObjects.GameObject & { depth: number })[];
+    for (const o of orphans(list, owned, (x) => this.tweens.isTweening(x))) {
+      this.sweptOrphans++;
+      o.destroy();
+    }
+  }
+
   private disposeTelegraphs(e: Enemy) {
     for (const g of [e.aim?.gfx, e.fuse?.gfx, e.pattern?.gfx]) if (g) { this.tweens.killTweensOf(g); g.destroy(); }
     e.aim = undefined; e.fuse = undefined;
@@ -1545,6 +1616,17 @@ export class ArenaScene extends Phaser.Scene {
     if (e === this.rival) this.rival = null;
     const x = e.pos.x, y = e.pos.y - 6;
     this.fx.burst(style, x, y - 4, 6, 50);
+    this.fx.ring(x, y - 4, 12, 0xffffff, 180, 2); // the pop of the knock-out
+    // Fix 1.12: sweeping a group is rewarded on screen
+    const nowMs = performance.now();
+    this.recentKills = this.recentKills.filter((t) => nowMs - t < 700);
+    this.recentKills.push(nowMs);
+    if (this.recentKills.length >= 6 && nowMs > this.nextSweepCheer) {
+      this.nextSweepCheer = nowMs + 2500;
+      this.fx.label(this.members[0].f.x, this.members[0].f.y - 50, `¡BARRIDA ×${this.recentKills.length}!`, '#ffe24a');
+      this.fx.ring(this.members[0].f.x, this.members[0].f.y - 10, 70, 0xffe24a, 420, 3);
+      sfx('sweep');
+    }
     // knocked off their feet and gone in a quarter second: clear, not instant
     const sp = e.sprite;
     this.tweens.killTweensOf(sp);
@@ -1801,7 +1883,7 @@ export class ArenaScene extends Phaser.Scene {
       if (recruitOnly) return cards;
       // a combination that just became possible always shows up; upgrades of learned ones now and then
       const pitch = this.members.map((m) => ({ entry: m.entry, state: m.state }));
-      for (const c of COMBOS) {
+      for (const c of [...COMBOS_BY_PRIORITY].reverse()) { // the highest priority ends up first
         const got = this.combos.get(c.id);
         if (!got && comboReady(c, pitch)) cards.splice(0, 1, { kind: 'combo', id: c.id, toLevel: 1 });
         else if (got && got.level < COMBO_MAX_LEVEL && this.rng.frac() < 0.35) cards.splice(cards.length - 1, 1, { kind: 'combo', id: c.id, toLevel: got.level + 1 });
@@ -1831,6 +1913,11 @@ export class ArenaScene extends Phaser.Scene {
       this.combos.set(def.id, { level: card.toLevel, cd: had?.cd ?? 800 });
       this.banner(had ? `${def.name} Nv ${card.toLevel}` : `¡${def.name.toUpperCase()}!`, '#ffe24a');
       sfx('evolve');
+      if (!had) { // a brief freeze, the participants' portraits and the name (app.ts)
+        this.slowmoUntil = performance.now() + 700;
+        this.cfg.hooks.combo?.({ name: def.name, ids: comboMembers(def, this.members).map((m) => m.entry.id) });
+        for (const m of comboMembers(def, this.members)) this.fx.ring(m.f.x, m.f.y - 10, 26, 0xffe24a, 600, 3);
+      }
       return;
     }
     if (card.kind === 'heal') {
@@ -1905,7 +1992,13 @@ export class ArenaScene extends Phaser.Scene {
     if (type === 'duelo') this.altarRival = this.pickRival();
     const color = ALTAR_COLOR[type];
     const area = this.add.ellipse(at.x, at.y, ALTAR_RADIUS * 2, ALTAR_RADIUS * 1.5, color, 0.08).setStrokeStyle(2, color, 0.8).setDepth(-9900);
-    const pillar = this.add.image(at.x, at.y + 8, 'fx:altar').setOrigin(0.5, 1).setTint(color).setDepth(at.y + 8);
+    // the reception robot of the match chains, front on with its coloured panel (second row of its sheet)
+    const rid = this.cfg.manifest.eventRobot;
+    let pillar: Phaser.GameObjects.Image | Phaser.GameObjects.Sprite;
+    if (rid && this.textures.exists(`unit:${rid}`)) {
+      if (!this.anims.exists('event-robot')) this.anims.create({ key: 'event-robot', frames: this.anims.generateFrameNumbers(`unit:${rid}`, { start: 16, end: 19 }), frameRate: 6, repeat: -1 });
+      pillar = this.add.sprite(at.x, at.y + 8, `unit:${rid}`, 16).setOrigin(0.5, 1).setScale(1.9).setDepth(at.y + 8).play('event-robot');
+    } else pillar = this.add.image(at.x, at.y + 8, 'fx:altar').setOrigin(0.5, 1).setTint(color).setDepth(at.y + 8);
     const beam = this.add.rectangle(at.x, at.y - 110, 22, 220, color, 0.16).setDepth(at.y + 7);
     this.tweens.add({ targets: beam, alpha: 0.5, scaleX: 1.35, duration: 800, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
     this.tweens.add({ targets: area, scaleX: 1.04, scaleY: 1.04, duration: 900, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });

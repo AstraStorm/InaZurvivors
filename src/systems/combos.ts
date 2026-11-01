@@ -23,8 +23,10 @@ export interface ComboDef {
   /** each participant by roster name, with the technique and run level they need */
   needs: { player: string; tech?: string; level: number }[];
   cooldownMs: number;
-  /** what the special slot does when it fires */
-  effect: 'tiro-doble' | 'tiro-dragon' | 'tiro-rayo';
+  /** what the special slot does when it fires (each one has its own animation in the scene) */
+  effect: 'tiro-doble' | 'tiro-dragon' | 'tiro-rayo' | 'fenix' | 'tierra' | 'caos' | 'ventisca' | 'tierra-inf';
+  /** Fix 1.12: when several are learnable at once, the higher one is offered first */
+  priority: number;
   source: string;
 }
 
@@ -32,22 +34,55 @@ export const COMBOS: ComboDef[] = [
   {
     id: 'fuego-cruzado', name: 'Fuego cruzado', jp: 'クロスファイア', en: 'Crossfire', element: 'Fuego', power: 120,
     needs: [{ player: 'Axel Blaze', tech: 'Tornado de fuego', level: 10 }, { player: 'Shawn Froste', tech: 'Ventisca eterna', level: 10 }],
-    cooldownMs: 6500, effect: 'tiro-doble',
+    cooldownMs: 6500, effect: 'tiro-doble', priority: 8,
     source: 'Wiki de Inazuma Eleven (fandom), «Crossfire»: Gouenji (Axel) y Fubuki (Shawn) la crean y la usan en el anime. Condición de niveles: diseño de InaZurvivors.',
   },
   {
     id: 'tornado-dragon', name: 'Tornado dragón', jp: 'ドラゴントルネード', en: 'Dragon Tornado', element: 'Fuego', power: 79,
     needs: [{ player: 'Kevin Dragonfly', tech: 'Remate dragón', level: 5 }, { player: 'Axel Blaze', tech: 'Tornado de fuego', level: 5 }],
-    cooldownMs: 5000, effect: 'tiro-dragon',
+    cooldownMs: 5000, effect: 'tiro-dragon', priority: 5,
     source: 'Wiki de Inazuma Eleven (fandom), «Dragon Tornado»: Someoka (Kevin) pasa con Dragon Crash al Fire Tornado de Gouenji (Axel). Condición de niveles: diseño de InaZurvivors.',
   },
   {
     id: 'ruptura-relampago', name: 'Ruptura relámpago', jp: 'イナズマブレイク', en: 'Inazuma Break', element: 'Aire', power: 99,
     needs: [{ player: 'Jude Sharp', level: 4 }, { player: 'Mark Evans', level: 4 }, { player: 'Axel Blaze', level: 4 }],
-    cooldownMs: 7000, effect: 'tiro-rayo',
+    cooldownMs: 7000, effect: 'tiro-rayo', priority: 7,
     source: 'Wiki de Inazuma Eleven (fandom), «Inazuma Break»: Kidou (Jude), Endou (Mark) y Gouenji (Axel) la usan contra Senbayama (episodio 018). Condición de niveles: diseño de InaZurvivors.',
   },
+  // Fix 1.12
+  {
+    id: 'el-fenix', name: 'El Fénix', jp: 'ザ・フェニックス', en: 'The Phoenix', element: 'Fuego', power: 125,
+    needs: [{ player: 'Erik Eagle', level: 5 }, { player: 'Bobby Shearer', level: 5 }, { player: 'Mark Evans', level: 5 }],
+    cooldownMs: 7500, effect: 'fenix', priority: 8,
+    source: 'MyAnimeList, Ichinose Kazuya (Erik Eagle): «The Phoenix», con Endou (Mark) y Domon (Bobby). Condición de niveles: diseño de InaZurvivors.',
+  },
+  {
+    id: 'la-tierra', name: 'La Tierra', jp: 'ジ・アース', en: 'The Earth', element: 'Montaña', power: 160,
+    needs: [{ player: 'Mark Evans', level: 7 }, { player: 'Axel Blaze', level: 7 }, { player: 'Shawn Froste', level: 7 }],
+    cooldownMs: 11000, effect: 'tierra', priority: 10,
+    source: 'Wiki de Inazuma Eleven (fandom), «The Earth»: tiro combinado de Gouenji (Axel) que en IE2 hacen Endou (Mark), Gouenji y Fubuki (Shawn) (o Gran). Técnica de máxima categoría: condición de niveles alta, diseño de InaZurvivors.',
+  },
+  {
+    id: 'remate-caotico', name: 'Remate caótico', jp: 'カオスブレイク', en: 'Chaos Break', element: 'Fuego', power: 140,
+    needs: [{ player: 'Byron Love', level: 5 }, { player: 'Claude Beacons', level: 5 }, { player: 'Bryce Whitingale', level: 5 }],
+    cooldownMs: 8500, effect: 'caos', priority: 9,
+    source: 'Wiki de Inazuma Eleven (fandom), «Chaos Break»: Afuro (Byron), Nagumo (Claude) y Suzuno (Bryce) en Fire Dragon. Condición de niveles: diseño de InaZurvivors.',
+  },
+  {
+    id: 'ventisca-de-fuego', name: 'Ventisca de fuego', jp: 'ファイアブリザード', en: 'Fire Blizzard', element: 'Fuego', power: 105,
+    needs: [{ player: 'Claude Beacons', tech: 'Ventisca de fuego', level: 3 }, { player: 'Bryce Whitingale', tech: 'Ventisca de fuego', level: 3 }],
+    cooldownMs: 6000, effect: 'ventisca', priority: 6,
+    source: 'ROM IE2 en español (tabla de técnicas): «Ventisca de fuego» en el repertorio de Torch (Claude) y Gazelle (Bryce). Condición de niveles: diseño de InaZurvivors.',
+  },
+  {
+    id: 'la-tierra-inf', name: 'La Tierra ∞', jp: 'ジ・アース∞', en: 'The Earth ∞', element: 'Montaña', power: 165,
+    needs: [{ player: 'Arion Sherwind', level: 7 }, { player: 'Riccardo Di Rigo', level: 7 }, { player: 'Victor Blade', level: 7 }],
+    cooldownMs: 11000, effect: 'tierra-inf', priority: 10,
+    source: 'Wiki de Inazuma Eleven (fandom), «The Earth ∞»: Matsukaze Tenma (Arion), Shindou Takuto (Riccardo) y Tsurugi Kyousuke (Victor) en GO Galaxy, episodio 43. Condición de niveles: diseño de InaZurvivors.',
+  },
 ];
+/** Highest priority first: the order in which learnable combinations are offered. */
+export const COMBOS_BY_PRIORITY = [...COMBOS].sort((a, b) => b.priority - a.priority);
 
 export interface OnPitch { entry: RosterEntry; state: TeamMemberState }
 

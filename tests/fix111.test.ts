@@ -41,7 +41,7 @@ describe('weekly pass', () => {
 describe('daily shop', () => {
   it('ten distinct offers with a favourite-team slot', () => {
     const o = dailyOffers(roster, '2026-11-01', 7, 'Royal');
-    expect(o.length).toBe(OFFERS);
+    expect(o.length).toBe(OFFERS - 1); // the weekly special is rolled apart
     expect(new Set(o.map((x) => x.playerId)).size).toBe(o.length);
     const fav = o.find((x) => x.tag === 'favorito')!;
     expect(roster.find((p) => p.id === fav.playerId)!.teams).toContain('Royal');
@@ -103,7 +103,7 @@ describe('items, upgrades and coins', () => {
 });
 
 describe('saves from 1.1', () => {
-  it('a 1.1 save keeps coins, players and the six offers already rolled today; the pass starts at day 1', async () => {
+  it('a 1.1 save keeps coins and players, its old six offers are replaced by the new layout; the pass starts at day 1', async () => {
     const { migrate } = await import('../src/systems/save');
     const old = newSave([], null) as unknown as Record<string, unknown>;
     delete old.weeklyPass;
@@ -111,8 +111,7 @@ describe('saves from 1.1', () => {
       daily: { key: '2026-11-01', bought: [], offers: [1, 2, 3, 4, 5, 6].map((id) => ({ playerId: id, price: 150, discount: 0 })) } })), [], null);
     expect(s.coins).toBe(12345);
     expect(s.owned['1'].copies).toBe(2);
-    expect(rollDaily(s, roster, day(1)).length).toBe(6); // same day: unchanged
-    expect(rollDaily(s, roster, day(2)).length).toBe(OFFERS); // next day: ten
+    expect(rollDaily(s, roster, day(1)).length).toBe(OFFERS); // Fix 1.12: at once, keeping the day's purchases
     expect(passStatus(s, day(2)).index).toBe(0);
   });
 });

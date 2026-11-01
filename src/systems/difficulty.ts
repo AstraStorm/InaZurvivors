@@ -57,12 +57,28 @@ export const RANKS: Record<Rank, RankDef> = {
  * a short pressure wave and a breather. Returns a multiplier on the spawn rate.
  */
 export function waveIntensity(t: number): { rate: number; phase: 'inicio' | 'normal' | 'presion' | 'respiro' } {
-  if (t < 30) return { rate: 1.35, phase: 'inicio' }; // the first 30 s are busy on purpose: early levels, early choices
+  if (t < 30) return { rate: 1.15, phase: 'inicio' }; // the first 30 s are busy on purpose: early levels, early choices
   const c = (t - 30) % 60;
-  if (c >= 38 && c < 52) return { rate: 2.4, phase: 'presion' };
+  // Fix 1.12: the waves grow with the run (×1.5 the first one, ×2.4 from the fourth minute) instead of starting at the top
+  if (c >= 38 && c < 52) return { rate: 1.5 + 0.9 * Math.min(1, Math.max(0, t - 60) / 180), phase: 'presion' };
   if (c >= 52) return { rate: 0.45, phase: 'respiro' };
   return { rate: 1, phase: 'normal' };
 }
+
+const clamp01 = (x: number) => Math.max(0, Math.min(1, x));
+const smooth = (a: number, b: number, x: number) => { const k = clamp01((x - a) / (b - a)); return k * k * (3 - 2 * k); };
+
+/**
+ * Fix 1.12: rivals per spawn as a continuous value (it used to jump in whole steps at fixed moments of the run). The
+ * fraction is the chance of one more, `roll` in 0..1.
+ */
+export function burstSize(frac: number, fullTeam: boolean, rankBurst: number, roll: number) {
+  const v = 1 + 2.8 * frac ** 2 + (fullTeam ? 1 : 0) + rankBurst * smooth(0.2, 0.6, frac);
+  return Math.floor(v) + (roll < v - Math.floor(v) ? 1 : 0);
+}
+
+/** Fix 1.12: how far the special rivals have arrived: none for 20 s, all of them by 2:30 (it was all by 1:00). */
+export const variantRamp = (t: number) => smooth(20, 150, t);
 
 export const rankDef = (r: Rank | undefined) => RANKS[r ?? 'C'] ?? RANKS.C;
 

@@ -14,13 +14,18 @@ const shade = (c: number, k: number) => {
   return (r << 16) | (g << 8) | b;
 };
 
+/** Fix 1.12: on slow devices the drawn effects redraw every third step (ArenaScene.adaptQuality). */
+let lowPower = false;
+export const setLowPower = (v: boolean) => { lowPower = v; };
+
 /** Redraws `draw(g, k)` with k going 0 -> 1 over ms, then fades and destroys. */
 function animate(scene: S, x: number, y: number, depth: number, ms: number, draw: (g: Phaser.GameObjects.Graphics, k: number) => void, fade = 220, add = false) {
   const g = scene.add.graphics().setPosition(x, y).setDepth(depth);
   if (add) g.setBlendMode(Phaser.BlendModes.ADD);
   const st = { k: 0 };
   draw(g, 0);
-  scene.tweens.add({ targets: st, k: 1, duration: ms, onUpdate: () => { g.clear(); draw(g, st.k); } });
+  let n = 0;
+  scene.tweens.add({ targets: st, k: 1, duration: ms, onUpdate: () => { if (lowPower && n++ % 3) return; g.clear(); draw(g, st.k); } });
   scene.tweens.add({ targets: g, alpha: 0, delay: ms, duration: fade, onComplete: () => g.destroy() });
   return g;
 }
@@ -222,5 +227,69 @@ export function elementBurst(scene: S, style: FxStyle, x: number, y: number, rad
     case 'rayo': return boltStorm(scene, x, y, radius * 0.8, ms);
     case 'sombra': return shadows(scene, x, y, radius * 0.8, ms);
     default: return dome(scene, x, y, radius, ms, shade(c1, 1));
+  }
+}
+
+// ------------------------------------------------------------------------------------------- combined techniques
+
+/** A small planet with oceans and continents turning, a golden halo: La Tierra. `inf`: a rainbow ring (La Tierra ∞). */
+export function earthGlobe(scene: S, x: number, y: number, size: number, ms: number, inf = false) {
+  const blobs = Array.from({ length: 7 }, (_, i) => ({ a: i * 0.9, lat: Math.sin(i * 2.3) * 0.6, r: 0.18 + (i % 3) * 0.07 }));
+  return animate(scene, x, y, 8900, ms, (g, k) => {
+    const r = size * (0.3 + Math.min(1, k * 1.6) * 0.7), spin = k * 4;
+    g.fillStyle(0xffd23f, 0.25).fillCircle(0, 0, r * 1.45).fillStyle(0xfff0a0, 0.25).fillCircle(0, 0, r * 1.2);
+    g.fillStyle(0x1e5ad8).fillCircle(0, 0, r);
+    for (const b of blobs) {
+      const lon = (b.a + spin) % (Math.PI * 2), vis = Math.cos(lon);
+      if (vis < -0.1) continue;
+      g.fillStyle(0x3fbf4a).fillEllipse(Math.sin(lon) * r * 0.8, b.lat * r, r * b.r * 2 * Math.max(0.2, vis), r * b.r * 1.6);
+    }
+    g.fillStyle(0xffffff, 0.35).fillCircle(-r * 0.35, -r * 0.35, r * 0.3);
+    g.lineStyle(2, 0x0a2a6a, 1).strokeCircle(0, 0, r);
+    if (inf) {
+      const cols = [0xff4a4a, 0xffb020, 0xffe24a, 0x5ee05a, 0x4fb3ff, 0xb36bff];
+      cols.forEach((c, i) => g.lineStyle(2, c, 0.9).strokeEllipse(0, 0, r * (2.6 + i * 0.12), r * (0.7 + i * 0.05)));
+    }
+  }, 220);
+}
+
+/** Half fire, half ice spiral round a dark core with golden sparks: Remate caótico (Chaos Break). */
+export function chaosVortex(scene: S, x: number, y: number, size: number, ms: number) {
+  return animate(scene, x, y, 8900, ms, (g, k) => {
+    const turns = 3, rot = k * 9;
+    g.fillStyle(0x1a0830, 0.85).fillCircle(0, 0, size * 0.28);
+    for (let arm = 0; arm < 2; arm++) for (let i = 0; i < 26; i++) {
+      const u = i / 25, a = rot + arm * Math.PI + u * turns * Math.PI, d = size * (0.25 + u * 0.85) * Math.min(1, k * 2);
+      g.fillStyle(arm ? 0x7fe3ff : 0xff5a1f, 0.9 - u * 0.5).fillCircle(Math.cos(a) * d, Math.sin(a) * d * 0.6, size * 0.09 * (1 - u * 0.6));
+    }
+    for (let i = 0; i < 6; i++) { const a = -rot * 0.7 + i; g.fillStyle(0xfff0a0).fillCircle(Math.cos(a) * size * 1.05, Math.sin(a) * size * 0.6, 2); }
+  }, 200, true);
+}
+
+/** Two spirals, fire and ice, braiding upwards: Ventisca de fuego. */
+export function fireIceTwin(scene: S, x: number, y: number, size: number, ms: number) {
+  return animate(scene, x, y + 6, 8900, ms, (g, k) => {
+    for (let arm = 0; arm < 2; arm++) for (let i = 0; i < 20; i++) {
+      const u = i / 19, a = k * 10 + u * Math.PI * 4 + arm * Math.PI;
+      g.fillStyle(arm ? 0x9fe8ff : 0xff6a2a, 0.9).fillCircle(Math.cos(a) * size * 0.45, -u * size * 1.6 * Math.min(1, k * 2), size * 0.08 * (1 - u * 0.4));
+    }
+  }, 200, true);
+}
+
+/** The phoenix itself flies from x0,y0 to x1,y1 (El Fénix). */
+export function phoenixFlight(scene: S, x0: number, y0: number, x1: number, y1: number, size: number, ms: number) {
+  // the bird flaps inside a container that carries it to the target
+  const g = phoenix(scene, 0, 26, size, ms);
+  const c = scene.add.container(x0, y0, [g]).setDepth(8900);
+  scene.tweens.add({ targets: c, x: x1, y: y1, duration: ms, ease: 'Quad.easeIn' });
+  scene.time.delayedCall(ms + 260, () => c.destroy());
+  return c;
+}
+
+/** A line of light from each participant to the meeting point. */
+export function teamBeams(scene: S, from: { x: number; y: number }[], x: number, y: number, color: number, ms: number) {
+  for (const p of from) {
+    const l = scene.add.line(0, 0, p.x, p.y, x, y, color, 0.85).setOrigin(0, 0).setLineWidth(3).setBlendMode(Phaser.BlendModes.ADD).setDepth(8890);
+    scene.tweens.add({ targets: l, alpha: 0, delay: ms * 0.6, duration: ms * 0.4, onComplete: () => l.destroy() });
   }
 }
