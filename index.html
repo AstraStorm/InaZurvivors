@@ -7,9 +7,12 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="theme-color" content="#050c22" />
   <title>InaZurvivors</title>
-  <meta name="description" content="InaZurvivors: roguelite de fútbol hecho por fans. Proyecto no oficial, sin ánimo de lucro." />
+  <meta name="description" content="InaZurvivors: fangame roguelite de supervivencia, gratuito y no oficial, inspirado en Inazuma Eleven. Se juega en el navegador, como invitado o con una cuenta de Google opcional." />
+  <meta name="application-name" content="InaZurvivors" />
+  <meta property="og:site_name" content="InaZurvivors" />
   <meta property="og:title" content="InaZurvivors" />
-  <meta property="og:description" content="Roguelite de fútbol hecho por fans. Proyecto no oficial." />
+  <meta property="og:description" content="Fangame roguelite de fútbol, gratuito y no oficial, inspirado en Inazuma Eleven." />
+  <link rel="manifest" href="manifest.webmanifest" />
   <link rel="icon" href="favicon.ico" sizes="any" />
   <link rel="icon" href="icon-32.png" sizes="32x32" type="image/png" />
   <link rel="icon" href="icon-16.png" sizes="16x16" type="image/png" />
@@ -20,16 +23,46 @@
     #boot { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px;
       color: #e8f2ff; font: 14px/1.4 monospace; background: radial-gradient(circle at 50% 40%, #12306e, #050c22 70%); z-index: 50; transition: opacity .35s; }
     #boot img { width: 96px; height: 96px; image-rendering: pixelated; animation: bootPulse 1.2s ease-in-out infinite; }
-    #boot b { font-size: 22px; letter-spacing: 3px; color: #ffd21f; text-shadow: 2px 2px 0 #000; }
+    #boot b { font-size: 22px; letter-spacing: 3px; text-transform: uppercase; color: #ffd21f; text-shadow: 2px 2px 0 #000; }
     #boot .bar { width: min(320px, 70vw); height: 10px; border: 2px solid #4fc8ff; background: #0a1d48; }
     #boot .bar i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #ffb020, #ffe24a); transition: width .2s; }
     #boot.gone { opacity: 0; pointer-events: none; }
     @keyframes bootPulse { 50% { transform: scale(1.06); } }
     @media (prefers-reduced-motion: reduce) { #boot img { animation: none; } }
+    /* public landing for first visits (and for anyone without JavaScript); returning players go straight to the game */
+    #landing { position: fixed; inset: 0; z-index: 60; overflow-y: auto; background: #08142e; color: #f4f7ff; font: 16px/1.6 system-ui, sans-serif; }
+    #landing .in { max-width: 760px; margin: 0 auto; padding: 32px 16px 48px; }
+    #landing h1 { color: #ffe24a; font-size: 2.4rem; margin: 0; } #landing h2 { color: #7fd3ff; margin-top: 28px; }
+    #landing a { color: #7fd3ff; } #landing li { margin: 4px 0; } #landing .note { color: #a9bde6; font-size: 14px; }
+    #landing button { font: 700 18px system-ui, sans-serif; color: #08142e; background: #ffe24a; border: 0; border-radius: 6px; padding: 12px 28px; cursor: pointer; }
+    #landing nav { display: flex; gap: 16px; flex-wrap: wrap; margin: 16px 0; }
+    .returning #landing { display: none; }
   </style>
+  <script>
+    try { if (localStorage.getItem('ie-survivors-save') || /[?&#](code|error|access_token)=/.test(location.search + location.hash)) document.documentElement.classList.add('returning'); } catch (e) { /* storage blocked: show the landing */ }
+  </script>
 </head>
 <body>
-  <div id="boot"><img src="logo-192.png" alt="" /><b>INAZURVIVORS</b><div class="bar"><i id="boot-bar"></i></div><span id="boot-msg">Cargando…</span></div>
+  <main id="landing"><div class="in">
+    <h1>InaZurvivors</h1>
+    <p>InaZurvivors es un fangame roguelite de supervivencia, gratuito, sin ánimo de lucro y no oficial, inspirado en el universo de Inazuma Eleven. Se juega en el navegador: recluta futbolistas, mejora sus supertécnicas y aguanta oleadas de rivales cada vez más duras.</p>
+    <p><button type="button" onclick="document.getElementById('landing').remove()">Jugar gratis</button></p>
+    <p class="note">No hace falta cuenta para jugar.</p>
+    <nav><a href="privacidad.html">Política de privacidad</a><a href="terminos.html">Condiciones del servicio</a><a href="https://github.com/AstraStorm/InaZurvivors">Código en GitHub</a></nav>
+    <h2>Características</h2>
+    <ul>
+      <li>Más de 2.000 futbolistas, con colección por rarezas y máquina de fichajes.</li>
+      <li>Supertécnicas, formaciones, equipaciones y escudos.</li>
+      <li>Varias arenas, dificultades de C a X y supervivencia infinita tras el jefe.</li>
+      <li>Misiones, desafíos y mejoras permanentes para tu club.</li>
+    </ul>
+    <h2>Para qué se usa el inicio de sesión con Google</h2>
+    <p>Es opcional. Puedes jugar como invitado, con el progreso guardado solo en tu navegador. Si entras con Google, se usa únicamente para identificar tu cuenta, reservar un nombre de usuario único, aparecer en el ranking mundial y guardar tu partida en la nube. El juego no recibe tu contraseña de Google y no tiene publicidad, analítica ni venta de datos. Los detalles están en la <a href="privacidad.html">política de privacidad</a>.</p>
+    <h2>Autor</h2>
+    <p>Creado por AstraStorm17. Contacto a través del <a href="https://github.com/AstraStorm/InaZurvivors">repositorio del proyecto en GitHub</a>.</p>
+    <p class="note">Inazuma Eleven, sus personajes, nombres, diseños, logotipos, música y materiales son propiedad de LEVEL-5 y/o sus respectivos titulares. Este proyecto no está afiliado, patrocinado ni aprobado por LEVEL-5.</p>
+  </div></main>
+  <div id="boot"><img src="logo-192.png" alt="" /><b>InaZurvivors</b><div class="bar"><i id="boot-bar"></i></div><span id="boot-msg">Cargando…</span></div>
   <div id="game"></div>
   <div id="ui"></div>
   <script type="module" src="/src/main.ts"></script>

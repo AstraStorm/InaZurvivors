@@ -1003,3 +1003,5 @@ body.reduced-motion .ib-orbit, body.reduced-motion .ib-ball { animation: none; }
 .reveal.leyenda { background: radial-gradient(circle, #5a3a00cc, #000e 70%); }
 .reveal.leyenda .rays { background: repeating-conic-gradient(from 0deg, #ffe89a66 0 6deg, transparent 6deg 12deg, #ff8ad833 12deg 18deg, transparent 18deg 24deg); }
 @media (prefers-reduced-motion: reduce) { .pcard.r-mitico::after, .pcard.r-leyenda::after, .rarity-big { animation: none !important; } }
+/* the name is written InaZurvivors in the page and shown in capitals */
+.menu-logo h1 { text-transform: uppercase; }

@@ -604,7 +604,7 @@ export class App {
       <div class="menu-stage">
         <section class="menu-left">
           <div class="logo menu-logo brand"><svg class="logo-bolt" viewBox="0 0 60 100"><polygon points="38,0 6,56 26,56 16,100 56,38 34,38"/></svg>
-            <h1><span class="b1">INA</span><span class="bz">Z</span><span class="b2">URVIVORS</span></h1><div class="sub">ROGUELITE DE FÚTBOL · FANGAME <span class="ver-badge">${esc(VERSION_LABEL)}</span></div></div>
+            <h1 aria-label="InaZurvivors"><span class="b1">Ina</span><span class="bz">Z</span><span class="b2">urvivors</span></h1><div class="sub">ROGUELITE DE FÚTBOL · FANGAME <span class="ver-badge">${esc(VERSION_LABEL)}</span></div></div>
           <div class="play-row"><button class="mbtn play" data-go="play"><span class="mi">▶</span><span><b>JUGAR</b><small>${squad[0] ? `Capitán: ${esc(squad[0].name)} · Rango ${this.save.difficulty}` : 'Prepara tu equipo'}</small></span></button>
             <button class="mbtn team" data-go="squad"><span class="mi">♜</span><span><b>MI EQUIPO</b><small>${squad.length}/${SQUAD_SIZE} candidatos</small></span></button></div>
           <nav class="menu-tiles">
