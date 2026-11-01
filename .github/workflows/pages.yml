@@ -2,6 +2,7 @@
 # Deploying is a manual run with "publicar" on: it integrates only the groups authorised in config/autorizacion_recursos.json
 # and stops with an explicit error if a required group is missing (PUBLICACION.md).
 # The prueba-recursos job checks the private repository; it has no Pages permission and uploads nothing.
+# The sitio job deploys only the informative pages (text, no game resources) until the game is published.
 name: Deploy InaZurvivors (web)
 
 on:
@@ -17,6 +18,10 @@ on:
         description: Probar el acceso a los recursos, sin desplegar
         type: boolean
         default: false
+      sitio_informativo:
+        description: Desplegar solo las páginas informativas
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -29,6 +34,31 @@ env:
   PUBLICAR: ${{ github.event_name == 'workflow_dispatch' && inputs.publicar }}
 
 jobs:
+  sitio:
+    if: (github.event_name == 'push' && contains(github.event.head_commit.message, '[sitio-informativo]')) || (github.event_name == 'workflow_dispatch' && inputs.sitio_informativo)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Reunir las páginas
+        run: |
+          mkdir _sitio
+          cp sitio/index.html public/privacidad.html public/terminos.html _sitio/
+          if [ "$(ls _sitio | wc -l)" != 3 ] || grep -lE '<(img|audio|video)|url\(' _sitio/*; then echo "ERROR: el sitio informativo solo lleva texto"; exit 1; fi
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _sitio
+  desplegar-sitio:
+    needs: sitio
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
   prueba-recursos:
     if: (github.event_name == 'push' && contains(github.event.head_commit.message, '[prueba-recursos]')) || (github.event_name == 'workflow_dispatch' && inputs.probar_recursos)
     runs-on: ubuntu-latest
