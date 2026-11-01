@@ -68,6 +68,8 @@ export interface UnitInfo extends SheetInfo {
   name: string;
   kind: 'enemy' | 'creature' | 'miniboss' | 'boss';
   stats: Record<string, number> | null;
+  /** 'M' / 'F' from the ROM; null for creatures */
+  gender?: 'M' | 'F' | null;
   animations: UnitAnim[];
 }
 

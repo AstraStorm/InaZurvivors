@@ -26,6 +26,9 @@ export const CHANGELOG: Release[] = [
       'Pantalla de causa de la derrota con el golpe real y un consejo; estadísticas del capitán en la pausa.',
       'Araña Gigante, Mordisco de serpiente y Telaraña con manifestación y efecto propios (atrapar en la red, veneno).',
       'Nivel visible de todas las técnicas salvo talentos: +X, Lv X o GX según su forma de evolucionar.',
+      'Supertécnicas dibujadas: manos y puños de portero por familia (Mano celestial V/X, Bimano, Trimano, Manos infinitas, Manos liberadas, puños, Mano ultradimensional, espiritual, de pingüinos), dragones con cuerpo y cabeza (tiros, regates y Mate del dragón), fénix, alas divinas, tornado, llamas, estrella, rayos, hielo y sombras en la carga de los tiros, y defensas y regates por elemento (rocas, enredaderas, viento...).',
+      'Talentos como en los juegos: Portero+ refuerza las técnicas de portero, ¡Encanto +! y ¡Guapo +! hacen más daño a rivales masculinos o femeninas, ¡Trampa! deja clavado al rival, Gafe lo maldice, Pereza cura quieto, ¡Crítico! y ¡Todo o nada! hacen críticos más fuertes.',
+      'Emperadores Oscuros como fichas propias («Kevin Dragonfly Oscuro»...), con su retrato y su cara.',
     ],
     fixes: [
       'Las telegrafías de rivales que se retiraban quedaban dibujadas en el suelo.',
@@ -41,6 +44,7 @@ export const CHANGELOG: Release[] = [
     balance: ['Monedas por partida a la mitad aprox., mejoras ×1,5 y rango X ×2,2 (ECONOMIA_1.11.md); no se quita ninguna moneda.',
       'Formaciones con identidad: ofensiva (+15% daño, -10% recarga), equilibrada (+20% combinadas), defensiva (-30% daño recibido, sin extras de ataque ni penalización); solo cambian estadísticas, los compañeros no bloquean tiros.',
       'Mítico menos probable por futbolista que Legendario y Leyenda la más exclusiva.',
+      'Ares y Orion: capitanes de peso a Legendario (Clario Orvan, Froy Girikanan, Li Hao, Yurika Beor), resto de capitanes a Épico como mínimo; Basara que faltaban a Legendario.',
       'Límites de talentos: daño con poca vida máx. +60%, efecto elemental máx. 40%.'],
   },
   {

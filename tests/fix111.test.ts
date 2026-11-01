@@ -135,3 +135,18 @@ describe('daily shop per player', () => {
     expect(ids(a)).toBe(ids(a)); // stable for the same player
   });
 });
+
+describe('talents as in the games', () => {
+  it('each talent family does its own thing', async () => {
+    const { TALENTS, emptyFx, talentText } = await import('../src/systems/talents');
+    const fx = (id: number) => { const f = emptyFx(); TALENTS[id].apply(f, 1); return f; };
+    expect(fx(51).keeper).toBeGreaterThan(0); // Portero+: goalkeeper techniques
+    expect(fx(58).vsMale).toBeGreaterThan(0); // ¡Encanto +!
+    expect(fx(59).vsFemale).toBeGreaterThan(0); // ¡Guapo +!
+    expect(fx(57).stun).toBeGreaterThan(0); // ¡Trampa!
+    expect(fx(68).curse).toBeGreaterThan(0); // Gafe
+    expect(fx(64).idleRegen).toBeGreaterThan(0); // Pereza
+    expect(fx(65).critDamage).toBeGreaterThan(0); // ¡Crítico!
+    expect(talentText(58, 1)).toContain('rivales masculinos');
+  });
+});

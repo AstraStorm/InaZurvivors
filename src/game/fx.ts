@@ -219,6 +219,9 @@ export class Fx {
     }
   }
 
+  /** the scene, for the drawn manifestations (fxManif.ts, fxTech.ts) */
+  get world() { return this.scene; }
+
   private density() {
     const d = this.settings.particles === 'completo' ? 1 : this.settings.particles === 'reducido' ? 0.4 : 0;
     return this.settings.reducedMotion ? Math.min(d, 0.4) : d;

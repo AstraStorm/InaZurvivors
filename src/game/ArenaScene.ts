@@ -27,6 +27,8 @@ import { endlessActive, endlessCoins, endlessPhase, endlessScale } from '../syst
 import { bossKit, bossPhase, rivalKit, type AttackId, type BossKit } from '../systems/bossKit';
 import { chemistry } from '../systems/kitBonus';
 import { HERO_AURA } from '../systems/ascension';
+import { dragon, handKind, keeperHand } from './fxTech';
+import { elementBurst } from './fxManif';
 import { adaptedPassive, CAP_ELEMENTAL, CAP_LAST_STAND, emptyFx, TALENTS, talentScale, type TalentFx } from '../systems/talents';
 import { COMBOS, COMBO_MAX_LEVEL, comboDamage, comboMembers, comboReady, type ComboDef } from '../systems/combos';
 import type { Rank } from '../systems/save';
@@ -111,6 +113,8 @@ interface Enemy {
   kit?: BossKit; phase?: number; lastAttack?: AttackId; rival?: boolean;
   /** Araña Gigante: caught in the web (doesn't move) until this time; Mordisco de serpiente: poison damage per second */
   webUntil?: number; poison?: { until: number; dps: number; acc: number };
+  /** Gafe: cursed until this time */
+  curseUntil?: number;
 }
 
 /** width in radians of the opening of a shock wave */
@@ -389,7 +393,7 @@ export class ArenaScene extends Phaser.Scene {
     let s = 0;
     for (const m of this.members) for (let i = 0; i < m.state.slots.length; i++) {
       const t = this.activeTech(m, i);
-      if (t?.type === 'parada') s = Math.max(s, techStats(t, this.techLevel(m, i)).shield);
+      if (t?.type === 'parada') s = Math.max(s, Math.min(0.6, techStats(t, this.techLevel(m, i)).shield * (1 + this.talents().keeper)));
     }
     return s + this.talents().shield;
   }
@@ -422,7 +426,8 @@ export class ArenaScene extends Phaser.Scene {
     const talent = 1 + (fx.type[t.type] ?? 0) + (fx.element[String(t.element)] ?? 0) + (this.hp < this.maxHp * 0.3 ? Math.min(CAP_LAST_STAND, fx.lastStand) : 0);
     const build = softCap(m.damageMult * boost * talent * this.mods.damage * (1 + this.cfg.perks.synergy * allies) * this.teamDamageBonus() * this.heroAura()
       * chemistry(this.cfg.kitTeam ?? '', this.members.map((x) => x.entry)));
-    const s = techStats(t, this.techLevel(m, i), build * (this.buffOn('dano') ? 1.5 : 1) * this.formationDamage());
+    const s = techStats(t, this.techLevel(m, i), build * (this.buffOn('dano') ? 1.5 : 1) * this.formationDamage() * (t.type === 'parada' ? 1 + fx.keeper : 1));
+    if (t.type === 'parada' && fx.keeper) { s.heal *= 1 + fx.keeper; s.shield = Math.min(0.6, s.shield * (1 + fx.keeper)); } // Portero+
     s.cooldownMs = Math.round(s.cooldownMs * capCooldown(this.mods.cooldown * this.cfg.perks.cooldownMult * (1 - fx.cooldown)) * (this.buffOn('recarga') ? 0.6 : 1) * FORMATIONS[this.formation].cooldownMult);
     s.radius = Math.round(s.radius * capArea(this.mods.area * this.cfg.perks.areaMult * (this.buffOn('amplio') ? 1.2 : 1)));
     return s;
@@ -451,7 +456,8 @@ export class ArenaScene extends Phaser.Scene {
     this.updatePickups(dt);
     this.updateAltar(dt);
     this.updateEndless();
-    const regen = capRegen(this.mods.regen + this.cfg.perks.regen + this.talents().regen);
+    const still = Math.hypot(this.capVx, this.capVy) < 5; // Pereza heals only standing still
+    const regen = capRegen(this.mods.regen + this.cfg.perks.regen + this.talents().regen + (still ? this.talents().idleRegen : 0));
     if (this.talents().revive && !this.reviveUsed && this.hp > 0 && this.hp < this.maxHp * 0.2) {
       this.reviveUsed = true;
       this.hp += this.maxHp * 0.2;
@@ -664,6 +670,7 @@ export class ArenaScene extends Phaser.Scene {
           m.windup = { i, until: this.runTime + recipe.windupSec };
           m.f.hop(this, 5 + lv * 0.6, recipe.windupSec * 1000);
           charge(this.fx, recipe, ox, oy, lv);
+          if (recipe.id === 'dragon') dragon(this, 'rise', ox, oy, c1, c2, lv, recipe.windupSec * 1000 + 160, ox, oy, recipe.tier >= 3);
         } else if (t.type === 'regate') {
           if (!canStartGuardedMove(this.runTime, m.guardLock)) { m.cds[i] = 120; return; }
           if (m === this.members[0]) {
@@ -672,6 +679,8 @@ export class ArenaScene extends Phaser.Scene {
             m.guardUntil = this.runTime + 0.26;
             m.guardLock = m.guardUntil + GUARD_LOCKOUT_SEC;
             this.fx.ring(ox, oy + 6, r, c1, 260, 2 + Math.floor(lv / 2));
+            if (/drag[oó]n/i.test(t.name)) dragon(this, /ascend/i.test(t.name) ? 'rise' : 'coil', ox, oy, c1, c2, lv, 520);
+            else elementBurst(this, style, ox, oy, r, 300, c1);
             for (let k = 0; k < 6 + lv * 2; k++) {
               const a = (k / (6 + lv * 2)) * Math.PI * 2;
               this.fx.burst(style, ox + Math.cos(a) * r, oy + 6 + Math.sin(a) * r * 0.6, 1, 20, k % 2 === 0);
@@ -688,6 +697,7 @@ export class ArenaScene extends Phaser.Scene {
             const reach = Math.min(110, Math.hypot(target.pos.x - ox, target.pos.y - oy) + 24);
             m.settled = false;
             m.guardUntil = Infinity; // released when the movement phase ends
+            if (/drag[oó]n/i.test(t.name)) dragon(this, 'strike', m.f.x, m.f.y - 10, c1, c2, lv, 300, m.f.x + Math.cos(ang) * reach, m.f.y - 10 + Math.sin(ang) * reach);
             m.dash = { fromX: m.f.x, fromY: m.f.y, toX: m.f.x + Math.cos(ang) * reach, toY: m.f.y + Math.sin(ang) * reach,
               t: 0, dur: 220, hits: new Set(), dmg: s.damage, style, left: s.count - 1 };
             sfx('whoosh');
@@ -702,6 +712,7 @@ export class ArenaScene extends Phaser.Scene {
             this.tweens.add({ targets: wv, scaleY: 2.2, alpha: 0, duration: 380, onComplete: () => wv.destroy() });
           }
           this.fx.burst(style, ox, oy + 8, 8 + lv * 3, 70);
+          if (!wall && !web) elementBurst(this, style, ox, oy + 2, r, 420, c1); // Fix 1.11: rock, vines, wind, fire... by element
           for (const e of this.enemies) {
             const d = Math.hypot(e.pos.x - ox, e.pos.y - 10 - oy);
             if (d < r + e.radius) {
@@ -761,14 +772,28 @@ export class ArenaScene extends Phaser.Scene {
             const dps = Math.max(2, s.damage * 0.25);
             for (const e of this.enemies) if (Math.hypot(e.pos.x - cx, e.pos.y - 10 - cy) < s.radius) e.poison = { until: this.runTime + 3, dps, acc: 0 };
             sfx('whoosh');
+          } else if (/drag[oó]n/i.test(t.name)) {
+            // Mate del dragón: a dragon leaves the keeper, bites the closest rival and the catch hits around it
+            const target = this.nearestEnemy(ox, oy, 200 * this.cfg.perks.rangeMult);
+            if (!target) { m.cds[i] = 200; return; }
+            cx = target.pos.x; cy = target.pos.y - 10;
+            dragon(this, 'strike', ox, oy - 6, c1, c2, lv, 420, cx, cy, ['mitico', 'leyenda'].includes(m.entry.rarity));
+            sfx('whoosh');
           } else if (/m[aá]gica|majin/i.test(t.name)) {
             // Mano mágica (Majin The Hand): the Majin rises behind the keeper and raises its arm, then the hand blocks
             this.fx.entity('majin', ox, oy + 6, 900, ['mitico', 'leyenda'].includes(m.entry.rarity) || !!this.cfg.asc?.[String(m.entry.id)]?.hero);
             this.fx.magicHand(ox, oy, lv);
             this.fx.ring(ox, oy, s.radius, 0xb36bff, 420, 2);
-          } else if (/mano|puño|guante|palma/i.test(t.name)) {
-            this.fx.hand(ox, oy, lv, /celest|divin|dios/i.test(t.name) ? 0xffd84a : c2);
-            this.fx.ring(ox, oy, s.radius, 0xffe27a, 480, 3); // the push that rejects rivals
+          } else if (handKind(t.name)) {
+            // Fix 1.11: drawn hands and fists per family (fxTech.ts); fists hit where they land
+            const kind = handKind(t.name)!;
+            const near = this.nearestEnemy(ox, oy, 200 * this.cfg.perks.rangeMult);
+            if (kind === 'puno' && near) { cx = near.pos.x; cy = near.pos.y - 10; }
+            const aims = this.enemies.filter((e) => !e.dead && Math.hypot(e.pos.x - ox, e.pos.y - oy) < 200).slice(0, 6).map((e) => ({ x: e.pos.x, y: e.pos.y - 10 }));
+            keeperHand(this.fx, this, t.name, kind, ox, oy, lv, c2, near?.pos.x ?? ox + 60, (near?.pos.y ?? oy) - 10, aims,
+              ['mitico', 'leyenda'].includes(m.entry.rarity) || !!this.cfg.asc?.[String(m.entry.id)]?.hero);
+            if (kind === 'punos') for (const a of aims) for (const e of this.enemies) if (Math.hypot(e.pos.x - a.x, e.pos.y - 10 - a.y) < 18 + e.radius) this.hit(e, s.damage * 0.6, 0, 0, style);
+            this.fx.ring(cx, cy, s.radius, 0xffe27a, 480, 3); // the push that rejects rivals
           }
           else this.fx.ring(ox, oy, s.radius, 0xffe27a, 520, 3);
           this.fx.burst('energia', ox, oy, 6 + lv * 2, 40, true);
@@ -857,6 +882,11 @@ export class ArenaScene extends Phaser.Scene {
     sfx('kick');
     // release: short burst at the foot
     this.fx.ring(ox, oy, 10 + recipe.tier * 4, STYLE_COLORS[recipe.style][1], 180, 2);
+    if (recipe.id === 'dragon' && traj !== 'meteoro') { // the dragon flies with the ball and bites at the target
+      const [d1, d2] = STYLE_COLORS[style];
+      const flight = Math.min(900, Math.max(250, Math.hypot(target.pos.x - ox, target.pos.y - oy) / s.speed * 1000));
+      dragon(this, 'strike', ox, oy, d1, d2, lv, flight, target.pos.x, target.pos.y - 10, big);
+    }
     if (recipe.tier >= 2) this.fx.shake(0.0012, 60);
     for (let k = 0; k < count; k++) {
       const a = base + (k - (count - 1) / 2) * 0.2;
@@ -1473,9 +1503,14 @@ export class ArenaScene extends Phaser.Scene {
   private hit(e: Enemy, dmg: number, kx: number, ky: number, style: FxStyle, crit = false) {
     if (e.dead) return;
     const p = this.cfg.perks;
-    if (this.rng.frac() < capCrit(p.critChance + this.talents().crit)) { dmg *= 1.8; crit = true; }
+    const tf = this.talents();
+    if (this.rng.frac() < capCrit(p.critChance + tf.crit)) { dmg *= 1.8 + Math.min(1.2, tf.critDamage); crit = true; }
+    if (e.unit.gender === 'M') dmg *= 1 + tf.vsMale; else if (e.unit.gender === 'F') dmg *= 1 + tf.vsFemale;
+    if ((e.curseUntil ?? 0) > this.runTime) dmg *= 1.15; // Gafe
+    if (e.kind !== 'boss' && tf.stun && this.rng.frac() < Math.min(0.3, tf.stun)) e.webUntil = Math.max(e.webUntil ?? 0, this.runTime + 0.6); // ¡Trampa!
+    if (tf.curse && this.rng.frac() < Math.min(0.3, tf.curse)) { e.curseUntil = this.runTime + 3; e.slowUntil = Math.max(e.slowUntil, this.runTime + 3); }
     if (this.buffOn('cazador') && (e.variant === 'elite' || e.kind === 'miniboss' || e.kind === 'boss')) dmg *= 1.4;
-    if (this.rng.frac() < Math.min(CAP_ELEMENTAL, p.elementalChance + this.talents().elemental)) { dmg *= 1.2; e.slowUntil = this.runTime + 1.5; this.fx.burst(style, e.pos.x, e.pos.y - 10, 4, 30, true); }
+    if (this.rng.frac() < Math.min(CAP_ELEMENTAL, p.elementalChance + tf.elemental)) { dmg *= 1.2 + Math.min(0.6, tf.elementalPower); e.slowUntil = this.runTime + 1.5; this.fx.burst(style, e.pos.x, e.pos.y - 10, 4, 30, true); }
     const v = Math.max(1, Math.round(dmg));
     this.damageDealt += Math.min(v, Math.max(0, e.hp));
     e.hp -= v;

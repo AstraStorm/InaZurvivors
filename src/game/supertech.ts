@@ -5,6 +5,7 @@
  */
 import type { Rarity, Technique } from '../data/manifest';
 import { fxStyle, trajectory, STYLE_COLORS, type Fx, type FxStyle } from './fx';
+import { angelWings, boltStorm, energyOrb, flames, funnel, iceSpikes, phoenix, shadows, starburst } from './fxManif';
 
 export type RecipeId = 'fuego' | 'demonio' | 'supernova' | 'tornado' | 'dragon' | 'fenix' | 'meteoro' | 'rayo' | 'hielo' | 'sombra' | 'divino' | 'canon' | 'basico';
 
@@ -45,6 +46,15 @@ export function recipeFor(t: Pick<Technique, 'name' | 'element' | 'power'>, rari
 export function charge(fx: Fx, r: Recipe, x: number, y: number, level: number) {
   const ms = r.windupSec * 1000;
   const [c1, c2] = STYLE_COLORS[r.style];
+  // Fix 1.11: a drawn manifestation per family, on top of the particles below (fxManif.ts)
+  const size = (22 + level * 2) * (1 + r.tier * 0.18), w = fx.world, hold = ms + 160;
+  const manifest: Partial<Record<RecipeId, () => void>> = {
+    fuego: () => flames(w, x, y, size, hold), fenix: () => phoenix(w, x, y, size * 1.3, hold, c1, c2), divino: () => angelWings(w, x, y, size * 1.2, hold),
+    tornado: () => funnel(w, x, y, size, hold, c1, c2), supernova: () => starburst(w, x, y, size, hold), rayo: () => boltStorm(w, x, y, size, hold),
+    hielo: () => iceSpikes(w, x, y, size, hold), sombra: () => shadows(w, x, y, size, hold), canon: () => energyOrb(w, x, y, size, hold, c1),
+    meteoro: () => energyOrb(w, x, y - 30, size * 0.8, hold, c2), basico: () => energyOrb(w, x, y, size * 0.6, hold, c1),
+  };
+  manifest[r.id]?.();
   switch (r.id) {
     case 'fuego': // preparation -> energy -> fire around the player -> whirl; the ball leaves at the end of the windup
       fx.fireStorm(x, y, level, ms, r.tier >= 3);
@@ -62,17 +72,15 @@ export function charge(fx: Fx, r: Recipe, x: number, y: number, level: number) {
       fx.tornado(x, y + 6, r.style, level, ms);
       if (r.tier) fx.groundRing(x, y + 6, 22 + level * 2, c1, ms);
       break;
-    case 'dragon':
+    case 'dragon': // the dragon itself coils up around the player (fxTech.dragon, called by the scene)
       fx.tornado(x, y + 6, r.style, Math.ceil(level / 2), ms);
-      fx.summon('fx:dragon', x, y - 18, c1, 0.9 + r.tier * 0.35, ms + 140);
+      fx.gather(x, y - 18, c1, c2, 8 + level, 36, ms);
       break;
     case 'fenix':
-      fx.summon('fx:wings', x, y - 14, c1, 0.9 + r.tier * 0.35, ms + 120);
       fx.gather(x, y - 14, c1, c2, 8 + level, 34, ms);
       break;
     case 'divino':
       fx.pillar(x, y + 4, 0xfff0b0, level + 6);
-      fx.summon('fx:wings', x, y - 16, 0xfff6c0, 1 + r.tier * 0.3, ms + 120);
       break;
     case 'meteoro':
       fx.groundRing(x, y + 6, 18 + level * 2, c1, ms);
