@@ -6,3 +6,5 @@ assets_external/
 *.nds
 *.sav
 .env.local
+.env.*.local
+.recursos/

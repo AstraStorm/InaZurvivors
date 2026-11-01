@@ -1,0 +1,4 @@
+{
+  "obligatorios": ["datos", "caras", "retratos", "rivales", "cuerpos", "equipaciones", "objetos", "arenas", "musica", "escudos", "capsulas", "iconos"],
+  "opcionales": ["capturas"]
+}

@@ -1,21 +1,27 @@
-# Builds InaZurvivors and deploys it to GitHub Pages. The game resources are committed in public/generated (made locally
-# with `npm run assets:sync`, which needs the extracted sprites), so CI only compiles: no sync step here.
-# Nothing runs until the repository exists on GitHub and Pages uses "GitHub Actions" as its source (see PUBLICACION.md).
+# The only InaZurvivors workflow. A push checks the code and compiles it without resources; nothing is deployed.
+# Deploying is a manual run with "publicar" on: it integrates only the groups authorised in config/autorizacion_recursos.json
+# and stops with an explicit error if a required group is missing (PUBLICACION.md).
 name: Deploy InaZurvivors (web)
 
 on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      publicar:
+        description: Integrar los recursos autorizados y desplegar
+        type: boolean
+        default: false
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 concurrency:
   group: pages
-  cancel-in-progress: true
+  cancel-in-progress: false
+
+env:
+  PUBLICAR: ${{ github.event_name == 'workflow_dispatch' && inputs.publicar }}
 
 jobs:
   build:
@@ -29,17 +35,45 @@ jobs:
       - run: npm ci
       - run: npx vitest run tests/systems.test.ts tests/online.test.ts
       - run: npx tsc --noEmit
+      - name: Comprobar la autorización
+        if: env.PUBLICAR == 'true'
+        run: node tools/integrar_recursos.mjs --comprobar
+      - name: Comprobar el acceso a los recursos
+        if: env.PUBLICAR == 'true'
+        env:
+          RECURSOS_TOKEN: ${{ secrets.RECURSOS_TOKEN }}
+        run: |
+          if [ -z "$RECURSOS_TOKEN" ]; then echo "ERROR: falta el secreto RECURSOS_TOKEN"; exit 1; fi
+      - name: Descargar los recursos
+        if: env.PUBLICAR == 'true'
+        uses: actions/checkout@v4
+        with:
+          repository: AstraStorm/InaZurvivors-recursos
+          token: ${{ secrets.RECURSOS_TOKEN }}
+          path: .recursos
+          persist-credentials: false
+      - name: Integrar los recursos autorizados
+        if: env.PUBLICAR == 'true'
+        run: node tools/integrar_recursos.mjs --recursos .recursos
       - run: npx vite build
         env:
           # public values: the publishable key is meant for the browser; no secret ever goes here
           VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL || 'https://svtkmuxwdxdwvdvjchut.supabase.co' }}
           VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY || 'sb_publishable_CNdrHsKes1JJV4TEsUbzXg_t7_0fnnW' }}
-      - uses: actions/upload-pages-artifact@v3
+      - name: Comprobar la build
+        if: env.PUBLICAR == 'true'
+        run: node tools/comprobar_build.mjs --recursos .recursos
+      - if: env.PUBLICAR == 'true'
+        uses: actions/upload-pages-artifact@v3
         with:
           path: dist
   deploy:
     needs: build
+    if: github.event_name == 'workflow_dispatch' && inputs.publicar
     runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}

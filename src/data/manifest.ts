@@ -117,6 +117,8 @@ export interface ItemInfo { id: number; name: string; folder: string; icon: numb
 
 export interface Manifest {
   generatedAt: string;
+  /** published builds only: hashed file of each kit bust (tools/empaquetar_recursos.py) */
+  kitBustFiles?: Record<string, string>;
   bodies: { field?: BodyInfo; gk?: BodyInfo };
   roster: RosterEntry[];
   units: UnitInfo[];

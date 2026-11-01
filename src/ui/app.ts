@@ -276,7 +276,7 @@ export class App {
       const base = group * 1000000 + t.kind * 10000;
       const bust = [base + t.build * 100 + t.variant, base + t.build * 100, base].find((k) => have.has(k));
       if (!fr || bust === undefined) { this.kitShots.set(key, ''); return; }
-      const [torso, sheet] = await Promise.all([this.loadImg(`generated/kitbusts/${bust}.png`), this.loadImg(this.m.atlases.portraits!.images[fr.sheet ?? 0])]);
+      const [torso, sheet] = await Promise.all([this.loadImg(this.m.kitBustFiles?.[bust] ?? `generated/kitbusts/${bust}.png`), this.loadImg(this.m.atlases.portraits!.images[fr.sheet ?? 0])]);
       const c = document.createElement('canvas');
       c.width = c.height = 64;
       const g = c.getContext('2d')!;

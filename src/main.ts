@@ -40,10 +40,14 @@ async function fetchJson<T>(url: string, onProgress: (k: number) => void, guessB
   return JSON.parse(new TextDecoder().decode(all)) as T;
 }
 
+// hashed resources never change, so the worker can keep them; music stays out because Audio asks for byte ranges
+if (import.meta.env.PROD && 'serviceWorker' in navigator) void navigator.serviceWorker.register('sw.js').catch(() => undefined);
+
 async function boot() {
   let manifest: Manifest;
   try {
-    manifest = await fetchJson<Manifest>('generated/manifest.json', (k) => progress(k * 0.7, 'Cargando futbolistas…'), 4_500_000);
+    const version = import.meta.env.VITE_RECURSOS_VERSION;
+    manifest = await fetchJson<Manifest>(`generated/manifest.json${version ? `?v=${version}` : ''}`, (k) => progress(k * 0.7, 'Cargando futbolistas…'), 4_500_000);
   } catch {
     progress(0, 'No se pudieron cargar los datos del juego. Si el problema sigue, esta versión puede no incluir sus recursos.');
     return;
