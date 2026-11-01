@@ -1,7 +1,7 @@
 /**
  * Difficulty ranks C-B-A-S-X. Each rank changes the pace and makeup of the waves, elite rivals, pitch hazards and how
  * often the boss uses its patterns, not only enemy health. Every hazard is telegraphed before it hits, so X stays
- * hard but fair. All numbers are balance values for InaZurivors, tuned here.
+ * hard but fair. All numbers are balance values for InaZurvivors, tuned here.
  */
 import type { Rank } from './save';
 

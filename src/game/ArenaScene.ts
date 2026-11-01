@@ -329,7 +329,7 @@ export class ArenaScene extends Phaser.Scene {
   /** Rarity used for effect quality: a HÉROE gets the top tier. */
   private fxRarity(entry: RosterEntry) { return this.cfg.asc?.[String(entry.id)]?.hero ? 'leyenda' as const : entry.rarity; }
 
-  /** «Espíritu de héroe» (InaZurivors passive): +10% team damage per HÉROE on the pitch. */
+  /** «Espíritu de héroe» (InaZurvivors passive): +10% team damage per HÉROE on the pitch. */
   private heroAura() { return 1 + HERO_AURA.teamDamage * Math.min(CAPS.heroes, this.members.filter((m) => this.cfg.asc?.[String(m.entry.id)]?.hero).length); }
 
   private setFormation(id: FormationId) {

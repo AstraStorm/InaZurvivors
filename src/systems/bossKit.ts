@@ -1,6 +1,6 @@
 /**
  * Who fights how. Each boss has three phases by remaining health, each adding attacks; rivals of the Desafío have two.
- * The attacks are mechanics of InaZurivors; the names shown when they are announced come from each character's story
+ * The attacks are mechanics of InaZurvivors; the names shown when they are announced come from each character's story
  * or from their own techniques. Every attack is telegraphed by the scene and can be dodged.
  */
 export type AttackId = 'carga' | 'radial' | 'abanico' | 'espiral' | 'lluvia' | 'onda' | 'invocacion' | 'majin';

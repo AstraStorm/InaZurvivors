@@ -12,9 +12,9 @@ import type { SaveData } from './save';
 export type AscStep = 'mitico' | 'heroe';
 export const ASC_COST: Record<AscStep, number> = { mitico: 3, heroe: 5 };
 
-/** Run bonuses per stage (InaZurivors balance values). */
+/** Run bonuses per stage (InaZurvivors balance values). */
 export const ASC_BONUS = { mitico: { damage: 1.12, hp: 1.08 }, heroe: { damage: 1.18, hp: 1.12 } } as const;
-/** Original InaZurivors passive of a HÉROE on the pitch (not an official technique). */
+/** Original InaZurvivors passive of a HÉROE on the pitch (not an official technique). */
 export const HERO_AURA = { label: 'Espíritu de héroe', teamDamage: 0.06, description: '+6% de daño a todo el equipo mientras el héroe está en el campo (máximo 2 héroes).' };
 
 export const sparesOf = (save: SaveData, id: number) => {

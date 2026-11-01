@@ -54,7 +54,7 @@ export interface RosterEntry {
   nameEn?: string;
   /** portrait torso shape: 1 field / 2 keeper, build and variant (to wear another kit's torso) */
   torso?: { kind: number; build: number; variant: number };
-  /** 'derivado' = estimated by InaZurivors (IE3 stats are not decoded); absent = read from the IE2 ROM */
+  /** 'derivado' = estimated by InaZurvivors (IE3 stats are not decoded); absent = read from the IE2 ROM */
   statsSource?: 'derivado';
   fpMax: number | null;
   techniques: Technique[];

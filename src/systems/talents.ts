@@ -1,7 +1,7 @@
 /**
  * Talents as real passives. The talent itself comes from the games (technique ids 51-81 are the same in IE2 and IE3);
  * what it does here is an adaptation to a survivors game, not the game's number. A footballer whose documented moves have
- * no talent gets a passive of InaZurivors chosen from its position, always shown as such. Totals go through balance.ts.
+ * no talent gets a passive of InaZurvivors chosen from its position, always shown as such. Totals go through balance.ts.
  */
 import type { RosterEntry, TechType } from '../data/manifest';
 
@@ -75,7 +75,7 @@ const BY_POSITION: Record<string, Tpl[]> = {
   GK: [KEEPER, DEFENDER, SPIRIT], DF: [DEFENDER, LAST, SPIRIT, ELEMENTALIST], MF: [TECHNICIAN, LEADER, RUNNER, ELEMENTALIST], FW: [STRIKER, ELEMENTALIST, LAST, RUNNER],
 };
 
-/** Passive of InaZurivors for a footballer with no documented talent; null when it has one of its own. */
+/** Passive of InaZurvivors for a footballer with no documented talent; null when it has one of its own. */
 export function adaptedPassive(p: RosterEntry): Passive | null {
   if (p.techniques.some((t) => t.type === 'talento')) return null;
   const list = BY_POSITION[p.position] ?? BY_POSITION.MF;

@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "InaZurivors: fangame roguelite 2D gratuito y no oficial de Inazuma Eleven.",
+  "description": "InaZurvivors: fangame roguelite 2D gratuito y no oficial de Inazuma Eleven.",
   "scripts": {
     "gamedata": "python -I tools/run_gamedata.py",
     "movil": "vite build && vite preview --host",

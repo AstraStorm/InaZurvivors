@@ -686,7 +686,7 @@ h3.saga { color: var(--orange-2); font-size: 11px; margin: 14px 0 6px; font-weig
 .iconpick.locked { filter: grayscale(1) brightness(.45); cursor: not-allowed; }
 .iconpick .lockic { position: absolute; right: 2px; bottom: 0; font-size: 12px; filter: none; }
 
-/* ---------------------------------------------------------------- InaZurivors menu (3.0) */
+/* ---------------------------------------------------------------- InaZurvivors menu (3.0) */
 .brand h1 { letter-spacing: 2px; }
 .brand .b1, .brand .b2 { color: #fff; text-shadow: 3px 3px 0 #0a1d48, 0 0 18px #4fc8ff88; }
 .brand .bz { display: inline-block; color: var(--yellow); transform: skewX(-14deg) scale(1.25); margin: 0 2px; text-shadow: 3px 3px 0 #7a3d00, 0 0 24px #ffb020; animation: zFlash 3.2s ease-in-out infinite; }
@@ -790,7 +790,7 @@ h3.saga { color: var(--orange-2); font-size: 11px; margin: 14px 0 6px; font-weig
 .choice2 .btn small { display: block; font-size: 7px; margin-top: 6px; opacity: .85; line-height: 1.5; }
 @media (max-width: 560px) { .choice2 { grid-template-columns: 1fr; } }
 
-/* HUD club crest (4.0): the crest picked in Equipaciones, or the InaZurivors icon; contained, never stretched */
+/* HUD club crest (4.0): the crest picked in Equipaciones, or the InaZurvivors icon; contained, never stretched */
 .hud-crest { flex: none; width: 52px; height: 52px; display: flex; align-items: center; justify-content: center; background: radial-gradient(circle, #1b438fcc, #0a1d48cc); border: 2px solid #ffffffb0; border-radius: 10px; box-shadow: 0 2px 8px #000a; }
 .hud-crest img { max-width: 44px; max-height: 44px; object-fit: contain; image-rendering: pixelated; }
 @media (max-width: 620px) { .hud-crest { width: 38px; height: 38px; } .hud-crest img { max-width: 32px; max-height: 32px; } }

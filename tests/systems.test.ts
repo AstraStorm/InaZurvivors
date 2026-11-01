@@ -939,7 +939,7 @@ describe('versión pública y reportes de bugs', () => {
     const { PUBLIC_RELEASES, PUBLIC_VERSION, RELEASED, VERSION_LABEL, BUILD, TIKTOK_URL } = await import('../src/data/release');
     expect(PUBLIC_VERSION).toBe('1.0');
     expect(PUBLIC_RELEASES.map((r) => r.version)).toEqual(['1.0']);
-    expect(PUBLIC_RELEASES[0].title).toBe('InaZurivors v1.0 — ¡Comienza la aventura!');
+    expect(PUBLIC_RELEASES[0].title).toBe('InaZurvivors v1.0 — ¡Comienza la aventura!');
     expect(JSON.stringify(PUBLIC_RELEASES)).not.toMatch(/\bv?[234]\.\d\b/);
     expect(BUILD).not.toBe('1.0');
     expect(RELEASED).toBe(false); // true only after a verified public deployment

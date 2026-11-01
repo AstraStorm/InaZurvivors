@@ -195,7 +195,7 @@ export class App {
     if (document.querySelector('.welcome-online')) return;
     const box = document.createElement('div');
     box.className = 'tut-modal welcome-online';
-    box.innerHTML = `<div class="panel" style="max-width:520px"><h2>¡Bienvenido a InaZurivors online!</h2>
+    box.innerHTML = `<div class="panel" style="max-width:520px"><h2>¡Bienvenido a InaZurvivors online!</h2>
       <p class="note">Es la primera vez que entras con esta cuenta de Google. Reserva tu nombre en todo el mundo: aparecerá en el ranking y es <b>permanente</b>. Después tu progreso de este navegador se guardará en la nube.</p>
       <div class="filters"><input id="wo-name" maxlength="${USERNAME_MAX}" autocomplete="off" spellcheck="false" value="${esc(this.save.profile.name)}"><span id="wo-check" class="pcheck"></span></div>
       <div class="tut-nav"><button class="btn small blue" id="wo-later">Ahora no</button><span class="spacer"></span><button class="btn" id="wo-ok">Reservar nombre y guardar en la nube</button></div></div>`;
@@ -434,7 +434,7 @@ export class App {
           const bolts = Array.from({ length: 5 }, (_, k) => `<svg class="ib-bolt" style="--x:${10 + k * 20}%;--d:${k * 0.12}s" viewBox="0 0 60 100"><polygon points="38,0 6,56 26,56 16,100 56,38 34,38"/></svg>`).join('');
           const orbs = ['Fuego', 'Aire', 'Bosque', 'Montaña'].map((e, k) => `<span class="ib-orb" style="--k:${k}">${elementIcon(e, 40)}</span>`).join('');
           const balls = Array.from({ length: 6 }, (_, k) => `<i class="ib-ball" style="--y:${15 + k * 13}%;--d:${0.4 + k * 0.18}s">⚽</i>`).join('');
-          box.innerHTML = `<div class="intro-burst">${bolts}${balls}<div class="ib-orbit">${orbs}</div><div class="logo cine-logo ib-logo"><h1>INA<span class="bolt">Z</span>URIVORS</h1><div class="sub">ROGUELITE DE FÚTBOL · FANGAME</div></div></div>`;
+          box.innerHTML = `<div class="intro-burst">${bolts}${balls}<div class="ib-orbit">${orbs}</div><div class="logo cine-logo ib-logo"><h1>INA<span class="bolt">Z</span>URVIVORS</h1><div class="sub">ROGUELITE DE FÚTBOL · FANGAME</div></div></div>`;
           if (!this.save.settings.reducedMotion) sfx('legend');
         }
         box.classList.remove('in');
@@ -496,7 +496,7 @@ export class App {
         <p>${this.m.kits?.[draft.team] ? `Empiezas con la equipación y el escudo de ${esc(teamLabel(draft.team))}.` : `Empiezas con el escudo de ${esc(teamLabel(draft.team))}; este equipo aún no tiene equipación de combate disponible.`} La máquina te dará <b>5 futbolistas distintos</b>, y al menos uno será de ${esc(teamLabel(draft.team))} con rareza Épica o superior. Este regalo solo ocurre una vez.</p>
         <p class="wiz-next"><button class="btn blue" id="prev">◀ Atrás</button> <button class="btn big" id="go">Crear perfil y abrir mis 5 cápsulas ▶</button></p>`;
     }
-    this.show(`<div class="screen center"><div class="logo"><h1>INA<span class="bolt">Z</span>URIVORS</h1><div class="sub">ROGUELITE DE FÚTBOL · FANGAME</div></div>
+    this.show(`<div class="screen center"><div class="logo"><h1>INA<span class="bolt">Z</span>URVIVORS</h1><div class="sub">ROGUELITE DE FÚTBOL · FANGAME</div></div>
       <div class="panel welcome"><div class="wiz-steps">${dots}</div>${body}</div></div>`);
     const keepName = () => { const n = (document.getElementById('pname') as HTMLInputElement | null)?.value.trim(); if (n) draft.name = n; };
     this.on('[data-e]', 'click', (_e, el) => {
@@ -604,7 +604,7 @@ export class App {
       <div class="menu-stage">
         <section class="menu-left">
           <div class="logo menu-logo brand"><svg class="logo-bolt" viewBox="0 0 60 100"><polygon points="38,0 6,56 26,56 16,100 56,38 34,38"/></svg>
-            <h1><span class="b1">INA</span><span class="bz">Z</span><span class="b2">URIVORS</span></h1><div class="sub">ROGUELITE DE FÚTBOL · FANGAME <span class="ver-badge">${esc(VERSION_LABEL)}</span></div></div>
+            <h1><span class="b1">INA</span><span class="bz">Z</span><span class="b2">URVIVORS</span></h1><div class="sub">ROGUELITE DE FÚTBOL · FANGAME <span class="ver-badge">${esc(VERSION_LABEL)}</span></div></div>
           <div class="play-row"><button class="mbtn play" data-go="play"><span class="mi">▶</span><span><b>JUGAR</b><small>${squad[0] ? `Capitán: ${esc(squad[0].name)} · Rango ${this.save.difficulty}` : 'Prepara tu equipo'}</small></span></button>
             <button class="mbtn team" data-go="squad"><span class="mi">♜</span><span><b>MI EQUIPO</b><small>${squad.length}/${SQUAD_SIZE} candidatos</small></span></button></div>
           <nav class="menu-tiles">
@@ -635,7 +635,7 @@ export class App {
           <button class="btn small blue" data-go="tutorial">¿Cómo se juega?</button>
         </aside>
       </div>
-      <footer class="menu-foot legal-foot"><span>InaZurivors · Fangame gratuito y no oficial creado por AstraStorm17 · Inazuma Eleven pertenece a LEVEL-5 y sus respectivos titulares · <button id="credits" class="legal-link">Aviso legal</button> · ${esc(VERSION_LABEL)}</span></footer>
+      <footer class="menu-foot legal-foot"><span>InaZurvivors · Fangame gratuito y no oficial creado por AstraStorm17 · Inazuma Eleven pertenece a LEVEL-5 y sus respectivos titulares · <button id="credits" class="legal-link">Aviso legal</button> · ${esc(VERSION_LABEL)}</span></footer>
       ${musicUnlocked() ? '' : '<div class="audio-hint">Haz clic en cualquier parte para activar la música</div>'}</div>`, 'menu-mode');
     this.on('[data-go]', 'click', (_e, el) => {
       const go = el.dataset.go;
@@ -688,7 +688,7 @@ export class App {
     const label = next?.step === 'heroe' ? 'HÉROE' : next ? RARITY_LABEL.mitico.toUpperCase() : 'HÉROE';
     const pct = (v: number) => `+${Math.round((v - 1) * 100)}%`;
     const unlocks = next?.step === 'heroe' || (!next && isHero(this.save, id))
-      ? [`Técnica de HÉROE: ${p.heroTech ? p.heroTech.name : 'ninguna documentada para este jugador'}`, `${HERO_AURA.label} (habilidad original de InaZurivors): ${HERO_AURA.description}`, 'Marco dorado e insignia HÉROE en la colección']
+      ? [`Técnica de HÉROE: ${p.heroTech ? p.heroTech.name : 'ninguna documentada para este jugador'}`, `${HERO_AURA.label} (habilidad original de InaZurvivors): ${HERO_AURA.description}`, 'Marco dorado e insignia HÉROE en la colección']
       : ['Rareza Mítico (sin cambiar de personaje)', 'Acceso a la ascensión HÉROE (5 duplicados más)'];
     const box = document.createElement('div');
     box.className = 'tut-modal asc-modal';
@@ -1033,7 +1033,7 @@ export class App {
       <section><h3>Qué vas a encontrar</h3><div class="news-cards">${cards.map((f, i) => `<article style="--d:${i * 40}ms"><i>${esc(f.icon)}</i><b>${esc(f.title)}</b><span>${esc(f.text)}</span></article>`).join('')}</div></section>
       ${shots ? `<section><h3>Así se juega</h3><div class="news-shots">${shots}</div></section>` : ''}
       <section><h3>Cómo empezar</h3><ol class="news-steps">${r.start.map((t) => `<li>${esc(t)}</li>`).join('')}</ol></section>
-      <section class="news-foot"><h3>Ayúdame a mejorar el juego</h3><p>¿Has encontrado algo raro? Usa <b>Reportar un bug</b>: cada reporte ayuda a mejorar InaZurivors.</p>
+      <section class="news-foot"><h3>Ayúdame a mejorar el juego</h3><p>¿Has encontrado algo raro? Usa <b>Reportar un bug</b>: cada reporte ayuda a mejorar InaZurvivors.</p>
         <p class="news-cta"><button class="btn" id="newsbug">Reportar un bug</button> ${this.tiktokLink('Vídeos del desarrollo en TikTok')}</p></section>
     </div></div>`);
     this.on('[data-back]', 'click', () => this.mainMenu());
@@ -1127,7 +1127,7 @@ export class App {
         const code = await submitBugReport({ clientId, ...form, meta, screenshot: uploadedPath });
         void notifyBug(code);
         sfx('powerup');
-        box.innerHTML = `<div class="panel bug-card bug-ok"><div class="bug-tick">✔</div><h2>¡Reporte enviado!</h2><p>Gracias por ayudar a mejorar InaZurivors.</p>
+        box.innerHTML = `<div class="panel bug-card bug-ok"><div class="bug-tick">✔</div><h2>¡Reporte enviado!</h2><p>Gracias por ayudar a mejorar InaZurvivors.</p>
           <p class="bug-code" id="bgcode">${esc(code)}</p><p class="note">Guarda este código. Puedes seguir su estado en «Mis reportes».</p>
           <div class="tut-nav"><button class="btn small blue" id="bgmine">Mis reportes</button><span class="spacer"></span><button class="btn" id="bgclose">Cerrar</button></div></div>`;
         $('bgclose').addEventListener('click', close);
@@ -1554,7 +1554,7 @@ export class App {
       ${o ? `<div class="note">Estrellas ${o.stars}/${MAX_STARS} · Duplicados libres ${sparesOf(this.save, d.id)} (gastados ${o.spent ?? 0}) · Potencia: daño ×${starBonus(o.stars).damage.toFixed(2)}, vida ×${starBonus(o.stars).hp.toFixed(2)}</div>` : ''}
       ${o && (nextStep(this.save, d) || isHero(this.save, d.id)) ? `<p><button class="btn ${isHero(this.save, d.id) ? 'blue' : 'big'}" data-ascend="${d.id}">${isHero(this.save, d.id) ? '★ Ver HÉROE' : `▲ Ascensión (${sparesOf(this.save, d.id)}/${nextStep(this.save, d)!.cost})`}</button></p>` : ''}
       ${d.heroTech ? `<div class="note">Técnica de HÉROE: <b>${esc(d.heroTech.name)}</b>${isHero(this.save, d.id) ? ' (desbloqueada)' : ''}</div>` : ''}
-      ${(() => { const pa = adaptedPassive(d); return pa ? `<div class="note">Pasiva: <b>${esc(pa.name)}</b> · ${esc(pa.text)} <small>(adaptación de InaZurivors)</small></div>` : d.techniques.filter((t) => t.type === 'talento').map((t) => `<div class="note">Talento: <b>${esc(t.name)}</b> · ${esc(TALENTS[t.id]?.text ?? '')} <small>(efecto adaptado)</small></div>`).join(''); })()}
+      ${(() => { const pa = adaptedPassive(d); return pa ? `<div class="note">Pasiva: <b>${esc(pa.name)}</b> · ${esc(pa.text)} <small>(adaptación de InaZurvivors)</small></div>` : d.techniques.filter((t) => t.type === 'talento').map((t) => `<div class="note">Talento: <b>${esc(t.name)}</b> · ${esc(TALENTS[t.id]?.text ?? '')} <small>(efecto adaptado)</small></div>`).join(''); })()}
       <h3 style="margin-top:8px">Repertorio (2 técnicas activas en combate)</h3>
       ${reps.map((t, i) => (t ? `<div class="rep">${i === active ? '<span class="tag">Inicial</span>' : isLocked(t) && !isBought(this.save, d.id, i) ? '<span class="tag">Tienda</span>' : ''}${this.techHtml(t)}<div class="note">Maestría ${masteryLevel(this.save.mastery[String(t.id)] ?? 0)}/${MASTERY_USES.length} · +${masteryLevel(this.save.mastery[String(t.id)] ?? 0) * MASTERY_BONUS * 100}% daño · ${this.save.mastery[String(t.id)] ?? 0} usos</div></div>`
         : '<div class="rep"><div class="tech"><div class="note">Ficha pendiente: sin datos de origen para esta técnica.</div></div></div>')).join('')}
@@ -1878,11 +1878,11 @@ export class App {
     setMusicContext('menu');
     const link = (href: string, text: string) => `<a href="${href}" target="_blank" rel="noopener noreferrer">${text}</a>`;
     this.show(`<div class="screen">${this.titlebar('Créditos y aviso legal', 'Menú')}<div class="panel legal">
-      <h3>InaZurivors — Proyecto de fans no oficial</h3>
-      <p>InaZurivors es un fangame independiente y gratuito desarrollado por AstraStorm17, inspirado en la franquicia Inazuma Eleven.</p>
+      <h3>InaZurvivors — Proyecto de fans no oficial</h3>
+      <p>InaZurvivors es un fangame independiente y gratuito desarrollado por AstraStorm17, inspirado en la franquicia Inazuma Eleven.</p>
       <p>Inazuma Eleven, sus personajes, nombres, diseños, logotipos, música y materiales originales son propiedad de LEVEL-5 y/o sus respectivos titulares.</p>
       <p>Este proyecto no está afiliado, patrocinado ni aprobado por LEVEL-5.</p>
-      <p>El código y los materiales originales desarrollados específicamente para InaZurivors pertenecen a sus respectivos autores.</p>
+      <p>El código y los materiales originales desarrollados específicamente para InaZurvivors pertenecen a sus respectivos autores.</p>
       <p>Los recursos gráficos y sonoros de terceros conservan sus derechos originales.</p>
       <p>La inclusión de créditos y este aviso no implica la existencia de una licencia o autorización para distribuir material protegido.</p>
       <h3>Desarrollo</h3>
@@ -1895,11 +1895,11 @@ export class App {
         <li>Nombres en español e inglés de parte de las técnicas: ${link('https://inazuma-eleven.fandom.com/', 'Inazuma Eleven Wiki')} (Fandom), contenido bajo ${link('https://www.fandom.com/licensing', 'CC BY-SA')}.</li>
         <li>Motor: ${link('https://phaser.io/', 'Phaser')} © Richard Davey, Phaser Studio Inc. (${link('https://opensource.org/license/mit', 'licencia MIT')}). Herramienta: ${link('https://vite.dev/', 'Vite')} (MIT).</li>
         <li>Fuente: Press Start 2P © The Press Start 2P Project Authors (${link('https://openfontlicense.org/', 'SIL Open Font License 1.1')}), vía Fontsource.</li>
-        <li>Creados para InaZurivors: efectos de supertécnicas, efectos de sonido, iconos de elemento, orbes, música «Generada» e interfaz.</li>
+        <li>Creados para InaZurvivors: efectos de supertécnicas, efectos de sonido, iconos de elemento, orbes, música «Generada» e interfaz.</li>
       </ul>
       <h3>Redes sociales</h3><p>${this.tiktokLink('Síguenos en TikTok')}</p>
       <h3>Enlaces oficiales</h3><p>${link('https://www.level5.co.jp/', 'LEVEL-5')} · ${link('https://www.inazuma.jp/', 'Inazuma Eleven')}</p>
-      <h3>Privacidad</h3><p>Sin cuenta, InaZurivors no recopila datos personales: tu progreso se guarda solo en este navegador. Con cuenta online (Google) se guardan tu correo de Google (privado), tu nombre, tus marcas y tu guardado. <a href="privacidad.html" target="_blank" rel="noopener">Privacidad y condiciones</a></p>
+      <h3>Privacidad</h3><p>Sin cuenta, InaZurvivors no recopila datos personales: tu progreso se guarda solo en este navegador. Con cuenta online (Google) se guardan tu correo de Google (privado), tu nombre, tus marcas y tu guardado. <a href="privacidad.html" target="_blank" rel="noopener">Privacidad y condiciones</a></p>
       <p class="note">${esc(VERSION_LABEL)} · compilación interna ${esc(BUILD)}</p></div></div>`);
     this.on('[data-back]', 'click', () => this.mainMenu());
   }
@@ -2052,7 +2052,7 @@ export class App {
     setMusicContext('run');
     this.show(`<div class="hud" id="hud"><div class="hurt" id="hurt"></div>
       <div class="xp-strip" id="xpbar"><i></i></div>
-      <div class="vitals"><span class="hud-crest" title="${esc(this.save.crest ? teamLabel(this.save.crest) : 'InaZurivors')}"><img src="${this.emblemOf(this.save.crest) || 'logo-192.png'}" alt=""></span><div class="lv-badge" id="lvbadge"><small>NV</small><b>1</b></div>
+      <div class="vitals"><span class="hud-crest" title="${esc(this.save.crest ? teamLabel(this.save.crest) : 'InaZurvivors')}"><img src="${this.emblemOf(this.save.crest) || 'logo-192.png'}" alt=""></span><div class="lv-badge" id="lvbadge"><small>NV</small><b>1</b></div>
         <div class="vbars"><div class="hp-bar" id="hpbar"><i class="ghost"></i><i class="fill"></i><span></span></div><div class="hud-stats"><span id="kills"></span><span class="st-coins" id="runcoins"></span><span class="st-tokens" id="runtokens"></span><span id="xptext"></span></div></div></div>
       <div class="res-chips" id="reson"></div>
       <div class="top-right"><div class="clock" id="clock"></div>

@@ -1,6 +1,6 @@
 /**
  * Combined supertechniques. Only combinations whose participants were checked against a documented source are listed;
- * the unlock conditions (technique levels) are InaZurivors design, not canon. Names and power come from the IE2 Spanish
+ * the unlock conditions (technique levels) are InaZurvivors design, not canon. Names and power come from the IE2 Spanish
  * ROM table (data/extracted/ie2_gamedata.json): Fuego cruzado 298/311, Tornado dragón 204, Ruptura relámpago 207.
  *
  * Activation: a SPECIAL slot, separate from each player's technique slots. Once learned (a level-up card that appears
@@ -33,19 +33,19 @@ export const COMBOS: ComboDef[] = [
     id: 'fuego-cruzado', name: 'Fuego cruzado', jp: 'クロスファイア', en: 'Crossfire', element: 'Fuego', power: 120,
     needs: [{ player: 'Axel Blaze', tech: 'Tornado de fuego', level: 10 }, { player: 'Shawn Froste', tech: 'Ventisca eterna', level: 10 }],
     cooldownMs: 6500, effect: 'tiro-doble',
-    source: 'Wiki de Inazuma Eleven (fandom), «Crossfire»: Gouenji (Axel) y Fubuki (Shawn) la crean y la usan en el anime. Condición de niveles: diseño de InaZurivors.',
+    source: 'Wiki de Inazuma Eleven (fandom), «Crossfire»: Gouenji (Axel) y Fubuki (Shawn) la crean y la usan en el anime. Condición de niveles: diseño de InaZurvivors.',
   },
   {
     id: 'tornado-dragon', name: 'Tornado dragón', jp: 'ドラゴントルネード', en: 'Dragon Tornado', element: 'Fuego', power: 79,
     needs: [{ player: 'Kevin Dragonfly', tech: 'Remate dragón', level: 5 }, { player: 'Axel Blaze', tech: 'Tornado de fuego', level: 5 }],
     cooldownMs: 5000, effect: 'tiro-dragon',
-    source: 'Wiki de Inazuma Eleven (fandom), «Dragon Tornado»: Someoka (Kevin) pasa con Dragon Crash al Fire Tornado de Gouenji (Axel). Condición de niveles: diseño de InaZurivors.',
+    source: 'Wiki de Inazuma Eleven (fandom), «Dragon Tornado»: Someoka (Kevin) pasa con Dragon Crash al Fire Tornado de Gouenji (Axel). Condición de niveles: diseño de InaZurvivors.',
   },
   {
     id: 'ruptura-relampago', name: 'Ruptura relámpago', jp: 'イナズマブレイク', en: 'Inazuma Break', element: 'Aire', power: 99,
     needs: [{ player: 'Jude Sharp', level: 4 }, { player: 'Mark Evans', level: 4 }, { player: 'Axel Blaze', level: 4 }],
     cooldownMs: 7000, effect: 'tiro-rayo',
-    source: 'Wiki de Inazuma Eleven (fandom), «Inazuma Break»: Kidou (Jude), Endou (Mark) y Gouenji (Axel) la usan contra Senbayama (episodio 018). Condición de niveles: diseño de InaZurivors.',
+    source: 'Wiki de Inazuma Eleven (fandom), «Inazuma Break»: Kidou (Jude), Endou (Mark) y Gouenji (Axel) la usan contra Senbayama (episodio 018). Condición de niveles: diseño de InaZurvivors.',
   },
 ];
 

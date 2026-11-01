@@ -1,4 +1,4 @@
-# InaZurivors
+# InaZurvivors
 
 Fangame gratuito y no oficial, roguelite de supervivencia inspirado en Inazuma Eleven. Proyecto de distribución: se genera desde el proyecto local con `tools/distribucion.py`, no se edita a mano.
 

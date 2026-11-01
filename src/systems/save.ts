@@ -171,7 +171,7 @@ export const migrations: Record<number, Migration> = {
     daily: s.daily ?? { key: '', bought: [] }, shopSeed: s.shopSeed ?? Math.floor(Math.random() * 1e9), schemaVersion: 7 }),
   // v7 -> v8: technique mastery and starting technique
   7: (s) => ({ ...s, mastery: s.mastery ?? {}, loadout: s.loadout ?? {}, schemaVersion: 8 }),
-  // v8 -> v9 (InaZurivors 3.0): squad of seven, difficulty ranks, tutorial and gacha history. Existing players already
+  // v8 -> v9 (InaZurvivors 3.0): squad of seven, difficulty ranks, tutorial and gacha history. Existing players already
   // know the game, so their tutorial is not forced on them (it stays in Options).
   8: (s) => ({ ...s, squad: s.squad ?? [], difficulty: s.difficulty ?? 'C', clearedRanks: s.clearedRanks ?? {}, seenItems: s.seenItems ?? [],
     tutorial: s.tutorial ?? (s.onboardingDone ? 'omitido' : 'pendiente'), gachaHistory: s.gachaHistory ?? [], devlogSeen: s.devlogSeen ?? '', schemaVersion: 9 }),
@@ -291,8 +291,8 @@ export function storeSave(s: SaveData): boolean {
   }
 }
 
-/** The id stays the pre-rename one, so backups made before and after the InaZurivors rename import into each other. */
-export const exportSave = (s: SaveData) => JSON.stringify({ game: 'inazuma-eleven-survivors', title: 'InaZurivors', exportedAt: new Date().toISOString(), save: s }, null, 1);
+/** The id stays the pre-rename one, so backups made before and after the InaZurvivors rename import into each other. */
+export const exportSave = (s: SaveData) => JSON.stringify({ game: 'inazuma-eleven-survivors', title: 'InaZurvivors', exportedAt: new Date().toISOString(), save: s }, null, 1);
 
 /** Parses an exported backup; throws with a readable message and leaves the current save alone when it is not valid. */
 export function importSave(text: string): SaveData {
@@ -300,6 +300,6 @@ export function importSave(text: string): SaveData {
   try { raw = JSON.parse(text); } catch { throw new Error('El archivo no es JSON válido.'); }
   const o = obj(raw);
   const inner = o?.game === 'inazuma-eleven-survivors' ? o.save : raw;
-  if (!isSaveShape(inner)) throw new Error('El archivo no es una copia de InaZurivors.');
+  if (!isSaveShape(inner)) throw new Error('El archivo no es una copia de InaZurvivors.');
   return migrate(inner, [], null);
 }

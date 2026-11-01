@@ -1,5 +1,5 @@
 /**
- * Kit bonuses (InaZurivors design): the equipped kit gives the squad a perk. Main teams have a named one inspired by
+ * Kit bonuses (InaZurvivors design): the equipped kit gives the squad a perk. Main teams have a named one inspired by
  * their style in the saga; any other kit gets one from the dominant element of its roster. On top, «Química de club»:
  * +6% damage while 3+ players of that team are on the pitch. Values are balance, tuned here.
  */

@@ -1,6 +1,6 @@
 /**
  * What the profile may show. Crests: the default one plus every crest earned (team reward or favourite team).
- * Players: only owned ones. Coaches: unlocked by design goals of InaZurivors (arenas, collection, ranks).
+ * Players: only owned ones. Coaches: unlocked by design goals of InaZurvivors (arenas, collection, ranks).
  */
 import type { RosterEntry } from '../data/manifest';
 import { teamNames } from '../data/sagas';

@@ -1,7 +1,7 @@
-# Builds InaZurivors and deploys it to GitHub Pages. The game resources are committed in public/generated (made locally
+# Builds InaZurvivors and deploys it to GitHub Pages. The game resources are committed in public/generated (made locally
 # with `npm run assets:sync`, which needs the extracted sprites), so CI only compiles: no sync step here.
 # Nothing runs until the repository exists on GitHub and Pages uses "GitHub Actions" as its source (see PUBLICACION.md).
-name: Deploy InaZurivors (web)
+name: Deploy InaZurvivors (web)
 
 on:
   push:

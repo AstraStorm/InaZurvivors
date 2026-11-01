@@ -95,9 +95,9 @@ export const CHANGELOG: Release[] = [
     next: ['Publicación web cuando haya recursos con permiso de distribución'],
   },
   {
-    version: '3.0', date: '2026-10-31', title: 'InaZurivors',
+    version: '3.0', date: '2026-10-31', title: 'InaZurvivors',
     features: [
-      'Nuevo nombre: InaZurivors, con el escudo del Raimon en la pestaña del navegador.',
+      'Nuevo nombre: InaZurvivors, con el escudo del Raimon en la pestaña del navegador.',
       'Mi Equipo: elige 7 candidatos y tu capitán; solo ellos aparecen como fichajes en la partida.',
       'Dificultades C, B, A, S y X: más ritmo, élites, balones que caen del cielo y jefes con patrones. Más recompensas cuanto más alto.',
       'Técnicas combinadas: Fuego cruzado (Axel + Shawn), Tornado dragón (Kevin + Axel) y Ruptura relámpago (Jude + Mark + Axel).',

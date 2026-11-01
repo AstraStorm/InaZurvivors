@@ -1,5 +1,5 @@
 /**
- * What the PUBLIC sees: the first public version is InaZurivors v1.0. The internal history (changelog.ts, git tags
+ * What the PUBLIC sees: the first public version is InaZurvivors v1.0. The internal history (changelog.ts, git tags
  * v2.8…v4.x) stays for development and is never shown to players. BUILD is the internal version, kept in bug reports
  * and in Credits so a report can be traced to the code. RELEASED turns true only once a public deployment exists and
  * has been checked; until then the game says "pre-lanzamiento".
@@ -28,7 +28,7 @@ export interface PublicRelease {
 export const PUBLIC_RELEASES: PublicRelease[] = [
   {
     version: '1.0',
-    title: 'InaZurivors v1.0 — ¡Comienza la aventura!',
+    title: 'InaZurvivors v1.0 — ¡Comienza la aventura!',
     tagline: 'La primera versión pública',
     intro: 'Un fangame roguelite de supervivencia inspirado en el universo de Inazuma Eleven: recluta futbolistas, mejora sus supertécnicas y aguanta oleadas de rivales cada vez más duras.',
     features: [

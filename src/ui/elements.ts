@@ -1,5 +1,5 @@
 /**
- * Element emblems drawn for InaZurivors (inline SVG, crisp at any size): flame for Fuego, whirlwind for Aire,
+ * Element emblems drawn for InaZurvivors (inline SVG, crisp at any size): flame for Fuego, whirlwind for Aire,
  * leaf for Bosque, peaks for Montaña, in the colours the IE games use for each element.
  */
 const SHAPES: Record<string, { bg: string; rim: string; path: string }> = {
