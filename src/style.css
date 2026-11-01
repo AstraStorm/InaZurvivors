@@ -268,7 +268,7 @@ body.reduced-motion .menu-lights i { animation: none; }
 .fart { position: relative; line-height: 0; } .fart canvas.char { position: absolute; right: -44px; bottom: -6px; width: 80px; height: 88px; }
 .menu-foot { display: flex; justify-content: space-between; gap: 10px; font-size: 8px; color: var(--muted); }
 .menu-foot button { font: inherit; background: none; border: 0; color: var(--frame); cursor: pointer; text-decoration: underline; }
-.audio-hint { position: absolute !important; bottom: 34px; right: 16px; font-size: 9px; background: #000b; padding: 4px 8px; color: var(--yellow); animation: pulse .7s infinite alternate; }
+.audio-hint { position: absolute !important; bottom: 64px; right: 16px; font-size: 9px; background: #000b; padding: 4px 8px; color: var(--yellow); animation: pulse .7s infinite alternate; }
 @media (max-width: 900px) { .menu-stage { flex-direction: column; } .menu-left, .menu-right { flex: none; width: 100%; } .featured { display: none; } }
 
 /* cards: composed sprite + mugshot badge */
@@ -743,7 +743,7 @@ h3.saga { color: var(--orange-2); font-size: 11px; margin: 14px 0 6px; font-weig
 .lv-elic { position: absolute; right: -10px; bottom: -8px; }
 .pl-head { position: relative; }
 .pl-elem { position: absolute; left: 26px; top: 24px; z-index: 2; }
-.legal-foot { justify-content: center; text-align: center; font-size: 7px; line-height: 1.6; opacity: .85; }
+.legal-foot { display: flex; justify-content: center; text-align: center; font-size: 10px; line-height: 1.7; color: var(--text); background: rgba(5, 12, 34, .82); padding: 6px 10px; border-radius: 4px; }
 .legal-foot .legal-link { font: inherit; padding: 0; }
 .legal a { color: var(--frame); }
 .legal ul { font-size: 9px; line-height: 1.9; }

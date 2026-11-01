@@ -635,7 +635,7 @@ export class App {
           <button class="btn small blue" data-go="tutorial">¿Cómo se juega?</button>
         </aside>
       </div>
-      <footer class="menu-foot legal-foot"><span>InaZurvivors · Fangame gratuito y no oficial creado por AstraStorm17 · Inazuma Eleven pertenece a LEVEL-5 y sus respectivos titulares · <button id="credits" class="legal-link">Aviso legal</button> · ${esc(VERSION_LABEL)}</span></footer>
+      <footer class="menu-foot legal-foot"><span>Fangame gratuito, sin ánimo de lucro y no oficial, creado por AstraStorm17. Inazuma Eleven y todos sus derechos pertenecen a LEVEL-5 y sus respectivos titulares. Este proyecto no está afiliado, patrocinado ni aprobado por LEVEL-5. · <button id="credits" class="legal-link">Aviso legal</button> · ${esc(VERSION_LABEL)}</span></footer>
       ${musicUnlocked() ? '' : '<div class="audio-hint">Haz clic en cualquier parte para activar la música</div>'}</div>`, 'menu-mode');
     this.on('[data-go]', 'click', (_e, el) => {
       const go = el.dataset.go;
