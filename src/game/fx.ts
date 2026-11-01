@@ -491,6 +491,48 @@ export class Fx {
   }
 
   /**
+   * El Olvido (The End): a black hole opens, its accretion disc spins, everything around is pulled in, then it closes
+   * on itself and the ball is gone.
+   */
+  blackHole(x: number, y: number, radius: number, level: number, ms: number, big = false) {
+    if (!this.free(4)) return;
+    const r = radius * (big ? 0.62 : 0.5);
+    const glow = this.scene.add.circle(x, y, r * 1.7, 0x6a1aff, 0.22).setBlendMode(Phaser.BlendModes.ADD).setDepth(8790).setScale(0.2);
+    const disc = this.scene.add.graphics().setDepth(8795).setPosition(x, y);
+    for (let i = 0; i < 3; i++) {
+      disc.lineStyle(3 - i, [0xc79bff, 0x8a3aff, 0xff4fd8][i], 0.9 - i * 0.2);
+      disc.strokeEllipse(0, 0, r * (2.3 + i * 0.35), r * (0.9 + i * 0.16));
+    }
+    disc.setScale(0.2).setAlpha(0);
+    const core = this.scene.add.circle(x, y, r, 0x05000c, 1).setStrokeStyle(2, 0xb36bff).setDepth(8800).setScale(0.1);
+    this.live += 3;
+    const open = ms * 0.25, hold = ms * 0.5, close = ms * 0.25;
+    this.scene.tweens.add({ targets: [glow, core], scale: 1, duration: open, ease: 'Back.easeOut' });
+    this.scene.tweens.add({ targets: disc, scale: 1, alpha: 1, duration: open, ease: 'Cubic.easeOut' });
+    this.scene.tweens.add({ targets: disc, angle: big ? 540 : 360, duration: ms, ease: 'Sine.easeIn' });
+    this.scene.tweens.add({ targets: glow, alpha: 0.4, duration: hold / 3, yoyo: true, repeat: 1, delay: open });
+    // the swirl: sparks spiral into the hole while it is open
+    const n = Math.round((14 + level * 2 + (big ? 10 : 0)) * this.density());
+    for (let i = 0; i < n && this.free(1); i++) {
+      const a = (i / n) * Math.PI * 2, d = radius * (0.9 + Math.random() * 0.5);
+      const p = this.scene.add.image(x + Math.cos(a) * d, y + Math.sin(a) * d * 0.55, 'fx:spark')
+        .setTint(i % 3 ? 0x9a5aff : 0xff6ad8).setBlendMode(Phaser.BlendModes.ADD).setDepth(8798);
+      const t = { k: 0 };
+      this.live++;
+      this.scene.tweens.add({ targets: t, k: 1, delay: open * 0.5 + Math.random() * hold * 0.4, duration: hold * 0.8, ease: 'Cubic.easeIn',
+        onUpdate: () => { const aa = a + t.k * 4, dd = d * (1 - t.k); p.setPosition(x + Math.cos(aa) * dd, y + Math.sin(aa) * dd * 0.55).setScale(1 - t.k * 0.7); },
+        onComplete: () => { p.destroy(); this.live--; } });
+    }
+    // it closes on itself with a last flash
+    this.scene.tweens.add({ targets: [glow, disc, core], scale: 0, delay: open + hold, duration: close, ease: 'Back.easeIn',
+      onComplete: () => { glow.destroy(); disc.destroy(); core.destroy(); this.live -= 3; } });
+    this.scene.time.delayedCall(open + hold + close, () => {
+      this.flashDisc(x, y, r * 0.6, 0xe0c8ff, 140);
+      this.ring(x, y, r * 1.2, 0x8a3aff, 260, 2);
+    });
+  }
+
+  /**
    * Tormenta de fuego (and other fire storms): ground ring -> flames gathering -> rising fire whirl around the player.
    * The ball, its trail and the explosion come after, from the shot itself.
    */

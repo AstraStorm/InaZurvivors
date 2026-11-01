@@ -674,8 +674,28 @@ export class ArenaScene extends Phaser.Scene {
           }
         } else if (t.type === 'parada') {
           const heal = Math.round(this.maxHp * s.heal);
-          this.hp = Math.min(this.maxHp, this.hp + heal);
-          if (/m[aá]gica|majin/i.test(t.name)) {
+          let cx = ox, cy = oy; // centre of the area hit
+          if (/olvido|the end/i.test(t.name)) {
+            // El Olvido (The End): a black hole in front of the keeper swallows the rivals' balls and pulls rivals in
+            const big = ['mitico', 'leyenda'].includes(m.entry.rarity) || !!this.cfg.asc?.[String(m.entry.id)]?.hero;
+            // the hole opens on the rivals (the closest one in reach), never on the keeper
+            const target = this.nearestEnemy(ox, oy, 220 * this.cfg.perks.rangeMult);
+            if (!target) { m.cds[i] = 200; return; }
+            const hx = target.pos.x, hy = target.pos.y - 10;
+            cx = hx; cy = hy;
+            this.fx.blackHole(hx, hy, s.radius, lv, 900, big);
+            this.shots = this.shots.filter((b) => {
+              if (Math.hypot(b.x - hx, b.y - hy) >= s.radius * 1.4) return true;
+              this.tweens.add({ targets: b.img, x: hx, y: hy, scale: 0, duration: 260, ease: 'Cubic.easeIn', onComplete: () => b.img.destroy() });
+              return false;
+            });
+            for (const e of this.enemies) {
+              const d = Math.hypot(e.pos.x - hx, e.pos.y - hy);
+              if (d < s.radius * 1.3) e.slowUntil = this.runTime + 0.9;
+            }
+            sfx('whoosh');
+            this.time.delayedCall(700, () => { if (!this.ended) sfx('boom'); });
+          } else if (/m[aá]gica|majin/i.test(t.name)) {
             // Mano mágica (Majin The Hand): the Majin rises behind the keeper and raises its arm, then the hand blocks
             this.fx.entity('majin', ox, oy + 6, 900, ['mitico', 'leyenda'].includes(m.entry.rarity) || !!this.cfg.asc?.[String(m.entry.id)]?.hero);
             this.fx.magicHand(ox, oy, lv);
@@ -686,9 +706,12 @@ export class ArenaScene extends Phaser.Scene {
           }
           else this.fx.ring(ox, oy, s.radius, 0xffe27a, 520, 3);
           this.fx.burst('energia', ox, oy, 6 + lv * 2, 40, true);
+          // El Olvido pulls inwards (into the hole) instead of pushing away; same damage and reach as every parada
+          const pull = /olvido|the end/i.test(t.name) ? -0.8 : 1;
+          this.hp = Math.min(this.maxHp, this.hp + heal); // after the target check: an Olvido with no rival in reach does nothing
           for (const e of this.enemies) {
-            const d = Math.hypot(e.pos.x - ox, e.pos.y - oy);
-            if (d < s.radius) this.hit(e, s.damage, (e.pos.x - ox) / (d || 1) * s.knockback, (e.pos.y - oy) / (d || 1) * s.knockback, style);
+            const d = Math.hypot(e.pos.x - cx, e.pos.y - cy);
+            if (d < s.radius) this.hit(e, s.damage, (e.pos.x - cx) / (d || 1) * s.knockback * pull, (e.pos.y - cy) / (d || 1) * s.knockback * pull, style);
           }
           if (heal > 0) this.fx.damageNumber(ox, oy - 26, heal, false);
         }
