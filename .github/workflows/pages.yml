@@ -1,6 +1,6 @@
 # The only InaZurvivors workflow. A push checks the code and compiles it without resources; nothing is deployed.
-# Deploying is a manual run with "publicar" on: it integrates only the groups authorised in config/autorizacion_recursos.json
-# and stops with an explicit error if a required group is missing (PUBLICACION.md).
+# Deploying is a manual run with "publicar" on: technical checks plus comprobar_derechos.mjs, which allows only the groups
+# authorised in config/autorizacion_recursos.json and stops with an explicit error if a required one is missing (DERECHOS.md).
 # The prueba-recursos job checks the private repository; it has no Pages permission and uploads nothing.
 # The sitio job deploys only the informative pages (text, no game resources) until the game is published.
 name: Deploy InaZurvivors (web)
@@ -96,19 +96,16 @@ jobs:
           fi
       - name: Verificar todos los archivos
         run: node tools/integrar_recursos.mjs --recursos .recursos --verificar
-      - name: La autorización sigue bloqueando el despliegue
-        run: |
-          if node tools/integrar_recursos.mjs --comprobar; then echo "ERROR: se esperaba autorización pendiente"; exit 1; fi
       - name: Integrar como prueba no desplegable
-        run: node tools/integrar_recursos.mjs --recursos .recursos --prueba-local
+        run: node tools/integrar_recursos.mjs --recursos .recursos
       - run: npx vite build
       - name: Comprobar la build y las credenciales
         env:
           RECURSOS_TOKEN: ${{ secrets.RECURSOS_TOKEN }}
-        run: node tools/comprobar_build.mjs --recursos .recursos --prueba-local
+        run: node tools/comprobar_build.mjs --recursos .recursos
       - name: La build de prueba no se puede desplegar
         run: |
-          if node tools/comprobar_build.mjs --recursos .recursos >/dev/null 2>&1; then echo "ERROR: la prueba pasaría como despliegue"; exit 1; fi
+          if node tools/comprobar_derechos.mjs --recursos .recursos >/dev/null 2>&1; then echo "ERROR: la prueba pasaría como despliegue"; exit 1; fi
   build:
     runs-on: ubuntu-latest
     steps:
@@ -120,9 +117,9 @@ jobs:
       - run: npm ci
       - run: npx vitest run tests/systems.test.ts tests/online.test.ts
       - run: npx tsc --noEmit
-      - name: Comprobar la autorización
+      - name: Comprobar los derechos
         if: env.PUBLICAR == 'true'
-        run: node tools/integrar_recursos.mjs --comprobar
+        run: node tools/comprobar_derechos.mjs
       - name: Comprobar el acceso a los recursos
         if: env.PUBLICAR == 'true'
         env:
@@ -139,7 +136,7 @@ jobs:
           persist-credentials: false
       - name: Integrar los recursos autorizados
         if: env.PUBLICAR == 'true'
-        run: node tools/integrar_recursos.mjs --recursos .recursos
+        run: node tools/integrar_recursos.mjs --recursos .recursos --solo-autorizados
       - run: npx vite build
         env:
           # public values: the publishable key is meant for the browser; no secret ever goes here
@@ -150,6 +147,9 @@ jobs:
         env:
           RECURSOS_TOKEN: ${{ secrets.RECURSOS_TOKEN }}
         run: node tools/comprobar_build.mjs --recursos .recursos
+      - name: Comprobar los derechos de la build
+        if: env.PUBLICAR == 'true'
+        run: node tools/comprobar_derechos.mjs --recursos .recursos
       - if: env.PUBLICAR == 'true'
         uses: actions/upload-pages-artifact@v3
         with:

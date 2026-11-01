@@ -1,12 +1,12 @@
-// Checks dist/ before a deployment: every resource the game asks for is there, nothing unauthorised or private got in,
-// and every path uses the production base. Usage: node tools/comprobar_build.mjs --recursos <carpeta> [--prueba-local]
-import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
+// Technical check of dist/: every resource the game asks for is there and intact, no credential or private file got in,
+// and every path uses the production base. Rights are checked by comprobar_derechos.mjs.
+// Usage: node tools/comprobar_build.mjs --recursos <carpeta>
+import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { join, relative } from 'node:path';
 
 const args = process.argv.slice(2);
 const root = args[args.indexOf('--recursos') + 1];
-const local = args.includes('--prueba-local');
 const errors = [];
 const readJson = (file) => JSON.parse(readFileSync(file, 'utf8'));
 
@@ -15,7 +15,6 @@ const files = walk('dist').map((p) => relative('dist', p).replaceAll('\\', '/'))
 const have = new Set(files);
 
 if (!have.has('index.html')) errors.push('falta index.html');
-if (have.has('PRUEBA_LOCAL_NO_DESPLEGAR') && !local) errors.push('es una build de prueba local');
 const token = process.env.RECURSOS_TOKEN;
 for (const f of files) {
   if (/\.(map|nds|sav|pem|key)$|(^|\/)\.env|(^|\/)\.git|(^|\/)indice\.json$/.test(f)) errors.push(`archivo prohibido: ${f}`);
@@ -30,14 +29,9 @@ for (const f of files) {
 const html = readFileSync('dist/index.html', 'utf8');
 if (!/(src|href)="\/InaZurvivors\/assets\//.test(html)) errors.push('index.html no usa la base /InaZurvivors/');
 
-const allowed = new Set(existsSync('config/autorizacion_recursos.json') ? readJson('config/autorizacion_recursos.json').autorizados.map((a) => a.grupo) : []);
 const index = readJson(join(root, 'indice.json'));
 const known = new Map(index.archivos.map((f) => [f.ruta, f]));
-for (const f of files) {
-  const entry = known.get(f);
-  if (entry && !local && !allowed.has(entry.grupo)) errors.push(`recurso sin autorización: ${f} (${entry.grupo})`);
-  if (f.startsWith('a/') && !entry) errors.push(`recurso desconocido: ${f}`);
-}
+for (const f of files) if (f.startsWith('a/') && !known.has(f)) errors.push(`recurso desconocido: ${f}`);
 
 if (!have.has('generated/manifest.json')) errors.push('falta generated/manifest.json');
 else {

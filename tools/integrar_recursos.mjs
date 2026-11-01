@@ -1,10 +1,9 @@
-// Copies into public/ only the resource groups whose distribution is authorised in config/autorizacion_recursos.json.
-// Stops with an explicit error when a required group has no authorisation or a file is missing or altered.
+// Copies the resources into public/, stopping if a file is missing or altered. Rights are checked by comprobar_derechos.mjs.
 //
-//   node tools/integrar_recursos.mjs --comprobar                     only checks the authorisation
-//   node tools/integrar_recursos.mjs --recursos <carpeta>            integrates the authorised groups
-//   node tools/integrar_recursos.mjs --recursos <carpeta> --prueba-local
-//     integrates every group for a private test: the build is marked and can never be deployed
+//   node tools/integrar_recursos.mjs --recursos <carpeta>
+//     every group, for tests and local builds: the build is marked and can never be deployed
+//   node tools/integrar_recursos.mjs --recursos <carpeta> --solo-autorizados
+//     only the groups in config/autorizacion_recursos.json, for a public deployment
 //   node tools/integrar_recursos.mjs --recursos <carpeta> --verificar
 //     checks every file against indice.json and copies nothing
 import { createHash } from 'node:crypto';
@@ -17,18 +16,11 @@ const fail = (text) => { console.error(`ERROR: ${text}`); process.exit(1); };
 const readJson = (file) => JSON.parse(readFileSync(file, 'utf8'));
 
 const required = readJson('config/recursos_obligatorios.json').obligatorios;
-const auth = existsSync('config/autorizacion_recursos.json') ? readJson('config/autorizacion_recursos.json').autorizados ?? [] : [];
-const incomplete = auth.filter((a) => !['grupo', 'titular', 'documento', 'fecha', 'alcance'].every((k) => String(a[k] ?? '').trim()));
-if (incomplete.length) fail(`autorización incompleta (grupo, titular, documento, fecha y alcance): ${JSON.stringify(incomplete)}`);
-const allowed = new Set(auth.map((a) => a.grupo));
-const local = args.includes('--prueba-local');
+const selective = args.includes('--solo-autorizados');
 const verifying = args.includes('--verificar');
-// in Actions only the test job may use it: that job cannot upload or deploy anything
-if (local && process.env.GITHUB_ACTIONS && process.env.GITHUB_JOB !== 'prueba-recursos') fail('--prueba-local solo puede usarse en el job prueba-recursos');
-
-const unauthorised = required.filter((g) => !allowed.has(g));
-if (unauthorised.length && !local && !verifying) fail(`grupos obligatorios sin autorización verificada: ${unauthorised.join(', ')}. No se compila ni se despliega.`);
-if (args.includes('--comprobar')) { console.log('Autorización completa para los grupos obligatorios.'); process.exit(0); }
+const allowed = selective ? new Set(readJson('config/autorizacion_recursos.json').autorizados.map((a) => a.grupo)) : null;
+// in Actions only the test job may integrate everything: that job cannot upload or deploy anything
+if (!selective && !verifying && process.env.GITHUB_ACTIONS && process.env.GITHUB_JOB !== 'prueba-recursos') fail('la integración completa solo puede usarse en el job prueba-recursos');
 
 const root = arg('--recursos');
 if (!root || !existsSync(join(root, 'indice.json'))) fail(`no se encuentra indice.json en ${root}`);
@@ -39,7 +31,7 @@ if (missingGroups.length) fail(`el repositorio de recursos no tiene estos grupos
 let copied = 0;
 let bytes = 0;
 for (const f of index.archivos) {
-  if (!local && !verifying && !allowed.has(f.grupo)) continue;
+  if (selective && !allowed.has(f.grupo)) continue;
   const from = join(root, f.ruta);
   if (!existsSync(from)) fail(`falta ${f.ruta}`);
   if (createHash('sha256').update(readFileSync(from)).digest('hex') !== f.sha256) fail(`${f.ruta} no coincide con indice.json`);
@@ -52,5 +44,5 @@ for (const f of index.archivos) {
 }
 if (verifying) { console.log(`${copied} archivos correctos (${(bytes / 1e6).toFixed(1)} MB), versión ${index.version}`); process.exit(0); }
 writeFileSync('.env.production.local', `VITE_RECURSOS_VERSION=${index.version}\n`);
-if (local) writeFileSync('public/PRUEBA_LOCAL_NO_DESPLEGAR', 'Build de prueba local: no autorizada para publicar.\n');
-console.log(`${copied} archivos integrados (${(bytes / 1e6).toFixed(1)} MB), versión ${index.version}${local ? ', SOLO PRUEBA LOCAL' : ''}`);
+if (!selective) writeFileSync('public/PRUEBA_LOCAL_NO_DESPLEGAR', 'Build de prueba: no desplegable.\n');
+console.log(`${copied} archivos integrados (${(bytes / 1e6).toFixed(1)} MB), versión ${index.version}${selective ? '' : ', build de prueba'}`);
