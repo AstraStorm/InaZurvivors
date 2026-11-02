@@ -22,6 +22,7 @@ export const CHANGELOG: Release[] = [
       'Tiro Supermasivo con animación propia: vórtice negro y rojo, orbe enorme y grieta en el campo.',
       'Talentos pasivos de verdad: funcionan sin ocupar un hueco de técnica y la ficha dice qué hace cada uno.',
       'Radar de estadísticas en la ficha de cada futbolista.',
+      'Equipaciones de los equipos de IE3 sacadas de la ROM: 78 de los 81 equipos principales ya tienen la suya (antes 24).',
       'Tarjetas con brillo por rareza (destello y holográfico), media de estadísticas y radar en la elección de equipo.',
       'Talentos con sus nombres oficiales (Ultratécnica, Carga elemental, Mejor garantía, Gafe...); las acciones básicas como Tiro potente o Tiro raso pasan a ser un talento.',
       'Tres arenas nuevas: Parque del Alpino, Claustro Sagrado e Isla Mary Times, con sus equipos y jefes.',
