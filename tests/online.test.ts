@@ -129,6 +129,17 @@ describe('ranking (database)', () => {
     const byDamage = (await db.query<{ username: string }>(`select * from public.leaderboard(null, null, 'damage', 3)`)).rows;
     expect(byDamage[0].username).toBe('Carla');
   });
+  it('Fix 1.31: the default board goes by points, where the rank matters most, and can be ordered by rank', async () => {
+    const top = (await db.query<{ username: string; rank: string; score: string }>(`select * from public.leaderboard()`)).rows;
+    expect(top.map((r) => Number(r.score))).toEqual([...top.map((r) => Number(r.score))].sort((a, b) => b - a));
+    expect(top[0].rank).toBe('X'); // an X mark beats every A mark of similar time
+    const formula = (await db.query<{ p: string }>(`select private.score_of('X', 600, 1000000) as p`)).rows[0].p;
+    expect(Number(formula)).toBe(Math.round((6000 + 2000) * 4.8)); // same formula as src/systems/leaderboard.ts
+    const byRank = (await db.query<{ rank: string }>(`select * from public.leaderboard(null, null, 'rank', 30)`)).rows;
+    const tiers = byRank.map((r) => 'CBASX'.indexOf(r.rank));
+    expect(tiers).toEqual([...tiers].sort((a, b) => b - a));
+    await expect(api('', `select private.score_of('X', 1, 1)`)).rejects.toThrow(/permission denied/);
+  });
   it('the email and account ids never appear in the ranking; one call returns at most 100 rows', async () => {
     const cols = (await db.query(`select * from public.leaderboard(null, null, 'time', 1)`)).fields.map((f) => f.name);
     expect(cols).not.toContain('email');

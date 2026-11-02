@@ -13,8 +13,9 @@ import type { SaveData } from './save';
 
 export type AscStep = 'ascenso' | 'heroe';
 export const ASC_COSTS: Record<Rarity, Record<AscStep, number>> = {
-  comun: { ascenso: 12, heroe: 20 }, raro: { ascenso: 9, heroe: 15 }, epico: { ascenso: 6, heroe: 10 },
-  legendario: { ascenso: 3, heroe: 5 }, mitico: { ascenso: 2, heroe: 4 }, leyenda: { ascenso: 1, heroe: 3 },
+  // Fix 1.31 (author's request): a few copies for the low rarities, fewer for the high ones (were 12+20 ... 1+3)
+  comun: { ascenso: 6, heroe: 10 }, raro: { ascenso: 5, heroe: 8 }, epico: { ascenso: 4, heroe: 6 },
+  legendario: { ascenso: 2, heroe: 4 }, mitico: { ascenso: 2, heroe: 3 }, leyenda: { ascenso: 1, heroe: 2 },
 };
 
 /** Run bonuses per stage (InaZurvivors balance values). */

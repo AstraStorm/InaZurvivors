@@ -1,19 +1,37 @@
 /**
- * Ranking rules shared by the online board and this device's personal bests: order by time survived, ties by damage
- * (or the other way round), one best mark per board (arena + rank).
+ * Ranking rules shared by the online board and this device's personal bests: one best mark per board (arena + rank).
+ * Fix 1.31: boards go by POINTS by default, where the rank matters most; they can still be ordered by time survived,
+ * damage or rank. Same formula as private.score_of in supabase/migrations/20261102000300_ranking_score.sql.
  */
 import type { SaveData } from './save';
 
 export interface Mark { map: string; rank: string; time: number; damage: number; captainId: number; at: string }
-export type Order = 'time' | 'damage';
+export type Order = 'score' | 'time' | 'damage' | 'rank';
+
+export const RANK_TIERS = ['C', 'B', 'A', 'S', 'X'] as const;
+/** points multiplier of each rank: an average X run beats the best C run */
+export const RANK_MULT: Record<string, number> = { C: 1, B: 1.6, A: 2.4, S: 3.4, X: 4.8 };
+
+/** points = (seconds × 10 + √damage × 2) × rank multiplier; the root keeps endless-mode damage from burying the rest */
+export function scoreOf(m: Pick<Mark, 'rank' | 'time' | 'damage'>) {
+  return Math.round((Math.max(0, Math.floor(m.time)) * 10 + Math.sqrt(Math.max(0, m.damage)) * 2) * (RANK_MULT[m.rank] ?? 1));
+}
 
 export const boardKey = (map: string, rank: string) => `${map}|${rank}`;
 
-export function better(a: Pick<Mark, 'time' | 'damage'>, b: Pick<Mark, 'time' | 'damage'>, order: Order = 'time') {
-  return order === 'time' ? a.time - b.time || a.damage - b.damage : a.damage - b.damage || a.time - b.time;
+const tier = (r: string) => RANK_TIERS.indexOf(r as never);
+type Cmp = Pick<Mark, 'time' | 'damage'> & { rank?: string };
+
+/** > 0 when `a` goes above `b` in this order; points break every tie */
+export function better(a: Cmp, b: Cmp, order: Order = 'score') {
+  const pa = scoreOf({ rank: a.rank ?? 'C', ...a }), pb = scoreOf({ rank: b.rank ?? 'C', ...b });
+  if (order === 'time') return a.time - b.time || a.damage - b.damage;
+  if (order === 'damage') return a.damage - b.damage || a.time - b.time;
+  if (order === 'rank') return tier(a.rank ?? 'C') - tier(b.rank ?? 'C') || pa - pb;
+  return pa - pb || a.time - b.time || a.damage - b.damage;
 }
 
-/** Keeps the best mark of each board on this device. A run id is remembered so a reload can't count it twice. */
+/** Keeps the best mark (by points) of each board on this device. A run id is remembered so a reload can't count it twice. */
 export function recordBest(save: SaveData, runId: string, m: Mark): boolean {
   save.bests ??= {};
   save.seenRuns ??= [];
@@ -26,13 +44,13 @@ export function recordBest(save: SaveData, runId: string, m: Mark): boolean {
   return true;
 }
 
-/** Personal bests filtered like the online board; each entry gets its position. */
+/** Personal bests filtered like the online board; each entry gets its position and points. */
 export function localBoard(save: SaveData, map: string | null, rank: string | null, order: Order) {
   return Object.values(save.bests ?? {}).filter((m) => (!map || m.map === map) && (!rank || m.rank === rank))
-    .sort((a, b) => better(b, a, order)).map((m, i) => ({ ...m, pos: i + 1 }));
+    .sort((a, b) => better(b, a, order)).map((m, i) => ({ ...m, pos: i + 1, score: scoreOf(m) }));
 }
 
-/** Position of `mine` inside an ordered list of (time, damage) marks, 1-based; length + 1 when it is last. */
-export function positionOf(list: Pick<Mark, 'time' | 'damage'>[], mine: Pick<Mark, 'time' | 'damage'>, order: Order = 'time') {
+/** Position of `mine` inside an ordered list of marks, 1-based; length + 1 when it is last. */
+export function positionOf(list: Cmp[], mine: Cmp, order: Order = 'score') {
   return list.filter((m) => better(m, mine, order) > 0).length + 1;
 }

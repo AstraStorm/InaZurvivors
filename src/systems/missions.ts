@@ -13,7 +13,9 @@ export interface MissionDef { id: string; kind: MissionKind; label: string; stat
   train: number }
 
 // Fix 1.13: missions pay 20% fewer coins, like the runs (rounded to 5)
-const M = (id: string, kind: MissionKind, label: string, stat: string, goal: number, coins: number): MissionDef => ({ id, kind, label, stat, goal, coins: Math.round(coins * 0.8 / 5) * 5, tokens: kind === 'diaria' ? 4 : kind === 'semanal' ? 12 : kind === 'logro' ? 10 : 4, train: kind === 'semanal' ? 1 : kind === 'logro' ? 2 : 0 }); // Fix 1.3: at the new pull price
+const M = (id: string, kind: MissionKind, label: string, stat: string, goal: number, coins: number, tokens?: number): MissionDef => ({ id, kind, label, stat, goal, coins: Math.round(coins * 0.8 / 5) * 5, tokens: tokens ?? (kind === 'diaria' ? 4 : kind === 'semanal' ? 12 : kind === 'logro' ? 10 : 4), train: kind === 'semanal' ? 1 : kind === 'logro' ? 2 : 0 }); // Fix 1.3: at the new pull price
+/** Fix 1.31: achievement tiers, round fichas: bronze 10, silver 20, gold 50 */
+const L = (id: string, label: string, stat: string, goal: number, coins: number, tier: 1 | 2 | 3 = 1) => M(id, 'logro', label, stat, goal, coins, [10, 20, 50][tier - 1]);
 
 export const MISSIONS: MissionDef[] = [
   M('p_sobrevive', 'partida', 'Sobrevive 5 minutos en una partida', 'best_time', 300, 80),
@@ -33,7 +35,7 @@ export const MISSIONS: MissionDef[] = [
   M('l_ofensiva', 'logro', 'Gana con formación ofensiva', 'wins_ofensiva', 1, 250),
   M('l_fuego', 'logro', 'Usa 500 técnicas de Fuego', 'uses_Fuego', 500, 250),
   M('l_aire', 'logro', 'Usa 500 técnicas de Aire', 'uses_Aire', 500, 250),
-  M('l_todas', 'logro', 'Completa las tres arenas', 'arenas', 3, 800),
+  M('l_todas', 'logro', 'Completa las seis arenas', 'arenas', 6, 1200, 50),
   // 4.0
   M('d_nivel', 'diaria', 'Sube 25 niveles (sumando partidas)', 'levels', 25, 60),
   M('d_aire', 'diaria', 'Usa 30 técnicas de Aire', 'uses_Aire', 30, 60),
@@ -68,6 +70,55 @@ export const MISSIONS: MissionDef[] = [
   M('l_zeus', 'logro', 'Gana en el Estadio Zeus', 'wins_map_zeus', 1, 400),
   M('l_equilibrada', 'logro', 'Gana con formación equilibrada', 'wins_equilibrada', 1, 250),
   M('l_defensiva', 'logro', 'Gana con formación defensiva', 'wins_defensiva', 1, 250),
+  // Fix 1.31: many more achievements, in tiers (bronze 10 fichas, silver 20, gold 50)
+  L('l_partidas10', 'Juega 10 partidas', 'runs', 10, 150),
+  L('l_partidas50', 'Juega 50 partidas', 'runs', 50, 500, 2),
+  L('l_partidas200', 'Juega 200 partidas', 'runs', 200, 1500, 3),
+  L('l_kills1000', 'Derrota a 1000 rivales', 'kills', 1000, 250),
+  L('l_kills20000', 'Derrota a 20 000 rivales', 'kills', 20000, 1200, 2),
+  L('l_kills100000', 'Derrota a 100 000 rivales', 'kills', 100000, 3000, 3),
+  L('l_hora', 'Juega 1 hora en total', 'time', 3600, 300),
+  L('l_5horas', 'Juega 5 horas en total', 'time', 18000, 1000, 2),
+  L('l_20horas', 'Juega 20 horas en total', 'time', 72000, 3000, 3),
+  L('l_victorias5', 'Gana 5 partidas', 'wins', 5, 300),
+  L('l_victorias25', 'Gana 25 partidas', 'wins', 25, 1000, 2),
+  L('l_victorias100', 'Gana 100 partidas', 'wins', 100, 3000, 3),
+  L('l_tres', 'Completa tres arenas', 'arenas', 3, 500),
+  L('l_raimon', 'Gana en el Instituto Raimon', 'wins_map_raimon', 1, 200),
+  L('l_alpino', 'Gana en el Parque del Alpino', 'wins_map_alpino', 1, 400),
+  L('l_claustro', 'Gana en el Claustro Sagrado', 'wins_map_claustro', 1, 500),
+  L('l_marytimes', 'Gana en la Isla Mary Times', 'wins_map_marytimes', 1, 600),
+  L('l_rangoB', 'Gana una partida en rango B', 'wins_B', 1, 300),
+  L('l_rangoA', 'Gana una partida en rango A', 'wins_A', 1, 600, 2),
+  L('l_rangoS', 'Gana una partida en rango S', 'wins_S', 1, 1200, 2),
+  L('l_rangoX5', 'Gana 5 partidas en rango X', 'wins_X', 5, 4000, 3),
+  L('l_bosque', 'Usa 500 técnicas de Bosque', 'uses_Bosque', 500, 250),
+  L('l_montana', 'Usa 500 técnicas de Montaña', 'uses_Montaña', 500, 250),
+  L('l_tecnicas5000', 'Usa 5000 técnicas', 'uses_all', 5000, 800, 2),
+  L('l_tecnicas25000', 'Usa 25 000 técnicas', 'uses_all', 25000, 2500, 3),
+  L('l_jefes10', 'Derrota a 10 jefes', 'bosses', 10, 500),
+  L('l_jefes50', 'Derrota a 50 jefes', 'bosses', 50, 1500, 2),
+  L('l_altares25', 'Supera 25 altares o eventos', 'altars', 25, 400),
+  L('l_altares100', 'Supera 100 altares o eventos', 'altars', 100, 1200, 2),
+  L('l_infinito10', 'Aguanta 10 minutos en supervivencia infinita (en total)', 'endless', 600, 600),
+  L('l_infinito60', 'Aguanta 1 hora en supervivencia infinita (en total)', 'endless', 3600, 2000, 3),
+  L('l_niveles500', 'Sube 500 niveles (sumando partidas)', 'levels', 500, 600),
+  L('l_combos5', 'Aprende 5 técnicas combinadas (sumando partidas)', 'combos', 5, 600, 2),
+  L('l_15min', 'Sobrevive 15 minutos en una partida', 'best_time', 900, 500, 2),
+  L('l_1000bajas', 'Derrota a 1000 rivales en una partida', 'best_kills', 1000, 600, 2),
+  L('l_nivel30', 'Llega al nivel 30 en una partida', 'best_level', 30, 600, 2),
+  L('l_col100', 'Ten 100 futbolistas en tu colección', 'col_owned', 100, 600),
+  L('l_col500', 'Ten 500 futbolistas en tu colección', 'col_owned', 500, 2500, 3),
+  L('l_col1000', 'Ten 1000 futbolistas en tu colección', 'col_owned', 1000, 5000, 3),
+  L('l_equipos3', 'Completa 3 equipos principales', 'col_teams', 3, 1200, 2),
+  L('l_equipos10', 'Completa 10 equipos principales', 'col_teams', 10, 4000, 3),
+  L('l_ascensos5', 'Asciende a 5 futbolistas', 'col_ascended', 5, 1200, 2),
+  L('l_heroes5', 'Convierte a 5 futbolistas en HÉROE', 'col_heroes', 5, 4000, 3),
+  L('l_fichajes100', 'Consigue 100 fichajes nuevos', 'news', 100, 800, 2),
+  L('l_favorito10', 'Juega 10 partidas con 3 o más de tu equipo favorito', 'runs_fav', 10, 500),
+  L('l_eraGo', 'Juega 10 partidas con un capitán de la era GO', 'runs_era_go', 10, 400),
+  L('l_eraVr', 'Juega 10 partidas con un capitán de Victory Road', 'runs_era_vr', 10, 400),
+  L('l_eraOriginal', 'Juega 10 partidas con un capitán de la saga original', 'runs_era_original', 10, 400),
 ];
 
 /**

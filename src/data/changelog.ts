@@ -15,6 +15,30 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: '5.1', date: '2026-11-02', title: 'Fix 1.31',
+    features: [
+      'Gacha: una máquina por saga (Fútbol Frontier, Invasión Alius con el viaje por Japón, Mundial FFI, GO, Chrono Stone con los Miximax, Galaxy, Ares, Orion y Fichatrón para los fichajes sueltos). Precio según sus Míticos: sin estrellas 5, sin Míticos 10, de 1 a 5 Míticos 15, 6 o más 20; por equipo 15. El ×10 cuesta siempre diez veces la tirada.',
+      'Ranking por puntos: (segundos × 10 + √daño × 2) × rango (C ×1, B ×1,6, A ×2,4, S ×3,4, X ×4,8). Se puede ordenar por puntos, rango, tiempo o daño y filtrar por arena y rango; el menú enseña el de puntos.',
+      'Técnicas dibujadas según la wiki: Pingüino emperador n.º 1, 2, 3, 7 y X, Pingüino espacial, perfecto, aéreo y múltiple, Mano de pingüinos, Lecho de rosas, Desesperación floral, Fiesta floral, Tormenta de pétalos, Hojarasca, Bola de hojas, Tiburón de las profundidades, Ataque de la ballena, Bloqueo ballena y Baile de mariposas.',
+      'Gacha: «Saltar todo» abre un resumen con todo lo fichado, de mayor a menor rareza.',
+      'Colección: aviso y contador en el menú cuando hay recompensas de equipo para recoger.',
+      'Unos 70 logros: niveles bronce (10 fichas), plata (20) y oro (50).',
+      'Sinergias grandes en la partida (también en el móvil) con su progreso y un aviso al activarse, y un panel de sinergias en Mi Equipo.',
+    ],
+    fixes: [
+      'Retratos de IE3: el torso se pinta con la paleta de la equipación de cada equipo (face2d/ppu), como en el juego; Beauties, Zanark Domain, Champions y compañía ya no llevan los colores de otro equipo.',
+      'Gacha: el brillo de Legendario y Mítico ya no tapa al futbolista y las estrellas se dibujan (la fuente pixelada las mostraba como asteriscos); duplicados y ascensión se leen mejor.',
+      'Los avisos ya no se apilan uno encima de otro.',
+      'El logro de las arenas pide las seis.',
+    ],
+    visuals: [],
+    balance: [
+      'Medias por rareza: Común 50, Raro 59, Épico 70, Legendario 83, Mítico 90, Leyenda 96 (±2).',
+      'Ascensión más barata: Común 6+10, Raro 5+8, Épico 4+6, Legendario 2+4, Mítico 2+3, Leyenda 1+2.',
+      'Fichas en el campo: +5 por ficha recogida (algo menos frecuente), +3 por altar y +5 por duelo en rango alto, +3 cada 2 minutos y +5 por jefe en supervivencia infinita.',
+    ],
+  },
+  {
     version: '5.0', date: '2026-11-02', title: 'v1.3',
     features: [
       'Ascensión para todos los futbolistas, sea cual sea su rareza: Ascendido (sube una rareza, hasta Mítico) y HÉROE. Cuesta más duplicados cuanto más común es el futbolista: Común 12+20, Raro 9+15, Épico 6+10, Legendario 3+5, Mítico 2+4, Leyenda 1+3.',

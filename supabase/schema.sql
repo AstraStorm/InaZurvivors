@@ -654,3 +654,243 @@ create policy bug_shots_insert_own on storage.objects for insert to authenticate
     and not coalesce(((select auth.jwt()) ->> 'is_anonymous')::boolean, false)
     and (select private.shots_today()) < 10 -- at most 10 uploads per account per day
   );
+
+-- ===== 20261101000200_server_now.sql
+-- Fix 1.11: server clock for the daily shop and the weekly pass. Read-only, no table access; callable by anon so guests
+-- with a connection also rotate on the server's day. The browser can't read the Date header (CORS), hence the RPC.
+create or replace function public.server_now()
+returns timestamptz
+language sql
+stable
+set search_path = ''
+as $$ select now() $$;
+
+revoke all on function public.server_now() from public;
+grant execute on function public.server_now() to anon, authenticated;
+
+-- ===== 20261102000000_promo_codes.sql
+-- Fix 1.12: promotional codes. The API roles never touch the tables; redeem_code() checks the caller, records the
+-- redemption atomically (one row per account and code, primary key) and decides the reward on the server, so a code
+-- can't be redeemed twice from two devices or by replaying the request. New codes are rows of private.promo_codes.
+
+create table if not exists private.promo_codes (
+  code text primary key check (code = upper(code) and char_length(code) between 3 and 32),
+  rewards jsonb not null, -- {"tokens": n, "coins": n, "legendary_pool": [ids]}
+  active boolean not null default true,
+  created_at timestamptz not null default now()
+);
+alter table private.promo_codes enable row level security;
+revoke all on table private.promo_codes from public, anon, authenticated;
+
+create table if not exists private.promo_redemptions (
+  user_id uuid not null references auth.users (id) on delete cascade,
+  code text not null references private.promo_codes (code),
+  result jsonb not null,
+  created_at timestamptz not null default now(),
+  primary key (user_id, code)
+);
+alter table private.promo_redemptions enable row level security;
+revoke all on table private.promo_redemptions from public, anon, authenticated;
+
+-- ASTRA17: welcome gift. 72 fichas (a ×10 pull), 500 coins and one random Legendario of the 1.12 roster
+insert into private.promo_codes (code, rewards) values ('ASTRA17', jsonb_build_object('tokens', 72, 'coins', 500,
+  'legendary_pool', jsonb_build_array(1,2,3,10,29,1024,1370,1371,1382,1384,1405,1513,1532,1541,1542,1548,1567,1589,100248,100293,100382,100405,100438,100468,100475,100487,100494,100510,100519,100538,100540,100544,100562,100577,100580,100717,100728,100739,100797,100844,100905,100907,100979,101308,101488,101504,101505,101558,101572,101710,101719,101722,101775,101791,101838,101855,101871,102015,102117,102130,102185,102205,102307)))
+on conflict (code) do nothing;
+
+-- p_already_applied: a guest who redeemed on this device and now signs in; the account is marked as redeemed and gets
+-- nothing more (the reward is already in the save). Answers: status ok | used | linked, and the reward when ok.
+create or replace function private.redeem_code(p_code text, p_already_applied boolean) returns jsonb
+language plpgsql security definer set search_path = '' as $$
+declare uid uuid := private.real_user(); c record; pool jsonb; pick integer; res jsonb; inserted integer;
+begin
+  select * into c from private.promo_codes where code = upper(trim(p_code)) and active;
+  if not found then return jsonb_build_object('status', 'invalid'); end if;
+  if p_already_applied then
+    insert into private.promo_redemptions (user_id, code, result) values (uid, c.code, jsonb_build_object('guest', true))
+    on conflict do nothing;
+    get diagnostics inserted = row_count;
+    return jsonb_build_object('status', case when inserted = 1 then 'linked' else 'used' end);
+  end if;
+  pool := c.rewards -> 'legendary_pool';
+  pick := case when jsonb_array_length(coalesce(pool, '[]')) > 0 then (pool ->> floor(random() * jsonb_array_length(pool))::integer)::integer end;
+  res := jsonb_build_object('tokens', coalesce((c.rewards ->> 'tokens')::integer, 0), 'coins', coalesce((c.rewards ->> 'coins')::integer, 0), 'player', pick);
+  insert into private.promo_redemptions (user_id, code, result) values (uid, c.code, res) on conflict do nothing;
+  get diagnostics inserted = row_count;
+  if inserted = 0 then return jsonb_build_object('status', 'used'); end if;
+  return jsonb_build_object('status', 'ok', 'reward', res);
+end $$;
+
+create or replace function public.redeem_code(p_code text, p_already_applied boolean default false) returns jsonb
+language sql security invoker set search_path = '' as $$ select private.redeem_code(p_code, p_already_applied); $$;
+
+revoke execute on function private.redeem_code(text, boolean), public.redeem_code(text, boolean) from public, anon, authenticated;
+grant execute on function private.redeem_code(text, boolean), public.redeem_code(text, boolean) to authenticated;
+
+-- ===== 20261102000200_save_economy_guard.sql
+-- Fix 1.23: the cloud save no longer takes any amount of fichas or coins. The game runs in the browser, so a save can be
+-- edited before it is sent (console, storage, a forged backup); the server now limits how much each currency can GROW
+-- between two writes to what can be earned in the real time that has passed (generous: several hours of play), plus
+-- what promo codes gave on the server in that time. Spending is never limited. The extra is cut, not refused, so an
+-- honest player never loses a write; a cheated amount just never reaches the account or another device.
+
+create or replace function private.economy_cap(p_new jsonb, p_old jsonb, p_since timestamptz, p_uid uuid) returns jsonb
+language plpgsql stable security definer set search_path = '' as $$
+declare
+  hours numeric := greatest(0, extract(epoch from (now() - coalesce(p_since, now()))) / 3600);
+  promo_t numeric := 0; promo_c numeric := 0;
+  old_t numeric; old_c numeric; new_t numeric; new_c numeric; max_t numeric; max_c numeric;
+  out jsonb := p_new;
+begin
+  -- promo codes redeemed on the server since the last write (only where the promo codes migration is applied)
+  if to_regclass('private.promo_redemptions') is not null then
+    execute 'select coalesce(sum((r.result ->> ''tokens'')::numeric), 0), coalesce(sum((r.result ->> ''coins'')::numeric), 0)
+      from private.promo_redemptions r where r.user_id = $1 and r.created_at > coalesce($2, ''-infinity''::timestamptz)'
+      into promo_t, promo_c using p_uid, p_since;
+  end if;
+  new_t := case when jsonb_typeof(p_new -> 'tokens') = 'number' then (p_new ->> 'tokens')::numeric else 0 end;
+  new_c := case when jsonb_typeof(p_new -> 'coins') = 'number' then (p_new ->> 'coins')::numeric else 0 end;
+  if p_old is null then
+    -- first copy of an account (a guest's progress being linked): generous fixed ceilings
+    max_t := 5000 + promo_t; max_c := 60000 + promo_c;
+  else
+    old_t := case when jsonb_typeof(p_old -> 'tokens') = 'number' then greatest(0, (p_old ->> 'tokens')::numeric) else 0 end;
+    old_c := case when jsonb_typeof(p_old -> 'coins') = 'number' then greatest(0, (p_old ->> 'coins')::numeric) else 0 end;
+    -- a base (one weekly pass day, rewards claimed together) plus what hours of play can give
+    max_t := old_t + 2000 + 1000 * hours + promo_t;
+    max_c := old_c + 8000 + 8000 * hours + promo_c;
+  end if;
+  if new_t > max_t then out := jsonb_set(out, '{tokens}', to_jsonb(floor(max_t)::bigint)); end if;
+  if new_c > max_c then out := jsonb_set(out, '{coins}', to_jsonb(floor(max_c)::bigint)); end if;
+  return out;
+end $$;
+revoke all on function private.economy_cap(jsonb, jsonb, timestamptz, uuid) from public, anon, authenticated;
+
+-- put_save as before (size, rate, epoch, version lock) with the economy cap applied to what is stored
+create or replace function private.put_save(p_data jsonb, p_expected integer) returns integer
+language plpgsql security definer set search_path = public, extensions as $$
+declare uid uuid := private.real_user(); v integer; cur_epoch integer; old_data jsonb; old_at timestamptz;
+begin
+  if octet_length(p_data::text) > 2000000 then raise exception 'save_too_large' using errcode = '54000'; end if;
+  if exists (select 1 from public.saves s where s.user_id = uid and s.updated_at > now() - interval '2 seconds') then
+    raise exception 'too_fast' using errcode = '54000';
+  end if;
+  select s.data, s.updated_at, private.save_epoch(s.data) into old_data, old_at, cur_epoch from public.saves s where s.user_id = uid;
+  if cur_epoch is not null and private.save_epoch(p_data) < cur_epoch then
+    raise exception 'progress_reset' using errcode = '40001';
+  end if;
+  p_data := private.economy_cap(p_data, old_data, old_at, uid);
+  insert into public.saves (user_id, data, version) values (uid, p_data, 1)
+  on conflict (user_id) do update set data = excluded.data, version = public.saves.version + 1, updated_at = now()
+    where public.saves.version = p_expected
+  returning version into v;
+  if v is null then raise exception 'version_conflict' using errcode = '40001'; end if;
+  return v;
+end $$;
+
+-- the welcome code stays one ×10 pull at the new price (10 per pull, 100 the ×10)
+do $$ begin
+  if to_regclass('private.promo_codes') is not null then
+    update private.promo_codes set rewards = jsonb_set(rewards, '{tokens}', '100') where code = 'ASTRA17';
+  end if;
+end $$;
+
+-- ===== 20261102000300_ranking_score.sql
+-- Fix 1.31: the ranking goes by POINTS (rank first, then time and damage), and can still be ordered by time, damage or rank.
+--   points = (time_sec * 10 + sqrt(damage) * 2) * rank multiplier (C 1, B 1.6, A 2.4, S 3.4, X 4.8)
+-- The square root keeps endless-mode damage (tens of millions) from burying everything else; the multiplier makes the
+-- rank the most important part: an average X run beats the best C run. Same formula in src/systems/leaderboard.ts.
+
+create or replace function private.score_of(p_rank text, p_time_sec integer, p_damage bigint) returns bigint
+language sql immutable set search_path = '' as $$
+  select round((greatest(p_time_sec, 0) * 10 + sqrt(greatest(p_damage, 0)::numeric) * 2)
+    * case p_rank when 'X' then 4.8 when 'S' then 3.4 when 'A' then 2.4 when 'B' then 1.6 else 1 end)::bigint;
+$$;
+
+-- a board keeps each player's best mark by points (before: best time, then damage)
+create or replace function private.submit_score(p_run_id uuid, p_map text, p_rank text, p_time_sec integer, p_damage bigint, p_captain_id integer)
+returns text language plpgsql security definer set search_path = public, extensions as $$
+declare uid uuid := private.real_user();
+begin
+  if not exists (select 1 from public.profiles where id = uid) then raise exception 'no_username' using errcode = '42501'; end if;
+  if p_rank not in ('C', 'B', 'A', 'S', 'X') or p_map !~ '^[a-z0-9_-]{1,32}$' then raise exception 'invalid_board' using errcode = '22023'; end if;
+  if p_time_sec < 0 or p_time_sec > 4 * 3600 then raise exception 'implausible_time' using errcode = '22023'; end if;
+  if p_damage < 0 or p_damage > (p_time_sec + 1)::bigint * 200000 then raise exception 'implausible_damage' using errcode = '22023'; end if;
+  if exists (select 1 from public.submitted_runs r where r.user_id = uid and r.at > now() - interval '20 seconds') then
+    raise exception 'too_fast' using errcode = '54000';
+  end if;
+  insert into public.submitted_runs (run_id, user_id) values (p_run_id, uid) on conflict do nothing;
+  if not found then return 'duplicate'; end if;
+  insert into public.scores as s (user_id, map, rank, time_sec, damage, captain_id, run_id)
+    values (uid, p_map, p_rank, p_time_sec, p_damage, coalesce(p_captain_id, 0), p_run_id)
+  on conflict (user_id, map, rank) do update
+    set time_sec = excluded.time_sec, damage = excluded.damage, captain_id = excluded.captain_id, run_id = excluded.run_id, created_at = now()
+    where (private.score_of(excluded.rank, excluded.time_sec, excluded.damage), excluded.time_sec, excluded.damage)
+        > (private.score_of(s.rank, s.time_sec, s.damage), s.time_sec, s.damage);
+  return 'ok';
+end $$;
+
+-- the return types change (new `score` column): drop and recreate the board and its readers
+drop function if exists public.leaderboard(text, text, text, integer);
+drop function if exists public.my_position(text, text, text);
+drop function if exists private.leaderboard(text, text, text, integer);
+drop function if exists private.my_position(text, text, text);
+drop function if exists private.board(text, text, text);
+
+-- p_order: 'score' (default), 'time', 'damage' or 'rank' (highest rank first, then points)
+create function private.board(p_map text, p_rank text, p_order text)
+returns table (pos bigint, user_id uuid, username extensions.citext, avatar text, crest text, map text, rank text, time_sec integer, damage bigint, captain_id integer, score bigint)
+language sql stable set search_path = public, extensions as $$
+  with marks as (
+    select s.*, private.score_of(s.rank, s.time_sec, s.damage) as score, array_position(array['C', 'B', 'A', 'S', 'X'], s.rank) as tier,
+      case coalesce(p_order, 'score')
+        when 'time' then s.time_sec::numeric
+        when 'damage' then s.damage::numeric
+        when 'rank' then array_position(array['C', 'B', 'A', 'S', 'X'], s.rank)::numeric * 1e15 + private.score_of(s.rank, s.time_sec, s.damage)
+        else private.score_of(s.rank, s.time_sec, s.damage)::numeric end as k
+    from public.scores s
+    where (p_map is null or s.map = p_map) and (p_rank is null or s.rank = p_rank)
+  ), best as (
+    select distinct on (m.user_id) m.* from marks m order by m.user_id, m.k desc, m.score desc, m.created_at
+  ), ranked as (
+    select row_number() over (order by b.k desc, b.score desc, b.created_at) as pos, b.* from best b
+  )
+  select r.pos, r.user_id, p.username, p.avatar, p.crest, r.map, r.rank, r.time_sec, r.damage, r.captain_id, r.score
+  from ranked r join public.profiles p on p.id = r.user_id
+  order by r.pos;
+$$;
+
+create function private.leaderboard(p_map text, p_rank text, p_order text, p_limit integer)
+returns table (pos bigint, username extensions.citext, avatar text, crest text, map text, rank text, time_sec integer, damage bigint, captain_id integer, score bigint)
+language sql stable security definer set search_path = public, extensions as $$
+  select b.pos, b.username, b.avatar, b.crest, b.map, b.rank, b.time_sec, b.damage, b.captain_id, b.score
+  from private.board(p_map, p_rank, p_order) b
+  where b.pos <= least(greatest(coalesce(p_limit, 15), 1), 100)
+  order by b.pos;
+$$;
+
+create function private.my_position(p_map text, p_rank text, p_order text)
+returns table (pos bigint, username extensions.citext, avatar text, crest text, map text, rank text, time_sec integer, damage bigint, captain_id integer, score bigint)
+language sql stable security definer set search_path = public, extensions as $$
+  select b.pos, b.username, b.avatar, b.crest, b.map, b.rank, b.time_sec, b.damage, b.captain_id, b.score
+  from private.board(p_map, p_rank, p_order) b where b.user_id = auth.uid();
+$$;
+
+create function public.leaderboard(p_map text default null, p_rank text default null, p_order text default 'score', p_limit integer default 15)
+returns table (pos bigint, username extensions.citext, avatar text, crest text, map text, rank text, time_sec integer, damage bigint, captain_id integer, score bigint)
+language sql stable security invoker set search_path = '' as $$
+  select * from private.leaderboard(p_map, p_rank, p_order, p_limit);
+$$;
+
+create function public.my_position(p_map text default null, p_rank text default null, p_order text default 'score')
+returns table (pos bigint, username extensions.citext, avatar text, crest text, map text, rank text, time_sec integer, damage bigint, captain_id integer, score bigint)
+language sql stable security invoker set search_path = '' as $$
+  select * from private.my_position(p_map, p_rank, p_order);
+$$;
+
+-- privileges as before: the board itself and the score formula stay out of the API; the readers keep their grants
+revoke execute on function private.board(text, text, text), private.score_of(text, integer, bigint),
+  private.leaderboard(text, text, text, integer), private.my_position(text, text, text),
+  public.leaderboard(text, text, text, integer), public.my_position(text, text, text)
+  from public, anon, authenticated;
+grant execute on function private.leaderboard(text, text, text, integer), public.leaderboard(text, text, text, integer) to anon, authenticated;
+grant execute on function private.my_position(text, text, text), public.my_position(text, text, text) to authenticated;

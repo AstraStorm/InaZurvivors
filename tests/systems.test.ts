@@ -778,21 +778,22 @@ describe('ascension to HÉROE', () => {
     for (const [id, c] of Object.entries(copies)) s.owned[id] = { stars: Math.min(5, c - 1), copies: c, obtainedAt: 'x' };
     return s;
   };
-  it('Legendario -> Mítico costs 3 duplicates, then Héroe 5 more; each duplicate pays once', () => {
-    const s = withCopies({ 1: 4 }); // 3 duplicates
-    expect(nextStep(s, leg)).toEqual({ step: 'ascenso', cost: 3 });
+  it('Legendario -> Mítico costs its ascension copies, then Héroe more; each duplicate pays once', () => {
+    const C = ASC_COSTS.legendario;
+    const s = withCopies({ 1: 1 + C.ascenso });
+    expect(nextStep(s, leg)).toEqual({ step: 'ascenso', cost: C.ascenso });
     expect(ascend(s, leg)).toBe('ascenso');
     expect(effectiveRarity(s, leg)).toBe('mitico');
     expect(sparesOf(s, 1)).toBe(0);
-    expect(ascend(s, leg)).toBe(false); // the same 3 copies can't pay for Héroe
-    s.owned['1'].copies += 4;
-    expect(ascend(s, leg)).toBe(false); // 4 < 5
+    expect(ascend(s, leg)).toBe(false); // the same copies can't pay for Héroe
+    s.owned['1'].copies += C.heroe - 1;
+    expect(ascend(s, leg)).toBe(false); // one short
     s.owned['1'].copies += 1;
     expect(ascend(s, leg)).toBe('heroe');
     expect(isHero(s, 1)).toBe(true);
     expect(sparesOf(s, 1)).toBe(0);
     expect(nextStep(s, leg)).toBeNull();
-    expect(s.owned['1'].stars).toBe(3); // stars already earned are kept
+    expect(s.owned['1'].stars).toBe(C.ascenso); // stars already earned are kept
   });
   it('every rarity can ascend (Fix 1.23), commoner footballers need more copies', () => {
     const s = withCopies({ 2: 7, 3: 20, 4: 40 });
@@ -815,13 +816,14 @@ describe('ascension to HÉROE', () => {
     expect(nextStep(s, myth)).toBeNull();
   });
   it('survives save validation and a reload, and spent can never exceed the duplicates', () => {
-    const s = withCopies({ 1: 9 });
+    const total = ASC_COSTS.legendario.ascenso + ASC_COSTS.legendario.heroe;
+    const s = withCopies({ 1: 1 + total });
     ascend(s, leg); ascend(s, leg);
     const back = importSave(exportSave(s));
-    expect(back.owned['1']).toMatchObject({ ascMitico: true, hero: true, spent: 8 });
+    expect(back.owned['1']).toMatchObject({ ascMitico: true, hero: true, spent: total });
     const forged = JSON.parse(exportSave(s));
     forged.save.owned['1'].spent = 50;
-    expect(importSave(JSON.stringify(forged)).owned['1'].spent).toBe(8);
+    expect(importSave(JSON.stringify(forged)).owned['1'].spent).toBe(total);
   });
   it('a later rarity review keeps the progression', () => {
     const s = withCopies({ 1: 4 });
@@ -878,6 +880,17 @@ describe('personal ranking', () => {
     expect(localBoard(s, null, null, 'damage').map((x) => x.damage)).toEqual([60, 10]);
     expect(localBoard(s, 'royal', 'X', 'time')).toHaveLength(1);
     expect(positionOf([{ time: 500, damage: 1 }, { time: 400, damage: 9 }, { time: 400, damage: 3 }], { time: 400, damage: 5 })).toBe(3);
+  });
+  it('Fix 1.31: points put the rank first, then time and damage', async () => {
+    const { scoreOf } = await import('../src/systems/leaderboard');
+    expect(scoreOf({ rank: 'X', time: 600, damage: 1_000_000 })).toBe(Math.round((6000 + 2000) * 4.8));
+    expect(scoreOf({ rank: 'X', time: 327, damage: 1_194_746 })).toBeGreaterThan(scoreOf({ rank: 'C', time: 1260, damage: 27_706_173 }));
+    const s = newSave([], null);
+    recordBest(s, 'a', { map: 'raimon', rank: 'C', time: 900, damage: 10_000, captainId: 1, at: 'x' });
+    recordBest(s, 'b', { map: 'raimon', rank: 'X', time: 400, damage: 10_000, captainId: 1, at: 'x' });
+    expect(localBoard(s, null, null, 'score').map((x) => x.rank)).toEqual(['X', 'C']);
+    expect(localBoard(s, null, null, 'time').map((x) => x.rank)).toEqual(['C', 'X']);
+    expect(localBoard(s, null, null, 'rank')[0].score).toBe(scoreOf({ rank: 'X', time: 400, damage: 10_000 }));
   });
 });
 
@@ -990,8 +1003,8 @@ describe('reiniciar progreso', () => {
 describe('versión pública y reportes de bugs', () => {
   it('the public news start at v1.0 and no internal version leaks into them', async () => {
     const { PUBLIC_RELEASES, PUBLIC_VERSION, RELEASED, VERSION_LABEL, BUILD, TIKTOK_URL } = await import('../src/data/release');
-    expect(PUBLIC_VERSION).toBe('1.3');
-    expect(PUBLIC_RELEASES.map((r) => r.version)).toEqual(['1.3', '1.22', '1.21', '1.2', '1.12', '1.11', '1.1', '1.0']); // newest first, starting at v1.0
+    expect(PUBLIC_VERSION).toBe('1.31');
+    expect(PUBLIC_RELEASES.map((r) => r.version)).toEqual(['1.31', '1.3', '1.22', '1.21', '1.2', '1.12', '1.11', '1.1', '1.0']); // newest first, starting at v1.0
     expect(PUBLIC_RELEASES.at(-1)!.title).toBe('InaZurvivors v1.0 — ¡Comienza la aventura!');
     expect(JSON.stringify(PUBLIC_RELEASES)).not.toMatch(/\bv?[234]\.\d\b/);
     expect(BUILD).not.toBe('1.0');
@@ -1117,7 +1130,7 @@ describe('auditoría de rarezas', () => {
     expect(nextStep(hero, p(7, 'epico'))).toBeNull();
     expect(ascMultipliers(hero, p(7, 'epico')).damage).toBeCloseTo(ascMultipliers(hero, p(7, 'mitico')).damage);
     expect(nextStep(saveWith({}), p(7, 'leyenda'))?.step).toBe('ascenso'); // Fix 1.23: every rarity starts with step 1
-    expect(nextStep(saveWith({}), p(7, 'epico'))).toEqual({ step: 'ascenso', cost: 6 }); // Fix 1.23: Épico can ascend too
+    expect(nextStep(saveWith({}), p(7, 'epico'))).toEqual({ step: 'ascenso', cost: ASC_COSTS.epico.ascenso }); // Fix 1.23: Épico can ascend too
   });
   it('the welcome guarantee and team rewards never give the rarest footballers', async () => {
     const { teamCaptain } = await import('../src/systems/teamRewards');

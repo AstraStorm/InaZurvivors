@@ -16,7 +16,7 @@
   --ok: #5cdc6a;
   --bad: #ff4f5a;
   --r-comun: #b8c2d6; --r-raro: #4fb3ff; --r-epico: #b36bff; --r-legendario: #ffb020; --r-mitico: #ff4f8b;
-  --px: 'Press Start 2P', monospace;
+  --px: 'Press Start 2P', 'Segoe UI Symbol', 'Noto Sans Symbols 2', 'Apple Symbols', 'DejaVu Sans', monospace; /* Fix 1.31: ★ ♛ ◉ from a symbol font, the pixel font has none */
   --cut: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
 }
 * { box-sizing: border-box; }
@@ -1547,3 +1547,60 @@ body.reduced-motion .cr-ball > i { animation: none !important; }
 .train-row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 4px; }
 .train-row .btn { min-width: 64px; }
 .rewards.trn td:last-child { color: #8fffa0; }
+
+/* Fix 1.31: summary after «Saltar todo» in the gacha */
+.pull-summary { align-items: center; overflow-y: auto; padding: 16px; }
+.pull-summary-box { background: #0d1830; border: 2px solid #3b5a9a; border-radius: 10px; padding: 14px; width: min(1100px, 100%); box-sizing: border-box; max-height: calc(100% - 16px); overflow-y: auto; display: flex; flex-direction: column; gap: 10px; align-items: center; animation: rise .35s cubic-bezier(.3,1.5,.6,1) both; }
+.pull-summary-box h3 { margin: 0; text-align: center; }
+.pull-summary-box .grid { width: 100%; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+.pull-summary .ps-item { animation: rise .3s both; border-radius: 8px; }
+.pull-summary .ps-item.r-legendario, .pull-summary .ps-item.r-mitico, .pull-summary .ps-item.r-leyenda { box-shadow: 0 0 14px var(--rc, #ffd84d88); }
+.pull-summary .ps-item.r-legendario { --rc: #ffb43a99; } .pull-summary .ps-item.r-mitico { --rc: #ff4fd899; } .pull-summary .ps-item.r-leyenda { --rc: #fff3a0cc; }
+/* Fix 1.31: ranking by points (the column of the chosen order is highlighted) */
+.rank-row { grid-template-columns: 44px 56px 1fr 40px 44px 90px 70px 100px; }
+.rk-num.on b { color: var(--yellow); font-size: 13px; }
+.rk-pts b { color: #7dff9a; }
+.wr-pts { font-size: 9px; color: #7dff9a; text-align: center; margin: 2px 0; } .wr-pts b { font-size: 13px; }
+@media (max-width: 700px) { .rank-row { grid-template-columns: 34px 44px 1fr 40px 76px; } .rk-crest, .rk-num:not(.on) { display: none; } .rk-num.on { display: block; } }
+
+/* Fix 1.31: drawn stars, readable duplicates / ascension flags, and the rarity glow kept off the footballer's portrait */
+.stars { display: flex; justify-content: center; gap: 2px; min-height: 14px; }
+.stars svg { width: 12px; height: 12px; fill: #2a3558; stroke: #6a7aa8; stroke-width: 1.5; }
+.stars svg.on { fill: #ffd23f; stroke: #8a5a00; filter: drop-shadow(0 0 3px #ffb02088); }
+.pcard.big .stars svg, .reveal-card .stars svg { width: 20px; height: 20px; }
+.card-dup { font-size: 8px; padding: 2px 5px; background: #0a1d48ee; color: #9fe8ff; border: 1px solid #9fe8ff; z-index: 5; }
+.card-dup i { font-style: normal; color: #ffe27a; }
+.card-asc { font-size: 8px; padding: 2px 5px; z-index: 5; box-shadow: 0 0 8px #ffd23f; }
+.pcard .stage { position: relative; z-index: 3; }
+.reveal-card .pcard.r-mitico::after { opacity: .18; }
+.reveal-card .pcard.r-legendario::after, .reveal-card .pcard.r-leyenda::after { opacity: .55; }
+.reveal-card .card-dup, .reveal-card .card-asc { font-size: 10px; }
+.card-dup { bottom: 26px; }
+/* Fix 1.31: one machine per saga, with its price on the tab */
+.banner-tab { flex: 1 1 150px; position: relative; }
+.banner-tab .bt-price { display: block; margin-top: 4px; font-style: normal; font-size: 9px; color: #ffe27a; }
+@media (max-width: 700px) { .banner-tabs { flex-wrap: nowrap; overflow-x: auto; justify-content: flex-start; } .banner-tab { flex: 0 0 140px; } }
+/* Fix 1.31: team synergies, big and readable in the run (also on mobile, where they were hidden) */
+.res-chips { gap: 5px; pointer-events: none; }
+.syn-chip { display: flex; align-items: center; gap: 6px; padding: 4px 8px 4px 5px; min-width: 150px; background: linear-gradient(90deg, #06102bee, #06102b99); border: 2px solid #ffffff22; border-left: 4px solid var(--ec); opacity: .72; }
+.syn-chip.on { opacity: 1; border-color: var(--ec); box-shadow: 0 0 10px color-mix(in srgb, var(--ec) 55%, transparent), inset 0 0 12px color-mix(in srgb, var(--ec) 20%, transparent); }
+.syn-chip .syn-ic { display: grid; place-items: center; width: 22px; height: 22px; font-size: 16px; color: var(--ec); }
+.syn-chip .syn-txt { display: flex; flex-direction: column; gap: 3px; flex: 1; }
+.syn-chip small { font-size: 8px; color: #fff; text-shadow: 1px 1px 0 #000; white-space: nowrap; }
+.syn-chip b { font-size: 14px; color: var(--ec); text-shadow: 2px 2px 0 #000; }
+.syn-pips { display: flex; gap: 2px; } .syn-pips i { width: 8px; height: 4px; background: #ffffff25; } .syn-pips i.on { background: var(--ec); }
+.syn-chip.up { animation: synUp .7s ease-out; }
+@keyframes synUp { 0% { transform: scale(1.35); filter: brightness(2); } 100% { transform: none; filter: none; } }
+@media (max-width: 700px), (max-height: 500px) {
+  .res-chips { display: flex !important; flex-direction: row; top: 84px; bottom: auto; left: 8px; }
+  .syn-chip { min-width: 0; padding: 2px 5px 2px 3px; gap: 3px; } .syn-chip .syn-txt { display: none; } .syn-chip b { font-size: 11px; } .syn-chip .syn-ic { width: 20px; height: 20px; flex: none; } .syn-chip { opacity: .9; }
+}
+.syn-panel h3 { margin: 0 0 4px; }
+.syn-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 8px; margin-top: 8px; }
+.syn-card { display: flex; align-items: center; gap: 10px; padding: 8px 10px; background: #0a1d48; border: 2px solid #ffffff22; border-left: 5px solid var(--ec); opacity: .8; }
+.syn-card.on { opacity: 1; border-color: var(--ec); box-shadow: 0 0 12px color-mix(in srgb, var(--ec) 45%, transparent); }
+.syn-card .syn-ic { display: grid; place-items: center; width: 32px; height: 32px; font-size: 22px; color: var(--ec); flex: none; }
+.syn-card > div { flex: 1; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.syn-card b { font-size: 10px; color: var(--ec); } .syn-card small { font-size: 8px; color: var(--muted); line-height: 1.5; }
+.syn-card em { font-style: normal; font-size: 13px; color: var(--ec); text-shadow: 2px 2px 0 #000; white-space: nowrap; }
+.syn-card .syn-pips i { width: 12px; height: 5px; }

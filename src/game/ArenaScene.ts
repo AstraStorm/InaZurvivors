@@ -13,7 +13,7 @@ import { MAX_TECH_LEVEL, techStats, type TechStats } from '../systems/techniques
 import { applyCard, drawCards, MAX_TEAM, newMemberState, type Card, type TeamMemberState } from '../systems/cards';
 import { baseMods, modDef } from '../systems/runmods';
 import { ALTAR_EVERY_SEC, ALTAR_ICON, ALTAR_INFO, ALTAR_WAIT_SEC, ALTAR_LABEL, ALTAR_MODE, ALTAR_RADIUS, ALTAR_COLOR, ALTAR_REWARD, ALTAR_TASK, ALTAR_TYPES, FIRST_ALTAR_SEC, createAltar, stepAltar, type Altar } from '../systems/altars';
-import { BAG_COINS, CHEST_COINS, DROPS, MAGNET_GAP_SEC, MAX_PICKUPS, MAX_REVIVES, rollDrop, rollXpTier, SHIELD_REDUCTION, XP_TIERS, type BuffId, type DropDef } from '../systems/items';
+import { ALTAR_TOKENS, DUEL_TOKENS, ENDLESS_TOKENS, FICHA_DROP, BAG_COINS, CHEST_COINS, DROPS, MAGNET_GAP_SEC, MAX_PICKUPS, MAX_REVIVES, rollDrop, rollXpTier, SHIELD_REDUCTION, XP_TIERS, type BuffId, type DropDef } from '../systems/items';
 import { evolutionLabel, evolvesAt } from '../systems/evolution';
 import { starBonus } from '../systems/gacha';
 import { canStartGuardedMove, GUARD_LOCKOUT_SEC } from '../systems/combat';
@@ -27,11 +27,14 @@ import { capArea, capCooldown, capCrit, capLuck, pickupRadius, capRegen, capSpee
 import { endlessActive, endlessCoins, endlessPhase, endlessScale } from '../systems/endless';
 import { bossKit, bossPhase, rivalKit, type AttackId, type BossKit } from '../systems/bossKit';
 import { chemistry } from '../systems/kitBonus';
+import { captainSynergy, chemistrySynergy, resonances, type Synergy } from '../systems/synergy';
+import { teamLabel as kitTeamLabel } from '../data/sagas';
 import { HERO_AURA } from '../systems/ascension';
 import { dragon, handKind, keeperHand } from './fxTech';
 import { orphans } from '../systems/groundSweep';
 import { chaosMeteorCharge, chaosMeteorShot, chaosVortex, fireStormCharge, fireStormShot, earthGlobe, elementBurst, fireIceTwin, phoenix, phoenixFlight, setLowPower, teamBeams } from './fxManif';
 import { blackAshCharge, blackAshTrail, illusionBall, signatureOf, stormZone } from './fxSignature';
+import { natureArea, natureCharge, natureOf, natureShot, setNatureLowPower } from './fxNature';
 import { adaptedPassive, CAP_ELEMENTAL, CAP_LAST_STAND, emptyFx, TALENTS, talentScale, type TalentFx } from '../systems/talents';
 import { COMBOS, COMBOS_BY_PRIORITY, COMBO_MAX_LEVEL, comboDamage, comboMembers, comboReady, type ComboDef } from '../systems/combos';
 import type { Rank } from '../systems/save';
@@ -45,6 +48,8 @@ export interface HudState {
   buffs: { id: BuffId; left: number; total: number }[];
   runCoins: number; runTokens: number; shield: number;
   resonance: { element: string; bonus: number }[];
+  /** Fix 1.31: every team synergy with its progress (synergy.ts), for the big HUD panel */
+  synergies: Synergy[];
   altar: { type: Altar['type']; label: string; task: string; state: Altar['state']; progress: number; goal: number; timeLeft: number; dist: number; inside: boolean; waitLeft: number;
     rival: { id: number | null; name: string; team: string } | null } | null;
   /** last technique that went up a level, so the HUD can pulse it */
@@ -291,7 +296,7 @@ export class ArenaScene extends Phaser.Scene {
     this.arena = new Arena(this, map, settings.quality);
     this.arena.build();
     this.fx = new Fx(this, { ...settings }); // a copy: adaptive quality must not change the saved settings
-    setLowPower(false); this.lowFps = 0;
+    setLowPower(false); setNatureLowPower(false); this.lowFps = 0; this.synergySeen.clear();
     this.xp = Math.floor(this.xpNext() * this.cfg.perks.startXpFrac); // «Ventaja inicial»
     this.cameras.main.setBounds(0, 0, this.arena.widthPx, this.arena.heightPx).setZoom(this.zoomFor()).setBackgroundColor(map.ambience);
     // removed on shutdown: a listener left behind would touch a dead camera after the run ends
@@ -481,7 +486,7 @@ export class ArenaScene extends Phaser.Scene {
     this.updatePressure();
     this.updatePickups(dt);
     this.updateAltar(dt);
-    if (this.runTime >= this.nextSweep) { this.nextSweep = this.runTime + 1; this.sweepGround(); this.adaptQuality(); }
+    if (this.runTime >= this.nextSweep) { this.nextSweep = this.runTime + 1; this.sweepGround(); this.adaptQuality(); this.announceSynergies(); }
     const pad = firstPad(); // Fix 1.12: A / Cross accepts the event, as E does
     const padA = !!pad?.buttons[0]?.pressed;
     if (padA && !this.padAWas) this.acceptAltar();
@@ -758,6 +763,8 @@ export class ArenaScene extends Phaser.Scene {
           m.f.hop(this, 5 + lv * 0.6, recipe.windupSec * 1000);
           charge(this.fx, recipe, ox, oy, lv);
           if (signatureOf(t.name) === 'ceniza') blackAshCharge(this, ox, oy, lv, recipe.windupSec * 1000);
+          const nat = natureOf(t.name); // Fix 1.31: penguins, flowers, sharks... drawn after the wiki
+          if (nat) natureCharge(this, nat, ox, oy, lv, recipe.windupSec * 1000);
           if (recipe.id === 'dragon') dragon(this, 'rise', ox, oy, c1, c2, lv, recipe.windupSec * 1000 + 160, ox, oy, recipe.tier >= 3);
         } else if (t.type === 'regate') {
           if (!canStartGuardedMove(this.runTime, m.guardLock)) { m.cds[i] = 120; return; }
@@ -805,7 +812,9 @@ export class ArenaScene extends Phaser.Scene {
             this.tweens.add({ targets: wv, scaleY: 2.2, alpha: 0, duration: 380, onComplete: () => wv.destroy() });
           }
           this.fx.burst(style, ox, oy + 8, 8 + lv * 3, 70);
-          if (!wall && !web) elementBurst(this, style, ox, oy + 2, r, 420, c1); // Fix 1.11: rock, vines, wind, fire... by element
+          const natD = natureOf(t.name);
+          if (natD) natureArea(this, natD, ox, oy + 2, r, lv, this.enemies.filter((e) => !e.dead && Math.hypot(e.pos.x - ox, e.pos.y - 10 - oy) < r + e.radius).map((e) => ({ x: e.pos.x, y: e.pos.y - 10 })));
+          else if (!wall && !web) elementBurst(this, style, ox, oy + 2, r, 420, c1); // Fix 1.11: rock, vines, wind, fire... by element
           for (const e of this.enemies) {
             const d = Math.hypot(e.pos.x - ox, e.pos.y - 10 - oy);
             if (d < r + e.radius) {
@@ -877,6 +886,10 @@ export class ArenaScene extends Phaser.Scene {
             this.fx.entity('majin', ox, oy + 6, 900, ['mitico', 'leyenda'].includes(m.entry.rarity) || !!this.cfg.asc?.[String(m.entry.id)]?.hero);
             this.fx.magicHand(ox, oy, lv);
             this.fx.ring(ox, oy, s.radius, 0xb36bff, 420, 2);
+          } else if (natureOf(t.name)) {
+            // Fix 1.31: Mano de pingüinos, Tormenta de pétalos, Hojarasca... drawn after the wiki
+            natureArea(this, natureOf(t.name)!, ox, oy, s.radius, lv, this.enemies.filter((e) => !e.dead && Math.hypot(e.pos.x - ox, e.pos.y - oy) < s.radius).map((e) => ({ x: e.pos.x, y: e.pos.y - 10 })));
+            this.fx.ring(ox, oy, s.radius, 0xffe27a, 480, 2);
           } else if (handKind(t.name)) {
             // Fix 1.11: drawn hands and fists per family (fxTech.ts); fists hit where they land
             const kind = handKind(t.name)!;
@@ -1009,6 +1022,8 @@ export class ArenaScene extends Phaser.Scene {
       const aura = this.add.circle(x, y, 6 * scale, c1, 0.35).setDepth(8900).setBlendMode(Phaser.BlendModes.ADD);
       const ball = this.add.image(x, y, recipe.ballTexture).setScale(scale).setDepth(8901);
       if (signatureOf(t.name) === 'ceniza') { blackAshTrail(this, ball, lv); aura.setFillStyle(0x6a2aa8, 0.3); }
+      const nat = natureOf(t.name);
+      if (nat) natureShot(this, nat, ball, lv, { x: target.pos.x, y: target.pos.y - 10 }, k === 0);
       this.projectiles.push({ ball, aura, x, y, vx, vy, t: 0, traj, style, damage: s.damage, pierce: s.pierce, life: 1500,
         hits: new Set(), knock: s.knockback, level: lv, explode: big || s.explodes || recipe.tier >= 2, scale, targetY, phase: k * 1.7,
         dragon: recipe.id === 'dragon', recipe, blast: s.radius });
@@ -1613,6 +1628,31 @@ export class ArenaScene extends Phaser.Scene {
   }
 
   /** Big centred word for wave changes and milestones (kept short and rare). */
+  /** Fix 1.31: the team synergies right now (resonance by active techniques, club chemistry, the captain's synergy) */
+  private synergyList(): Synergy[] {
+    const active = this.members.flatMap((m) => m.state.slots.map((_, i) => this.activeTech(m, i)).filter((t) => t && t.type !== 'talento').map((t) => t!.element));
+    const kit = this.cfg.kitTeam || 'Raimon';
+    const cap = this.members[0]?.entry;
+    const allies = cap ? this.members.filter((o) => o !== this.members[0] && o.entry.element === cap.element).length : 0;
+    const out = [...resonances(active), chemistrySynergy(kit, kitTeamLabel(kit), this.members.map((x) => x.entry))];
+    const syn = cap ? captainSynergy(this.cfg.perks.synergy, String(cap.element), allies) : null;
+    if (syn && syn.count) out.push(syn);
+    return out.filter((x) => x.bonus > 0 || x.count > 0);
+  }
+  private synergySeen = new Map<string, number>();
+  /** a banner on the pitch when a synergy switches on or goes up a step */
+  private announceSynergies() {
+    for (const x of this.synergyList()) {
+      const before = this.synergySeen.get(x.key) ?? 0;
+      if (x.bonus > before + 1e-6) {
+        const col = x.element ? ({ Fuego: '#ff7a3a', Aire: '#7ae0ff', Bosque: '#7af07a', 'Montaña': '#ffc35a' } as Record<string, string>)[x.element] ?? '#ffe27a' : '#ffe27a';
+        this.banner(`¡${x.label.split(' · ')[0]} +${Math.round(x.bonus * 100)}%!`, col);
+        sfx('powerup');
+      }
+      this.synergySeen.set(x.key, x.bonus);
+    }
+  }
+
   private banner(text: string, color: string) {
     const cam = this.cameras.main;
     const t = this.add.text(cam.width / 2, cam.height * 0.3, text, { fontFamily: '"Press Start 2P"', fontSize: '22px', color, stroke: '#000', strokeThickness: 6 })
@@ -1663,7 +1703,7 @@ export class ArenaScene extends Phaser.Scene {
   private padAWas = false; private lowFps = 0;
   private adaptQuality() {
     if (this.game.loop.actualFps < 40) this.lowFps++; else this.lowFps = 0;
-    if (this.lowFps >= 3 && this.fx.settings.particles === 'completo') { this.fx.settings.particles = 'reducido'; setLowPower(true); }
+    if (this.lowFps >= 3 && this.fx.settings.particles === 'completo') { this.fx.settings.particles = 'reducido'; setLowPower(true); setNatureLowPower(true); }
   }
 
   /** Fix 1.12: ground marks with no live owner are removed (groundSweep.ts); the count is kept for QA (window.__ies). */
@@ -1784,8 +1824,8 @@ export class ArenaScene extends Phaser.Scene {
       this.fx.label(c.x, c.y - 34, `+${BAG_COINS} monedas`);
       sfx('buy');
     } else if (d.id === 'ficha') {
-      this.bonusTokens += 1;
-      this.fx.label(c.x, c.y - 34, '+1 ficha', '#8fe8ff');
+      this.bonusTokens += FICHA_DROP;
+      this.fx.label(c.x, c.y - 34, `+${FICHA_DROP} fichas`, '#8fe8ff');
       sfx('evolve');
     } else if (d.id === 'cofretec') {
       this.fx.label(c.x, c.y - 34, d.label);
@@ -1852,9 +1892,9 @@ export class ArenaScene extends Phaser.Scene {
   /** First boss: choose to finish or keep surviving. Later bosses (endless) pay a reward and the run goes on. */
   private onBossDown(x: number, y: number) {
     if (this.endless) {
-      this.bonusCoins += 60; this.bonusTokens += 1;
-      this.endless.coins += 60; this.endless.tokens += 1; this.endless.bosses++;
-      this.fx.label(x, y - 30, '¡Jefe derrotado! +60 monedas +1 ficha', '#8fe8ff');
+      this.bonusCoins += 60; this.bonusTokens += FICHA_DROP;
+      this.endless.coins += 60; this.endless.tokens += FICHA_DROP; this.endless.bosses++;
+      this.fx.label(x, y - 30, `¡Jefe derrotado! +60 monedas +${FICHA_DROP} fichas`, '#8fe8ff');
       sfx('evolve');
       return;
     }
@@ -1899,8 +1939,8 @@ export class ArenaScene extends Phaser.Scene {
         e.ticks++;
         const coins = endlessCoins(e.ticks);
         this.bonusCoins += coins; e.coins += coins;
-        if (e.ticks % 2 === 0) { this.bonusTokens += 1; e.tokens += 1; }
-        this.banner(`+${coins} monedas${e.ticks % 2 === 0 ? ' +1 ficha' : ''}`, '#ffe24a');
+        if (e.ticks % 2 === 0) { this.bonusTokens += ENDLESS_TOKENS; e.tokens += ENDLESS_TOKENS; }
+        this.banner(`+${coins} monedas${e.ticks % 2 === 0 ? ` +${ENDLESS_TOKENS} fichas` : ''}`, '#ffe24a');
       } else this.banner('Sin recompensa: juega para ganarla', '#ff9a8a');
       e.moved = 0; e.killsAtTick = this.kills;
     }
@@ -2212,7 +2252,7 @@ export class ArenaScene extends Phaser.Scene {
 
   private altarReward(a: Altar) {
     const rankIdx = RANK_ORDER.indexOf(this.rank.id);
-    const tokens = 1 + (a.type === 'duelo' && rankIdx >= 2 ? 1 : 0);
+    const tokens = a.type === 'duelo' && rankIdx >= 2 ? DUEL_TOKENS : ALTAR_TOKENS; // Fix 1.31
     let coins = Math.round((a.type === 'duelo' ? 30 + rankIdx * 15 : 20) * this.cfg.perks.eventMult);
     this.bonusTokens += tokens;
     this.altarsDone++;
@@ -2271,6 +2311,7 @@ export class ArenaScene extends Phaser.Scene {
       shield: this.buffOn('escudo') ? 1 : 0,
       resonance: [...new Set(this.members.flatMap((m) => m.state.slots.map((_, i) => this.activeTech(m, i)?.element ?? '')))].filter(Boolean)
         .map((element) => ({ element, bonus: resonanceBonus(this.elementCount(element)) })).filter((r) => r.bonus > 0),
+      synergies: this.synergyList(),
       altar: this.altar ? { type: this.altar.type, label: ALTAR_LABEL[this.altar.type], task: ALTAR_TASK[this.altar.type], state: this.altar.state,
         inside: Math.hypot(this.members[0].f.x - this.altar.x, (this.members[0].f.y - this.altar.y) * 1.3) < ALTAR_RADIUS, waitLeft: this.altarWait,
         rival: this.altarRival ? { id: this.altarRival.entry?.id ?? null, name: this.altarRival.unit.name, team: this.altarRival.entry?.teams[0] ?? '' } : null, progress: this.altar.progress, goal: this.altar.goal,

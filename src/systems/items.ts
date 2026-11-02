@@ -34,7 +34,8 @@ export const DROPS: DropDef[] = [
   { id: 'cofre', label: 'Cofre', chance: 0.0015, texture: 'fx:pk_chest', info: 'Monedas extra al terminar la partida.' },
   { id: 'cofretec', label: 'Cofre de técnica', chance: 0.0008, texture: 'fx:pk_tech', info: 'Abre una elección de mejora gratis.' },
   { id: 'bolsa', label: 'Bolsa de monedas', chance: 0.004, texture: 'fx:pk_coins', info: 'Monedas para gastar después de la partida.' },
-  { id: 'ficha', label: 'Ficha de Fichaje', chance: 0.0012, texture: 'fx:pk_token', info: 'Una Ficha de Fichaje para la máquina de cápsulas.' },
+  // Fix 1.31: a drop worth noticing next to the new prices (5 fichas = one Fichatrón pull), a little rarer
+  { id: 'ficha', label: 'Fichas de Fichaje', chance: 0.0008, texture: 'fx:pk_token', info: '5 Fichas de Fichaje para la máquina de cápsulas.' },
   { id: 'senuelo', label: 'Señuelo', chance: 0.0012, texture: 'fx:pk_lure', seconds: 5, info: 'Los rivales persiguen el señuelo durante 5 s.' },
   { id: 'hielo', label: 'Congelación', chance: 0.001, texture: 'fx:pk_ice', seconds: 3, info: 'Congela a todos los rivales durante 3 s.' },
   // Fix 1.11
@@ -62,3 +63,9 @@ export function rollDrop(rng: () => number, luck = 0, magnetReady = true, specia
   }
   return null;
 }
+
+/** Fix 1.31: fichas given by the ficha drop, an altar / a high-rank duel, and every second minute of endless survival */
+export const FICHA_DROP = 5;
+export const ALTAR_TOKENS = 3;
+export const DUEL_TOKENS = 5;
+export const ENDLESS_TOKENS = 3;

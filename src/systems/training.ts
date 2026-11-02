@@ -1,6 +1,7 @@
 /**
  * Fix 1.23: the stats a footballer really has in the game, rebuilt from the raw ones so rarity means something, plus the
  * training points the player hands out.
+ * Fix 1.31: bands raised at the top (Legendario 81-85, Mítico 88-92, Leyenda 94-98).
  *
  * Raw stats (ROM, Great Road, derived) overlapped across rarities: Épicos with a mean of 83, Legendarios of 59, every
  * Mítico at 70-72. Each rarity now has its own band of means that never overlaps the next one; inside it a footballer
@@ -14,8 +15,9 @@ import type { SaveData } from './save';
 export const STAT_KEYS = ['kick', 'control', 'guard', 'body', 'speed', 'guts', 'stamina'] as const;
 export type StatKey = (typeof STAT_KEYS)[number];
 /** centre of the band of means of each rarity; a footballer lands within ±BAND of it */
-export const RARITY_STAT_MEAN: Record<Rarity, number> = { comun: 50, raro: 57, epico: 64, legendario: 71, mitico: 78, leyenda: 84 };
-export const BAND = 3;
+// Fix 1.31 (author's request): Legendarios in the 80s, Míticos around 90; the band narrows to ±2 so rarities still never overlap
+export const RARITY_STAT_MEAN: Record<Rarity, number> = { comun: 50, raro: 59, epico: 70, legendario: 83, mitico: 90, leyenda: 96 };
+export const BAND = 2;
 export const TRAIN_MAX = 20;
 export const STAT_MAX = 99;
 const RAW_CENTER = 62;

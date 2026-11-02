@@ -7,7 +7,7 @@ import { deathCause } from '../systems/deathCause';
 import { serverNow, syncServerTime, timeSource, trustedClock } from '../online/serverTime';
 import { PASS, claimPass, passStatus } from '../systems/weeklyPass';
 import { applyReward, hasRedeemed, normalizeCode, redeemLocal, type CodeReward } from '../systems/promo';
-import { BANNERS, BANNER_ORDER, bannerPool, eraOf, featured, perPlayerOdds, rarityOdds, teamChoices, type BannerId } from '../systems/banners';
+import { BANNERS, BANNER_ORDER, bannerPool, bannerPrice, eraOf, featured, perPlayerOdds, rarityOdds, teamChoices, type BannerId } from '../systems/banners';
 import { exportSave, importSave, remapIds, remapTechSlots, storeSave, type SaveData, type ParticleLevel, type Rank } from '../systems/save';
 import { eligibleTeams, pull, recordHistory, COPIES_PER_STAR, DUPLICATE_REFUND_BY, PULL_COST, MAX_STARS, starBonus, onboardingPull, type PullResult } from '../systems/gacha';
 import { applyRun, isMapUnlocked, type RunResult } from '../systems/economy';
@@ -27,6 +27,7 @@ import { buyOffer, isBought as isOfferBought, msToNextDay, msToNextWeek, PRICE, 
 import { rankDef, RANKS, RANK_ORDER } from '../systems/difficulty';
 import { COMBOS } from '../systems/combos';
 import { CLUB_CHEMISTRY, kitBonus } from '../systems/kitBonus';
+import { squadPotential } from '../systems/synergy';
 import { championsTable, recordTriumph } from '../systems/hallOfFame';
 import { BUILD, CURRENT_PUBLIC, DEVLOG_SHOTS, PUBLIC_VERSION, RELEASED, TIKTOK_PATH, TIKTOK_URL, VERSION_LABEL } from '../data/release';
 import { buildMeta, CATEGORIES, SEVERITIES, SHOT_MAX_BYTES, SHOT_MAX_SIDE, SHOT_TYPES, STATUS_LABEL, TECH_FIELDS, validateBug, validateShot } from '../systems/bugReport';
@@ -40,7 +41,7 @@ import { redeemCode } from '../online/client';
 import { accountId, adminBugReports, adminUpdateBug, amIAdmin, consumeAuthRedirect, deleteAccount, deleteMyBugReports, deleteShot, myBugReports, notifyBug, shotUrl, submitBugReport, uploadShot, getCloudSave, leaderboard, myPosition, myProfile, onlineConfigured, putCloudSave, reserveUsername, resetMyProgress, signedEmail, signedIn, signInWithGoogle, signOut, submitScore, usernameAvailable, type BoardQuery, type BoardRow, type BugFilter, type BugRow, type CloudSave } from '../online/client';
 import { backup, linkPlan, progressOf, summarize, type SaveSummary } from '../online/cloudSync';
 import { epochOf, freshProgress, resetSummary } from '../systems/resetProgress';
-import { localBoard, recordBest } from '../systems/leaderboard';
+import { scoreOf, localBoard, recordBest } from '../systems/leaderboard';
 import { coachRequirement, emblemUnlocked, iconAllowed, DEFAULT_EMBLEM } from '../systems/profileUnlocks';
 import { INTRO } from './cinematics';
 import { SIGNATURE } from '../data/signatures';
@@ -531,6 +532,7 @@ export class App {
     }, 2500);
   }
   private toast(text: string, ms = 2600) {
+    document.querySelectorAll('.toast').forEach((o) => o.remove()); // Fix 1.31: a new notice replaces the old one instead of piling up
     const t = document.createElement('div');
     t.className = 'toast';
     t.textContent = text;
@@ -561,9 +563,11 @@ export class App {
   private pcard(p: RosterEntry, opts: { locked?: boolean; sel?: boolean; badge?: string; captain?: boolean; anim?: number; big?: boolean } = {}) {
     const o = this.owned(p.id);
     const icons = opts.locked ? '' : `<div class="tech-pips">${p.techniques.map((t) => this.icon(ICON.manual[t.type], 1)).join('')}</div>`;
-    const stars = !opts.locked && o?.stars ? `<div class="stars">${'★'.repeat(o.stars)}</div>` : '<div class="stars"></div>';
+    // Fix 1.31: five drawn stars (the pixel font has no ★, it showed as tiny asterisks), earned ones in gold
+    const stars = !opts.locked && o ? `<div class="stars" title="${o.stars} de ${MAX_STARS} estrellas">${Array.from({ length: MAX_STARS }, (_, i) => `<svg class="st${i < o.stars ? ' on' : ''}" viewBox="0 0 24 24"><path d="M12 1.8l3.1 6.6 7.2.8-5.4 4.9 1.5 7.1L12 17.6l-6.4 3.6 1.5-7.1L1.7 9.2l7.2-.8z"/></svg>`).join('')}</div>` : '<div class="stars"></div>';
     const spare = !opts.locked && o ? sparesOf(this.save, p.id) : 0, step = !opts.locked && o ? nextStep(this.save, p) : null;
-    const flags = `${spare ? `<span class="card-dup" title="Duplicados sin usar">+${spare}</span>` : ''}${step && spare >= step.cost ? '<span class="card-asc" title="Ascensión disponible">▲</span>' : ''}`;
+    const canAsc = !!step && spare >= step.cost;
+    const flags = `${spare ? `<span class="card-dup" title="Duplicados sin usar${step ? ` (${step.step === 'heroe' ? 'HÉROE' : 'ascenso'}: ${step.cost})` : ''}">+${spare} dup.${step && !canAsc ? ` <i>${spare}/${step.cost}</i>` : ''}</span>` : ''}${canAsc ? '<span class="card-asc" title="Ascensión disponible">▲ ASCENDER</span>' : ''}`;
     const er = opts.locked ? p.rarity : effectiveRarity(this.save, p);
     return `<div class="pcard r-${er}${opts.locked ? ' locked' : ''}${opts.sel ? ' sel' : ''}${opts.big ? ' big' : ''}${!opts.locked && isHero(this.save, p.id) ? ' hero' : ''}" data-id="${p.id}" style="--rc:${RARITY_COLOR[er]}">
       ${opts.badge ? `<span class="badge">${esc(opts.badge)}</span>` : ''}${opts.captain ? '<span class="captain-badge">C</span>' : ''}${flags}${opts.sel ? '<span class="card-check">✔</span>' : ''}
@@ -761,6 +765,7 @@ export class App {
     rollPeriods(this.save);
     const feat = this.byId.get(this.save.captainId ?? -1) ?? owned[0] ?? null;
     const pending = pendingClaims(this.save);
+    const claims = this.collectionClaims();
     const challenges = MISSIONS.filter((d) => d.kind === 'diaria' || d.kind === 'semanal').filter((d) => !isClaimed(this.save, d)).slice(0, 3);
     const tile = (go: string, icon: string, label: string, sub: string, cls = '', badge = 0) => `<button class="mbtn ${cls}" data-go="${go}"><span class="mi">${icon}</span><span><b>${label}</b><small>${sub}</small></span>${badge ? `<span class="notif">${badge}</span>` : ''}</button>`;
     const squad = squadOf(this.save, this.byId);
@@ -777,7 +782,7 @@ export class App {
           <div class="play-row"><button class="mbtn play" data-go="play"><span class="mi">▶</span><span><b>JUGAR</b><small>${squad[0] ? `Capitán: ${esc(squad[0].name)} · Rango ${this.save.difficulty}` : 'Prepara tu equipo'}</small></span></button>
             <button class="mbtn team" data-go="squad"><span class="mi">♜</span><span><b>MI EQUIPO</b><small>${squad.length}/${SQUAD_SIZE} candidatos</small></span></button></div>
           <nav class="menu-tiles">
-            ${tile('collection', '◆', 'COLECCIÓN', `${owned.length} de ${this.m.roster.length}`)}
+            ${tile('collection', '◆', 'COLECCIÓN', claims ? '¡Recompensas para recoger!' : `${owned.length} de ${this.m.roster.length}`, '', claims)}
             ${tile('gacha', '◎', 'FICHAJES', `${this.save.tokens} fichas`, 'gacha')}
             ${tile('missions', '✔', 'MISIONES', 'Recompensas', '', pending)}
             ${tile('daily', '☼', 'TIENDA', 'Fichajes del día')}
@@ -814,6 +819,9 @@ export class App {
       <footer class="menu-foot legal-foot"><span>Fangame gratuito, sin ánimo de lucro y no oficial, creado por AstraStorm17. Inazuma Eleven y todos sus derechos pertenecen a LEVEL-5 y sus respectivos titulares. Este proyecto no está afiliado, patrocinado ni aprobado por LEVEL-5. · <button id="credits" class="legal-link">Aviso legal</button> · ${esc(VERSION_LABEL)}</span></footer>
       ${musicUnlocked() ? '' : '<div class="audio-hint">Haz clic en cualquier parte para activar la música</div>'}</div>`, 'menu-mode');
     this.on('[data-sheet]', 'click', (e, el) => { e.stopPropagation(); this.collection(Number(el.dataset.sheet)); });
+    // Fix 1.31: notice when the Colección has something new to collect (once per new reward, not on every visit)
+    if (claims > Math.max(0, this.claimsAnnounced)) window.setTimeout(() => this.toast(`¡Tienes ${claims === 1 ? 'una recompensa' : `${claims} recompensas`} para recoger en la Colección!`, 4000), 400);
+    this.claimsAnnounced = claims;
     this.on('[data-go]', 'click', (_e, el) => {
       const go = el.dataset.go;
       if (go === 'play') {
@@ -949,7 +957,7 @@ export class App {
   }
 
   // ------------------------------------------------------------- ranking
-  private rankQuery: BoardQuery = { map: null, rank: null, order: 'time' };
+  private rankQuery: BoardQuery = { map: null, rank: null, order: 'score' };
 
   /** TOP 15 + my position. Online when the service is configured; otherwise this device's best marks. */
   ranking() {
@@ -959,14 +967,14 @@ export class App {
     const online = onlineConfigured();
     this.show(`<div class="screen">${this.titlebar('Ranking', 'Menú')}
       <div class="panel rank-head"><div><b>${online ? 'TOP 15 GLOBAL' : 'RANKING ONLINE NO DISPONIBLE'}</b>
-        <div class="note">${online ? 'Ordenado por tiempo sobrevivido; el daño desempata. Cada jugador aparece con su mejor marca.' : 'El servicio online no está activado en esta versión, así que no hay ranking mundial. Debajo solo aparecen TUS marcas de este dispositivo, no las de otros jugadores.'}</div></div>
+        <div class="note">${online ? 'Puntos = (segundos × 10 + √daño × 2) × rango (C ×1, B ×1,6, A ×2,4, S ×3,4, X ×4,8): el rango es lo que más cuenta. Cada jugador aparece con su mejor marca.' : 'El servicio online no está activado en esta versión, así que no hay ranking mundial. Debajo solo aparecen TUS marcas de este dispositivo, no las de otros jugadores.'}</div></div>
         <div class="filters">${sel('rmap', [['', 'Todas las arenas'], ...this.m.maps.map((mp) => [mp.id, mp.name] as [string, string])], q.map ?? '')}
           ${sel('rrank', [['', 'Todos los rangos'], ...RANK_ORDER.map((r) => [r, `Rango ${r}`] as [string, string])], q.rank ?? '')}
-          ${sel('rorder', [['time', 'Tiempo sobrevivido'], ['damage', 'Daño infligido']], q.order)}</div></div>
+          ${sel('rorder', [['score', 'Ordenar: puntos'], ['rank', 'Ordenar: rango'], ['time', 'Ordenar: tiempo'], ['damage', 'Ordenar: daño']], q.order)}</div></div>
       <div class="rank-list" id="rlist"><div class="note">Cargando…</div></div><div id="rme"></div></div>`);
     this.on('[data-back]', 'click', () => this.mainMenu());
     const upd = () => {
-      this.rankQuery = { map: (document.getElementById('rmap') as HTMLSelectElement).value || null, rank: (document.getElementById('rrank') as HTMLSelectElement).value || null, order: (document.getElementById('rorder') as HTMLSelectElement).value as 'time' | 'damage' };
+      this.rankQuery = { map: (document.getElementById('rmap') as HTMLSelectElement).value || null, rank: (document.getElementById('rrank') as HTMLSelectElement).value || null, order: (document.getElementById('rorder') as HTMLSelectElement).value as BoardQuery['order'] };
       void this.fillRanking();
     };
     ['rmap', 'rrank', 'rorder'].forEach((id) => document.getElementById(id)!.addEventListener('change', upd));
@@ -978,27 +986,28 @@ export class App {
     const list = document.getElementById('rlist'), me = document.getElementById('rme');
     if (!list || !me) return;
     const mapName = (id: string) => this.m.maps.find((x) => x.id === id)?.name ?? id;
-    const row = (pos: number, name: string, captain: number, crest: string, map: string, rank: string, time: number, damage: number, mine = false) => {
-      const p = this.byId.get(captain);
+    const row = (pos: number, name: string, captain: number, crest: string, map: string, rank: string, time: number, damage: number, mine = false, score?: number) => {
+      const p = this.byId.get(captain), pts = score ?? scoreOf({ rank, time, damage });
       return `<div class="rank-row${pos <= 3 ? ` top${pos}` : ''}${mine ? ' mine' : ''}" style="--d:${Math.min(pos, 15) * 40}ms">
         <span class="rk-pos">${pos <= 3 ? ['🥇', '🥈', '🥉'][pos - 1] : `#${pos}`}</span>
         <span class="rk-av${p ? ` r-${p.rarity}` : ''}">${p ? this.mug(p.id, 48) : ''}</span>
         <span class="rk-name"><b>${esc(name)}</b><small>${esc(mapName(map))}</small></span>
         ${crest && this.emblemOf(crest) ? `<img class="rk-crest" src="${this.emblemOf(crest)}" alt="">` : '<span class="rk-crest"></span>'}
         <span class="rank-btn r-${rank} rk-r"><b>${rank}</b></span>
-        <span class="rk-num"><b>${fmtTime(time)}</b><small>tiempo</small></span><span class="rk-num"><b>${damage.toLocaleString('es')}</b><small>daño</small></span></div>`;
+        <span class="rk-num rk-pts${q.order === 'score' || q.order === 'rank' ? ' on' : ''}"><b>${pts.toLocaleString('es')}</b><small>puntos</small></span>
+        <span class="rk-num${q.order === 'time' ? ' on' : ''}"><b>${fmtTime(time)}</b><small>tiempo</small></span><span class="rk-num${q.order === 'damage' ? ' on' : ''}"><b>${damage.toLocaleString('es')}</b><small>daño</small></span></div>`;
     };
     if (!onlineConfigured()) {
       const rows = localBoard(this.save, q.map, q.rank, q.order);
-      list.innerHTML = rows.slice(0, 15).map((m) => row(m.pos, this.save.profile.name, m.captainId, this.save.crest, m.map, m.rank, m.time, m.damage, true)).join('') || '<div class="note">Aún no hay marcas: termina una partida.</div>';
+      list.innerHTML = rows.slice(0, 15).map((m) => row(m.pos, this.save.profile.name, m.captainId, this.save.crest, m.map, m.rank, m.time, m.damage, true, m.score)).join('') || '<div class="note">Aún no hay marcas: termina una partida.</div>';
       me.innerHTML = '';
       return;
     }
     try {
       const rows = await leaderboard(q);
-      list.innerHTML = rows.map((r) => row(Number(r.pos), r.username, r.captain_id, r.crest, r.map, r.rank, r.time_sec, Number(r.damage))).join('') || '<div class="note">Nadie ha jugado este tablero todavía.</div>';
+      list.innerHTML = rows.map((r) => row(Number(r.pos), r.username, r.captain_id, r.crest, r.map, r.rank, r.time_sec, Number(r.damage), false, r.score == null ? undefined : Number(r.score))).join('') || '<div class="note">Nadie ha jugado este tablero todavía.</div>';
       const mine = signedIn() ? await myPosition(q) : null;
-      me.innerHTML = mine ? `<h3>Mi posición</h3>${row(Number(mine.pos), mine.username, mine.captain_id, mine.crest, mine.map, mine.rank, mine.time_sec, Number(mine.damage), true)}`
+      me.innerHTML = mine ? `<h3>Mi posición</h3>${row(Number(mine.pos), mine.username, mine.captain_id, mine.crest, mine.map, mine.rank, mine.time_sec, Number(mine.damage), true, mine.score == null ? undefined : Number(mine.score))}`
         : `<div class="note">${signedIn() ? 'Aún no tienes marca en este tablero.' : 'Conecta tu cuenta en Perfil para aparecer aquí.'}</div>`;
     } catch (err) {
       list.innerHTML = `<div class="note">No se pudo cargar el ranking (${esc((err as Error).message)}). Comprueba la conexión.</div>`;
@@ -1014,24 +1023,26 @@ export class App {
     const box = document.getElementById('menurank');
     if (!box) return;
     try {
-      const q: BoardQuery = { map: null, rank: null, order: 'time' };
+      const q: BoardQuery = { map: null, rank: null, order: 'score' }; // Fix 1.31: the menu shows the points ranking
       const [top, mine] = await Promise.all([leaderboard(q), signedIn() ? myPosition(q) : Promise.resolve(null)]);
       const el = document.getElementById('menurank');
       if (!el) return;
       const crest = (c: string) => (c && this.emblemOf(c) ? `<img class="wr-crest" src="${this.emblemOf(c)}" alt="">` : '<span class="wr-crest"></span>');
       const cap = (id: number) => this.byId.get(id);
+      const pts = (r: BoardRow) => r.score == null ? scoreOf({ rank: r.rank, time: r.time_sec, damage: Number(r.damage) }) : Number(r.score);
       const podium = top.slice(0, 3).map((r) => {
         const p = cap(r.captain_id), pos = Number(r.pos);
         return `<div class="wr-pod p${pos}"><span class="wr-medal">${['🥇', '🥈', '🥉'][pos - 1]}</span>
           <span class="wr-mug${p ? ` r-${p.rarity}` : ''}">${p ? this.mug(p.id, pos === 1 ? 96 : 80) : ''}</span>
           <b class="wr-name">${esc(r.username)}</b><small class="wr-cap">${p ? esc(p.name) : ''}</small>
+          <div class="wr-pts"><b>${pts(r).toLocaleString('es')}</b> <small>puntos</small></div>
           <div class="wr-stats">${crest(r.crest)}<span class="rank-btn r-${r.rank}"><b>${r.rank}</b></span><span><b>${fmtTime(r.time_sec)}</b><small>tiempo</small></span><span><b>${Number(r.damage).toLocaleString('es')}</b><small>daño</small></span></div></div>`;
       }).join('');
       const row = (r: BoardRow, me = false) => {
         const p = cap(r.captain_id);
         return `<div class="wr-row${me ? ' me' : ''}"><span class="wr-pos">#${r.pos}</span><span class="wr-mini">${p ? this.mug(p.id, 40) : ''}</span>
           <span class="wr-who"><b>${esc(r.username)}</b><small>${p ? esc(p.name) : ''}</small></span>${crest(r.crest)}
-          <span class="rank-btn r-${r.rank}"><b>${r.rank}</b></span><span class="wr-num"><b>${fmtTime(r.time_sec)}</b><small>${Number(r.damage).toLocaleString('es')} daño</small></span></div>`;
+          <span class="rank-btn r-${r.rank}"><b>${r.rank}</b></span><span class="wr-num"><b>${pts(r).toLocaleString('es')} pts</b><small>${fmtTime(r.time_sec)} · ${Number(r.damage).toLocaleString('es')} daño</small></span></div>`;
       };
       el.innerHTML = top.length
         ? `<div class="wr-podium">${podium}</div><div class="wr-list">${top.slice(3, 15).map((r) => row(r)).join('')}</div>`
@@ -1536,6 +1547,28 @@ export class App {
   }
 
   // ------------------------------------------------------------- play flow: Mi Equipo -> arena -> run (team starts with the captain only)
+  /** Fix 1.31: the team synergies of the seven candidates, big and clear (element resonance, club chemistry, captain) */
+  private squadSynergyPanel(squad: RosterEntry[]) {
+    if (!squad.length) return '';
+    const kit = this.save.kit || 'Raimon';
+    const pot = squadPotential(squad, kit, teamLabel(kit), perkEffects(this.save).synergy);
+    const el = pot.elements.map((x) => {
+      const ec = ELEMENT_COLOR[x.element] ?? '#ccc';
+      const pips = Array.from({ length: 5 }, (_, i) => `<i class="${i < x.techs ? 'on' : ''}"></i>`).join('');
+      return `<div class="syn-card${x.reach ? ' on' : ''}" style="--ec:${ec}"><span class="syn-ic">${elementIcon(x.element, 26)}</span><div><b>Resonancia ${esc(x.element)}</b>
+        <span class="syn-pips">${pips}</span><small>${x.techs} técnica${x.techs === 1 ? '' : 's'} de ${esc(x.element)} en el equipo · ${x.players} futbolista${x.players === 1 ? '' : 's'}</small></div>
+        <em>${x.reach ? `hasta +${Math.round(x.reach * 100)}%` : `${x.techs}/3`}</em></div>`;
+    }).join('');
+    const ch = pot.chemistry, cap = pot.captain;
+    return `<div class="panel syn-panel"><h3>Sinergias del equipo</h3>
+      <div class="note">Resonancia: 3 técnicas activas del mismo elemento dan <b>+8%</b> de daño a esas técnicas, 5 dan <b>+15%</b>. Las técnicas activas se eligen al subir de nivel en la partida.</div>
+      <div class="syn-grid">${el}
+        <div class="syn-card${ch.bonus ? ' on' : ''}" style="--ec:#7dff9a"><span class="syn-ic">♜</span><div><b>Química de club</b><span class="syn-pips">${Array.from({ length: ch.goal }, (_, i) => `<i class="${i < ch.count ? 'on' : ''}"></i>`).join('')}</span><small>${esc(ch.hint)} (equipación ${esc(teamLabel(kit))})</small></div><em>${ch.bonus ? `+${Math.round(ch.bonus * 100)}%` : `${ch.count}/${ch.goal}`}</em></div>
+        ${cap ? `<div class="syn-card${cap.bonus ? ' on' : ''}" style="--ec:${ELEMENT_COLOR[String(cap.element)] ?? '#ffe27a'}"><span class="syn-ic">★</span><div><b>${esc(cap.label)}</b><small>${esc(cap.hint)}</small></div><em>${cap.bonus ? `+${(cap.bonus * 100).toFixed(1).replace('.', ',')}%` : '—'}</em></div>`
+          : '<div class="syn-card"><span class="syn-ic">★</span><div><b>Sinergia elemental</b><small>Compra la mejora «Sinergia elemental»: más daño por cada compañero del elemento del capitán.</small></div><em>—</em></div>'}
+      </div></div>`;
+  }
+
   /** "Mi Equipo": seven candidates (captain first), the captain's starting technique and the starting formation. */
   captainSelect(slot = this.squadSlot) {
     if (!this.save.squad.length && this.unlockedRoster().length) { fillSquad(this.save, this.m.roster); this.persist(); }
@@ -1561,6 +1594,7 @@ export class App {
       <div class="panel"><div class="note">Elige <b>7 candidatos</b>. Empiezas solo con el <b>capitán</b>; al subir de nivel podrás fichar a los otros seis (máximo ${MAX_TEAM} en el campo).
         Pulsa una plaza y luego un futbolista para colocarlo. Se guarda solo.</div>
         <div class="squad-row">${slots}</div></div>
+      ${this.squadSynergyPanel(squad)}
       ${cap ? `<div class="panel detail" style="--rc:${RARITY_COLOR[cap.rarity]}"><div class="art">${this.mug(cap.id, 128)}${charCanvas(cap.id, 3, 12)}</div><div>
         <h3>Capitán: ${esc(cap.name)} ${this.rar(cap)} ${this.elem(cap)}</h3>
         <h3 style="margin-top:8px">Técnica inicial</h3><div class="loadout">${cap.techniques.map((t, i) => {
@@ -1652,6 +1686,16 @@ export class App {
   }
 
   // ------------------------------------------------------------- collection
+  /** Fix 1.31: team rewards (crest, kit, captain) ready to collect in the Colección, counted like its own «!» marks. */
+  private collectionClaims() {
+    const main = new Set(this.m.mainTeams ?? []);
+    const teams = [...new Set(this.m.roster.flatMap((p) => p.teams))].filter((t) => main.has(t));
+    return teams.reduce((n, t) => n + (['crest', 'kit', 'captain'] as TeamRewardKind[])
+      .filter((k) => (k !== 'kit' || !!this.m.kits?.[t]) && canClaim(this.save, this.m.roster, t, k)).length, 0);
+  }
+  /** claims already announced, so the notice shows only when something new became collectable */
+  private claimsAnnounced = -1;
+
   collection(detailId?: number) {
     setMusicContext('collection');
     const f = this.collectionFilter;
@@ -1911,7 +1955,7 @@ export class App {
   private cap(name: string) { const c = this.m.capsule; return c?.pieces[name] ? `${c.base}${c.pieces[name].file}` : ''; }
   private capColor(r: Rarity) { return this.m.capsule?.rarityColor?.[r] ?? 'rojo'; }
 
-  private gachaBanner: BannerId = 'original';
+  private gachaBanner: BannerId = 'ff';
   private gachaTeam = '';
   gacha() {
     const banner = BANNERS[this.gachaBanner];
@@ -1920,8 +1964,12 @@ export class App {
     const pool = bannerPool(this.m.roster, banner.id, this.gachaTeam);
     const real = rarityOdds(pool, banner.id);
     const each = perPlayerOdds(pool, banner.id);
-    const PULL_COST = banner.cost, MULTI_COST = banner.multiCost;
-    const tabs = BANNER_ORDER.map((b) => `<button class="banner-tab${b === banner.id ? ' on' : ''}" data-banner="${b}" style="--bc:${BANNERS[b].color}"><b>${esc(BANNERS[b].label)}</b><small>${esc(BANNERS[b].tagline)}</small></button>`).join('');
+    const price = bannerPrice(pool, banner.id); // Fix 1.31: by how many Míticos the machine holds
+    const PULL_COST = price.cost, MULTI_COST = price.multiCost;
+    const tabs = BANNER_ORDER.map((b) => {
+      const pr = b === 'equipo' ? { cost: BANNERS.equipo.cost } : bannerPrice(bannerPool(this.m.roster, b), b);
+      return `<button class="banner-tab${b === banner.id ? ' on' : ''}" data-banner="${b}" style="--bc:${BANNERS[b].color}"><b>${esc(BANNERS[b].label)}</b><small>${esc(BANNERS[b].tagline)}</small><em class="bt-price">${pr.cost} fichas</em></button>`;
+    }).join('');
     const teamSel = banner.id === 'equipo' ? `<label class="team-sel">Equipo: <select id="gteam">${teams.map((t) => `<option value="${esc(t.team)}" ${t.team === this.gachaTeam ? 'selected' : ''}>${esc(teamLabel(t.team))} (${t.size})</option>`).join('')}</select></label>` : '';
     const feat = featured(pool, 5).map((p) => `<span class="feat r-${p.rarity}" style="--rc:${RARITY_COLOR[p.rarity]}" title="${esc(p.name)}">${this.mug(p.id, 48)}<small>${esc(p.name)}</small></span>`).join('');
     const odds = RARITY_ORDER.map((r) => `<div class="odd"><span class="rar ${r}">${RARITY_LABEL[r].toUpperCase()}</span><i style="--w:${Math.max(1.5, real[r])}%;--c:${RARITY_COLOR[r]}"></i><b>${real[r] ? `${+real[r].toFixed(2)}% · c/u ${+each[r].toFixed(3)}%` : 'vacía'}</b></div>`).join('');
@@ -1935,7 +1983,7 @@ export class App {
     setMusicContext('gacha');
     this.show(`<div class="screen gacha-screen">${this.titlebar('Máquina de fichajes', 'Menú')}
       <div class="banner-tabs">${tabs}</div>
-      <div class="banner-head" style="--bc:${banner.color}"><div><b>${esc(banner.label)}</b> · ${pool.length} futbolistas ${teamSel}<div class="note">×10 garantiza al menos un Épico o superior. ${banner.id === 'equipo' ? 'Solo futbolistas del equipo elegido; las rarezas altas tienen un tope por jugador.' : 'Cada futbolista está en una sola de las tres máquinas por sagas.'}</div></div><div class="feat-row">${feat}</div></div>
+      <div class="banner-head" style="--bc:${banner.color}"><div><b>${esc(banner.label)}</b> · ${pool.length} futbolistas ${teamSel}<div class="note">×10 garantiza al menos un Épico o superior. ${banner.id === 'equipo' ? 'Solo futbolistas del equipo elegido; las rarezas altas tienen un tope por jugador.' : `Cada futbolista sale en una sola máquina: la de la primera saga en la que aparece. Precio según sus Míticos (${price.mythics}): sin estrellas 5 · sin Míticos 10 · de 1 a 5 Míticos 15 · 6 o más 20.`}</div></div><div class="feat-row">${feat}</div></div>
       <div class="ie3-machine">${has ? `<div class="ds-top"><img id="globe" src="${this.cap('globe0')}" alt=""></div>
         <div class="ds-bottom" style="background-image:url(${this.cap('panel_bottom')})">
           <img class="goal" src="${this.cap('goal_slot')}" alt=""><div class="knobwrap"><img class="kbase" src="${this.cap('knob_base')}" alt="">
@@ -1966,7 +2014,8 @@ export class App {
       this.pulling = true;
       const b = BANNERS[this.gachaBanner];
       const bpool = bannerPool(this.m.roster, b.id, this.gachaTeam);
-      const res = pull(bpool, this.save, Number(el.dataset.pull) as 1 | 10, Math.random, { cost: b.cost, multiCost: b.multiCost, odds: rarityOdds(bpool, b.id) });
+      const bp = bannerPrice(bpool, b.id);
+      const res = pull(bpool, this.save, Number(el.dataset.pull) as 1 | 10, Math.random, { cost: bp.cost, multiCost: bp.multiCost, odds: rarityOdds(bpool, b.id) });
       if (!res) { this.pulling = false; return; }
       recordHistory(this.save, res);
       addCounter(this.save, 'news', res.filter((x) => x.isNew).length);
@@ -2037,6 +2086,35 @@ export class App {
     let skip = false;
     this.revealSpeed = 1;
     for (let i = 0; i < results.length && !skip; i++) skip = await this.revealOne(results[i], results.length > 1, `${title} ${results.length > 1 ? `${i + 1}/${results.length}` : ''}`);
+    if (skip) await this.skippedSummary(results, title);
+  }
+
+  /** Fix 1.31: after «Saltar todo», everything the pull gave at once (best first), closed with a click or Space/Enter/Esc. */
+  private skippedSummary(results: PullResult[], title: string): Promise<void> {
+    return new Promise((resolve) => {
+      const rank = (r: PullResult) => RARITY_ORDER.indexOf(r.player.rarity) * 2 + (r.isNew ? 1 : 0);
+      const sorted = [...results].sort((a, b) => rank(b) - rank(a));
+      const badge = (r: PullResult) => r.isNew ? 'NUEVO' : r.refund ? `+${r.refund} ◉` : r.toStar ? `${r.toStar[0]}/${r.toStar[1]} ★` : r.forAscension ? '+1 ascenso' : `★${r.stars}`;
+      const news = results.filter((r) => r.isNew).length;
+      const ov = document.createElement('div');
+      ov.className = 'reveal pull-summary';
+      ov.innerHTML = `<div class="pull-summary-box"><h3>${esc(title)} · todo lo que has fichado</h3>
+        <div class="note">${[news ? `${news} ${news === 1 ? 'fichaje nuevo' : 'fichajes nuevos'}` : '', results.length - news ? `${results.length - news} ${results.length - news === 1 ? 'duplicado' : 'duplicados'}` : ''].filter(Boolean).join(' · ')}</div>
+        <div class="grid">${sorted.map((r) => `<div class="ps-item r-${r.player.rarity}${r.isNew ? ' is-new' : ''}">${this.pcard(r.player, { badge: badge(r) })}</div>`).join('')}</div>
+        <button class="btn big">Aceptar</button></div>`;
+      this.root.appendChild(ov);
+      mountPreviews();
+      sfx('reveal');
+      const shownAt = performance.now();
+      const close = () => { window.removeEventListener('keydown', keys, true); ov.remove(); resolve(); };
+      const keys = (e: KeyboardEvent) => {
+        if (e.repeat || performance.now() - shownAt < 200) return;
+        if (!['Space', 'Enter', 'NumpadEnter', 'Escape'].includes(e.code)) return;
+        e.preventDefault(); e.stopPropagation(); close();
+      };
+      window.addEventListener('keydown', keys, true);
+      ov.querySelector('.btn')!.addEventListener('click', close);
+    });
   }
 
   /** Fix 1.22: ×2 in multi pulls, remembered while the pull lasts */
@@ -2646,11 +2724,20 @@ export class App {
     };
     stat('runcoins', s.runCoins ? `◉ +${s.runCoins}` : '');
     stat('runtokens', s.runTokens ? `+${s.runTokens}` : '');
-    const resonance = s.resonance.map((r) => `${r.element} +${Math.round(r.bonus * 100)}%`).join('|');
+    // Fix 1.31: the synergies as big chips (icon, bonus, progress to the next step); a chip pops when it goes up
+    const syn = s.synergies ?? [];
+    const synKey = syn.map((x) => `${x.key}:${x.count}:${x.bonus}`).join('|');
     const resEl = document.getElementById('reson')!;
-    if (resEl.dataset.k !== resonance) {
-      resEl.dataset.k = resonance;
-      resEl.innerHTML = s.resonance.map((r) => `<span style="--ec:${ELEMENT_COLOR[r.element] ?? '#ccc'}">Resonancia ${esc(r.element)} +${Math.round(r.bonus * 100)}%</span>`).join('');
+    if (resEl.dataset.k !== synKey) {
+      const before = new Map((resEl.dataset.k ?? '').split('|').filter(Boolean).map((k) => { const [a, , b] = k.split(':'); return [a, Number(b)] as [string, number]; }));
+      resEl.dataset.k = synKey;
+      resEl.innerHTML = syn.map((x) => {
+        const ec = x.element ? ELEMENT_COLOR[x.element] ?? '#ffe27a' : x.kind === 'quimica' ? '#7dff9a' : '#ffe27a';
+        const icon = x.kind === 'quimica' ? '<span class="syn-ic">♜</span>' : x.element ? `<span class="syn-ic">${elementIcon(x.element, 18)}</span>` : '';
+        const pips = Array.from({ length: x.goal }, (_, i) => `<i class="${i < x.count ? 'on' : ''}"></i>`).join('');
+        const up = x.bonus > (before.get(x.key) ?? 0) ? ' up' : '';
+        return `<div class="syn-chip${x.bonus > 0 ? ' on' : ''}${up}" style="--ec:${ec}" title="${esc(x.hint)}">${icon}<span class="syn-txt"><small>${esc(x.label)}</small><span class="syn-pips">${pips}</span></span><b>${x.bonus > 0 ? `+${Math.round(x.bonus * 100)}%` : `${x.count}/${x.goal}`}</b></div>`;
+      }).join('');
     }
     document.getElementById('clock')!.textContent = s.endless ? `∞ ${fmtTime(s.endless.sec)} · ${s.endless.phase}` : `${fmtTime(s.timeSec)} / ${fmtTime(s.durationSec)}`;
     document.getElementById('kills')!.textContent = `✖ ${s.kills}`;
@@ -2975,7 +3062,7 @@ export class App {
       <p style="text-align:center"><button class="btn big" id="again">Jugar otra vez</button> <button class="btn blue" id="menu">Menú</button></p></div></div>`);
     if (r.victory) { sfx('legend'); if (this.save.settings.particles !== 'desactivado') confetti(); } else sfx('reveal');
     if (inf && onlineConfigured() && signedIn() && this.save.onlineName) {
-      window.setTimeout(() => { void myPosition({ map: r.mapId, rank: r.rank ?? 'C', order: 'time' }).then((m) => { const el = document.getElementById('resrank'); if (el && m) el.textContent = `Posición en el ranking de esta arena: #${m.pos}`; }).catch(() => undefined); }, 1500);
+      window.setTimeout(() => { void myPosition({ map: r.mapId, rank: r.rank ?? 'C', order: 'score' }).then((m) => { const el = document.getElementById('resrank'); if (el && m) el.textContent = `Posición en el ranking de esta arena: #${m.pos}`; }).catch(() => undefined); }, 1500);
     }
     const wc = document.querySelector<HTMLElement>('.result-wallet .coins'), wt = document.querySelector<HTMLElement>('.result-wallet .tokens');
     const c = document.getElementById('tcoins')!, t = document.getElementById('ttokens')!;

@@ -128,8 +128,9 @@ export const reserveUsername = (name: string, avatar = '', crest = '') => rpc<st
 export interface OnlineProfile { username: string; avatar: string; crest: string }
 export const myProfile = async () => (await rpc<OnlineProfile[]>('my_profile', {}))[0] ?? null;
 
-export interface BoardRow { pos: number; username: string; avatar: string; crest: string; map: string; rank: string; time_sec: number; damage: number; captain_id: number }
-export interface BoardQuery { map: string | null; rank: string | null; order: 'time' | 'damage' }
+export interface BoardRow { pos: number; username: string; avatar: string; crest: string; map: string; rank: string; time_sec: number; damage: number; captain_id: number; score?: number }
+/** Fix 1.31: order 'score' (points, the default), 'rank', 'time' or 'damage'; map and rank are the categories */
+export interface BoardQuery { map: string | null; rank: string | null; order: 'score' | 'rank' | 'time' | 'damage' }
 
 export const leaderboard = (q: BoardQuery) => rpc<BoardRow[]>('leaderboard', { p_map: q.map, p_rank: q.rank, p_order: q.order, p_limit: 15 }, false);
 export const myPosition = async (q: BoardQuery) => (await rpc<BoardRow[]>('my_position', { p_map: q.map, p_rank: q.rank, p_order: q.order }))[0] ?? null;

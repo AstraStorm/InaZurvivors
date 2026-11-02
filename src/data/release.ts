@@ -6,7 +6,7 @@
  */
 import { CHANGELOG } from './changelog';
 
-export const PUBLIC_VERSION = '1.3';
+export const PUBLIC_VERSION = '1.31';
 export const BUILD = CHANGELOG[0].version;
 export const RELEASED = false;
 export const VERSION_LABEL = RELEASED ? `v${PUBLIC_VERSION}` : `v${PUBLIC_VERSION} · pre-lanzamiento`;
@@ -26,6 +26,23 @@ export interface PublicRelease {
 
 /** Public news, newest first. Starts at v1.0: the internal versions before it are not part of the public history. */
 export const PUBLIC_RELEASES: PublicRelease[] = [
+  {
+    version: '1.31',
+    title: 'InaZurvivors Fix 1.31 — Pingüinos, sagas y ranking por puntos',
+    tagline: 'Una máquina por saga con precios claros, técnicas de pingüinos, flores y tiburones dibujadas, ranking por puntos y muchos más logros',
+    intro: 'Cada saga tiene su máquina de fichajes y cuanto más Míticos tiene, más cuesta. Los Pingüinos emperador, Tiburón de las profundidades, Lecho de rosas y compañía se ven como en la serie. El ranking ordena por puntos (el rango es lo que más cuenta) y se puede filtrar por tiempo, daño o rango.',
+    features: [
+      { icon: '◎', title: 'Una máquina por saga', text: 'Fútbol Frontier, Alius, FFI, GO, Chrono Stone, Galaxy, Ares, Orion y Fichatrón. Precio redondo según sus Míticos: 5, 10, 15 o 20 fichas.' },
+      { icon: '🐧', title: 'Técnicas de la naturaleza', text: 'Pingüinos emperador (n.º 1, 2, 3, 7 y X), Pingüino espacial, perfecto y aéreo, Mano de pingüinos, rosas, flores, hojas, tiburón, orca y ballena, cada una como en la wiki.' },
+      { icon: '♛', title: 'Ranking por puntos', text: 'Puntos = (segundos × 10 + √daño × 2) × rango. También puedes ordenar por tiempo, daño o rango, y filtrar por arena y rango.', online: true },
+      { icon: '★', title: 'Más logros', text: 'Unos 70 logros en tres niveles (10, 20 y 50 fichas).' },
+      { icon: '⚡', title: 'Sinergias visibles', text: 'Resonancia de elementos, química de club y sinergia del capitán, grandes en la partida y en Mi Equipo.' },
+      { icon: '▲', title: 'Legendarios y Míticos más fuertes', text: 'Legendarios con medias de 80 y pico, Míticos cerca de 90; ascender pide menos duplicados.' },
+      { icon: '⏭', title: 'Gacha más claro', text: 'Al saltar ves todo lo que has fichado; estrellas dibujadas y el brillo ya no tapa al jugador.' },
+      { icon: '♜', title: 'Retratos de IE3 con sus colores', text: 'Cada equipo pinta su torso con su propia paleta de la ROM.' },
+    ],
+    start: ['Prueba la máquina de tu saga favorita', 'Mira las sinergias en Mi Equipo', 'Busca tu posición en el ranking por puntos'],
+  },
   {
     version: '1.3',
     title: 'InaZurvivors 1.3 — Asciende, entrena y juega más duro',
