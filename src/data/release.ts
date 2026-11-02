@@ -31,12 +31,13 @@ export const PUBLIC_RELEASES: PublicRelease[] = [
   {
     version: '1.32', date: '2026-11-02',
     title: 'InaZurvivors 1.32 — Tablón de noticias',
-    tagline: 'Tablón de noticias con todo el registro de actualizaciones, tarjetas con más vida y un Mi Equipo mucho más cómodo',
+    tagline: 'Tablón de noticias, tarjetas rediseñadas como cromos y un Mi Equipo más cómodo que enseña tus técnicas combinadas',
     intro: 'Novedades se convierte en Noticias: a la izquierda tienes todas las entradas, con su etiqueta y su fecha, y a la derecha la noticia completa. Ahí verás los avisos y novedades del desarrollo y el registro de todas las actualizaciones desde la v1.0.',
     features: [
       { icon: '📰', title: 'Tablón de noticias', text: 'Lista de noticias con etiquetas (Novedad, Aviso, Actualización, Evento), noticias fijadas, fecha y aviso de las que aún no has leído.' },
       { icon: '📜', title: 'Registro completo', text: 'Todas las actualizaciones públicas, de la v1.0 a hoy, se quedan guardadas para consultarlas cuando quieras.' },
-      { icon: '✨', title: 'Tarjetas con más vida', text: 'Se inclinan hacia el ratón con un reflejo, brillan con el color de su rareza y sus distintivos ya no se tapan entre sí.' },
+      { icon: '🃏', title: 'Tarjetas nuevas', text: 'Rediseñadas como cromos: cada rareza tiene su propio marco (bronce, plata, amatista, oro, holográfico, aurora y fuego para HÉROE), con el retrato sobre su elemento, media, estadísticas y efectos de brillo, holografía y chispas.' },
+      { icon: '🔗', title: 'Técnicas combinadas a la vista', text: 'Mi Equipo enseña arriba las sinergias y qué futbolistas pueden hacer juntos una técnica combinada, y marca en tu colección a quien la completaría.' },
       { icon: '♜', title: 'Mi Equipo más cómodo', text: 'Un clic añade o quita a un futbolista, arrastra para colocar o intercambiar, Autocompletar con tus mejores, Vaciar, y orden por media, rareza o nombre.' },
     ],
     start: ['Abre Noticias desde el menú', 'Lee las que tienen el punto de no leída'],

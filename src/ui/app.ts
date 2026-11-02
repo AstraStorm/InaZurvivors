@@ -25,7 +25,7 @@ import { SAGAS, sagaOf, setTeamLabels, setTeamSagas, teamLabel, teamNames } from
 import { canClaim, claimAllTeamRewards, claimTeamReward, grantFavorite, hasCrest, hasKit, teamCaptain, teamMembers, teamProgress, type TeamRewardKind } from '../systems/teamRewards';
 import { buyOffer, isBought as isOfferBought, msToNextDay, msToNextWeek, PRICE, rollDaily, type Offer } from '../systems/dailyShop';
 import { rankDef, RANKS, RANK_ORDER } from '../systems/difficulty';
-import { COMBOS } from '../systems/combos';
+import { squadCombos, COMBOS } from '../systems/combos';
 import { CLUB_CHEMISTRY, kitBonus } from '../systems/kitBonus';
 import { squadPotential } from '../systems/synergy';
 import { championsTable, recordTriumph } from '../systems/hallOfFame';
@@ -590,27 +590,45 @@ export class App {
   }
   /** Player card: bodyshot (torso + head portrait) first, animated minisprite as a corner detail. */
   private pcard(p: RosterEntry, opts: { locked?: boolean; sel?: boolean; badge?: string; captain?: boolean; anim?: number; big?: boolean } = {}) {
+    /**
+     * Fix 1.32: the card, redrawn as a collectible card of InaZurvivors. A frame of its own per rarity (shape, corners,
+     * ornaments and metal), the portrait over the colour of its element with the club crest as a watermark, the mean in a
+     * medallion, the name on a ribbon, the stats as small bars, and effects layered by rarity (sweep, foil, sparkles,
+     * fire). Everything is inner elements: the old pseudo-element effects stay off this card.
+     */
     const o = this.owned(p.id);
-    const icons = opts.locked ? '' : `<div class="tech-pips">${p.techniques.map((t) => this.icon(ICON.manual[t.type], 1)).join('')}</div>`;
-    // Fix 1.31: five drawn stars (the pixel font has no ★, it showed as tiny asterisks), earned ones in gold
+    const locked = !!opts.locked;
+    const er = locked ? p.rarity : effectiveRarity(this.save, p);
+    const hero = !locked && isHero(this.save, p.id);
     const starSvg = (cls: string) => `<svg class="${cls}" viewBox="0 0 24 24"><path d="M12 1.8l3.1 6.6 7.2.8-5.4 4.9 1.5 7.1L12 17.6l-6.4 3.6 1.5-7.1L1.7 9.2l7.2-.8z"/></svg>`;
-    // Fix 1.31: a HÉROE shows its hero stars (red-gold, up to 3) after the five normal ones
-    const heroStars = !opts.locked && o?.hero ? `<span class="hero-stars" title="${o.heroStars ?? 0} de ${HERO_STARS_MAX} estrellas de héroe">${Array.from({ length: HERO_STARS_MAX }, (_, i) => starSvg(`hst${i < (o.heroStars ?? 0) ? ' on' : ''}`)).join('')}</span>` : '';
-    const stars = !opts.locked && o ? `<div class="stars" title="${o.stars} de ${MAX_STARS} estrellas">${Array.from({ length: MAX_STARS }, (_, i) => starSvg(`st${i < o.stars ? ' on' : ''}`)).join('')}${heroStars}</div>` : '<div class="stars"></div>';
-    const spare = !opts.locked && o ? sparesOf(this.save, p.id) : 0, step = !opts.locked && o ? nextStep(this.save, p) : null;
+    const heroStars = hero ? `<span class="hero-stars" title="${o?.heroStars ?? 0} de ${HERO_STARS_MAX} estrellas de héroe">${Array.from({ length: HERO_STARS_MAX }, (_, i) => starSvg(`hst${i < (o?.heroStars ?? 0) ? ' on' : ''}`)).join('')}</span>` : '';
+    const stars = !locked && o ? `<div class="stars" title="${o.stars} de ${MAX_STARS} estrellas">${Array.from({ length: MAX_STARS }, (_, i) => starSvg(`st${i < o.stars ? ' on' : ''}`)).join('')}${heroStars}</div>` : '<div class="stars"></div>';
+    const spare = !locked && o ? sparesOf(this.save, p.id) : 0, step = !locked && o ? nextStep(this.save, p) : null;
     const canAsc = !!step && spare >= step.cost;
-    // Fix 1.32: corner flags stack in one column (top left) and the duplicates, stars and check share a footer row, so
-    // nothing overlaps any more (they were absolute and piled up on each other)
-    const dup = spare ? `<span class="card-dup" title="Duplicados sin usar${step ? ` (${step.step === 'heroe' ? 'HÉROE' : step.step === 'estrella' ? 'estrella de héroe' : 'ascenso'}: ${step.cost})` : ''}">+${spare}${step && !canAsc ? ` <i>${spare}/${step.cost}</i>` : ''}</span>` : '<span></span>';
-    const top = `${opts.badge ? `<span class="badge">${esc(opts.badge)}</span>` : ''}${opts.captain ? '<span class="captain-badge">C</span>' : ''}${canAsc ? '<span class="card-asc" title="Ascensión disponible">▲ ASCENDER</span>' : ''}`;
-    const er = opts.locked ? p.rarity : effectiveRarity(this.save, p);
-    return `<div class="pcard r-${er}${opts.locked ? ' locked' : ''}${opts.sel ? ' sel' : ''}${opts.big ? ' big' : ''}${!opts.locked && isHero(this.save, p.id) ? ' hero' : ''}" data-id="${p.id}" style="--rc:${RARITY_COLOR[er]}">
-      ${top ? `<div class="pc-top">${top}</div>` : ''}<i class="pc-glare"></i>
-      ${this.emblemOf(p.teams[0]) ? `<img class="card-crest" src="${this.emblemOf(p.teams[0])}" alt="">` : ''}
-      <div class="stage${opts.locked ? ' dark' : ''}">${!opts.locked && p.stats ? `<span class="ovr" title="Media de estadísticas">${statMean(this.statsOf(p)!)}</span>` : ''}${this.mug(p.id, 128)}${opts.locked ? '<span class="qmark">?</span><span class="lock-tag">Bloqueado</span>' : `<span class="minisprite">${charCanvas(p.id, 2, opts.anim ?? 4)}</span>`}</div>
-      <div class="name">${opts.locked ? '???' : esc(p.name)}</div>
-      <div class="chips"><span class="pos">${POS_LABEL[p.position] ?? p.position}</span>${opts.locked ? '' : this.elem(p)}</div>
-      ${this.rar(p)}${icons}<div class="pc-foot">${dup}${stars}${opts.sel ? '<span class="card-check">✔</span>' : '<span></span>'}</div></div>`;
+    const dup = canAsc ? `<span class="card-dup can-asc" title="¡Puedes ascender! (${spare} duplicados)">▲ ${spare}</span>`
+      : spare ? `<span class="card-dup" title="Duplicados sin usar${step ? ` (${step.step === 'heroe' ? 'HÉROE' : step.step === 'estrella' ? 'estrella de héroe' : 'ascenso'}: ${step.cost})` : ''}">+${spare}${step ? ` <i>${spare}/${step.cost}</i>` : ''}</span>` : '<span></span>';
+    const top = `${opts.badge ? `<span class="badge">${esc(opts.badge)}</span>` : ''}${opts.captain ? '<span class="captain-badge">C</span>' : ''}`;
+    const st = !locked && p.stats ? this.statsOf(p) : null;
+    const e = String(p.element ?? '');
+    const crest = this.emblemOf(p.teams[0]);
+    const statKeys = ['kick', 'control', 'guard', 'body', 'speed', 'guts'] as const;
+    const bars = st ? `<div class="cc-stats">${statKeys.map((k) => `<span><small>${STAT_SHORT[k]}</small><i style="--v:${st[k]}%"></i><b>${st[k]}</b></span>`).join('')}</div>` : '<div class="cc-stats empty"></div>';
+    const tier = hero ? 'heroe' : er;
+    return `<div class="pcard cc t-${tier} r-${er}${locked ? ' locked' : ''}${opts.sel ? ' sel' : ''}${opts.big ? ' big' : ''}${hero ? ' hero' : ''}" data-id="${p.id}" style="--rc:${RARITY_COLOR[er]};--ec:${ELEMENT_COLOR[e] ?? '#8a9bbd'}">
+      ${top ? `<div class="pc-top">${top}</div>` : ''}
+      <div class="cc-frame"><i class="cc-orn tl"></i><i class="cc-orn tr"></i><i class="cc-orn bl"></i><i class="cc-orn br"></i>
+        <div class="cc-face">
+          <div class="cc-art${locked ? ' dark' : ''}">${crest ? `<img class="cc-crest" src="${crest}" alt="">` : ''}<i class="cc-rays"></i>
+            ${this.mug(p.id, opts.big ? 152 : 112)}${locked ? '<span class="qmark">?</span><span class="lock-tag">Bloqueado</span>' : `<span class="minisprite">${charCanvas(p.id, 2, opts.anim ?? 4)}</span>`}
+            <div class="cc-gem" title="${esc(e)}">${locked ? '' : elementIcon(e, 16)}</div>
+            ${st ? `<div class="cc-ovr" title="Media de estadísticas"><b>${statMean(st)}</b><small>${POS_LABEL[p.position] ?? p.position}</small></div>` : `<div class="cc-ovr pos"><small>${POS_LABEL[p.position] ?? p.position}</small></div>`}
+            <div class="cc-name"><span>${locked ? '???' : esc(p.name)}</span></div></div>
+          <div class="cc-rar">${locked ? `<span class="rar ${er}">${RARITY_LABEL[er].toUpperCase()}</span>` : this.rar(p)}</div>
+          ${bars}
+          <div class="pc-foot">${dup}${stars}${opts.sel ? '<span class="card-check">✔</span>' : '<span></span>'}</div>
+        </div>
+        <i class="cc-sweep"></i><i class="cc-foil"></i><i class="cc-sparks"></i><i class="pc-glare"></i>
+      </div></div>`;
   }
 
   // ------------------------------------------------------------- intro cinematic
@@ -1625,8 +1643,17 @@ export class App {
         <em>${x.reach ? `hasta +${Math.round(x.reach * 100)}%` : `${x.techs}/3`}</em></div>`;
     }).join('');
     const ch = pot.chemistry, cap = pot.captain;
+    // Fix 1.32: combined techniques of the squad, two (or three) footballers linked by a chain; the missing ones greyed out
+    const byName = new Map(this.m.roster.map((x) => [x.name, x]));
+    const combos = squadCombos(squad).map((c) => {
+      const who = c.combo.needs.map((n) => { const x = squad.find((q) => q.name === n.player) ?? byName.get(n.player); const here = squad.some((q) => q.name === n.player);
+        return `<span class="cb-who${here ? '' : ' miss'}" title="${esc(n.player)}${here ? '' : ' (no está en el equipo)'}">${x ? this.mug(x.id, 40) : ''}<small>${esc(n.player.split(' ')[0])}</small></span>`; }).join('<i class="cb-link">🔗</i>');
+      return `<div class="cb-card${c.ready ? ' ready' : ''}" style="--ec:${ELEMENT_COLOR[c.combo.element] ?? '#ffe27a'}"><div class="cb-team">${who}</div>
+        <div class="cb-info"><b>${esc(c.combo.name)}</b><small>${c.ready ? `¡Lista! Se aprende en la partida cuando sus técnicas llegan al nivel ${Math.max(...c.combo.needs.map((n) => n.level))}` : `Falta: ${esc(c.missing.join(', '))}`}</small></div></div>`;
+    }).join('');
     return `<div class="panel syn-panel"><h3>Sinergias del equipo</h3>
       <div class="note">Resonancia: 3 técnicas activas del mismo elemento dan <b>+8%</b> de daño a esas técnicas, 5 dan <b>+15%</b>. Las técnicas activas se eligen al subir de nivel en la partida.</div>
+      ${combos ? `<h3 class="cb-title">🔗 Técnicas combinadas</h3><div class="cb-grid">${combos}</div><h3 class="cb-title">Elementos y química</h3>` : ''}
       <div class="syn-grid">${el}
         <div class="syn-card${ch.bonus ? ' on' : ''}" style="--ec:#7dff9a"><span class="syn-ic">♜</span><div><b>Química de club</b><span class="syn-pips">${Array.from({ length: ch.goal }, (_, i) => `<i class="${i < ch.count ? 'on' : ''}"></i>`).join('')}</span><small>${esc(ch.hint)} (equipación ${esc(teamLabel(kit))})</small></div><em>${ch.bonus ? `+${Math.round(ch.bonus * 100)}%` : `${ch.count}/${ch.goal}`}</em></div>
         ${cap ? `<div class="syn-card${cap.bonus ? ' on' : ''}" style="--ec:${ELEMENT_COLOR[String(cap.element)] ?? '#ffe27a'}"><span class="syn-ic">★</span><div><b>${esc(cap.label)}</b><small>${esc(cap.hint)}</small></div><em>${cap.bonus ? `+${(cap.bonus * 100).toFixed(1).replace('.', ',')}%` : '—'}</em></div>`
@@ -1643,6 +1670,8 @@ export class App {
     const cap = squad[0];
     const cur = (this.save.formation as FormationId) in FORMATIONS ? this.save.formation as FormationId : 'equilibrada';
     setMusicContext('map');
+    const comboOf = new Map<string, string>();
+    for (const c of squadCombos(squad)) if (c.ready) for (const n of c.combo.needs) if (!comboOf.has(n.player)) comboOf.set(n.player, c.combo.name);
     const slots = Array.from({ length: SQUAD_SIZE }, (_, i) => {
       const p = squad[i];
       const editing = i === this.squadSlot ? ' editing' : '';
@@ -1650,12 +1679,13 @@ export class App {
       return `<div class="sq-slot${editing}${i === 0 ? ' cap' : ''}${isHero(this.save, p.id) ? ' hero' : ''}" data-slot="${i}" data-sid="${p.id}" draggable="true" style="--rc:${RARITY_COLOR[effectiveRarity(this.save, p)]}">
         ${i === 0 ? '<span class="captain-badge">C</span>' : `<button class="sq-act" data-captain="${p.id}" title="Hacer capitán">★</button>`}
         <button class="sq-act x" data-remove="${p.id}" title="Quitar">✕</button>
-        ${this.mug(p.id, 64)}<b>${esc(p.name)}</b>
+        ${this.mug(p.id, 64)}<b>${esc(p.name)}</b>${comboOf.get(p.name) ? `<span class="sq-combo" title="Técnica combinada: ${esc(comboOf.get(p.name)!)}">🔗 ${esc(comboOf.get(p.name)!)}</span>` : ''}
         <div class="chips"><span class="pos">${POS_LABEL[p.position] ?? p.position}</span>${this.elem(p)}</div>${this.rar(p)}
         ${p.stats ? `<div class="sq-radar"><span class="ovr">${statMean(this.statsOf(p)!)}</span>${statRadar(this.statsOf(p)!, STAT_SHORT, RARITY_COLOR[effectiveRarity(this.save, p)])}</div>` : ''}
         <div class="sq-techs">${p.techniques.slice(0, 4).map((t) => `<span title="${esc(t.name)}">${this.icon(ICON.manual[t.type], 1)}${esc(t.name)}</span>`).join('')}</div></div>`;
     }).join('');
     this.show(`<div class="screen">${this.titlebar('Mi Equipo', 'Menú')}
+      ${this.squadSynergyPanel(squad)}
       <div class="panel"><div class="note">Elige <b>7 candidatos</b>. Empiezas solo con el <b>capitán</b>; al subir de nivel podrás fichar a los otros seis (máximo ${MAX_TEAM} en el campo).
         Pulsa un futbolista de tu colección para añadirlo o quitarlo, pulsa una plaza para cambiarla, o arrastra para colocar e intercambiar. Se guarda solo.</div>
         <div class="squad-row">${slots}</div></div>
@@ -1668,7 +1698,6 @@ export class App {
           <select id="sqe"><option value="">Elemento</option>${['Fuego', 'Aire', 'Bosque', 'Montaña'].map((e) => `<option value="${e}" ${this.squadFilter.el === e ? 'selected' : ''}>${e}</option>`).join('')}</select>
           <select id="sqs">${[['media', 'Ordenar: media'], ['rareza', 'Ordenar: rareza'], ['nombre', 'Ordenar: nombre']].map(([v, l]) => `<option value="${v}" ${this.squadFilter.sort === v ? 'selected' : ''}>${l}</option>`).join('')}</select></div>
         <div class="grid" id="sqgrid" style="margin-top:10px"></div></div>
-      ${this.squadSynergyPanel(squad)}
       ${cap ? `<div class="panel detail" style="--rc:${RARITY_COLOR[cap.rarity]}"><div class="art">${this.mug(cap.id, 128)}${charCanvas(cap.id, 3, 12)}</div><div>
         <h3>Capitán: ${esc(cap.name)} ${this.rar(cap)} ${this.elem(cap)}</h3>
         <h3 style="margin-top:8px">Técnica inicial</h3><div class="loadout">${cap.techniques.map((t, i) => {
@@ -1746,7 +1775,10 @@ export class App {
       .sort((a, b) => f.sort === 'nombre' ? a.name.localeCompare(b.name)
         : f.sort === 'rareza' ? RARITY_ORDER.indexOf(effectiveRarity(this.save, b)) - RARITY_ORDER.indexOf(effectiveRarity(this.save, a)) || this.meanOf(b) - this.meanOf(a)
         : this.meanOf(b) - this.meanOf(a) || a.name.localeCompare(b.name));
-    box.innerHTML = list.slice(0, this.squadLimit).map((p) => this.pcard(p, { sel: inSquad.has(p.id), badge: inSquad.has(p.id) ? '✔ EN EL EQUIPO' : undefined }).replace('<div class="pcard', `<div draggable="true" class="pcard${inSquad.has(p.id) ? ' in-squad' : ''}`)).join('')
+    const sq = squadOf(this.save, this.byId);
+    const partners = new Map<string, string>();
+    for (const c of squadCombos(sq)) if (!c.ready && c.missing.length === 1) partners.set(c.missing[0], c.combo.name);
+    box.innerHTML = list.slice(0, this.squadLimit).map((p) => this.pcard(p, { sel: inSquad.has(p.id), badge: inSquad.has(p.id) ? '✔ EN EL EQUIPO' : partners.has(p.name) ? `🔗 ${partners.get(p.name)}` : undefined }).replace('<div class="pcard', `<div draggable="true" class="pcard${inSquad.has(p.id) ? ' in-squad' : ''}`)).join('')
       + (list.length > this.squadLimit ? `<button class="btn blue" id="sqmore">Mostrar más (${list.length - this.squadLimit})</button>` : '')
       + (list.length ? '' : '<div class="note">Nadie coincide con el filtro.</div>');
     mountPreviews();

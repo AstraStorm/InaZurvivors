@@ -114,3 +114,16 @@ export function comboMembers<T extends OnPitch>(c: ComboDef, team: T[]): T[] {
 
 /** Damage per hit of the combined shot: stronger than either solo shot, +20% per combo level. */
 export const comboDamage = (c: ComboDef, level: number, mult = 1) => Math.round(c.power * 0.75 * (1 + 0.2 * (level - 1)) * mult);
+
+/**
+ * Fix 1.32: combined techniques of a squad (Mi Equipo), before the run: `ready` when every participant is among the
+ * candidates, otherwise the names still missing. Only combos with at least one participant in the squad.
+ */
+export function squadCombos(squad: Pick<RosterEntry, 'name' | 'id'>[]) {
+  const names = new Set(squad.map((p) => p.name));
+  return COMBOS_BY_PRIORITY.map((c) => {
+    const present = c.needs.filter((n) => names.has(n.player)).map((n) => n.player);
+    const missing = c.needs.filter((n) => !names.has(n.player)).map((n) => n.player);
+    return { combo: c, present, missing, ready: !missing.length };
+  }).filter((x) => x.present.length > 0);
+}

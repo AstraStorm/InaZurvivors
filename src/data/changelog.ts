@@ -19,7 +19,8 @@ export const CHANGELOG: Release[] = [
     features: [
       'Noticias: tablón con lista (etiqueta Novedad, Aviso, Actualización o Evento, fijadas, fecha y punto de no leída) y la noticia completa con cabecera, apartados, listas, recuadros de aviso y novedad y separadores. Las noticias del autor se escriben en src/data/news.ts y todas las actualizaciones públicas se añaden solas como registro.',
       'Mi Equipo: un clic añade a la primera plaza libre o quita del equipo; pulsar una plaza elige cuál cambiar; arrastrar y soltar para colocar e intercambiar; Autocompletar con los mejores por media; Vaciar; filtro por elemento y orden por media, rareza o nombre. La colección va justo debajo de las plazas.',
-      'Tarjetas: se inclinan hacia el ratón con un reflejo, brillan con su rareza al pasar por encima, se hunden al pulsar y las estrellas aparecen con un pequeño salto.',
+      'Tarjetas rediseñadas como cromos coleccionables: marco propio por rareza (material, grosor, corte de esquinas y adornos: bronce, plata, amatista con rombos, oro con florituras, holográfico animado, aurora con coronas y fuego para HÉROE), retrato sobre el color de su elemento con el escudo de fondo, media en medallón, nombre en cinta, estadísticas en barras y efectos por rareza (barrido de luz, holografía, chispas). Se inclinan hacia el ratón con un reflejo y se hunden al pulsar.',
+      'Mi Equipo: las sinergias van arriba, con las técnicas combinadas del equipo (jugadores enlazados, las que ya se pueden aprender brillan y las incompletas dicen quién falta); las plazas marcan su combinada y la colección marca a quien la completaría.',
     ],
     fixes: [
       'Tarjetas: los distintivos (EN EL EQUIPO, ASCENDER, capitán) van en una columna y los duplicados, las estrellas y la marca en una fila: ya no se tapan entre sí ni tapan la cinta de HÉROE.',

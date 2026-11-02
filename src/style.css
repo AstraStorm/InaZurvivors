@@ -1746,3 +1746,147 @@ body.reduced-motion .pcard:not(.locked):hover { transform: translateY(-4px); }
 @keyframes sqPing { 30% { box-shadow: 0 0 0 3px var(--yellow), 0 0 18px var(--yellow); } }
 .sq-slot.editing { box-shadow: 0 0 0 3px var(--yellow), 0 0 18px #ffe24a88; animation: sqPick 1.2s ease-in-out infinite alternate; }
 @keyframes sqPick { to { box-shadow: 0 0 0 3px var(--yellow), 0 0 26px #ffe24acc; } }
+
+/* ======================================================================================================================
+   Fix 1.32: collectible cards (.pcard.cc). A frame per rarity — material, thickness, corner cut and ornaments — a face
+   with the portrait over its element, and effect layers by rarity. «.pcard.cc.cc.cc» outranks the older card rules.
+   ==================================================================================================================== */
+.pcard.cc { --cut: 8px; --bw: 3px; --metal: linear-gradient(160deg, #e2b88c, #8a5a32 40%, #f0d2a8 60%, #6a4222); --glow: transparent; }
+.pcard.cc.cc.cc {
+  padding: 0; gap: 0; display: block; background: none !important; border: 0 !important; box-shadow: none !important; overflow: visible; animation: none !important;
+  filter: drop-shadow(0 6px 8px #0009) drop-shadow(0 0 10px var(--glow)); clip-path: none; }
+.pcard.cc.cc.cc::before, .pcard.cc.cc.cc::after { content: none !important; animation: none !important; }
+.pcard.cc .cc-frame { position: relative; padding: var(--bw); background: var(--metal); background-size: 200% 200%;
+  clip-path: polygon(var(--cut) 0, calc(100% - var(--cut)) 0, 100% var(--cut), 100% calc(100% - var(--cut)), calc(100% - var(--cut)) 100%, var(--cut) 100%, 0 calc(100% - var(--cut)), 0 var(--cut)); }
+.pcard.cc .cc-face { position: relative; display: flex; flex-direction: column; gap: 6px; padding: 6px 6px 7px; overflow: hidden;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--rc) 22%, #0c1430), #08101f 70%);
+  clip-path: polygon(calc(var(--cut) - 2px) 0, calc(100% - var(--cut) + 2px) 0, 100% calc(var(--cut) - 2px), 100% calc(100% - var(--cut) + 2px), calc(100% - var(--cut) + 2px) 100%, calc(var(--cut) - 2px) 100%, 0 calc(100% - var(--cut) + 2px), 0 calc(var(--cut) - 2px)); }
+.pcard.cc .cc-art { position: relative; height: 138px; overflow: hidden; display: flex; align-items: flex-end; justify-content: center;
+  background: radial-gradient(circle at 50% 62%, color-mix(in srgb, var(--ec) 75%, #fff 25%), color-mix(in srgb, var(--ec) 55%, #000) 55%, color-mix(in srgb, var(--ec) 25%, #050a18) 100%);
+  box-shadow: inset 0 0 0 1px #ffffff40, inset 0 -18px 24px #0008; }
+.pcard.cc.big .cc-art { height: 178px; }
+.pcard.cc .cc-rays { position: absolute; inset: -40%; background: repeating-conic-gradient(from 0deg at 50% 60%, #ffffff1c 0 8deg, transparent 8deg 22deg); animation: ccRays 24s linear infinite; }
+@keyframes ccRays { to { transform: rotate(360deg); } }
+.pcard.cc .cc-crest { position: absolute; width: 96px; height: 96px; left: 50%; top: 46%; transform: translate(-50%, -50%); opacity: .2; filter: grayscale(.3); image-rendering: pixelated; object-fit: contain; }
+.pcard.cc .cc-art .mug { position: relative; z-index: 1; max-height: 100%; filter: drop-shadow(0 4px 6px #0008); transition: transform .2s; }
+.pcard.cc .cc-art .minisprite { position: absolute; z-index: 2; right: 2px; bottom: 18px; }
+.pcard.cc .cc-art.dark .mug { filter: brightness(0) drop-shadow(0 0 1px #7fd3ff); opacity: .75; }
+.pcard.cc .cc-gem { position: absolute; z-index: 3; left: 5px; top: 5px; width: 24px; height: 24px; display: grid; place-items: center; border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #fff8, transparent 45%), color-mix(in srgb, var(--ec) 70%, #000); box-shadow: 0 0 0 2px #0a0f20, 0 0 0 3px var(--rc), 0 0 8px var(--ec); }
+.pcard.cc .cc-ovr { position: absolute; z-index: 3; right: 5px; top: 5px; min-width: 34px; padding: 4px 3px 3px; display: flex; flex-direction: column; align-items: center; line-height: 1;
+  background: linear-gradient(180deg, #0a1022ee, #0a1022bb); border: 2px solid var(--rc); clip-path: polygon(50% 0, 100% 18%, 100% 82%, 50% 100%, 0 82%, 0 18%); }
+.pcard.cc .cc-ovr b { font-size: 15px; color: #fff; text-shadow: 0 0 6px var(--rc), 2px 2px 0 #000; font-weight: normal; padding-top: 4px; }
+.pcard.cc .cc-ovr small { font-size: 7px; color: var(--rc); margin: 2px 0 4px; }
+.pcard.cc .cc-ovr.pos { padding: 10px 3px; }
+.pcard.cc .cc-name { position: absolute; z-index: 3; left: -4px; right: -4px; bottom: 4px; display: flex; justify-content: center; }
+.pcard.cc .cc-name span { display: block; max-width: 100%; padding: 4px 12px; font-size: 10px; line-height: 1.3; color: #fff; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--rc) 55%, #0a1022) 12%, color-mix(in srgb, var(--rc) 40%, #0a1022) 88%, transparent); text-shadow: 1px 1px 0 #000, 0 0 6px #000; transform: skewX(-8deg); }
+.pcard.cc.big .cc-name span { font-size: 13px; }
+.pcard.cc .cc-rar { display: flex; justify-content: center; }
+.pcard.cc .cc-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 3px 8px; padding: 0 2px; min-height: 42px; }
+.pcard.cc .cc-stats span { display: grid; grid-template-columns: 22px 1fr 16px; align-items: center; gap: 3px; }
+.pcard.cc .cc-stats small { font-size: 7px; color: #9fb2d8; }
+.pcard.cc .cc-stats i { height: 4px; background: #ffffff18; position: relative; overflow: hidden; }
+.pcard.cc .cc-stats i::after { content: ''; position: absolute; inset: 0 auto 0 0; width: var(--v); background: linear-gradient(90deg, color-mix(in srgb, var(--rc) 60%, #fff), var(--rc)); }
+.pcard.cc .cc-stats b { font-size: 8px; font-weight: normal; color: #fff; text-align: right; }
+.pcard.cc .pc-foot { min-height: 18px; }
+.pcard.cc .pc-top { left: 10px; top: 38px; }
+.pcard.cc .qmark { position: absolute; z-index: 2; inset: 0; display: grid; place-items: center; font-size: 42px; color: #7fd3ff; text-shadow: 0 0 10px #7fd3ff; }
+.pcard.cc .cc-sweep, .pcard.cc .cc-foil, .pcard.cc .cc-sparks { position: absolute; inset: 0; pointer-events: none; z-index: 6; }
+.pcard.cc .cc-sweep { background: linear-gradient(115deg, transparent 40%, #ffffff55 48%, #ffffffaa 50%, #ffffff55 52%, transparent 60%) no-repeat; background-size: 250% 100%; background-position: 150% 0; opacity: 0; }
+.pcard.cc .pc-glare { z-index: 7; }
+.pcard.cc .cc-orn { position: absolute; z-index: 8; width: 16px; height: 16px; display: none; place-items: center; font-style: normal; font-size: 11px; line-height: 1; color: var(--orn, #fff); text-shadow: 0 0 6px var(--orn, #fff), 1px 1px 0 #000; }
+.pcard.cc .cc-orn::before { content: var(--og, "\25C6"); }
+.pcard.cc .cc-orn.tl { left: 0; top: 0; } .pcard.cc .cc-orn.tr { right: 0; top: 0; } .pcard.cc .cc-orn.bl { left: 0; bottom: 0; } .pcard.cc .cc-orn.br { right: 0; bottom: 0; }
+
+/* ---- per rarity: material, thickness, corner cut, ornaments, effects ---- */
+.pcard.cc.t-comun { --cut: 6px; --bw: 3px; --metal: linear-gradient(160deg, #e2b88c, #8a5a32 40%, #f0d2a8 60%, #6a4222); }
+.pcard.cc.t-raro { --cut: 12px; --bw: 4px; --metal: linear-gradient(160deg, #f2f6ff, #7f95b5 35%, #ffffff 52%, #5a6f90 70%, #c8d6ee); --glow: #4fb3ff55; }
+.pcard.cc.t-raro .cc-face { box-shadow: inset 0 0 0 2px #4fb3ff66; }
+.pcard.cc.t-raro .cc-sweep { animation: ccSweep 6s ease-in-out infinite; }
+.pcard.cc.t-epico { --cut: 14px; --bw: 4px; --metal: linear-gradient(160deg, #e8d4ff, #6a2ab0 35%, #f2e4ff 52%, #3a1270 72%, #b884ff); --glow: #b36bff77; --orn: #e8c8ff; --og: "\25C6"; }
+.pcard.cc.t-epico .cc-orn { display: grid; }
+.pcard.cc.t-epico .cc-face { box-shadow: inset 0 0 14px #b36bff66; }
+.pcard.cc.t-epico .cc-sweep { animation: ccSweep 5s ease-in-out infinite; }
+.pcard.cc.t-epico .cc-foil { background: linear-gradient(130deg, transparent 20%, #c58bff33 40%, #7fd3ff22 55%, transparent 75%); background-size: 300% 300%; mix-blend-mode: screen; animation: ccFoil 6s linear infinite; }
+.pcard.cc.t-legendario { --cut: 16px; --bw: 5px; --metal: linear-gradient(160deg, #fff6c8, #c08a1a 30%, #fff2b0 48%, #8a5a00 66%, #ffe27a 84%, #b07a10); --glow: #ffb02a99; --orn: #fff2b0; --og: "\2756"; }
+.pcard.cc.t-legendario .cc-frame { animation: ccMetal 4s ease-in-out infinite alternate; }
+.pcard.cc.t-legendario .cc-orn { display: grid; font-size: 13px; }
+.pcard.cc.t-legendario .cc-face { box-shadow: inset 0 0 0 1px #ffe27a, inset 0 0 18px #ffb02a55; }
+.pcard.cc.t-legendario .cc-sweep { animation: ccSweep 4s ease-in-out infinite; }
+.pcard.cc.t-legendario .cc-sparks, .pcard.cc.t-mitico .cc-sparks, .pcard.cc.t-leyenda .cc-sparks, .pcard.cc.t-heroe .cc-sparks {
+  background: radial-gradient(circle, var(--sp1, #fff6c0) 0 1.5px, transparent 2px) 18% 100% / 100% 100% no-repeat, radial-gradient(circle, var(--sp2, #ffd23f) 0 1.2px, transparent 2px) 46% 100% / 100% 100% no-repeat,
+    radial-gradient(circle, var(--sp1, #fff6c0) 0 1.5px, transparent 2px) 72% 100% / 100% 100% no-repeat, radial-gradient(circle, var(--sp2, #ffd23f) 0 1px, transparent 2px) 88% 100% / 100% 100% no-repeat;
+  animation: ccSparks 3s linear infinite; mix-blend-mode: screen; }
+.pcard.cc.t-mitico { --cut: 16px; --bw: 5px; --metal: conic-gradient(from var(--ring), #ff4f8b, #ffd23f, #4fffb0, #4fb3ff, #b36bff, #ff4f8b); --glow: #ff4f8b99; --orn: #fff; --og: "\2726"; --sp1: #ffd8f0; --sp2: #b0e8ff; }
+.pcard.cc.t-mitico .cc-frame { animation: leyRing 5s linear infinite; }
+.pcard.cc.t-mitico .cc-orn { display: grid; font-size: 13px; }
+.pcard.cc.t-mitico .cc-foil { background: linear-gradient(125deg, #ff4f8b, #ffd23f, #4fffb0, #4fb3ff, #b36bff, #ff4f8b); background-size: 300% 300%; mix-blend-mode: color-dodge; opacity: .22; animation: ccFoil 5s linear infinite; }
+.pcard.cc.t-mitico .cc-sweep { animation: ccSweep 3.6s ease-in-out infinite; }
+.pcard.cc.t-leyenda { --cut: 18px; --bw: 6px; --metal: conic-gradient(from var(--ring), #fff6c8, #ffb020, #ffffff, #ff9ad8, #fff6c8, #9ad8ff, #fff6c8); --glow: #ffe27acc; --orn: #fff6c8; --og: "\265B"; --sp1: #ffffff; --sp2: #ffe27a; }
+.pcard.cc.t-leyenda .cc-frame { animation: leyRing 3.5s linear infinite; }
+.pcard.cc.t-leyenda .cc-orn { display: grid; font-size: 14px; }
+.pcard.cc.t-leyenda .cc-face { background: radial-gradient(circle, #ffffff55 0 1px, transparent 1.5px) 0 0 / 30px 26px, linear-gradient(180deg, #3a2a50, #120a24 70%); }
+.pcard.cc.t-leyenda .cc-foil { background: linear-gradient(120deg, transparent 10%, #ffe27a33 30%, #ff9ad833 45%, #9ad8ff33 60%, transparent 80%); background-size: 300% 300%; mix-blend-mode: screen; animation: ccFoil 4s linear infinite; }
+.pcard.cc.t-leyenda .cc-sweep { animation: ccSweep 3s ease-in-out infinite; }
+.pcard.cc.t-leyenda .cc-name span { background: linear-gradient(90deg, transparent, #b0802a 12%, #6a3a9a 88%, transparent); }
+.pcard.cc.t-heroe { --cut: 18px; --bw: 6px; --metal: conic-gradient(from var(--ring), #ffd21f, #ff5a1a, #b0101a, #ff9a2a, #fff2b0, #ff5a1a, #ffd21f); --glow: #ff6a2acc; --orn: #ffd27a; --og: "\2738"; --sp1: #ffd27a; --sp2: #ff6a2a; }
+.pcard.cc.t-heroe .cc-frame { animation: leyRing 2.6s linear infinite; }
+.pcard.cc.t-heroe .cc-orn { display: grid; font-size: 13px; }
+.pcard.cc.t-heroe .cc-face { background: radial-gradient(120% 60% at 50% 0%, #6a1410, #2a0810 60%, #12040a); }
+.pcard.cc.t-heroe .cc-foil { background: linear-gradient(0deg, #ff5a1a44, transparent 40%), linear-gradient(120deg, transparent 20%, #ffb02a33 45%, transparent 70%); background-size: 100% 100%, 300% 300%; mix-blend-mode: screen; animation: ccFoil 4s linear infinite; }
+.pcard.cc.t-heroe .cc-sweep { animation: ccSweep 3s ease-in-out infinite; }
+.pcard.cc.t-heroe .cc-name span { background: linear-gradient(90deg, transparent, #b0101a 12%, #ff7a1a 88%, transparent); }
+.pcard.cc.locked { --metal: linear-gradient(160deg, #3a4a6a, #1a2440) !important; --glow: transparent; filter: drop-shadow(0 4px 6px #0008) saturate(.4); }
+.pcard.cc.locked .cc-foil, .pcard.cc.locked .cc-sweep, .pcard.cc.locked .cc-sparks, .pcard.cc.locked .cc-orn { display: none !important; }
+.pcard.cc.cc.cc.sel { filter: drop-shadow(0 0 6px var(--orange)) drop-shadow(0 0 12px var(--orange)); }
+@keyframes ccSweep { 0%, 55% { background-position: 150% 0; opacity: 0; } 60% { opacity: 1; } 85% { background-position: -60% 0; opacity: 1; } 100% { background-position: -60% 0; opacity: 0; } }
+@keyframes ccFoil { 0% { background-position: 0% 50%; } 100% { background-position: 300% 50%; } }
+@keyframes ccMetal { from { background-position: 0% 0%; } to { background-position: 100% 100%; } }
+@keyframes ccSparks { 0% { background-position: 18% 105%, 46% 112%, 72% 104%, 88% 110%; opacity: 0; } 15% { opacity: 1; } 100% { background-position: 21% -12%, 43% -22%, 75% -15%, 85% -28%; opacity: 0; } }
+.pcard.cc:not(.locked):hover .cc-art .mug { transform: scale(1.07) translateY(-2px); }
+.pcard.cc:not(.locked):hover .cc-sweep { animation-duration: 1.4s; }
+/* «.still» repaints switch animations off: the card loops are turned back on */
+.still .pcard.cc.t-raro .cc-sweep, .still .pcard.cc.t-epico .cc-sweep, .still .pcard.cc.t-legendario .cc-sweep, .still .pcard.cc.t-mitico .cc-sweep, .still .pcard.cc.t-leyenda .cc-sweep, .still .pcard.cc.t-heroe .cc-sweep { animation-name: ccSweep !important; }
+.still .pcard.cc.t-epico .cc-foil, .still .pcard.cc.t-mitico .cc-foil, .still .pcard.cc.t-leyenda .cc-foil, .still .pcard.cc.t-heroe .cc-foil { animation-name: ccFoil !important; }
+.still .pcard.cc.t-legendario .cc-sparks, .still .pcard.cc.t-mitico .cc-sparks, .still .pcard.cc.t-leyenda .cc-sparks, .still .pcard.cc.t-heroe .cc-sparks { animation-name: ccSparks !important; }
+.still .pcard.cc.t-mitico .cc-frame, .still .pcard.cc.t-leyenda .cc-frame, .still .pcard.cc.t-heroe .cc-frame { animation-name: leyRing !important; }
+.still .pcard.cc.t-legendario .cc-frame { animation-name: ccMetal !important; }
+.still .pcard.cc .cc-rays { animation-name: ccRays !important; }
+body.reduced-motion .pcard.cc *, body.reduced-motion .pcard.cc .cc-frame { animation: none !important; }
+
+/* Fix 1.32 card polish: badges centred at the top, gentler glare, a portrait that fits, thicker frames */
+.pcard.cc .pc-top { left: 50%; top: 10px; transform: translateX(-50%); align-items: center; }
+.pcard.cc .pc-top .badge, .pcard.cc .pc-top .captain-badge { font-size: 7px; padding: 2px 6px; box-shadow: 0 2px 0 #0006; }
+.pcard.cc .pc-glare { mix-blend-mode: overlay; }
+.pcard.cc:not(.locked):hover .pc-glare { opacity: .55; }
+.pcard.cc .cc-art .mug { max-height: none; margin-bottom: 16px; }
+.pcard.cc .card-dup.can-asc { background: linear-gradient(180deg, #fff2b0, #ffb02a); color: #3a1200; border-color: #fff2b0; box-shadow: 0 0 8px #ffb02a; animation: ascPing 1.6s ease-in-out infinite; }
+.still .pcard.cc .card-dup.can-asc { animation-name: ascPing !important; }
+.pcard.cc.t-comun { --bw: 4px; } .pcard.cc.t-raro { --bw: 5px; } .pcard.cc.t-epico { --bw: 5px; } .pcard.cc.t-legendario { --bw: 7px; } .pcard.cc.t-mitico { --bw: 7px; } .pcard.cc.t-leyenda { --bw: 8px; } .pcard.cc.t-heroe { --bw: 8px; }
+.pcard.cc .cc-face { outline: 1px solid #0009; outline-offset: -1px; }
+.pcard.cc .cc-orn { width: 20px; height: 20px; font-size: 14px !important; }
+.pcard.cc.t-leyenda .cc-orn, .pcard.cc.t-heroe .cc-orn { font-size: 16px !important; }
+.pcard.cc .lock-tag { display: none; }
+
+/* Fix 1.32: combined techniques in Mi Equipo */
+.cb-title { margin: 12px 0 6px; font-size: 11px; }
+.cb-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 8px; }
+.cb-card { display: flex; align-items: center; gap: 10px; padding: 8px 10px; background: #0a1d48; border: 2px solid #ffffff22; border-left: 5px solid var(--ec); opacity: .85; }
+.cb-card.ready { opacity: 1; border-color: var(--ec); box-shadow: 0 0 14px color-mix(in srgb, var(--ec) 50%, transparent); animation: cbReady 1.8s ease-in-out infinite alternate; }
+@keyframes cbReady { to { box-shadow: 0 0 22px color-mix(in srgb, var(--ec) 75%, transparent); } }
+.still .cb-card.ready { animation-name: cbReady !important; }
+.cb-team { display: flex; align-items: center; gap: 2px; flex: none; }
+.cb-who { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.cb-who .mug { border: 2px solid var(--ec); background-color: #06102b; }
+.cb-who small { font-size: 7px; color: #cfd8f0; }
+.cb-who.miss { filter: grayscale(1) brightness(.55); }
+.cb-link { font-style: normal; font-size: 16px; font-family: 'Segoe UI Emoji', 'Apple Color Emoji', 'Noto Color Emoji', sans-serif; animation: cbLink 1.2s ease-in-out infinite alternate; }
+@keyframes cbLink { to { transform: scale(1.2); filter: drop-shadow(0 0 4px var(--ec)); } }
+.still .cb-link { animation-name: cbLink !important; }
+.cb-info { display: flex; flex-direction: column; gap: 4px; min-width: 0; } .cb-info b { font-size: 10px; color: var(--ec); } .cb-info small { font-size: 8px; color: var(--muted); line-height: 1.5; }
+.sq-combo { font-size: 7px; padding: 2px 5px; background: #ffe27a; color: #3a2004; box-shadow: 0 0 8px #ffe27a; font-family: 'Segoe UI Emoji', var(--px); }
+/* Fix 1.32: the card of a gacha reveal goes above the cinematic layers (it looked washed out under the stage) */
+.reveal .reveal-card { z-index: 20; }
+.pcard.cc .cc-orn.tl { left: calc(var(--cut) * .55 - 9px); top: calc(var(--cut) * .55 - 9px); } .pcard.cc .cc-orn.tr { right: calc(var(--cut) * .55 - 9px); top: calc(var(--cut) * .55 - 9px); }
+.pcard.cc .cc-orn.bl { left: calc(var(--cut) * .55 - 9px); bottom: calc(var(--cut) * .55 - 9px); } .pcard.cc .cc-orn.br { right: calc(var(--cut) * .55 - 9px); bottom: calc(var(--cut) * .55 - 9px); }
