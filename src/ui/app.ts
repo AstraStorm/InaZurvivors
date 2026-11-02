@@ -1676,12 +1676,16 @@ export class App {
       const p = squad[i];
       const editing = i === this.squadSlot ? ' editing' : '';
       if (!p) return `<button class="sq-slot empty${editing}" data-slot="${i}"><span class="sq-plus">+</span><small>${i === 0 ? 'Capitán' : 'Plaza libre'}</small><em>Arrastra aquí</em></button>`;
-      // Fix 1.32: the slot holds the collectible card itself; it can be picked up and moved (pointer drag, squadDrag)
-      return `<div class="sq-slot cardslot${editing}${i === 0 ? ' cap' : ''}${this.squadLanded === i ? ' landed' : ''}" data-slot="${i}" data-drag="${p.id}">
-        ${i === 0 ? '<span class="sq-cap">C · CAPITÁN</span>' : `<button class="sq-act" data-captain="${p.id}" title="Hacer capitán">★</button>`}
+      // Fix 1.32 (author's choice): the slot keeps its radar and techniques, in a frame of its rarity, and can be dragged
+      const er = effectiveRarity(this.save, p), st = p.stats ? this.statsOf(p)! : null;
+      return `<div class="sq-slot rs-${isHero(this.save, p.id) ? 'heroe' : er}${editing}${i === 0 ? ' cap' : ''}${isHero(this.save, p.id) ? ' hero' : ''}${this.squadLanded === i ? ' landed' : ''}" data-slot="${i}" data-drag="${p.id}" style="--rc:${RARITY_COLOR[er]};--ec:${ELEMENT_COLOR[String(p.element)] ?? '#8a9bbd'}">
+        ${i === 0 ? '<span class="captain-badge">C</span>' : `<button class="sq-act" data-captain="${p.id}" title="Hacer capitán">★</button>`}
         <button class="sq-act x" data-remove="${p.id}" title="Quitar">✕</button>
-        ${this.pcard(p, { anim: 12 })}
-        ${comboOf.get(p.name) ? `<span class="sq-combo" title="Técnica combinada: ${esc(comboOf.get(p.name)!)}">🔗 ${esc(comboOf.get(p.name)!)}</span>` : ''}</div>`;
+        <div class="sq-mug">${this.mug(p.id, 64)}</div><b>${esc(p.name)}</b>
+        <div class="chips"><span class="pos">${POS_LABEL[p.position] ?? p.position}</span>${this.elem(p)}</div>${this.rar(p)}
+        ${comboOf.get(p.name) ? `<span class="sq-combo" title="Técnica combinada: ${esc(comboOf.get(p.name)!)}">🔗 ${esc(comboOf.get(p.name)!)}</span>` : ''}
+        ${st ? `<div class="sq-radar"><span class="ovr">${statMean(st)}</span>${statRadar(st, STAT_SHORT, RARITY_COLOR[er])}</div>` : ''}
+        <div class="sq-techs">${p.techniques.slice(0, 4).map((t) => `<span title="${esc(t.name)}">${this.icon(ICON.manual[t.type], 1)}${esc(t.name)}</span>`).join('')}</div></div>`;
     }).join('');
     this.show(`<div class="screen">${this.titlebar('Mi Equipo', 'Menú')}
       ${this.squadSynergyPanel(squad)}

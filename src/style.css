@@ -1931,3 +1931,20 @@ body.reduced-motion .pcard.cc *, body.reduced-motion .pcard.cc .cc-frame { anima
 .pcard.cc.t-comun .cc-name span { background: #0a1022cc; transform: none; }
 .pcard.cc.t-comun .cc-face { background: #0d1428; }
 .pcard.cc.t-comun.t-comun.t-comun { filter: drop-shadow(0 4px 6px #0008); }
+
+/* Fix 1.32: Mi Equipo slots back to radar + techniques (author's choice), framed by rarity, still draggable */
+.squad-row { padding-top: 14px; }
+.sq-slot[data-drag] { cursor: grab; border: 3px solid var(--rc); background: linear-gradient(180deg, color-mix(in srgb, var(--rc) 22%, #0c1a3a), #081230 75%);
+  box-shadow: inset 0 0 16px color-mix(in srgb, var(--rc) 30%, transparent), 0 4px 10px #0008; overflow: visible; }
+.sq-slot[data-drag] .sq-mug { padding: 4px; border-radius: 50%; background: radial-gradient(circle, color-mix(in srgb, var(--ec) 70%, #fff 20%), color-mix(in srgb, var(--ec) 35%, #000) 70%);
+  box-shadow: 0 0 0 2px var(--rc), 0 0 12px color-mix(in srgb, var(--rc) 60%, transparent); line-height: 0; }
+.sq-slot[data-drag] .sq-mug .mug { border-radius: 50%; }
+.sq-slot.rs-epico { box-shadow: inset 0 0 18px #b36bff55, 0 0 12px #b36bff55, 0 4px 10px #0008; }
+.sq-slot.rs-legendario { border-color: #ffd23f; box-shadow: inset 0 0 20px #ffb02a55, 0 0 14px #ffb02a77, 0 4px 10px #0008; }
+.sq-slot.rs-mitico { border-image: linear-gradient(160deg, #ff4f8b, #ffd23f, #4fffb0, #4fb3ff, #b36bff) 1; box-shadow: inset 0 0 20px #ff4f8b44, 0 0 14px #ff4f8b66, 0 4px 10px #0008; }
+.sq-slot.rs-leyenda { border-image: linear-gradient(160deg, #fff6c8, #ffb020, #fff, #ff9ad8, #9ad8ff) 1; background: radial-gradient(circle, #ffffff33 0 1px, transparent 1.5px) 0 0 / 26px 22px, linear-gradient(180deg, #3a2a50, #120a24 75%); }
+.sq-slot.rs-heroe { border-color: #ffd21f; background: radial-gradient(120% 60% at 50% 0%, #6a1410, #2a0810 60%, #12040a); box-shadow: 0 0 16px #ff8a2a88, inset 0 0 16px #ff6a2a55; }
+.sq-slot[data-drag] .captain-badge { top: 4px; left: 4px; }
+.sq-slot[data-drag] .sq-act { position: absolute; top: 4px; }
+.sq-slot.landed { animation: cardLand .45s cubic-bezier(.2,1.6,.4,1); }
+.sq-slot.drop[data-drag] { transform: scale(.95); opacity: .7; }
