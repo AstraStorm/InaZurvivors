@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import type { Manifest, MapInfo, RosterEntry, Technique, UnitInfo } from '../data/manifest';
 import { Footballer, bodyKey, headKey } from './Footballer';
 import { skinnedTexture } from './skin';
-import { analogMove, firstPad } from './controls';
+import { analogMove, firstPad, heldKeys } from './controls';
 import { masteryDamage, resonanceBonus } from '../systems/mastery';
 import { directionFromVector, frameAt } from './rig';
 import { Arena } from './MapBuilder';
@@ -150,7 +150,6 @@ export class ArenaScene extends Phaser.Scene {
   private projectiles: Projectile[] = [];
   private pickups: Pickup[] = [];
   private trail: { x: number; y: number }[] = [];
-  private keys!: Record<string, Phaser.Input.Keyboard.Key>;
   private hp = 100;
   private maxHp = 100;
   private xp = 0;
@@ -304,7 +303,7 @@ export class ArenaScene extends Phaser.Scene {
     this.cameras.main.startFollow(this.members[0].f.container, true, 0.09, 0.09).setDeadzone(18, 14);
     this.arena.updateFlow(sp.x, sp.y);
     const kb = this.input.keyboard!;
-    this.keys = kb.addKeys('W,A,S,D,UP,DOWN,LEFT,RIGHT,ESC,P,ONE,TWO,THREE') as Record<string, Phaser.Input.Keyboard.Key>;
+    kb.addKeys('W,A,S,D,UP,DOWN,LEFT,RIGHT,ESC,P,ONE,TWO,THREE'); // captured so the arrows never scroll the page; movement reads heldKeys
     kb.on('keydown-ESC', () => this.requestPause());
     kb.on('keydown-P', () => this.requestPause());
     // a key still held after choosing a card repeats: only a fresh press changes the formation
@@ -381,8 +380,8 @@ export class ArenaScene extends Phaser.Scene {
   /** «Pizarra avanzada» strengthens what the active formation is about */
   private formationTactic() {
     const lv = this.cfg.perks.tactic;
-    return { damage: this.formation === 'ofensiva' ? 1 + 0.015 * lv : 1, taken: this.formation === 'defensiva' ? 1 - 0.015 * lv : 1,
-      combo: this.formation === 'equilibrada' ? 1 + 0.03 * lv : 1 };
+    return { damage: this.formation === 'ofensiva' ? 1 + 0.01 * lv : 1, taken: this.formation === 'defensiva' ? 1 - 0.01 * lv : 1,
+      combo: this.formation === 'equilibrada' ? 1 + 0.02 * lv : 1 };
   }
   /** effective pickup radius (px): permanent upgrade and cards add their percentages, capped (balance.ts) */
   pickupRange() { return pickupRadius(this.members.length, [this.cfg.perks.magnetMult - 1, this.mods.pickup - 1]); }
@@ -530,12 +529,12 @@ export class ArenaScene extends Phaser.Scene {
   }
 
   private moveTeam(dt: number) {
-    const k = this.keys;
     const scheme = this.cfg.settings.moveKeys;
     const letters = scheme !== 'flechas', arrows = scheme !== 'wasd';
-    const held = (a: Phaser.Input.Keyboard.Key, b: Phaser.Input.Keyboard.Key) => ((letters && a.isDown) || (arrows && b.isDown) ? 1 : 0);
-    let dx = held(k.D, k.RIGHT) - held(k.A, k.LEFT);
-    let dy = held(k.S, k.DOWN) - held(k.W, k.UP);
+    // what the hand holds right now, also through a pause (heldKeys in controls.ts)
+    const held = (a: string, b: string) => ((letters && heldKeys.has(a)) || (arrows && heldKeys.has(b)) ? 1 : 0);
+    let dx = held('d', 'arrowright') - held('a', 'arrowleft');
+    let dy = held('s', 'arrowdown') - held('w', 'arrowup');
     const [ax, ay] = analogMove();
     if (!dx && !dy) { dx = ax; dy = ay; } // analog keeps its partial speed, keys are always full
     const len = Math.max(1, Math.hypot(dx, dy));

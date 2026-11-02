@@ -42,6 +42,7 @@ import { epochOf, freshProgress, resetSummary } from '../systems/resetProgress';
 import { localBoard, recordBest } from '../systems/leaderboard';
 import { coachRequirement, emblemUnlocked, iconAllowed, DEFAULT_EMBLEM } from '../systems/profileUnlocks';
 import { INTRO } from './cinematics';
+import { SIGNATURE } from '../data/signatures';
 import { bindStick, initGamepad } from './gamepad';
 import { confetti, countUp, flyTo } from './rewardFx';
 import { MASTERY_BONUS, MASTERY_USES, masteryLevel, masteryProgress, recordMastery } from '../systems/mastery';
@@ -77,6 +78,17 @@ const NEWS_KEY = `publico-${PUBLIC_VERSION}`;
 const STAT_SHORT: Record<string, string> = { kick: 'TIR', body: 'FÍS', guard: 'DEF', control: 'CON', speed: 'VEL', guts: 'AGA', stamina: 'AGU' };
 /** Mean of a footballer's stats, rounded: the number shown on the cards. */
 export const statMean = (stats: Record<string, number>) => { const v = Object.values(stats); return v.length ? Math.round(v.reduce((a, b) => a + b, 0) / v.length) : 0; };
+/** Fix 1.22: the pixel football of the matches (makeFxTextures in fx.ts), as a data URL for the gacha scene. */
+let ballUrl = '';
+export function footballUrl() {
+  if (ballUrl) return ballUrl;
+  const rows = ['....####....', '..##wwww##..', '.#wwwwwwww#.', '.#ww##www#w#', '#ww####wwww#', '#www##wwww##', '#wwwwwww####', '##wwwwwww##w', '.#w##wwwwww#', '.##www##ww#.', '..##ww##w#..', '....####....'];
+  const c = document.createElement('canvas'); c.width = c.height = 12;
+  const g = c.getContext('2d')!;
+  rows.forEach((row, y) => [...row].forEach((ch, x) => { if (ch !== '.') { g.fillStyle = ch === '#' ? '#202020' : '#ffffff'; g.fillRect(x, y, 1, 1); } }));
+  g.fillStyle = '#d8d8e8'; g.fillRect(3, 9, 2, 1); g.fillRect(8, 2, 2, 1);
+  return (ballUrl = c.toDataURL());
+}
 /** Fix 1.13: the stats as a radar, the usual polygon of the games (one corner per stat, 0-100 scale, guides every 25). */
 export function statRadar(stats: Record<string, number>, names: Record<string, string>, color: string) {
   const keys = Object.keys(stats), n = keys.length, R = 62, cx = 100, cy = 84;
@@ -2024,11 +2036,21 @@ export class App {
         const stage = document.createElement('div');
         stage.className = 'cr-stage';
         stage.innerHTML = `<div class="cr-bg"></div><div class="cr-floor"></div>${p.rarity === 'leyenda' ? '<div class="cr-spot"></div><div class="cr-crown">♛</div>' : ''}
-          <div class="cr-runner"><div class="cr-aura"></div>${charCanvas(p.id, 4, 10, 'cr-sil')}</div><div class="cr-ball"></div><div class="cr-mug">${this.mug(p.id, 128)}</div>`;
+          <div class="cr-runner"><div class="cr-aura"></div>${charCanvas(p.id, 4, 10, 'cr-sil')}</div>${['', ' ghost g1', ' ghost g2', ' ghost g3'].map((g) => `<div class="cr-ball${g}"><i style="background-image:url(${footballUrl()})"></i></div>`).join('')}<div class="cr-hand">✋</div>
+          <div class="cr-burst"></div><div class="cr-flash"></div><div class="cr-mug"><div class="cr-halo"></div>${this.mug(p.id, 128)}</div>`;
+        // the footballer's own technique: a goalkeeper stops the ball, a shooter kicks it, a dribbler or defender charges
+        const actives = p.techniques.filter((t) => t.type !== 'talento');
+        const best = (type: string) => actives.filter((t) => t.type === type).sort((x, y) => y.power - x.power)[0];
+        const shot = actives.find((t) => t.name === SIGNATURE[p.name]) ?? (p.position === 'GK' ? best('parada') : best('tiro')) ?? actives[0];
+        const act = shot?.type === 'parada' ? 'parada' : shot?.type === 'regate' || shot?.type === 'defensa' ? 'carga' : 'tiro';
+        const ec = ELEMENT_COLOR[String(shot?.element ?? p.element)] ?? RARITY_COLOR[p.rarity];
+        stage.style.setProperty('--ec', ec);
+        if (shot) stage.insertAdjacentHTML('beforeend', `<div class="cr-cutin"><div class="ci-band"><span class="ci-mug">${this.mug(p.id, 64)}</span><span class="ci-text"><b>¡${esc(shot.name.toUpperCase())}!</b><small>${esc(p.name)}</small></span></div></div>`);
         ov.insertBefore(stage, ov.firstChild);
         mountPreviews();
         const runner = stage.querySelector('.cr-runner') as HTMLElement, sprite = stage.querySelector('canvas.char') as HTMLCanvasElement;
-        const ball = stage.querySelector('.cr-ball') as HTMLElement;
+        const balls = [...stage.querySelectorAll('.cr-ball')] as HTMLElement[];
+        const ball = balls[0];
         if (img) { img.classList.add('cr-cap'); img.style.setProperty('--glow', RARITY_COLOR[p.rarity]); frame('spin0'); }
         const T = { legendario: { walk: 1100, pose: 350, hold: 0 }, mitico: { walk: 1200, pose: 650, hold: 0 }, leyenda: { walk: 1500, pose: 500, hold: 1000 } }[p.rarity as 'legendario']!;
         if (p.rarity === 'leyenda') { sfx('whoosh'); await pause(700); } // the spotlight and the crown come first
@@ -2040,12 +2062,30 @@ export class App {
         stage.classList.add('pose');
         if (p.rarity === 'mitico') { for (let b = 0; b < 3 && !skipAnim; b++) { sfx('click'); await pause(T.pose / 3); } } else await pause(T.pose);
         if (T.hold) { stage.classList.add('hold'); await pause(T.hold); stage.classList.remove('hold'); } // the dramatic pause of Leyenda
-        ball.classList.add('in'); await pause(220);
-        sprite.dataset.anim = '18'; // the kick
-        sfx('kick');
-        await pause(160);
-        ball.classList.add('shot');
-        await pause(380);
+        if (act !== 'parada') { ball.classList.add('in'); await pause(220); }
+        // the name of the technique crosses the screen, as when a supertechnique is used in a match
+        if (shot) { stage.classList.add('cutin'); sfx('whoosh'); await pause(p.rarity === 'leyenda' ? 950 : 800); stage.classList.remove('cutin'); stage.classList.add('cutout'); }
+        if (act === 'parada') {
+          // the capsule fires the ball at the goalkeeper, who stops it with the technique's hand; the stop breaks it open
+          sfx('kick');
+          for (const b of balls) b.classList.add('save');
+          await pause(420);
+          for (const b of balls) b.classList.add('caught');
+          stage.classList.add('catch'); sfx('hit');
+          await pause(520);
+        } else if (act === 'carga') {
+          sprite.dataset.anim = '10'; // a burst run with the ball at the feet, straight into the capsule
+          sfx('sweep');
+          runner.style.transition = 'transform .34s cubic-bezier(.5,0,.9,.6)';
+          runner.classList.add('dash'); for (const b of balls) b.classList.add('dash');
+          await pause(340);
+        } else {
+          sprite.dataset.anim = '18'; // the kick
+          sfx('kick');
+          await pause(160);
+          for (const b of balls) b.classList.add('shot');
+          await pause(380);
+        }
         // the capsule breaks open
         sfx('boom');
         if (this.save.settings.shake > 0 && p.rarity !== 'legendario') ov.classList.add('quake');
@@ -2054,7 +2094,8 @@ export class App {
         sprite.classList.remove('cr-sil'); // the silhouette shows who it is
         sprite.dataset.anim = '12';
         ov.classList.remove('quake');
-        await pause(p.rarity === 'leyenda' ? 700 : 450);
+        await pause(p.rarity === 'leyenda' ? 1100 : 850); // the bodyshot rises out of the flash and holds a moment
+        stage.classList.add('to-card'); // ...then it hands over to the card, crossfading (no cut)
       };
       const seq = async () => {
         if (special) await cine();
@@ -2103,7 +2144,7 @@ export class App {
           ${this.pcard(p, { anim: 12, big: true })}<div class="${r.isNew ? 'newtag' : 'stars'}">${r.isNew ? '¡NUEVO FICHAJE!' : r.refund ? `Al máximo: +${r.refund} monedas` : `Duplicado · ${'★'.repeat(r.stars)}`}</div>
           <button class="btn big">${multi ? 'Siguiente ▶' : 'Aceptar'}</button>`;
         ov.appendChild(card);
-        ov.classList.add('carded'); // Fix 1.22: the scene steps back behind the card
+        if (special) card.classList.add('from-scene');
         mountPreviews();
         card.querySelector('.btn')!.addEventListener('click', () => finish(false));
       };

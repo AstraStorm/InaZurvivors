@@ -42,7 +42,7 @@ export const PERKS: PerkDef[] = [
   P('botiquin', 'Supervivencia', 'Botiquín', '+12% curación de bolas de arroz y chocolate por nivel (máx. +48%)', 4, 200, 130),
   P('inicio', 'Progresión', 'Ventaja inicial', 'Empiezas la partida con un 20% de la experiencia del primer nivel por nivel (máx. 80%)', 4, 240, 160),
   P('raros', 'Progresión', 'Ojo para lo raro', '+4% probabilidad de objetos especiales (Revivir, Barrera, cofres...) por nivel (máx. +16%)', 4, 260, 170),
-  P('tactica', 'Equipo', 'Pizarra avanzada', 'Potencia la formación activa por nivel: ofensiva +1,5% daño, equilibrada +3% combinadas, defensiva -1,5% daño recibido (máx. 5)', 5, 280, 180),
+  P('tactica', 'Equipo', 'Pizarra avanzada', 'Potencia la formación activa por nivel: ofensiva +1% daño, equilibrada +2% combinadas, defensiva -1% daño recibido (máx. 5)', 5, 280, 180),
 ];
 /** Fix 1.11: every upgrade costs half as much again, so coins keep their value over many runs */
 export const PERK_PRICE = 1.5;

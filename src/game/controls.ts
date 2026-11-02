@@ -1,6 +1,17 @@
 /** Analog input shared by touch stick and gamepad; the scene reads it alongside the keyboard. */
 export const touchStick = { x: 0, y: 0 };
 
+/**
+ * Fix 1.22: the movement keys physically held, tracked on the window. A paused scene (level-up, chest, pause menu)
+ * loses Phaser's key state, so a key kept pressed through the level-up cards stopped counting until pressed again.
+ */
+export const heldKeys = new Set<string>();
+if (typeof window !== 'undefined') {
+  window.addEventListener('keydown', (e) => heldKeys.add(e.key.toLowerCase()), true);
+  window.addEventListener('keyup', (e) => heldKeys.delete(e.key.toLowerCase()), true);
+  window.addEventListener('blur', () => heldKeys.clear());
+}
+
 const DEAD = 0.22;
 
 export const firstPad = () => (navigator.getGamepads?.() ?? []).find((p): p is Gamepad => !!p && p.connected);

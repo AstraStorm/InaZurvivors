@@ -446,7 +446,8 @@ h3.saga { color: var(--orange-2); font-size: 11px; margin: 14px 0 6px; font-weig
 /* v2.5 */
 #ui { zoom: var(--ui-scale, 1); }
 #ui.run-mode, #ui.menu-mode { zoom: var(--ui-scale, 1); }
-.still *, .still *::before, .still *::after { animation-name: none !important; }
+/* Fix 1.22: never inside the gacha reveal, which is an overlay with its own timeline */
+.still > :not(.reveal), .still > :not(.reveal) *, .still > :not(.reveal) *::before, .still > :not(.reveal) *::after { animation-name: none !important; }
 .still .pcard.r-legendario, .still .pcard.r-mitico, .still .pcard.r-leyenda { animation-name: inherit; }
 .tokens { color: #8fe8ff; background: #000a; border: 2px solid #4fd8ff; padding: 6px 12px; clip-path: var(--cut); white-space: nowrap; }
 .tokens::before, .st-tokens::before { content: ''; display: inline-block; width: 1.25em; height: 1.25em; margin-right: .35em; vertical-align: -.25em; background: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A//www.w3.org/2000/svg%27%20viewBox%3D%270%200%2024%2024%27%3E%3Ccircle%20cx%3D%2712%27%20cy%3D%2712%27%20r%3D%2711%27%20fill%3D%27%231a6ad8%27%20stroke%3D%27%230a1d48%27%20stroke-width%3D%271.5%27/%3E%3Ccircle%20cx%3D%2712%27%20cy%3D%2712%27%20r%3D%278.2%27%20fill%3D%27%23ffd21f%27%20stroke%3D%27%23a86a00%27%20stroke-width%3D%271.2%27/%3E%3Cpath%20d%3D%27M13.5%205%208%2013h3.4l-1.4%206%205.6-8.4h-3.4z%27%20fill%3D%27%23fff%27%20stroke%3D%27%237a3d00%27%20stroke-width%3D%27.8%27%20stroke-linejoin%3D%27round%27/%3E%3C/svg%3E") center / contain no-repeat; }
@@ -1441,3 +1442,94 @@ body.reduced-motion .cr-runner { transition: none !important; } body.reduced-mot
 
 .reveal.carded .cr-mug { opacity: 0 !important; transition: opacity .25s; } .reveal.carded .cr-stage { opacity: .45; transition: opacity .3s; }
 .reveal.cine .cr-crown { z-index: 3; }
+
+/* Fix 1.22 (2): balón de verdad y revelación encadenada sin cortes: estallido → destello → el busto sube de la luz →
+   se funde con la carta, que entra mientras el busto se aparta */
+.cr-ball { background: center / contain no-repeat; image-rendering: pixelated; box-shadow: none !important; border-radius: 0; width: 30px; height: 30px; }
+.cr-ball.shot { animation: crBallSpin .38s linear; filter: drop-shadow(-14px 0 6px var(--trail, #fff8)) drop-shadow(-28px 0 8px var(--trail, #fff5)); }
+@keyframes crBallSpin { to { rotate: 900deg; } }
+.cine-legendario .cr-ball { --trail: #ffd24fcc; } .cine-mitico .cr-ball { --trail: #ff4f8bcc; } .cine-leyenda .cr-ball { --trail: #fff6c8; }
+.cr-burst { position: absolute; inset: 0; opacity: 0; transition: opacity .7s ease-out; z-index: 0; }
+.cine-legendario .cr-burst { background: radial-gradient(circle at 50% 42%, #ffe9a0aa, #ffb02033 40%, transparent 70%); }
+.cine-mitico .cr-burst { background: conic-gradient(from 0deg at 50% 42%, #ff4f8b88, #ffd23f88, #4fffb088, #4fb3ff88, #b36bff88, #ff4f8b88); }
+.cine-leyenda .cr-burst { background: conic-gradient(from 0deg at 50% 42%, #fff6c8aa, #ffb02088, #ffffffaa, #ff7a1a88, #fff6c8aa); }
+.cr-stage.open .cr-burst { opacity: 1; }
+.cine-mitico .cr-stage.open .cr-bg, .cine-leyenda .cr-stage.open .cr-bg { background: inherit; animation: none; opacity: 1; } /* the burst layer fades in instead */
+.cr-flash { position: absolute; inset: 0; background: radial-gradient(circle at 50% 42%, #fff, #ffffff00 55%); opacity: 0; z-index: 5; }
+.cr-stage.open .cr-flash { animation: crFlash .55s ease-out; }
+@keyframes crFlash { 0% { opacity: 0; } 18% { opacity: .95; } 100% { opacity: 0; } }
+.cr-mug { transition: none; transform: translate(-50%, 0) scale(.3); opacity: 0; filter: blur(6px); }
+.cr-stage.open .cr-mug { animation: crMugIn .75s cubic-bezier(.2,.9,.3,1.15) .12s forwards; }
+@keyframes crMugIn { 0% { opacity: 0; transform: translate(-50%, 30px) scale(.3); filter: blur(6px) brightness(3); } 60% { opacity: 1; filter: blur(0) brightness(1.4); } 100% { opacity: 1; transform: translate(-50%, 0) scale(1); filter: none; } }
+.cr-halo { position: absolute; left: 50%; top: 50%; width: 210px; height: 210px; margin: -105px 0 0 -105px; border-radius: 50%; z-index: -1; opacity: .85;
+  background: conic-gradient(from 0deg, transparent, var(--halo, #fff) 10%, transparent 25%, var(--halo, #fff) 50%, transparent 65%, var(--halo, #fff) 85%, transparent); animation: crSpinHalo 3s linear infinite; filter: blur(2px); }
+@keyframes crSpinHalo { to { rotate: 360deg; } }
+.cine-legendario .cr-halo { --halo: #ffd24f; } .cine-mitico .cr-halo { --halo: #ff4f8b; } .cine-leyenda .cr-halo { --halo: #fff6c8; width: 260px; height: 260px; margin: -130px 0 0 -130px; }
+/* hand-over: the bodyshot shrinks and fades while the card comes in, overlapping */
+.cr-stage.to-card .cr-mug { animation: crMugOut .5s ease-in forwards; }
+@keyframes crMugOut { from { opacity: 1; transform: translate(-50%, 0) scale(1); } to { opacity: 0; transform: translate(-50%, 50px) scale(.6); } }
+.cr-stage.to-card { opacity: .5; transition: opacity .6s ease; }
+.reveal-card.from-scene { animation: crCardIn .6s cubic-bezier(.2,.9,.3,1.1) .18s both; }
+@keyframes crCardIn { from { opacity: 0; transform: translateY(40px) scale(.9); filter: brightness(2); } to { opacity: 1; transform: none; filter: none; } }
+body.reduced-motion .cr-halo, body.reduced-motion .cr-ball.shot { animation: none !important; }
+/* Fix 1.22 (3): no spinning cone behind the bodyshot nor pinwheel behind the scene (they read as a strange circle):
+   a soft glow that breathes, and radial light in the rarity's colours */
+.cr-halo { background: radial-gradient(circle, var(--halo, #fff) 0%, color-mix(in srgb, var(--halo, #fff) 45%, transparent) 35%, transparent 70%) !important;
+  animation: crHaloBreath 1.6s ease-in-out infinite alternate !important; filter: blur(4px); opacity: .7; rotate: none; }
+@keyframes crHaloBreath { from { transform: scale(.92); opacity: .55; } to { transform: scale(1.06); opacity: .8; } }
+.cine-mitico .cr-burst { background: radial-gradient(circle at 50% 42%, #ffb0d8aa, #ff4f8b55 30%, #4fd8ff33 55%, transparent 75%) !important; }
+.cine-leyenda .cr-burst { background: radial-gradient(circle at 50% 42%, #fffbe8cc, #ffd24f77 30%, #ff7a1a33 55%, transparent 75%) !important; }
+.cine-mitico .cr-stage.open .cr-bg, .cine-leyenda .cr-stage.open .cr-bg { animation: none !important; }
+.cine-mitico .cr-stage.open .cr-bg { background: radial-gradient(ellipse at 50% 70%, #3a0a3a, #08060f 70%) !important; opacity: 1 !important; }
+.cine-leyenda .cr-stage.open .cr-bg { background: radial-gradient(ellipse at 50% 60%, #1c1530, #000 70%) !important; opacity: 1 !important; }
+
+/* Fix 1.22 (4): el chute es la técnica del propio futbolista: cartel diagonal con su retrato y el nombre del tiro, y el
+   balón (el de los partidos) vuela con una estela del color de su elemento */
+.cr-ball { --trail: var(--ec) !important; }
+.cr-ball.shot { filter: drop-shadow(-10px 0 0 var(--ec)) drop-shadow(-12px 0 6px var(--ec)) drop-shadow(-24px 0 10px var(--ec)); }
+.cr-cutin { position: absolute; left: 0; right: 0; top: 47%; height: 110px; z-index: 6; pointer-events: none; overflow: hidden; }
+.ci-band { position: absolute; inset: 0; display: flex; align-items: center; gap: 18px; padding: 0 8%;
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--ec) 85%, #000) 12%, var(--ec) 50%, color-mix(in srgb, var(--ec) 85%, #000) 88%, transparent);
+  transform: translateX(110%) skewX(-14deg); border-top: 4px solid #fff; border-bottom: 4px solid #fff; box-shadow: 0 0 30px var(--ec); }
+.ci-band > * { transform: skewX(14deg); }
+.ci-mug { line-height: 0; border: 3px solid #fff; background: #0a1d48; box-shadow: 0 0 0 3px #000; }
+.ci-text { display: flex; flex-direction: column; gap: 6px; }
+.ci-text b { font-size: clamp(16px, 3.4vw, 34px); color: #fff; text-shadow: 3px 3px 0 #000, 0 0 12px #000; letter-spacing: 1px; white-space: nowrap; }
+.ci-text small { font-size: 11px; color: #fff; text-shadow: 2px 2px 0 #000; }
+.cr-stage.cutin .ci-band { animation: ciIn .22s cubic-bezier(.2,.9,.3,1) forwards; }
+.cr-stage.cutout .ci-band { animation: ciOut .22s ease-in forwards; }
+@keyframes ciIn { from { transform: translateX(110%) skewX(-14deg); } to { transform: translateX(0) skewX(-14deg); } }
+@keyframes ciOut { from { transform: translateX(0) skewX(-14deg); } to { transform: translateX(-110%) skewX(-14deg); } }
+.cr-stage.cutin .cr-bg { filter: brightness(.55); transition: filter .2s; }
+@media (max-width: 560px), (max-height: 520px) { .cr-cutin { height: 84px; } .ci-mug .mug { width: 48px !important; height: 48px !important; } .ci-band { gap: 10px; padding: 0 4%; } }
+
+/* Fix 1.22 (5): el balón gira por dentro (el brillo ya no da vueltas a su alrededor = sin «círculo»); la estela son
+   tres imágenes residuales. Cada futbolista hace su técnica: el portero PARA el balón que dispara la cápsula, el
+   delantero chuta, el regateador o defensa arranca con el balón contra la cápsula */
+.cr-ball, .cr-ball.shot { background: none !important; filter: none !important; animation: none; transition: none; transform: none; }
+.cr-ball > i { position: absolute; inset: 0; background: center / contain no-repeat; image-rendering: pixelated; filter: drop-shadow(0 0 5px var(--ec)); }
+.cr-ball.ghost > i { filter: brightness(1.6) drop-shadow(0 0 4px var(--ec)) drop-shadow(0 0 8px var(--ec)); }
+.cr-ball.ghost.g1 > i { opacity: .55; } .cr-ball.ghost.g2 > i { opacity: .32; } .cr-ball.ghost.g3 > i { opacity: .16; }
+.cr-ball.shot > i, .cr-ball.save > i, .cr-ball.dash > i { animation: crBallSpin .3s linear infinite; }
+.cr-ball.shot { animation: crShot .38s cubic-bezier(.3,.1,.6,1) both; }
+.cr-ball.save { animation: crSave .42s cubic-bezier(.2,.4,.6,1) both; }
+.cr-ball.dash { animation: crDash .34s cubic-bezier(.5,0,.9,.6) both; }
+.cr-ball.ghost.g1.shot, .cr-ball.ghost.g1.save, .cr-ball.ghost.g1.dash { animation-delay: .035s; }
+.cr-ball.ghost.g2.shot, .cr-ball.ghost.g2.save, .cr-ball.ghost.g2.dash { animation-delay: .07s; }
+.cr-ball.ghost.g3.shot, .cr-ball.ghost.g3.save, .cr-ball.ghost.g3.dash { animation-delay: .105s; }
+@keyframes crShot { 0% { transform: none; opacity: 1; } 85% { opacity: 1; } 100% { transform: translate(min(30vw, 340px), -26vh) scale(.6); opacity: 0; } }
+@keyframes crSave { 0% { transform: translate(min(30vw, 340px), -26vh) scale(.6); opacity: 1; } 100% { transform: translate(-70px, -78px) scale(1.1); opacity: 1; } }
+@keyframes crDash { 0% { transform: none; opacity: 1; } 100% { transform: translate(min(26vw, 300px), 0); opacity: 1; } }
+.cr-ball.ghost.caught, .cr-ball.ghost.dash { animation-fill-mode: backwards; } /* the trail stays behind once the ball stops */
+.cr-ball.caught > i { animation: none; }
+.cr-runner.dash { transform: translateX(calc(min(34vw, 380px) + min(26vw, 300px))); }
+/* the hand of the stop (Mano celestial, Mano espiritual…), in the colour of the technique's element */
+.cr-hand { position: absolute; left: calc(6% + min(34vw, 380px) + 40px); bottom: calc(18% + 50px); font-size: 96px; line-height: 1; z-index: 4; opacity: 0;
+  transform: scale(.2) rotate(-20deg); filter: drop-shadow(0 0 10px var(--ec)) drop-shadow(0 0 24px var(--ec)) saturate(.4) brightness(1.3); pointer-events: none; }
+.cr-stage.catch .cr-hand { animation: crHand .52s cubic-bezier(.2,1.4,.4,1) forwards; }
+@keyframes crHand { 0% { opacity: 0; transform: scale(.2) rotate(-20deg); } 45% { opacity: 1; transform: scale(1.25) rotate(0); } 100% { opacity: 1; transform: scale(1.1) rotate(0); } }
+.cr-stage.open .cr-hand { opacity: 0 !important; transition: opacity .25s; animation: none; }
+@media (max-width: 560px), (max-height: 520px) { .cr-hand { font-size: 64px; left: calc(6% + min(34vw, 380px) + 20px); bottom: calc(18% + 34px); }
+  @keyframes crSave { 0% { transform: translate(min(30vw, 340px), -26vh) scale(.6); opacity: 1; } 100% { transform: translate(-50px, -54px) scale(1.1); opacity: 1; } } }
+body.reduced-motion .cr-ball > i { animation: none !important; }
+.cr-stage.open .cr-ball { opacity: 0 !important; transition: opacity .2s; } /* the stopped or carried ball goes with the burst */

@@ -13,7 +13,7 @@ export function deathCause(d: Death | undefined): { line: string; tip: string } 
   const who = d.by || 'un rival';
   switch (d.attack) {
     case 'entrada':
-      return { line: `Te ha derribado una entrada de ${who}.`, tip: 'Los rivales hacen daño al tocar al capitán: aléjate de los grupos y la formación defensiva reduce un 30% el daño que recibes.' };
+      return { line: `Te ha derribado una entrada de ${who}.`, tip: 'Los rivales hacen daño al tocar al capitán: aléjate de los grupos y la formación defensiva reduce un 18% el daño que recibes.' };
     case 'choque':
       return { line: `${who} ha arrollado a tu capitán.`, tip: 'Los jefes y minijefes golpean fuerte al contacto: mantén la distancia y deja que tus compañeros los castiguen.' };
     case 'disparo':
