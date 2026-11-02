@@ -38,6 +38,8 @@ export const PERKS: PerkDef[] = [
   P('combinadas', 'Equipo', 'Química de equipo', '+8% daño de las técnicas combinadas', 5, 250, 160),
   P('sinergia', 'Equipo', 'Sinergia elemental', '+1,5% daño por cada compañero del mismo elemento que el capitán', 5, 220, 140),
   // Fix 1.11
+  // Fix 1.31: flat damage negation, outside the runs
+  P('blindaje', 'Supervivencia', 'Blindaje', '-0,5 daño en cada golpe que recibe el capitán por nivel (como mucho la mitad del golpe)', 4, 250, 160),
   P('jefes', 'Supervivencia', 'Resistencia a jefes', '-3% daño de los ataques de jefes y minijefes por nivel (máx. -15%)', 5, 260, 160),
   P('botiquin', 'Supervivencia', 'Botiquín', '+12% curación de bolas de arroz y chocolate por nivel (máx. +48%)', 4, 200, 130),
   P('inicio', 'Progresión', 'Ventaja inicial', 'Empiezas la partida con un 20% de la experiencia del primer nivel por nivel (máx. 80%)', 4, 240, 160),
@@ -99,6 +101,8 @@ export interface PerkEffects {
   rewardMult: number; missionMult: number; synergy: number;
   /** extra damage reduction, only while a goalkeeper is on the team (gloves) */
   gloveReduction: number;
+  /** Fix 1.31: flat damage taken off every hit on the captain (Blindaje) */
+  flatArmor: number;
   /** technique slots per player in a run (2 to 4) */
   techSlots: number;
   critChance: number; elementalChance: number; comboMult: number; eventMult: number; extraTokens: number; secondWind: boolean;
@@ -123,6 +127,7 @@ export function perkEffects(s: SaveData): PerkEffects {
     xpMult: (1 + 0.04 * l('experiencia')) * (1 + 0.03 * ms('Progresión')),
     luck: 0.05 * l('suerte'),
     damageTakenMult: 1 - 0.02 * l('armadura'),
+    flatArmor: 0.5 * l('blindaje'),
     buffMult: 1 + 0.1 * l('escudos'),
     extraChoices: l('opciones'),
     regen: 0.0006 * l('regen'),

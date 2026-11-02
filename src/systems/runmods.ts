@@ -3,9 +3,11 @@
  * Icons are IE2 item icons of a fitting object (boots, bracelet, notebook...), never a technique manual.
  */
 
-export interface RunMods { damage: number; cooldown: number; speed: number; pickup: number; xp: number; area: number; hp: number; luck: number; regen: number }
+export interface RunMods { damage: number; cooldown: number; speed: number; pickup: number; xp: number; area: number; hp: number; luck: number; regen: number;
+  /** Fix 1.31: flat damage taken off every hit on the captain */
+  armor: number }
 
-export const baseMods = (): RunMods => ({ damage: 1, cooldown: 1, speed: 1, pickup: 1, xp: 1, area: 1, hp: 1, luck: 0, regen: 0 });
+export const baseMods = (): RunMods => ({ damage: 1, cooldown: 1, speed: 1, pickup: 1, xp: 1, area: 1, hp: 1, luck: 0, regen: 0, armor: 0 });
 
 export interface ModDef { id: string; label: string; description: string; max: number; icon: number; apply(m: RunMods): void }
 
@@ -14,6 +16,8 @@ export const STAT_CARDS: ModDef[] = [
   { id: 'ritmo', label: 'Ritmo de juego', description: '-5% recarga de técnicas', max: 5, icon: 1211, apply: (m) => { m.cooldown *= 0.95; } },
   { id: 'carrera', label: 'Sprint', description: '+5% velocidad del equipo', max: 5, icon: 2203, apply: (m) => { m.speed *= 1.05; } },
   { id: 'aguante', label: 'Aguante', description: '+8% vida máxima del equipo', max: 5, icon: 2400, apply: (m) => { m.hp *= 1.08; } },
+  // Fix 1.31: flat damage negation (the player's own defence), at most half of each hit
+  { id: 'protecciones', label: 'Equipación reforzada', description: '-1 daño en cada golpe que recibe el capitán (como mucho la mitad del golpe)', max: 3, icon: 2101, apply: (m) => { m.armor += 1; } },
 ];
 
 export const PASSIVES: ModDef[] = [

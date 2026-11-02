@@ -43,7 +43,8 @@ export const trainingUsed = (save: SaveData, id: number) => Object.values(traini
 export function playerStats(save: SaveData, p: Pick<RosterEntry, 'id' | 'stats' | 'rarity'>, effective: Rarity, hero: boolean): Record<StatKey, number> {
   const o = save.owned[String(p.id)];
   const sameRarityAscended = !!o?.ascMitico && effective === p.rarity;
-  const out = rebuildStats(p.stats, effective, (sameRarityAscended ? 2 : 0) + (hero ? 3 : 0));
+  // Fix 1.31: each hero star adds 1 to every stat
+  const out = rebuildStats(p.stats, effective, (sameRarityAscended ? 2 : 0) + (hero ? 3 + Math.min(3, o?.heroStars ?? 0) : 0));
   const t = trainingOf(save, p.id);
   for (const k of STAT_KEYS) out[k] = Math.min(STAT_MAX, out[k] + (t[k] ?? 0));
   return out;

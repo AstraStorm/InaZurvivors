@@ -7,6 +7,8 @@ export const SCHEMA_VERSION = 9;
 /** copies counts every pull; `spent` = duplicates consumed by ascensions; ascMitico/hero = ascension (ascension.ts);
  *  ascRarity = rarity reached by the first ascension (Fix 1.23; older saves without it reached Mítico) */
 export interface OwnedPlayer { stars: number; copies: number; obtainedAt: string; spent?: number; ascMitico?: boolean; ascRarity?: Rarity; hero?: boolean;
+  /** Fix 1.31: hero stars (0..3) a HÉROE earns with more duplicates (ascension.ts) */
+  heroStars?: number;
   /** Fix 1.23: training points per stat (training.ts), 20 at most in total */
   train?: Partial<Record<string, number>> }
 
@@ -55,6 +57,8 @@ export interface SaveData {
   loadout: Record<string, number>;
   /** last manifest techRemaps step applied to this save (remapTechSlots) */
   techRev?: number;
+  /** Fix 1.31: Míticos/Leyendas ascended the old way were turned into HÉROE (ascension.ts migrateHeroes131) */
+  heroes131?: boolean;
   /** Fix 1.11 weekly pass: rewards claimed in the current cycle (0-6) and the last day one was claimed */
   weeklyPass?: { claimed: number; lastDay: string };
   /** "Mi Equipo": up to seven owned candidates for a run, captain first */
@@ -207,7 +211,7 @@ export function remapIds(s: SaveData, aliases: Record<string, number> = {}) {
     const t = s.owned[String(to)];
     if (t) {
       t.copies += o.copies; t.stars = Math.min(5, Math.max(t.stars, o.stars)); t.spent = (t.spent ?? 0) + (o.spent ?? 0);
-      t.ascMitico ||= o.ascMitico; t.hero ||= o.hero; t.ascRarity ??= o.ascRarity; t.train ??= o.train;
+      t.ascMitico ||= o.ascMitico; t.hero ||= o.hero; t.heroStars = Math.max(t.heroStars ?? 0, o.heroStars ?? 0) || undefined; t.ascRarity ??= o.ascRarity; t.train ??= o.train;
     } else s.owned[String(to)] = o;
     delete s.owned[from];
     const map = (id: number) => (String(id) === from ? to : id);
@@ -265,6 +269,7 @@ export function validate(s: SaveData): SaveData {
     if (o.ascMitico === true) owned[k].ascMitico = true;
     if (o.ascMitico === true && typeof o.ascRarity === 'string' && (RARITY_ORDER as string[]).includes(o.ascRarity)) owned[k].ascRarity = o.ascRarity as Rarity;
     if (o.hero === true) owned[k].hero = true;
+    if (o.hero === true && num(o.heroStars, 0) > 0) owned[k].heroStars = Math.min(3, Math.max(0, Math.floor(num(o.heroStars, 0))));
     // training: known stats, whole points, 20 at most in total (a forged save can't go beyond)
     const tr = obj(o.train);
     if (tr) {

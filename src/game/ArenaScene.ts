@@ -1325,7 +1325,10 @@ export class ArenaScene extends Phaser.Scene {
     taken *= this.formationTactic().taken;
     this.invulnUntil = this.runTime + 0.3;
     const gloves = this.members.some((m) => m.entry.position === 'GK') ? 1 - this.cfg.perks.gloveReduction : 1;
-    const dmg = Math.max(1, Math.round(raw * capTaken((1 - shield) * gloves * statTaken(target.entry) * (1 + this.talents().taken) * this.cfg.perks.damageTakenMult * (this.buffOn('escudo') ? 1 - SHIELD_REDUCTION : 1)) * taken));
+    const scaled = raw * capTaken((1 - shield) * gloves * statTaken(target.entry) * (1 + this.talents().taken) * this.cfg.perks.damageTakenMult * (this.buffOn('escudo') ? 1 - SHIELD_REDUCTION : 1)) * taken;
+    // Fix 1.31: flat negation (Blindaje + Equipación reforzada), never more than half of the hit
+    const flat = Math.min((this.cfg.perks.flatArmor ?? 0) + this.mods.armor, scaled * 0.5);
+    const dmg = Math.max(1, Math.round(scaled - flat));
     this.hp -= dmg;
     this.hurtAt = this.runTime;
     this.lastHit = { ...src, dmg, at: this.runTime };

@@ -56,7 +56,7 @@ export function addCopy(save: SaveData, p: Pick<RosterEntry, 'id' | 'rarity'>): 
     if (stars > owned.stars) { owned.stars = stars; return { isNew: false, stars, refund: 0 }; }
     return { isNew: false, stars: owned.stars, refund: 0, toStar: [dupes - owned.stars * per, per] };
   }
-  if (owned.hero) {
+  if (owned.hero && (owned.heroStars ?? 0) >= 3) { // Fix 1.31: hero stars take copies too
     const refund = DUPLICATE_REFUND_BY[p.rarity] ?? DUPLICATE_REFUND;
     save.coins += refund;
     return { isNew: false, stars: owned.stars, refund };

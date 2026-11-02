@@ -33,7 +33,7 @@ import { BUILD, CURRENT_PUBLIC, DEVLOG_SHOTS, PUBLIC_VERSION, RELEASED, TIKTOK_P
 import { buildMeta, CATEGORIES, SEVERITIES, SHOT_MAX_BYTES, SHOT_MAX_SIDE, SHOT_TYPES, STATUS_LABEL, TECH_FIELDS, validateBug, validateShot } from '../systems/bugReport';
 import { elementIcon } from './elements';
 import { playerStats, resetTraining, trainingOf, trainingUsed, trainStat, TRAIN_MAX, type StatKey } from '../systems/training';
-import { ASC_BONUS, ASC_COSTS, HERO_AURA, ascend, ascMultipliers, effectiveRarity, isHero, nextStep, rarityUp, sparesOf } from '../systems/ascension';
+import { ASC_BONUS, ASC_COSTS, HERO_AURA, HERO_STARS_MAX, migrateHeroes131, type AscStep, ascend, ascMultipliers, effectiveRarity, isHero, nextStep, rarityUp, sparesOf } from '../systems/ascension';
 import { USERNAME_MAX, validateUsername } from '../systems/username';
 import { ALTAR_COLOR, ALTAR_ICON, ALTAR_INFO, ALTAR_MODE, ALTAR_REWARD } from '../systems/altars';
 import { adaptedPassive, passiveText, talentChanges, talentText } from '../systems/talents';
@@ -160,6 +160,7 @@ export class App {
     rollPeriods(save);
     if (remapIds(save, m.idAliases)) storeSave(save); // characters now on another ROM record keep their progress
     if (remapTechSlots(save, m.techRemaps) >= 0) storeSave(save); // repertoires that changed order keep their purchases
+    if (migrateHeroes131(save, m.roster)) storeSave(save); // Fix 1.31: Míticos ascended the old way become HÉROE
     if (m.profile && !iconAllowed(save, m.roster, m.profile.emblems, m.profile.coaches)) save.profile.icon = { kind: 'emblem', id: DEFAULT_EMBLEM };
     initPreviews(m);
     setTeamSagas(m.teamSagas);
@@ -564,7 +565,10 @@ export class App {
     const o = this.owned(p.id);
     const icons = opts.locked ? '' : `<div class="tech-pips">${p.techniques.map((t) => this.icon(ICON.manual[t.type], 1)).join('')}</div>`;
     // Fix 1.31: five drawn stars (the pixel font has no ★, it showed as tiny asterisks), earned ones in gold
-    const stars = !opts.locked && o ? `<div class="stars" title="${o.stars} de ${MAX_STARS} estrellas">${Array.from({ length: MAX_STARS }, (_, i) => `<svg class="st${i < o.stars ? ' on' : ''}" viewBox="0 0 24 24"><path d="M12 1.8l3.1 6.6 7.2.8-5.4 4.9 1.5 7.1L12 17.6l-6.4 3.6 1.5-7.1L1.7 9.2l7.2-.8z"/></svg>`).join('')}</div>` : '<div class="stars"></div>';
+    const starSvg = (cls: string) => `<svg class="${cls}" viewBox="0 0 24 24"><path d="M12 1.8l3.1 6.6 7.2.8-5.4 4.9 1.5 7.1L12 17.6l-6.4 3.6 1.5-7.1L1.7 9.2l7.2-.8z"/></svg>`;
+    // Fix 1.31: a HÉROE shows its hero stars (red-gold, up to 3) after the five normal ones
+    const heroStars = !opts.locked && o?.hero ? `<span class="hero-stars" title="${o.heroStars ?? 0} de ${HERO_STARS_MAX} estrellas de héroe">${Array.from({ length: HERO_STARS_MAX }, (_, i) => starSvg(`hst${i < (o.heroStars ?? 0) ? ' on' : ''}`)).join('')}</span>` : '';
+    const stars = !opts.locked && o ? `<div class="stars" title="${o.stars} de ${MAX_STARS} estrellas">${Array.from({ length: MAX_STARS }, (_, i) => starSvg(`st${i < o.stars ? ' on' : ''}`)).join('')}${heroStars}</div>` : '<div class="stars"></div>';
     const spare = !opts.locked && o ? sparesOf(this.save, p.id) : 0, step = !opts.locked && o ? nextStep(this.save, p) : null;
     const canAsc = !!step && spare >= step.cost;
     const flags = `${spare ? `<span class="card-dup" title="Duplicados sin usar${step ? ` (${step.step === 'heroe' ? 'HÉROE' : 'ascenso'}: ${step.cost})` : ''}">+${spare} dup.${step && !canAsc ? ` <i>${spare}/${step.cost}</i>` : ''}</span>` : ''}${canAsc ? '<span class="card-asc" title="Ascensión disponible">▲ ASCENDER</span>' : ''}`;
@@ -873,19 +877,21 @@ export class App {
     const now = ascMultipliers(this.save, p);
     const after = next ? { damage: now.damage * ASC_BONUS[next.step].damage, hp: now.hp * ASC_BONUS[next.step].hp } : now;
     const curR = effectiveRarity(this.save, p);
-    const up = rarityUp(p.rarity), label = next?.step === 'ascenso' ? `${RARITY_LABEL[up].toUpperCase()}${up === p.rarity ? ' +' : ''}` : 'HÉROE';
+    const hs = this.owned(id)?.heroStars ?? 0;
+    const up = rarityUp(p.rarity), label = next?.step === 'ascenso' ? `${RARITY_LABEL[up].toUpperCase()}${up === p.rarity ? ' +' : ''}` : next?.step === 'estrella' ? `HÉROE ${'★'.repeat(hs + 1)}` : 'HÉROE';
     const pct = (v: number) => `+${Math.round((v - 1) * 100)}%`;
-    const unlocks = next?.step === 'heroe' || (!next && isHero(this.save, id))
+    const starUnlocks = [`Estrella de héroe ${hs + 1} de ${HERO_STARS_MAX}: +${Math.round((ASC_BONUS.estrella.damage - 1) * 100)}% daño, +${Math.round((ASC_BONUS.estrella.hp - 1) * 100)}% vida y +1 a todas sus estadísticas`];
+    const unlocks = next?.step === 'estrella' ? starUnlocks : next?.step === 'heroe' || (!next && isHero(this.save, id))
       ? [`Técnica de HÉROE: ${p.heroTech ? p.heroTech.name : 'ninguna documentada para este jugador'}`, `${HERO_AURA.label} (habilidad original de InaZurvivors): ${HERO_AURA.description}`, 'Marco dorado e insignia HÉROE en la colección']
       : [up === p.rarity ? `Ascendido: sigue siendo ${RARITY_LABEL[up]}, con la bonificación de ascensión` : `Rareza ${RARITY_LABEL[up]} (sin cambiar de personaje)`,
         `Acceso a la ascensión HÉROE (${(ASC_COSTS[p.rarity] ?? ASC_COSTS.legendario).heroe} duplicados más)`];
     const box = document.createElement('div');
     box.className = 'tut-modal asc-modal';
     box.innerHTML = `<div class="panel asc-card${isHero(this.save, id) ? ' is-hero' : ''}" style="--rc:${RARITY_COLOR[curR]}">
-      <h2>${next ? 'Ascensión' : '¡HÉROE!'}</h2>
+      <h2>${next ? (next.step === 'estrella' ? 'Estrellas de héroe' : 'Ascensión') : `¡HÉROE ${'★'.repeat(hs)}!`}</h2>
       <div class="asc-row"><div class="asc-art">${this.mug(id, 128)}${charCanvas(id, 3, 12)}</div>
         <div class="asc-info"><b>${esc(p.name)}</b>
-          <div class="asc-step">${this.rar(p)}${next ? ` <em>»</em> <span class="rar ${next.step === 'heroe' ? 'heroe' : up}">${label}</span>` : ''}</div>
+          <div class="asc-step">${this.rar(p)}${next ? ` <em>»</em> <span class="rar ${next.step === 'ascenso' ? up : 'heroe'}">${label}</span>` : ''}</div>
           ${next ? `<div class="asc-cost${spares >= next.cost ? ' ok' : ''}">Duplicados: <b>${spares}/${next.cost}</b>${spares >= next.cost ? '' : ` · te faltan ${next.cost - spares}`}</div>` : ''}
           <div class="asc-stats"><span>Daño en partida</span><b>${pct(now.damage)}</b>${next ? `<em>»</em><b class="up">${pct(after.damage)}</b>` : ''}
             <span>Vida aportada</span><b>${pct(now.hp)}</b>${next ? `<em>»</em><b class="up">${pct(after.hp)}</b>` : ''}</div>
@@ -905,7 +911,7 @@ export class App {
       this.persist();
       box.querySelector('.asc-card')!.classList.add('transform');
       sfx('legend');
-      if (this.save.settings.particles !== 'desactivado') confetti(step === 'heroe' ? 90 : 50);
+      if (this.save.settings.particles !== 'desactivado') confetti(step === 'ascenso' ? 50 : 90);
       await wait(1400);
       box.remove();
       await this.ascensionCard(p, step);
@@ -914,16 +920,17 @@ export class App {
   }
 
   /** Fix 1.23: the new card after an ascension, with the same entrance as a gacha reveal (rays, flash, rarity shine). */
-  private ascensionCard(p: RosterEntry, step: 'ascenso' | 'heroe') {
+  private ascensionCard(p: RosterEntry, step: AscStep) {
     return new Promise<void>((resolve) => {
-      const r = effectiveRarity(this.save, p), hero = step === 'heroe';
+      const r = effectiveRarity(this.save, p), hero = step !== 'ascenso';
+      const heroLabel = step === 'estrella' ? `HÉROE ${'★'.repeat(this.owned(p.id)?.heroStars ?? 1)}` : 'HÉROE';
       const tier = r === 'leyenda' || hero ? 3 : r === 'mitico' ? 2 : r === 'legendario' ? 1 : 0;
       const ov = document.createElement('div');
       ov.className = `reveal asc-reveal${tier >= 1 ? ' legend' : ''}${tier >= 2 ? ' myth' : ''}${hero ? ' leyenda' : ''}`;
       ov.style.setProperty('--rc', `${RARITY_COLOR[r]}55`);
       ov.innerHTML = `<div class="rays"></div><div class="flash go"></div>
-        <div class="reveal-card from-scene"><div class="rarity-big t${tier}" style="color:${hero ? '#ffd21f' : RARITY_COLOR[r]}">${hero ? 'HÉROE' : RARITY_LABEL[r].toUpperCase()}</div>
-          ${this.pcard(p, { anim: 12, big: true })}<div class="newtag">${hero ? '¡HÉROE!' : '¡ASCENDIDO!'}</div><button class="btn big">Aceptar</button></div>`;
+        <div class="reveal-card from-scene"><div class="rarity-big t${tier}" style="color:${hero ? '#ffd21f' : RARITY_COLOR[r]}">${hero ? heroLabel : RARITY_LABEL[r].toUpperCase()}</div>
+          ${this.pcard(p, { anim: 12, big: true })}<div class="newtag">${step === 'estrella' ? '¡NUEVA ESTRELLA DE HÉROE!' : hero ? '¡HÉROE!' : '¡ASCENDIDO!'}</div><button class="btn big">Aceptar</button></div>`;
       document.body.appendChild(ov);
       mountPreviews();
       sfx(hero ? 'leyenda' : tier >= 2 ? 'myth' : 'legend');
@@ -1231,6 +1238,7 @@ export class App {
     Object.assign(this.save, next, { cloudVersion: cloud.version, onlineName: name });
     remapIds(this.save, this.m.idAliases);
     remapTechSlots(this.save, this.m.techRemaps);
+    migrateHeroes131(this.save, this.m.roster);
     this.captainId = this.save.captainId;
     this.cloudLinked = true;
     this.cloudState = { status: 'ok', at: Date.now(), msg: '' };
@@ -1938,7 +1946,7 @@ export class App {
       <div class="note">${POS_LABEL[d.position]} · ${esc(d.teams.filter((t) => (this.m.mainTeams ?? []).includes(t)).slice(0, 5).map(teamLabel).join(', ') || 'Jugador de Fichatrón / Ojeador')}${(() => { const sg = [...new Set(d.teams.map(sagaOf).filter(Boolean))]; return sg.length ? ` · Saga: ${esc(sg.join(', '))}` : ''; })()}</div>
       ${o ? `<p><button class="btn small blue" data-compare="${d.id}">${this.compareWith === d.id ? 'Elige otro futbolista para comparar…' : '⇄ Comparar con otro'}</button></p>` : ''}
       ${o ? `<div class="note">Estrellas ${o.stars}/${MAX_STARS} · Duplicados libres ${sparesOf(this.save, d.id)} (gastados ${o.spent ?? 0}) · Potencia: daño ×${starBonus(o.stars).damage.toFixed(2)}, vida ×${starBonus(o.stars).hp.toFixed(2)}</div>` : ''}
-      ${o && (nextStep(this.save, d) || isHero(this.save, d.id)) ? `<p><button class="btn ${isHero(this.save, d.id) ? 'blue' : 'big'}" data-ascend="${d.id}">${isHero(this.save, d.id) ? '★ Ver HÉROE' : `▲ Ascensión (${sparesOf(this.save, d.id)}/${nextStep(this.save, d)!.cost})`}</button></p>` : ''}
+      ${o && (nextStep(this.save, d) || isHero(this.save, d.id)) ? `<p><button class="btn ${nextStep(this.save, d) ? 'big' : 'blue'}" data-ascend="${d.id}">${!nextStep(this.save, d) ? '★ Ver HÉROE' : nextStep(this.save, d)!.step === 'estrella' ? `★ Estrella de héroe (${sparesOf(this.save, d.id)}/${nextStep(this.save, d)!.cost})` : `▲ Ascensión (${sparesOf(this.save, d.id)}/${nextStep(this.save, d)!.cost})`}</button></p>` : ''}
       ${d.heroTech ? `<div class="note">Técnica de HÉROE: <b>${esc(d.heroTech.name)}</b>${isHero(this.save, d.id) ? ' (desbloqueada)' : ''}</div>` : ''}
       ${(() => { const pa = adaptedPassive(d); return (pa ? `<div class="note">Pasiva: <b>${esc(pa.name)}</b> · ${esc(passiveText(pa))} <small>(adaptación de InaZurvivors)</small></div>` : '') + d.techniques.filter((t) => t.type === 'talento').map((t) => `<div class="note">Talento: <b>${esc(t.name)}</b> · ${esc(talentText(t.id, 1))} <small>(efecto adaptado; sube con el nivel de la técnica)</small></div>`).join(''); })()}
       <h3 style="margin-top:8px">Repertorio (2 técnicas activas en combate)</h3>
@@ -2000,7 +2008,7 @@ export class App {
         <div class="panel gi"><h3>Cómo conseguir fichas</h3><ul class="gi-list"><li>Jugar partidas (más si ganas)</li><li>Misiones diarias, semanales y logros</li><li>Altares y fichas en el campo</li><li>Primera victoria en cada arena y rango</li></ul></div>
         <div class="panel gi"><h3>Nuevo o duplicado</h3><ul class="gi-list"><li><b class="newtag">NUEVO</b>: se desbloquea para siempre y ya puede ir en Mi Equipo.</li>
           <li><b>Duplicado</b>: suma hacia una estrella (hasta ${MAX_STARS}), cada una +${Math.round((sb.damage - 1) * 100)}% daño y +${Math.round((sb.hp - 1) * 100)}% vida. Copias por estrella: Común ${COPIES_PER_STAR.comun}, Raro y Épico ${COPIES_PER_STAR.raro}, el resto 1.</li>
-          <li>Los duplicados también pagan la <b>ascensión</b> de cualquier futbolista (Ascendido y HÉROE): Común ${ASC_COSTS.comun.ascenso}+${ASC_COSTS.comun.heroe}, Raro ${ASC_COSTS.raro.ascenso}+${ASC_COSTS.raro.heroe}, Épico ${ASC_COSTS.epico.ascenso}+${ASC_COSTS.epico.heroe}, Legendario ${ASC_COSTS.legendario.ascenso}+${ASC_COSTS.legendario.heroe}, Mítico ${ASC_COSTS.mitico.ascenso}+${ASC_COSTS.mitico.heroe}.</li>
+          <li>Los duplicados también pagan la <b>ascensión</b> de cualquier futbolista (Ascendido y HÉROE): Común ${ASC_COSTS.comun.ascenso}+${ASC_COSTS.comun.heroe}, Raro ${ASC_COSTS.raro.ascenso}+${ASC_COSTS.raro.heroe}, Épico ${ASC_COSTS.epico.ascenso}+${ASC_COSTS.epico.heroe}, Legendario ${ASC_COSTS.legendario.ascenso}+${ASC_COSTS.legendario.heroe}; un Mítico pasa directamente a HÉROE con ${ASC_COSTS.mitico.heroe} y una Leyenda con ${ASC_COSTS.leyenda.heroe}. Después, cada HÉROE gana hasta ${HERO_STARS_MAX} estrellas de héroe (Mítico ${ASC_COSTS.mitico.estrella} duplicados cada una).</li>
           <li>Con ${MAX_STARS} estrellas y HÉROE, cada copia da monedas (de ${DUPLICATE_REFUND_BY.comun} a ${DUPLICATE_REFUND_BY.leyenda} según la rareza).</li></ul></div>
         <div class="panel gi"><h3>Probabilidades</h3><div class="odds">${odds}</div>${empty.length ? `<div class="note">${esc(empty.join(', '))}: sin futbolistas por ahora; su probabilidad pasa a la rareza inferior.</div>` : ''}</div>
       </div>

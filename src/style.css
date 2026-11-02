@@ -1604,3 +1604,7 @@ body.reduced-motion .cr-ball > i { animation: none !important; }
 .syn-card b { font-size: 10px; color: var(--ec); } .syn-card small { font-size: 8px; color: var(--muted); line-height: 1.5; }
 .syn-card em { font-style: normal; font-size: 13px; color: var(--ec); text-shadow: 2px 2px 0 #000; white-space: nowrap; }
 .syn-card .syn-pips i { width: 12px; height: 5px; }
+/* Fix 1.31: hero stars (up to 3) next to the normal ones */
+.stars .hero-stars { display: inline-flex; gap: 1px; margin-left: 4px; padding-left: 4px; border-left: 1px solid #ffffff33; }
+.stars svg.hst { fill: #3a1420; stroke: #8a3a4a; }
+.stars svg.hst.on { fill: #ff5a3a; stroke: #ffd23f; filter: drop-shadow(0 0 4px #ff7a3a); }

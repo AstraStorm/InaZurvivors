@@ -38,6 +38,8 @@ export const PUBLIC_RELEASES: PublicRelease[] = [
       { icon: '★', title: 'Más logros', text: 'Unos 70 logros en tres niveles (10, 20 y 50 fichas).' },
       { icon: '⚡', title: 'Sinergias visibles', text: 'Resonancia de elementos, química de club y sinergia del capitán, grandes en la partida y en Mi Equipo.' },
       { icon: '▲', title: 'Legendarios y Míticos más fuertes', text: 'Legendarios con medias de 80 y pico, Míticos cerca de 90; ascender pide menos duplicados.' },
+      { icon: '★', title: 'Estrellas de héroe', text: 'Un Mítico o una Leyenda asciende directamente a HÉROE, y cada HÉROE gana hasta 3 estrellas de héroe con más duplicados. Los Míticos que ya habías ascendido pasan a HÉROE.' },
+      { icon: '🛡', title: 'Blindaje', text: 'Nueva mejora permanente y nueva carta en la partida que restan daño fijo a cada golpe que recibe el capitán.' },
       { icon: '⏭', title: 'Gacha más claro', text: 'Al saltar ves todo lo que has fichado; estrellas dibujadas y el brillo ya no tapa al jugador.' },
       { icon: '♜', title: 'Retratos de IE3 con sus colores', text: 'Cada equipo pinta su torso con su propia paleta de la ROM.' },
     ],

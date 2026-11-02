@@ -73,6 +73,8 @@ describe('gacha', () => {
     const spare = pullOne(pool, s, () => 0);
     expect([spare.refund, spare.forAscension, s.coins]).toEqual([0, true, 0]); // waits for the ascension
     s.owned['1'].hero = true;
+    expect(pullOne(pool, s, () => 0).forAscension).toBe(true); // Fix 1.31: a HÉROE still needs copies for its hero stars
+    s.owned['1'].heroStars = 3;
     const r = pullOne(pool, s, () => 0);
     expect(r.refund).toBe(DUPLICATE_REFUND_BY[r1.player.rarity]);
     expect(s.coins).toBe(r.refund);
@@ -792,15 +794,16 @@ describe('ascension to HÉROE', () => {
     expect(ascend(s, leg)).toBe('heroe');
     expect(isHero(s, 1)).toBe(true);
     expect(sparesOf(s, 1)).toBe(0);
-    expect(nextStep(s, leg)).toBeNull();
+    expect(nextStep(s, leg)).toEqual({ step: 'estrella', cost: C.estrella }); // Fix 1.31: then the hero stars
     expect(s.owned['1'].stars).toBe(C.ascenso); // stars already earned are kept
   });
   it('every rarity can ascend (Fix 1.23), commoner footballers need more copies', () => {
     const s = withCopies({ 2: 7, 3: 20, 4: 40 });
-    expect(nextStep(s, myth)).toEqual({ step: 'ascenso', cost: ASC_COSTS.mitico.ascenso });
-    expect(ascend(s, myth)).toBe('ascenso');
-    expect(effectiveRarity(s, myth)).toBe('mitico'); // Mítico keeps its rarity, with the bonus
+    expect(nextStep(s, myth)).toEqual({ step: 'heroe', cost: ASC_COSTS.mitico.heroe }); // Fix 1.31: a Mítico goes straight to HÉROE
     expect(ascend(s, myth)).toBe('heroe');
+    expect(effectiveRarity(s, myth)).toBe('mitico');
+    expect(ascend(s, myth)).toBe('estrella');
+    expect(s.owned['2'].heroStars).toBe(1);
     expect(ascend(s, epic)).toBe('ascenso');
     expect(effectiveRarity(s, epic)).toBe('legendario');
     expect(ascend(s, com)).toBe('ascenso');
@@ -810,10 +813,29 @@ describe('ascension to HÉROE', () => {
     expect(ASC_COSTS.epico.ascenso).toBeGreaterThan(ASC_COSTS.legendario.ascenso);
     expect(ascend(s, { id: 99, rarity: 'legendario' } as RosterEntry)).toBe(false);
   });
-  it('an older Mítico HÉROE (straight from Mítico) has no step left', () => {
-    const s = withCopies({ 2: 6 });
-    s.owned['2'].hero = true; s.owned['2'].spent = 5;
+  it('a HÉROE earns up to 3 hero stars, then has no step left', () => {
+    const s = withCopies({ 2: 30 });
+    s.owned['2'].hero = true; s.owned['2'].spent = 2;
+    for (let i = 0; i < 3; i++) expect(ascend(s, myth)).toBe('estrella');
     expect(nextStep(s, myth)).toBeNull();
+    expect(ascMultipliers(s, myth).damage).toBeCloseTo(1.18 * 1.05 ** 3);
+  });
+  it('Fix 1.31: Míticos ascended the old way become HÉROE once, and an old HÉROE gets its first hero star', async () => {
+    const { migrateHeroes131 } = await import('../src/systems/ascension');
+    const s = withCopies({ 2: 6, 5: 9, 1: 4 });
+    const myth2 = { id: 5, rarity: 'mitico' } as RosterEntry;
+    Object.assign(s.owned['2'], { ascMitico: true, spent: 2 });
+    Object.assign(s.owned['5'], { ascMitico: true, hero: true, spent: 5 });
+    Object.assign(s.owned['1'], { ascMitico: true, ascRarity: 'mitico', spent: 2 }); // a Legendario that became Mítico: untouched
+    migrateHeroes131(s, [myth, myth2, leg]);
+    expect(s.owned['2']).toMatchObject({ hero: true, spent: 2 });
+    expect(s.owned['2'].ascMitico).toBeUndefined();
+    expect(s.owned['5']).toMatchObject({ hero: true, heroStars: 1, spent: 5 });
+    expect(s.owned['1']).toMatchObject({ ascMitico: true, spent: 2 });
+    expect(s.owned['1'].hero).toBeUndefined();
+    migrateHeroes131(s, [myth, myth2, leg]); // only once
+    expect(s.owned['5'].heroStars).toBe(1);
+    expect(importSave(exportSave(s)).owned['5'].heroStars).toBe(1);
   });
   it('survives save validation and a reload, and spent can never exceed the duplicates', () => {
     const total = ASC_COSTS.legendario.ascenso + ASC_COSTS.legendario.heroe;
@@ -1127,9 +1149,9 @@ describe('auditoría de rarezas', () => {
     }
     expect(sparesOf(asc, 7)).toBe(5);
     const hero = saveWith({ ascMitico: true, hero: true, spent: 8 });
-    expect(nextStep(hero, p(7, 'epico'))).toBeNull();
+    expect(nextStep(hero, p(7, 'epico'))?.step).toBe('estrella'); // Fix 1.31: hero stars after HÉROE
     expect(ascMultipliers(hero, p(7, 'epico')).damage).toBeCloseTo(ascMultipliers(hero, p(7, 'mitico')).damage);
-    expect(nextStep(saveWith({}), p(7, 'leyenda'))?.step).toBe('ascenso'); // Fix 1.23: every rarity starts with step 1
+    expect(nextStep(saveWith({}), p(7, 'leyenda'))?.step).toBe('heroe'); // Fix 1.31: a Leyenda's ascension is the HÉROE
     expect(nextStep(saveWith({}), p(7, 'epico'))).toEqual({ step: 'ascenso', cost: ASC_COSTS.epico.ascenso }); // Fix 1.23: Épico can ascend too
   });
   it('the welcome guarantee and team rewards never give the rarest footballers', async () => {

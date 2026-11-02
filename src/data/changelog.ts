@@ -24,6 +24,8 @@ export const CHANGELOG: Release[] = [
       'Colección: aviso y contador en el menú cuando hay recompensas de equipo para recoger.',
       'Unos 70 logros: niveles bronce (10 fichas), plata (20) y oro (50).',
       'Sinergias grandes en la partida (también en el móvil) con su progreso y un aviso al activarse, y un panel de sinergias en Mi Equipo.',
+      'HÉROE: un Mítico o una Leyenda asciende directamente a HÉROE (Mítico 2 duplicados, Leyenda 1), y cada HÉROE gana hasta 3 estrellas de héroe (+5% daño, +3% vida y +1 a todas las estadísticas cada una). Los Míticos ya ascendidos pasan a HÉROE, y si ya eran HÉROE reciben su primera estrella de héroe.',
+      'Defensa plana: mejora permanente «Blindaje» (-0,5 daño por golpe y nivel, hasta 4) y carta «Equipación reforzada» en la partida (-1 por nivel, hasta 3). Nunca quita más de la mitad del golpe.',
     ],
     fixes: [
       'Retratos de IE3: el torso se pinta con la paleta de la equipación de cada equipo (face2d/ppu), como en el juego; Beauties, Zanark Domain, Champions y compañía ya no llevan los colores de otro equipo.',
