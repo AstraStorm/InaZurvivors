@@ -370,3 +370,94 @@ export function chaosMeteorShot(scene: S, x0: number, y0: number, x1: number, y1
   } });
 }
 
+// ---------------------------------------------------------------------------- Tormenta de fuego (Bakunetsu Storm)
+const FS_DARK = 0x7a1200, FS_RED = 0xe8360c, FS_ORANGE = 0xff8a1a, FS_GOLD = 0xffd23f, FS_WHITE = 0xfff4c8;
+
+/** The fiery Majin of Tormenta de fuego: head, shoulders and arms of flame, rising behind the user. `rise` 0..1, `fist` 0..1. */
+function majin(g: Phaser.GameObjects.Graphics, size: number, rise: number, fist: number, flicker: number) {
+  const h = size * 2.4 * rise, a = 0.55 + 0.35 * rise;
+  // dark outline first, so the silhouette reads over any pitch; then the body of flame, narrowing towards the head
+  g.fillStyle(FS_DARK, a * 0.55).fillEllipse(0, -h * 0.5, size * 3.3, h + size * 1.4);
+  for (let i = 0; i < 7; i++) {
+    const u = i / 6, w = size * (1.5 - u * 0.75) * (0.9 + Math.sin(flicker * 9 + i) * 0.06);
+    g.fillStyle(i % 2 ? FS_RED : FS_ORANGE, a * (0.75 - u * 0.25)).fillEllipse(0, -h * u, w * 2, size * 0.7);
+  }
+  // head and burning eyes
+  g.fillStyle(FS_ORANGE, a).fillCircle(0, -h - size * 0.2, size * 0.48);
+  g.fillStyle(FS_GOLD, a).fillCircle(0, -h - size * 0.25, size * 0.32);
+  g.fillStyle(FS_WHITE, a).fillRect(-size * 0.2, -h - size * 0.3, size * 0.12, size * 0.06).fillRect(size * 0.08, -h - size * 0.3, size * 0.12, size * 0.06);
+  // horns of fire
+  g.fillStyle(FS_RED, a).fillTriangle(-size * 0.4, -h - size * 0.3, -size * 0.2, -h - size * 0.55, -size * 0.6, -h - size * 0.95);
+  g.fillStyle(FS_RED, a).fillTriangle(size * 0.4, -h - size * 0.3, size * 0.2, -h - size * 0.55, size * 0.6, -h - size * 0.95);
+  // arms: the right one pulls back and punches forward with `fist`
+  const sh = -h * 0.72;
+  g.lineStyle(size * 0.34, FS_ORANGE, a).lineBetween(-size * 0.9, sh, -size * 1.5, sh + size * 0.7);
+  const fx = size * (1.0 + fist * 1.4), fy = sh - size * 0.1 * (1 - fist);
+  g.lineStyle(size * 0.38, FS_RED, a).lineBetween(size * 0.9, sh, fx, fy);
+  g.fillStyle(FS_GOLD, a).fillCircle(fx, fy, size * (0.3 + fist * 0.15));
+}
+
+/**
+ * Windup of Tormenta de fuego, as the wiki describes it: arms crossed in an X while a blaze grows behind the user, the
+ * fiery Majin rises from it, throws user and ball up, and the user spins with legs wrapped in a stream of fire.
+ */
+export function fireStormCharge(scene: S, x: number, y: number, size: number, ms: number) {
+  // blaze behind the user, the X of the crossed arms
+  // behind the user: y-sorted sprites draw with their y as depth, so these go just under it
+  animate(scene, x, y - size * 0.3, y - 3, ms, (g, k) => {
+    const grow = Math.min(1, k * 2.2);
+    for (let i = 0; i < 9; i++) {
+      const a = -Math.PI / 2 + (i - 4) * 0.28, len = size * (0.9 + (i % 3) * 0.35) * grow * (0.85 + Math.sin(k * 30 + i) * 0.15);
+      g.fillStyle(i % 2 ? FS_ORANGE : FS_RED, 0.9).fillTriangle(Math.cos(a - 0.12) * size * 0.4, Math.sin(a - 0.12) * size * 0.2, Math.cos(a + 0.12) * size * 0.4, Math.sin(a + 0.12) * size * 0.2, Math.cos(a) * len, Math.sin(a) * len - size * 0.3);
+    }
+    if (k < 0.3) { const s = size * 0.5; g.lineStyle(4, FS_WHITE, 1 - k / 0.3).lineBetween(-s, -s - 14, s, s - 14).lineBetween(s, -s - 14, -s, s - 14); }
+  }, 200);
+  // the Majin rises behind and gets its fist ready
+  animate(scene, x, y - size * 0.7, y - 4, ms, (g, k) => majin(g, size * 1.25, Math.min(1, k * 1.8), Math.max(0, (k - 0.75) / 0.25), k), 240);
+  // stream of fire around the legs while the user spins in the air
+  animate(scene, x, y - 4, 8902, ms, (g, k) => {
+    if (k < 0.45) return;
+    const s = (k - 0.45) / 0.55;
+    for (let i = 0; i < 18; i++) {
+      const u = i / 17, a = s * 16 + u * Math.PI * 3, r = size * (0.35 + u * 0.25);
+      g.fillStyle(u > 0.6 ? FS_GOLD : FS_ORANGE, 0.9 - u * 0.4).fillCircle(Math.cos(a) * r, Math.sin(a) * r * 0.45 - u * size * 0.9, size * 0.09 * (1 - u * 0.4));
+    }
+  }, 120, true);
+}
+
+/** The volley: a ball wrapped in a storm of fire, curving down onto the target; `onHit` fires on arrival with the blast. */
+export function fireStormShot(scene: S, x0: number, y0: number, x1: number, y1: number, size: number, ms: number, onHit: () => void) {
+  const ball = scene.add.graphics().setPosition(x0, y0).setDepth(8901).setBlendMode(Phaser.BlendModes.ADD);
+  const trail = scene.add.graphics().setDepth(8900).setBlendMode(Phaser.BlendModes.ADD);
+  const pts: { x: number; y: number }[] = [];
+  const st = { k: 0 };
+  let n = 0;
+  // it rises a little and falls on the target: the curve of «curving down in a fiery storm»
+  const cx = (x0 + x1) / 2, cy = Math.min(y0, y1) - size * 2.2;
+  scene.tweens.add({ targets: st, k: 1, duration: ms, ease: 'Sine.easeIn', onUpdate: () => {
+    const k = st.k, px = (1 - k) * (1 - k) * x0 + 2 * (1 - k) * k * cx + k * k * x1, py = (1 - k) * (1 - k) * y0 + 2 * (1 - k) * k * cy + k * k * y1;
+    pts.push({ x: px, y: py });
+    if (pts.length > 14) pts.shift();
+    if (lowPower && n++ % 2) return;
+    ball.setPosition(px, py).clear();
+    for (let i = 0; i < 6; i++) { const a = k * 20 + i * 1.05; ball.fillStyle(i % 2 ? FS_RED : FS_ORANGE, 0.85).fillCircle(Math.cos(a) * size * 0.32, Math.sin(a) * size * 0.32, size * 0.24); }
+    ball.fillStyle(FS_GOLD, 1).fillCircle(0, 0, size * 0.3).fillStyle(FS_WHITE, 1).fillCircle(0, 0, size * 0.14);
+    trail.clear();
+    pts.forEach((p, i) => { const u = i / pts.length; trail.fillStyle(u > 0.6 ? FS_ORANGE : FS_RED, 0.15 + u * 0.55).fillCircle(p.x, p.y, size * (0.12 + u * 0.32)); });
+  }, onComplete: () => {
+    ball.destroy();
+    scene.tweens.add({ targets: trail, alpha: 0, duration: 220, onComplete: () => trail.destroy() });
+    onHit();
+    // the storm of fire breaks on the ground
+    animate(scene, x1, y1, 8901, 520, (g, k) => {
+      const r = size * (0.6 + k * 2.2);
+      g.fillStyle(FS_GOLD, 0.6 * (1 - k)).fillCircle(0, 0, r * 0.55);
+      g.lineStyle(size * 0.35 * (1 - k), FS_ORANGE, 1 - k).strokeCircle(0, 0, r);
+      for (let i = 0; i < 12; i++) {
+        const a = i * 0.524 + k * 2, d = r * (0.7 + (i % 3) * 0.15);
+        g.fillStyle(i % 2 ? FS_RED : FS_GOLD, 1 - k).fillTriangle(Math.cos(a) * d, Math.sin(a) * d * 0.6, Math.cos(a + 0.18) * r * 0.4, Math.sin(a + 0.18) * r * 0.25, Math.cos(a - 0.18) * r * 0.4, Math.sin(a - 0.18) * r * 0.25);
+      }
+    }, 140, true);
+  } });
+}
+

@@ -12,6 +12,7 @@ import { exportSave, importSave, remapIds, remapTechSlots, storeSave, type SaveD
 import { eligibleTeams, pull, recordHistory, DUPLICATE_REFUND, PULL_COST, MAX_STARS, starBonus, onboardingPull, type PullResult } from '../systems/gacha';
 import { applyRun, isMapUnlocked, type RunResult } from '../systems/economy';
 import { DROPS } from '../systems/items';
+import { STAT_INFO } from '../systems/playerStats';
 import { statChanges, TYPE_LABEL, MAX_TECH_LEVEL } from '../systems/techniques';
 import { evolutionLabel, evolvesAt } from '../systems/evolution';
 import { modDef } from '../systems/runmods';
@@ -117,6 +118,8 @@ export class App {
   private collectionFilter = { q: '', rarity: '', team: '', pos: '', element: '', saga: '', owned: false };
   private collectionView: 'equipos' | 'todos' | 'fichatron' = 'equipos';
   private collectionLimit = 36;
+  /** Fix 1.22: first footballer of a comparison, waiting for the second */
+  private compareWith: number | null = null;
   private gear: GearItem[];
   private pulling = false;
   private screenKey = '';
@@ -481,6 +484,9 @@ export class App {
     const top = same ? this.root.querySelector('.screen, .menu-root')?.scrollTop ?? 0 : 0;
     this.screenKey = key;
     this.root.innerHTML = html.replace(/<img /g, '<img decoding="sync" ');
+    // Fix 1.22: looping effects (card glows, sheens...) are anchored to the document clock, so a repaint (selecting a card
+    // repaints the screen) continues them exactly where they were instead of restarting them
+    for (const a of this.root.getAnimations({ subtree: true })) if (a.effect?.getTiming().iterations === Infinity) a.startTime = 0;
     this.root.className = `${cls}${same ? ' still' : ''}`;
     const first = this.root.firstElementChild;
     if (!same) first?.classList.add('enter');
@@ -536,9 +542,11 @@ export class App {
     const o = this.owned(p.id);
     const icons = opts.locked ? '' : `<div class="tech-pips">${p.techniques.map((t) => this.icon(ICON.manual[t.type], 1)).join('')}</div>`;
     const stars = !opts.locked && o?.stars ? `<div class="stars">${'★'.repeat(o.stars)}</div>` : '<div class="stars"></div>';
+    const spare = !opts.locked && o ? sparesOf(this.save, p.id) : 0, step = !opts.locked && o ? nextStep(this.save, p) : null;
+    const flags = `${spare ? `<span class="card-dup" title="Duplicados sin usar">+${spare}</span>` : ''}${step && spare >= step.cost ? '<span class="card-asc" title="Ascensión disponible">▲</span>' : ''}`;
     const er = opts.locked ? p.rarity : effectiveRarity(this.save, p);
     return `<div class="pcard r-${er}${opts.locked ? ' locked' : ''}${opts.sel ? ' sel' : ''}${opts.big ? ' big' : ''}${!opts.locked && isHero(this.save, p.id) ? ' hero' : ''}" data-id="${p.id}" style="--rc:${RARITY_COLOR[er]}">
-      ${opts.badge ? `<span class="badge">${esc(opts.badge)}</span>` : ''}${opts.captain ? '<span class="captain-badge">C</span>' : ''}
+      ${opts.badge ? `<span class="badge">${esc(opts.badge)}</span>` : ''}${opts.captain ? '<span class="captain-badge">C</span>' : ''}${flags}${opts.sel ? '<span class="card-check">✔</span>' : ''}
       ${this.emblemOf(p.teams[0]) ? `<img class="card-crest" src="${this.emblemOf(p.teams[0])}" alt="">` : ''}
       <div class="stage${opts.locked ? ' dark' : ''}">${!opts.locked && p.stats ? `<span class="ovr" title="Media de estadísticas">${statMean(p.stats)}</span>` : ''}${this.mug(p.id, 128)}${opts.locked ? '<span class="qmark">?</span><span class="lock-tag">Bloqueado</span>' : `<span class="minisprite">${charCanvas(p.id, 2, opts.anim ?? 4)}</span>`}</div>
       <div class="name">${opts.locked ? '???' : esc(p.name)}</div>
@@ -767,7 +775,8 @@ export class App {
         </section>
         ${feat ? `<section class="hero r-${feat.rarity}" data-go="squad" style="--rc:${RARITY_COLOR[feat.rarity]}"><div class="hero-glow"></div>
           <div class="hero-art">${this.mug(feat.id, 256)}<span class="hero-sprite">${charCanvas(feat.id, 3, 12)}</span></div>
-          <div class="hero-plate"><small>${this.captainId === feat.id ? 'TU CAPITÁN' : 'TU ESTRELLA'}</small><b>${esc(feat.name)}</b><div>${this.rar(feat)} ${this.elem(feat)}</div></div></section>` : ''}
+          <div class="hero-plate"><small>${this.captainId === feat.id ? 'TU CAPITÁN' : 'TU ESTRELLA'}</small><b>${esc(feat.name)}</b><div>${this.rar(feat)} ${this.elem(feat)}</div>
+            ${feat.stats ? `<div class="hero-stats">${statRadar(feat.stats, STAT_SHORT, RARITY_COLOR[feat.rarity])}<span class="ovr">${statMean(feat.stats)}</span></div><button class="btn small blue" data-sheet="${feat.id}">Ver ficha y estadísticas</button>` : ''}</div></section>` : ''}
         <aside class="menu-right">
           <button class="panel side update-card" data-go="devlog"><small>ACTUALIDAD · ${esc(VERSION_LABEL)}</small><b>${esc(CURRENT_PUBLIC.title)}</b>
             <span>${esc(CURRENT_PUBLIC.tagline)}: descubre qué trae y cómo empezar.</span>${unseenLog ? '<em>NUEVO</em>' : ''}</button>
@@ -784,6 +793,7 @@ export class App {
       </section>
       <footer class="menu-foot legal-foot"><span>Fangame gratuito, sin ánimo de lucro y no oficial, creado por AstraStorm17. Inazuma Eleven y todos sus derechos pertenecen a LEVEL-5 y sus respectivos titulares. Este proyecto no está afiliado, patrocinado ni aprobado por LEVEL-5. · <button id="credits" class="legal-link">Aviso legal</button> · ${esc(VERSION_LABEL)}</span></footer>
       ${musicUnlocked() ? '' : '<div class="audio-hint">Haz clic en cualquier parte para activar la música</div>'}</div>`, 'menu-mode');
+    this.on('[data-sheet]', 'click', (e, el) => { e.stopPropagation(); this.collection(Number(el.dataset.sheet)); });
     this.on('[data-go]', 'click', (_e, el) => {
       const go = el.dataset.go;
       if (go === 'play') {
@@ -1628,6 +1638,7 @@ export class App {
     }).join('');
     const list = filtered.slice(0, this.collectionLimit);
     this.show(`<div class="screen">${this.titlebar('Enciclopedia', 'Menú')}
+      ${d && this.compareWith && this.compareWith !== d.id && this.byId.get(this.compareWith) ? this.compareHtml(this.byId.get(this.compareWith)!, d) : ''}
       ${d ? this.playerDetail(d) : ''}
       <div class="mis-top"><div class="seg" id="views"><button data-v="equipos" class="${this.collectionView === 'equipos' ? 'on' : ''}">Por equipos</button><button data-v="fichatron" class="${this.collectionView === 'fichatron' ? 'on' : ''}">Fichatrón</button><button data-v="todos" class="${this.collectionView === 'todos' ? 'on' : ''}">Todos</button></div>
         ${this.collectionView === 'fichatron' ? `<span class="note">Jugadores de Fichatrón / Ojeadores: ${scouts.filter((p) => this.owned(p.id)).length} de ${scouts.length}. No pertenecen a un equipo de la historia, pero juegan igual que los demás.</span>` : ''}
@@ -1645,6 +1656,8 @@ export class App {
     this.on('[data-back]', 'click', () => this.mainMenu());
     this.on('.pcard[data-id]', 'click', (_e, el) => { if (this.owned(Number(el.dataset.id))) { this.collection(Number(el.dataset.id)); this.root.querySelector('.screen')?.scrollTo(0, 0); } });
     this.on('[data-ascend]', 'click', (_e, el) => this.ascension(Number(el.dataset.ascend), () => this.collection(Number(el.dataset.ascend))));
+    this.on('[data-compare]', 'click', (_e, el) => { const id = Number(el.dataset.compare); this.compareWith = this.compareWith === id ? null : id; this.collection(id); });
+    this.on('[data-uncompare]', 'click', () => { this.compareWith = null; this.collection(detailId); });
     this.on('[data-team]', 'click', (_e, el) => { f.team = el.dataset.team!; this.collectionLimit = 36; this.collection(); });
     this.on('[data-reward]', 'click', (_e, el) => {
       if (claimTeamReward(this.save, this.m.roster, f.team, el.dataset.reward as TeamRewardKind)) { this.persist(); sfx('evolve'); confetti(30); this.toast('¡Recompensa de equipo conseguida!'); }
@@ -1791,6 +1804,25 @@ export class App {
     this.on('[data-crest]', 'click', (_e, el) => { this.save.crest = el.dataset.crest!; this.persist(); this.kits(); });
   }
 
+  /** Fix 1.22: two footballers side by side: stats with their difference, techniques, talents, rarity and what they share. */
+  private compareHtml(a: RosterEntry, b: RosterEntry) {
+    const sa = a.stats ?? {}, sb = b.stats ?? {};
+    const rows = STAT_INFO.map((s) => {
+      const va = sa[s.key] ?? 0, vb = sb[s.key] ?? 0, d = vb - va;
+      return `<tr><td>${s.name}</td><td>${va}</td><td>${vb}</td><td class="${d > 0 ? 'up' : d < 0 ? 'down' : ''}">${d > 0 ? '+' : ''}${d}</td></tr>`;
+    }).join('');
+    const techs = (p: RosterEntry) => p.techniques.map((t) => `<li>${this.icon(ICON.manual[t.type], 1)} ${esc(t.name)} <small>${TYPE_LABEL[t.type]}${t.type === 'talento' ? '' : ` · ${t.power}`}</small></li>`).join('');
+    const shared = [...new Set(a.teams.filter((t) => b.teams.includes(t) && (this.m.mainTeams ?? []).includes(t)))].map(teamLabel);
+    const notes = [a.position !== b.position ? `Posiciones distintas (${POS_LABEL[a.position]} / ${POS_LABEL[b.position]}): la comparación es orientativa.` : '',
+      a.element === b.element ? `Mismo elemento (${a.element}): suman resonancia de elemento juntos.` : '',
+      shared.length ? `Comparten equipo: ${esc(shared.slice(0, 3).join(', '))} (química de club con 3 o más en el campo).` : ''].filter(Boolean);
+    return `<div class="panel compare"><h3>Comparación <button class="btn small blue" data-uncompare="1">✕ Cerrar</button></h3>
+      <div class="cmp-head">${[a, b].map((p) => `<div>${this.mug(p.id, 64)}<b>${esc(p.name)}</b>${this.rar(p)}<small>${POS_LABEL[p.position]} · ${esc(String(p.element))}</small></div>`).join('<span>VS</span>')}</div>
+      <table class="cmp-stats"><tr><th></th><th>${esc(a.nickname || a.name)}</th><th>${esc(b.nickname || b.name)}</th><th>Dif.</th></tr>${rows}</table>
+      <div class="cmp-techs"><ul>${techs(a)}</ul><ul>${techs(b)}</ul></div>
+      ${notes.map((n) => `<div class="note">${n}</div>`).join('')}</div>`;
+  }
+
   private playerDetail(d: RosterEntry) {
     const o = this.owned(d.id);
     const statNames: Record<string, string> = { kick: 'Tiro', body: 'Físico', guard: 'Defensa', control: 'Control', speed: 'Velocidad', guts: 'Agallas', stamina: 'Aguante' };
@@ -1798,7 +1830,8 @@ export class App {
     const reps = Array.from({ length: Math.max(4, d.techniques.length) }, (_, i) => d.techniques[i]); // GO players can know more than 4
     return `<div class="panel detail r-${d.rarity}" style="--rc:${RARITY_COLOR[d.rarity]}"><div class="art">${this.mug(d.id, 128)}${charCanvas(d.id, 3, 12)}</div><div>
       <h3>${esc(d.name)} “${esc(d.nickname)}” ${this.rar(d)} ${this.elem(d)}</h3>
-      <div class="note">${POS_LABEL[d.position]} · ${esc(d.teams.filter((t) => (this.m.mainTeams ?? []).includes(t)).slice(0, 5).map(teamLabel).join(', ') || 'Jugador de Fichatrón / Ojeador')}</div>
+      <div class="note">${POS_LABEL[d.position]} · ${esc(d.teams.filter((t) => (this.m.mainTeams ?? []).includes(t)).slice(0, 5).map(teamLabel).join(', ') || 'Jugador de Fichatrón / Ojeador')}${(() => { const sg = [...new Set(d.teams.map(sagaOf).filter(Boolean))]; return sg.length ? ` · Saga: ${esc(sg.join(', '))}` : ''; })()}</div>
+      ${o ? `<p><button class="btn small blue" data-compare="${d.id}">${this.compareWith === d.id ? 'Elige otro futbolista para comparar…' : '⇄ Comparar con otro'}</button></p>` : ''}
       ${o ? `<div class="note">Estrellas ${o.stars}/${MAX_STARS} · Duplicados libres ${sparesOf(this.save, d.id)} (gastados ${o.spent ?? 0}) · Potencia: daño ×${starBonus(o.stars).damage.toFixed(2)}, vida ×${starBonus(o.stars).hp.toFixed(2)}</div>` : ''}
       ${o && (nextStep(this.save, d) || isHero(this.save, d.id)) ? `<p><button class="btn ${isHero(this.save, d.id) ? 'blue' : 'big'}" data-ascend="${d.id}">${isHero(this.save, d.id) ? '★ Ver HÉROE' : `▲ Ascensión (${sparesOf(this.save, d.id)}/${nextStep(this.save, d)!.cost})`}</button></p>` : ''}
       ${d.heroTech ? `<div class="note">Técnica de HÉROE: <b>${esc(d.heroTech.name)}</b>${isHero(this.save, d.id) ? ' (desbloqueada)' : ''}</div>` : ''}
@@ -1806,7 +1839,9 @@ export class App {
       <h3 style="margin-top:8px">Repertorio (2 técnicas activas en combate)</h3>
       ${reps.map((t, i) => (t ? `<div class="rep">${i === active ? '<span class="tag">Inicial</span>' : isLocked(t) && !isBought(this.save, d.id, i) ? '<span class="tag">Tienda</span>' : ''}${this.techHtml(t)}<div class="note">Maestría ${masteryLevel(this.save.mastery[String(t.id)] ?? 0)}/${MASTERY_USES.length} · +${masteryLevel(this.save.mastery[String(t.id)] ?? 0) * MASTERY_BONUS * 100}% daño · ${this.save.mastery[String(t.id)] ?? 0} usos</div></div>`
         : '<div class="rep"><div class="tech"><div class="note">Ficha pendiente: sin datos de origen para esta técnica.</div></div></div>')).join('')}
-      ${d.stats ? `<div class="stat-radar">${statRadar(d.stats, statNames, RARITY_COLOR[d.rarity])}</div><div class="bars-mini">${Object.entries(d.stats).map(([k, v]) => `<span>${statNames[k] ?? k}</span><i style="width:${Math.min(100, v)}%"></i>`).join('')}</div>${d.statsSource === 'derivado' ? '<div class="note">Estadísticas estimadas por posición y rareza: las de IE3 aún no se han descifrado.</div>' : ''}` : ''}
+      ${d.stats ? `<h3 style="margin-top:8px">Estadísticas</h3><div class="stat-radar">${statRadar(d.stats, statNames, RARITY_COLOR[d.rarity])}</div>
+        <div class="stat-explain">${STAT_INFO.map((s) => `<div><b>${s.name} ${d.stats![s.key] ?? '—'}</b><span>${esc(s.what(d.stats![s.key] ?? 60))}</span></div>`).join('')}</div>
+        <div class="note">Valores centrados en 60: por encima suman, por debajo restan. Cada técnica usa las estadísticas de su futbolista.</div><div class="bars-mini">${Object.entries(d.stats).map(([k, v]) => `<span>${statNames[k] ?? k}</span><i style="width:${Math.min(100, v)}%"></i>`).join('')}</div>${d.statsSource === 'derivado' ? '<div class="note">Estadísticas estimadas por posición y rareza: las de IE3 aún no se han descifrado.</div>' : ''}` : ''}
       </div></div>`;
   }
 
@@ -1936,8 +1971,12 @@ export class App {
   /** Capsule falls (spin frames), wobbles, opens (open + halves) and reveals the card. Used by gacha and onboarding. */
   private async capsuleShow(results: PullResult[], title: string) {
     let skip = false;
+    this.revealSpeed = 1;
     for (let i = 0; i < results.length && !skip; i++) skip = await this.revealOne(results[i], results.length > 1, `${title} ${results.length > 1 ? `${i + 1}/${results.length}` : ''}`);
   }
+
+  /** Fix 1.22: ×2 in multi pulls, remembered while the pull lasts */
+  private revealSpeed = 1;
 
   private revealOne(r: PullResult, multi: boolean, title: string): Promise<boolean> {
     return new Promise((resolve) => {
@@ -1951,7 +1990,7 @@ export class App {
       const has = !!this.m.capsule;
       ov.innerHTML = `<div class="rays"></div><div class="reveal-title">${esc(title)}</div>
         ${has ? '<img class="cap-sprite" id="capimg" alt="">' : `<div class="capsule" style="--c:${RARITY_COLOR[p.rarity]}"><div class="top"></div><div class="bot"></div></div>`}
-        <div class="flash"></div><button class="btn small blue skip">${multi ? 'Saltar todo' : 'Saltar'}</button>`;
+        <div class="flash"></div><button class="btn small blue skip">${multi ? 'Saltar todo' : 'Saltar'}</button>${multi ? `<button class="btn small speed${this.revealSpeed > 1 ? ' on' : ''}">×2</button>` : ''}`;
       this.root.appendChild(ov);
       let done = false;
       const finish = (skipAll: boolean) => { if (done) return; done = true; ov.remove(); resolve(skipAll); };
@@ -1971,28 +2010,68 @@ export class App {
         img.style.width = `${piece.w * 3}px`;
         img.style.height = `${piece.h * 3}px`;
       };
-      const pause = async (ms: number) => { for (let t = 0; t < ms && !skipAnim; t += 30) await wait(30); };
+      ov.querySelector('.speed')?.addEventListener('click', (e) => { e.stopPropagation(); this.revealSpeed = this.revealSpeed > 1 ? 1 : 2; (e.currentTarget as HTMLElement).classList.toggle('on', this.revealSpeed > 1); });
+      const pause = async (ms: number) => { for (let t = 0; t < ms / this.revealSpeed && !skipAnim; t += 30) await wait(30); };
+      /**
+       * Fix 1.22: Legendario, Mítico and Leyenda get a scene instead of the plain capsule. The real minisprite of the
+       * footballer, hidden as a silhouette, walks in, stops, gets a ball and kicks it into the capsule, which breaks open;
+       * then the bodyshot and the card. Same story for the three, a different staging for each: gold and an elegant
+       * flash for Legendario; energy around the player, tension and a prismatic burst for Mítico; a spotlight, a crown,
+       * a dramatic pause and a shattering capsule for Leyenda. The reward was already saved before any of this.
+       */
+      const cine = async () => {
+        ov.classList.add('cine', `cine-${p.rarity}`);
+        const stage = document.createElement('div');
+        stage.className = 'cr-stage';
+        stage.innerHTML = `<div class="cr-bg"></div><div class="cr-floor"></div>${p.rarity === 'leyenda' ? '<div class="cr-spot"></div><div class="cr-crown">♛</div>' : ''}
+          <div class="cr-runner"><div class="cr-aura"></div>${charCanvas(p.id, 4, 10, 'cr-sil')}</div><div class="cr-ball"></div><div class="cr-mug">${this.mug(p.id, 128)}</div>`;
+        ov.insertBefore(stage, ov.firstChild);
+        mountPreviews();
+        const runner = stage.querySelector('.cr-runner') as HTMLElement, sprite = stage.querySelector('canvas.char') as HTMLCanvasElement;
+        const ball = stage.querySelector('.cr-ball') as HTMLElement;
+        if (img) { img.classList.add('cr-cap'); img.style.setProperty('--glow', RARITY_COLOR[p.rarity]); frame('spin0'); }
+        const T = { legendario: { walk: 1100, pose: 350, hold: 0 }, mitico: { walk: 1200, pose: 650, hold: 0 }, leyenda: { walk: 1500, pose: 500, hold: 1000 } }[p.rarity as 'legendario']!;
+        if (p.rarity === 'leyenda') { sfx('whoosh'); await pause(700); } // the spotlight and the crown come first
+        runner.style.transition = `transform ${T.walk / this.revealSpeed}ms linear`;
+        await wait(20);
+        runner.classList.add('walk');
+        for (let s = 0; s < T.walk && !skipAnim; s += 300) { sfx('click'); await pause(300); }
+        sprite.dataset.anim = '2'; // standing, facing the capsule
+        stage.classList.add('pose');
+        if (p.rarity === 'mitico') { for (let b = 0; b < 3 && !skipAnim; b++) { sfx('click'); await pause(T.pose / 3); } } else await pause(T.pose);
+        if (T.hold) { stage.classList.add('hold'); await pause(T.hold); stage.classList.remove('hold'); } // the dramatic pause of Leyenda
+        ball.classList.add('in'); await pause(220);
+        sprite.dataset.anim = '18'; // the kick
+        sfx('kick');
+        await pause(160);
+        ball.classList.add('shot');
+        await pause(380);
+        // the capsule breaks open
+        sfx('boom');
+        if (this.save.settings.shake > 0 && p.rarity !== 'legendario') ov.classList.add('quake');
+        if (img) { frame('open'); await pause(110); for (const h of ['half0', 'half1', 'half2']) { frame(h); await pause(70); } img.classList.add('pop'); }
+        stage.classList.add('open');
+        sprite.classList.remove('cr-sil'); // the silhouette shows who it is
+        sprite.dataset.anim = '12';
+        ov.classList.remove('quake');
+        await pause(p.rarity === 'leyenda' ? 700 : 450);
+      };
       const seq = async () => {
-        if (img) {
-          // falls out of the slot and rolls: each spin frame a little later than the last, as the roll loses speed
+        if (special) await cine();
+        else if (img) {
+          // Fix 1.22: common, rare and epic open fast (about 1.3 s): roll, settle, a beat for epic, open
           img.style.setProperty('--glow', RARITY_COLOR[p.rarity]);
           frame('spin0');
           img.classList.add('roll-in');
-          const steps = 14 + tier * 2;
-          for (let k = 0; k < steps && !skipAnim; k++) { frame(`spin${k % 6}`); await wait(34 + 120 * (k / steps) ** 2); }
+          const steps = 8;
+          for (let k = 0; k < steps && !skipAnim; k++) { frame(`spin${k % 6}`); await wait((28 + 60 * (k / steps) ** 2) / this.revealSpeed); }
           if (!skipAnim) sfx('kick');
           img.classList.remove('roll-in');
           img.classList.add('settle');
-          await pause(520);
+          await pause(220);
           img.classList.remove('settle');
-          // the rarity charges before the capsule opens: nothing for common, beats of its colour above, shaking for the best
-          if (tier > 0 || p.rarity === 'epico') {
-            img.classList.add('charge', `c${tier}`);
-            if (tier >= 2) ov.classList.add('charging');
-            for (let b = 0; b < tier + 1 && !skipAnim; b++) { sfx('click'); await pause(tier >= 2 ? 360 : 300); }
-            if (tier >= 2 && this.save.settings.shake > 0) ov.classList.add('quake');
-            await pause(tier * 220);
-          }
+          if (p.rarity === 'epico') { img.classList.add('charge', 'c1'); sfx('click'); await pause(240); } // epic charges once
+          if (p.rarity === 'raro') ov.classList.add('rare-flash');
           frame('open');
           sfx('whoosh');
           await pause(120);
@@ -2005,9 +2084,9 @@ export class App {
           await wait(900);
           ov.querySelector('.capsule')?.classList.add('open');
         }
-        sfx((['reveal', 'legend', 'myth', 'leyenda'] as const)[tier]);
+        sfx(p.rarity === 'epico' ? 'legend' : (['reveal', 'legend', 'myth', 'leyenda'] as const)[tier]);
         if (special && this.save.settings.flashes) ov.querySelector('.flash')!.classList.add('go');
-        const n = this.save.settings.particles === 'desactivado' ? 0 : [20, 44, 70, 100][tier] * (this.save.settings.particles === 'reducido' ? 0.5 : 1);
+        const n = this.save.settings.particles === 'desactivado' ? 0 : (p.rarity === 'comun' ? 10 : p.rarity === 'raro' ? 18 : p.rarity === 'epico' ? 30 : [20, 44, 70, 100][tier]) * (this.save.settings.particles === 'reducido' ? 0.5 : 1);
         for (let i = 0; i < n; i++) {
           const s = document.createElement('i');
           s.className = 'spark';
@@ -2017,13 +2096,14 @@ export class App {
           s.style.setProperty('--c', i % 3 ? RARITY_COLOR[p.rarity] : '#fff');
           ov.appendChild(s);
         }
-        await wait(220);
+        await wait(special ? 220 : 120);
         const card = document.createElement('div');
         card.className = 'reveal-card';
         card.innerHTML = `<div class="rarity-big t${tier}" style="color:${RARITY_COLOR[p.rarity]}">${RARITY_LABEL[p.rarity].toUpperCase()}</div>
           ${this.pcard(p, { anim: 12, big: true })}<div class="${r.isNew ? 'newtag' : 'stars'}">${r.isNew ? '¡NUEVO FICHAJE!' : r.refund ? `Al máximo: +${r.refund} monedas` : `Duplicado · ${'★'.repeat(r.stars)}`}</div>
           <button class="btn big">${multi ? 'Siguiente ▶' : 'Aceptar'}</button>`;
         ov.appendChild(card);
+        ov.classList.add('carded'); // Fix 1.22: the scene steps back behind the card
         mountPreviews();
         card.querySelector('.btn')!.addEventListener('click', () => finish(false));
       };

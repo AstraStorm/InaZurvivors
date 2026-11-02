@@ -15,6 +15,22 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: '4.10', date: '2026-11-02', title: 'Fix 1.22',
+    features: [
+      'Gacha: apertura rápida (≈1,3 s) para Común, Raro y Épico; escena con el minisprite real en silueta que camina, chuta y rompe la cápsula para Legendario, Mítico y Leyenda, con puesta en escena propia; ×2 y Saltar en las tiradas de diez.',
+      'Estadísticas con efecto real en combate (src/systems/playerStats.ts), explicadas en la ficha, y comparación de dos futbolistas.',
+      'Tormenta de fuego con animación propia (Majin de fuego, giro, volea y explosión).',
+      'Bustos con las equipaciones de IE3 sacados de la ROM (InazumaExtractor/kit_busts_ie3.py): 212 de 302 equipaciones de IE3.',
+      'Menú: el futbolista estrella muestra su radar, su media y lleva a su ficha.',
+    ],
+    fixes: [
+      'Tarjetas: al seleccionar una tarjeta se repintaba la pantalla y una regla apagaba todos los efectos (y los reiniciaba); ahora siguen sin cortes, anclados al reloj del documento.',
+      'HUD móvil: panel del capitán compacto (15 % del alto en horizontal, antes 21 %), minimapa en la columna derecha sin solapes y retratos de compañeros más grandes.',
+    ],
+    visuals: ['Identidad propia por rareza en las tarjetas y estados de duplicados, ascensión disponible y selección.'],
+    balance: ['Las estadísticas suman o restan a partir de 60: tiros, regates, defensas, vida aportada, daño recibido del capitán, daño general y recarga.'],
+  },
+  {
     version: '4.9', date: '2026-11-02', title: 'Fix 1.21',
     features: ['Talentos 58 y 59 con los nombres elegidos por el autor: Femme fatale y Casanova.'],
     fixes: [], visuals: [], balance: [],

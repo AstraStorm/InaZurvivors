@@ -21,6 +21,7 @@ import { FORMATIONS, FORMATION_ORDER, headingFromVector, slotPositions, type For
 import type { PerkEffects } from '../systems/perks';
 import type { Settings } from '../systems/save';
 import type { RunResult } from '../systems/economy';
+import { statCooldown, statDamage, statHealth, statTaken } from '../systems/playerStats';
 import { burstSize, FINAL_STRETCH_FROM, finalStretch, RANK_ORDER, rankDef, variantRamp, waveIntensity, type RankDef } from '../systems/difficulty';
 import { capArea, capCooldown, capCrit, capLuck, pickupRadius, capRegen, capSpeed, capTaken, capXp, CAPS, softCap } from '../systems/balance';
 import { endlessActive, endlessCoins, endlessPhase, endlessScale } from '../systems/endless';
@@ -29,7 +30,7 @@ import { chemistry } from '../systems/kitBonus';
 import { HERO_AURA } from '../systems/ascension';
 import { dragon, handKind, keeperHand } from './fxTech';
 import { orphans } from '../systems/groundSweep';
-import { chaosMeteorCharge, chaosMeteorShot, chaosVortex, earthGlobe, elementBurst, fireIceTwin, phoenix, phoenixFlight, setLowPower, teamBeams } from './fxManif';
+import { chaosMeteorCharge, chaosMeteorShot, chaosVortex, fireStormCharge, fireStormShot, earthGlobe, elementBurst, fireIceTwin, phoenix, phoenixFlight, setLowPower, teamBeams } from './fxManif';
 import { adaptedPassive, CAP_ELEMENTAL, CAP_LAST_STAND, emptyFx, TALENTS, talentScale, type TalentFx } from '../systems/talents';
 import { COMBOS, COMBOS_BY_PRIORITY, COMBO_MAX_LEVEL, comboDamage, comboMembers, comboReady, type ComboDef } from '../systems/combos';
 import type { Rank } from '../systems/save';
@@ -347,7 +348,7 @@ export class ArenaScene extends Phaser.Scene {
       slot: this.members.length - 1, windup: null, dash: null, vx: 0, vy: 0, settled: false, guardUntil: 0, guardLock: 0,
     };
     this.members.push(m);
-    const add = Math.round((this.members.length === 1 ? 160 : 25) * sb.hp * this.cfg.perks.hpMult); // Fix 1.13: teammates add 25 (was 40)
+    const add = Math.round((this.members.length === 1 ? 160 : 25) * sb.hp * this.cfg.perks.hpMult * statHealth(entry)); // Fix 1.13: teammates add 25 (was 40)
     if (this.members.length === 1) this.maxHp = this.hp = add;
     else { this.maxHp += add; this.hp = Math.min(this.maxHp, this.hp + add); }
     if (this.members.length > 1) this.fx.burst(m.styles[0], x, y - 10, 12, 50);
@@ -444,9 +445,9 @@ export class ArenaScene extends Phaser.Scene {
     const talent = 1 + (fx.type[t.type] ?? 0) + (fx.element[String(t.element)] ?? 0) + (this.hp < this.maxHp * 0.3 ? Math.min(CAP_LAST_STAND, fx.lastStand) : 0);
     const build = softCap(m.damageMult * boost * talent * this.mods.damage * (1 + this.cfg.perks.synergy * allies) * this.teamDamageBonus() * this.heroAura()
       * chemistry(this.cfg.kitTeam ?? '', this.members.map((x) => x.entry)));
-    const s = techStats(t, this.techLevel(m, i), build * (this.buffOn('dano') ? 1.5 : 1) * this.formationDamage() * (t.type === 'parada' ? 1 + fx.keeper : 1));
+    const s = techStats(t, this.techLevel(m, i), build * statDamage(m.entry, t.type) * (this.buffOn('dano') ? 1.5 : 1) * this.formationDamage() * (t.type === 'parada' ? 1 + fx.keeper : 1));
     if (t.type === 'parada' && fx.keeper) { s.heal *= 1 + fx.keeper; s.shield = Math.min(0.6, s.shield * (1 + fx.keeper)); } // Portero+
-    s.cooldownMs = Math.round(s.cooldownMs * capCooldown(this.mods.cooldown * this.cfg.perks.cooldownMult * (1 - fx.cooldown)) * (this.buffOn('recarga') ? 0.6 : 1) * FORMATIONS[this.formation].cooldownMult);
+    s.cooldownMs = Math.round(s.cooldownMs * capCooldown(this.mods.cooldown * this.cfg.perks.cooldownMult * (1 - fx.cooldown) * statCooldown(m.entry)) * (this.buffOn('recarga') ? 0.6 : 1) * FORMATIONS[this.formation].cooldownMult);
     s.radius = Math.round(s.radius * capArea(this.mods.area * this.cfg.perks.areaMult * (this.buffOn('amplio') ? 1.2 : 1)));
     return s;
   }
@@ -684,6 +685,34 @@ export class ArenaScene extends Phaser.Scene {
           if (t.type === 'parada') this.hp = Math.min(this.maxHp, this.hp + Math.round(this.maxHp * s.heal));
           used();
           m.cds[i] = Math.max(1600, s.cooldownMs * 0.6);
+          m.maxCd[i] = m.cds[i];
+          return;
+        }
+        if (/^tormenta de fuego$/i.test(t.name)) {
+          // Fix 1.22: Tormenta de fuego (Bakunetsu Storm) with its own animation: the fiery Majin, the spin, the volley. Same
+          // damage and cooldown as any shot of its level (its numbers come from techStats); the blast hits around the target
+          const target = this.nearestEnemy(ox, oy, 240 * this.cfg.perks.rangeMult);
+          if (!target) { m.cds[i] = 150; return; }
+          const size = 26 + lv * 2, r = Math.max(36, s.radius);
+          const charge = 560;
+          fireStormCharge(this, ox, oy, size, charge);
+          sfx('whoosh');
+          m.f.hop(this, 14, charge * 0.6);
+          this.time.delayedCall(charge, () => {
+            if (this.sys.isActive() === false) return;
+            const bx = target.pos.x, by = target.pos.y - 10;
+            sfx('whoosh');
+            fireStormShot(this, m.f.x, m.f.y - 16, bx, by, size, 340, () => {
+              sfx('boom');
+              this.fx.shake(0.005, 180);
+              for (const e of this.enemies) {
+                const d = Math.hypot(e.pos.x - bx, e.pos.y - 10 - by);
+                if (d < r + e.radius) this.hit(e, s.damage, (e.pos.x - bx) / (d || 1) * 100, (e.pos.y - by) / (d || 1) * 100, 'fuego', true);
+              }
+            });
+          });
+          used();
+          m.cds[i] = s.cooldownMs;
           m.maxCd[i] = m.cds[i];
           return;
         }
@@ -1267,7 +1296,7 @@ export class ArenaScene extends Phaser.Scene {
     taken *= this.formationTactic().taken;
     this.invulnUntil = this.runTime + 0.3;
     const gloves = this.members.some((m) => m.entry.position === 'GK') ? 1 - this.cfg.perks.gloveReduction : 1;
-    const dmg = Math.max(1, Math.round(raw * capTaken((1 - shield) * gloves * (1 + this.talents().taken) * this.cfg.perks.damageTakenMult * (this.buffOn('escudo') ? 1 - SHIELD_REDUCTION : 1)) * taken));
+    const dmg = Math.max(1, Math.round(raw * capTaken((1 - shield) * gloves * statTaken(target.entry) * (1 + this.talents().taken) * this.cfg.perks.damageTakenMult * (this.buffOn('escudo') ? 1 - SHIELD_REDUCTION : 1)) * taken));
     this.hp -= dmg;
     this.hurtAt = this.runTime;
     this.lastHit = { ...src, dmg, at: this.runTime };

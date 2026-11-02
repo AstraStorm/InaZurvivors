@@ -1264,3 +1264,180 @@ body.reduced-motion .pcard::after, body.reduced-motion .sq-slot::after { animati
 .sq-radar .rv { fill: color-mix(in srgb, var(--rc) 45%, transparent); stroke: var(--rc); stroke-width: 2; stroke-linejoin: round; }
 .sq-radar text { font-size: 11px; fill: #cfe3ff; } .sq-radar tspan { fill: var(--yellow); }
 .sq-radar .ovr { left: 0; top: 0; font-size: 11px; }
+
+/* Fix 1.22: estadísticas explicadas y comparación de futbolistas */
+.stat-explain { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 4px 12px; font-size: 9px; margin: 4px 0 6px; }
+.stat-explain div { display: flex; flex-direction: column; padding: 4px 6px; background: #0a1d4899; border-left: 3px solid var(--rc, var(--frame)); }
+.stat-explain b { color: var(--yellow); font-weight: normal; } .stat-explain span { color: #cfe3ff; line-height: 1.5; }
+.compare h3 { display: flex; justify-content: space-between; align-items: center; }
+.cmp-head { display: flex; align-items: center; justify-content: center; gap: 18px; text-align: center; }
+.cmp-head > div { display: flex; flex-direction: column; align-items: center; gap: 3px; font-size: 10px; } .cmp-head > span { color: var(--orange); font-size: 18px; }
+.cmp-stats { width: 100%; max-width: 520px; margin: 8px auto; border-collapse: collapse; font-size: 10px; }
+.cmp-stats td, .cmp-stats th { padding: 3px 6px; text-align: center; border-bottom: 1px solid #ffffff1a; } .cmp-stats td:first-child { text-align: left; color: var(--yellow); }
+.cmp-stats .up { color: #6dff8a; } .cmp-stats .down { color: #ff7a7a; }
+.cmp-techs { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 9px; } .cmp-techs ul { list-style: none; margin: 0; padding: 0; } .cmp-techs li { padding: 2px 0; }
+
+/* ============================================================== Fix 1.22: tarjetas
+   Cada rareza tiene su propio lenguaje, no el mismo efecto más intenso:
+   Común limpia · Raro con remates de esquina · Épico con un pulso de energía violeta · Legendario con doble marco dorado
+   y destello dorado lento · Mítico con reflejo prismático y chispas que suben · Leyenda con un aro de luz que gira
+   alrededor del marco y una corona.
+   Todas las animaciones van en fase con el reloj (--t0, show()): al seleccionar una tarjeta la pantalla se repinta y el
+   efecto sigue donde iba. Fuera de la vista no se pintan (content-visibility). Respetan «Reducir movimiento». */
+@property --ring { syntax: '<angle>'; inherits: false; initial-value: 0deg; }
+.still .pcard.r-legendario { animation-name: legendGlow; } .still .pcard.r-mitico { animation-name: mythGlow; } .still .pcard.r-leyenda { animation-name: leyGlow, leyRing; }
+
+.pcard::before, .pcard::after, .sq-slot::after { animation-delay: var(--t0, 0s) !important; }
+.grid > .pcard { content-visibility: auto; contain-intrinsic-size: 190px 300px; }
+.pcard:active { transform: scale(.97); transition-duration: .05s; }
+.pcard.sel { animation: cardSel .22s ease-out; }
+@keyframes cardSel { from { transform: scale(.95); } to { transform: scale(1); } }
+.card-check { position: absolute; z-index: 4; right: 6px; bottom: 6px; width: 20px; height: 20px; display: grid; place-items: center; background: var(--orange); color: #fff; font-size: 11px; border: 2px solid #fff; }
+.card-dup { position: absolute; z-index: 4; left: 6px; bottom: 6px; font-size: 9px; padding: 1px 4px; background: #0a1d48; color: #9fe8ff; border: 1px solid #9fe8ff; }
+.card-asc { position: absolute; z-index: 4; left: 6px; top: 34px; font-size: 11px; padding: 0 4px; background: #ffd23f; color: #3a1200; animation: ascPing 1.6s ease-in-out infinite; animation-delay: var(--t0, 0s); }
+@keyframes ascPing { 50% { box-shadow: 0 0 0 4px #ffd23f55; } }
+
+/* Común: limpia, sin efectos */
+.pcard.r-comun::before, .pcard.r-comun::after { content: none; }
+/* Raro: remates de esquina azules, estáticos */
+.pcard.r-raro::before { content: ''; position: absolute; inset: 4px; z-index: 2; pointer-events: none;
+  background: linear-gradient(135deg, var(--rc) 0 10px, transparent 10px) top left / 22px 22px no-repeat,
+              linear-gradient(315deg, var(--rc) 0 10px, transparent 10px) bottom right / 22px 22px no-repeat; opacity: .8; }
+/* Épico: pulso de energía violeta que recorre la tarjeta de abajo arriba */
+.pcard.r-epico::after { content: ''; position: absolute; inset: 0; z-index: 2; pointer-events: none; transform: none;
+  background: linear-gradient(0deg, transparent 0%, #c58bff00 40%, #c58bff55 50%, #c58bff00 60%, transparent 100%) 0 0 / 100% 300%;
+  animation: epicPulse 4.2s ease-in-out infinite; }
+@keyframes epicPulse { 0%, 50% { background-position: 0 100%; } 100% { background-position: 0 -100%; } }
+/* Legendario: doble marco dorado, destello dorado lento y respiración del brillo */
+.pcard.r-legendario { box-shadow: 0 0 0 2px #3a2604, 0 0 0 4px #ffcf5a, inset 0 0 14px #ffb02044; animation: legendGlow 2.6s ease-in-out infinite alternate; }
+.pcard.r-legendario::after { content: ''; position: absolute; inset: -40%; z-index: 2; pointer-events: none;
+  background: linear-gradient(115deg, transparent 44%, #ffe9a066 49%, #fff6d0cc 50%, #ffe9a066 51%, transparent 56%); animation: cardSheen 3.6s ease-in-out infinite; }
+/* Mítico: reflejo prismático y chispas que suben */
+.pcard.r-mitico { animation: mythGlow 3s linear infinite; }
+.pcard.r-mitico::after { content: ''; position: absolute; inset: 0; z-index: 2; pointer-events: none; mix-blend-mode: color-dodge; opacity: .4;
+  background: linear-gradient(125deg, #ff4f8b, #ffd23f, #4fffb0, #4fb3ff, #b36bff, #ff4f8b) 0 50% / 300% 300%; animation: cardHolo 5s linear infinite; }
+.pcard.r-mitico::before { content: ''; position: absolute; inset: 0; z-index: 3; pointer-events: none;
+  background: radial-gradient(circle, #fff 0 1.5px, transparent 2px) 12% 100% / 100% 100% no-repeat,
+              radial-gradient(circle, #ffd8f0 0 1.5px, transparent 2px) 38% 100% / 100% 100% no-repeat,
+              radial-gradient(circle, #d8f6ff 0 1px, transparent 1.5px) 64% 100% / 100% 100% no-repeat,
+              radial-gradient(circle, #fff6c0 0 1.5px, transparent 2px) 88% 100% / 100% 100% no-repeat;
+  animation: mythSparks 2.8s linear infinite; }
+@keyframes mythSparks { 0% { transform: translateY(0); opacity: 0; } 15% { opacity: 1; } 100% { transform: translateY(-260px); opacity: 0; } }
+/* Leyenda: aro de luz que gira alrededor del marco, corona y destello blanco-dorado */
+.pcard.r-leyenda { border-color: transparent; animation: leyGlow 2.6s ease-in-out infinite alternate;
+  background: linear-gradient(160deg, #6a4a10, #2a1c48 55%, #0a1d48) padding-box,
+              conic-gradient(from var(--ring), #fff6c8, #ffb020, #fff, #ff7a1a, #fff6c8, #ffd24f, #fff6c8) border-box; }
+.pcard.r-leyenda { animation: leyGlow 2.6s ease-in-out infinite alternate, leyRing 4s linear infinite; animation-delay: var(--t0, 0s); }
+@keyframes leyRing { to { --ring: 360deg; } }
+.pcard.r-leyenda::before { content: '♛'; position: absolute; z-index: 4; left: 50%; top: -2px; transform: translateX(-50%); font-size: 14px; color: #ffe89a; text-shadow: 0 0 6px #ffb020, 1px 1px 0 #000; }
+.pcard.r-leyenda::after { content: ''; position: absolute; inset: -40%; z-index: 2; pointer-events: none;
+  background: linear-gradient(115deg, transparent 40%, #ffffff70 47%, #ffd24f90 50%, #ffffff70 53%, transparent 60%); animation: cardSheen 2.6s ease-in-out infinite; mix-blend-mode: normal; opacity: 1; }
+.pcard.locked::before, .pcard.locked::after { content: none !important; }
+body.reduced-motion .pcard, body.reduced-motion .pcard::before, body.reduced-motion .pcard::after, body.reduced-motion .card-asc { animation: none !important; }
+@media (prefers-reduced-motion: reduce) { .pcard, .pcard::before, .pcard::after, .card-asc { animation: none !important; } }
+
+/* ============================================================== Fix 1.22: HUD de móvil propio (no el de escritorio escalado)
+   Horizontal: panel del capitán compacto, minimapa en la columna derecha bajo la pausa (la zona central y la izquierda
+   quedan libres para jugar), compañeros con retratos legibles. Vertical: barras más finas y compañeros más grandes.
+   Escritorio: sin cambios. */
+@media (max-width: 900px), (max-height: 520px) {
+  .plate { width: 60px; padding: 3px; }
+  .plate .pl-mug .mug { width: 52px !important; height: 52px !important; }
+  .pl-head { justify-content: center; }
+  .pl-elem { position: absolute; right: 1px; bottom: 1px; transform: scale(.8); transform-origin: right bottom; }
+  .pl-c { left: 1px; top: 1px; font-size: 9px; padding: 0 3px; }
+  .pl-tech { display: inline-grid; grid-template-columns: 22px; margin: 2px 1px 0 0; }
+  .pl-tech .pl-icon { width: 22px; height: 22px; }
+  .team-hud { gap: 4px; }
+}
+@media (max-height: 520px) and (orientation: landscape) {
+  .vitals.cap-panel { width: min(300px, 38vw); padding: 4px 6px 4px 4px; gap: 6px; }
+  .cap-crest { width: 40px; padding: 2px; } .cap-crest img { width: 32px; height: 32px; }
+  .cap-name { font-size: 9px; }
+  .cap-panel .vbars { gap: 3px; }
+  .cap-panel .hp-bar { height: 17px; border-width: 2px; } .cap-panel .hp-bar span { font-size: 9px; line-height: 13px; letter-spacing: 0; }
+  .xp-bar { height: 7px; } .xp-bar span { display: none; }
+  .cap-panel .lv-badge { width: 22px; height: 22px; } .cap-panel .lv-badge b { font-size: 10px; }
+  .hud .minimap { left: auto; right: 8px; top: 150px; bottom: auto; width: 84px; height: 62px; }
+}
+@media (max-width: 560px) and (orientation: portrait) {
+  .cap-panel .hp-bar { height: 22px; } .cap-panel .hp-bar span { font-size: 10px; line-height: 17px; }
+  .xp-bar { height: 9px; }
+}
+
+/* Fix 1.22: el futbolista estrella del menú enseña su radar, su media y lleva a su ficha */
+.hero-stats { position: relative; width: 150px; margin: 6px auto 4px; }
+.hero-stats svg { width: 100%; height: auto; display: block; overflow: visible; }
+.hero-stats .rg { fill: none; stroke: #ffffff2e; stroke-width: 1; }
+.hero-stats .rv { fill: color-mix(in srgb, var(--rc) 45%, transparent); stroke: var(--rc); stroke-width: 2; stroke-linejoin: round; }
+.hero-stats text { font-size: 11px; fill: #cfe3ff; } .hero-stats tspan { fill: var(--yellow); }
+.hero-stats .ovr { position: absolute; left: 0; top: 0; font-size: 12px; color: #fff; background: #0a1d48e6; border: 2px solid var(--rc); padding: 1px 5px; }
+
+/* Fix 1.22: the clock phase wins over every `animation:` shorthand above (they reset the delay to 0) */
+.pcard[class*="r-"], .pcard[class*="r-"]::before, .pcard[class*="r-"]::after, .sq-slot::after, .card-asc { animation-delay: 0s !important; } /* phase comes from show(): startTime = 0 */
+.pcard.sel { animation-delay: 0s !important; }
+/* Fix 1.22: «.still *» (line ~449) switches every animation off on a repaint so entrances don't replay; the looping card
+   effects come back here, with the same strength: they run on the clock phase (--t0), so they continue without a jump */
+.still .pcard.r-epico::after { animation-name: epicPulse !important; }
+.still .pcard.r-legendario { animation-name: legendGlow !important; } .still .pcard.r-legendario::after { animation-name: cardSheen !important; }
+.still .pcard.r-mitico { animation-name: mythGlow !important; } .still .pcard.r-mitico::after { animation-name: cardHolo !important; } .still .pcard.r-mitico::before { animation-name: mythSparks !important; }
+.still .pcard.r-leyenda { animation-name: leyGlow, leyRing !important; } .still .pcard.r-leyenda::after { animation-name: cardSheen !important; }
+.still .card-asc { animation-name: ascPing !important; }
+.still .sq-slot[style*="#b36bff"]::after, .still .sq-slot[style*="#ffb"]::after { animation-name: cardSheen !important; } .still .sq-slot[style*="#ff4f8b"]::after { animation-name: cardHolo !important; }
+body.reduced-motion .still .pcard, body.reduced-motion .still .pcard::before, body.reduced-motion .still .pcard::after { animation-name: none !important; }
+
+.detail .bars-mini { display: none; } /* Fix 1.22: the radar and the explained stats replace the old bars */
+
+/* ============================================================== Fix 1.22: gacha
+   Común/Raro/Épico: apertura rápida (≈1,3 s). Legendario/Mítico/Leyenda: escena con el minisprite real (silueta que camina,
+   se prepara y chuta el balón contra la cápsula). Misma historia, puesta en escena propia para cada rareza. */
+.reveal .speed { position: absolute; right: 120px; top: 14px; z-index: 6; } .reveal .speed.on { background: var(--orange); }
+.reveal.rare-flash::after { content: ''; position: absolute; inset: 0; background: radial-gradient(circle at 50% 46%, #4fb3ff66, transparent 45%); animation: rareFlash .45s ease-out forwards; pointer-events: none; }
+@keyframes rareFlash { from { opacity: 1; } to { opacity: 0; } }
+.reveal.cine .rays { opacity: .25; }
+.cr-stage { position: absolute; inset: 0; overflow: hidden; z-index: 1; pointer-events: none; }
+.cr-bg { position: absolute; inset: 0; }
+.cr-floor { position: absolute; left: 0; right: 0; bottom: 18%; height: 3px; background: linear-gradient(90deg, transparent, #ffffff55, transparent); }
+.cr-runner { position: absolute; left: 6%; bottom: 18%; transform: translateX(0); }
+.cr-runner.walk { transform: translateX(min(34vw, 380px)); }
+.cr-runner canvas.char { width: 160px !important; height: 176px !important; image-rendering: pixelated; position: relative; z-index: 2; transition: filter .45s; }
+canvas.char.cr-sil { filter: brightness(0) drop-shadow(0 0 6px var(--rcx, #fff)); }
+.cr-aura { position: absolute; left: 50%; bottom: 0; width: 150px; height: 60px; transform: translateX(-50%); border-radius: 50%; z-index: 1; opacity: 0; }
+.cr-ball { position: absolute; left: calc(6% + min(34vw, 380px) + 130px); bottom: calc(18% + 8px); width: 22px; height: 22px; border-radius: 50%; opacity: 0; z-index: 3;
+  background: radial-gradient(circle at 35% 35%, #fff 0 40%, #d9e4f5 41% 60%, #222 61% 68%, #fff 69%); box-shadow: 0 0 10px #fff; }
+.cr-ball.in { opacity: 1; transition: opacity .2s; }
+.cr-ball.shot { transition: transform .38s cubic-bezier(.3,.1,.6,1), opacity .2s .3s; transform: translate(min(30vw, 340px), -26vh) scale(.6); opacity: 0; }
+.reveal.cine #capimg.cr-cap { position: absolute; left: auto; right: 12%; top: 26%; transform: none; filter: drop-shadow(0 0 14px var(--glow)); z-index: 2; }
+.cr-mug { position: absolute; left: 50%; top: 18%; transform: translate(-50%, 0) scale(.2); opacity: 0; z-index: 4; transition: transform .5s cubic-bezier(.3,1.6,.5,1), opacity .3s; }
+.cr-stage.open .cr-mug { opacity: 1; transform: translate(-50%, 0) scale(1); }
+.cr-stage.open .cr-runner { opacity: .0; transition: opacity .4s .3s; }
+/* Legendario: oro, rayos y un destello elegante */
+.cine-legendario .cr-bg { background: radial-gradient(ellipse at 50% 70%, #6a4a10, #1a1206 70%); }
+.cine-legendario .cr-runner canvas.char { --rcx: #ffcf5a; }
+.cine-legendario .cr-stage.open .cr-bg { box-shadow: inset 0 0 140px #ffd24f; }
+.cine-legendario .cr-ball.shot { box-shadow: 0 0 18px #ffd24f, -30px 0 20px #ffd24f88; }
+/* Mítico: energía que rodea al futbolista, tensión antes del chute y estallido prismático */
+.cine-mitico .cr-bg { background: radial-gradient(ellipse at 50% 70%, #3a0a3a, #08060f 70%); }
+.cine-mitico .cr-runner canvas.char { --rcx: #ff4f8b; }
+.cine-mitico .cr-aura { opacity: 1; background: radial-gradient(ellipse, #ff4f8b99, #4fd8ff55 50%, transparent 70%); animation: crAura .5s ease-in-out infinite alternate; }
+.cine-mitico .cr-stage.pose .cr-aura { animation-duration: .18s; }
+@keyframes crAura { to { transform: translateX(-50%) scale(1.35); filter: hue-rotate(80deg); } }
+.cine-mitico .cr-stage.open .cr-bg { background: conic-gradient(from 0deg, #ff4f8b, #ffd23f, #4fffb0, #4fb3ff, #b36bff, #ff4f8b); opacity: .55; animation: crSpin 3s linear infinite; }
+@keyframes crSpin { to { filter: hue-rotate(360deg); } }
+.cine-mitico .cr-ball.shot { box-shadow: 0 0 18px #ff4f8b, -24px 0 18px #4fd8ff, -44px 0 16px #ffd23f88; }
+/* Leyenda: foco, corona, pausa dramática y cápsula que estalla en esquirlas */
+.cine-leyenda .cr-bg { background: radial-gradient(ellipse at 50% 60%, #1c1530, #000 70%); }
+.cine-leyenda .cr-spot { position: absolute; left: calc(6% + min(34vw, 380px) - 40px); top: 0; width: 240px; bottom: 18%; background: linear-gradient(180deg, #fff6c840, #fff6c010 80%, transparent); clip-path: polygon(40% 0, 60% 0, 100% 100%, 0 100%); opacity: 0; transition: opacity .6s; }
+.cine-leyenda .cr-stage.pose .cr-spot { opacity: 1; }
+.cine-leyenda .cr-crown { position: absolute; left: 50%; top: -60px; font-size: 56px; color: #ffe89a; text-shadow: 0 0 18px #ffb020; transform: translateX(-50%); animation: crCrown 1.2s ease-out forwards; }
+@keyframes crCrown { to { top: 8%; } }
+.cine-leyenda .cr-runner canvas.char { --rcx: #fff6c8; }
+.cine-leyenda .cr-stage.hold .cr-bg { filter: brightness(.4); } .cine-leyenda .cr-stage.hold canvas.char { filter: brightness(0) drop-shadow(0 0 14px #fff6c8) drop-shadow(0 0 30px #ffb020); }
+.cine-leyenda .cr-stage.open .cr-bg { background: conic-gradient(from 0deg, #fff6c8, #ffb020, #fff, #ff7a1a, #fff6c8, #ffd24f, #fff6c8); opacity: .5; animation: crSpin 6s linear infinite; }
+.cine-leyenda .cr-stage.open .cr-mug { filter: drop-shadow(0 0 20px #ffd24f) drop-shadow(0 0 40px #fff6c8); }
+.cine-leyenda .cr-ball.shot { box-shadow: 0 0 22px #fff, -30px 0 22px #ffd24f, -56px 0 18px #ff7a1a88; }
+@media (max-width: 560px), (max-height: 520px) { .cr-runner canvas.char { width: 110px !important; height: 121px !important; } .cr-mug { top: 10%; } .cine-leyenda .cr-crown { font-size: 40px; } }
+body.reduced-motion .cr-runner { transition: none !important; } body.reduced-motion .cr-bg, body.reduced-motion .cr-aura { animation: none !important; }
+
+.reveal.carded .cr-mug { opacity: 0 !important; transition: opacity .25s; } .reveal.carded .cr-stage { opacity: .45; transition: opacity .3s; }
+.reveal.cine .cr-crown { z-index: 3; }

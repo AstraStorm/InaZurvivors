@@ -6,7 +6,7 @@
  */
 import { CHANGELOG } from './changelog';
 
-export const PUBLIC_VERSION = '1.21';
+export const PUBLIC_VERSION = '1.22';
 export const BUILD = CHANGELOG[0].version;
 export const RELEASED = false;
 export const VERSION_LABEL = RELEASED ? `v${PUBLIC_VERSION}` : `v${PUBLIC_VERSION} · pre-lanzamiento`;
@@ -26,6 +26,21 @@ export interface PublicRelease {
 
 /** Public news, newest first. Starts at v1.0: the internal versions before it are not part of the public history. */
 export const PUBLIC_RELEASES: PublicRelease[] = [
+  {
+    version: '1.22',
+    title: 'InaZurvivors Fix 1.22 — Tarjetas, estadísticas y un gacha memorable',
+    tagline: 'Cada rareza se ve distinta, las estadísticas por fin cuentan y conseguir un Legendario es un momento',
+    intro: 'Las tarjetas tienen un lenguaje propio por rareza y ya no cortan sus efectos al seleccionarlas. Las estadísticas de cada futbolista afectan a la partida y se explican en su ficha, donde además puedes comparar dos jugadores. Los Legendarios, Míticos y Leyendas llegan con una escena propia.',
+    features: [
+      { icon: '★', title: 'Gacha nuevo', text: 'Apertura rápida para Común, Raro y Épico; para Legendario, Mítico y Leyenda, tu futbolista entra en silueta, chuta y rompe la cápsula.' },
+      { icon: '◆', title: 'Tarjetas por rareza', text: 'Remates para Raro, pulso de energía para Épico, doble marco dorado para Legendario, holográfico con chispas para Mítico y aro de luz con corona para Leyenda.' },
+      { icon: '▲', title: 'Estadísticas reales', text: 'Tiro, Control, Defensa, Físico, Velocidad, Agallas y Aguante cambian la partida; la ficha dice cuánto, y puedes comparar dos futbolistas.' },
+      { icon: '♜', title: 'Bustos con equipación', text: 'Los retratos llevan la equipación de los equipos de IE3, Zero incluido.' },
+      { icon: '⚡', title: 'Tormenta de fuego', text: 'Con su Majin de fuego, el giro y la volea.' },
+      { icon: '✦', title: 'HUD móvil', text: 'Panel compacto, minimapa sin solapes y compañeros que se distinguen.' },
+    ],
+    start: ['Tira en la máquina de fichajes', 'Compara a dos futbolistas en la Enciclopedia', 'Prueba a Axel con Tormenta de fuego'],
+  },
   {
     version: '1.21',
     title: 'InaZurvivors Fix 1.21 — Talentos, tarjetas y equipaciones de IE3',
