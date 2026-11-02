@@ -38,7 +38,7 @@ export const PUBLIC_RELEASES: PublicRelease[] = [
       { icon: '📜', title: 'Registro completo', text: 'Todas las actualizaciones públicas, de la v1.0 a hoy, se quedan guardadas para consultarlas cuando quieras.' },
       { icon: '🃏', title: 'Tarjetas nuevas', text: 'Rediseñadas como cromos: cada rareza tiene su propio marco (bronce, plata, amatista, oro, holográfico, aurora y fuego para HÉROE), con el retrato sobre su elemento, media, estadísticas y efectos de brillo, holografía y chispas.' },
       { icon: '🔗', title: 'Técnicas combinadas a la vista', text: 'Mi Equipo enseña arriba las sinergias y qué futbolistas pueden hacer juntos una técnica combinada, y marca en tu colección a quien la completaría.' },
-      { icon: '♜', title: 'Mi Equipo más cómodo', text: 'Un clic añade o quita a un futbolista, arrastra para colocar o intercambiar, Autocompletar con tus mejores, Vaciar, y orden por media, rareza o nombre.' },
+      { icon: '♜', title: 'Mi Equipo más cómodo', text: 'Coge las tarjetas y muévelas de verdad a sus plazas o entre ellas; o pulsa para añadir y quitar. Autocompletar con tus mejores, Vaciar, y orden por media, rareza o nombre.' },
     ],
     start: ['Abre Noticias desde el menú', 'Lee las que tienen el punto de no leída'],
   },

@@ -1675,14 +1675,13 @@ export class App {
     const slots = Array.from({ length: SQUAD_SIZE }, (_, i) => {
       const p = squad[i];
       const editing = i === this.squadSlot ? ' editing' : '';
-      if (!p) return `<button class="sq-slot empty${editing}" data-slot="${i}"><span class="sq-plus">+</span><small>${i === 0 ? 'Capitán' : 'Plaza libre'}</small></button>`;
-      return `<div class="sq-slot${editing}${i === 0 ? ' cap' : ''}${isHero(this.save, p.id) ? ' hero' : ''}" data-slot="${i}" data-sid="${p.id}" draggable="true" style="--rc:${RARITY_COLOR[effectiveRarity(this.save, p)]}">
-        ${i === 0 ? '<span class="captain-badge">C</span>' : `<button class="sq-act" data-captain="${p.id}" title="Hacer capitán">★</button>`}
+      if (!p) return `<button class="sq-slot empty${editing}" data-slot="${i}"><span class="sq-plus">+</span><small>${i === 0 ? 'Capitán' : 'Plaza libre'}</small><em>Arrastra aquí</em></button>`;
+      // Fix 1.32: the slot holds the collectible card itself; it can be picked up and moved (pointer drag, squadDrag)
+      return `<div class="sq-slot cardslot${editing}${i === 0 ? ' cap' : ''}${this.squadLanded === i ? ' landed' : ''}" data-slot="${i}" data-drag="${p.id}">
+        ${i === 0 ? '<span class="sq-cap">C · CAPITÁN</span>' : `<button class="sq-act" data-captain="${p.id}" title="Hacer capitán">★</button>`}
         <button class="sq-act x" data-remove="${p.id}" title="Quitar">✕</button>
-        ${this.mug(p.id, 64)}<b>${esc(p.name)}</b>${comboOf.get(p.name) ? `<span class="sq-combo" title="Técnica combinada: ${esc(comboOf.get(p.name)!)}">🔗 ${esc(comboOf.get(p.name)!)}</span>` : ''}
-        <div class="chips"><span class="pos">${POS_LABEL[p.position] ?? p.position}</span>${this.elem(p)}</div>${this.rar(p)}
-        ${p.stats ? `<div class="sq-radar"><span class="ovr">${statMean(this.statsOf(p)!)}</span>${statRadar(this.statsOf(p)!, STAT_SHORT, RARITY_COLOR[effectiveRarity(this.save, p)])}</div>` : ''}
-        <div class="sq-techs">${p.techniques.slice(0, 4).map((t) => `<span title="${esc(t.name)}">${this.icon(ICON.manual[t.type], 1)}${esc(t.name)}</span>`).join('')}</div></div>`;
+        ${this.pcard(p, { anim: 12 })}
+        ${comboOf.get(p.name) ? `<span class="sq-combo" title="Técnica combinada: ${esc(comboOf.get(p.name)!)}">🔗 ${esc(comboOf.get(p.name)!)}</span>` : ''}</div>`;
     }).join('');
     this.show(`<div class="screen">${this.titlebar('Mi Equipo', 'Menú')}
       ${this.squadSynergyPanel(squad)}
@@ -1690,7 +1689,7 @@ export class App {
         Pulsa un futbolista de tu colección para añadirlo o quitarlo, pulsa una plaza para cambiarla, o arrastra para colocar e intercambiar. Se guarda solo.</div>
         <div class="squad-row">${slots}</div></div>
       <div class="panel sq-picker"><div class="sq-pick-head"><h3>Tu colección</h3>
-          <span class="note">${this.squadPicked ? `Elige quién va a la <b>plaza ${this.squadSlot + 1}${this.squadSlot === 0 ? ' (capitán)' : ''}</b> · <button class="linkbtn" id="sqcancel">cancelar</button>` : squad.length < SQUAD_SIZE ? 'Pulsa un futbolista para añadirlo · pulsa uno del equipo para quitarlo · arrastra para colocar' : 'Equipo completo: pulsa una plaza para cambiarla, o un futbolista del equipo para quitarlo'}</span>
+          <span class="note">${this.squadPicked ? `Elige quién va a la <b>plaza ${this.squadSlot + 1}${this.squadSlot === 0 ? ' (capitán)' : ''}</b> · <button class="linkbtn" id="sqcancel">cancelar</button>` : squad.length < SQUAD_SIZE ? 'Pulsa un futbolista para añadirlo o quitarlo · o cógelo y arrástralo a una plaza' : 'Equipo completo: pulsa una plaza para cambiarla, o un futbolista del equipo para quitarlo'}</span>
           <span class="spacer"></span><button class="btn small" id="sqauto" title="Rellena las plazas libres con tus mejores futbolistas">★ Autocompletar</button><button class="btn small blue" id="sqclear" title="Deja solo al capitán">Vaciar</button></div>
         <div class="filters"><input id="sqq" placeholder="Buscar nombre o equipo" value="${esc(this.squadFilter.q)}">
           <select id="sqr"><option value="">Rareza</option>${RARITY_ORDER.map((r) => `<option value="${r}" ${this.squadFilter.rarity === r ? 'selected' : ''}>${RARITY_LABEL[r]}</option>`).join('')}</select>
@@ -1712,24 +1711,15 @@ export class App {
     this.squadGrid();
     this.on('[data-back]', 'click', () => this.mainMenu());
     this.on('[data-slot]', 'click', (e, el) => {
-      if ((e.target as HTMLElement).closest('.sq-act')) return;
+      if ((e.target as HTMLElement).closest('.sq-act') || performance.now() - this.dragEndedAt < 300) return;
       const i = Number(el.dataset.slot);
       // Fix 1.32: a slot is «picked» on purpose; clicking it again unpicks it
       this.squadPicked = !(this.squadPicked && this.squadSlot === i);
       this.captainSelect(i);
       if (this.squadPicked) document.querySelector('.sq-picker')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     });
-    // Fix 1.32: drag a slot onto another to swap them, or a card of the collection onto a slot to put it there
-    this.on('[data-sid]', 'dragstart', (e, el) => { (e as DragEvent).dataTransfer?.setData('text/plain', `id:${el.dataset.sid}`); el.classList.add('dragging'); });
-    this.on('[data-slot]', 'dragover', (e, el) => { e.preventDefault(); el.classList.add('drop'); });
-    this.on('[data-slot]', 'dragleave', (_e, el) => el.classList.remove('drop'));
-    this.on('[data-slot]', 'drop', (e, el) => {
-      e.preventDefault();
-      const id = Number(((e as DragEvent).dataTransfer?.getData('text/plain') ?? '').replace('id:', ''));
-      if (!id) return;
-      placeInSquad(this.save, this.byId, Number(el.dataset.slot), id);
-      this.persist(); sfx('powerup'); this.squadPicked = false; this.captainSelect();
-    });
+    this.squadDrag(); // Fix 1.32: pick a card up and move it (slots and collection)
+    this.squadLanded = -1;
     document.getElementById('sqcancel')?.addEventListener('click', () => { this.squadPicked = false; this.captainSelect(); });
     document.getElementById('sqauto')?.addEventListener('click', () => {
       // the best owned footballers by their real mean (ascension, HÉROE and training included) fill the free slots
@@ -1761,6 +1751,89 @@ export class App {
     document.getElementById('next')?.addEventListener('click', () => this.mapSelect());
   }
 
+  private dragEndedAt = 0;
+  private squadLanded = -1;
+  private dragReady = false;
+  /**
+   * Fix 1.32: cards of Mi Equipo can be picked up for real: with the mouse (or a pen) a card lifts, follows the pointer
+   * leaning with the movement, the slot under it lights up, and on release it flies into that slot (swapping when it
+   * was in another one); dropped elsewhere it flies back. A card taken out of the slots and dropped outside them leaves
+   * the squad. Touch keeps the taps (dragging would fight the page scroll).
+   */
+  private squadDrag() {
+    if (this.dragReady) return;
+    this.dragReady = true;
+    type St = { id: number; el: HTMLElement; x0: number; y0: number; pid: number; fromSlot: number; ghost?: HTMLElement; over?: HTMLElement | null; lx: number; tilt: number };
+    let st: St | null = null;
+    this.root.addEventListener('pointerdown', (e) => {
+      if (e.pointerType === 'touch' || e.button !== 0) return;
+      const t = e.target as HTMLElement;
+      const el = t.closest<HTMLElement>('[data-drag]');
+      if (!el || t.closest('.sq-act, button, select, input')) return;
+      const slot = el.closest<HTMLElement>('[data-slot]');
+      st = { id: Number(el.dataset.drag), el, x0: e.clientX, y0: e.clientY, pid: e.pointerId, fromSlot: slot ? Number(slot.dataset.slot) : -1, lx: e.clientX, tilt: 0 };
+    });
+    window.addEventListener('pointermove', (e) => {
+      if (!st || e.pointerId !== st.pid) return;
+      const dx = e.clientX - st.x0, dy = e.clientY - st.y0;
+      if (!st.ghost) {
+        if (Math.hypot(dx, dy) < 7) return;
+        const card = st.el.matches('.pcard') ? st.el : st.el.querySelector<HTMLElement>('.pcard') ?? st.el;
+        const r = card.getBoundingClientRect();
+        const g = card.cloneNode(true) as HTMLElement;
+        g.classList.add('drag-ghost');
+        Object.assign(g.style, { width: `${r.width}px`, left: `${r.left}px`, top: `${r.top}px` });
+        document.body.appendChild(g);
+        st.ghost = g;
+        st.el.classList.add('drag-src');
+        document.body.classList.add('dragging-card');
+        sfx('click');
+      }
+      e.preventDefault();
+      // the card leans towards where it is going, and settles when the pointer slows down
+      st.tilt = st.tilt * 0.8 + Math.max(-14, Math.min(14, (e.clientX - st.lx) * 0.9)) * 0.2;
+      st.lx = e.clientX;
+      st.ghost.style.transform = `translate(${dx}px, ${dy}px) rotate(${st.tilt.toFixed(1)}deg) scale(1.08)`;
+      const under = document.elementFromPoint(e.clientX, e.clientY)?.closest<HTMLElement>('[data-slot]') ?? null;
+      if (under !== st.over) { st.over?.classList.remove('drop'); under?.classList.add('drop'); st.over = under; if (under) sfx('click'); }
+    }, { passive: false });
+    const end = (e: PointerEvent) => {
+      if (!st || e.pointerId !== st.pid) return;
+      const s0 = st; st = null;
+      if (!s0.ghost) return; // no movement: it was a click
+      this.dragEndedAt = performance.now();
+      document.body.classList.remove('dragging-card');
+      s0.over?.classList.remove('drop');
+      const g = s0.ghost;
+      const fly = (to: DOMRect | null, after: () => void) => {
+        const r = g.getBoundingClientRect();
+        if (to) {
+          g.style.transition = 'transform .22s cubic-bezier(.2,.9,.3,1.2), opacity .22s';
+          const base = { x: parseFloat(g.style.left), y: parseFloat(g.style.top) };
+          g.style.transform = `translate(${to.left - base.x + (to.width - r.width) / 2}px, ${to.top - base.y}px) rotate(0deg) scale(1)`;
+        } else { g.style.transition = 'transform .2s, opacity .2s'; g.style.opacity = '0'; }
+        window.setTimeout(() => { g.remove(); after(); }, 220);
+      };
+      const inRow = !!document.elementFromPoint(e.clientX, e.clientY)?.closest('.squad-row');
+      if (s0.over) {
+        const slot = Number(s0.over.dataset.slot);
+        const target = (s0.over.querySelector('.pcard') ?? s0.over).getBoundingClientRect();
+        fly(target, () => {
+          placeInSquad(this.save, this.byId, slot, s0.id);
+          this.persist(); sfx('powerup'); this.squadPicked = false; this.squadLanded = slot;
+          this.captainSelect(slot);
+        });
+      } else if (s0.fromSlot >= 0 && !inRow && squadOf(this.save, this.byId).length > 1) {
+        // a card taken out of the squad and dropped outside: it leaves
+        fly(null, () => { removeFromSquad(this.save, this.byId, s0.id); this.persist(); sfx('click'); this.captainSelect(); });
+      } else {
+        fly(s0.el.getBoundingClientRect(), () => s0.el.classList.remove('drag-src'));
+      }
+    };
+    window.addEventListener('pointerup', end);
+    window.addEventListener('pointercancel', end);
+  }
+
   /** real stat mean of an owned footballer (0 when it has no stats) */
   private meanOf(p: RosterEntry) { const st = this.statsOf(p); return st ? statMean(st) : 0; }
 
@@ -1778,13 +1851,13 @@ export class App {
     const sq = squadOf(this.save, this.byId);
     const partners = new Map<string, string>();
     for (const c of squadCombos(sq)) if (!c.ready && c.missing.length === 1) partners.set(c.missing[0], c.combo.name);
-    box.innerHTML = list.slice(0, this.squadLimit).map((p) => this.pcard(p, { sel: inSquad.has(p.id), badge: inSquad.has(p.id) ? '✔ EN EL EQUIPO' : partners.has(p.name) ? `🔗 ${partners.get(p.name)}` : undefined }).replace('<div class="pcard', `<div draggable="true" class="pcard${inSquad.has(p.id) ? ' in-squad' : ''}`)).join('')
+    box.innerHTML = list.slice(0, this.squadLimit).map((p) => this.pcard(p, { sel: inSquad.has(p.id), badge: inSquad.has(p.id) ? '✔ EN EL EQUIPO' : partners.has(p.name) ? `🔗 ${partners.get(p.name)}` : undefined }).replace('<div class="pcard', `<div data-drag="${p.id}" class="pcard${inSquad.has(p.id) ? ' in-squad' : ''}`)).join('')
       + (list.length > this.squadLimit ? `<button class="btn blue" id="sqmore">Mostrar más (${list.length - this.squadLimit})</button>` : '')
       + (list.length ? '' : '<div class="note">Nadie coincide con el filtro.</div>');
     mountPreviews();
     box.querySelectorAll<HTMLElement>('.pcard[data-id]').forEach((el) => {
-      el.addEventListener('dragstart', (e) => e.dataTransfer?.setData('text/plain', `id:${el.dataset.id}`));
       el.addEventListener('click', () => {
+        if (performance.now() - this.dragEndedAt < 300) return; // the end of a drag is not a click
         // Fix 1.32: one click adds (first free slot, or the slot picked on purpose) or removes; a full squad asks for a slot
         const id = Number(el.dataset.id), squad = squadOf(this.save, this.byId);
         if (inSquad.has(id) && !this.squadPicked) {

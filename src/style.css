@@ -1890,3 +1890,44 @@ body.reduced-motion .pcard.cc *, body.reduced-motion .pcard.cc .cc-frame { anima
 .reveal .reveal-card { z-index: 20; }
 .pcard.cc .cc-orn.tl { left: calc(var(--cut) * .55 - 9px); top: calc(var(--cut) * .55 - 9px); } .pcard.cc .cc-orn.tr { right: calc(var(--cut) * .55 - 9px); top: calc(var(--cut) * .55 - 9px); }
 .pcard.cc .cc-orn.bl { left: calc(var(--cut) * .55 - 9px); bottom: calc(var(--cut) * .55 - 9px); } .pcard.cc .cc-orn.br { right: calc(var(--cut) * .55 - 9px); bottom: calc(var(--cut) * .55 - 9px); }
+
+/* ============================================================ Fix 1.32: Mi Equipo slots hold real cards, drag & drop == */
+.squad-row { display: grid; grid-template-columns: repeat(7, minmax(150px, 1fr)); gap: 12px; align-items: start; overflow-x: auto; padding: 10px 4px 6px; }
+.sq-slot.cardslot { position: relative; padding: 0; min-height: 0; background: none !important; border: 0 !important; box-shadow: none !important; overflow: visible; display: block; cursor: grab; }
+.sq-slot.cardslot:hover { transform: none; }
+.sq-slot.cardslot .pcard { width: 100%; }
+.sq-slot.cardslot .sq-act { position: absolute; z-index: 12; top: -6px; width: 24px; height: 24px; display: grid; place-items: center; padding: 0; font-size: 12px; border-radius: 50%;
+  border: 2px solid #fff; background: #0a1d48; color: #fff; cursor: pointer; box-shadow: 0 2px 0 #0008; opacity: 0; transform: scale(.7); transition: opacity .12s, transform .12s; }
+.sq-slot.cardslot:hover .sq-act, .sq-slot.cardslot.editing .sq-act { opacity: 1; transform: none; }
+.sq-slot.cardslot .sq-act { left: -6px; } .sq-slot.cardslot .sq-act.x { left: auto; right: -6px; background: #b0101a; }
+.sq-slot.cardslot .sq-cap { position: absolute; z-index: 12; left: 50%; top: -9px; transform: translateX(-50%); white-space: nowrap; font-size: 8px; padding: 3px 8px;
+  background: linear-gradient(180deg, #ffb02a, #ff7a1a); color: #fff; text-shadow: 1px 1px 0 #7a3000; box-shadow: 0 2px 0 #0008, 0 0 10px #ff8a2a; }
+.sq-slot.cardslot .sq-combo { display: block; margin: 6px auto 0; width: max-content; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sq-slot.cardslot.editing .pcard { filter: drop-shadow(0 0 6px var(--yellow)) drop-shadow(0 0 14px var(--yellow)); }
+.sq-slot.empty { min-height: 300px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; border: 3px dashed #4a6aa8; background: repeating-linear-gradient(135deg, #0a1d4866 0 10px, #0a1d4833 10px 20px);
+  clip-path: polygon(10px 0, calc(100% - 10px) 0, 100% 10px, 100% calc(100% - 10px), calc(100% - 10px) 100%, 10px 100%, 0 calc(100% - 10px), 0 10px); }
+.sq-slot.empty em { font-style: normal; font-size: 7px; color: var(--muted); }
+/* the slot under a dragged card */
+.sq-slot.drop { outline: 3px solid var(--yellow); outline-offset: 4px; }
+.sq-slot.drop.cardslot .pcard { transform: scale(.94); opacity: .6; transition: transform .12s, opacity .12s; }
+.sq-slot.empty.drop { border-color: var(--yellow); background: #ffe27a22; }
+/* the card being carried */
+.drag-ghost { position: fixed !important; z-index: 9999; margin: 0; pointer-events: none; transform-origin: 50% 20%;
+  filter: drop-shadow(0 22px 22px #000c) drop-shadow(0 0 16px var(--glow, #ffffff55)) !important; transition: none; }
+.drag-ghost .pc-glare { opacity: .45; }
+.drag-src { opacity: .25; filter: grayscale(.6); }
+.dragging-card, .dragging-card * { cursor: grabbing !important; user-select: none; }
+#sqgrid .pcard[data-drag] { cursor: grab; }
+/* the card that just landed in its slot */
+.sq-slot.landed .pcard { animation: cardLand .45s cubic-bezier(.2,1.6,.4,1); }
+@keyframes cardLand { 0% { transform: scale(1.15) translateY(-8px); } 60% { transform: scale(.96); } 100% { transform: none; } }
+@media (max-width: 900px) { .squad-row { grid-template-columns: repeat(7, 150px); } }
+
+/* ---- Común: kept plain on purpose (no rays, no crest watermark, flat backdrop, no sweep) ---- */
+.pcard.cc.t-comun .cc-rays, .pcard.cc.t-comun .cc-crest, .pcard.cc.t-comun .cc-sweep, .pcard.cc.t-comun .cc-foil, .pcard.cc.t-comun .cc-sparks { display: none; }
+.pcard.cc.t-comun .cc-art { background: linear-gradient(180deg, color-mix(in srgb, var(--ec) 35%, #2a3550), #1a2236); box-shadow: inset 0 0 0 1px #ffffff20; }
+.pcard.cc.t-comun .cc-gem { box-shadow: 0 0 0 2px #0a0f20; }
+.pcard.cc.t-comun .cc-ovr { border-color: #8a9bbd; }
+.pcard.cc.t-comun .cc-name span { background: #0a1022cc; transform: none; }
+.pcard.cc.t-comun .cc-face { background: #0d1428; }
+.pcard.cc.t-comun.t-comun.t-comun { filter: drop-shadow(0 4px 6px #0008); }
