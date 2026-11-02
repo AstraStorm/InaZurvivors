@@ -1223,6 +1223,17 @@ describe('Fix 1.3 stats and training', () => {
     const shaped = rebuildStats({ kick: 90, control: 50, guard: 50, body: 50, speed: 50, guts: 50, stamina: 50 }, 'raro');
     expect(shaped.kick).toBeGreaterThan(shaped.guard + 20); // the profile is kept
   });
+  it('Fix 1.31: each position has its shape (a forward shoots, a defender defends) with the same mean', async () => {
+    const { rebuildStats, STAT_KEYS } = await import('../src/systems/training');
+    const raw = { kick: 70, control: 70, guard: 70, body: 70, speed: 70, guts: 70, stamina: 70 };
+    const fw = rebuildStats(raw, 'legendario', 0, 'FW'), df = rebuildStats(raw, 'legendario', 0, 'DF'), gk = rebuildStats(raw, 'legendario', 0, 'GK');
+    expect(fw.kick).toBeGreaterThan(df.kick + 10);
+    expect(df.guard).toBeGreaterThan(fw.guard + 15);
+    expect(gk.guard).toBeGreaterThan(fw.guard + 15);
+    const mean = (x: Record<string, number>) => STAT_KEYS.reduce((a, k) => a + x[k], 0) / 7;
+    expect(Math.abs(mean(fw) - mean(df))).toBeLessThan(1);
+    expect(Math.max(...Object.values(rebuildStats({ kick: 99, control: 99, guard: 99, body: 99, speed: 99, guts: 99, stamina: 99 }, 'mitico', 0, 'FW')))).toBeLessThanOrEqual(95);
+  });
   it('ascension and HÉROE raise the stats; training adds up to 20 points and can be returned', async () => {
     const { playerStats, trainStat, resetTraining, trainingUsed } = await import('../src/systems/training');
     const s = newSave([], null);
