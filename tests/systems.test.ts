@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { exportSave, importSave, migrate, newSave, remapTechSlots, SCHEMA_VERSION } from '../src/systems/save';
 import { canStartGuardedMove, GUARD_LOCKOUT_SEC } from '../src/systems/combat';
-import { pull, pullOne, rollRarity, starBonus, MAX_STARS, MULTI_COST, PULL_COST, RARITY_WEIGHTS } from '../src/systems/gacha';
+import { addCopy, pull, pullOne, rollRarity, starBonus, COPIES_PER_STAR, DUPLICATE_REFUND_BY, MAX_STARS, MULTI_COST, PULL_COST, RARITY_WEIGHTS } from '../src/systems/gacha';
 import { techStats, statChanges, MAX_TECH_LEVEL } from '../src/systems/techniques';
 import { evolutionLabel, evolvesAt } from '../src/systems/evolution';
 import { PASSIVES, STAT_CARDS } from '../src/systems/runmods';
 import { rollDrop, rollXpTier, XP_TIERS } from '../src/systems/items';
 import { applyCard, cardPool, drawCards, MAX_TEAM, newMemberState, type CardContext, type TeamMemberState } from '../src/systems/cards';
-import { applyRun, computeRewards, isMapUnlocked, tokenRewards } from '../src/systems/economy';
+import { applyRun, computeRewards, isMapUnlocked, tokenRewards, WELCOME_TOKENS } from '../src/systems/economy';
 import { directionFromVector, frameAt, flipsFor, animIndex } from '../src/game/rig';
 import type { RosterEntry, Technique } from '../src/data/manifest';
 import { effectiveOdds, eligibleTeams, onboardingPull, recordHistory } from '../src/systems/gacha';
@@ -21,7 +21,7 @@ import { RANKS, RANK_ORDER, waveIntensity } from '../src/systems/difficulty';
 import { COMBOS, comboDamage, comboReady } from '../src/systems/combos';
 import { claimAllTeamRewards } from '../src/systems/teamRewards';
 import { localBoard, positionOf, recordBest } from '../src/systems/leaderboard';
-import { ascMultipliers, ascend, effectiveRarity, isHero, nextStep, sparesOf } from '../src/systems/ascension';
+import { ASC_COSTS, ascMultipliers, ascend, effectiveRarity, isHero, nextStep, sparesOf } from '../src/systems/ascension';
 import { SQUAD_SIZE, fillSquad, makeCaptain, placeInSquad, removeFromSquad, setSquad, squadOf } from '../src/systems/squad';
 import { createAltar, stepAltar } from '../src/systems/altars';
 import { mergeIe3 } from '../tools/ie3-merge';
@@ -60,16 +60,32 @@ describe('gacha', () => {
     expect(rollRarity(() => 0)).toBe('comun');
     expect(rollRarity(() => (total - 0.5) / total)).toBe('mitico');
   });
-  it('unlocks new players and turns duplicates into stars, refunding at max', () => {
+  it('unlocks new players and turns duplicates into stars by rarity; coins only when nothing can use the copy (Fix 1.23)', () => {
     const s = newSave([], null);
     s.coins = 0;
     const r1 = pullOne(pool, s, () => 0);
     expect(r1.isNew).toBe(true);
-    for (let i = 0; i < MAX_STARS; i++) pullOne(pool, s, () => 0);
+    const per = COPIES_PER_STAR[r1.player.rarity];
+    const r2 = pullOne(pool, s, () => 0);
+    if (per > 1) expect(r2.toStar).toEqual([1, per]);
+    for (let i = 1; i < MAX_STARS * per; i++) pullOne(pool, s, () => 0);
     expect(s.owned['1'].stars).toBe(MAX_STARS);
+    const spare = pullOne(pool, s, () => 0);
+    expect([spare.refund, spare.forAscension, s.coins]).toEqual([0, true, 0]); // waits for the ascension
+    s.owned['1'].hero = true;
     const r = pullOne(pool, s, () => 0);
-    expect(r.refund).toBeGreaterThan(0);
+    expect(r.refund).toBe(DUPLICATE_REFUND_BY[r1.player.rarity]);
     expect(s.coins).toBe(r.refund);
+  });
+  it('a Común needs more copies per star than a Legendario, and old stars are never taken away', () => {
+    const s = newSave([], null);
+    const com = { id: 50, rarity: 'comun' } as RosterEntry, leg = { id: 51, rarity: 'legendario' } as RosterEntry;
+    addCopy(s, com); addCopy(s, leg);
+    for (let i = 0; i < 3; i++) { addCopy(s, com); addCopy(s, leg); }
+    expect([s.owned['50'].stars, s.owned['51'].stars]).toEqual([1, 3]);
+    s.owned['50'].stars = 4; // an older save that gave one star per copy
+    addCopy(s, com);
+    expect(s.owned['50'].stars).toBe(4);
   });
   it('falls back to lower rarity when a rarity has no players', () => {
     const s = newSave([], null);
@@ -100,8 +116,14 @@ describe('techniques', () => {
     expect(techStats(t, 10).cooldownMs).toBeLessThan(techStats(t, 1).cooldownMs);
   });
   it('lists stat changes for every type at every level', () => {
-    for (const type of ['tiro', 'regate', 'defensa', 'parada', 'talento'] as const) {
+    for (const type of ['tiro', 'regate', 'defensa', 'parada'] as const) {
       for (let lv = 1; lv < MAX_TECH_LEVEL; lv++) expect(statChanges({ type, power: 40 }, lv).length).toBeGreaterThan(0);
+    }
+  });
+  it('shows the real effect of every talent when it levels up (Fix 1.22)', async () => {
+    const { TALENTS, talentChanges } = await import('../src/systems/talents');
+    for (const id of Object.keys(TALENTS).map(Number)) {
+      for (let lv = 1; lv < MAX_TECH_LEVEL; lv++) expect(talentChanges(id, lv).length, `${TALENTS[id].name} nv ${lv}`).toBeGreaterThan(0);
     }
   });
   it('separates evolution names from internal levels by family', () => {
@@ -538,7 +560,11 @@ describe('v2.5 economy and rewards', () => {
     const loss = { ...r, victory: false, bossDefeated: false, timeSec: 200 };
     expect(sum(tokenRewards(loss, false))).toBeGreaterThanOrEqual(PULL_COST);
     expect(sum(tokenRewards({ ...loss, kills: 3 }, false))).toBe(1); // idle: no welcome, no time bonus
-    expect(sum(tokenRewards(loss, false, 0)) - sum(tokenRewards(loss, false))).toBe(5); // welcome bonus for the first runs
+    expect(sum(tokenRewards(loss, false, 0)) - sum(tokenRewards(loss, false))).toBe(WELCOME_TOKENS); // welcome bonus for the first runs
+    // Fix 1.23 (feedback): a 13-minute win pays well over one ×10, a 5-minute one most of it
+    const long = { ...r, timeSec: 780, kills: 1400 };
+    expect(sum(tokenRewards(long, false))).toBeGreaterThan(MULTI_COST * 1.2);
+    expect(sum(tokenRewards(r, false))).toBeGreaterThan(MULTI_COST * 0.6);
     expect(sum(tokenRewards(loss, false, 10))).toBe(sum(tokenRewards(loss, false)));
   });
 });
@@ -668,8 +694,13 @@ describe('difficulty ranks', () => {
     const c = applyRun(s, { ...run, rank: 'C' }).total;
     const x = applyRun(s, { ...run, rank: 'X' });
     expect(x.total).toBeGreaterThan(c * 1.8); // Fix 1.11: X pays ×2.2 (was ×3)
-    expect(x.tokens.some((t) => t.label.includes('Rango X'))).toBe(true);
-    expect(applyRun(s, { ...run, rank: 'X' }).tokens.some((t) => t.label.includes('Rango X'))).toBe(false);
+    expect(x.tokens.some((t) => t.label === 'Primera victoria en Rango X')).toBe(true);
+    const again = applyRun(s, { ...run, rank: 'X' });
+    expect(again.tokens.some((t) => t.label === 'Primera victoria en Rango X')).toBe(false);
+    // Fix 1.3: the rank multiplies the fichas too
+    const cTok = applyRun(s, { ...run, rank: 'C' }).tokenTotal;
+    expect(again.tokenTotal).toBeGreaterThan(cTok * 2);
+    expect(x.trainTotal).toBeGreaterThan(0); // a new rank and a victory give Fichas de entrenamiento
     expect(s.clearedRanks.raimon).toEqual(['C', 'X']);
   });
 });
@@ -741,6 +772,7 @@ describe('gacha info', () => {
 
 describe('ascension to HÉROE', () => {
   const leg = { id: 1, rarity: 'legendario' } as RosterEntry, myth = { id: 2, rarity: 'mitico' } as RosterEntry, epic = { id: 3, rarity: 'epico' } as RosterEntry;
+  const com = { id: 4, rarity: 'comun' } as RosterEntry;
   const withCopies = (copies: Record<number, number>) => {
     const s = newSave([], null);
     for (const [id, c] of Object.entries(copies)) s.owned[id] = { stars: Math.min(5, c - 1), copies: c, obtainedAt: 'x' };
@@ -748,8 +780,8 @@ describe('ascension to HÉROE', () => {
   };
   it('Legendario -> Mítico costs 3 duplicates, then Héroe 5 more; each duplicate pays once', () => {
     const s = withCopies({ 1: 4 }); // 3 duplicates
-    expect(nextStep(s, leg)).toEqual({ step: 'mitico', cost: 3 });
-    expect(ascend(s, leg)).toBe('mitico');
+    expect(nextStep(s, leg)).toEqual({ step: 'ascenso', cost: 3 });
+    expect(ascend(s, leg)).toBe('ascenso');
     expect(effectiveRarity(s, leg)).toBe('mitico');
     expect(sparesOf(s, 1)).toBe(0);
     expect(ascend(s, leg)).toBe(false); // the same 3 copies can't pay for Héroe
@@ -762,13 +794,25 @@ describe('ascension to HÉROE', () => {
     expect(nextStep(s, leg)).toBeNull();
     expect(s.owned['1'].stars).toBe(3); // stars already earned are kept
   });
-  it('Mítico goes straight to Héroe; lower rarities and players not owned can not ascend', () => {
-    const s = withCopies({ 2: 6, 3: 20 });
-    expect(nextStep(s, myth)).toEqual({ step: 'heroe', cost: 5 });
+  it('every rarity can ascend (Fix 1.23), commoner footballers need more copies', () => {
+    const s = withCopies({ 2: 7, 3: 20, 4: 40 });
+    expect(nextStep(s, myth)).toEqual({ step: 'ascenso', cost: ASC_COSTS.mitico.ascenso });
+    expect(ascend(s, myth)).toBe('ascenso');
+    expect(effectiveRarity(s, myth)).toBe('mitico'); // Mítico keeps its rarity, with the bonus
     expect(ascend(s, myth)).toBe('heroe');
-    expect(nextStep(s, epic)).toBeNull();
-    expect(ascend(s, epic)).toBe(false);
+    expect(ascend(s, epic)).toBe('ascenso');
+    expect(effectiveRarity(s, epic)).toBe('legendario');
+    expect(ascend(s, com)).toBe('ascenso');
+    expect(effectiveRarity(s, com)).toBe('raro');
+    expect(ascend(s, com)).toBe('heroe');
+    expect(ASC_COSTS.comun.ascenso).toBeGreaterThan(ASC_COSTS.epico.ascenso);
+    expect(ASC_COSTS.epico.ascenso).toBeGreaterThan(ASC_COSTS.legendario.ascenso);
     expect(ascend(s, { id: 99, rarity: 'legendario' } as RosterEntry)).toBe(false);
+  });
+  it('an older Mítico HÉROE (straight from Mítico) has no step left', () => {
+    const s = withCopies({ 2: 6 });
+    s.owned['2'].hero = true; s.owned['2'].spent = 5;
+    expect(nextStep(s, myth)).toBeNull();
   });
   it('survives save validation and a reload, and spent can never exceed the duplicates', () => {
     const s = withCopies({ 1: 9 });
@@ -783,7 +827,7 @@ describe('ascension to HÉROE', () => {
     const s = withCopies({ 1: 4 });
     ascend(s, leg);
     expect(effectiveRarity(s, { id: 1, rarity: 'mitico' })).toBe('mitico');
-    expect(nextStep(s, { id: 1, rarity: 'mitico' })).toEqual({ step: 'heroe', cost: 5 });
+    expect(nextStep(s, { id: 1, rarity: 'mitico' })).toEqual({ step: 'heroe', cost: ASC_COSTS.mitico.heroe });
     expect(ascMultipliers(s, leg).damage).toBeCloseTo(1.12);
   });
 });
@@ -946,8 +990,8 @@ describe('reiniciar progreso', () => {
 describe('versión pública y reportes de bugs', () => {
   it('the public news start at v1.0 and no internal version leaks into them', async () => {
     const { PUBLIC_RELEASES, PUBLIC_VERSION, RELEASED, VERSION_LABEL, BUILD, TIKTOK_URL } = await import('../src/data/release');
-    expect(PUBLIC_VERSION).toBe('1.22');
-    expect(PUBLIC_RELEASES.map((r) => r.version)).toEqual(['1.22', '1.21', '1.2', '1.12', '1.11', '1.1', '1.0']); // newest first, starting at v1.0
+    expect(PUBLIC_VERSION).toBe('1.3');
+    expect(PUBLIC_RELEASES.map((r) => r.version)).toEqual(['1.3', '1.22', '1.21', '1.2', '1.12', '1.11', '1.1', '1.0']); // newest first, starting at v1.0
     expect(PUBLIC_RELEASES.at(-1)!.title).toBe('InaZurvivors v1.0 — ¡Comienza la aventura!');
     expect(JSON.stringify(PUBLIC_RELEASES)).not.toMatch(/\bv?[234]\.\d\b/);
     expect(BUILD).not.toBe('1.0');
@@ -1072,8 +1116,8 @@ describe('auditoría de rarezas', () => {
     const hero = saveWith({ ascMitico: true, hero: true, spent: 8 });
     expect(nextStep(hero, p(7, 'epico'))).toBeNull();
     expect(ascMultipliers(hero, p(7, 'epico')).damage).toBeCloseTo(ascMultipliers(hero, p(7, 'mitico')).damage);
-    expect(nextStep(saveWith({}), p(7, 'leyenda'))?.step).toBe('heroe');
-    expect(nextStep(saveWith({}), p(7, 'epico'))).toBeNull();
+    expect(nextStep(saveWith({}), p(7, 'leyenda'))?.step).toBe('ascenso'); // Fix 1.23: every rarity starts with step 1
+    expect(nextStep(saveWith({}), p(7, 'epico'))).toEqual({ step: 'ascenso', cost: 6 }); // Fix 1.23: Épico can ascend too
   });
   it('the welcome guarantee and team rewards never give the rarest footballers', async () => {
     const { teamCaptain } = await import('../src/systems/teamRewards');
@@ -1098,5 +1142,67 @@ describe('technique slot remaps', () => {
     expect(s.coins).toBe(500);
     expect(remapTechSlots(s, steps)).toBe(-1); // already applied
     expect(s.coins).toBe(500);
+  });
+});
+
+describe('Fix 1.23 anti-exploit and pacing', () => {
+  it('experience per level has no spikes: smooth growth, linear after level 40', async () => {
+    const { xpForLevel } = await import('../src/systems/difficulty');
+    for (let l = 1; l < 400; l++) expect(xpForLevel(l + 1) - xpForLevel(l)).toBeLessThanOrEqual(26); // never a jump between levels
+    expect(xpForLevel(41) - xpForLevel(40)).toBe(xpForLevel(101) - xpForLevel(100));
+    expect(xpForLevel(300)).toBeLessThan(10000);
+  });
+  it('the era from the wiki decides the machine, not the teams of the IE3 Great Road ROM', async () => {
+    const { eraOf } = await import('../src/systems/banners');
+    expect(eraOf({ teams: ['Raimon_GO'], era: 'go' })).toBe('go');
+    expect(eraOf({ teams: ['Earth_Eleven'], era: 'vr' })).toBe('vr');
+    expect(eraOf({ teams: ['Raimon'] })).toBe('original');
+  });
+  it('mission days never change on an untrusted clock nor go back', async () => {
+    const { setPeriodClock } = await import('../src/systems/missions');
+    const s = newSave([], null);
+    rollPeriods(s, new Date(2026, 10, 2, 12));
+    const day = s.missions.daily.key;
+    s.missions.daily.counters.x = 3;
+    setPeriodClock(() => new Date(2026, 10, 9, 12), () => false); // the PC says a week later, the server hasn't answered
+    rollPeriods(s);
+    expect([s.missions.daily.key, s.missions.daily.counters.x]).toEqual([day, 3]);
+    setPeriodClock(() => new Date(2026, 10, 1, 12), () => true); // back in time, even on a trusted clock
+    rollPeriods(s);
+    expect(s.missions.daily.key).toBe(day);
+    setPeriodClock(() => new Date(2026, 10, 3, 12), () => true); // the real next day
+    rollPeriods(s);
+    expect(s.missions.daily.key).not.toBe(day);
+    setPeriodClock(() => new Date(), () => true);
+  });
+});
+
+describe('Fix 1.3 stats and training', () => {
+  it('rebuilt stats never overlap between rarities, whatever the raw ones', async () => {
+    const { rebuildStats } = await import('../src/systems/training');
+    const avg = (s: Record<string, number>) => Object.values(s).reduce((a, b) => a + b, 0) / 7;
+    const high = { kick: 90, control: 88, guard: 85, body: 86, speed: 90, guts: 84, stamina: 87 };
+    const low = { kick: 40, control: 42, guard: 38, body: 45, speed: 41, guts: 39, stamina: 44 };
+    const order = ['comun', 'raro', 'epico', 'legendario', 'mitico', 'leyenda'] as const;
+    for (let i = 1; i < order.length; i++) expect(avg(rebuildStats(low, order[i]))).toBeGreaterThan(avg(rebuildStats(high, order[i - 1])));
+    const shaped = rebuildStats({ kick: 90, control: 50, guard: 50, body: 50, speed: 50, guts: 50, stamina: 50 }, 'raro');
+    expect(shaped.kick).toBeGreaterThan(shaped.guard + 20); // the profile is kept
+  });
+  it('ascension and HÉROE raise the stats; training adds up to 20 points and can be returned', async () => {
+    const { playerStats, trainStat, resetTraining, trainingUsed } = await import('../src/systems/training');
+    const s = newSave([], null);
+    const p = { id: 5, rarity: 'legendario', stats: { kick: 70, control: 70, guard: 70, body: 70, speed: 70, guts: 70, stamina: 70 } } as unknown as RosterEntry;
+    s.owned['5'] = { stars: 0, copies: 1, obtainedAt: 'x' };
+    const base = playerStats(s, p, 'legendario', false), asc = playerStats(s, p, 'mitico', false), hero = playerStats(s, p, 'mitico', true);
+    expect(asc.kick).toBeGreaterThan(base.kick);
+    expect(hero.kick).toBeGreaterThan(asc.kick);
+    s.trainTokens = 30;
+    for (let i = 0; i < 25; i++) trainStat(s, 5, 'kick');
+    expect([trainingUsed(s, 5), s.trainTokens]).toEqual([20, 10]);
+    expect(playerStats(s, p, 'legendario', false).kick).toBe(Math.min(99, base.kick + 20));
+    expect(resetTraining(s, 5)).toBe(20);
+    expect(s.trainTokens).toBe(30);
+    s.owned['5'].train = { kick: 50, speed: 9 } as never; // forged
+    expect(Object.values(importSave(exportSave(s)).owned['5'].train ?? {}).reduce((a: number, b) => a + (b ?? 0), 0)).toBeLessThanOrEqual(20);
   });
 });

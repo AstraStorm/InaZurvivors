@@ -81,10 +81,10 @@ export function burstSize(frac: number, fullTeam: boolean, rankBurst: number, ro
  * Fix 1.13: the last stretch of the run before the boss. From 70% of the time the rivals come faster and hit harder,
  * growing smoothly to the top at the end of the clock. `frac` is the share of the run played.
  */
-export const FINAL_STRETCH_FROM = 0.7;
+export const FINAL_STRETCH_FROM = 0.62; // Fix 1.24: starts a little earlier, so the harder end climbs gradually
 export function finalStretch(frac: number) {
   const k = smooth(FINAL_STRETCH_FROM, 1, frac);
-  return { rate: 1 + 0.45 * k, hp: 1 + 0.35 * k, damage: 1 + 0.3 * k };
+  return { rate: 1 + 0.45 * k, hp: 1 + 0.5 * k, damage: 1 + 0.4 * k }; // Fix 1.24: tougher and harder-hitting final stretch
 }
 
 /** Fix 1.12: how far the special rivals have arrived: none for 20 s, all of them by 2:30 (it was all by 1:00). */
@@ -98,4 +98,10 @@ export function recordRankClear(cleared: Record<string, Rank[]>, mapId: string, 
   if (list.includes(rank)) return false;
   cleared[mapId] = [...list, rank].sort((a, b) => RANK_ORDER.indexOf(a) - RANK_ORDER.indexOf(b));
   return true;
+}
+
+/** Fix 1.23: experience for the next level: quadratic up to level 40 (fewer level-ups late in a run), linear after it. */
+export function xpForLevel(level: number) {
+  const q = Math.min(level, 40);
+  return Math.round(5 + level * 6 + q * q * 0.25 + Math.max(0, level - 40) * 20);
 }

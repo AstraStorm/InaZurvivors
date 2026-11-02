@@ -8,10 +8,12 @@ import type { SaveData } from './save';
 export type MissionKind = 'partida' | 'diaria' | 'semanal' | 'logro';
 /** counter: lifetime/period sum of a run stat; best: highest value in one run. */
 /** `dupe`: also grants a duplicate of one of your Legendary/Mythic players (ascension material) */
-export interface MissionDef { id: string; kind: MissionKind; label: string; stat: string; goal: number; coins: number; tokens: number; dupe?: boolean }
+export interface MissionDef { id: string; kind: MissionKind; label: string; stat: string; goal: number; coins: number; tokens: number; dupe?: boolean;
+  /** Fix 1.3: Fichas de entrenamiento (weekly missions and achievements) */
+  train: number }
 
 // Fix 1.13: missions pay 20% fewer coins, like the runs (rounded to 5)
-const M = (id: string, kind: MissionKind, label: string, stat: string, goal: number, coins: number): MissionDef => ({ id, kind, label, stat, goal, coins: Math.round(coins * 0.8 / 5) * 5, tokens: kind === 'diaria' ? 3 : kind === 'semanal' ? 10 : kind === 'logro' ? 8 : 3 });
+const M = (id: string, kind: MissionKind, label: string, stat: string, goal: number, coins: number): MissionDef => ({ id, kind, label, stat, goal, coins: Math.round(coins * 0.8 / 5) * 5, tokens: kind === 'diaria' ? 4 : kind === 'semanal' ? 12 : kind === 'logro' ? 10 : 4, train: kind === 'semanal' ? 1 : kind === 'logro' ? 2 : 0 }); // Fix 1.3: at the new pull price
 
 export const MISSIONS: MissionDef[] = [
   M('p_sobrevive', 'partida', 'Sobrevive 5 minutos en una partida', 'best_time', 300, 80),
@@ -88,22 +90,32 @@ export function weekKey(d: Date) {
   return `S${dayKey(monday)}`;
 }
 
-/** Clears period counters when the day or week has changed. */
-export function rollPeriods(s: SaveData, now = new Date()) {
+/**
+ * Fix 1.23: the clock of the periods. The game sets it to the server's (serverTime.ts); while the server hasn't answered
+ * the device clock isn't trusted, so a day or week that has started can't be replaced (changing the PC's date used to
+ * reset the daily missions and pay them again). Tests keep the plain clock.
+ */
+let periodNow = () => new Date();
+let periodTrusted = () => true;
+export function setPeriodClock(now: () => Date, trusted: () => boolean) { periodNow = now; periodTrusted = trusted; }
+
+/** Clears period counters when the day or week has changed (never back to an earlier day, never on an untrusted clock). */
+export function rollPeriods(s: SaveData, now = periodNow()) {
   const m = s.missions;
-  if (m.daily.key !== dayKey(now)) m.daily = { key: dayKey(now), counters: {} };
-  if (m.weekly.key !== weekKey(now)) m.weekly = { key: weekKey(now), counters: {} };
+  const may = (key: string, next: string) => !key || (periodTrusted() && next > key);
+  if (m.daily.key !== dayKey(now) && may(m.daily.key, dayKey(now))) m.daily = { key: dayKey(now), counters: {} };
+  if (m.weekly.key !== weekKey(now) && may(m.weekly.key, weekKey(now))) m.weekly = { key: weekKey(now), counters: {} };
 }
 
 /** Adds to a counter in the lifetime, daily and weekly bags (things that happen outside runs, e.g. new signings). */
-export function addCounter(s: SaveData, key: string, v: number, now = new Date()) {
+export function addCounter(s: SaveData, key: string, v: number, now = periodNow()) {
   rollPeriods(s, now);
   const m = s.missions;
   for (const bag of [m.counters, m.daily.counters, m.weekly.counters]) bag[key] = (bag[key] ?? 0) + v;
 }
 
 /** Adds a finished run to every counter. */
-export function recordRun(s: SaveData, r: RunResult, now = new Date()) {
+export function recordRun(s: SaveData, r: RunResult, now = periodNow()) {
   rollPeriods(s, now);
   const add: Record<string, number> = { runs: 1, kills: r.kills, time: Math.floor(r.timeSec), wins: r.victory ? 1 : 0,
     levels: Math.max(0, (r.level ?? 1) - 1), bosses: r.bossDefeated ? 1 : 0, altars: r.altars ?? 0, endless: Math.floor(r.endlessSec ?? 0),
@@ -167,6 +179,7 @@ export function claimMission(s: SaveData, id: string, mult = 1, roster?: { id: n
   s.missions.claimed.push(claimId(s, d));
   s.coins += coins;
   s.tokens += d.tokens;
+  s.trainTokens = (s.trainTokens ?? 0) + (d.train ?? 0);
   if (d.dupe && roster) {
     // the owned Legendary/Mythic with the fewest copies: the copy helps the ascension that is furthest away
     const pick = roster.filter((p) => (p.rarity === 'legendario' || p.rarity === 'mitico' || p.rarity === 'leyenda') && s.owned[String(p.id)])

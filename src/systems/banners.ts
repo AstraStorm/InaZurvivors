@@ -13,10 +13,10 @@ export type BannerId = 'original' | 'go' | 'vr' | 'equipo';
 export interface BannerDef { id: BannerId; label: string; tagline: string; cost: number; multiCost: number; color: string }
 
 export const BANNERS: Record<BannerId, BannerDef> = {
-  original: { id: 'original', label: 'Inazuma Eleven', tagline: 'IE1, IE2, IE3 y el Mundial FFI', cost: 8, multiCost: 72, color: '#ff8a2a' },
-  go: { id: 'go', label: 'Inazuma Eleven GO', tagline: 'GO, Chrono Stone y Galaxy', cost: 8, multiCost: 72, color: '#4fd0ff' },
-  vr: { id: 'vr', label: 'Victory Road', tagline: 'Ares y Orion', cost: 8, multiCost: 72, color: '#ffd84a' },
-  equipo: { id: 'equipo', label: 'Por equipo', tagline: 'Elige un equipo: solo sus futbolistas', cost: 14, multiCost: 126, color: '#b36bff' },
+  original: { id: 'original', label: 'Inazuma Eleven', tagline: 'IE1, IE2, IE3 y el Mundial FFI', cost: 10, multiCost: 100, color: '#ff8a2a' },
+  go: { id: 'go', label: 'Inazuma Eleven GO', tagline: 'GO, Chrono Stone y Galaxy', cost: 10, multiCost: 100, color: '#4fd0ff' },
+  vr: { id: 'vr', label: 'Victory Road', tagline: 'Ares y Orion', cost: 10, multiCost: 100, color: '#ffd84a' },
+  equipo: { id: 'equipo', label: 'Por equipo', tagline: 'Elige un equipo: solo sus futbolistas', cost: 15, multiCost: 150, color: '#b36bff' },
 };
 export const BANNER_ORDER: BannerId[] = ['original', 'go', 'vr', 'equipo'];
 
@@ -24,7 +24,8 @@ const GO = new Set(['GO', 'Chrono Stones', 'Galaxy']);
 const VR = new Set(['Ares', 'Orion']);
 
 /** The one era a character belongs to: the original games first, then GO, then Victory Road. */
-export function eraOf(p: Pick<RosterEntry, 'teams'>): Exclude<BannerId, 'equipo'> {
+export function eraOf(p: Pick<RosterEntry, 'teams'> & { era?: RosterEntry['era'] }): Exclude<BannerId, 'equipo'> {
+  if (p.era) return p.era; // Fix 1.23: the character's first game (wiki); the teams below are only a fallback
   const sagas = p.teams.map(sagaOf);
   if (sagas.some((s) => !GO.has(s) && !VR.has(s) && s !== 'Otros equipos' && s !== 'Selecciones y leyendas')) return 'original';
   if (sagas.some((s) => GO.has(s))) return 'go';

@@ -62,7 +62,7 @@ export function computeRewards(r: RunResult, rewardMult = 1): Reward[] {
 export const ACTIVE_KILLS = 20;
 /** the first runs of a profile pay a welcome bonus, so the early collection grows fast */
 export const WELCOME_RUNS = 10;
-export const WELCOME_TOKENS = 5;
+export const WELCOME_TOKENS = 6;
 
 /**
  * Fichas de Fichaje earned by a run (a pull costs 8). An active defeat pays about one pull, a full victory more than two,
@@ -72,10 +72,13 @@ export function tokenRewards(r: RunResult, firstClear: boolean, runsBefore = Inf
   const active = r.kills >= ACTIVE_KILLS;
   const out: Reward[] = [{ label: 'Partida jugada', coins: active ? 5 : 1 }];
   if (active && runsBefore < WELCOME_RUNS) out.push({ label: `Bienvenida (partida ${runsBefore + 1} de ${WELCOME_RUNS})`, coins: WELCOME_TOKENS });
-  if (r.timeSec >= 180 && active) out.push({ label: 'Tres minutos en el campo', coins: 3 });
-  if (r.bossDefeated) out.push({ label: 'Jefe derrotado', coins: 6 });
-  if (r.victory) out.push({ label: 'Victoria', coins: 5 });
-  if (firstClear) out.push({ label: 'Primera victoria en la arena', coins: 20 });
+  // Fix 1.23 (player feedback: 13 minutes paid little more than one ×10): time on the pitch and goals of the run pay
+  // fichas, so a long run is worth it; a short abandoned one still gives almost nothing
+  if (active) out.push({ label: `Tiempo en el campo (${Math.floor(r.timeSec / 60)} min)`, coins: Math.floor(r.timeSec / 12) });
+  if (active && r.kills >= 40) out.push({ label: `Eliminaciones (${r.kills})`, coins: Math.floor(r.kills / 40) });
+  if (r.bossDefeated) out.push({ label: 'Jefe derrotado', coins: 15 });
+  if (r.victory) out.push({ label: 'Victoria', coins: 15 });
+  if (firstClear) out.push({ label: 'Primera victoria en la arena', coins: 40 });
   if (r.bonusTokens) out.push({ label: 'Fichas recogidas y altares', coins: r.bonusTokens });
   return out;
 }
@@ -89,7 +92,17 @@ export function isMapUnlocked(unlockRule: string, save: SaveData): boolean {
 }
 
 /** Applies a finished run to the save (mutates and returns it). Coins are kept on defeat too. */
-export function applyRun(save: SaveData, r: RunResult, coinMult = 1, rewardMult = 1, extraTokens = 0): { save: SaveData; rewards: Reward[]; total: number; records: string[]; tokens: Reward[]; tokenTotal: number } {
+/** Fix 1.3: Fichas de entrenamiento of a run (training.ts): a victory, the boss, a new rank cleared, endless minutes. */
+export function trainingRewards(r: RunResult, newRankClear: boolean): Reward[] {
+  const out: Reward[] = [];
+  if (r.victory) out.push({ label: 'Victoria', coins: 1 });
+  if (r.bossDefeated && (r.rank === 'A' || r.rank === 'S' || r.rank === 'X')) out.push({ label: 'Jefe en rango alto', coins: 1 });
+  if (newRankClear) out.push({ label: 'Rango superado por primera vez', coins: 2 });
+  if ((r.endlessSec ?? 0) >= 300) out.push({ label: 'Supervivencia infinita', coins: Math.floor((r.endlessSec ?? 0) / 300) });
+  return out;
+}
+
+export function applyRun(save: SaveData, r: RunResult, coinMult = 1, rewardMult = 1, extraTokens = 0): { save: SaveData; rewards: Reward[]; total: number; records: string[]; tokens: Reward[]; tokenTotal: number; training: Reward[]; trainTotal: number } {
   const rewards = computeRewards(r, rewardMult);
   if (coinMult > 1) {
     const base = rewards.reduce((a, x) => a + x.coins, 0);
@@ -103,9 +116,18 @@ export function applyRun(save: SaveData, r: RunResult, coinMult = 1, rewardMult 
   const total = rewards.reduce((a, x) => a + x.coins, 0);
   const tokens = tokenRewards(r, r.victory && !save.clearedMaps.includes(r.mapId), save.stats.runs);
   if (extraTokens && r.timeSec >= 180) tokens.push({ label: 'Ojeador', coins: extraTokens });
-  if (r.victory && recordRankClear(save.clearedRanks ??= {}, r.mapId, rank.id)) tokens.push({ label: `Primera victoria en ${rank.label}`, coins: rank.firstClearTokens });
+  const newRank = r.victory && recordRankClear(save.clearedRanks ??= {}, r.mapId, rank.id);
+  if (newRank) tokens.push({ label: `Primera victoria en ${rank.label}`, coins: rank.firstClearTokens });
+  // Fix 1.3: the rank multiplies the fichas too, like the coins
+  if (rank.reward > 1) {
+    const base = tokens.reduce((a, x) => a + x.coins, 0);
+    tokens.push({ label: `${rank.label} (×${rank.reward})`, coins: Math.round(base * (rank.reward - 1)) });
+  }
   const tokenTotal = tokens.reduce((a, x) => a + x.coins, 0);
   save.tokens += tokenTotal;
+  const training = trainingRewards(r, newRank);
+  const trainTotal = training.reduce((a, x) => a + x.coins, 0);
+  save.trainTokens = (save.trainTokens ?? 0) + trainTotal;
   const records: string[] = [];
   if (Math.floor(r.timeSec) > save.stats.bestTimeSec) records.push('tiempo');
   if (r.kills > (save.stats.bestKills ?? 0)) records.push('eliminaciones');
@@ -121,5 +143,5 @@ export function applyRun(save: SaveData, r: RunResult, coinMult = 1, rewardMult 
     save.stats.wins += 1;
     if (!save.clearedMaps.includes(r.mapId)) save.clearedMaps.push(r.mapId);
   }
-  return { save, rewards, total, records, tokens, tokenTotal };
+  return { save, rewards, total, records, tokens, tokenTotal, training, trainTotal };
 }

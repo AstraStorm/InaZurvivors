@@ -91,7 +91,7 @@ export function buyOffer(save: SaveData, pool: RosterEntry[], playerId: number, 
   save.coins -= offer.price;
   if (offer.tag === 'semanal') save.weeklyShop!.bought = true;
   else save.daily.bought.push(playerId);
-  grantCopy(save, playerId);
+  grantCopy(save, playerId, pool.find((p) => p.id === playerId)?.rarity);
   return true;
 }
 

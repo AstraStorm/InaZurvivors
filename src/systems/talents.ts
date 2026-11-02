@@ -10,14 +10,14 @@ export interface TalentFx {
   /** extra damage of everyone's techniques by type, by element, and for the whole team */
   type: Partial<Record<TechType, number>>; element: Record<string, number>; team: number;
   /** extra damage below 30% health */
-  lastStand: number; revive: boolean; taken: number;
+  lastStand: number; /** share of max health recovered once per run (0 = none) */ revive: number; taken: number;
   /** Fix 1.11, effects closer to the games: extra critical multiplier (base ×1,8), power of goalkeeper techniques (damage,
    * healing and shield), damage against male / female rivals, chance that a hit freezes the rival for a moment, chance
    * that a hit curses it (slower, takes more damage), healing while the captain stands still, extra damage of the
    * elemental effect (base +20%) */
   critDamage: number; keeper: number; vsMale: number; vsFemale: number; stun: number; curse: number; idleRegen: number; elementalPower: number;
 }
-export const emptyFx = (): TalentFx => ({ speed: 0, regen: 0, crit: 0, luck: 0, xp: 0, cooldown: 0, shield: 0, elemental: 0, type: {}, element: {}, team: 0, lastStand: 0, revive: false, taken: 0,
+export const emptyFx = (): TalentFx => ({ speed: 0, regen: 0, crit: 0, luck: 0, xp: 0, cooldown: 0, shield: 0, elemental: 0, type: {}, element: {}, team: 0, lastStand: 0, revive: 0, taken: 0,
   critDamage: 0, keeper: 0, vsMale: 0, vsFemale: 0, stun: 0, curse: 0, idleRegen: 0, elementalPower: 0 });
 
 type Effect = { name: string; text: string; apply(f: TalentFx, k: number): void };
@@ -57,7 +57,7 @@ export const TALENTS: Record<number, Effect> = {
   73: { name: 'Siempre a muerte', text: 'Más daño con poca vida', apply: (f, k) => { f.lastStand += 0.15 * k; } },
   74: { name: '¡Vamos!', text: 'Más daño del equipo', apply: (f, k) => { f.team += 0.04 * k; } },
   75: { name: '¡Vamos todos!', text: 'Más daño y velocidad del equipo', apply: (f, k) => { f.team += 0.04 * k; f.speed += 0.03 * k; } },
-  76: { name: '¡Resurgir!', text: 'Una vez por partida recupera un 20% de vida al quedar por debajo del 20%', apply: (f) => { f.revive = true; } },
+  76: { name: '¡Resurgir!', text: 'Una vez por partida recupera vida al quedar por debajo del 20%', apply: (f, k) => { f.revive = Math.max(f.revive, 0.2 * k); } },
   77: { name: 'Mejor garantía', text: 'Golpes con toda el alma', apply: (f, k) => { f.crit += 0.02 * k; f.critDamage += 0.25 * k; } },
   78: { name: '¡Como el viento!', text: '+12% daño de técnicas de Aire', apply: (f, k) => addElem(f, 'Aire', 0.12 * k) },
   79: { name: '¡Como el bosque!', text: '+12% daño de técnicas de Bosque', apply: (f, k) => addElem(f, 'Bosque', 0.12 * k) },
@@ -122,17 +122,34 @@ export function describeFx(f: TalentFx): string {
   if (f.elemental) out.push(`${sign(f.elemental)} probabilidad de efecto elemental (máx. ${p(CAP_ELEMENTAL)} en total)`);
   if (f.speed) out.push(`${sign(f.speed)} velocidad`);
   if (f.cooldown) out.push(`-${p(f.cooldown, 1)} recarga`);
-  if (f.shield) out.push(`-${p(f.shield)} daño recibido por el capitán`);
+  if (f.shield) out.push(`-${p(f.shield, 1)} daño recibido por el capitán`);
   if (f.taken) out.push(`+${p(f.taken)} daño recibido por el capitán`);
   if (f.regen) out.push(`${sign(f.regen, 2)} de vida del capitán por segundo`);
   if (f.xp) out.push(`${sign(f.xp)} experiencia`);
   if (f.luck) out.push(`${sign(f.luck)} suerte`);
-  if (f.revive) out.push('una vez por partida recupera un 20% de vida al bajar del 20%');
+  if (f.revive) out.push(`${p(f.revive)} de vida recuperada una vez por partida al bajar del 20%`);
   return out.join(', ');
 }
 /** Combined limits of talents (Fix 1.11): conditional damage and elemental chance can't stack without end. */
 export const CAP_LAST_STAND = 0.6;
 export const CAP_ELEMENTAL = 0.4;
+
+/**
+ * Fix 1.22: what a talent gains from one level to the next, read from its real effect (the upgrade cards showed the old
+ * generic "team damage" of the talent type, which no longer does anything).
+ */
+export function talentChanges(id: number, level: number): { label: string; from: string; to: string }[] {
+  const def = TALENTS[id];
+  if (!def) return [];
+  const parts = (lv: number) => { const f = emptyFx(); def.apply(f, talentScale(lv)); return describeFx(f).split(/, (?![^()]*\))/); }; // commas inside brackets belong to one effect
+  const a = parts(level), b = parts(level + 1);
+  const out: { label: string; from: string; to: string }[] = [];
+  b.forEach((after, i) => {
+    const m2 = /^([+-]?[\d,]+%)\s*(.*)$/.exec(after), m1 = /^([+-]?[\d,]+%)\s*(.*)$/.exec(a[i] ?? '');
+    if (m2 && m1 && m1[2] === m2[2] && m1[1] !== m2[1]) out.push({ label: m2[2].replace(/^de /, '').replace(/\s*\(.*\)$/, '').replace(/:.*$/, ''), from: m1[1], to: m2[1] });
+  });
+  return out;
+}
 
 /** "Lv 1: …  ·  Lv 10: …" with the real values. */
 export function talentText(id: number, level = 1): string {

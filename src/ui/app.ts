@@ -4,12 +4,12 @@ import type Phaser from 'phaser';
 import type { Manifest, Rarity, RosterEntry, Technique } from '../data/manifest';
 import { ICON, RARITY_LABEL, RARITY_ORDER } from '../data/manifest';
 import { deathCause } from '../systems/deathCause';
-import { serverNow, syncServerTime, timeSource } from '../online/serverTime';
+import { serverNow, syncServerTime, timeSource, trustedClock } from '../online/serverTime';
 import { PASS, claimPass, passStatus } from '../systems/weeklyPass';
 import { applyReward, hasRedeemed, normalizeCode, redeemLocal, type CodeReward } from '../systems/promo';
 import { BANNERS, BANNER_ORDER, bannerPool, eraOf, featured, perPlayerOdds, rarityOdds, teamChoices, type BannerId } from '../systems/banners';
 import { exportSave, importSave, remapIds, remapTechSlots, storeSave, type SaveData, type ParticleLevel, type Rank } from '../systems/save';
-import { eligibleTeams, pull, recordHistory, DUPLICATE_REFUND, PULL_COST, MAX_STARS, starBonus, onboardingPull, type PullResult } from '../systems/gacha';
+import { eligibleTeams, pull, recordHistory, COPIES_PER_STAR, DUPLICATE_REFUND_BY, PULL_COST, MAX_STARS, starBonus, onboardingPull, type PullResult } from '../systems/gacha';
 import { applyRun, isMapUnlocked, type RunResult } from '../systems/economy';
 import { DROPS } from '../systems/items';
 import { STAT_INFO } from '../systems/playerStats';
@@ -18,7 +18,7 @@ import { evolutionLabel, evolvesAt } from '../systems/evolution';
 import { modDef } from '../systems/runmods';
 import { FORMATIONS, FORMATION_ORDER, type FormationId } from '../systems/formations';
 import { CATEGORY_BONUS, MILESTONES, PERKS, PERK_CATEGORIES, buyPerk, categoryLevels, perkCost, perkLevel, perkEffects, perkValue, refundPerks, spentOn, type PerkCategory } from '../systems/perks';
-import { MISSIONS, addCounter, claimAllMissions, claimMission, recordCollection, isClaimable, isClaimed, missionProgress, pendingClaims, recordRun, rollPeriods, type MissionKind } from '../systems/missions';
+import { MISSIONS, addCounter, claimAllMissions, claimMission, recordCollection, isClaimable, isClaimed, missionProgress, pendingClaims, recordRun, rollPeriods, setPeriodClock, type MissionKind } from '../systems/missions';
 import { MAX_TECH_BOOST, boostCost, buyTechBoost, buyTechUnlock, isBought, isLocked, unlockCost } from '../systems/shop';
 import { GEAR_SLOTS, applyGear, buildGear, buyGear, equipGear, type GearItem } from '../systems/gear';
 import { SAGAS, sagaOf, setTeamLabels, setTeamSagas, teamLabel, teamNames } from '../data/sagas';
@@ -31,10 +31,11 @@ import { championsTable, recordTriumph } from '../systems/hallOfFame';
 import { BUILD, CURRENT_PUBLIC, DEVLOG_SHOTS, PUBLIC_VERSION, RELEASED, TIKTOK_PATH, TIKTOK_URL, VERSION_LABEL } from '../data/release';
 import { buildMeta, CATEGORIES, SEVERITIES, SHOT_MAX_BYTES, SHOT_MAX_SIDE, SHOT_TYPES, STATUS_LABEL, TECH_FIELDS, validateBug, validateShot } from '../systems/bugReport';
 import { elementIcon } from './elements';
-import { ASC_BONUS, HERO_AURA, ascend, ascMultipliers, effectiveRarity, isHero, nextStep, sparesOf } from '../systems/ascension';
+import { playerStats, resetTraining, trainingOf, trainingUsed, trainStat, TRAIN_MAX, type StatKey } from '../systems/training';
+import { ASC_BONUS, ASC_COSTS, HERO_AURA, ascend, ascMultipliers, effectiveRarity, isHero, nextStep, rarityUp, sparesOf } from '../systems/ascension';
 import { USERNAME_MAX, validateUsername } from '../systems/username';
 import { ALTAR_COLOR, ALTAR_ICON, ALTAR_INFO, ALTAR_MODE, ALTAR_REWARD } from '../systems/altars';
-import { adaptedPassive, passiveText, talentText } from '../systems/talents';
+import { adaptedPassive, passiveText, talentChanges, talentText } from '../systems/talents';
 import { redeemCode } from '../online/client';
 import { accountId, adminBugReports, adminUpdateBug, amIAdmin, consumeAuthRedirect, deleteAccount, deleteMyBugReports, deleteShot, myBugReports, notifyBug, shotUrl, submitBugReport, uploadShot, getCloudSave, leaderboard, myPosition, myProfile, onlineConfigured, putCloudSave, reserveUsername, resetMyProgress, signedEmail, signedIn, signInWithGoogle, signOut, submitScore, usernameAvailable, type BoardQuery, type BoardRow, type BugFilter, type BugRow, type CloudSave } from '../online/client';
 import { backup, linkPlan, progressOf, summarize, type SaveSummary } from '../online/cloudSync';
@@ -154,6 +155,7 @@ export class App {
     this.iconW = Math.max(...Object.values(iconFrames).map((f) => f.frame.x + f.frame.w));
     this.captainId = save.captainId;
     this.gear = buildGear(m.items.items);
+    setPeriodClock(serverNow, trustedClock); // Fix 1.23: missions change day on the server's clock, never the device's
     rollPeriods(save);
     if (remapIds(save, m.idAliases)) storeSave(save); // characters now on another ROM record keep their progress
     if (remapTechSlots(save, m.techRemaps) >= 0) storeSave(save); // repertoires that changed order keep their purchases
@@ -185,7 +187,7 @@ export class App {
    * guest choice when there is no session); anyone with a profile gets a title screen to continue as they are.
    */
   async start() {
-    void syncServerTime(); // daily shop and weekly pass rotate on the server's clock for online players
+    void syncServerTime().then(() => rollPeriods(this.save)); // daily shop, pass and missions rotate on the server's clock
     let after: (() => void) | null = null;
     if (onlineConfigured()) {
       const ret = await consumeAuthRedirect();
@@ -419,7 +421,9 @@ export class App {
     const key = `${this.save.kit}:${id}`;
     const hit = this.kitShots.get(key);
     if (hit !== undefined) return hit || null;
-    if (!this.kitWaiting.has(key)) { this.kitWaiting.add(key); void this.drawKitPortrait(key, id, kit.group, p.torso); }
+    // Fix 1.23: the torso kind of this kit's wearset (field / goalkeeper), when it isn't the plain 1 / 2
+    const torso = kit.bustKinds ? { ...p.torso, kind: kit.bustKinds[p.torso.kind === 2 ? 1 : 0] } : p.torso;
+    if (!this.kitWaiting.has(key)) { this.kitWaiting.add(key); void this.drawKitPortrait(key, id, kit.group, torso); }
     return null;
   }
   private async drawKitPortrait(key: string, id: number, group: number, t: { kind: number; build: number; variant: number }) {
@@ -471,6 +475,10 @@ export class App {
     const list = ic.kind === 'coach' ? this.m.profile?.coaches : this.m.profile?.emblems;
     const e = list?.find((x) => (ic.kind === 'coach' ? x.index : x.teamId) === ic.id) ?? this.m.profile?.emblems?.[0];
     return `<span class="avatar" style="width:${size}px;height:${size}px">${e ? `<img src="${e.texture}" alt="">` : ''}</span>`;
+  }
+  /** Fix 1.3: the stats the game really uses (rarity band, ascension, HÉROE, training: training.ts); null without data. */
+  private statsOf(p: RosterEntry): Record<string, number> | null {
+    return p.stats ? playerStats(this.save, p, effectiveRarity(this.save, p), isHero(this.save, p.id)) : null;
   }
   private rar(p: RosterEntry) {
     const r = effectiveRarity(this.save, p);
@@ -560,7 +568,7 @@ export class App {
     return `<div class="pcard r-${er}${opts.locked ? ' locked' : ''}${opts.sel ? ' sel' : ''}${opts.big ? ' big' : ''}${!opts.locked && isHero(this.save, p.id) ? ' hero' : ''}" data-id="${p.id}" style="--rc:${RARITY_COLOR[er]}">
       ${opts.badge ? `<span class="badge">${esc(opts.badge)}</span>` : ''}${opts.captain ? '<span class="captain-badge">C</span>' : ''}${flags}${opts.sel ? '<span class="card-check">✔</span>' : ''}
       ${this.emblemOf(p.teams[0]) ? `<img class="card-crest" src="${this.emblemOf(p.teams[0])}" alt="">` : ''}
-      <div class="stage${opts.locked ? ' dark' : ''}">${!opts.locked && p.stats ? `<span class="ovr" title="Media de estadísticas">${statMean(p.stats)}</span>` : ''}${this.mug(p.id, 128)}${opts.locked ? '<span class="qmark">?</span><span class="lock-tag">Bloqueado</span>' : `<span class="minisprite">${charCanvas(p.id, 2, opts.anim ?? 4)}</span>`}</div>
+      <div class="stage${opts.locked ? ' dark' : ''}">${!opts.locked && p.stats ? `<span class="ovr" title="Media de estadísticas">${statMean(this.statsOf(p)!)}</span>` : ''}${this.mug(p.id, 128)}${opts.locked ? '<span class="qmark">?</span><span class="lock-tag">Bloqueado</span>' : `<span class="minisprite">${charCanvas(p.id, 2, opts.anim ?? 4)}</span>`}</div>
       <div class="name">${opts.locked ? '???' : esc(p.name)}</div>
       <div class="chips"><span class="pos">${POS_LABEL[p.position] ?? p.position}</span>${opts.locked ? '' : this.elem(p)}</div>
       ${this.rar(p)}${icons}${stars}</div>`;
@@ -788,7 +796,7 @@ export class App {
         ${feat ? `<section class="hero r-${feat.rarity}" data-go="squad" style="--rc:${RARITY_COLOR[feat.rarity]}"><div class="hero-glow"></div>
           <div class="hero-art">${this.mug(feat.id, 256)}<span class="hero-sprite">${charCanvas(feat.id, 3, 12)}</span></div>
           <div class="hero-plate"><small>${this.captainId === feat.id ? 'TU CAPITÁN' : 'TU ESTRELLA'}</small><b>${esc(feat.name)}</b><div>${this.rar(feat)} ${this.elem(feat)}</div>
-            ${feat.stats ? `<div class="hero-stats">${statRadar(feat.stats, STAT_SHORT, RARITY_COLOR[feat.rarity])}<span class="ovr">${statMean(feat.stats)}</span></div><button class="btn small blue" data-sheet="${feat.id}">Ver ficha y estadísticas</button>` : ''}</div></section>` : ''}
+            ${feat.stats ? `<div class="hero-stats"><span class="ovr">${statMean(this.statsOf(feat)!)}</span>${statRadar(this.statsOf(feat)!, STAT_SHORT, RARITY_COLOR[effectiveRarity(this.save, feat)])}</div><button class="btn small blue" data-sheet="${feat.id}">Ver ficha y estadísticas</button>` : ''}</div></section>` : ''}
         <aside class="menu-right">
           <button class="panel side update-card" data-go="devlog"><small>ACTUALIDAD · ${esc(VERSION_LABEL)}</small><b>${esc(CURRENT_PUBLIC.title)}</b>
             <span>${esc(CURRENT_PUBLIC.tagline)}: descubre qué trae y cómo empezar.</span>${unseenLog ? '<em>NUEVO</em>' : ''}</button>
@@ -857,18 +865,19 @@ export class App {
     const now = ascMultipliers(this.save, p);
     const after = next ? { damage: now.damage * ASC_BONUS[next.step].damage, hp: now.hp * ASC_BONUS[next.step].hp } : now;
     const curR = effectiveRarity(this.save, p);
-    const label = next?.step === 'heroe' ? 'HÉROE' : next ? RARITY_LABEL.mitico.toUpperCase() : 'HÉROE';
+    const up = rarityUp(p.rarity), label = next?.step === 'ascenso' ? `${RARITY_LABEL[up].toUpperCase()}${up === p.rarity ? ' +' : ''}` : 'HÉROE';
     const pct = (v: number) => `+${Math.round((v - 1) * 100)}%`;
     const unlocks = next?.step === 'heroe' || (!next && isHero(this.save, id))
       ? [`Técnica de HÉROE: ${p.heroTech ? p.heroTech.name : 'ninguna documentada para este jugador'}`, `${HERO_AURA.label} (habilidad original de InaZurvivors): ${HERO_AURA.description}`, 'Marco dorado e insignia HÉROE en la colección']
-      : ['Rareza Mítico (sin cambiar de personaje)', 'Acceso a la ascensión HÉROE (5 duplicados más)'];
+      : [up === p.rarity ? `Ascendido: sigue siendo ${RARITY_LABEL[up]}, con la bonificación de ascensión` : `Rareza ${RARITY_LABEL[up]} (sin cambiar de personaje)`,
+        `Acceso a la ascensión HÉROE (${(ASC_COSTS[p.rarity] ?? ASC_COSTS.legendario).heroe} duplicados más)`];
     const box = document.createElement('div');
     box.className = 'tut-modal asc-modal';
     box.innerHTML = `<div class="panel asc-card${isHero(this.save, id) ? ' is-hero' : ''}" style="--rc:${RARITY_COLOR[curR]}">
       <h2>${next ? 'Ascensión' : '¡HÉROE!'}</h2>
       <div class="asc-row"><div class="asc-art">${this.mug(id, 128)}${charCanvas(id, 3, 12)}</div>
         <div class="asc-info"><b>${esc(p.name)}</b>
-          <div class="asc-step">${this.rar(p)}${next ? ` <em>»</em> <span class="rar ${next.step === 'heroe' ? 'heroe' : 'mitico'}">${label}</span>` : ''}</div>
+          <div class="asc-step">${this.rar(p)}${next ? ` <em>»</em> <span class="rar ${next.step === 'heroe' ? 'heroe' : up}">${label}</span>` : ''}</div>
           ${next ? `<div class="asc-cost${spares >= next.cost ? ' ok' : ''}">Duplicados: <b>${spares}/${next.cost}</b>${spares >= next.cost ? '' : ` · te faltan ${next.cost - spares}`}</div>` : ''}
           <div class="asc-stats"><span>Daño en partida</span><b>${pct(now.damage)}</b>${next ? `<em>»</em><b class="up">${pct(after.damage)}</b>` : ''}
             <span>Vida aportada</span><b>${pct(now.hp)}</b>${next ? `<em>»</em><b class="up">${pct(after.hp)}</b>` : ''}</div>
@@ -891,8 +900,30 @@ export class App {
       if (this.save.settings.particles !== 'desactivado') confetti(step === 'heroe' ? 90 : 50);
       await wait(1400);
       box.remove();
+      await this.ascensionCard(p, step);
       this.ascension(id, back);
     }));
+  }
+
+  /** Fix 1.23: the new card after an ascension, with the same entrance as a gacha reveal (rays, flash, rarity shine). */
+  private ascensionCard(p: RosterEntry, step: 'ascenso' | 'heroe') {
+    return new Promise<void>((resolve) => {
+      const r = effectiveRarity(this.save, p), hero = step === 'heroe';
+      const tier = r === 'leyenda' || hero ? 3 : r === 'mitico' ? 2 : r === 'legendario' ? 1 : 0;
+      const ov = document.createElement('div');
+      ov.className = `reveal asc-reveal${tier >= 1 ? ' legend' : ''}${tier >= 2 ? ' myth' : ''}${hero ? ' leyenda' : ''}`;
+      ov.style.setProperty('--rc', `${RARITY_COLOR[r]}55`);
+      ov.innerHTML = `<div class="rays"></div><div class="flash go"></div>
+        <div class="reveal-card from-scene"><div class="rarity-big t${tier}" style="color:${hero ? '#ffd21f' : RARITY_COLOR[r]}">${hero ? 'HÉROE' : RARITY_LABEL[r].toUpperCase()}</div>
+          ${this.pcard(p, { anim: 12, big: true })}<div class="newtag">${hero ? '¡HÉROE!' : '¡ASCENDIDO!'}</div><button class="btn big">Aceptar</button></div>`;
+      document.body.appendChild(ov);
+      mountPreviews();
+      sfx(hero ? 'leyenda' : tier >= 2 ? 'myth' : 'legend');
+      const close = () => { window.removeEventListener('keydown', keys, true); ov.remove(); resolve(); };
+      const keys = (e: KeyboardEvent) => { if (e.code === 'Space' || e.code === 'Enter' || e.code === 'Escape') { e.preventDefault(); e.stopPropagation(); close(); } };
+      window.addEventListener('keydown', keys, true);
+      ov.querySelector('.btn')!.addEventListener('click', close);
+    });
   }
 
   // ------------------------------------------------------------- hall of fame
@@ -1024,6 +1055,8 @@ export class App {
 
   /** Claims today's pass reward (team reward: the favourite team, or the one chosen on the pass screen). */
   private claimPassNow(after: () => void) {
+    // Fix 1.23: a new day of the pass needs the server's clock (a different date on the device paid it again)
+    if (!trustedClock()) { void syncServerTime(); sfx('error'); this.toast('Necesitas conexión para reclamar el pase (hora del servidor).'); after(); return; }
     const res = claimPass(this.save, this.m.roster, serverNow(), Math.random, bannerPool(this.m.roster, 'equipo', this.passTeam || this.save.favoriteTeam || ''));
     if (!res) { sfx('error'); after(); return; }
     this.persist();
@@ -1521,7 +1554,7 @@ export class App {
         <button class="sq-act x" data-remove="${p.id}" title="Quitar">✕</button>
         ${this.mug(p.id, 64)}<b>${esc(p.name)}</b>
         <div class="chips"><span class="pos">${POS_LABEL[p.position] ?? p.position}</span>${this.elem(p)}</div>${this.rar(p)}
-        ${p.stats ? `<div class="sq-radar">${statRadar(p.stats, STAT_SHORT, RARITY_COLOR[p.rarity])}<span class="ovr">${statMean(p.stats)}</span></div>` : ''}
+        ${p.stats ? `<div class="sq-radar"><span class="ovr">${statMean(this.statsOf(p)!)}</span>${statRadar(this.statsOf(p)!, STAT_SHORT, RARITY_COLOR[effectiveRarity(this.save, p)])}</div>` : ''}
         <div class="sq-techs">${p.techniques.slice(0, 4).map((t) => `<span title="${esc(t.name)}">${this.icon(ICON.manual[t.type], 1)}${esc(t.name)}</span>`).join('')}</div></div>`;
     }).join('');
     this.show(`<div class="screen">${this.titlebar('Mi Equipo', 'Menú')}
@@ -1668,6 +1701,11 @@ export class App {
     this.on('[data-back]', 'click', () => this.mainMenu());
     this.on('.pcard[data-id]', 'click', (_e, el) => { if (this.owned(Number(el.dataset.id))) { this.collection(Number(el.dataset.id)); this.root.querySelector('.screen')?.scrollTo(0, 0); } });
     this.on('[data-ascend]', 'click', (_e, el) => this.ascension(Number(el.dataset.ascend), () => this.collection(Number(el.dataset.ascend))));
+    this.on('[data-train]', 'click', (_e, el) => {
+      const id = Number(el.dataset.pid);
+      if (trainStat(this.save, id, el.dataset.train as StatKey)) { this.persist(); sfx('powerup'); this.collection(id); } else sfx('error');
+    });
+    this.on('[data-trainreset]', 'click', (_e, el) => this.armed(el, () => { const id = Number(el.dataset.trainreset); resetTraining(this.save, id); this.persist(); sfx('click'); this.collection(id); }));
     this.on('[data-compare]', 'click', (_e, el) => { const id = Number(el.dataset.compare); this.compareWith = this.compareWith === id ? null : id; this.collection(id); });
     this.on('[data-uncompare]', 'click', () => { this.compareWith = null; this.collection(detailId); });
     this.on('[data-team]', 'click', (_e, el) => { f.team = el.dataset.team!; this.collectionLimit = 36; this.collection(); });
@@ -1818,7 +1856,7 @@ export class App {
 
   /** Fix 1.22: two footballers side by side: stats with their difference, techniques, talents, rarity and what they share. */
   private compareHtml(a: RosterEntry, b: RosterEntry) {
-    const sa = a.stats ?? {}, sb = b.stats ?? {};
+    const sa = this.statsOf(a) ?? {}, sb = this.statsOf(b) ?? {};
     const rows = STAT_INFO.map((s) => {
       const va = sa[s.key] ?? 0, vb = sb[s.key] ?? 0, d = vb - va;
       return `<tr><td>${s.name}</td><td>${va}</td><td>${vb}</td><td class="${d > 0 ? 'up' : d < 0 ? 'down' : ''}">${d > 0 ? '+' : ''}${d}</td></tr>`;
@@ -1833,6 +1871,17 @@ export class App {
       <table class="cmp-stats"><tr><th></th><th>${esc(a.nickname || a.name)}</th><th>${esc(b.nickname || b.name)}</th><th>Dif.</th></tr>${rows}</table>
       <div class="cmp-techs"><ul>${techs(a)}</ul><ul>${techs(b)}</ul></div>
       ${notes.map((n) => `<div class="note">${n}</div>`).join('')}</div>`;
+  }
+
+  /** Fix 1.3: training of an owned footballer: up to 20 points, one Ficha de entrenamiento each, freely returned. */
+  private trainingHtml(d: RosterEntry) {
+    if (!this.owned(d.id)) return '';
+    const used = trainingUsed(this.save, d.id), tr = trainingOf(this.save, d.id), have = this.save.trainTokens ?? 0;
+    const can = have > 0 && used < TRAIN_MAX;
+    return `<div class="train-box"><div class="train-head"><b>Entrenamiento ${used}/${TRAIN_MAX}</b><span>Fichas de entrenamiento: <b>${have}</b></span>
+      ${used ? `<button class="btn small blue" data-trainreset="${d.id}">Devolver puntos</button>` : ''}</div>
+      <div class="train-row">${STAT_INFO.map((s) => `<button class="btn small" data-train="${s.key}" data-pid="${d.id}" ${can ? '' : 'disabled'}>${s.short}${tr[s.key as StatKey] ? ` +${tr[s.key as StatKey]}` : ''} ＋</button>`).join('')}</div>
+      <div class="note">Cada ficha suma 1 punto a la estadística que elijas (máximo ${TRAIN_MAX} por futbolista). Se ganan con victorias, rangos superados, supervivencia infinita, misiones semanales y logros.</div></div>`;
   }
 
   private playerDetail(d: RosterEntry) {
@@ -1851,9 +1900,10 @@ export class App {
       <h3 style="margin-top:8px">Repertorio (2 técnicas activas en combate)</h3>
       ${reps.map((t, i) => (t ? `<div class="rep">${i === active ? '<span class="tag">Inicial</span>' : isLocked(t) && !isBought(this.save, d.id, i) ? '<span class="tag">Tienda</span>' : ''}${this.techHtml(t)}<div class="note">Maestría ${masteryLevel(this.save.mastery[String(t.id)] ?? 0)}/${MASTERY_USES.length} · +${masteryLevel(this.save.mastery[String(t.id)] ?? 0) * MASTERY_BONUS * 100}% daño · ${this.save.mastery[String(t.id)] ?? 0} usos</div></div>`
         : '<div class="rep"><div class="tech"><div class="note">Ficha pendiente: sin datos de origen para esta técnica.</div></div></div>')).join('')}
-      ${d.stats ? `<h3 style="margin-top:8px">Estadísticas</h3><div class="stat-radar">${statRadar(d.stats, statNames, RARITY_COLOR[d.rarity])}</div>
-        <div class="stat-explain">${STAT_INFO.map((s) => `<div><b>${s.name} ${d.stats![s.key] ?? '—'}</b><span>${esc(s.what(d.stats![s.key] ?? 60))}</span></div>`).join('')}</div>
-        <div class="note">Valores centrados en 60: por encima suman, por debajo restan. Cada técnica usa las estadísticas de su futbolista.</div><div class="bars-mini">${Object.entries(d.stats).map(([k, v]) => `<span>${statNames[k] ?? k}</span><i style="width:${Math.min(100, v)}%"></i>`).join('')}</div>${d.statsSource === 'derivado' ? '<div class="note">Estadísticas estimadas por posición y rareza: las de IE3 aún no se han descifrado.</div>' : ''}` : ''}
+      ${d.stats ? `<h3 style="margin-top:8px">Estadísticas · media ${statMean(this.statsOf(d)!)}</h3><div class="stat-radar">${statRadar(this.statsOf(d)!, statNames, RARITY_COLOR[effectiveRarity(this.save, d)])}</div>
+        ${this.trainingHtml(d)}
+        <div class="stat-explain">${STAT_INFO.map((s) => `<div><b>${s.name} ${this.statsOf(d)![s.key] ?? '—'}</b><span>${esc(s.what(this.statsOf(d)![s.key] ?? 60))}</span></div>`).join('')}</div>
+        <div class="note">Valores centrados en 60: por encima suman, por debajo restan. Cada técnica usa las estadísticas de su futbolista.</div><div class="bars-mini">${Object.entries(this.statsOf(d)!).map(([k, v]) => `<span>${statNames[k] ?? k}</span><i style="width:${Math.min(100, v)}%"></i>`).join('')}</div>${d.statsSource === 'derivado' ? '<div class="note">Estadísticas estimadas por posición y rareza: las de IE3 aún no se han descifrado.</div>' : ''}` : ''}
       </div></div>`;
   }
 
@@ -1898,10 +1948,12 @@ export class App {
           <button class="btn" data-pull="10" ${this.save.tokens < MULTI_COST ? 'disabled' : ''}>×10 · ${MULTI_COST} fichas</button></div></div>`}</div>
       <div class="gacha-info">
         <div class="panel gi"><h3>Tus fichas</h3><div class="gi-big"><span class="tokens">${this.save.tokens}</span></div>
-          <div class="note">×1 cuesta <b>${PULL_COST}</b> · ×10 cuesta <b>${MULTI_COST}</b> (una gratis). ${this.save.tokens < PULL_COST ? `Te faltan ${PULL_COST - this.save.tokens}.` : `Te llega para ${Math.floor(this.save.tokens / PULL_COST)} tirada(s).`}</div></div>
+          <div class="note">×1 cuesta <b>${PULL_COST}</b> · ×10 cuesta <b>${MULTI_COST}</b> (con un Épico o mejor asegurado). ${this.save.tokens < PULL_COST ? `Te faltan ${PULL_COST - this.save.tokens}.` : `Te llega para ${Math.floor(this.save.tokens / PULL_COST)} tirada(s).`}</div></div>
         <div class="panel gi"><h3>Cómo conseguir fichas</h3><ul class="gi-list"><li>Jugar partidas (más si ganas)</li><li>Misiones diarias, semanales y logros</li><li>Altares y fichas en el campo</li><li>Primera victoria en cada arena y rango</li></ul></div>
         <div class="panel gi"><h3>Nuevo o duplicado</h3><ul class="gi-list"><li><b class="newtag">NUEVO</b>: se desbloquea para siempre y ya puede ir en Mi Equipo.</li>
-          <li><b>Duplicado</b>: +1 estrella (hasta ${MAX_STARS}), cada una +${Math.round((sb.damage - 1) * 100)}% daño y +${Math.round((sb.hp - 1) * 100)}% vida.</li><li>Con ${MAX_STARS} estrellas: +${DUPLICATE_REFUND} monedas.</li></ul></div>
+          <li><b>Duplicado</b>: suma hacia una estrella (hasta ${MAX_STARS}), cada una +${Math.round((sb.damage - 1) * 100)}% daño y +${Math.round((sb.hp - 1) * 100)}% vida. Copias por estrella: Común ${COPIES_PER_STAR.comun}, Raro y Épico ${COPIES_PER_STAR.raro}, el resto 1.</li>
+          <li>Los duplicados también pagan la <b>ascensión</b> de cualquier futbolista (Ascendido y HÉROE): Común ${ASC_COSTS.comun.ascenso}+${ASC_COSTS.comun.heroe}, Raro ${ASC_COSTS.raro.ascenso}+${ASC_COSTS.raro.heroe}, Épico ${ASC_COSTS.epico.ascenso}+${ASC_COSTS.epico.heroe}, Legendario ${ASC_COSTS.legendario.ascenso}+${ASC_COSTS.legendario.heroe}, Mítico ${ASC_COSTS.mitico.ascenso}+${ASC_COSTS.mitico.heroe}.</li>
+          <li>Con ${MAX_STARS} estrellas y HÉROE, cada copia da monedas (de ${DUPLICATE_REFUND_BY.comun} a ${DUPLICATE_REFUND_BY.leyenda} según la rareza).</li></ul></div>
         <div class="panel gi"><h3>Probabilidades</h3><div class="odds">${odds}</div>${empty.length ? `<div class="note">${esc(empty.join(', '))}: sin futbolistas por ahora; su probabilidad pasa a la rareza inferior.</div>` : ''}</div>
       </div>
       <div class="panel" style="max-width:980px;margin:10px auto"><h3>Últimas tiradas</h3><div class="hist-row">${hist || '<span class="note">Aún no has tirado.</span>'}</div>
@@ -2005,8 +2057,19 @@ export class App {
         <div class="flash"></div><button class="btn small blue skip">${multi ? 'Saltar todo' : 'Saltar'}</button>${multi ? `<button class="btn small speed${this.revealSpeed > 1 ? ' on' : ''}">×2</button>` : ''}`;
       this.root.appendChild(ov);
       let done = false;
-      const finish = (skipAll: boolean) => { if (done) return; done = true; ov.remove(); resolve(skipAll); };
+      const finish = (skipAll: boolean) => { if (done) return; done = true; window.removeEventListener('keydown', keys, true); ov.remove(); resolve(skipAll); };
       let skipAnim = false;
+      // Fix 1.23: Space (or Enter) skips the animation and, on the card, accepts it; Esc skips the whole ×10
+      const shownAt = performance.now();
+      const keys = (e: KeyboardEvent) => {
+        if (e.repeat || performance.now() - shownAt < 120) return; // a press held from the previous card doesn't count
+        if (e.code === 'Escape' && multi) { e.preventDefault(); e.stopPropagation(); finish(true); return; }
+        if (e.code !== 'Space' && e.code !== 'Enter' && e.code !== 'NumpadEnter') return;
+        e.preventDefault(); e.stopPropagation();
+        const accept = ov.querySelector<HTMLElement>('.reveal-card .btn');
+        if (accept) accept.click(); else skipAnim = true;
+      };
+      window.addEventListener('keydown', keys, true);
       ov.querySelector('.skip')?.addEventListener('click', (e) => {
         e.stopPropagation();
         if (multi) finish(true);
@@ -2141,7 +2204,7 @@ export class App {
         const card = document.createElement('div');
         card.className = 'reveal-card';
         card.innerHTML = `<div class="rarity-big t${tier}" style="color:${RARITY_COLOR[p.rarity]}">${RARITY_LABEL[p.rarity].toUpperCase()}</div>
-          ${this.pcard(p, { anim: 12, big: true })}<div class="${r.isNew ? 'newtag' : 'stars'}">${r.isNew ? '¡NUEVO FICHAJE!' : r.refund ? `Al máximo: +${r.refund} monedas` : `Duplicado · ${'★'.repeat(r.stars)}`}</div>
+          ${this.pcard(p, { anim: 12, big: true })}<div class="${r.isNew ? 'newtag' : 'stars'}">${r.isNew ? '¡NUEVO FICHAJE!' : r.refund ? `Al máximo: +${r.refund} monedas` : r.toStar ? `Duplicado · ${r.toStar[0]}/${r.toStar[1]} para la siguiente ★` : r.forAscension ? 'Duplicado · +1 para ascender' : `Duplicado · ${'★'.repeat(r.stars)}`}</div>
           <button class="btn big">${multi ? 'Siguiente ▶' : 'Aceptar'}</button>`;
         ov.appendChild(card);
         if (special) card.classList.add('from-scene');
@@ -2459,7 +2522,8 @@ export class App {
   startRun(mapId: string, team: RosterEntry[], candidates: RosterEntry[] = team) {
     const map = this.m.maps.find((x) => x.id === mapId)!;
     // a HÉROE brings its exclusive technique as a fifth repertoire entry
-    const heroed = (p: RosterEntry): RosterEntry => (isHero(this.save, p.id) && p.heroTech ? { ...p, techniques: [...p.techniques, p.heroTech] } : p);
+    // Fix 1.3: the run plays with the real stats (rarity band, ascension, HÉROE, training), not the raw ones
+    const heroed = (p: RosterEntry): RosterEntry => ({ ...(isHero(this.save, p.id) && p.heroTech ? { ...p, techniques: [...p.techniques, p.heroTech] } : p), stats: this.statsOf(p) ?? p.stats });
     const stars: Record<string, number> = {};
     for (const [k, v] of Object.entries(this.save.owned)) stars[k] = v.stars;
     this.hudTeamKey = '';
@@ -2652,7 +2716,8 @@ export class App {
   }
 
   private statDiff(t: Technique, from: number) {
-    return `<table class="diff">${statChanges(t, from).map((r) => `<tr><td>${r.label}</td><td>${r.from}</td><td>${r.from ? '»' : ''}</td><td><b>${r.to}</b></td></tr>`).join('')}</table>`;
+    const rows = t.type === 'talento' ? talentChanges(t.id, from) : statChanges(t, from);
+    return `<table class="diff">${rows.map((r) => `<tr><td>${r.label}</td><td>${r.from}</td><td>${r.from ? '»' : ''}</td><td><b>${r.to}</b></td></tr>`).join('')}</table>`;
   }
 
   /** Before accepting: what it is. During: goal, progress, time, how it is won and lost. */
@@ -2854,7 +2919,7 @@ export class App {
     document.getElementById('lvl')?.remove();
     document.getElementById('pause')?.remove();
     const effects = perkEffects(this.save);
-    const { rewards, total, records, tokens, tokenTotal } = applyRun(this.save, r, effects.coinMult, effects.rewardMult, effects.extraTokens);
+    const { rewards, total, records, tokens, tokenTotal, training, trainTotal } = applyRun(this.save, r, effects.coinMult, effects.rewardMult, effects.extraTokens);
     const cap = this.byId.get(r.teamIds?.[0] ?? -1);
     r.captainEra = cap ? eraOf(cap) : undefined;
     r.favoriteOnPitch = (r.teamIds ?? []).filter((id) => this.save.favoriteTeam && this.byId.get(id)?.teams.includes(this.save.favoriteTeam)).length;
@@ -2901,7 +2966,9 @@ export class App {
       <div class="reward-cols"><table class="rewards">${rewards.map((x, i) => `<tr class="rrow" style="--d:${1000 + i * 110}ms"><td>${esc(x.label)}</td><td>+${x.coins}</td></tr>`).join('')}
         <tr class="rrow total" style="--d:${1000 + rewards.length * 110}ms"><td><b>Monedas</b></td><td><b id="tcoins">+0</b></td></tr></table>
       <table class="rewards tok">${tokens.map((x, i) => `<tr class="rrow" style="--d:${1000 + i * 110}ms"><td>${esc(x.label)}</td><td>+${x.coins}</td></tr>`).join('')}
-        <tr class="rrow total" style="--d:${1000 + tokens.length * 110}ms"><td><b>Fichas de Fichaje</b></td><td><b id="ttokens">+0</b></td></tr></table></div>
+        <tr class="rrow total" style="--d:${1000 + tokens.length * 110}ms"><td><b>Fichas de Fichaje</b></td><td><b id="ttokens">+0</b></td></tr></table>
+      ${trainTotal ? `<table class="rewards trn">${training.map((x, i) => `<tr class="rrow" style="--d:${1000 + i * 110}ms"><td>${esc(x.label)}</td><td>+${x.coins}</td></tr>`).join('')}
+        <tr class="rrow total" style="--d:${1000 + training.length * 110}ms"><td><b>Fichas de entrenamiento</b></td><td><b>+${trainTotal}</b></td></tr></table>` : ''}</div>
       <div class="result-wallet"><span class="tokens">${this.save.tokens - tokenTotal}</span><span class="coins">${this.save.coins - total}</span></div>
       <p class="note">Colección: ${owned} de ${this.m.roster.length} futbolistas · Una tirada cuesta ${PULL_COST} fichas</p>
       ${pending ? `<p class="newtag">¡Tienes ${pending} ${pending === 1 ? 'misión' : 'misiones'} por cobrar!</p>` : ''}

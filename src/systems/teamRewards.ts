@@ -31,7 +31,7 @@ export const canClaim = (save: SaveData, pool: RosterEntry[], team: string, kind
 export function claimTeamReward(save: SaveData, pool: RosterEntry[], team: string, kind: TeamRewardKind): boolean {
   if (!canClaim(save, pool, team, kind)) return false;
   (save.teamRewards[team] ??= {})[kind] = true;
-  if (kind === 'captain') grantCopy(save, teamCaptain(teamMembers(pool, team)).id);
+  if (kind === 'captain') { const c = teamCaptain(teamMembers(pool, team)); grantCopy(save, c.id, c.rarity); }
   return true;
 }
 

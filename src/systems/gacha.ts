@@ -5,10 +5,19 @@ import type { SaveData } from './save';
 import { rollWith } from './banners';
 
 /** Prices in Fichas de Fichaje. */
-export const PULL_COST = 8;
-export const MULTI_COST = 72; // 10 pulls for the price of 9
+// Fix 1.23 (player feedback): round prices, easy to count; the ×10 keeps its guaranteed Épico or better
+export const PULL_COST = 10;
+export const MULTI_COST = 100;
 export const MAX_STARS = 5;
-export const DUPLICATE_REFUND = 25; // coins when already at max stars
+/**
+ * Fix 1.23: duplicates balanced by rarity. A given Común comes out about ten times as often as a given Mítico (banners.ts
+ * keeps each rarity at most half as likely per player as the one below), so a star costs more copies the commoner the
+ * footballer is and every rarity fills its five stars at a similar pace. Copies are also what ascension spends
+ * (ascension.ts); only when nothing is left to spend them on (five stars and HÉROE) a copy turns into coins.
+ */
+export const COPIES_PER_STAR: Record<Rarity, number> = { comun: 3, raro: 2, epico: 2, legendario: 1, mitico: 1, leyenda: 1 };
+export const DUPLICATE_REFUND_BY: Record<Rarity, number> = { comun: 10, raro: 20, epico: 40, legendario: 80, mitico: 150, leyenda: 250 };
+export const DUPLICATE_REFUND = DUPLICATE_REFUND_BY.comun; // the smallest, for texts
 
 /** Percent chance per pull; rarities must add up to 100. Leyenda is deliberately exceptional. */
 export const RARITY_WEIGHTS: Record<Rarity, number> = { comun: 50, raro: 29, epico: 14.5, legendario: 5, mitico: 1.3, leyenda: 0.2 };
@@ -25,7 +34,35 @@ export function rollRarity(rng: Rng): Rarity {
   return 'comun';
 }
 
-export interface PullResult { player: RosterEntry; isNew: boolean; stars: number; refund: number }
+/** `toStar`: copies towards the next star when this copy didn't complete one ([have, need]); `forAscension`: five
+ *  stars already, the copy waits for the ascension */
+export interface PullResult { player: RosterEntry; isNew: boolean; stars: number; refund: number; toStar?: [number, number]; forAscension?: boolean }
+
+/**
+ * Adds one copy of a footballer (pull, shop, pass, rewards): new, a star when its copies complete one, or coins when the
+ * player has five stars and is HÉROE. Stars already earned are never taken away (older saves gave one per copy).
+ */
+export function addCopy(save: SaveData, p: Pick<RosterEntry, 'id' | 'rarity'>): Omit<PullResult, 'player'> {
+  const key = String(p.id);
+  const owned = save.owned[key];
+  if (!owned) {
+    save.owned[key] = { stars: 0, copies: 1, obtainedAt: new Date().toISOString() };
+    return { isNew: true, stars: 0, refund: 0 };
+  }
+  owned.copies += 1;
+  const per = COPIES_PER_STAR[p.rarity] ?? 1, dupes = owned.copies - 1;
+  if (owned.stars < MAX_STARS) {
+    const stars = Math.min(MAX_STARS, Math.max(owned.stars, Math.floor(dupes / per)));
+    if (stars > owned.stars) { owned.stars = stars; return { isNew: false, stars, refund: 0 }; }
+    return { isNew: false, stars: owned.stars, refund: 0, toStar: [dupes - owned.stars * per, per] };
+  }
+  if (owned.hero) {
+    const refund = DUPLICATE_REFUND_BY[p.rarity] ?? DUPLICATE_REFUND;
+    save.coins += refund;
+    return { isNew: false, stars: owned.stars, refund };
+  }
+  return { isNew: false, stars: owned.stars, refund: 0, forAscension: true };
+}
 
 /** One pull: rarity first (the banner's own odds when given), then a player of that rarity (lower rarities if empty). */
 export function pullOne(pool: RosterEntry[], save: SaveData, rng: Rng, rarityRoll?: () => Rarity): PullResult {
@@ -37,19 +74,7 @@ export function pullOne(pool: RosterEntry[], save: SaveData, rng: Rng, rarityRol
     candidates = pool.filter((p) => p.rarity === rarity);
   }
   const player = candidates[Math.floor(rng() * candidates.length)];
-  const key = String(player.id);
-  const owned = save.owned[key];
-  if (!owned) {
-    save.owned[key] = { stars: 0, copies: 1, obtainedAt: new Date().toISOString() };
-    return { player, isNew: true, stars: 0, refund: 0 };
-  }
-  owned.copies += 1;
-  if (owned.stars < MAX_STARS) {
-    owned.stars += 1;
-    return { player, isNew: false, stars: owned.stars, refund: 0 };
-  }
-  save.coins += DUPLICATE_REFUND;
-  return { player, isNew: false, stars: owned.stars, refund: DUPLICATE_REFUND };
+  return { player, ...addCopy(save, player) };
 }
 
 export const HISTORY_SIZE = 30;
@@ -93,13 +118,9 @@ export function pull(pool: RosterEntry[], save: SaveData, count: 1 | 10, rng: Rn
   return out;
 }
 
-/** Adds a copy of an owned or new player through the same star rules as a pull. */
-export function grantCopy(save: SaveData, id: number) {
-  const o = save.owned[String(id)];
-  if (!o) { save.owned[String(id)] = { stars: 0, copies: 1, obtainedAt: new Date().toISOString() }; return; }
-  o.copies += 1;
-  if (o.stars < MAX_STARS) o.stars += 1;
-  else save.coins += DUPLICATE_REFUND;
+/** Adds a copy of an owned or new player through the same rules as a pull (rarity unknown: one copy per star). */
+export function grantCopy(save: SaveData, id: number, rarity: Rarity = 'legendario') {
+  addCopy(save, { id, rarity });
 }
 
 /** Permanent power from duplicates: +8% damage and +4% team HP per star. */

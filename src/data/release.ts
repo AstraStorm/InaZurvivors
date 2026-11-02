@@ -6,7 +6,7 @@
  */
 import { CHANGELOG } from './changelog';
 
-export const PUBLIC_VERSION = '1.22';
+export const PUBLIC_VERSION = '1.3';
 export const BUILD = CHANGELOG[0].version;
 export const RELEASED = false;
 export const VERSION_LABEL = RELEASED ? `v${PUBLIC_VERSION}` : `v${PUBLIC_VERSION} · pre-lanzamiento`;
@@ -26,6 +26,24 @@ export interface PublicRelease {
 
 /** Public news, newest first. Starts at v1.0: the internal versions before it are not part of the public history. */
 export const PUBLIC_RELEASES: PublicRelease[] = [
+  {
+    version: '1.3',
+    title: 'InaZurvivors 1.3 — Asciende, entrena y juega más duro',
+    tagline: 'Todos pueden llegar a HÉROE, los duplicados están equilibrados, los rivales aprietan más y las equipaciones de IE3 por fin cuadran',
+    intro: 'Cualquier futbolista, también los Comunes, puede ascender y convertirse en HÉROE con sus duplicados; cuanto más fácil es que salga, más copias pide. Los bustos de Inazuma Japón, Zero y el resto de equipos de IE3 llevan su propia equipación, y el gacha se salta con Espacio.',
+    features: [
+      { icon: '▲', title: 'Ascensión para todos', text: 'Ascendido (una rareza más, hasta Mítico) y HÉROE para cualquier futbolista, con un coste según su rareza.' },
+      { icon: '★', title: 'Duplicados equilibrados', text: 'Las estrellas de los Comunes cuestan más copias y las copias sobrantes se guardan para ascender.' },
+      { icon: '♜', title: 'Bustos de IE3 corregidos', text: 'Inazuma Japón, Zero y los demás equipos de IE3 con su equipación de verdad.' },
+      { icon: '⏭', title: 'Gacha más ágil', text: 'Espacio o Intro saltan la animación y aceptan la tarjeta; Esc salta toda la tirada ×10.' },
+      { icon: '✦', title: 'Talentos claros', text: 'Al mejorar un talento ves lo que gana de verdad; ¡Resurgir! cura más con cada nivel.' },
+      { icon: '☠', title: 'Más reto', text: 'Los rivales se endurecen cada minuto y la recta final llega antes; sin nada que mejorar, subir de nivel te cura directamente.' },
+      { icon: '◎', title: 'Más fichas, precios claros', text: 'Una tirada cuesta 10 fichas y diez, 100; las partidas largas pagan muchas más fichas.' },
+      { icon: '⚑', title: 'Cada uno en su máquina', text: 'Los futbolistas de GO y Victory Road ya solo salen en la máquina de su era.' },
+      { icon: '▲', title: 'Estadísticas por rareza y entrenamiento', text: 'Cada rareza tiene su banda de estadísticas, ascender las sube y puedes repartir hasta 20 puntos con Fichas de entrenamiento.' },
+    ],
+    start: ['Entrena a tu capitán en su ficha', 'Mira qué futbolistas puedes ascender en la Enciclopedia', 'Tira en la máquina y pulsa Espacio'],
+  },
   {
     version: '1.22',
     title: 'InaZurvivors Fix 1.22 — Tarjetas, estadísticas y un gacha memorable',

@@ -15,6 +15,35 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: '5.0', date: '2026-11-02', title: 'v1.3',
+    features: [
+      'Ascensión para todos los futbolistas, sea cual sea su rareza: Ascendido (sube una rareza, hasta Mítico) y HÉROE. Cuesta más duplicados cuanto más común es el futbolista: Común 12+20, Raro 9+15, Épico 6+10, Legendario 3+5, Mítico 2+4, Leyenda 1+3.',
+      'Duplicados equilibrados: una estrella cuesta 3 copias de un Común, 2 de un Raro o Épico y 1 del resto; las copias que sobran se guardan para la ascensión y solo dan monedas (según la rareza) con cinco estrellas y HÉROE. Las estrellas ya ganadas se conservan.',
+      'Gacha: Espacio o Intro saltan la animación y aceptan la tarjeta; Esc salta toda la tirada ×10.',
+      'Cuando ya no queda nada que mejorar, subir de nivel cura un 30% directamente, sin abrir la pantalla de cartas.',
+      'Gacha con precios redondos: ×1 a 10 fichas y ×10 a 100 (por equipo 15 y 150); el ×10 mantiene su Épico o mejor asegurado.',
+      'Las partidas pagan fichas por el tiempo en el campo (1 cada 12 s) y por cada 40 eliminaciones; jefe, victoria y primera victoria dan más. Una victoria de 13 minutos da unas 135 fichas.',
+    ],
+    fixes: [
+      'Bustos de IE3: el torso de cada equipo se lee del grupo y el tipo de su equipación en la ROM (antes del código de cuerpo): Inazuma Japón ya no lleva el de la Royal ni Zero el de Brain, y los porteros llevan el suyo.',
+      'Menú y Mi Equipo: la media va encima del radar y ya no tapa la estadística de arriba a la izquierda.',
+      'Máquinas por era: cada futbolista va a la de su primer juego según la wiki; Arion, Victor, Beta, Sol y compañía salían en la máquina de Inazuma Eleven original.',
+      'Seguridad: el acceso de pruebas de la consola ya no existe en el juego publicado (permitía ponerse fichas), el pase y las misiones diarias solo cambian de día con la hora del servidor y la nube no acepta subidas imposibles de fichas o monedas.',
+      'La experiencia por nivel crece de forma lineal a partir del nivel 40: sin saltos enormes en partidas largas.',
+      'Después de jugar una partida, las letras W, A, S, D, P y los números 1-3 ya se escriben en los buscadores y formularios (la partida no soltaba esas teclas).',
+      'Al ascender a un futbolista sale su tarjeta nueva con la entrada del gacha: rayos, destello y el brillo de su rareza.',
+      'Estadísticas rehechas por rareza: cada rareza tiene su banda de medias sin solaparse (Común ~50 … Mítico ~78, Leyenda ~84), cada futbolista conserva su perfil; ascender lo sube a la banda nueva (+2 si no cambia de rareza) y HÉROE suma 3. La media de las tarjetas se actualiza al ascender.',
+      'Entrenamiento: hasta 20 puntos por futbolista repartibles a mano, con Fichas de entrenamiento (victorias, jefe en rango A o más, rangos superados, supervivencia infinita, misiones semanales y logros); se pueden devolver gratis.',
+      'El multiplicador de rango también se aplica a las fichas de la partida.',
+      'Técnicas con su aspecto original (zukan.inazuma.jp): Espejismo de balón deja copias del balón que engañan, Ceniza negra es un tiro de oscuridad con una niebla negra que se traga el campo y El ojo del huracán levanta un torbellino alrededor del jugador.',
+      'Al mejorar un talento, la carta muestra lo que gana de verdad (antes enseñaba un «daño de equipo» antiguo que no hacía nada); ¡Resurgir! ahora cura más con cada nivel (20% → 65%).',
+    ],
+    visuals: [],
+    balance: ['La ascensión de un Mítico pasa por Ascendido (2 duplicados) antes de HÉROE (4).',
+      'Más difícil: la vida de los rivales crece cada vez más rápido con los minutos (+44% al minuto 5, +77% al 8), pegan más desde el principio (+20-33%) y la recta final empieza antes (62% del reloj) con +50% de vida y +40% de daño.',
+      'Subir de nivel cuesta más al final de la partida (nivel 20: 225 de experiencia, antes 125), para no encadenar pantallas de mejora.'],
+  },
+  {
     version: '4.10', date: '2026-11-02', title: 'Fix 1.22',
     features: [
       'Gacha: apertura rápida (≈1,3 s) para Común, Raro y Épico; escena con el minisprite real en silueta que camina, chuta y rompe la cápsula para Legendario, Mítico y Leyenda, con puesta en escena propia; ×2 y Saltar en las tiradas de diez.',

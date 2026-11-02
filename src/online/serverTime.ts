@@ -8,6 +8,9 @@ const KEY = (import.meta.env?.VITE_SUPABASE_ANON_KEY as string | undefined) ?? '
 
 let offsetMs = 0;
 let source: 'servidor' | 'dispositivo' = 'dispositivo';
+/** Fix 1.23: once the server has answered, time runs on the monotonic clock (performance.now), which changing the
+ *  device's date doesn't move; before, the offset was added to Date.now() and a new date on the PC moved it too */
+let serverAt = 0, perfAt = 0;
 
 /** Measures the server's clock once; never throws (falls back to the device clock). */
 export async function syncServerTime(): Promise<void> {
@@ -20,9 +23,12 @@ export async function syncServerTime(): Promise<void> {
     const server = new Date(await res.json() as string).getTime();
     if (Number.isNaN(server)) return;
     offsetMs = server - (t0 + Date.now()) / 2;
+    serverAt = server; perfAt = performance.now();
     source = 'servidor';
   } catch { /* offline: device clock */ }
 }
 
-export const serverNow = () => new Date(Date.now() + offsetMs);
+export const serverNow = () => new Date(source === 'servidor' ? serverAt + (performance.now() - perfAt) : Date.now() + offsetMs);
+/** Rewards that come back each day or week (pass, daily and weekly missions) only move on the server's clock */
+export const trustedClock = () => source === 'servidor';
 export const timeSource = () => source;

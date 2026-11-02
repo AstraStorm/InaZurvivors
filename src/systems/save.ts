@@ -1,10 +1,14 @@
+import { RARITY_ORDER, type Rarity } from '../data/manifest';
 /** Local save with schema version + migrations + validation. Pure logic + a thin localStorage adapter.
  *  Never destroys data: an unreadable save is set aside under a recovery key and the last good copy is tried first. */
 
 export const SCHEMA_VERSION = 9;
 
-/** copies counts every pull; `spent` = duplicates consumed by ascensions; ascMitico/hero = ascension (ascension.ts) */
-export interface OwnedPlayer { stars: number; copies: number; obtainedAt: string; spent?: number; ascMitico?: boolean; hero?: boolean }
+/** copies counts every pull; `spent` = duplicates consumed by ascensions; ascMitico/hero = ascension (ascension.ts);
+ *  ascRarity = rarity reached by the first ascension (Fix 1.23; older saves without it reached Mítico) */
+export interface OwnedPlayer { stars: number; copies: number; obtainedAt: string; spent?: number; ascMitico?: boolean; ascRarity?: Rarity; hero?: boolean;
+  /** Fix 1.23: training points per stat (training.ts), 20 at most in total */
+  train?: Partial<Record<string, number>> }
 
 export interface SaveData {
   schemaVersion: number;
@@ -29,6 +33,8 @@ export interface SaveData {
   introSeen: boolean;
   /** gacha currency; coins pay for upgrades and shops */
   tokens: number;
+  /** Fix 1.23: Fichas de entrenamiento, one per training point (training.ts) */
+  trainTokens?: number;
   /** rewards already claimed per team */
   teamRewards: Record<string, { crest?: boolean; kit?: boolean; captain?: boolean }>;
   /** kit worn by the squad ('' = Raimon) and crest shown on the profile */
@@ -201,7 +207,7 @@ export function remapIds(s: SaveData, aliases: Record<string, number> = {}) {
     const t = s.owned[String(to)];
     if (t) {
       t.copies += o.copies; t.stars = Math.min(5, Math.max(t.stars, o.stars)); t.spent = (t.spent ?? 0) + (o.spent ?? 0);
-      t.ascMitico ||= o.ascMitico; t.hero ||= o.hero;
+      t.ascMitico ||= o.ascMitico; t.hero ||= o.hero; t.ascRarity ??= o.ascRarity; t.train ??= o.train;
     } else s.owned[String(to)] = o;
     delete s.owned[from];
     const map = (id: number) => (String(id) === from ? to : id);
@@ -246,6 +252,7 @@ export function remapTechSlots(s: SaveData, steps: { rev: number; players: Recor
 export function validate(s: SaveData): SaveData {
   s.coins = Math.max(0, Math.floor(num(s.coins, 0)));
   s.tokens = Math.max(0, Math.floor(num(s.tokens, 0)));
+  s.trainTokens = Math.max(0, Math.floor(num(s.trainTokens, 0)));
   const owned: Record<string, OwnedPlayer> = {};
   for (const [k, v] of Object.entries(obj(s.owned) ?? {})) {
     const o = obj(v);
@@ -256,7 +263,19 @@ export function validate(s: SaveData): SaveData {
     const spent = Math.min(copies - 1, Math.max(0, Math.floor(num(o.spent, 0))));
     if (spent) owned[k].spent = spent;
     if (o.ascMitico === true) owned[k].ascMitico = true;
+    if (o.ascMitico === true && typeof o.ascRarity === 'string' && (RARITY_ORDER as string[]).includes(o.ascRarity)) owned[k].ascRarity = o.ascRarity as Rarity;
     if (o.hero === true) owned[k].hero = true;
+    // training: known stats, whole points, 20 at most in total (a forged save can't go beyond)
+    const tr = obj(o.train);
+    if (tr) {
+      let left = 20;
+      const train: Record<string, number> = {};
+      for (const key of ['kick', 'control', 'guard', 'body', 'speed', 'guts', 'stamina']) {
+        const v = Math.min(left, Math.max(0, Math.floor(num(tr[key], 0))));
+        if (v) { train[key] = v; left -= v; }
+      }
+      if (Object.keys(train).length) owned[k].train = train;
+    }
   }
   s.owned = owned;
   if (!Array.isArray(s.clearedMaps)) s.clearedMaps = [];

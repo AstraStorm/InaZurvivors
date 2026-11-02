@@ -291,13 +291,36 @@ describe('reportar un bug (database)', () => {
   });
 });
 
+describe('economy guard of the cloud save (Fix 1.23)', () => {
+  const coins = (u: string) => as(u, `select (data->>'tokens')::int as t, (data->>'coins')::int as c, version from public.get_save()`).then((r) => r.rows[0] as { t: number; c: number; version: number });
+  const back = (u: string, iv: string) => db.query(`update public.saves set updated_at = now() - interval '${iv}' where user_id = $1`, [ids[u]]);
+  it('a forged jump of fichas or coins is cut to what the elapsed time allows; honest growth and spending pass', async () => {
+    await db.query(`delete from public.saves where user_id = $1`, [ids.astra]);
+    await api('astra', `select public.put_save('{"tokens":999999,"coins":99999999}'::jsonb, 0)`); // first copy: fixed ceilings
+    expect(await coins('astra')).toMatchObject({ t: 5000, c: 60000 });
+    await back('astra', '1 minute');
+    await api('astra', `select public.put_save('{"tokens":5100,"coins":60300}'::jsonb, 1)`); // a normal run: untouched
+    expect(await coins('astra')).toMatchObject({ t: 5100, c: 60300 });
+    await back('astra', '1 minute');
+    await api('astra', `select public.put_save('{"tokens":9999999,"coins":10}'::jsonb, 2)`); // console cheat; coins spent
+    const cut = await coins('astra');
+    expect(cut.t).toBeLessThan(5100 + 2100);
+    expect(cut.c).toBe(10);
+    await back('astra', '10 hours'); // hours of play allow more, never unlimited
+    await api('astra', `select public.put_save('{"tokens":9999999}'::jsonb, 3)`);
+    expect((await coins('astra')).t).toBeLessThan(cut.t + 2000 + 1000 * 10 + 50);
+  });
+  it('the cap is not callable from the API', async () => {
+    await expect(api('astra', `select private.economy_cap('{}'::jsonb, null, null, null)`)).rejects.toThrow();
+  });
+});
 describe('promotional codes (Fix 1.12)', () => {
   const redeem = (u: string, code: string, applied = false) => api(u, `select public.redeem_code($1, $2) as r`, [code, applied]).then((x) => (x.rows[0] as { r: Record<string, unknown> }).r);
   it('ASTRA17 once per account: ok with a server-chosen Legendario, then used; unknown codes and guests are refused', async () => {
     const first = await redeem('carla', 'astra17');
     expect(first.status).toBe('ok');
     const reward = first.reward as { tokens: number; coins: number; player: number };
-    expect(reward).toMatchObject({ tokens: 72, coins: 500 });
+    expect(reward).toMatchObject({ tokens: 100, coins: 500 }); // Fix 1.23: one ×10 at the new price
     expect(Number.isInteger(reward.player)).toBe(true);
     expect((await redeem('carla', 'ASTRA17')).status).toBe('used');
     expect((await redeem('carla', 'NOEXISTE')).status).toBe('invalid');

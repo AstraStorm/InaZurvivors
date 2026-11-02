@@ -1533,3 +1533,16 @@ body.reduced-motion .cr-halo, body.reduced-motion .cr-ball.shot { animation: non
   @keyframes crSave { 0% { transform: translate(min(30vw, 340px), -26vh) scale(.6); opacity: 1; } 100% { transform: translate(-50px, -54px) scale(1.1); opacity: 1; } } }
 body.reduced-motion .cr-ball > i { animation: none !important; }
 .cr-stage.open .cr-ball { opacity: 0 !important; transition: opacity .2s; } /* the stopped or carried ball goes with the burst */
+
+/* Fix 1.24: the mean sat on top of the radar and covered the label of the seventh stat (top left): now it goes above
+   the radar, centred, in both the menu and Mi Equipo */
+.hero-stats .ovr, .sq-radar .ovr { position: static; display: block; width: fit-content; margin: 0 auto 2px; }
+.hero-stats .ovr::before, .sq-radar .ovr::before { content: 'Media '; font-size: .8em; color: #cfe3ff; }
+
+/* Fix 1.3: training panel in the player sheet */
+.train-box { margin: 8px 0; padding: 8px 10px; border: 2px solid #2e5aa8; background: #0a1d48aa; }
+.train-head { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; justify-content: space-between; margin-bottom: 6px; }
+.train-head span { font-size: 12px; color: #cfe3ff; } .train-head span b { color: var(--yellow); }
+.train-row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 4px; }
+.train-row .btn { min-width: 64px; }
+.rewards.trn td:last-child { color: #8fffa0; }

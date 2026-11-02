@@ -79,7 +79,9 @@ async function boot() {
   const screen = document.getElementById('boot');
   screen?.classList.add('gone');
   window.setTimeout(() => screen?.remove(), 400);
-  (window as unknown as Record<string, unknown>).__ies = { game, app, manifest, save };
+  // Fix 1.23: the QA hook only exists on the development server; in the published game it handed the console the save
+  // (`__ies.app.save.tokens = …`), which is how fichas were made out of nothing
+  if (import.meta.env.DEV) (window as unknown as Record<string, unknown>).__ies = { game, app, manifest, save };
 }
 
 boot();

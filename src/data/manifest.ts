@@ -45,6 +45,8 @@ export interface RosterEntry {
   element: string | number;
   teams: string[];
   rarity: Rarity;
+  /** Fix 1.23: era of the character (first game it appears in, from the wiki): which gacha machine it belongs to */
+  era?: 'original' | 'go' | 'vr';
   body: 'field' | 'gk';
   head: SheetInfo;
   stats: Record<string, number> | null;
@@ -140,8 +142,9 @@ export interface Manifest {
   mainTeams?: string[];
   /** display names of canonical teams */
   teamLabels?: Record<string, string>;
-  /** group = the kit's wearset team id: its portrait torsos are generated/kitbusts/<GGKKSSCC>.png */
-  kits?: Record<string, { field: string; gk: string | null; fieldSkin?: Skin | null; gkSkin?: Skin | null; group?: number | null }>;
+  /** group = the torso group of the kit's wearset: its portrait torsos are generated/kitbusts/<GGKKSSCC>.png;
+   *  bustKinds = the KK of field players and goalkeepers when the wearset doesn't use the plain 1/2 (IE3, Fix 1.23) */
+  kits?: Record<string, { field: string; gk: string | null; fieldSkin?: Skin | null; gkSkin?: Skin | null; group?: number | null; bustKinds?: [number, number] }>;
   /** old player id -> current id (a character now represented by another ROM record) */
   idAliases?: Record<string, number>;
   /**

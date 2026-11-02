@@ -68,7 +68,7 @@ export function claimPass(s: SaveData, roster: RosterEntry[], now: Date, rng: ()
   else {
     const pool = reward.team && teamPool?.some((p) => RARITY_ORDER.indexOf(p.rarity) >= RARITY_ORDER.indexOf('epico')) ? teamPool : roster;
     player = rollPassPlayer(pool, reward.odds, rng) ?? undefined;
-    if (player) grantCopy(s, player.id);
+    if (player) grantCopy(s, player.id, player.rarity);
   }
   st.claimed = (st.claimed + 1) % PASS.length;
   st.lastDay = today;

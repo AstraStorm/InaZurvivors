@@ -22,7 +22,7 @@ import type { PerkEffects } from '../systems/perks';
 import type { Settings } from '../systems/save';
 import type { RunResult } from '../systems/economy';
 import { statCooldown, statDamage, statHealth, statTaken } from '../systems/playerStats';
-import { burstSize, FINAL_STRETCH_FROM, finalStretch, RANK_ORDER, rankDef, variantRamp, waveIntensity, type RankDef } from '../systems/difficulty';
+import { burstSize, FINAL_STRETCH_FROM, finalStretch, xpForLevel, RANK_ORDER, rankDef, variantRamp, waveIntensity, type RankDef } from '../systems/difficulty';
 import { capArea, capCooldown, capCrit, capLuck, pickupRadius, capRegen, capSpeed, capTaken, capXp, CAPS, softCap } from '../systems/balance';
 import { endlessActive, endlessCoins, endlessPhase, endlessScale } from '../systems/endless';
 import { bossKit, bossPhase, rivalKit, type AttackId, type BossKit } from '../systems/bossKit';
@@ -31,6 +31,7 @@ import { HERO_AURA } from '../systems/ascension';
 import { dragon, handKind, keeperHand } from './fxTech';
 import { orphans } from '../systems/groundSweep';
 import { chaosMeteorCharge, chaosMeteorShot, chaosVortex, fireStormCharge, fireStormShot, earthGlobe, elementBurst, fireIceTwin, phoenix, phoenixFlight, setLowPower, teamBeams } from './fxManif';
+import { blackAshCharge, blackAshTrail, illusionBall, signatureOf, stormZone } from './fxSignature';
 import { adaptedPassive, CAP_ELEMENTAL, CAP_LAST_STAND, emptyFx, TALENTS, talentScale, type TalentFx } from '../systems/talents';
 import { COMBOS, COMBOS_BY_PRIORITY, COMBO_MAX_LEVEL, comboDamage, comboMembers, comboReady, type ComboDef } from '../systems/combos';
 import type { Rank } from '../systems/save';
@@ -303,7 +304,12 @@ export class ArenaScene extends Phaser.Scene {
     this.cameras.main.startFollow(this.members[0].f.container, true, 0.09, 0.09).setDeadzone(18, 14);
     this.arena.updateFlow(sp.x, sp.y);
     const kb = this.input.keyboard!;
-    kb.addKeys('W,A,S,D,UP,DOWN,LEFT,RIGHT,ESC,P,ONE,TWO,THREE'); // captured so the arrows never scroll the page; movement reads heldKeys
+    // Fix 1.23: no capture for letters and numbers (movement reads heldKeys): Phaser keeps captures after the run ends,
+    // so W, A, S, D, P and 1-3 stopped reaching every text box of the menus (the search box couldn't type an «a»).
+    // Only the arrows are captured, so they never scroll the page, and only while the run lasts.
+    kb.addKeys('W,A,S,D,UP,DOWN,LEFT,RIGHT,ESC,P,ONE,TWO,THREE', false);
+    kb.addCapture('UP,DOWN,LEFT,RIGHT');
+    this.events.once('shutdown', () => this.input.keyboard?.removeCapture('UP,DOWN,LEFT,RIGHT'));
     kb.on('keydown-ESC', () => this.requestPause());
     kb.on('keydown-P', () => this.requestPause());
     // a key still held after choosing a card repeats: only a fresh press changes the formation
@@ -485,7 +491,7 @@ export class ArenaScene extends Phaser.Scene {
     const regen = capRegen(this.mods.regen + this.cfg.perks.regen + this.talents().regen + (still ? this.talents().idleRegen : 0));
     if (this.talents().revive && !this.reviveUsed && this.hp > 0 && this.hp < this.maxHp * 0.2) {
       this.reviveUsed = true;
-      this.hp += this.maxHp * 0.2;
+      this.hp = Math.min(this.maxHp, this.hp + this.maxHp * this.talents().revive); // more with the talent's level (talents.ts)
       this.fx.ring(this.members[0].f.x, this.members[0].f.y - 10, 60, 0x5ee05a, 500, 3);
       this.banner('¡Resurgir!', '#8fffa0');
       sfx('evolve');
@@ -751,6 +757,7 @@ export class ArenaScene extends Phaser.Scene {
           m.windup = { i, until: this.runTime + recipe.windupSec };
           m.f.hop(this, 5 + lv * 0.6, recipe.windupSec * 1000);
           charge(this.fx, recipe, ox, oy, lv);
+          if (signatureOf(t.name) === 'ceniza') blackAshCharge(this, ox, oy, lv, recipe.windupSec * 1000);
           if (recipe.id === 'dragon') dragon(this, 'rise', ox, oy, c1, c2, lv, recipe.windupSec * 1000 + 160, ox, oy, recipe.tier >= 3);
         } else if (t.type === 'regate') {
           if (!canStartGuardedMove(this.runTime, m.guardLock)) { m.cds[i] = 120; return; }
@@ -760,7 +767,10 @@ export class ArenaScene extends Phaser.Scene {
             m.guardUntil = this.runTime + 0.26;
             m.guardLock = m.guardUntil + GUARD_LOCKOUT_SEC;
             this.fx.ring(ox, oy + 6, r, c1, 260, 2 + Math.floor(lv / 2));
-            if (/drag[oó]n/i.test(t.name)) dragon(this, /ascend/i.test(t.name) ? 'rise' : 'coil', ox, oy, c1, c2, lv, 520);
+            const sig = signatureOf(t.name);
+            if (sig === 'espejismo') illusionBall(this, ox, oy, lv);
+            else if (sig === 'huracan') stormZone(this, ox, oy, r + 10, lv);
+            else if (/drag[oó]n/i.test(t.name)) dragon(this, /ascend/i.test(t.name) ? 'rise' : 'coil', ox, oy, c1, c2, lv, 520);
             else elementBurst(this, style, ox, oy, r, 300, c1);
             for (let k = 0; k < 6 + lv * 2; k++) {
               const a = (k / (6 + lv * 2)) * Math.PI * 2;
@@ -779,6 +789,8 @@ export class ArenaScene extends Phaser.Scene {
             m.settled = false;
             m.guardUntil = Infinity; // released when the movement phase ends
             if (/drag[oó]n/i.test(t.name)) dragon(this, 'strike', m.f.x, m.f.y - 10, c1, c2, lv, 300, m.f.x + Math.cos(ang) * reach, m.f.y - 10 + Math.sin(ang) * reach);
+            if (signatureOf(t.name) === 'espejismo') illusionBall(this, m.f.x, m.f.y, lv, 420);
+            if (signatureOf(t.name) === 'huracan') stormZone(this, m.f.x + Math.cos(ang) * reach * 0.5, m.f.y + Math.sin(ang) * reach * 0.5, 34, lv, 520);
             m.dash = { fromX: m.f.x, fromY: m.f.y, toX: m.f.x + Math.cos(ang) * reach, toY: m.f.y + Math.sin(ang) * reach,
               t: 0, dur: 220, hits: new Set(), dmg: s.damage, style, left: s.count - 1 };
             sfx('whoosh');
@@ -996,6 +1008,7 @@ export class ArenaScene extends Phaser.Scene {
       }
       const aura = this.add.circle(x, y, 6 * scale, c1, 0.35).setDepth(8900).setBlendMode(Phaser.BlendModes.ADD);
       const ball = this.add.image(x, y, recipe.ballTexture).setScale(scale).setDepth(8901);
+      if (signatureOf(t.name) === 'ceniza') { blackAshTrail(this, ball, lv); aura.setFillStyle(0x6a2aa8, 0.3); }
       this.projectiles.push({ ball, aura, x, y, vx, vy, t: 0, traj, style, damage: s.damage, pierce: s.pierce, life: 1500,
         hits: new Set(), knock: s.knockback, level: lv, explode: big || s.explodes || recipe.tier >= 2, scale, targetY, phase: k * 1.7,
         dragon: recipe.id === 'dragon', recipe, blast: s.radius });
@@ -1155,11 +1168,13 @@ export class ArenaScene extends Phaser.Scene {
     const scaling = this.endlessScaleNow();
     const stretch = finalStretch(kind === 'boss' ? 0 : this.runTime / this.cfg.map.durationSec); // the boss keeps its own balance
     const baseHp = 8 + ((st.body ?? 30) + (st.guts ?? 30)) / 14;
-    const hp = Math.round(baseHp * (1 + minutes * 0.6) * hpMult * R.hp * vHp * scaling.hp * stretch.hp);
+    // Fix 1.24: health grows faster as the minutes pass (quadratic term), so the rivals of the last minutes are much tougher
+    const hp = Math.round(baseHp * (1 + minutes * 0.6 + minutes * minutes * 0.07) * hpMult * R.hp * vHp * scaling.hp * stretch.hp);
     const e: Enemy = {
       sprite, unit, kind, hp, maxHp: hp, speed: (28 + (st.speed ?? 30) * 0.22) * (kind === 'boss' ? 0.8 : 1) * R.speed * vSpeed * scaling.speed,
       // Fix 1.13: rivals hit about 55% harder and keep growing until minute 12, so health is something to look after
-      damage: Math.round((3 + Math.min(minutes, 12) * 1.8) * (kind === 'boss' ? 2.5 : kind === 'miniboss' ? 2 : 1) * R.damage * (variant === 'elite' || variant === 'tank' ? 1.5 : 1) * scaling.damage * stretch.damage),
+      // Fix 1.24: they hit harder from the start and keep growing (more slowly after minute 12)
+      damage: Math.round((4 + Math.min(minutes, 12) * 2.1 + Math.max(0, minutes - 12) * 0.8) * (kind === 'boss' ? 2.5 : kind === 'miniboss' ? 2 : 1) * R.damage * (variant === 'elite' || variant === 'tank' ? 1.5 : 1) * scaling.damage * stretch.damage),
       animTime: this.rng.between(0, 500), dir: 4, hitCd: 0, knockX: 0, knockY: 0,
       radius: 7 * scale * (variant === 'elite' ? 1.18 : variant === 'tank' ? 1.3 : 1), dead: false, pos: sprite, slowUntil: 0, variant, side: this.rng.frac() < 0.5 ? -1 : 1,
       patternCd: kind === 'boss' ? 3 : kind === 'miniboss' ? 5 : undefined,
@@ -1910,7 +1925,9 @@ export class ArenaScene extends Phaser.Scene {
   }
 
   // ------------------------------------------------------------- progression
-  private xpNext() { return 5 + this.level * 6; }
+  /** Fix 1.23: grows faster late in the run, so the last minutes aren't a string of level-ups; from level 40 it only
+   *  grows linearly (+26 per level), so long endless runs never ask for spikes of thousands */
+  private xpNext() { return xpForLevel(this.level); }
 
   private gainXp(v: number) {
     this.xp += v * capXp(this.mods.xp * this.cfg.perks.xpMult * (1 + this.talents().xp)) * (this.buffOn('xp') ? 2 : 1);
@@ -1959,7 +1976,19 @@ export class ArenaScene extends Phaser.Scene {
       this.rerolls--;
       return draw();
     };
-    this.cfg.hooks.levelUp(draw(), this.rerolls, reroll, level).then((card) => {
+    const cards = draw();
+    // Fix 1.24: nothing left to improve (only heal cards): no screen, the level heals straight away
+    if (!recruitOnly && cards.length && cards.every((c) => c.kind === 'heal')) {
+      this.levelingUp = false;
+      this.scene.resume();
+      this.applyChoice(cards[0]);
+      const lc = this.members[0].f;
+      this.fx.label(lc.x, lc.y - 52, `+${Math.round((cards[0] as { amount: number }).amount * 100)}% vida`, '#8fffa0');
+      sfx('pickup');
+      if (this.xp >= this.xpNext()) this.time.delayedCall(250, () => this.levelUp());
+      return;
+    }
+    this.cfg.hooks.levelUp(cards, this.rerolls, reroll, level).then((card) => {
       this.levelingUp = false;
       if (this.ended) return;
       this.applyChoice(card);

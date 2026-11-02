@@ -83,7 +83,6 @@ export function statChanges(t: Pick<Technique, 'type' | 'power'>, level: number)
   if (t.type !== 'talento') add('Área', a.radius, b.radius);
   if (t.type !== 'talento') add('Recarga', `${(a.cooldownMs / 1000).toFixed(1)}s`, `${(b.cooldownMs / 1000).toFixed(1)}s`);
   if (t.type === 'parada') { add('Cura', pct(a.heal), pct(b.heal)); add('Escudo', pct(a.shield), pct(b.shield)); }
-  if (t.type === 'talento') add('Daño equipo', `+${pct(a.teamDamageBonus)}`, `+${pct(b.teamDamageBonus)}`);
   if (!a.explodes && b.explodes) out.push({ label: 'Explosión', from: '', to: 'NUEVO' });
   if (a.slow === 1 && b.slow < 1) out.push({ label: 'Ralentiza', from: '', to: 'NUEVO' });
   return out;
