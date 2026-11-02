@@ -73,6 +73,9 @@ const NEWS_KEY = `publico-${PUBLIC_VERSION}`;
  * The interface was laid out for screens about 460 px on their short side; a phone is smaller (≈330 px tall in landscape),
  * so on touch screens it shrinks to fit, never under 60%. The player's own scale setting multiplies this.
  */
+const STAT_SHORT: Record<string, string> = { kick: 'TIR', body: 'FÍS', guard: 'DEF', control: 'CON', speed: 'VEL', guts: 'AGA', stamina: 'AGU' };
+/** Mean of a footballer's stats, rounded: the number shown on the cards. */
+export const statMean = (stats: Record<string, number>) => { const v = Object.values(stats); return v.length ? Math.round(v.reduce((a, b) => a + b, 0) / v.length) : 0; };
 /** Fix 1.13: the stats as a radar, the usual polygon of the games (one corner per stat, 0-100 scale, guides every 25). */
 export function statRadar(stats: Record<string, number>, names: Record<string, string>, color: string) {
   const keys = Object.keys(stats), n = keys.length, R = 62, cx = 100, cy = 84;
@@ -537,7 +540,7 @@ export class App {
     return `<div class="pcard r-${er}${opts.locked ? ' locked' : ''}${opts.sel ? ' sel' : ''}${opts.big ? ' big' : ''}${!opts.locked && isHero(this.save, p.id) ? ' hero' : ''}" data-id="${p.id}" style="--rc:${RARITY_COLOR[er]}">
       ${opts.badge ? `<span class="badge">${esc(opts.badge)}</span>` : ''}${opts.captain ? '<span class="captain-badge">C</span>' : ''}
       ${this.emblemOf(p.teams[0]) ? `<img class="card-crest" src="${this.emblemOf(p.teams[0])}" alt="">` : ''}
-      <div class="stage${opts.locked ? ' dark' : ''}">${this.mug(p.id, 128)}${opts.locked ? '<span class="qmark">?</span><span class="lock-tag">Bloqueado</span>' : `<span class="minisprite">${charCanvas(p.id, 2, opts.anim ?? 4)}</span>`}</div>
+      <div class="stage${opts.locked ? ' dark' : ''}">${!opts.locked && p.stats ? `<span class="ovr" title="Media de estadísticas">${statMean(p.stats)}</span>` : ''}${this.mug(p.id, 128)}${opts.locked ? '<span class="qmark">?</span><span class="lock-tag">Bloqueado</span>' : `<span class="minisprite">${charCanvas(p.id, 2, opts.anim ?? 4)}</span>`}</div>
       <div class="name">${opts.locked ? '???' : esc(p.name)}</div>
       <div class="chips"><span class="pos">${POS_LABEL[p.position] ?? p.position}</span>${opts.locked ? '' : this.elem(p)}</div>
       ${this.rar(p)}${icons}${stars}</div>`;
@@ -1496,6 +1499,7 @@ export class App {
         <button class="sq-act x" data-remove="${p.id}" title="Quitar">✕</button>
         ${this.mug(p.id, 64)}<b>${esc(p.name)}</b>
         <div class="chips"><span class="pos">${POS_LABEL[p.position] ?? p.position}</span>${this.elem(p)}</div>${this.rar(p)}
+        ${p.stats ? `<div class="sq-radar">${statRadar(p.stats, STAT_SHORT, RARITY_COLOR[p.rarity])}<span class="ovr">${statMean(p.stats)}</span></div>` : ''}
         <div class="sq-techs">${p.techniques.slice(0, 4).map((t) => `<span title="${esc(t.name)}">${this.icon(ICON.manual[t.type], 1)}${esc(t.name)}</span>`).join('')}</div></div>`;
     }).join('');
     this.show(`<div class="screen">${this.titlebar('Mi Equipo', 'Menú')}

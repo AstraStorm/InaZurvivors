@@ -347,7 +347,7 @@ export class ArenaScene extends Phaser.Scene {
       slot: this.members.length - 1, windup: null, dash: null, vx: 0, vy: 0, settled: false, guardUntil: 0, guardLock: 0,
     };
     this.members.push(m);
-    const add = Math.round((this.members.length === 1 ? 160 : 40) * sb.hp * this.cfg.perks.hpMult);
+    const add = Math.round((this.members.length === 1 ? 160 : 25) * sb.hp * this.cfg.perks.hpMult); // Fix 1.13: teammates add 25 (was 40)
     if (this.members.length === 1) this.maxHp = this.hp = add;
     else { this.maxHp += add; this.hp = Math.min(this.maxHp, this.hp + add); }
     if (this.members.length > 1) this.fx.burst(m.styles[0], x, y - 10, 12, 50);
@@ -1130,7 +1130,8 @@ export class ArenaScene extends Phaser.Scene {
     const hp = Math.round(baseHp * (1 + minutes * 0.6) * hpMult * R.hp * vHp * scaling.hp * stretch.hp);
     const e: Enemy = {
       sprite, unit, kind, hp, maxHp: hp, speed: (28 + (st.speed ?? 30) * 0.22) * (kind === 'boss' ? 0.8 : 1) * R.speed * vSpeed * scaling.speed,
-      damage: Math.round((2 + Math.min(minutes, 9) * 1.15) * (kind === 'boss' ? 2.5 : kind === 'miniboss' ? 2 : 1) * R.damage * (variant === 'elite' || variant === 'tank' ? 1.5 : 1) * scaling.damage * stretch.damage),
+      // Fix 1.13: rivals hit about 55% harder and keep growing until minute 12, so health is something to look after
+      damage: Math.round((3 + Math.min(minutes, 12) * 1.8) * (kind === 'boss' ? 2.5 : kind === 'miniboss' ? 2 : 1) * R.damage * (variant === 'elite' || variant === 'tank' ? 1.5 : 1) * scaling.damage * stretch.damage),
       animTime: this.rng.between(0, 500), dir: 4, hitCd: 0, knockX: 0, knockY: 0,
       radius: 7 * scale * (variant === 'elite' ? 1.18 : variant === 'tank' ? 1.3 : 1), dead: false, pos: sprite, slowUntil: 0, variant, side: this.rng.frac() < 0.5 ? -1 : 1,
       patternCd: kind === 'boss' ? 3 : kind === 'miniboss' ? 5 : undefined,

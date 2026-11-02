@@ -1240,3 +1240,27 @@ body.reduced-motion .ib-orbit, body.reduced-motion .ib-ball { animation: none; }
 .stat-radar .rv { fill: color-mix(in srgb, var(--rc) 45%, transparent); stroke: var(--rc); stroke-width: 2; stroke-linejoin: round; }
 .stat-radar text { font-size: 8px; fill: #cfe3ff; } .stat-radar tspan { fill: var(--yellow); }
 .stat-radar + .bars-mini { display: none; }
+
+/* Fix 1.13: tarjetas con brillo por rareza (destello en Épico y Legendario, holográfico en Mítico y Leyenda) y media */
+.pcard, .sq-slot { overflow: hidden; }
+.pcard .ovr, .sq-radar .ovr { position: absolute; z-index: 3; font-size: 13px; color: #fff; background: #0a1d48e6; border: 2px solid var(--rc); padding: 1px 5px; text-shadow: 1px 1px 0 #000; }
+.pcard .stage .ovr { right: 4px; bottom: 4px; }
+.pcard.r-epico::after, .pcard.r-legendario::after, .sq-slot[style*="#b36bff"]::after, .sq-slot[style*="#ffb"]::after {
+  content: ''; position: absolute; inset: -40%; z-index: 2; pointer-events: none;
+  background: linear-gradient(115deg, transparent 42%, #ffffff55 49%, #ffffffaa 50%, #ffffff55 51%, transparent 58%);
+  animation: cardSheen 3.6s ease-in-out infinite; }
+.pcard.r-legendario::after { animation-duration: 2.8s; }
+.pcard.r-mitico::after, .pcard.r-leyenda::after, .sq-slot[style*="#ff4f8b"]::after {
+  content: ''; position: absolute; inset: 0; z-index: 2; pointer-events: none; mix-blend-mode: color-dodge; opacity: .38;
+  background: linear-gradient(125deg, #ff4f8b, #ffd23f, #4fffb0, #4fb3ff, #b36bff, #ff4f8b); background-size: 300% 300%;
+  animation: cardHolo 5s linear infinite; }
+@keyframes cardSheen { 0%, 55% { transform: translateX(-60%); } 100% { transform: translateX(60%); } }
+@keyframes cardHolo { 0% { background-position: 0% 50%; } 100% { background-position: 300% 50%; } }
+body.reduced-motion .pcard::after, body.reduced-motion .sq-slot::after { animation: none; opacity: .2; }
+@media (prefers-reduced-motion: reduce) { .pcard::after, .sq-slot::after { animation: none; opacity: .2; } }
+.sq-radar { position: relative; width: 100%; max-width: 150px; }
+.sq-radar svg { width: 100%; height: auto; display: block; overflow: visible; }
+.sq-radar .rg { fill: none; stroke: #ffffff26; stroke-width: 1; }
+.sq-radar .rv { fill: color-mix(in srgb, var(--rc) 45%, transparent); stroke: var(--rc); stroke-width: 2; stroke-linejoin: round; }
+.sq-radar text { font-size: 11px; fill: #cfe3ff; } .sq-radar tspan { fill: var(--yellow); }
+.sq-radar .ovr { left: 0; top: 0; font-size: 11px; }

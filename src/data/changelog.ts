@@ -22,6 +22,8 @@ export const CHANGELOG: Release[] = [
       'Tiro Supermasivo con animación propia: vórtice negro y rojo, orbe enorme y grieta en el campo.',
       'Talentos pasivos de verdad: funcionan sin ocupar un hueco de técnica y la ficha dice qué hace cada uno.',
       'Radar de estadísticas en la ficha de cada futbolista.',
+      'Tarjetas con brillo por rareza (destello y holográfico), media de estadísticas y radar en la elección de equipo.',
+      'Talentos con sus nombres oficiales (Ultratécnica, Carga elemental, Mejor garantía, Gafe...); las acciones básicas como Tiro potente o Tiro raso pasan a ser un talento.',
       'Tres arenas nuevas: Parque del Alpino, Claustro Sagrado e Isla Mary Times, con sus equipos y jefes.',
       'Estadio Zeus renovado: de un edificio sobre nubes grises a un gran estadio dorado y azul.',
     ],
@@ -34,6 +36,7 @@ export const CHANGELOG: Release[] = [
     visuals: [],
     balance: [
       'Monedas: alrededor de un 20 % menos en partidas y misiones.',
+      'Los rivales pegan un 55 % más y cada compañero suma menos vida: el daño recibido vuelve a importar.',
       'Recta final: desde el 70 % del tiempo, más rivales, más vida y más daño, de forma progresiva; el jefe no cambia.',
     ],
   },
