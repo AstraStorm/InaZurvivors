@@ -484,7 +484,9 @@ export class App {
   }
   private rar(p: RosterEntry) {
     const r = effectiveRarity(this.save, p);
-    return `<span class="rar ${r}">${RARITY_LABEL[r].toUpperCase()}</span>${isHero(this.save, p.id) ? '<span class="hero-tag">HÉROE</span>' : ''}`;
+    // Fix 1.31: a HÉROE is shown as HÉROE (with its hero stars), not as the rarity it came from
+    if (isHero(this.save, p.id)) { const hs = this.owned(p.id)?.heroStars ?? 0; return `<span class="rar heroe">HÉROE${hs ? ` ${'★'.repeat(hs)}` : ''}</span>`; }
+    return `<span class="rar ${r}">${RARITY_LABEL[r].toUpperCase()}</span>`;
   }
   /** Type icon (generic manual of its category) framed in the element colour, plus element and category chips. */
   private techBadge(t: Technique, scale = 3) {

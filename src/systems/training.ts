@@ -16,10 +16,12 @@ export const STAT_KEYS = ['kick', 'control', 'guard', 'body', 'speed', 'guts', '
 export type StatKey = (typeof STAT_KEYS)[number];
 /** centre of the band of means of each rarity; a footballer lands within ±BAND of it */
 // Fix 1.31 (author's request): Legendarios in the 80s, Míticos around 90; the band narrows to ±2 so rarities still never overlap
-export const RARITY_STAT_MEAN: Record<Rarity, number> = { comun: 50, raro: 59, epico: 70, legendario: 83, mitico: 90, leyenda: 96 };
+export const RARITY_STAT_MEAN: Record<Rarity, number> = { comun: 50, raro: 59, epico: 70, legendario: 83, mitico: 89, leyenda: 93 };
 export const BAND = 2;
 export const TRAIN_MAX = 20;
 export const STAT_MAX = 99;
+/** Fix 1.31: no stat goes over 95 on its own; 96-99 are earned with ascension, HÉROE, hero stars and training */
+export const BASE_STAT_MAX = 95;
 const RAW_CENTER = 62;
 
 const mean = (s: Partial<Record<string, number>>) => { const v = STAT_KEYS.map((k) => s[k] ?? RAW_CENTER); return v.reduce((a, b) => a + b, 0) / v.length; };
@@ -29,7 +31,8 @@ export function rebuildStats(raw: Partial<Record<string, number>> | null | undef
   const r = raw ?? {}, m = mean(r);
   const target = RARITY_STAT_MEAN[rarity] + Math.max(-BAND, Math.min(BAND, (m - RAW_CENTER) * 0.25)) + bonus;
   const out = {} as Record<StatKey, number>;
-  for (const k of STAT_KEYS) out[k] = Math.max(25, Math.min(STAT_MAX, Math.round(target + ((r[k] ?? m) - m) * 0.8)));
+  const cap = Math.min(STAT_MAX, BASE_STAT_MAX + bonus);
+  for (const k of STAT_KEYS) out[k] = Math.max(25, Math.min(cap, Math.round(target + ((r[k] ?? m) - m) * 0.8)));
   return out;
 }
 

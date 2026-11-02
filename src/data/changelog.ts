@@ -35,7 +35,8 @@ export const CHANGELOG: Release[] = [
     ],
     visuals: [],
     balance: [
-      'Medias por rareza: Común 50, Raro 59, Épico 70, Legendario 83, Mítico 90, Leyenda 96 (±2).',
+      'Medias por rareza: Común 50, Raro 59, Épico 70, Legendario 83, Mítico 89, Leyenda 93 (±2). Ninguna estadística pasa de 95 por sí sola: del 96 al 99 se llega con ascensión, HÉROE, estrellas de héroe y entrenamiento.',
+      'Un HÉROE se muestra como HÉROE (con sus estrellas de héroe) en tarjetas y fichas, no con la rareza de la que venía.',
       'Ascensión más barata: Común 6+10, Raro 5+8, Épico 4+6, Legendario 2+4, Mítico 2+3, Leyenda 1+2.',
       'Fichas en el campo: +5 por ficha recogida (algo menos frecuente), +3 por altar y +5 por duelo en rango alto, +3 cada 2 minutos y +5 por jefe en supervivencia infinita.',
     ],
