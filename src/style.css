@@ -1232,3 +1232,11 @@ body.reduced-motion .ib-orbit, body.reduced-motion .ib-ball { animation: none; }
   .rank-btn { align-items: center; padding: 4px 2px; min-height: 44px; } .rank-btn span, .rk-word { display: none; }
   .rank-blurb { display: block; margin-top: 6px; }
 }
+
+/* Fix 1.13: radar de estadísticas en la ficha del jugador */
+.stat-radar { max-width: 300px; margin: 8px auto 2px; }
+.stat-radar svg { width: 100%; height: auto; display: block; overflow: visible; }
+.stat-radar .rg { fill: none; stroke: #ffffff2e; stroke-width: 1; }
+.stat-radar .rv { fill: color-mix(in srgb, var(--rc) 45%, transparent); stroke: var(--rc); stroke-width: 2; stroke-linejoin: round; }
+.stat-radar text { font-size: 8px; fill: #cfe3ff; } .stat-radar tspan { fill: var(--yellow); }
+.stat-radar + .bars-mini { display: none; }

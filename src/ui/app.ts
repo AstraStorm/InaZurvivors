@@ -73,6 +73,19 @@ const NEWS_KEY = `publico-${PUBLIC_VERSION}`;
  * The interface was laid out for screens about 460 px on their short side; a phone is smaller (≈330 px tall in landscape),
  * so on touch screens it shrinks to fit, never under 60%. The player's own scale setting multiplies this.
  */
+/** Fix 1.13: the stats as a radar, the usual polygon of the games (one corner per stat, 0-100 scale, guides every 25). */
+export function statRadar(stats: Record<string, number>, names: Record<string, string>, color: string) {
+  const keys = Object.keys(stats), n = keys.length, R = 62, cx = 100, cy = 84;
+  const at = (i: number, r: number) => { const a = -Math.PI / 2 + (i / n) * Math.PI * 2; return [cx + Math.cos(a) * r, cy + Math.sin(a) * r]; };
+  const poly = (r: (i: number) => number) => keys.map((_, i) => at(i, r(i)).map((v) => v.toFixed(1)).join(',')).join(' ');
+  const grid = [0.25, 0.5, 0.75, 1].map((k) => `<polygon points="${poly(() => R * k)}" class="rg"/>`).join('');
+  const axes = keys.map((_, i) => { const [x, y] = at(i, R); return `<line x1="${cx}" y1="${cy}" x2="${x.toFixed(1)}" y2="${y.toFixed(1)}" class="rg"/>`; }).join('');
+  const labels = keys.map((k, i) => {
+    const [x, y] = at(i, R + 10), side = x > cx + 4 ? 'start' : x < cx - 4 ? 'end' : 'middle';
+    return `<text x="${x.toFixed(1)}" y="${(y + (y > cy ? 9 : y < cy - R ? -2 : 3)).toFixed(1)}" text-anchor="${side}">${esc(names[k] ?? k)} <tspan>${stats[k]}</tspan></text>`;
+  }).join('');
+  return `<svg viewBox="-30 0 260 180" role="img" aria-label="Estadísticas">${grid}${axes}<polygon points="${poly((i) => R * Math.min(100, stats[keys[i]]) / 100)}" class="rv" style="--rc:${color}"/>${labels}</svg>`;
+}
 export function autoUiScale() {
   const touch = window.matchMedia?.('(pointer: coarse)').matches || 'ontouchstart' in window;
   return touch ? Math.max(0.6, Math.min(1, Math.min(window.innerWidth, window.innerHeight) / 460)) : 1;
@@ -513,7 +526,7 @@ export class App {
   }
   private techHtml(t: Technique) {
     return `<div class="tech">${this.icon(ICON.manual[t.type], 2)}<div><div class="tn">${esc(t.name)}</div>
-      <div class="td">${TYPE_LABEL[t.type]} · ${esc(t.element ?? '—')} · poder ${t.power}</div><div class="td">${esc(t.description)}</div></div></div>`;
+      <div class="td">${t.type === 'talento' ? `Talento pasivo · ${esc(talentText(t.id, 1) || 'sin efecto')}` : `${TYPE_LABEL[t.type]} · ${esc(t.element ?? '—')} · poder ${t.power}`}</div><div class="td">${esc(t.description)}</div></div></div>`;
   }
   /** Player card: bodyshot (torso + head portrait) first, animated minisprite as a corner detail. */
   private pcard(p: RosterEntry, opts: { locked?: boolean; sel?: boolean; badge?: string; captain?: boolean; anim?: number; big?: boolean } = {}) {
@@ -1785,11 +1798,11 @@ export class App {
       ${o ? `<div class="note">Estrellas ${o.stars}/${MAX_STARS} · Duplicados libres ${sparesOf(this.save, d.id)} (gastados ${o.spent ?? 0}) · Potencia: daño ×${starBonus(o.stars).damage.toFixed(2)}, vida ×${starBonus(o.stars).hp.toFixed(2)}</div>` : ''}
       ${o && (nextStep(this.save, d) || isHero(this.save, d.id)) ? `<p><button class="btn ${isHero(this.save, d.id) ? 'blue' : 'big'}" data-ascend="${d.id}">${isHero(this.save, d.id) ? '★ Ver HÉROE' : `▲ Ascensión (${sparesOf(this.save, d.id)}/${nextStep(this.save, d)!.cost})`}</button></p>` : ''}
       ${d.heroTech ? `<div class="note">Técnica de HÉROE: <b>${esc(d.heroTech.name)}</b>${isHero(this.save, d.id) ? ' (desbloqueada)' : ''}</div>` : ''}
-      ${(() => { const pa = adaptedPassive(d); return pa ? `<div class="note">Pasiva: <b>${esc(pa.name)}</b> · ${esc(passiveText(pa))} <small>(adaptación de InaZurvivors)</small></div>` : d.techniques.filter((t) => t.type === 'talento').map((t) => `<div class="note">Talento: <b>${esc(t.name)}</b> · ${esc(talentText(t.id, 1))} <small>(efecto adaptado; sube con el nivel de la técnica)</small></div>`).join(''); })()}
+      ${(() => { const pa = adaptedPassive(d); return (pa ? `<div class="note">Pasiva: <b>${esc(pa.name)}</b> · ${esc(passiveText(pa))} <small>(adaptación de InaZurvivors)</small></div>` : '') + d.techniques.filter((t) => t.type === 'talento').map((t) => `<div class="note">Talento: <b>${esc(t.name)}</b> · ${esc(talentText(t.id, 1))} <small>(efecto adaptado; sube con el nivel de la técnica)</small></div>`).join(''); })()}
       <h3 style="margin-top:8px">Repertorio (2 técnicas activas en combate)</h3>
       ${reps.map((t, i) => (t ? `<div class="rep">${i === active ? '<span class="tag">Inicial</span>' : isLocked(t) && !isBought(this.save, d.id, i) ? '<span class="tag">Tienda</span>' : ''}${this.techHtml(t)}<div class="note">Maestría ${masteryLevel(this.save.mastery[String(t.id)] ?? 0)}/${MASTERY_USES.length} · +${masteryLevel(this.save.mastery[String(t.id)] ?? 0) * MASTERY_BONUS * 100}% daño · ${this.save.mastery[String(t.id)] ?? 0} usos</div></div>`
         : '<div class="rep"><div class="tech"><div class="note">Ficha pendiente: sin datos de origen para esta técnica.</div></div></div>')).join('')}
-      ${d.stats ? `<div class="bars-mini">${Object.entries(d.stats).map(([k, v]) => `<span>${statNames[k] ?? k}</span><i style="width:${Math.min(100, v)}%"></i>`).join('')}</div>${d.statsSource === 'derivado' ? '<div class="note">Estadísticas estimadas por posición y rareza: las de IE3 aún no se han descifrado.</div>' : ''}` : ''}
+      ${d.stats ? `<div class="stat-radar">${statRadar(d.stats, statNames, RARITY_COLOR[d.rarity])}</div><div class="bars-mini">${Object.entries(d.stats).map(([k, v]) => `<span>${statNames[k] ?? k}</span><i style="width:${Math.min(100, v)}%"></i>`).join('')}</div>${d.statsSource === 'derivado' ? '<div class="note">Estadísticas estimadas por posición y rareza: las de IE3 aún no se han descifrado.</div>' : ''}` : ''}
       </div></div>`;
   }
 

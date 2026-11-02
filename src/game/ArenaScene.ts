@@ -391,10 +391,14 @@ export class ArenaScene extends Phaser.Scene {
     if (this.fxAt > this.runTime - 0.5 && this.fxAt <= this.runTime && this.fxCache) return this.fxCache;
     const f = emptyFx();
     for (const m of this.members) {
+      // Fix 1.13: a talent works without taking an active slot (it used to need one, so most did nothing); in a slot it
+      // also grows with the technique level of the run
+      const slotted = new Set<number>();
       for (let i = 0; i < m.state.slots.length; i++) {
         const t = this.activeTech(m, i);
-        if (t?.type === 'talento') TALENTS[t.id]?.apply(f, talentScale(this.techLevel(m, i)));
+        if (t?.type === 'talento') { TALENTS[t.id]?.apply(f, talentScale(this.techLevel(m, i))); slotted.add(t.id); }
       }
+      for (const t of m.entry.techniques) if (t.type === 'talento' && !slotted.has(t.id)) TALENTS[t.id]?.apply(f, talentScale(1));
       adaptedPassive(m.entry)?.apply(f);
     }
     this.fxCache = f; this.fxAt = this.runTime;
