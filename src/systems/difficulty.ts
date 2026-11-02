@@ -77,6 +77,16 @@ export function burstSize(frac: number, fullTeam: boolean, rankBurst: number, ro
   return Math.floor(v) + (roll < v - Math.floor(v) ? 1 : 0);
 }
 
+/**
+ * Fix 1.13: the last stretch of the run before the boss. From 70% of the time the rivals come faster and hit harder,
+ * growing smoothly to the top at the end of the clock. `frac` is the share of the run played.
+ */
+export const FINAL_STRETCH_FROM = 0.7;
+export function finalStretch(frac: number) {
+  const k = smooth(FINAL_STRETCH_FROM, 1, frac);
+  return { rate: 1 + 0.45 * k, hp: 1 + 0.35 * k, damage: 1 + 0.3 * k };
+}
+
 /** Fix 1.12: how far the special rivals have arrived: none for 20 s, all of them by 2:30 (it was all by 1:00). */
 export const variantRamp = (t: number) => smooth(20, 150, t);
 

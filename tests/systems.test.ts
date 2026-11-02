@@ -366,7 +366,7 @@ describe('missions', () => {
   it('pays each mission once', () => {
     const s = newSave([], null);
     recordRun(s, run, now);
-    expect(claimMission(s, 'l_500')).toBe(150);
+    expect(claimMission(s, 'l_500')).toBe(120);
     const coins = s.coins;
     expect(claimMission(s, 'l_500')).toBe(0);
     expect(s.coins).toBe(coins);
@@ -378,9 +378,9 @@ describe('missions', () => {
   it('resets daily counters and allows the next day claim, keeping lifetime ones', () => {
     const s = newSave([], null);
     recordRun(s, run, now);
-    expect(claimMission(s, 'd_kills')).toBe(60);
+    expect(claimMission(s, 'd_kills')).toBe(50);
     recordRun(s, run, new Date(2026, 10, 5, 9));
-    expect(claimMission(s, 'd_kills')).toBe(60);
+    expect(claimMission(s, 'd_kills')).toBe(50);
     expect(s.missions.counters.kills).toBe(1200);
   });
   it('weeks start on Monday', () => {
@@ -946,8 +946,8 @@ describe('reiniciar progreso', () => {
 describe('versión pública y reportes de bugs', () => {
   it('the public news start at v1.0 and no internal version leaks into them', async () => {
     const { PUBLIC_RELEASES, PUBLIC_VERSION, RELEASED, VERSION_LABEL, BUILD, TIKTOK_URL } = await import('../src/data/release');
-    expect(PUBLIC_VERSION).toBe('1.12');
-    expect(PUBLIC_RELEASES.map((r) => r.version)).toEqual(['1.12', '1.11', '1.1', '1.0']); // newest first, starting at v1.0
+    expect(PUBLIC_VERSION).toBe('1.2');
+    expect(PUBLIC_RELEASES.map((r) => r.version)).toEqual(['1.2', '1.12', '1.11', '1.1', '1.0']); // newest first, starting at v1.0
     expect(PUBLIC_RELEASES.at(-1)!.title).toBe('InaZurvivors v1.0 — ¡Comienza la aventura!');
     expect(JSON.stringify(PUBLIC_RELEASES)).not.toMatch(/\bv?[234]\.\d\b/);
     expect(BUILD).not.toBe('1.0');

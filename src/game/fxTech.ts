@@ -99,7 +99,7 @@ export function handKind(name: string): HandKind | null {
   if (/ping[uü]in/.test(n)) return 'pinguinos';
   if (/pu[ñn]os volador|rocket|cohete/.test(n)) return 'punos';
   if (/pu[ñn]o|fist|punch/.test(n)) return 'puno';
-  if (/mano|hand|palma/.test(n)) return 'celestial';
+  if (/mano|hand|palma|brazo|zarpazo/.test(n)) return 'celestial';
   return null;
 }
 

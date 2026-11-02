@@ -15,6 +15,25 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: '4.8', date: '2026-11-02', title: 'v1.2',
+    features: [
+      'Las 36 formas Miximax son Mítico: entran las fusiones (Tezcat + Bailong, Mark + Arion, Arion + Tezcat...) y Simeon MM.',
+      'Todos los futbolistas tienen 4 técnicas activas: las propias de la wiki, técnicas firma incluidas, también las que no están en la ROM; Ares y Orion dejan las del parche.',
+      'Tres arenas nuevas: Parque del Alpino, Claustro Sagrado e Isla Mary Times, con sus equipos y jefes.',
+      'Estadio Zeus renovado: de un edificio sobre nubes grises a un gran estadio dorado y azul.',
+    ],
+    fixes: [
+      'Los efectos temporales nuevos ya no muestran «undefined» en la barra de efectos.',
+      'Móvil: la barra del jefe no pisa el panel del capitán y el selector de dificultad ocupa mucho menos.',
+      'Móvil: la subida de nivel cabe entera, resultados legibles en horizontal, texto mínimo de 8 px, toques más cómodos y zonas seguras de la muesca.',
+    ],
+    visuals: [],
+    balance: [
+      'Monedas: alrededor de un 20 % menos en partidas y misiones.',
+      'Recta final: desde el 70 % del tiempo, más rivales, más vida y más daño, de forma progresiva; el jefe no cambia.',
+    ],
+  },
+  {
     version: '4.7', date: '2026-11-02', title: 'Fix 1.12',
     features: [
       'Técnicas combinadas nuevas con animación propia: El Fénix, La Tierra, Remate caótico, Ventisca de fuego y La Tierra ∞; desbloqueo con retratos y nombre.',

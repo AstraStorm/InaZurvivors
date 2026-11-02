@@ -46,14 +46,14 @@ export interface Reward { label: string; coins: number }
 
 export function computeRewards(r: RunResult, rewardMult = 1): Reward[] {
   const out: Reward[] = [
-    // Fix 1.11: about half the coins of before, so upgrades take real effort (ECONOMIA_1.11.md)
-    { label: `Eliminaciones (${r.kills})`, coins: Math.floor(r.kills / 3) },
-    { label: `Supervivencia (${Math.floor(r.timeSec)} s)`, coins: Math.floor(r.timeSec / 4) },
+    // Fix 1.11 halved the coins and Fix 1.13 took about 20% more, so upgrades take real effort (ECONOMIA_1.11.md)
+    { label: `Eliminaciones (${r.kills})`, coins: Math.floor(r.kills / 4) },
+    { label: `Supervivencia (${Math.floor(r.timeSec)} s)`, coins: Math.floor(r.timeSec / 5) },
   ];
-  if (r.minibosses) out.push({ label: `Minijefes (${r.minibosses})`, coins: 25 * r.minibosses });
-  if (r.reachedBoss) out.push({ label: 'Objetivo: llegar al jefe', coins: 30 });
-  if (r.bossDefeated) out.push({ label: 'Jefe derrotado', coins: Math.round(120 * rewardMult) });
-  if (r.victory) out.push({ label: 'Victoria', coins: Math.round(80 * rewardMult) });
+  if (r.minibosses) out.push({ label: `Minijefes (${r.minibosses})`, coins: 20 * r.minibosses });
+  if (r.reachedBoss) out.push({ label: 'Objetivo: llegar al jefe', coins: 25 });
+  if (r.bossDefeated) out.push({ label: 'Jefe derrotado', coins: Math.round(100 * rewardMult) });
+  if (r.victory) out.push({ label: 'Victoria', coins: Math.round(65 * rewardMult) });
   if (r.bonusCoins) out.push({ label: 'Cofres', coins: r.bonusCoins });
   return out;
 }
@@ -80,7 +80,7 @@ export function tokenRewards(r: RunResult, firstClear: boolean, runsBefore = Inf
   return out;
 }
 
-export const MAP_ORDER = ['raimon', 'royal', 'zeus'];
+export const MAP_ORDER = ['raimon', 'royal', 'zeus', 'alpino', 'claustro', 'marytimes'];
 
 export function isMapUnlocked(unlockRule: string, save: SaveData): boolean {
   if (unlockRule === 'start') return true;

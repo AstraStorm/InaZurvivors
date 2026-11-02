@@ -18,11 +18,11 @@ const STYLE_PARTICLE: Record<FxStyle, string> = {
 };
 
 const KW: [RegExp, FxStyle][] = [
-  [/fuego|llama|ardient|infiern|inferno|calor|fénix|fenix|flamíg|ígne|lava|volc/i, 'fuego'],
-  [/ventisca|hielo|helad|glacia|nieve|congel|escarcha|polar|cristal|frío|frio|blizzard/i, 'hielo'],
-  [/relámpago|relampago|rayo|trueno|eléctr|electr|chispa|inazuma|voltio|centell/i, 'rayo'],
-  [/oscur|sombr|diabl|maldi|negro|tiniebl|demon|agujero/i, 'sombra'],
-  [/divin|celest|sagrad|dios|ángel|angel|luz|estrella/i, 'energia'],
+  [/fuego|llama|ardient|infiern|inferno|calor|fénix|fenix|flamíg|ígne|lava|volc|magma|abrasad|solar|verano|amanecer|rojo|limonada|bisonte/i, 'fuego'],
+  [/ventisca|hielo|helad|glacia|nieve|congel|escarcha|polar|cristal|frío|frio|blizzard|diamant|niebla|sirena|burbuja/i, 'hielo'],
+  [/relámpago|relampago|rayo|trueno|eléctr|electr|chispa|inazuma|voltio|centell|plasma|gauss|bobina|volt|sónic|sonic|magnet/i, 'rayo'],
+  [/oscur|sombr|diabl|maldi|negro|tiniebl|demon|agujero|umbr|vampir|víbora|cuervo|fantasm|supermasiv|réquiem|caos|ceniza/i, 'sombra'],
+  [/divin|celest|sagrad|dios|ángel|angel|luz|estrella|planet|orbe|glorios|inocente|pluma|reinos/i, 'energia'],
 ];
 const ELEMENT_STYLE: Record<string, FxStyle> = { Fuego: 'fuego', Aire: 'viento', Bosque: 'bosque', 'Montaña': 'tierra' };
 
@@ -33,10 +33,10 @@ export function fxStyle(t: Pick<Technique, 'name' | 'element'>): FxStyle {
 
 export function trajectory(t: Pick<Technique, 'name'>): Trajectory {
   const n = t.name;
-  if (/tornado|torbellino|cicl[oó]n|espiral|remolino|giro|rodante/i.test(n)) return 'espiral';
-  if (/drag[oó]n|serpien|onda|ola|tsunami|cometa/i.test(n)) return 'onda';
-  if (/meteor|ca[ií]da|cielo|celest|divin|lluvia|estrella|sagrad|tierra|sismo/i.test(n)) return 'meteoro';
-  if (/tri[aá]ngulo|m[uú]ltiple|trillizo|combinad|doble|clon|gemel/i.test(n)) return 'multiple';
+  if (/tornado|torbellino|cicl[oó]n|espiral|remolino|giro|rodante|tornillo|sierra|curvo|efecto|bumer|cicl/i.test(n)) return 'espiral';
+  if (/drag[oó]n|serpien|onda|ola|tsunami|cometa|víbora|zigzag|zig zag|sirena/i.test(n)) return 'onda';
+  if (/meteor|ca[ií]da|cielo|celest|divin|lluvia|estrella|sagrad|tierra|sismo|supermasiv|planet|cañ[oó]n|martillo/i.test(n)) return 'meteoro';
+  if (/tri[aá]ngulo|m[uú]ltiple|trillizo|combinad|doble|clon|gemel|aguijones|fisi[oó]n|remate triple|lanceros/i.test(n)) return 'multiple';
   return 'recta';
 }
 

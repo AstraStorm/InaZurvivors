@@ -4,7 +4,7 @@
  */
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { burstSize, RANKS, waveIntensity } from '../src/systems/difficulty';
+import { burstSize, finalStretch, RANKS, waveIntensity } from '../src/systems/difficulty';
 
 const DUR = 300;
 const oldWave = (t: number) => { if (t < 30) return 1.35; const c = (t - 30) % 60; return c >= 38 && c < 52 ? 2.4 : c >= 52 ? 0.45 : 1; };
@@ -17,14 +17,14 @@ function windows(rank: 'C' | 'B' | 'A', legacy: boolean) {
     let spawned = 0, threat = 0;
     for (let t = w * 30; t < (w + 1) * 30; t += 1 / 30) {
       const frac = t / DUR, minutes = t / 60;
-      const interval = Math.max(0.15, 1.3 - frac * 1.1) * R.spawnInterval / (legacy ? oldWave(t) : waveIntensity(t).rate);
+      const interval = Math.max(0.15, 1.3 - frac * 1.1) * R.spawnInterval / (legacy ? oldWave(t) : waveIntensity(t).rate * finalStretch(frac).rate);
       acc += 1 / 30;
       while (acc > interval) {
         acc -= interval;
         seed = (seed + 0.618034) % 1; // evenly spread, so rounding is not biased
         const n = legacy ? oldBurst(frac, R.burst) : burstSize(frac, false, R.burst, seed);
         spawned += n;
-        threat += n * (1 + minutes * 0.6) * (2 + minutes * 1.15);
+        threat += n * (1 + minutes * 0.6) * (2 + minutes * 1.15) * (legacy ? 1 : finalStretch(frac).hp * finalStretch(frac).damage);
       }
     }
     out.push({ spawned, threat });
@@ -33,17 +33,18 @@ function windows(rank: 'C' | 'B' | 'A', legacy: boolean) {
 }
 
 describe('difficulty curve', () => {
-  it('climbs without the big jumps of 1.11 and ends at a similar height', () => {
-    const lines = ['Curva de dificultad Fix 1.12 (generado por tests/difficulty_sim.test.ts). Por tramos de 30 s de una partida de 5:00.', ''];
+  it('climbs without the big jumps of 1.11 and ends clearly above it', () => {
+    const lines = ['Curva de dificultad Fix 1.13 con la recta final (generado por tests/difficulty_sim.test.ts). Por tramos de 30 s de una partida de 5:00.', ''];
     for (const rank of ['C', 'B', 'A'] as const) {
       const a = windows(rank, true), b = windows(rank, false);
       lines.push(`Rango ${rank}: tramo | rivales 1.11 → 1.12 | amenaza 1.11 → 1.12`);
       a.forEach((x, i) => lines.push(`  ${i * 30}-${i * 30 + 30} s | ${x.spawned} → ${b[i].spawned} | ${Math.round(x.threat)} → ${Math.round(b[i].threat)}`));
       const jump = (l: typeof a) => Math.max(...l.slice(1).map((x, i) => x.threat / Math.max(1, l[i].threat)));
       lines.push(`  mayor salto entre tramos: ×${jump(a).toFixed(2)} → ×${jump(b).toFixed(2)}`, '');
-      expect(jump(b)).toBeLessThan(jump(a));
+      expect(jump(b.slice(0, 7))).toBeLessThan(jump(a.slice(0, 7))); // before the final stretch, which climbs on purpose
+      expect(jump(b)).toBeLessThan(4.2);
       expect(b[2].threat).toBeLessThan(a[2].threat); // the first wave was the brusque one
-      expect(b[9].threat).toBeGreaterThan(a[9].threat * 0.8);
+      expect(b[9].threat).toBeGreaterThan(a[9].threat * 1.5); // Fix 1.13: the end of the clock is clearly harder
     }
     mkdirSync('data', { recursive: true });
     writeFileSync('data/difficulty_sim.txt', lines.join('\n'));

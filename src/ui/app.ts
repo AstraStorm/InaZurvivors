@@ -11,6 +11,7 @@ import { BANNERS, BANNER_ORDER, bannerPool, eraOf, featured, perPlayerOdds, rari
 import { exportSave, importSave, remapIds, remapTechSlots, storeSave, type SaveData, type ParticleLevel, type Rank } from '../systems/save';
 import { eligibleTeams, pull, recordHistory, DUPLICATE_REFUND, PULL_COST, MAX_STARS, starBonus, onboardingPull, type PullResult } from '../systems/gacha';
 import { applyRun, isMapUnlocked, type RunResult } from '../systems/economy';
+import { DROPS } from '../systems/items';
 import { statChanges, TYPE_LABEL, MAX_TECH_LEVEL } from '../systems/techniques';
 import { evolutionLabel, evolvesAt } from '../systems/evolution';
 import { modDef } from '../systems/runmods';
@@ -22,7 +23,7 @@ import { GEAR_SLOTS, applyGear, buildGear, buyGear, equipGear, type GearItem } f
 import { SAGAS, sagaOf, setTeamLabels, setTeamSagas, teamLabel, teamNames } from '../data/sagas';
 import { canClaim, claimAllTeamRewards, claimTeamReward, grantFavorite, hasCrest, hasKit, teamCaptain, teamMembers, teamProgress, type TeamRewardKind } from '../systems/teamRewards';
 import { buyOffer, isBought as isOfferBought, msToNextDay, msToNextWeek, PRICE, rollDaily, type Offer } from '../systems/dailyShop';
-import { RANKS, RANK_ORDER } from '../systems/difficulty';
+import { rankDef, RANKS, RANK_ORDER } from '../systems/difficulty';
 import { COMBOS } from '../systems/combos';
 import { CLUB_CHEMISTRY, kitBonus } from '../systems/kitBonus';
 import { championsTable, recordTriumph } from '../systems/hallOfFame';
@@ -1557,10 +1558,10 @@ export class App {
     const rk = this.save.difficulty;
     const ranks = RANK_ORDER.map((id) => {
       const R = RANKS[id];
-      return `<button class="rank-btn r-${id}${id === rk ? ' on' : ''}" data-rank="${id}"><b>${id}</b><span>${esc(R.blurb)}</span><small>Recompensas ×${R.reward}</small></button>`;
+      return `<button class="rank-btn r-${id}${id === rk ? ' on' : ''}" data-rank="${id}"><b>${id}</b><span>${esc(R.blurb)}</span><small><em class="rk-word">Recompensas </em>×${R.reward}</small></button>`;
     }).join('');
     this.show(`<div class="screen">${this.titlebar('Elige arena', 'Mi Equipo')}
-      <div class="panel"><h3>Dificultad</h3><div class="ranks">${ranks}</div></div><div class="maps">${cards}</div></div>`);
+      <div class="panel"><h3>Dificultad</h3><div class="ranks">${ranks}</div><div class="note rank-blurb">${esc(rankDef(rk).blurb)}</div></div><div class="maps">${cards}</div></div>`);
     this.on('[data-rank]', 'click', (_e, el) => { this.save.difficulty = el.dataset.rank as Rank; this.persist(); this.mapSelect(); });
     this.on('[data-back]', 'click', () => this.captainSelect());
     this.on('[data-map]', 'click', (_e, el) => {
@@ -2457,7 +2458,7 @@ export class App {
     const alt = document.getElementById('altar')!;
     this.renderEvent(s, alt);
     const labels: Record<string, string> = { escudo: 'Escudo', xp: 'Exp ×2', dano: 'Daño +50%', recarga: 'Recarga -40%', velocidad: 'Velocidad +30%' };
-    document.getElementById('buffs')!.innerHTML = s.buffs.map((b) => `<span class="buff b-${b.id}"><i style="width:${b.left / b.total * 100}%"></i>${labels[b.id]}</span>`).join('');
+    document.getElementById('buffs')!.innerHTML = s.buffs.map((b) => `<span class="buff b-${b.id}"><i style="width:${b.left / b.total * 100}%"></i>${labels[b.id] ?? DROPS.find((d) => d.id === b.id)?.label ?? ''}</span>`).join('');
     document.getElementById('hurt')!.classList.toggle('on', this.save.settings.flashes && s.now - s.hurtAt < 0.12);
     if (s.formationChangedAt > 0 && s.formationChangedAt !== this.lastBannerAt) {
       this.lastBannerAt = s.formationChangedAt;

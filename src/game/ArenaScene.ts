@@ -21,7 +21,7 @@ import { FORMATIONS, FORMATION_ORDER, headingFromVector, slotPositions, type For
 import type { PerkEffects } from '../systems/perks';
 import type { Settings } from '../systems/save';
 import type { RunResult } from '../systems/economy';
-import { burstSize, RANK_ORDER, rankDef, variantRamp, waveIntensity, type RankDef } from '../systems/difficulty';
+import { burstSize, FINAL_STRETCH_FROM, finalStretch, RANK_ORDER, rankDef, variantRamp, waveIntensity, type RankDef } from '../systems/difficulty';
 import { capArea, capCooldown, capCrit, capLuck, pickupRadius, capRegen, capSpeed, capTaken, capXp, CAPS, softCap } from '../systems/balance';
 import { endlessActive, endlessCoins, endlessPhase, endlessScale } from '../systems/endless';
 import { bossKit, bossPhase, rivalKit, type AttackId, type BossKit } from '../systems/bossKit';
@@ -210,6 +210,7 @@ export class ArenaScene extends Phaser.Scene {
   private hazards: Hazard[] = [];
   private nextHazardAt = 20;
   private wavePhase = '';
+  private stretchAnnounced = false;
   /** brief slow motion before the level-up cards: the moment reads, then the choice */
   private slowmoUntil = 0;
   /** Fix 1.12 game feel: hitstop, and the kills of the last moment for the sweep reward */
@@ -252,7 +253,7 @@ export class ArenaScene extends Phaser.Scene {
     this.rng = new Phaser.Math.RandomDataGenerator([String(data.seed ?? Date.now())]);
     this.mods = baseMods(); this.taken = {}; this.buffs = new Map(); this.bonusCoins = 0; this.lastUpgrade = null; this.techUses = {}; this.guardBlocks = 0;
     this.padHeld = {}; this.xpCombo = 0; this.xpComboUntil = 0; this.techById = {};
-    this.rank = rankDef(data.rank); this.shots = []; this.hazards = []; this.nextHazardAt = 20; this.wavePhase = ''; this.combos = new Map(); this.slowmoUntil = 0; this.hitstopUntil = 0; this.nextHitstop = 0; this.recentKills = []; this.nextSweepCheer = 0; this.endless = null; this.secondWindUsed = false; this.altarsDone = 0; this.damageDealt = 0;
+    this.rank = rankDef(data.rank); this.shots = []; this.hazards = []; this.nextHazardAt = 20; this.wavePhase = ''; this.stretchAnnounced = false; this.combos = new Map(); this.slowmoUntil = 0; this.hitstopUntil = 0; this.nextHitstop = 0; this.recentKills = []; this.nextSweepCheer = 0; this.endless = null; this.secondWindUsed = false; this.altarsDone = 0; this.damageDealt = 0;
     this.runId = crypto.randomUUID?.() ?? `${Date.now()}-${Math.random()}`; this.spawnAcc = 1.2; // first rivals within a second or two
     this.bonusTokens = 0; this.altar = null; this.altarGfx = []; this.altarTag = null; this.rival = null; this.altarRival = null; this.fxCache = null; this.fxAt = -1; this.reviveUsed = false; this.shocks = []; this.campSince = 0; this.campWarned = false; this.nextCampHit = 0; this.nextSurround = 60; this.lastMagnetAt = -MAGNET_GAP_SEC; this.nextAltarAt = FIRST_ALTAR_SEC; this.altarKills = 0; this.freezeUntil = 0; this.lure = null;
     setVolume(data.settings.volume);
@@ -724,7 +725,7 @@ export class ArenaScene extends Phaser.Scene {
           }
         } else if (t.type === 'defensa') {
           const r = s.radius;
-          const wall = /muro|pared|barrera|escudo|armadur|bloque|fortal/i.test(t.name);
+          const wall = /muro|muralla|pared|barrera|escudo|armadur|bloque|fortal|refugio|falange/i.test(t.name);
           const web = /telara[ñn]a|spider ?web/i.test(t.name);
           this.fx.ring(ox, oy + 8, r, c1, 320, 2 + Math.floor(lv / 2));
           if (wall) {
@@ -1092,11 +1093,12 @@ export class ArenaScene extends Phaser.Scene {
     if (variant === 'elite') sprite.setScale(scale * 1.18);
     if (variant === 'tank') sprite.setScale(scale * 1.3);
     const scaling = this.endlessScaleNow();
+    const stretch = finalStretch(kind === 'boss' ? 0 : this.runTime / this.cfg.map.durationSec); // the boss keeps its own balance
     const baseHp = 8 + ((st.body ?? 30) + (st.guts ?? 30)) / 14;
-    const hp = Math.round(baseHp * (1 + minutes * 0.6) * hpMult * R.hp * vHp * scaling.hp);
+    const hp = Math.round(baseHp * (1 + minutes * 0.6) * hpMult * R.hp * vHp * scaling.hp * stretch.hp);
     const e: Enemy = {
       sprite, unit, kind, hp, maxHp: hp, speed: (28 + (st.speed ?? 30) * 0.22) * (kind === 'boss' ? 0.8 : 1) * R.speed * vSpeed * scaling.speed,
-      damage: Math.round((2 + Math.min(minutes, 9) * 1.15) * (kind === 'boss' ? 2.5 : kind === 'miniboss' ? 2 : 1) * R.damage * (variant === 'elite' || variant === 'tank' ? 1.5 : 1) * scaling.damage),
+      damage: Math.round((2 + Math.min(minutes, 9) * 1.15) * (kind === 'boss' ? 2.5 : kind === 'miniboss' ? 2 : 1) * R.damage * (variant === 'elite' || variant === 'tank' ? 1.5 : 1) * scaling.damage * stretch.damage),
       animTime: this.rng.between(0, 500), dir: 4, hitCd: 0, knockX: 0, knockY: 0,
       radius: 7 * scale * (variant === 'elite' ? 1.18 : variant === 'tank' ? 1.3 : 1), dead: false, pos: sprite, slowUntil: 0, variant, side: this.rng.frac() < 0.5 ? -1 : 1,
       patternCd: kind === 'boss' ? 3 : kind === 'miniboss' ? 5 : undefined,
@@ -1135,12 +1137,13 @@ export class ArenaScene extends Phaser.Scene {
       if (!u) this.finish(true);
     }
     const wave = waveIntensity(this.runTime);
+    if (frac >= FINAL_STRETCH_FROM && !this.stretchAnnounced) { this.stretchAnnounced = true; this.banner('¡RECTA FINAL!', '#ff5a5a'); }
     if (wave.phase !== this.wavePhase) {
       if (wave.phase === 'presion' && !this.boss) this.banner('¡OLEADA!', '#ff8a5a');
       if (wave.phase === 'respiro' && this.wavePhase === 'presion' && !this.boss) this.banner('Respiro', '#8fe8ff');
       this.wavePhase = wave.phase;
     }
-    const interval = Math.max(0.15, 1.3 - Math.min(1, frac) * 1.1) * (this.boss ? 2.5 : 1) * this.rank.spawnInterval / wave.rate / this.endlessScaleNow().spawn;
+    const interval = Math.max(0.15, 1.3 - Math.min(1, frac) * 1.1) * (this.boss ? 2.5 : 1) * this.rank.spawnInterval / wave.rate / this.endlessScaleNow().spawn / (this.boss ? 1 : finalStretch(frac).rate);
     this.spawnAcc += dt / 1000;
     while (this.spawnAcc > interval) {
       this.spawnAcc -= interval;

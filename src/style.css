@@ -1180,3 +1180,47 @@ body.reduced-motion .ib-orbit, body.reduced-motion .ib-ball { animation: none; }
 @media (max-width: 900px) { .menu-stage { min-height: 0; } .menu-root { height: auto; min-height: 100%; } #ui.menu-mode { overflow-y: auto; } }
 .edge-mark i { font-size: 20px; z-index: 1; color: var(--c); -webkit-text-stroke: 1px #000; }
 @media (max-height: 520px) { .touch .event-card { right: 146px; } }
+
+/* Fix 1.13: móvil. Zonas seguras de la muesca, texto mínimo legible y toques cómodos */
+.screen { padding-left: max(clamp(10px, 2vw, 22px), env(safe-area-inset-left)); padding-right: max(clamp(10px, 2vw, 22px), env(safe-area-inset-right)); padding-bottom: max(clamp(10px, 2vw, 22px), env(safe-area-inset-bottom)); }
+.menu-root { padding-left: max(10px, env(safe-area-inset-left)); padding-right: max(10px, env(safe-area-inset-right)); }
+.levelup { padding-left: max(12px, env(safe-area-inset-left)); padding-right: max(12px, env(safe-area-inset-right)); }
+@media (max-width: 900px), (max-height: 520px) {
+  #ui small, #ui em, .logo .sub, .brand .sub, .ver-badge, .rar, .shop-tag, .shop-state, .shop-left, .kit-card .kit-desc, .lv-ribbon, .pl-c { font-size: max(8px, .8em) !important; }
+  .sq-act { width: 30px; height: 30px; font-size: 12px; }
+  .legal-foot .legal-link { padding: 8px 4px; }
+  .mcard .btn, .screen .tabs button, .screen button.on { min-height: 34px; }
+  .notif { right: 3px; top: 2px; font-size: 8px; padding: 1px 4px; }
+  .cap-crest small { display: none; }
+}
+@media (max-width: 760px) {
+  .levelup { justify-content: flex-start; gap: 6px; padding-top: max(8px, env(safe-area-inset-top)); padding-bottom: 0; }
+  .lv-title span { font-size: 20px; text-shadow: 2px 2px 0 #c4500a; } .lv-title small { font-size: 9px; }
+  .lv-cards { gap: 6px; }
+  .lvcard { padding: 6px 8px; gap: 2px; }
+  .lv-art { height: 52px; } .lv-art > :not(.mugbadge) { zoom: .5; } .lv-art .mug { zoom: .55; }
+  .lv-ribbon { top: auto; bottom: 0; right: 0; transform: none; padding: 1px 5px; }
+  .lv-name { font-size: 10px; } .lv-sub { font-size: 8px; }
+  .lv-bottom { position: sticky; bottom: 0; z-index: 3; padding: 6px 0 max(6px, env(safe-area-inset-bottom)); }
+  .lv-bottom .reroll { padding: 8px 14px; font-size: 11px; }
+}
+@media (max-width: 560px) {
+  .gacha-screen > .titlebar { order: -2; } .gacha-screen > .ie3-machine { order: -1; }
+  .gacha-screen > .gacha-info { grid-template-columns: 1fr; }
+}
+@media (max-height: 520px) {
+  .result-banner { font-size: 22px; margin: 4px 0; text-shadow: 2px 2px 0 #000; }
+  .lv-ribbon { top: auto; bottom: 0; right: 0; transform: none; padding: 1px 5px; }
+  .lv-art > :not(.mugbadge) { zoom: .5; }
+  .mbtn { min-width: 0; } .mbtn b { font-size: 9px; }
+}
+
+/* Fix 1.13: la barra del jefe no pisa el panel del capitán en vertical; selector de rango compacto */
+.rank-blurb { display: none; }
+@media (max-width: 560px) {
+  .hud .bossbar { top: 146px; width: calc(100vw - 20px); }
+  .hud:has(#boss:not([style*="none"])) .top-right, .hud:has(#boss:not([style*="none"])) .minimap { margin-top: 40px; }
+  .ranks { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; }
+  .rank-btn { align-items: center; padding: 4px 2px; min-height: 44px; } .rank-btn span, .rk-word { display: none; }
+  .rank-blurb { display: block; margin-top: 6px; }
+}

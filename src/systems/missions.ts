@@ -10,7 +10,8 @@ export type MissionKind = 'partida' | 'diaria' | 'semanal' | 'logro';
 /** `dupe`: also grants a duplicate of one of your Legendary/Mythic players (ascension material) */
 export interface MissionDef { id: string; kind: MissionKind; label: string; stat: string; goal: number; coins: number; tokens: number; dupe?: boolean }
 
-const M = (id: string, kind: MissionKind, label: string, stat: string, goal: number, coins: number): MissionDef => ({ id, kind, label, stat, goal, coins, tokens: kind === 'diaria' ? 3 : kind === 'semanal' ? 10 : kind === 'logro' ? 8 : 3 });
+// Fix 1.13: missions pay 20% fewer coins, like the runs (rounded to 5)
+const M = (id: string, kind: MissionKind, label: string, stat: string, goal: number, coins: number): MissionDef => ({ id, kind, label, stat, goal, coins: Math.round(coins * 0.8 / 5) * 5, tokens: kind === 'diaria' ? 3 : kind === 'semanal' ? 10 : kind === 'logro' ? 8 : 3 });
 
 export const MISSIONS: MissionDef[] = [
   M('p_sobrevive', 'partida', 'Sobrevive 5 minutos en una partida', 'best_time', 300, 80),

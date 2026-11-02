@@ -6,7 +6,7 @@
  */
 import { CHANGELOG } from './changelog';
 
-export const PUBLIC_VERSION = '1.12';
+export const PUBLIC_VERSION = '1.2';
 export const BUILD = CHANGELOG[0].version;
 export const RELEASED = false;
 export const VERSION_LABEL = RELEASED ? `v${PUBLIC_VERSION}` : `v${PUBLIC_VERSION} · pre-lanzamiento`;
@@ -26,6 +26,22 @@ export interface PublicRelease {
 
 /** Public news, newest first. Starts at v1.0: the internal versions before it are not part of the public history. */
 export const PUBLIC_RELEASES: PublicRelease[] = [
+  {
+    version: '1.2',
+    title: 'InaZurvivors v1.2 — Miximax, técnicas propias y tres arenas nuevas',
+    tagline: 'Las fusiones llegan como Míticos, cada futbolista lleva sus técnicas y hay tres arenas más',
+    intro: 'Tezcat + Bailong, Mark + Arion y las demás fusiones Miximax ya se pueden fichar. Casi todo el plantel recupera sus técnicas firma, Ares y Orion incluidos, y estrenamos el Parque del Alpino, el Claustro Sagrado y la Isla Mary Times.',
+    features: [
+      { icon: '★', title: 'Miximax Míticos', text: '36 formas Miximax, todas Mítico, con las técnicas de su forma.' },
+      { icon: '⚡', title: 'Técnicas propias', text: 'Todos con cuatro técnicas: Rayo de Diamante de Clario, Tiro supermasivo de Flora y muchas más.' },
+      { icon: '◆', title: 'Tres arenas nuevas', text: 'Parque del Alpino, Claustro Sagrado e Isla Mary Times, cada una con sus rivales y su jefe.' },
+      { icon: '♜', title: 'Estadio Zeus renovado', text: 'Un gran estadio dorado y azul.' },
+      { icon: '▲', title: 'Recta final', text: 'Los últimos minutos antes del jefe aprietan: más rivales, con más vida y más daño.' },
+      { icon: '☼', title: 'Economía', text: 'Las monedas cuestan un poco más de ganar, en partidas y misiones.' },
+      { icon: '✦', title: 'Mejor en móvil', text: 'Subida de nivel, resultados, barra del jefe y selector de dificultad caben y se leen.' },
+    ],
+    start: ['Busca un Miximax en los fichajes', 'Mira las técnicas nuevas de tus futbolistas en la Enciclopedia', 'Supera el Estadio Zeus para abrir el Parque del Alpino'],
+  },
   {
     version: '1.12',
     title: 'InaZurvivors Fix 1.12 — Más impacto, mejor en móvil',
