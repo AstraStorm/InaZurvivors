@@ -29,7 +29,7 @@ import { chemistry } from '../systems/kitBonus';
 import { HERO_AURA } from '../systems/ascension';
 import { dragon, handKind, keeperHand } from './fxTech';
 import { orphans } from '../systems/groundSweep';
-import { chaosVortex, earthGlobe, elementBurst, fireIceTwin, phoenix, phoenixFlight, setLowPower, teamBeams } from './fxManif';
+import { chaosMeteorCharge, chaosMeteorShot, chaosVortex, earthGlobe, elementBurst, fireIceTwin, phoenix, phoenixFlight, setLowPower, teamBeams } from './fxManif';
 import { adaptedPassive, CAP_ELEMENTAL, CAP_LAST_STAND, emptyFx, TALENTS, talentScale, type TalentFx } from '../systems/talents';
 import { COMBOS, COMBOS_BY_PRIORITY, COMBO_MAX_LEVEL, comboDamage, comboMembers, comboReady, type ComboDef } from '../systems/combos';
 import type { Rank } from '../systems/save';
@@ -680,6 +680,34 @@ export class ArenaScene extends Phaser.Scene {
           if (t.type === 'parada') this.hp = Math.min(this.maxHp, this.hp + Math.round(this.maxHp * s.heal));
           used();
           m.cds[i] = Math.max(1600, s.cooldownMs * 0.6);
+          m.maxCd[i] = m.cds[i];
+          return;
+        }
+        if (/tiro supermasivo/i.test(t.name)) {
+          // signature move: charge in a black and red vortex, then a huge orb that tears the pitch and blows up on arrival
+          const target = this.nearestEnemy(ox, oy, 260 * this.cfg.perks.rangeMult);
+          if (!target) { m.cds[i] = 150; return; }
+          const size = 34 + lv * 2.5, r = 58 + lv * 5, dmg = s.damage * 2.2;
+          const charge = 620;
+          chaosMeteorCharge(this, ox, oy, size, charge);
+          sfx('whoosh');
+          m.f.hop(this, 8, charge * 0.5);
+          this.time.delayedCall(charge, () => {
+            if (this.sys.isActive() === false) return;
+            const bx = target.pos.x, by = target.pos.y - 10;
+            const sx = m.f.x, sy = m.f.y - size * 1.25;
+            sfx('whoosh');
+            chaosMeteorShot(this, sx, sy, bx, by, size, 300, () => {
+              sfx('boom');
+              this.fx.shake(0.006, 220);
+              for (const e of this.enemies) {
+                const d = Math.hypot(e.pos.x - bx, e.pos.y - 10 - by);
+                if (d < r + e.radius) this.hit(e, dmg, (e.pos.x - bx) / (d || 1) * 120, (e.pos.y - by) / (d || 1) * 120, 'sombra', true);
+              }
+            });
+          });
+          used();
+          m.cds[i] = Math.max(3200, s.cooldownMs * 1.5);
           m.maxCd[i] = m.cds[i];
           return;
         }

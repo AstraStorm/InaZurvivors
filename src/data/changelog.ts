@@ -19,6 +19,7 @@ export const CHANGELOG: Release[] = [
     features: [
       'Las 36 formas Miximax son Mítico: entran las fusiones (Tezcat + Bailong, Mark + Arion, Arion + Tezcat...) y Simeon MM.',
       'Todos los futbolistas tienen 4 técnicas activas: las propias de la wiki, técnicas firma incluidas, también las que no están en la ROM; Ares y Orion dejan las del parche.',
+      'Tiro Supermasivo con animación propia: vórtice negro y rojo, orbe enorme y grieta en el campo.',
       'Tres arenas nuevas: Parque del Alpino, Claustro Sagrado e Isla Mary Times, con sus equipos y jefes.',
       'Estadio Zeus renovado: de un edificio sobre nubes grises a un gran estadio dorado y azul.',
     ],

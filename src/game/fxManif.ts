@@ -293,3 +293,79 @@ export function teamBeams(scene: S, from: { x: number; y: number }[], x: number,
     scene.tweens.add({ targets: l, alpha: 0, delay: ms * 0.6, duration: ms * 0.4, onComplete: () => l.destroy() });
   }
 }
+
+// ------------------------------------------------------------------------------- Tiro Supermasivo (Chaos Meteor)
+const CM_BLACK = 0x0a0610, CM_RED = 0xd8102c, CM_HOT = 0xff5a3c;
+
+/** A black and red energy orb with arms of energy turning around it. */
+function chaosOrb(g: Phaser.GameObjects.Graphics, size: number, spin: number) {
+  g.fillStyle(CM_RED, 0.28).fillCircle(0, 0, size * 1.35);
+  g.fillStyle(CM_RED, 0.9).fillCircle(0, 0, size * 1.04);
+  g.fillStyle(CM_BLACK, 1).fillCircle(0, 0, size * 0.92);
+  for (let arm = 0; arm < 3; arm++) for (let i = 0; i < 14; i++) {
+    const u = i / 13, a = spin + arm * 2.094 + u * 3.4, d = size * (0.2 + u * 0.72);
+    g.fillStyle(i % 3 ? CM_RED : CM_HOT, 0.95 - u * 0.35).fillCircle(Math.cos(a) * d, Math.sin(a) * d, size * 0.1 * (1 - u * 0.5));
+  }
+}
+
+/**
+ * The windup of Chaos Meteor as the wiki describes it: the surroundings turn dark blue, a vortex of black and red swirls
+ * covers the user, and it closes over the ball into a huge orb above them. Returns nothing: the shot follows after `ms`.
+ */
+export function chaosMeteorCharge(scene: S, x: number, y: number, size: number, ms: number) {
+  const cam = scene.cameras.main;
+  const dark = scene.add.rectangle(cam.width / 2, cam.height / 2, cam.width * 1.2, cam.height * 1.2, 0x061a5c, 0).setScrollFactor(0).setDepth(8800);
+  scene.tweens.add({ targets: dark, fillAlpha: 0.6, duration: ms * 0.35 });
+  scene.tweens.add({ targets: dark, fillAlpha: 0, delay: ms, duration: 260, onComplete: () => dark.destroy() });
+  animate(scene, x, y, 8900, ms, (g, k) => {
+    const close = 1 - k * 0.72, rot = k * 13;
+    g.fillStyle(CM_BLACK, 0.5 * Math.min(1, k * 3)).fillEllipse(0, 2, size * 2.1 * close, size * 0.9 * close);
+    for (let arm = 0; arm < 4; arm++) for (let i = 0; i < 16; i++) {
+      const u = i / 15, a = rot + arm * 1.571 + u * 5, d = size * close * (0.25 + u * 0.95);
+      g.fillStyle(arm % 2 ? CM_BLACK : CM_RED, 0.92 - u * 0.5).fillCircle(Math.cos(a) * d, Math.sin(a) * d * 0.5 - u * size * k * 0.9 - 8, size * 0.11 * (1 - u * 0.55));
+    }
+  }, 120);
+  animate(scene, x, y - size * 1.25, 8901, ms, (g, k) => { const s = Math.max(0, k - 0.3) / 0.7; if (s > 0) chaosOrb(g, size * 0.85 * s, k * 12); }, 60);
+}
+
+/** The orb flies from x0,y0 to x1,y1 tearing a gash in the pitch; `onHit` fires on arrival, with its shockwave. */
+export function chaosMeteorShot(scene: S, x0: number, y0: number, x1: number, y1: number, size: number, ms: number, onHit: () => void) {
+  const dx = x1 - x0, dy = y1 - y0, len = Math.hypot(dx, dy) || 1, nx = -dy / len, ny = dx / len;
+  const gash = scene.add.graphics().setDepth(40);
+  const orb = scene.add.graphics().setPosition(x0, y0).setDepth(8901);
+  const st = { k: 0 };
+  let n = 0;
+  scene.tweens.add({ targets: st, k: 1, duration: ms, ease: 'Quad.easeIn', onUpdate: () => {
+    if (lowPower && n++ % 3) return;
+    const px = x0 + dx * st.k, py = y0 + dy * st.k;
+    orb.setPosition(px, py).clear();
+    chaosOrb(orb, size * 0.85, st.k * 16);
+    // a jagged crack, narrow at both ends: the side of each step is fixed, so it doesn't shake while it grows
+    gash.clear();
+    const steps = Math.ceil(26 * st.k);
+    const edge = (side: number, width: number) => {
+      const pts: Phaser.Geom.Point[] = [];
+      for (let i = 0; i <= steps; i++) {
+        const u = i / 26, w = Math.sin(Math.min(1, u / Math.max(0.01, st.k)) * Math.PI) * width + 1, j = ((i * 37) % 9 - 4) * size * 0.05;
+        pts.push(pt(x0 + dx * u + nx * (side * w + j), y0 + dy * u + ny * (side * w + j)));
+      }
+      return pts;
+    };
+    gash.fillStyle(CM_RED, 0.8).fillPoints([...edge(1, size * 0.34), ...edge(-1, size * 0.34).reverse()], true);
+    gash.fillStyle(CM_BLACK, 0.95).fillPoints([...edge(1, size * 0.2), ...edge(-1, size * 0.2).reverse()], true);
+  }, onComplete: () => {
+    orb.destroy();
+    onHit();
+    animate(scene, x1, y1, 8901, 420, (g, k) => {
+      const r = size * (0.5 + k * 1.5);
+      g.lineStyle(size * 0.3 * (1 - k), CM_RED, 1 - k).strokeCircle(0, 0, r);
+      g.lineStyle(size * 0.13 * (1 - k), CM_BLACK, 1 - k).strokeCircle(0, 0, r * 0.76);
+      for (let i = 0; i < 10; i++) {
+        const a = i * 0.628 + 0.2, d = size * (0.3 + k * 1.3);
+        g.fillStyle(i % 2 ? CM_RED : CM_BLACK, 1 - k).fillTriangle(Math.cos(a) * d, Math.sin(a) * d, Math.cos(a + 0.24) * d * 0.6, Math.sin(a + 0.24) * d * 0.6, Math.cos(a - 0.24) * d * 0.6, Math.sin(a - 0.24) * d * 0.6);
+      }
+    }, 120);
+    scene.tweens.add({ targets: gash, alpha: 0, delay: 500, duration: 700, onComplete: () => gash.destroy() });
+  } });
+}
+

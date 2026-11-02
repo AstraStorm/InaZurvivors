@@ -19,7 +19,7 @@ const STYLE_PARTICLE: Record<FxStyle, string> = {
 
 const KW: [RegExp, FxStyle][] = [
   [/fuego|llama|ardient|infiern|inferno|calor|fénix|fenix|flamíg|ígne|lava|volc|magma|abrasad|solar|verano|amanecer|rojo|limonada|bisonte/i, 'fuego'],
-  [/ventisca|hielo|helad|glacia|nieve|congel|escarcha|polar|cristal|frío|frio|blizzard|diamant|niebla|sirena|burbuja/i, 'hielo'],
+  [/ventisca|hielo|helad|glacia|nieve|congel|escarcha|polar|cristal|frío|frio|blizzard|diamant|diamond|niebla|sirena|burbuja/i, 'hielo'],
   [/relámpago|relampago|rayo|trueno|eléctr|electr|chispa|inazuma|voltio|centell|plasma|gauss|bobina|volt|sónic|sonic|magnet/i, 'rayo'],
   [/oscur|sombr|diabl|maldi|negro|tiniebl|demon|agujero|umbr|vampir|víbora|cuervo|fantasm|supermasiv|réquiem|caos|ceniza/i, 'sombra'],
   [/divin|celest|sagrad|dios|ángel|angel|luz|estrella|planet|orbe|glorios|inocente|pluma|reinos/i, 'energia'],
