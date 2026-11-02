@@ -972,7 +972,8 @@ body.reduced-motion .ib-orbit, body.reduced-motion .ib-ball { animation: none; }
 .fav-tag { display: block; font-size: 6px; color: var(--muted); } .fav-tag.full { color: var(--ok); }
 
 /* results */
-.res-screen { position: relative; }
+/* Fix 1.3: la pantalla de resultados se queda fija y desplazable como las demás (con relative no se podía bajar en móvil) */
+.res-screen { position: absolute; }
 .res-skip { position: absolute; right: 12px; top: 12px; z-index: 3; }
 .res-head { display: flex; align-items: center; justify-content: center; gap: 14px; animation: resDrop .5s cubic-bezier(.2, 1.5, .4, 1) both; }
 .res-crest { width: 72px; height: 72px; image-rendering: pixelated; filter: drop-shadow(0 0 12px #ffe24a88); }
