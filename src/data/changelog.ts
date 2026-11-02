@@ -15,6 +15,11 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: '4.9', date: '2026-11-02', title: 'Fix 1.21',
+    features: ['Talentos 58 y 59 con los nombres elegidos por el autor: Femme fatale y Casanova.'],
+    fixes: [], visuals: [], balance: [],
+  },
+  {
     version: '4.8', date: '2026-11-02', title: 'v1.2',
     features: [
       'Las 36 formas Miximax son Mítico: entran las fusiones (Tezcat + Bailong, Mark + Arion, Arion + Tezcat...) y Simeon MM.',

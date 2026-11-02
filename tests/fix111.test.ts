@@ -140,8 +140,8 @@ describe('talents as in the games', () => {
     const { TALENTS, emptyFx, talentText } = await import('../src/systems/talents');
     const fx = (id: number) => { const f = emptyFx(); TALENTS[id].apply(f, 1); return f; };
     expect(fx(51).keeper).toBeGreaterThan(0); // Portero+: goalkeeper techniques
-    expect(fx(58).vsMale).toBeGreaterThan(0); // ¡Encanto +!
-    expect(fx(59).vsFemale).toBeGreaterThan(0); // ¡Guapo +!
+    expect(fx(58).vsMale).toBeGreaterThan(0); // Femme fatale
+    expect(fx(59).vsFemale).toBeGreaterThan(0); // Casanova
     expect(fx(57).stun).toBeGreaterThan(0); // ¡Trampa!
     expect(fx(68).curse).toBeGreaterThan(0); // Gafe
     expect(fx(64).idleRegen).toBeGreaterThan(0); // Pereza

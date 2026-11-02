@@ -6,7 +6,7 @@
  */
 import { CHANGELOG } from './changelog';
 
-export const PUBLIC_VERSION = '1.2';
+export const PUBLIC_VERSION = '1.21';
 export const BUILD = CHANGELOG[0].version;
 export const RELEASED = false;
 export const VERSION_LABEL = RELEASED ? `v${PUBLIC_VERSION}` : `v${PUBLIC_VERSION} · pre-lanzamiento`;
@@ -26,6 +26,21 @@ export interface PublicRelease {
 
 /** Public news, newest first. Starts at v1.0: the internal versions before it are not part of the public history. */
 export const PUBLIC_RELEASES: PublicRelease[] = [
+  {
+    version: '1.21',
+    title: 'InaZurvivors Fix 1.21 — Talentos, tarjetas y equipaciones de IE3',
+    tagline: 'Talentos que se notan, tarjetas que brillan y 54 equipaciones nuevas',
+    intro: 'Los talentos funcionan siempre y con sus nombres de la saga, las técnicas básicas dejan sitio a talentos, las tarjetas brillan según su rareza y casi todos los equipos de IE3 estrenan su equipación. Los rivales pegan más fuerte.',
+    features: [
+      { icon: '✦', title: 'Talentos de verdad', text: 'Siempre activos, con sus nombres: Femme fatale, Casanova, Ultratécnica, Carga elemental, Mejor garantía, Gafe...' },
+      { icon: '★', title: 'Tarjetas nuevas', text: 'Brillo según la rareza, media de estadísticas y radar en la ficha y en tu equipo.' },
+      { icon: '♜', title: 'Equipaciones de IE3', text: 'Earth Eleven, Zero, Protocol Omega, Orion y muchas más, con los colores del juego.' },
+      { icon: '⚡', title: 'Técnicas', text: 'Nombres de la saga en español y Tiro Supermasivo con animación propia.' },
+      { icon: '▲', title: 'Más reto', text: 'Los rivales pegan más y tus compañeros suman menos vida.' },
+      { icon: '◆', title: 'Móvil', text: 'La interfaz se ajusta sola a pantallas pequeñas.' },
+    ],
+    start: ['Mira el radar de tus futbolistas en la Enciclopedia', 'Prueba una equipación de IE3', 'Sobrevive a la recta final'],
+  },
   {
     version: '1.2',
     title: 'InaZurvivors v1.2 — Miximax, técnicas propias y tres arenas nuevas',

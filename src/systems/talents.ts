@@ -26,9 +26,9 @@ const addElem = (f: TalentFx, e: string, v: number) => { f.element[e] = (f.eleme
 
 /**
  * Keyed by technique id. `name` is the name shown everywhere: the official Spanish one of IE2 (Mejor garantía for 77; the
- * author keeps ¡Encanto +! and ¡Guapo +!).
+ * author chose Femme fatale and Casanova for 58 and 59 in Fix 1.21).
  * Fix 1.11: every talent does what it does in the games, translated to this one (its text is generated from these numbers,
- * describeFx): Portero+ strengthens goalkeeper techniques, ¡Encanto +! works on male rivals and ¡Guapo +! on female ones,
+ * describeFx): Portero+ strengthens goalkeeper techniques, Femme fatale works on male rivals and Casanova on female ones,
  * ¡Trampa! (Ikasama) freezes rivals for an instant, Gafe (Yakubyougami) curses them, Pereza heals only standing still...
  */
 export const TALENTS: Record<number, Effect> = {
@@ -39,8 +39,8 @@ export const TALENTS: Record<number, Effect> = {
   55: { name: 'Ataque+', text: 'Regates más fuertes', apply: (f, k) => addType(f, 'regate', 0.1 * k) },
   56: { name: 'Recobro', text: 'Recupera vida con el tiempo', apply: (f, k) => { f.regen += 0.0015 * k; } },
   57: { name: 'Piscinazo', text: 'A veces deja al rival clavado en el sitio', apply: (f, k) => { f.stun += 0.05 * k; f.crit += 0.01 * k; } },
-  58: { name: '¡Encanto +!', text: 'Más daño contra rivales masculinos', apply: (f, k) => { f.vsMale += 0.15 * k; } },
-  59: { name: '¡Guapo +!', text: 'Más daño contra rivales femeninas', apply: (f, k) => { f.vsFemale += 0.15 * k; } },
+  58: { name: 'Femme fatale', text: 'Más daño contra rivales masculinos', apply: (f, k) => { f.vsMale += 0.15 * k; } },
+  59: { name: 'Casanova', text: 'Más daño contra rivales femeninas', apply: (f, k) => { f.vsFemale += 0.15 * k; } },
   60: { name: 'Ahorro', text: 'Técnicas más frecuentes', apply: (f, k) => { f.cooldown += 0.05 * k; } },
   61: { name: 'Ultratécnica', text: 'Todas las técnicas más fuertes', apply: (f, k) => { f.team += 0.04 * k; f.cooldown += 0.02 * k; } },
   62: { name: 'Carga elemental', text: 'Efecto elemental más frecuente y más fuerte', apply: (f, k) => { f.elemental += 0.03 * k; f.elementalPower += 0.15 * k; } },
