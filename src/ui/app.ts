@@ -32,7 +32,7 @@ import { championsTable, recordTriumph } from '../systems/hallOfFame';
 import { BUILD, CURRENT_PUBLIC, DEVLOG_SHOTS, PUBLIC_VERSION, RELEASED, TIKTOK_PATH, TIKTOK_URL, VERSION_LABEL } from '../data/release';
 import { buildMeta, CATEGORIES, SEVERITIES, SHOT_MAX_BYTES, SHOT_MAX_SIDE, SHOT_TYPES, STATUS_LABEL, TECH_FIELDS, validateBug, validateShot } from '../systems/bugReport';
 import { elementIcon } from './elements';
-import { playerStats, resetTraining, trainingOf, trainingUsed, trainStat, TRAIN_MAX, type StatKey } from '../systems/training';
+import { playerStats, resetTraining, trainingOf, trainingUsed, trainRoom, trainStat, trimTraining, TRAIN_MAX, type StatKey } from '../systems/training';
 import { ASC_BONUS, ASC_COSTS, HERO_AURA, HERO_STARS_MAX, migrateHeroes131, type AscStep, ascend, ascMultipliers, effectiveRarity, isHero, nextStep, rarityUp, sparesOf } from '../systems/ascension';
 import { USERNAME_MAX, validateUsername } from '../systems/username';
 import { ALTAR_COLOR, ALTAR_ICON, ALTAR_INFO, ALTAR_MODE, ALTAR_REWARD } from '../systems/altars';
@@ -161,6 +161,7 @@ export class App {
     if (remapIds(save, m.idAliases)) storeSave(save); // characters now on another ROM record keep their progress
     if (remapTechSlots(save, m.techRemaps) >= 0) storeSave(save); // repertoires that changed order keep their purchases
     if (migrateHeroes131(save, m.roster)) storeSave(save); // Fix 1.31: Míticos ascended the old way become HÉROE
+    if (this.trimAllTraining(save, m.roster)) storeSave(save); // Fix 1.31: points stuck above 99 come back
     if (m.profile && !iconAllowed(save, m.roster, m.profile.emblems, m.profile.coaches)) save.profile.icon = { kind: 'emblem', id: DEFAULT_EMBLEM };
     initPreviews(m);
     setTeamSagas(m.teamSagas);
@@ -869,6 +870,13 @@ export class App {
     if (this.save.tutorial === 'pendiente' && this.save.onboardingDone) window.setTimeout(() => { if (this.screenKey === 'menu-mode') this.tutorial(); }, 400);
   }
 
+  /** Fix 1.31: training points that no stat can use (it already reaches 99) go back to the player, on load. */
+  private trimAllTraining(save: SaveData, roster: RosterEntry[]) {
+    let back = 0;
+    for (const p of roster) if (save.owned[String(p.id)]?.train && p.stats) back += trimTraining(save, p, effectiveRarity(save, p), isHero(save, p.id));
+    return back;
+  }
+
   // ------------------------------------------------------------- ascension
   /** Ascension screen: current and next stage, duplicates, cost, before/after, unlocks, confirm and transformation. */
   ascension(id: number, back: () => void) {
@@ -910,7 +918,10 @@ export class App {
       go.disabled = true; // one operation: the button can't fire twice while the animation plays
       const step = ascend(this.save, p);
       if (!step) { sfx('error'); return; }
+      // Fix 1.31: training points the new stats can't use any more come back
+      const returned = trimTraining(this.save, p, effectiveRarity(this.save, p), isHero(this.save, p.id));
       this.persist();
+      if (returned) window.setTimeout(() => this.toast(`Te devolvemos ${returned} ${returned === 1 ? 'punto' : 'puntos'} de entrenamiento: esas estadísticas ya llegan a 99`, 4500), 1600);
       box.querySelector('.asc-card')!.classList.add('transform');
       sfx('legend');
       if (this.save.settings.particles !== 'desactivado') confetti(step === 'ascenso' ? 50 : 90);
@@ -1241,6 +1252,7 @@ export class App {
     remapIds(this.save, this.m.idAliases);
     remapTechSlots(this.save, this.m.techRemaps);
     migrateHeroes131(this.save, this.m.roster);
+    this.trimAllTraining(this.save, this.m.roster);
     this.captainId = this.save.captainId;
     this.cloudLinked = true;
     this.cloudState = { status: 'ok', at: Date.now(), msg: '' };
@@ -1757,7 +1769,9 @@ export class App {
     this.on('[data-ascend]', 'click', (_e, el) => this.ascension(Number(el.dataset.ascend), () => this.collection(Number(el.dataset.ascend))));
     this.on('[data-train]', 'click', (_e, el) => {
       const id = Number(el.dataset.pid);
-      if (trainStat(this.save, id, el.dataset.train as StatKey)) { this.persist(); sfx('powerup'); this.collection(id); } else sfx('error');
+      const p = this.byId.get(id), key = el.dataset.train as StatKey;
+      const room = p?.stats ? trainRoom(this.save, p, effectiveRarity(this.save, p), isHero(this.save, id))[key] : Infinity;
+      if (trainStat(this.save, id, key, room)) { this.persist(); sfx('powerup'); this.collection(id); } else sfx('error');
     });
     this.on('[data-trainreset]', 'click', (_e, el) => this.armed(el, () => { const id = Number(el.dataset.trainreset); resetTraining(this.save, id); this.persist(); sfx('click'); this.collection(id); }));
     this.on('[data-compare]', 'click', (_e, el) => { const id = Number(el.dataset.compare); this.compareWith = this.compareWith === id ? null : id; this.collection(id); });
@@ -1932,9 +1946,11 @@ export class App {
     if (!this.owned(d.id)) return '';
     const used = trainingUsed(this.save, d.id), tr = trainingOf(this.save, d.id), have = this.save.trainTokens ?? 0;
     const can = have > 0 && used < TRAIN_MAX;
+    const room = d.stats ? trainRoom(this.save, d, effectiveRarity(this.save, d), isHero(this.save, d.id)) : null;
     return `<div class="train-box"><div class="train-head"><b>Entrenamiento ${used}/${TRAIN_MAX}</b><span>Fichas de entrenamiento: <b>${have}</b></span>
       ${used ? `<button class="btn small blue" data-trainreset="${d.id}">Devolver puntos</button>` : ''}</div>
-      <div class="train-row">${STAT_INFO.map((s) => `<button class="btn small" data-train="${s.key}" data-pid="${d.id}" ${can ? '' : 'disabled'}>${s.short}${tr[s.key as StatKey] ? ` +${tr[s.key as StatKey]}` : ''} ＋</button>`).join('')}</div>
+      <div class="train-row">${STAT_INFO.map((s) => { const full = (room?.[s.key as StatKey] ?? 1) <= 0; // Fix 1.31: a stat at 99 takes no more points
+        return `<button class="btn small${full ? ' maxed' : ''}" data-train="${s.key}" data-pid="${d.id}" ${can && !full ? '' : 'disabled'} title="${full ? 'Al máximo (99)' : ''}">${s.short}${tr[s.key as StatKey] ? ` +${tr[s.key as StatKey]}` : ''} ${full ? 'MÁX' : '＋'}</button>`; }).join('')}</div>
       <div class="note">Cada ficha suma 1 punto a la estadística que elijas (máximo ${TRAIN_MAX} por futbolista). Se ganan con victorias, rangos superados, supervivencia infinita, misiones semanales y logros.</div></div>`;
   }
 

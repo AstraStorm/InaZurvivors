@@ -1223,6 +1223,24 @@ describe('Fix 1.3 stats and training', () => {
     const shaped = rebuildStats({ kick: 90, control: 50, guard: 50, body: 50, speed: 50, guts: 50, stamina: 50 }, 'raro');
     expect(shaped.kick).toBeGreaterThan(shaped.guard + 20); // the profile is kept
   });
+  it('Fix 1.31: a stat at 99 takes no more points, and points an upgrade makes useless come back', async () => {
+    const { trainRoom, trainStat, trimTraining, playerStats } = await import('../src/systems/training');
+    const s = newSave([], null);
+    const p = { id: 9, rarity: 'mitico', position: 'FW', stats: { kick: 99, control: 90, guard: 60, body: 80, speed: 95, guts: 85, stamina: 70 } } as never as RosterEntry;
+    s.owned['9'] = { stars: 0, copies: 1, obtainedAt: 'x' };
+    s.trainTokens = 40;
+    const room = trainRoom(s, p, 'mitico', false).kick;
+    for (let i = 0; i < room; i++) expect(trainStat(s, 9, 'kick', trainRoom(s, p, 'mitico', false).kick)).toBe(true);
+    expect(playerStats(s, p, 'mitico', false).kick).toBe(99);
+    expect(trainStat(s, 9, 'kick', trainRoom(s, p, 'mitico', false).kick)).toBe(false); // maxed
+    const before = s.trainTokens;
+    s.owned['9'].hero = true; s.owned['9'].heroStars = 3; // the upgrade raises the base: those points are useless now
+    const back = trimTraining(s, p, 'mitico', true);
+    expect(back).toBeGreaterThan(0);
+    expect(s.trainTokens).toBe(before + back);
+    expect(playerStats(s, p, 'mitico', true).kick).toBe(99);
+    expect(trimTraining(s, p, 'mitico', true)).toBe(0);
+  });
   it('Fix 1.31: each position has its shape (a forward shoots, a defender defends) with the same mean', async () => {
     const { rebuildStats, STAT_KEYS } = await import('../src/systems/training');
     const raw = { kick: 70, control: 70, guard: 70, body: 70, speed: 70, guts: 70, stamina: 70 };
