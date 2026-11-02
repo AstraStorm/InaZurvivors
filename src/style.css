@@ -1224,3 +1224,11 @@ body.reduced-motion .ib-orbit, body.reduced-motion .ib-ball { animation: none; }
   .rank-btn { align-items: center; padding: 4px 2px; min-height: 44px; } .rank-btn span, .rk-word { display: none; }
   .rank-blurb { display: block; margin-top: 6px; }
 }
+
+/* Fix 1.13: móvil en horizontal (unos 330 px de alto): el minimapa baja a la izquierda, bajo el panel del capitán, y no tapa la pausa */
+@media (max-height: 520px) and (orientation: landscape) {
+  .hud .minimap { top: 104px; bottom: auto; left: 8px; right: auto; width: 92px; height: 70px; }
+  .ranks { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; }
+  .rank-btn { align-items: center; padding: 4px 2px; min-height: 44px; } .rank-btn span, .rk-word { display: none; }
+  .rank-blurb { display: block; margin-top: 6px; }
+}

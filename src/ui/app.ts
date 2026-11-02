@@ -69,6 +69,14 @@ const FORMATION_ICON = (f: FormationId, size = 46) => {
 
 /** marks the public news as read; changes with each public version */
 const NEWS_KEY = `publico-${PUBLIC_VERSION}`;
+/**
+ * The interface was laid out for screens about 460 px on their short side; a phone is smaller (≈330 px tall in landscape),
+ * so on touch screens it shrinks to fit, never under 60%. The player's own scale setting multiplies this.
+ */
+export function autoUiScale() {
+  const touch = window.matchMedia?.('(pointer: coarse)').matches || 'ontouchstart' in window;
+  return touch ? Math.max(0.6, Math.min(1, Math.min(window.innerWidth, window.innerHeight) / 460)) : 1;
+}
 
 /** Fits a screenshot in SHOT_MAX_SIDE and the 2 MB limit, re-encoded (which also drops any metadata of the file). */
 async function shrinkShot(src: Blob | HTMLImageElement): Promise<Blob> {
@@ -127,6 +135,7 @@ export class App {
     setMusicSource(save.settings.musicSource);
     this.applyAudio();
     this.applyMotion();
+    window.addEventListener('resize', () => this.applyMotion());
     document.addEventListener('click', (e) => { if ((e.target as HTMLElement).closest('button')) sfx('click'); });
     if ('ontouchstart' in window || navigator.maxTouchPoints > 0) document.body.classList.add('touch');
     initGamepad(() => {
@@ -355,7 +364,7 @@ export class App {
   }
   private applyMotion() {
     document.body.classList.toggle('reduced-motion', this.save.settings.reducedMotion);
-    document.documentElement.style.setProperty('--ui-scale', String(this.save.settings.uiScale));
+    document.documentElement.style.setProperty('--ui-scale', String(Math.round(this.save.settings.uiScale * autoUiScale() * 100) / 100));
   }
 
   // ---- kit portraits: original head portrait + the ROM's portrait torso of the equipped kit, composed once and cached

@@ -309,14 +309,15 @@ function chaosOrb(g: Phaser.GameObjects.Graphics, size: number, spin: number) {
 }
 
 /**
- * The windup of Chaos Meteor as the wiki describes it: the surroundings turn dark blue, a vortex of black and red swirls
+ * The windup of Chaos Meteor as the wiki describes it: the surroundings turn dark blue (here, around the player), a vortex of black and red swirls
  * covers the user, and it closes over the ball into a huge orb above them. Returns nothing: the shot follows after `ms`.
  */
 export function chaosMeteorCharge(scene: S, x: number, y: number, size: number, ms: number) {
-  const cam = scene.cameras.main;
-  const dark = scene.add.rectangle(cam.width / 2, cam.height / 2, cam.width * 1.2, cam.height * 1.2, 0x061a5c, 0).setScrollFactor(0).setDepth(8800);
-  scene.tweens.add({ targets: dark, fillAlpha: 0.6, duration: ms * 0.35 });
-  scene.tweens.add({ targets: dark, fillAlpha: 0, delay: ms, duration: 260, onComplete: () => dark.destroy() });
+  animate(scene, x, y, 8899, ms, (g, k) => {
+    // the dark blue of the scene, only around the player: the rest of the pitch keeps its colours
+    const a = Math.min(1, k * 3);
+    for (let i = 0; i < 4; i++) g.fillStyle(0x0b1f6e, 0.16 * a).fillEllipse(0, 0, size * (4.6 - i * 0.9), size * (2.5 - i * 0.5));
+  }, 260);
   animate(scene, x, y, 8900, ms, (g, k) => {
     const close = 1 - k * 0.72, rot = k * 13;
     g.fillStyle(CM_BLACK, 0.5 * Math.min(1, k * 3)).fillEllipse(0, 2, size * 2.1 * close, size * 0.9 * close);

@@ -25,6 +25,7 @@ export const CHANGELOG: Release[] = [
     ],
     fixes: [
       'Los efectos temporales nuevos ya no muestran «undefined» en la barra de efectos.',
+      'Móvil: la interfaz se escala sola en pantallas pequeñas (unos 330 px de alto en horizontal), minimapa sin tapar la pausa y Tiro Supermasivo sin oscurecer toda la pantalla.',
       'Móvil: la barra del jefe no pisa el panel del capitán y el selector de dificultad ocupa mucho menos.',
       'Móvil: la subida de nivel cabe entera, resultados legibles en horizontal, texto mínimo de 8 px, toques más cómodos y zonas seguras de la muesca.',
     ],
