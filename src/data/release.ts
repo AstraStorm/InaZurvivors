@@ -6,7 +6,7 @@
  */
 import { CHANGELOG } from './changelog';
 
-export const PUBLIC_VERSION = '1.31';
+export const PUBLIC_VERSION = '1.32';
 export const BUILD = CHANGELOG[0].version;
 export const RELEASED = false;
 export const VERSION_LABEL = RELEASED ? `v${PUBLIC_VERSION}` : `v${PUBLIC_VERSION} · pre-lanzamiento`;
@@ -16,6 +16,8 @@ export const TIKTOK_PATH = 'M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.0
 
 export interface PublicRelease {
   version: string;
+  /** Fix 1.32: publication day (YYYY-MM-DD), for the news board */
+  date: string;
   title: string;
   tagline: string;
   intro: string;
@@ -27,7 +29,20 @@ export interface PublicRelease {
 /** Public news, newest first. Starts at v1.0: the internal versions before it are not part of the public history. */
 export const PUBLIC_RELEASES: PublicRelease[] = [
   {
-    version: '1.31',
+    version: '1.32', date: '2026-11-02',
+    title: 'InaZurvivors 1.32 — Tablón de noticias',
+    tagline: 'Tablón de noticias con todo el registro de actualizaciones, tarjetas con más vida y un Mi Equipo mucho más cómodo',
+    intro: 'Novedades se convierte en Noticias: a la izquierda tienes todas las entradas, con su etiqueta y su fecha, y a la derecha la noticia completa. Ahí verás los avisos y novedades del desarrollo y el registro de todas las actualizaciones desde la v1.0.',
+    features: [
+      { icon: '📰', title: 'Tablón de noticias', text: 'Lista de noticias con etiquetas (Novedad, Aviso, Actualización, Evento), noticias fijadas, fecha y aviso de las que aún no has leído.' },
+      { icon: '📜', title: 'Registro completo', text: 'Todas las actualizaciones públicas, de la v1.0 a hoy, se quedan guardadas para consultarlas cuando quieras.' },
+      { icon: '✨', title: 'Tarjetas con más vida', text: 'Se inclinan hacia el ratón con un reflejo, brillan con el color de su rareza y sus distintivos ya no se tapan entre sí.' },
+      { icon: '♜', title: 'Mi Equipo más cómodo', text: 'Un clic añade o quita a un futbolista, arrastra para colocar o intercambiar, Autocompletar con tus mejores, Vaciar, y orden por media, rareza o nombre.' },
+    ],
+    start: ['Abre Noticias desde el menú', 'Lee las que tienen el punto de no leída'],
+  },
+  {
+    version: '1.31', date: '2026-11-02',
     title: 'InaZurvivors Fix 1.31 — Pingüinos, sagas y ranking por puntos',
     tagline: 'Una máquina por saga con precios claros, técnicas de pingüinos, flores y tiburones dibujadas, ranking por puntos y muchos más logros',
     intro: 'Cada saga tiene su máquina de fichajes y cuanto más Míticos tiene, más cuesta. Los Pingüinos emperador, Tiburón de las profundidades, Lecho de rosas y compañía se ven como en la serie. El ranking ordena por puntos (el rango es lo que más cuenta) y se puede filtrar por tiempo, daño o rango.',
@@ -46,7 +61,7 @@ export const PUBLIC_RELEASES: PublicRelease[] = [
     start: ['Prueba la máquina de tu saga favorita', 'Mira las sinergias en Mi Equipo', 'Busca tu posición en el ranking por puntos'],
   },
   {
-    version: '1.3',
+    version: '1.3', date: '2026-11-02',
     title: 'InaZurvivors 1.3 — Asciende, entrena y juega más duro',
     tagline: 'Todos pueden llegar a HÉROE, los duplicados están equilibrados, los rivales aprietan más y las equipaciones de IE3 por fin cuadran',
     intro: 'Cualquier futbolista, también los Comunes, puede ascender y convertirse en HÉROE con sus duplicados; cuanto más fácil es que salga, más copias pide. Los bustos de Inazuma Japón, Zero y el resto de equipos de IE3 llevan su propia equipación, y el gacha se salta con Espacio.',
@@ -64,7 +79,7 @@ export const PUBLIC_RELEASES: PublicRelease[] = [
     start: ['Entrena a tu capitán en su ficha', 'Mira qué futbolistas puedes ascender en la Enciclopedia', 'Tira en la máquina y pulsa Espacio'],
   },
   {
-    version: '1.22',
+    version: '1.22', date: '2026-11-02',
     title: 'InaZurvivors Fix 1.22 — Tarjetas, estadísticas y un gacha memorable',
     tagline: 'Cada rareza se ve distinta, las estadísticas por fin cuentan y conseguir un Legendario es un momento',
     intro: 'Las tarjetas tienen un lenguaje propio por rareza y ya no cortan sus efectos al seleccionarlas. Las estadísticas de cada futbolista afectan a la partida y se explican en su ficha, donde además puedes comparar dos jugadores. Los Legendarios, Míticos y Leyendas llegan con una escena propia.',
@@ -80,7 +95,7 @@ export const PUBLIC_RELEASES: PublicRelease[] = [
     start: ['Tira en la máquina de fichajes', 'Compara a dos futbolistas en la Enciclopedia', 'Prueba a Axel con Tormenta de fuego'],
   },
   {
-    version: '1.21',
+    version: '1.21', date: '2026-11-02',
     title: 'InaZurvivors Fix 1.21 — Talentos, tarjetas y equipaciones de IE3',
     tagline: 'Talentos que se notan, tarjetas que brillan y 54 equipaciones nuevas',
     intro: 'Los talentos funcionan siempre y con sus nombres de la saga, las técnicas básicas dejan sitio a talentos, las tarjetas brillan según su rareza y casi todos los equipos de IE3 estrenan su equipación. Los rivales pegan más fuerte.',
@@ -95,7 +110,7 @@ export const PUBLIC_RELEASES: PublicRelease[] = [
     start: ['Mira el radar de tus futbolistas en la Enciclopedia', 'Prueba una equipación de IE3', 'Sobrevive a la recta final'],
   },
   {
-    version: '1.2',
+    version: '1.2', date: '2026-11-02',
     title: 'InaZurvivors v1.2 — Miximax, técnicas propias y tres arenas nuevas',
     tagline: 'Las fusiones llegan como Míticos, cada futbolista lleva sus técnicas y hay tres arenas más',
     intro: 'Tezcat + Bailong, Mark + Arion y las demás fusiones Miximax ya se pueden fichar. Casi todo el plantel recupera sus técnicas firma, Ares y Orion incluidos, y estrenamos el Parque del Alpino, el Claustro Sagrado y la Isla Mary Times.',
@@ -111,7 +126,7 @@ export const PUBLIC_RELEASES: PublicRelease[] = [
     start: ['Busca un Miximax en los fichajes', 'Mira las técnicas nuevas de tus futbolistas en la Enciclopedia', 'Supera el Estadio Zeus para abrir el Parque del Alpino'],
   },
   {
-    version: '1.12',
+    version: '1.12', date: '2026-11-02',
     title: 'InaZurvivors Fix 1.12 — Más impacto, mejor en móvil',
     tagline: 'Técnicas combinadas nuevas, tienda renovada, códigos de regalo y un menú con ranking y pase a lo grande',
     intro: 'El combate pega más fuerte, llegan El Fénix, La Tierra y Remate caótico, y los eventos tienen a su robot. Además: tienda con diez ofertas, códigos promocionales, una dificultad más progresiva y un móvil mucho más cómodo.',
@@ -127,7 +142,7 @@ export const PUBLIC_RELEASES: PublicRelease[] = [
     start: ['Reclama tu pase semanal desde el menú', 'Canjea tu código en CÓDIGOS', 'Junta a Erik, Bobby y Mark para El Fénix'],
   },
   {
-    version: '1.11',
+    version: '1.11', date: '2026-11-01',
     title: 'InaZurvivors Fix 1.11 — El capitán manda',
     tagline: 'Solo tu capitán recibe daño, gachas por saga y un pase semanal gratis',
     intro: 'Tus compañeros son apoyo invulnerable y solo el capitán puede caer. Llegan gachas por saga y por equipo con probabilidades exactas, un pase semanal gratuito, más misiones, objetos y mejoras, y una economía más exigente.',
@@ -144,7 +159,7 @@ export const PUBLIC_RELEASES: PublicRelease[] = [
     start: ['Elige tu formación: ahora cambia cómo protegen tus compañeros', 'Reclama el día 1 del pase semanal', 'Prueba la gacha de tu equipo favorito'],
   },
   {
-    version: '1.1',
+    version: '1.1', date: '2026-11-01',
     title: 'InaZurvivors v1.1 — Más técnicas, más fichajes',
     tagline: 'Técnicas de GO, nueva máquina de fichajes y vuelve la introducción',
     intro: 'Los futbolistas de GO, Chrono Stone y Galaxy aprenden sus técnicas de los juegos originales, la máquina de fichajes gira como una de verdad y conseguir fichas es más rápido.',
@@ -158,7 +173,7 @@ export const PUBLIC_RELEASES: PublicRelease[] = [
     start: ['Abre el juego y disfruta la introducción', 'Pulsa Continuar con tu club', 'Prueba la nueva máquina de fichajes'],
   },
   {
-    version: '1.0',
+    version: '1.0', date: '2026-11-01',
     title: 'InaZurvivors v1.0 — ¡Comienza la aventura!',
     tagline: 'La primera versión pública',
     intro: 'Un fangame roguelite de supervivencia inspirado en el universo de Inazuma Eleven: recluta futbolistas, mejora sus supertécnicas y aguanta oleadas de rivales cada vez más duras.',

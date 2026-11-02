@@ -29,7 +29,15 @@ import { COMBOS } from '../systems/combos';
 import { CLUB_CHEMISTRY, kitBonus } from '../systems/kitBonus';
 import { squadPotential } from '../systems/synergy';
 import { championsTable, recordTriumph } from '../systems/hallOfFame';
-import { BUILD, CURRENT_PUBLIC, DEVLOG_SHOTS, PUBLIC_VERSION, RELEASED, TIKTOK_PATH, TIKTOK_URL, VERSION_LABEL } from '../data/release';
+import { BUILD, CURRENT_PUBLIC, PUBLIC_VERSION, TIKTOK_PATH, TIKTOK_URL, VERSION_LABEL } from '../data/release';
+import { allNews, LATEST_NEWS_ID, NEWS_KIND_LABEL, type NewsItem } from '../data/news';
+/** Fix 1.32: news text: escaped, **bold** allowed */
+const newsText = (t: string) => esc(t).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
+/** «Hoy», «Ayer», «Hace 3 días» or «2 nov» */
+function newsRelDate(d: string) {
+  const days = Math.round((new Date().setHours(12, 0, 0, 0) - new Date(`${d}T12:00:00`).getTime()) / 86400000);
+  return days <= 0 ? 'Hoy' : days === 1 ? 'Ayer' : days < 7 ? `Hace ${days} días` : new Date(`${d}T12:00:00`).toLocaleDateString('es', { day: 'numeric', month: 'short' });
+}
 import { buildMeta, CATEGORIES, SEVERITIES, SHOT_MAX_BYTES, SHOT_MAX_SIDE, SHOT_TYPES, STATUS_LABEL, TECH_FIELDS, validateBug, validateShot } from '../systems/bugReport';
 import { elementIcon } from './elements';
 import { playerStats, resetTraining, trainingOf, trainingUsed, trainRoom, trainStat, trimTraining, TRAIN_MAX, type StatKey } from '../systems/training';
@@ -49,7 +57,7 @@ import { bindStick, initGamepad } from './gamepad';
 import { confetti, countUp, flyTo } from './rewardFx';
 import { MASTERY_BONUS, MASTERY_USES, masteryLevel, masteryProgress, recordMastery } from '../systems/mastery';
 import { MAX_TEAM, startingTech, type Card } from '../systems/cards';
-import { SQUAD_SIZE, fillSquad, makeCaptain, placeInSquad, removeFromSquad, squadOf } from '../systems/squad';
+import { setSquad, SQUAD_SIZE, fillSquad, makeCaptain, placeInSquad, removeFromSquad, squadOf } from '../systems/squad';
 import type { ArenaInit, ArenaScene, HudState, MarkerState, Poi } from '../game/ArenaScene';
 import { charCanvas, initPreviews, mountPreviews, setPreviewKit } from './sprites';
 import { sfx, setVolume } from '../game/sfx';
@@ -72,7 +80,7 @@ const FORMATION_ICON = (f: FormationId, size = 46) => {
 };
 
 /** marks the public news as read; changes with each public version */
-const NEWS_KEY = `publico-${PUBLIC_VERSION}`;
+const NEWS_KEY = `noticias-${LATEST_NEWS_ID}`; // Fix 1.32: the menu marks Noticias until the newest item has been seen
 /**
  * The interface was laid out for screens about 460 px on their short side; a phone is smaller (≈330 px tall in landscape),
  * so on touch screens it shrinks to fit, never under 60%. The player's own scale setting multiplies this.
@@ -146,7 +154,9 @@ export class App {
   private menuKit = '';
   private missionTab: MissionKind = 'diaria';
   private missionFilter: 'todas' | 'disponibles' | 'pendientes' | 'reclamadas' = 'todas';
-  private squadFilter = { q: '', rarity: '', pos: '' };
+  private squadFilter = { q: '', rarity: '', pos: '', el: '', sort: 'media' };
+  /** Fix 1.32: the player chose a slot on purpose (the next pick goes there) */
+  private squadPicked = false;
   private squadLimit = 48;
 
   constructor(private game: Phaser.Game, private m: Manifest, private save: SaveData,
@@ -165,6 +175,21 @@ export class App {
     if (m.profile && !iconAllowed(save, m.roster, m.profile.emblems, m.profile.coaches)) save.profile.icon = { kind: 'emblem', id: DEFAULT_EMBLEM };
     initPreviews(m);
     setTeamSagas(m.teamSagas);
+    // Fix 1.32: cards tilt towards the pointer and a glare follows it (CSS reads --rx --ry --gx --gy); mouse only
+    let tiltRaf = 0;
+    document.addEventListener('pointermove', (e) => {
+      if (e.pointerType !== 'mouse' || tiltRaf) return;
+      tiltRaf = requestAnimationFrame(() => {
+        tiltRaf = 0;
+        const card = (e.target as Element | null)?.closest?.('.pcard:not(.locked)') as HTMLElement | null;
+        if (!card) return;
+        const r = card.getBoundingClientRect(), x = (e.clientX - r.left) / r.width, y = (e.clientY - r.top) / r.height;
+        card.style.setProperty('--ry', `${((x - 0.5) * 14).toFixed(1)}deg`);
+        card.style.setProperty('--rx', `${((0.5 - y) * 12).toFixed(1)}deg`);
+        card.style.setProperty('--gx', `${Math.round(x * 100)}%`);
+        card.style.setProperty('--gy', `${Math.round(y * 100)}%`);
+      });
+    }, { passive: true });
     setTeamLabels(m.teamLabels);
     setPreviewKit(m.kits?.[save.kit] ?? null);
     initMusic(m.music?.tracks ?? [], m.music?.contexts);
@@ -574,15 +599,18 @@ export class App {
     const stars = !opts.locked && o ? `<div class="stars" title="${o.stars} de ${MAX_STARS} estrellas">${Array.from({ length: MAX_STARS }, (_, i) => starSvg(`st${i < o.stars ? ' on' : ''}`)).join('')}${heroStars}</div>` : '<div class="stars"></div>';
     const spare = !opts.locked && o ? sparesOf(this.save, p.id) : 0, step = !opts.locked && o ? nextStep(this.save, p) : null;
     const canAsc = !!step && spare >= step.cost;
-    const flags = `${spare ? `<span class="card-dup" title="Duplicados sin usar${step ? ` (${step.step === 'heroe' ? 'HÉROE' : 'ascenso'}: ${step.cost})` : ''}">+${spare} dup.${step && !canAsc ? ` <i>${spare}/${step.cost}</i>` : ''}</span>` : ''}${canAsc ? '<span class="card-asc" title="Ascensión disponible">▲ ASCENDER</span>' : ''}`;
+    // Fix 1.32: corner flags stack in one column (top left) and the duplicates, stars and check share a footer row, so
+    // nothing overlaps any more (they were absolute and piled up on each other)
+    const dup = spare ? `<span class="card-dup" title="Duplicados sin usar${step ? ` (${step.step === 'heroe' ? 'HÉROE' : step.step === 'estrella' ? 'estrella de héroe' : 'ascenso'}: ${step.cost})` : ''}">+${spare}${step && !canAsc ? ` <i>${spare}/${step.cost}</i>` : ''}</span>` : '<span></span>';
+    const top = `${opts.badge ? `<span class="badge">${esc(opts.badge)}</span>` : ''}${opts.captain ? '<span class="captain-badge">C</span>' : ''}${canAsc ? '<span class="card-asc" title="Ascensión disponible">▲ ASCENDER</span>' : ''}`;
     const er = opts.locked ? p.rarity : effectiveRarity(this.save, p);
     return `<div class="pcard r-${er}${opts.locked ? ' locked' : ''}${opts.sel ? ' sel' : ''}${opts.big ? ' big' : ''}${!opts.locked && isHero(this.save, p.id) ? ' hero' : ''}" data-id="${p.id}" style="--rc:${RARITY_COLOR[er]}">
-      ${opts.badge ? `<span class="badge">${esc(opts.badge)}</span>` : ''}${opts.captain ? '<span class="captain-badge">C</span>' : ''}${flags}${opts.sel ? '<span class="card-check">✔</span>' : ''}
+      ${top ? `<div class="pc-top">${top}</div>` : ''}<i class="pc-glare"></i>
       ${this.emblemOf(p.teams[0]) ? `<img class="card-crest" src="${this.emblemOf(p.teams[0])}" alt="">` : ''}
       <div class="stage${opts.locked ? ' dark' : ''}">${!opts.locked && p.stats ? `<span class="ovr" title="Media de estadísticas">${statMean(this.statsOf(p)!)}</span>` : ''}${this.mug(p.id, 128)}${opts.locked ? '<span class="qmark">?</span><span class="lock-tag">Bloqueado</span>' : `<span class="minisprite">${charCanvas(p.id, 2, opts.anim ?? 4)}</span>`}</div>
       <div class="name">${opts.locked ? '???' : esc(p.name)}</div>
       <div class="chips"><span class="pos">${POS_LABEL[p.position] ?? p.position}</span>${opts.locked ? '' : this.elem(p)}</div>
-      ${this.rar(p)}${icons}${stars}</div>`;
+      ${this.rar(p)}${icons}<div class="pc-foot">${dup}${stars}${opts.sel ? '<span class="card-check">✔</span>' : '<span></span>'}</div></div>`;
   }
 
   // ------------------------------------------------------------- intro cinematic
@@ -801,7 +829,7 @@ export class App {
             ${tile('gear', '▣', 'EQUIPAMIENTO', 'Botas y accesorios')}
             ${tile('ranking', '♛', 'RANKING', onlineConfigured() ? 'Global' : 'Tus marcas')}
             ${tile('hall', '🏆', 'SALÓN DE LA FAMA', `${(this.save.hall ?? []).length} victorias`)}
-            ${tile('devlog', '✎', 'NOVEDADES', `v${PUBLIC_VERSION}`, '', unseenLog ? 1 : 0)}
+            ${tile('devlog', '📰', 'NOTICIAS', unseenLog ? '¡Hay novedades!' : `v${PUBLIC_VERSION}`, '', unseenLog ? 1 : 0)}
             ${tile('options', '⚙', 'AJUSTES', 'Sonido, cámara y copia')}
           </nav>
         </section>
@@ -810,8 +838,8 @@ export class App {
           <div class="hero-plate"><small>${this.captainId === feat.id ? 'TU CAPITÁN' : 'TU ESTRELLA'}</small><b>${esc(feat.name)}</b><div>${this.rar(feat)} ${this.elem(feat)}</div>
             ${feat.stats ? `<div class="hero-stats"><span class="ovr">${statMean(this.statsOf(feat)!)}</span>${statRadar(this.statsOf(feat)!, STAT_SHORT, RARITY_COLOR[effectiveRarity(this.save, feat)])}</div><button class="btn small blue" data-sheet="${feat.id}">Ver ficha y estadísticas</button>` : ''}</div></section>` : ''}
         <aside class="menu-right">
-          <button class="panel side update-card" data-go="devlog"><small>ACTUALIDAD · ${esc(VERSION_LABEL)}</small><b>${esc(CURRENT_PUBLIC.title)}</b>
-            <span>${esc(CURRENT_PUBLIC.tagline)}: descubre qué trae y cómo empezar.</span>${unseenLog ? '<em>NUEVO</em>' : ''}</button>
+          <button class="panel side update-card" data-go="devlog"><small>NOTICIAS · ${esc(VERSION_LABEL)}</small><b>${esc(allNews()[0]?.title ?? CURRENT_PUBLIC.title)}</b>
+            <span>${esc(allNews()[0]?.summary ?? CURRENT_PUBLIC.tagline)}</span>${unseenLog ? '<em>NUEVO</em>' : ''}</button>
           <div class="panel side"><h3>Desafíos</h3>${challenges.map((d) => `<div class="chal"><span>${esc(d.label)}</span><i style="--p:${Math.round(missionProgress(this.save, d) / d.goal * 100)}%"></i></div>`).join('') || '<div class="note">¡Todo completado por hoy!</div>'}</div>
           <div class="panel side"><h3>Arenas</h3>${this.m.maps.map((mp) => `<div class="arena-row ${this.save.clearedMaps.includes(mp.id) ? 'ok' : ''}">${this.save.clearedMaps.includes(mp.id) ? '✔' : '·'} ${esc(mp.name)} <span class="rank-done">${(this.save.clearedRanks[mp.id] ?? []).map((r) => `<span class="ok">${r}</span>`).join('')}</span></div>`).join('')}
             <div class="note">Mejor tiempo ${fmtTime(this.save.stats.bestTimeSec)} · ${this.save.stats.kills} eliminaciones</div></div>
@@ -1298,32 +1326,47 @@ export class App {
     else { this.cloudState = { ...this.cloudState, status: 'pendiente' }; this.cloudTimer = window.setTimeout(() => void go(), 5000); }
   }
 
-  // ------------------------------------------------------------- devlog
-  /** Public news. Only the public history (release.ts): the internal builds are never shown here. */
-  devlog() {
+  // ------------------------------------------------------------- news board (Fix 1.32)
+  private newsSel = '';
+  /** Noticias: every news item on the left (tag, pinned, date, unread dot), the chosen one in full on the right. */
+  devlog(sel?: string) {
     setMusicContext('menu');
+    const items = allNews(onlineConfigured());
+    // first visit to the board: the old updates count as read, only the news of this version shows as new
+    if (!this.save.newsRead) this.save.newsRead = items.filter((n) => n.version && n.version !== PUBLIC_VERSION).map((n) => n.id);
     this.save.devlogSeen = NEWS_KEY;
+    const cur = items.find((n) => n.id === (sel ?? this.newsSel)) ?? items[0];
+    this.newsSel = cur?.id ?? '';
+    if (cur && !this.save.newsRead.includes(cur.id)) this.save.newsRead = [...this.save.newsRead, cur.id].slice(-200);
     this.persist();
-    const r = CURRENT_PUBLIC;
-    const stars = [...this.m.roster].filter((p) => p.rarity === 'legendario').slice(0, 5);
-    const cards = r.features.filter((f) => !f.online || onlineConfigured());
-    const shots = DEVLOG_SHOTS.map((x) => `<figure><img src="${x.src}" alt="${esc(x.caption)}" loading="lazy" onerror="this.closest('figure').remove()"><figcaption>${esc(x.caption)}</figcaption></figure>`).join('');
-    this.show(`<div class="screen">${this.titlebar('Novedades', 'Menú')}<div class="news">
-      <header class="news-banner"><div class="news-lights"></div>
-        <div class="news-copy"><small>${esc(r.tagline)}${RELEASED ? '' : ' · pre-lanzamiento'}</small><h2>${esc(r.title)}</h2><p>${esc(r.intro)}</p>
-          <p class="news-cta"><button class="btn big" id="newsplay">▶ Jugar</button> <button class="btn blue" id="newstut">Ver el tutorial</button></p></div>
-        <div class="news-squad">${stars.map((p) => `<span>${charCanvas(p.id, 3, 12)}</span>`).join('')}</div></header>
-      <section><h3>Qué vas a encontrar</h3><div class="news-cards">${cards.map((f, i) => `<article style="--d:${i * 40}ms"><i>${esc(f.icon)}</i><b>${esc(f.title)}</b><span>${esc(f.text)}</span></article>`).join('')}</div></section>
-      ${shots ? `<section><h3>Así se juega</h3><div class="news-shots">${shots}</div></section>` : ''}
-      <section><h3>Cómo empezar</h3><ol class="news-steps">${r.start.map((t) => `<li>${esc(t)}</li>`).join('')}</ol></section>
-      <section class="news-foot"><h3>Ayúdame a mejorar el juego</h3><p>¿Has encontrado algo raro? Usa <b>Reportar un bug</b>: cada reporte ayuda a mejorar InaZurvivors.</p>
-        <p class="news-cta"><button class="btn" id="newsbug">Reportar un bug</button> ${this.tiktokLink('Vídeos del desarrollo en TikTok')}</p></section>
-    </div></div>`);
+    const listTop = this.root.querySelector('.nb-list')?.scrollTop ?? 0;
+    const list = items.map((n) => `<button class="nb-item k-${n.kind}${n.id === cur?.id ? ' on' : ''}" data-news="${esc(n.id)}">
+        <span class="nb-ic">${esc(n.icon ?? '📰')}</span><span class="nb-txt"><span class="nb-meta"><em class="nb-tag">${NEWS_KIND_LABEL[n.kind]}</em>${n.pinned ? '<i class="nb-pin">📌</i>' : ''}<small>${esc(newsRelDate(n.date))}</small>${this.save.newsRead!.includes(n.id) ? '' : '<i class="nb-dot" title="Sin leer"></i>'}</span>
+        <b>${esc(n.title)}</b><small class="nb-sum">${esc(n.summary)}</small></span></button>`).join('');
+    this.show(`<div class="screen news-board">${this.titlebar('Noticias', 'Menú')}
+      <div class="nb"><aside class="nb-list">${list}</aside><article class="nb-detail" id="nbdetail">${cur ? this.newsDetail(cur) : ''}</article></div></div>`);
+    const listEl = this.root.querySelector('.nb-list');
+    if (listEl) listEl.scrollTop = listTop; // choosing an item keeps the list where it was
     this.on('[data-back]', 'click', () => this.mainMenu());
-    document.getElementById('newsplay')!.addEventListener('click', () => { this.mainMenu(); (this.root.querySelector('[data-go="play"]') as HTMLElement | null)?.click(); });
-    document.getElementById('newstut')!.addEventListener('click', () => this.tutorial());
-    document.getElementById('newsbug')!.addEventListener('click', () => this.bugReportModal());
-    mountPreviews();
+    this.on('[data-news]', 'click', (_e, el) => { this.devlog(el.dataset.news); document.getElementById('nbdetail')?.scrollTo(0, 0); if (window.innerWidth < 760) document.getElementById('nbdetail')?.scrollIntoView({ behavior: 'smooth' }); });
+    document.getElementById('newsplay')?.addEventListener('click', () => { this.mainMenu(); (this.root.querySelector('[data-go="play"]') as HTMLElement | null)?.click(); });
+    document.getElementById('newsbug')?.addEventListener('click', () => this.bugReportModal());
+  }
+
+  private newsDetail(n: NewsItem) {
+    const body = n.blocks.map((b) => {
+      if ('h' in b) return `<h3 class="nb-h">${b.icon ? `<span>${esc(b.icon)}</span>` : ''}${newsText(b.h)}</h3>`;
+      if ('p' in b) return `<p>${newsText(b.p)}</p>`;
+      if ('list' in b) return `<ul class="nb-ul">${b.list.map((x) => `<li>${newsText(x)}</li>`).join('')}</ul>`;
+      if ('callout' in b) return `<div class="nb-box ${b.callout}"><em>${b.callout === 'aviso' ? 'AVISO' : b.callout === 'nuevo' ? 'NUEVO' : 'INFO'}</em><p>${newsText(b.text)}</p></div>`;
+      return '<hr class="nb-hr">';
+    }).join('');
+    const long = new Date(`${n.date}T12:00:00`).toLocaleDateString('es', { day: 'numeric', month: 'long', year: 'numeric' });
+    return `<header class="nb-hero k-${n.kind}"><span class="nb-ic big">${esc(n.icon ?? '📰')}</span><div>
+        <div class="nb-meta"><em class="nb-tag">${NEWS_KIND_LABEL[n.kind]}</em>${n.pinned ? '<i class="nb-pin">📌 Fijada</i>' : ''}<small>${esc(long)}</small>${n.version ? `<small>· v${esc(n.version)}</small>` : ''}</div>
+        <h2>${esc(n.title)}</h2><p>${esc(n.summary)}</p></div></header>
+      <div class="nb-body">${body}</div>
+      <footer class="nb-foot"><button class="btn" id="newsplay">▶ Jugar</button><button class="btn blue" id="newsbug">Reportar un bug</button>${this.tiktokLink('Vídeos del desarrollo')}</footer>`;
   }
 
   private tiktokLink(label = '') {
@@ -1604,7 +1647,7 @@ export class App {
       const p = squad[i];
       const editing = i === this.squadSlot ? ' editing' : '';
       if (!p) return `<button class="sq-slot empty${editing}" data-slot="${i}"><span class="sq-plus">+</span><small>${i === 0 ? 'Capitán' : 'Plaza libre'}</small></button>`;
-      return `<div class="sq-slot${editing}${i === 0 ? ' cap' : ''}" data-slot="${i}" style="--rc:${RARITY_COLOR[p.rarity]}">
+      return `<div class="sq-slot${editing}${i === 0 ? ' cap' : ''}${isHero(this.save, p.id) ? ' hero' : ''}" data-slot="${i}" data-sid="${p.id}" draggable="true" style="--rc:${RARITY_COLOR[effectiveRarity(this.save, p)]}">
         ${i === 0 ? '<span class="captain-badge">C</span>' : `<button class="sq-act" data-captain="${p.id}" title="Hacer capitán">★</button>`}
         <button class="sq-act x" data-remove="${p.id}" title="Quitar">✕</button>
         ${this.mug(p.id, 64)}<b>${esc(p.name)}</b>
@@ -1614,8 +1657,17 @@ export class App {
     }).join('');
     this.show(`<div class="screen">${this.titlebar('Mi Equipo', 'Menú')}
       <div class="panel"><div class="note">Elige <b>7 candidatos</b>. Empiezas solo con el <b>capitán</b>; al subir de nivel podrás fichar a los otros seis (máximo ${MAX_TEAM} en el campo).
-        Pulsa una plaza y luego un futbolista para colocarlo. Se guarda solo.</div>
+        Pulsa un futbolista de tu colección para añadirlo o quitarlo, pulsa una plaza para cambiarla, o arrastra para colocar e intercambiar. Se guarda solo.</div>
         <div class="squad-row">${slots}</div></div>
+      <div class="panel sq-picker"><div class="sq-pick-head"><h3>Tu colección</h3>
+          <span class="note">${this.squadPicked ? `Elige quién va a la <b>plaza ${this.squadSlot + 1}${this.squadSlot === 0 ? ' (capitán)' : ''}</b> · <button class="linkbtn" id="sqcancel">cancelar</button>` : squad.length < SQUAD_SIZE ? 'Pulsa un futbolista para añadirlo · pulsa uno del equipo para quitarlo · arrastra para colocar' : 'Equipo completo: pulsa una plaza para cambiarla, o un futbolista del equipo para quitarlo'}</span>
+          <span class="spacer"></span><button class="btn small" id="sqauto" title="Rellena las plazas libres con tus mejores futbolistas">★ Autocompletar</button><button class="btn small blue" id="sqclear" title="Deja solo al capitán">Vaciar</button></div>
+        <div class="filters"><input id="sqq" placeholder="Buscar nombre o equipo" value="${esc(this.squadFilter.q)}">
+          <select id="sqr"><option value="">Rareza</option>${RARITY_ORDER.map((r) => `<option value="${r}" ${this.squadFilter.rarity === r ? 'selected' : ''}>${RARITY_LABEL[r]}</option>`).join('')}</select>
+          <select id="sqp"><option value="">Posición</option>${Object.entries(POS_LABEL).map(([k, v]) => `<option value="${k}" ${this.squadFilter.pos === k ? 'selected' : ''}>${v}</option>`).join('')}</select>
+          <select id="sqe"><option value="">Elemento</option>${['Fuego', 'Aire', 'Bosque', 'Montaña'].map((e) => `<option value="${e}" ${this.squadFilter.el === e ? 'selected' : ''}>${e}</option>`).join('')}</select>
+          <select id="sqs">${[['media', 'Ordenar: media'], ['rareza', 'Ordenar: rareza'], ['nombre', 'Ordenar: nombre']].map(([v, l]) => `<option value="${v}" ${this.squadFilter.sort === v ? 'selected' : ''}>${l}</option>`).join('')}</select></div>
+        <div class="grid" id="sqgrid" style="margin-top:10px"></div></div>
       ${this.squadSynergyPanel(squad)}
       ${cap ? `<div class="panel detail" style="--rc:${RARITY_COLOR[cap.rarity]}"><div class="art">${this.mug(cap.id, 128)}${charCanvas(cap.id, 3, 12)}</div><div>
         <h3>Capitán: ${esc(cap.name)} ${this.rar(cap)} ${this.elem(cap)}</h3>
@@ -1627,28 +1679,61 @@ export class App {
         }).join('')}</div>
         <h3 style="margin-top:10px">Formación inicial</h3><div class="formation-pick">${FORMATION_ORDER.map((f) => this.formationCard(f, f === cur)).join('')}</div>
         <p style="text-align:right"><button class="btn big" id="next">Elegir arena ▶</button></p></div></div>` : '<div class="panel"><div class="note">Aún no tienes futbolistas: consíguelos en Fichajes.</div></div>'}
-      <div class="panel"><h3>Tu colección · plaza ${this.squadSlot + 1}${this.squadSlot === 0 ? ' (capitán)' : ''}</h3>
-        <div class="filters"><input id="sqq" placeholder="Buscar nombre o equipo" value="${esc(this.squadFilter.q)}">
-          <select id="sqr"><option value="">Rareza</option>${RARITY_ORDER.map((r) => `<option value="${r}" ${this.squadFilter.rarity === r ? 'selected' : ''}>${RARITY_LABEL[r]}</option>`).join('')}</select>
-          <select id="sqp"><option value="">Posición</option>${Object.entries(POS_LABEL).map(([k, v]) => `<option value="${k}" ${this.squadFilter.pos === k ? 'selected' : ''}>${v}</option>`).join('')}</select></div>
-        <div class="grid" id="sqgrid" style="margin-top:10px"></div></div></div>`);
+</div>`);
     this.squadGrid();
     this.on('[data-back]', 'click', () => this.mainMenu());
-    this.on('[data-slot]', 'click', (e, el) => { if (!(e.target as HTMLElement).closest('.sq-act')) this.captainSelect(Number(el.dataset.slot)); });
+    this.on('[data-slot]', 'click', (e, el) => {
+      if ((e.target as HTMLElement).closest('.sq-act')) return;
+      const i = Number(el.dataset.slot);
+      // Fix 1.32: a slot is «picked» on purpose; clicking it again unpicks it
+      this.squadPicked = !(this.squadPicked && this.squadSlot === i);
+      this.captainSelect(i);
+      if (this.squadPicked) document.querySelector('.sq-picker')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+    // Fix 1.32: drag a slot onto another to swap them, or a card of the collection onto a slot to put it there
+    this.on('[data-sid]', 'dragstart', (e, el) => { (e as DragEvent).dataTransfer?.setData('text/plain', `id:${el.dataset.sid}`); el.classList.add('dragging'); });
+    this.on('[data-slot]', 'dragover', (e, el) => { e.preventDefault(); el.classList.add('drop'); });
+    this.on('[data-slot]', 'dragleave', (_e, el) => el.classList.remove('drop'));
+    this.on('[data-slot]', 'drop', (e, el) => {
+      e.preventDefault();
+      const id = Number(((e as DragEvent).dataTransfer?.getData('text/plain') ?? '').replace('id:', ''));
+      if (!id) return;
+      placeInSquad(this.save, this.byId, Number(el.dataset.slot), id);
+      this.persist(); sfx('powerup'); this.squadPicked = false; this.captainSelect();
+    });
+    document.getElementById('sqcancel')?.addEventListener('click', () => { this.squadPicked = false; this.captainSelect(); });
+    document.getElementById('sqauto')?.addEventListener('click', () => {
+      // the best owned footballers by their real mean (ascension, HÉROE and training included) fill the free slots
+      const ids = squadOf(this.save, this.byId).map((p) => p.id);
+      const pool = this.unlockedRoster().filter((p) => !ids.includes(p.id)).sort((a, b) => this.meanOf(b) - this.meanOf(a));
+      for (const p of pool) { if (ids.length >= SQUAD_SIZE) break; ids.push(p.id); }
+      setSquad(this.save, ids); this.persist(); sfx('powerup'); this.squadPicked = false; this.captainSelect();
+    });
+    document.getElementById('sqclear')?.addEventListener('click', (e) => this.armed(e.currentTarget as HTMLElement, () => {
+      const cap = squadOf(this.save, this.byId)[0];
+      if (cap) setSquad(this.save, [cap.id]);
+      this.persist(); sfx('click'); this.squadPicked = false; this.captainSelect(1);
+    }));
     this.on('[data-captain]', 'click', (_e, el) => { makeCaptain(this.save, this.byId, Number(el.dataset.captain)); this.persist(); sfx('powerup'); this.captainSelect(0); });
     this.on('[data-remove]', 'click', (_e, el) => { removeFromSquad(this.save, this.byId, Number(el.dataset.remove)); this.persist(); this.captainSelect(); });
     this.on('.fcard', 'click', (_e, el) => { this.save.formation = el.dataset.f!; this.persist(); this.captainSelect(); });
     this.on('[data-load]', 'click', (_e, el) => { if (this.captainId) { this.save.loadout[String(this.captainId)] = Number(el.dataset.load); this.persist(); this.captainSelect(); } });
     const refilter = () => {
-      this.squadFilter = { q: (document.getElementById('sqq') as HTMLInputElement).value, rarity: (document.getElementById('sqr') as HTMLSelectElement).value, pos: (document.getElementById('sqp') as HTMLSelectElement).value };
+      const v = (id: string) => (document.getElementById(id) as HTMLInputElement | HTMLSelectElement).value;
+      this.squadFilter = { q: v('sqq'), rarity: v('sqr'), pos: v('sqp'), el: v('sqe'), sort: v('sqs') || 'media' };
       this.squadLimit = 48;
       this.squadGrid();
     };
     document.getElementById('sqq')!.addEventListener('input', refilter);
     document.getElementById('sqr')!.addEventListener('change', refilter);
     document.getElementById('sqp')!.addEventListener('change', refilter);
+    document.getElementById('sqe')!.addEventListener('change', refilter);
+    document.getElementById('sqs')!.addEventListener('change', refilter);
     document.getElementById('next')?.addEventListener('click', () => this.mapSelect());
   }
+
+  /** real stat mean of an owned footballer (0 when it has no stats) */
+  private meanOf(p: RosterEntry) { const st = this.statsOf(p); return st ? statMean(st) : 0; }
 
   /** Owned players for the picker, redrawn alone so typing in the search box keeps its focus. */
   private squadGrid() {
@@ -1656,20 +1741,36 @@ export class App {
     if (!box) return;
     const f = this.squadFilter, q = f.q.trim().toLowerCase();
     const inSquad = new Set(squadOf(this.save, this.byId).map((p) => p.id));
-    const list = this.unlockedRoster().filter((p) => (!f.rarity || p.rarity === f.rarity) && (!f.pos || p.position === f.pos)
+    const list = this.unlockedRoster().filter((p) => (!f.rarity || p.rarity === f.rarity) && (!f.pos || p.position === f.pos) && (!f.el || String(p.element) === f.el)
       && (!q || p.name.toLowerCase().includes(q) || p.teams.some((t) => teamLabel(t).toLowerCase().includes(q))))
-      .sort((a, b) => RARITY_ORDER.indexOf(b.rarity) - RARITY_ORDER.indexOf(a.rarity) || a.name.localeCompare(b.name));
-    box.innerHTML = list.slice(0, this.squadLimit).map((p) => this.pcard(p, { sel: inSquad.has(p.id), badge: inSquad.has(p.id) ? 'EN EQUIPO' : undefined })).join('')
+      .sort((a, b) => f.sort === 'nombre' ? a.name.localeCompare(b.name)
+        : f.sort === 'rareza' ? RARITY_ORDER.indexOf(effectiveRarity(this.save, b)) - RARITY_ORDER.indexOf(effectiveRarity(this.save, a)) || this.meanOf(b) - this.meanOf(a)
+        : this.meanOf(b) - this.meanOf(a) || a.name.localeCompare(b.name));
+    box.innerHTML = list.slice(0, this.squadLimit).map((p) => this.pcard(p, { sel: inSquad.has(p.id), badge: inSquad.has(p.id) ? '✔ EN EL EQUIPO' : undefined }).replace('<div class="pcard', `<div draggable="true" class="pcard${inSquad.has(p.id) ? ' in-squad' : ''}`)).join('')
       + (list.length > this.squadLimit ? `<button class="btn blue" id="sqmore">Mostrar más (${list.length - this.squadLimit})</button>` : '')
       + (list.length ? '' : '<div class="note">Nadie coincide con el filtro.</div>');
     mountPreviews();
-    box.querySelectorAll<HTMLElement>('.pcard[data-id]').forEach((el) => el.addEventListener('click', () => {
-      placeInSquad(this.save, this.byId, this.squadSlot, Number(el.dataset.id));
-      this.persist();
-      sfx('powerup');
-      const n = squadOf(this.save, this.byId).length;
-      this.captainSelect(n < SQUAD_SIZE ? n : this.squadSlot);
-    }));
+    box.querySelectorAll<HTMLElement>('.pcard[data-id]').forEach((el) => {
+      el.addEventListener('dragstart', (e) => e.dataTransfer?.setData('text/plain', `id:${el.dataset.id}`));
+      el.addEventListener('click', () => {
+        // Fix 1.32: one click adds (first free slot, or the slot picked on purpose) or removes; a full squad asks for a slot
+        const id = Number(el.dataset.id), squad = squadOf(this.save, this.byId);
+        if (inSquad.has(id) && !this.squadPicked) {
+          if (squad.length === 1) { this.toast('Tu equipo necesita al menos al capitán'); sfx('error'); return; }
+          removeFromSquad(this.save, this.byId, id); sfx('click');
+        } else if (this.squadPicked || squad.length < SQUAD_SIZE) {
+          placeInSquad(this.save, this.byId, this.squadPicked ? this.squadSlot : squad.length, id); sfx('powerup');
+        } else {
+          this.toast('Equipo completo: pulsa la plaza que quieres cambiar o quita a alguien'); sfx('error');
+          document.querySelector('.squad-row')?.classList.add('ping'); window.setTimeout(() => document.querySelector('.squad-row')?.classList.remove('ping'), 700);
+          return;
+        }
+        this.persist();
+        this.squadPicked = false;
+        const n = squadOf(this.save, this.byId).length;
+        this.captainSelect(n < SQUAD_SIZE ? n : SQUAD_SIZE - 1);
+      });
+    });
     document.getElementById('sqmore')?.addEventListener('click', () => { this.squadLimit += 48; this.squadGrid(); });
   }
 

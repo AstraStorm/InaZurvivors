@@ -15,6 +15,20 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: '5.2', date: '2026-11-02', title: 'v1.32',
+    features: [
+      'Noticias: tablón con lista (etiqueta Novedad, Aviso, Actualización o Evento, fijadas, fecha y punto de no leída) y la noticia completa con cabecera, apartados, listas, recuadros de aviso y novedad y separadores. Las noticias del autor se escriben en src/data/news.ts y todas las actualizaciones públicas se añaden solas como registro.',
+      'Mi Equipo: un clic añade a la primera plaza libre o quita del equipo; pulsar una plaza elige cuál cambiar; arrastrar y soltar para colocar e intercambiar; Autocompletar con los mejores por media; Vaciar; filtro por elemento y orden por media, rareza o nombre. La colección va justo debajo de las plazas.',
+      'Tarjetas: se inclinan hacia el ratón con un reflejo, brillan con su rareza al pasar por encima, se hunden al pulsar y las estrellas aparecen con un pequeño salto.',
+    ],
+    fixes: [
+      'Tarjetas: los distintivos (EN EL EQUIPO, ASCENDER, capitán) van en una columna y los duplicados, las estrellas y la marca en una fila: ya no se tapan entre sí ni tapan la cinta de HÉROE.',
+      'Plazas de Mi Equipo: el brillo de Mítico y HÉROE ya no se queda congelado pintando media plaza; marco y fondo de HÉROE propios.',
+    ],
+    visuals: [],
+    balance: [],
+  },
+  {
     version: '5.1', date: '2026-11-02', title: 'Fix 1.31',
     features: [
       'Gacha: una máquina por saga (Fútbol Frontier, Invasión Alius con el viaje por Japón, Mundial FFI, GO, Chrono Stone con los Miximax, Galaxy, Ares, Orion y Fichatrón para los fichajes sueltos). Precio según sus Míticos: sin estrellas 5, sin Míticos 10, de 1 a 5 Míticos 15, 6 o más 20; por equipo 15. El ×10 cuesta siempre diez veces la tirada.',
