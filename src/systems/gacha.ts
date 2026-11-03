@@ -64,6 +64,9 @@ export function addCopy(save: SaveData, p: Pick<RosterEntry, 'id' | 'rarity'>): 
   return { isNew: false, stars: owned.stars, refund: 0, forAscension: true };
 }
 
+/** Fix 1.53 (author): footballers that come out less than the rest of their rarity (weight 1 = normal) */
+export const PULL_WEIGHT: Record<number, number> = { 101678: 0.25 }; // Mecha-Mark
+
 /** One pull: rarity first (the banner's own odds when given), then a player of that rarity (lower rarities if empty). */
 export function pullOne(pool: RosterEntry[], save: SaveData, rng: Rng, rarityRoll?: () => Rarity): PullResult {
   let rarity = rarityRoll ? rarityRoll() : rollRarity(rng);
@@ -73,7 +76,9 @@ export function pullOne(pool: RosterEntry[], save: SaveData, rng: Rng, rarityRol
     rarity = RARITY_ORDER[(i + RARITY_ORDER.length - 1) % RARITY_ORDER.length];
     candidates = pool.filter((p) => p.rarity === rarity);
   }
-  const player = candidates[Math.floor(rng() * candidates.length)];
+  const w = (p: RosterEntry) => PULL_WEIGHT[p.id] ?? 1;
+  let x = rng() * candidates.reduce((a, p) => a + w(p), 0);
+  const player = candidates.find((p) => (x -= w(p)) < 0) ?? candidates[candidates.length - 1];
   return { player, ...addCopy(save, player) };
 }
 

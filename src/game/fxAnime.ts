@@ -221,7 +221,7 @@ export function animeCharge(scene: S, kind: AnimeMove, x: number, y: number, lev
       break;
     }
     case 'supernova': { // Fix 1.51, from the scene: the kick draws a great X of orange-white energy with a beam down its middle
-      const cx = x, cy = y - 18, L = 46 + level * 3;
+      const cx = x, cy = y - 18, L = 40 + level * 6; // Fix 1.53 (author): the X grows with the level too
       const beams = [Math.PI / 4, -Math.PI / 4, Math.PI / 2].map((a, i) => {
         const b = scene.add.rectangle(cx, cy, L * (i === 2 ? 1.6 : 2.2), i === 2 ? 5 : 7, i === 2 ? 0xffffff : 0xffb04a, 0.95).setRotation(a).setDepth(AIR + 1).setBlendMode(ADD).setScale(0, 1);
         const glow = scene.add.rectangle(cx, cy, L * (i === 2 ? 1.6 : 2.2), i === 2 ? 12 : 16, 0xff5a1a, 0.35).setRotation(a).setDepth(AIR).setBlendMode(ADD).setScale(0, 1);
@@ -727,7 +727,7 @@ export function animeShot(scene: S, kind: AnimeMove, ball: Img, level: number) {
     case 'supernova': { // Fix 1.51: a sphere of dark matter in a violet whirl, with a red energy eye at its heart
       const g = scene.add.graphics().setDepth(AIR + 1);
       const glow = scene.add.graphics().setDepth(AIR + 2).setBlendMode(ADD);
-      const R = 11 + level * 0.5;
+      const R = 9 + level * 1.6; // Fix 1.53 (author): the sphere grows a lot with the level (about 11 at 1, 25 at 10)
       let last = 0;
       ride(scene, ball, (bx, by, ang, t) => {
         g.clear(); glow.clear();

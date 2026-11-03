@@ -64,6 +64,11 @@ export const TEAM_MIN_PLAYERS = 8;
  * Small machines (a team, Victory Road): highest chance any single player of these rarities may have (%), so a short
  * roster can't hand out its stars; what is trimmed goes to Común and Raro.
  */
+/** Fix 1.53 (author): the premium Chrono Stone machine has its own odds, far fewer Raros */
+const BANNER_WEIGHTS: Partial<Record<BannerId, Record<Rarity, number>>> = {
+  chrono: { comun: 0, raro: 55, epico: 30, legendario: 11, mitico: 4, leyenda: 0 },
+};
+
 const SMALL_CAP: Partial<Record<BannerId, Partial<Record<Rarity, number>>>> = {
   equipo: { epico: 2.5, legendario: 1.2, mitico: 0.5, leyenda: 0.15 },
   ares: { legendario: 1.2, mitico: 0.5, leyenda: 0.15 },
@@ -110,7 +115,7 @@ export function rarityOdds(pool: RosterEntry[], banner: BannerId = 'ff'): Record
   for (let i = 0; i < RARITY_ORDER.length; i++) {
     let to: Rarity | undefined;
     for (let d = 0; d < RARITY_ORDER.length && !to; d++) to = [at(i - d), at(i + d)].find((x) => x && count[x]);
-    if (to) out[to] += RARITY_WEIGHTS[at(i)];
+    if (to) out[to] += (BANNER_WEIGHTS[banner] ?? RARITY_WEIGHTS)[at(i)];
   }
   // low rarities with very few players (one Común in the GO machine) can't each be far likelier than the rarity above:
   // at most 3x a player of the next rarity up; the excess moves up

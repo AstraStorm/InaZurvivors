@@ -1128,7 +1128,7 @@ export class ArenaScene extends Phaser.Scene {
     for (let k = 0; k < count; k++) {
       const nt = novaTargets[k % Math.max(1, novaTargets.length)];
       const a = nova && nt ? Math.atan2(nt.pos.y - 12 - oy, nt.pos.x - ox) : base + (k - (count - 1) / 2) * 0.2;
-      const scale = (big ? 1.3 : 1) * (1 + 0.05 * (lv - 1)) * (1 + recipe.tier * 0.12) * recipe.ballScale;
+      const scale = (big ? 1.3 : 1) * (1 + (nova ? 0.12 : 0.05) * (lv - 1)) * (1 + recipe.tier * 0.12) * recipe.ballScale; // Fix 1.53: a bigger Supernova also hits wider
       const c1 = recipe.id === 'supernova' ? 0xbfa8ff : STYLE_COLORS[style][0];
       let x = ox, y = oy, vx = Math.cos(a) * s.speed, vy = Math.sin(a) * s.speed;
       let targetY: number | undefined;
