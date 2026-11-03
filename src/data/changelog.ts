@@ -15,6 +15,16 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: '6.2', date: '2026-11-05', title: 'Fix 1.52',
+    features: [],
+    fixes: [
+      'Ascensión (autor): sube una rareza por paso hasta Mítico (Común » Raro » Épico » Legendario » Mítico), cada paso al precio de la rareza desde la que sube; HÉROE solo desde Mítico (o Leyenda). Antes cualquier rareza subía una vez y el siguiente paso era HÉROE. Los ya ascendidos siguen desde la rareza que alcanzaron; nada se pierde.',
+      'Rarezas (autor): Desmodus Drakul Raro » Legendario, Yurika Beor Legendario » Mítico (data/rarity_final.json, solo esas dos; también en la tabla MANUAL de tools/rarity_audit.py). Ojo: volver a ejecutar rarity_audit.py entero cambiaría unas 70 rarezas corregidas después a mano; no hacerlo sin revisar.',
+    ],
+    visuals: [],
+    balance: [],
+  },
+  {
     version: '6.1', date: '2026-11-05', title: 'Fix 1.51',
     features: [],
     fixes: [

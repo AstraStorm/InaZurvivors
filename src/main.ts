@@ -3,6 +3,7 @@ import '@fontsource/press-start-2p';
 import './style.css';
 import './style14.css';
 import type { Manifest } from './data/manifest';
+import { applyRosterFixes } from './data/rosterFixes';
 import { ArenaScene } from './game/ArenaScene';
 import { MenuScene } from './game/MenuScene';
 import { loadSave, storeSave } from './systems/save';
@@ -53,6 +54,8 @@ async function boot() {
     progress(0, 'No se pudieron cargar los datos del juego. Si el problema sigue, esta versión puede no incluir sus recursos.');
     return;
   }
+  // quick footballer corrections (rarity, element, techniques) that ship without repackaging resources
+  for (const w of applyRosterFixes(manifest)) console.warn('[rosterFixes]', w);
   progress(0.75, 'Preparando caras y objetos…');
   const [mugs, icons] = await Promise.all([
     fetch(manifest.atlases.mugshots.json).then((r) => r.json()),

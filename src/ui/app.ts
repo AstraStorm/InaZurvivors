@@ -44,7 +44,7 @@ import { elementIcon } from './elements';
 import { playerStats, resetTraining, trainingOf, trainingUsed, trainRoom, trainStat, trimTraining, TRAIN_MAX, type StatKey } from '../systems/training';
 import { AURA_PCT, AURA_ELEMENT_BONUS, AURA_TECH_DAMAGE, BOND_PCT, EFFECTIVE_STAT_MAX, auraBonus, auraOf, bondOf, canBeAura, carrierForRun, carrierOf, equipAura, inheritedTechs, removeAura, sanitizeAuras, withAura, type AuraBonus } from '../systems/auras';
 import { BOND_KIND_LABEL } from '../data/auraBonds';
-import { ASC_BONUS, ASC_COSTS, HERO_AURA, HERO_STARS_MAX, migrateHeroes131, type AscStep, ascend, ascMultipliers, effectiveRarity, isHero, nextStep, rarityUp, sparesOf } from '../systems/ascension';
+import { ASC_BONUS, ASC_COSTS, HERO_AURA, HERO_STARS_MAX, migrateHeroes131, type AscStep, ascend, ascMultipliers, effectiveRarity, isHero, isTopRarity, nextStep, rarityUp, sparesOf } from '../systems/ascension';
 import { USERNAME_MAX, validateUsername } from '../systems/username';
 import { ALTAR_COLOR, ALTAR_ICON, ALTAR_INFO, ALTAR_MODE, ALTAR_REWARD } from '../systems/altars';
 import { adaptedPassive, passiveText, talentChanges, talentText } from '../systems/talents';
@@ -1040,13 +1040,14 @@ export class App {
     const after = next ? { damage: now.damage * ASC_BONUS[next.step].damage, hp: now.hp * ASC_BONUS[next.step].hp } : now;
     const curR = effectiveRarity(this.save, p);
     const hs = this.owned(id)?.heroStars ?? 0;
-    const up = rarityUp(p.rarity), label = next?.step === 'ascenso' ? `${RARITY_LABEL[up].toUpperCase()}${up === p.rarity ? ' +' : ''}` : next?.step === 'estrella' ? `HÉROE ${'★'.repeat(hs + 1)}` : 'HÉROE';
+    // Fix 1.51: the next rarity counts from the one he already reached (an Épico ascended to Legendario goes on to Mítico)
+    const up = rarityUp(curR), label = next?.step === 'ascenso' ? `${RARITY_LABEL[up].toUpperCase()}${up === curR ? ' +' : ''}` : next?.step === 'estrella' ? `HÉROE ${'★'.repeat(hs + 1)}` : 'HÉROE';
     const pct = (v: number) => `+${Math.round((v - 1) * 100)}%`;
     const starUnlocks = [`Estrella de héroe ${hs + 1} de ${HERO_STARS_MAX}: +${Math.round((ASC_BONUS.estrella.damage - 1) * 100)}% daño, +${Math.round((ASC_BONUS.estrella.hp - 1) * 100)}% vida y +1 a todas sus estadísticas`];
     const unlocks = next?.step === 'estrella' ? starUnlocks : next?.step === 'heroe' || (!next && isHero(this.save, id))
       ? [`Técnica de HÉROE: ${p.heroTech ? p.heroTech.name : 'ninguna documentada para este jugador'}`, `${HERO_AURA.label} (habilidad original de InaZurvivors): ${HERO_AURA.description}`, 'Marco dorado e insignia HÉROE en la colección']
-      : [up === p.rarity ? `Ascendido: sigue siendo ${RARITY_LABEL[up]}, con la bonificación de ascensión` : `Rareza ${RARITY_LABEL[up]} (sin cambiar de personaje)`,
-        `Acceso a la ascensión HÉROE (${(ASC_COSTS[p.rarity] ?? ASC_COSTS.legendario).heroe} duplicados más)`];
+      : [up === curR ? `Ascendido: sigue siendo ${RARITY_LABEL[up]}, con la bonificación de ascensión` : `Rareza ${RARITY_LABEL[up]} (sin cambiar de personaje): sus estadísticas suben a las de un ${RARITY_LABEL[up]}`,
+        isTopRarity(up) ? `Después, la ascensión HÉROE (${(ASC_COSTS[p.rarity] ?? ASC_COSTS.legendario).heroe} duplicados)` : `Después, la siguiente ascensión: ${RARITY_LABEL[rarityUp(up)]} (${ASC_COSTS[up].ascenso} duplicados)`];
     const box = document.createElement('div');
     box.className = 'tut-modal asc-modal';
     box.innerHTML = `<div class="panel asc-card${isHero(this.save, id) ? ' is-hero' : ''}" style="--rc:${RARITY_COLOR[curR]}">

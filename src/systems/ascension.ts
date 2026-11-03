@@ -58,9 +58,12 @@ export function nextStep(save: SaveData, p: Pick<RosterEntry, 'id' | 'rarity'>):
   const cost = ASC_COSTS[p.rarity] ?? ASC_COSTS.legendario;
   // Fix 1.31: after HÉROE come the hero stars (3 at most)
   if (o.hero) return (o.heroStars ?? 0) < HERO_STARS_MAX ? { step: 'estrella', cost: cost.estrella } : null;
-  // Fix 1.31: a Mítico or Leyenda has no rarity to climb: its ascension is the HÉROE
-  if (isTopRarity(p.rarity)) return { step: 'heroe', cost: cost.heroe };
-  return o.ascMitico ? { step: 'heroe', cost: cost.heroe } : { step: 'ascenso', cost: cost.ascenso };
+  // Fix 1.51 (author): a footballer climbs one rarity per ascension (Común » Raro » Épico » Legendario » Mítico), each
+  // step at the price of the rarity it climbs from, and only at Mítico (or as a Leyenda) comes the HÉROE. Before, any
+  // rarity climbed once and then went straight to HÉROE (an Épico never reached Mítico)
+  const cur = effectiveRarity(save, p);
+  if (isTopRarity(cur)) return { step: 'heroe', cost: cost.heroe };
+  return { step: 'ascenso', cost: (ASC_COSTS[cur] ?? cost).ascenso };
 }
 
 /** Spends the duplicates and applies the step. Returns false (and changes nothing) when it isn't possible. */
@@ -69,7 +72,7 @@ export function ascend(save: SaveData, p: Pick<RosterEntry, 'id' | 'rarity'>): A
   if (!next || sparesOf(save, p.id) < next.cost) return false;
   const o = save.owned[String(p.id)];
   o.spent = (o.spent ?? 0) + next.cost;
-  if (next.step === 'ascenso') { o.ascMitico = true; o.ascRarity = rarityUp(p.rarity); }
+  if (next.step === 'ascenso') { const cur = effectiveRarity(save, p); o.ascMitico = true; o.ascRarity = rarityUp(cur); }
   else if (next.step === 'heroe') o.hero = true;
   else o.heroStars = Math.min(HERO_STARS_MAX, (o.heroStars ?? 0) + 1);
   return next.step;

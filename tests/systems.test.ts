@@ -810,9 +810,15 @@ describe('ascension to HÉROE', () => {
     expect(s.owned['2'].heroStars).toBe(1);
     expect(ascend(s, epic)).toBe('ascenso');
     expect(effectiveRarity(s, epic)).toBe('legendario');
+    // Fix 1.51 (author): one rarity per ascension up to Mítico, at the price of the rarity it climbs from; then HÉROE
+    expect(ascend(s, epic)).toBe('ascenso');
+    expect(effectiveRarity(s, epic)).toBe('mitico');
+    expect(nextStep(s, epic)?.step).toBe('heroe');
     expect(ascend(s, com)).toBe('ascenso');
     expect(effectiveRarity(s, com)).toBe('raro');
-    expect(ascend(s, com)).toBe('heroe');
+    expect(nextStep(s, com)).toEqual({ step: 'ascenso', cost: ASC_COSTS.raro.ascenso });
+    expect(ascend(s, com)).toBe('ascenso');
+    expect(effectiveRarity(s, com)).toBe('epico');
     expect(ASC_COSTS.comun.ascenso).toBeGreaterThan(ASC_COSTS.epico.ascenso);
     expect(ASC_COSTS.epico.ascenso).toBeGreaterThan(ASC_COSTS.legendario.ascenso);
     expect(ascend(s, { id: 99, rarity: 'legendario' } as RosterEntry)).toBe(false);
@@ -1029,8 +1035,8 @@ describe('reiniciar progreso', () => {
 describe('versión pública y reportes de bugs', () => {
   it('the public news start at v1.0 and no internal version leaks into them', async () => {
     const { PUBLIC_RELEASES, PUBLIC_VERSION, RELEASED, VERSION_LABEL, BUILD, TIKTOK_URL } = await import('../src/data/release');
-    expect(PUBLIC_VERSION).toBe('1.51');
-    expect(PUBLIC_RELEASES.map((r) => r.version)).toEqual(['1.51', '1.5', '1.41', '1.4', '1.32', '1.31', '1.3', '1.22', '1.21', '1.2', '1.12', '1.11', '1.1', '1.0']); // newest first, starting at v1.0
+    expect(PUBLIC_VERSION).toBe('1.52');
+    expect(PUBLIC_RELEASES.map((r) => r.version)).toEqual(['1.52', '1.51', '1.5', '1.41', '1.4', '1.32', '1.31', '1.3', '1.22', '1.21', '1.2', '1.12', '1.11', '1.1', '1.0']); // newest first, starting at v1.0
     expect(PUBLIC_RELEASES.at(-1)!.title).toBe('InaZurvivors v1.0 — ¡Comienza la aventura!');
     expect(JSON.stringify(PUBLIC_RELEASES)).not.toMatch(/\bv?[234]\.\d\b/);
     expect(BUILD).not.toBe('1.0');
@@ -1041,7 +1047,7 @@ describe('versión pública y reportes de bugs', () => {
   it('the news board shows fixes (two decimals) in their own colour, updates in green', async () => {
     const { allNews } = await import('../src/data/news');
     const kind = Object.fromEntries(allNews(true).filter((n) => n.version).map((n) => [n.version, n.kind]));
-    for (const v of ['1.51', '1.41', '1.32', '1.31', '1.22', '1.21', '1.12', '1.11']) expect(kind[v], v).toBe('fix');
+    for (const v of ['1.52', '1.51', '1.41', '1.32', '1.31', '1.22', '1.21', '1.12', '1.11']) expect(kind[v], v).toBe('fix');
     for (const v of ['1.5', '1.4', '1.3', '1.2', '1.1', '1.0']) expect(kind[v], v).toBe('actualizacion');
   });
   it('form rules', async () => {

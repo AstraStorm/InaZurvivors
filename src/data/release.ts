@@ -6,7 +6,7 @@
  */
 import { CHANGELOG } from './changelog';
 
-export const PUBLIC_VERSION = '1.51';
+export const PUBLIC_VERSION = '1.52';
 export const BUILD = CHANGELOG[0].version;
 export const RELEASED = false;
 export const VERSION_LABEL = RELEASED ? `v${PUBLIC_VERSION}` : `v${PUBLIC_VERSION} · pre-lanzamiento`;
@@ -28,6 +28,17 @@ export interface PublicRelease {
 
 /** Public news, newest first. Starts at v1.0: the internal versions before it are not part of the public history. */
 export const PUBLIC_RELEASES: PublicRelease[] = [
+  {
+    version: '1.52', date: '2026-11-05',
+    title: 'InaZurvivors Fix 1.52 — Ascensión paso a paso',
+    tagline: 'Ascender sube de rareza de una en una hasta Mítico, y Drakul y Yurika estrenan rareza',
+    intro: 'Un parche corto para la ascensión, que se saltaba rarezas, y dos rarezas corregidas.',
+    features: [
+      { icon: '▲', title: 'Ascensión paso a paso', text: 'Cada ascensión sube una rareza (Común, Raro, Épico, Legendario, Mítico) y sus estadísticas con ella; HÉROE llega después de Mítico. Antes un Épico ascendía una vez y pasaba directo a HÉROE.' },
+      { icon: '★', title: 'Rarezas corregidas', text: 'Desmodus Drakul pasa de Raro a Legendario y Yurika Beor de Legendario a Mítico.' },
+    ],
+    start: [],
+  },
   {
     version: '1.51', date: '2026-11-05',
     title: 'InaZurvivors Fix 1.51 — Combinadas más fáciles, técnicas como en el anime y adiós a las alas',
