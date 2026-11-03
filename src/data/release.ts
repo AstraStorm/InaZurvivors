@@ -6,7 +6,7 @@
  */
 import { CHANGELOG } from './changelog';
 
-export const PUBLIC_VERSION = '1.53';
+export const PUBLIC_VERSION = '1.6';
 export const BUILD = CHANGELOG[0].version;
 export const RELEASED = false;
 export const VERSION_LABEL = RELEASED ? `v${PUBLIC_VERSION}` : `v${PUBLIC_VERSION} · pre-lanzamiento`;
@@ -28,6 +28,19 @@ export interface PublicRelease {
 
 /** Public news, newest first. Starts at v1.0: the internal versions before it are not part of the public history. */
 export const PUBLIC_RELEASES: PublicRelease[] = [
+  {
+    version: '1.6', date: '2026-11-05',
+    title: 'InaZurvivors 1.6 — Campo de entrenamiento',
+    tagline: 'Prueba cualquier técnica de tus futbolistas al nivel que quieras, combinadas incluidas, y abre el perfil de cualquier jugador del ranking',
+    intro: 'Dos novedades para conocer mejor tu club y el de los demás: un campo donde probar técnicas sin presión y los perfiles de los otros jugadores.',
+    features: [
+      { icon: '◎', title: 'Campo de entrenamiento', text: 'En el menú, Tu club » Entrenamiento. Elige hasta cinco de tus futbolistas, qué técnicas usa cada uno (hasta cuatro, también las de su Aura) y a qué nivel, del 1 al 10.' },
+      { icon: '✦', title: 'Combinadas a tu gusto', text: 'Si los futbolistas que eliges pueden hacer una técnica combinada juntos (o con sus Auras), puedes activarla y elegir su nivel. Si falta alguien, te dice quién.' },
+      { icon: '♥', title: 'Sin presión', text: 'En el entrenamiento nadie recibe daño y siempre hay rivales a los que apuntar. No da recompensas, ni cuenta para misiones ni para el ranking. Sales desde Pausa.' },
+      { icon: '☺', title: 'Perfiles de jugadores', text: 'Toca un nombre en el ranking para ver su perfil: icono, escudo, equipo favorito, partidas y victorias, su equipo con capitán, Auras y estrellas, y sus mejores marcas.', online: true },
+    ],
+    start: [],
+  },
   {
     version: '1.53', date: '2026-11-05',
     title: 'InaZurvivors Fix 1.53 — Vuelve el título',

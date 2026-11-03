@@ -143,6 +143,16 @@ export interface BoardRow { pos: number; username: string; avatar: string; crest
 export interface BoardQuery { map: string | null; rank: string | null; order: 'score' | 'rank' | 'time' | 'damage' }
 
 export const leaderboard = (q: BoardQuery) => rpc<BoardRow[]>('leaderboard', { p_map: q.map, p_rank: q.rank, p_order: q.order, p_limit: 15 }, false);
+/** v1.6: another player's public club (public_profile.sql); null when nobody has that name */
+export interface PublicSquadMember { id: number; stars: number; hero: boolean; heroStars: number; ascRarity: string | null; asc: boolean; aura: string | null }
+export interface PublicProfile {
+  username: string; avatar: string; crest: string; joined: string; favorite: string; kit: string; captain: number | null;
+  icon: { kind: 'emblem' | 'player' | 'coach'; id: number } | null;
+  stats: { runs: number; wins: number; kills: number; bestTimeSec: number; bestEndless: number };
+  owned: number; heroes: number; squad: PublicSquadMember[];
+  marks: { map: string; rank: string; time_sec: number; damage: number; captain_id: number }[];
+}
+export const publicProfile = (username: string) => rpc<PublicProfile | null>('public_profile', { p_username: username }, false);
 export const myPosition = async (q: BoardQuery) => (await rpc<BoardRow[]>('my_position', { p_map: q.map, p_rank: q.rank, p_order: q.order }))[0] ?? null;
 
 export const submitScore = (runId: string, map: string, rank: string, timeSec: number, damage: number, captainId: number) =>

@@ -26,7 +26,9 @@ import { SAGAS, sagaOf, setTeamLabels, setTeamSagas, teamLabel, teamNames } from
 import { canClaim, claimAllTeamRewards, claimTeamReward, grantFavorite, hasCrest, hasKit, teamCaptain, teamMembers, teamProgress, type TeamRewardKind } from '../systems/teamRewards';
 import { buyOffer, isBought as isOfferBought, msToNextDay, msToNextWeek, PRICE, rollDaily, type Offer } from '../systems/dailyShop';
 import { rankDef, RANKS, RANK_ORDER } from '../systems/difficulty';
-import { squadCombos, COMBOS, playsAs } from '../systems/combos';
+import { squadCombos, COMBOS, COMBO_MAX_LEVEL, playsAs } from '../systems/combos';
+/** v1.6: training field limits: footballers on the pitch and active techniques each */
+const TRAIN_TEAM = 5, TRAIN_SLOTS = 4;
 import { CLUB_CHEMISTRY, kitBonus } from '../systems/kitBonus';
 import { squadPotential } from '../systems/synergy';
 import { championsTable, recordTriumph } from '../systems/hallOfFame';
@@ -49,7 +51,7 @@ import { USERNAME_MAX, validateUsername } from '../systems/username';
 import { ALTAR_COLOR, ALTAR_ICON, ALTAR_INFO, ALTAR_MODE, ALTAR_REWARD } from '../systems/altars';
 import { adaptedPassive, passiveText, talentChanges, talentText } from '../systems/talents';
 import { redeemCode } from '../online/client';
-import { accountId, adminBugReports, adminPlayerStats, adminUpdateBug, amIAdmin, consumeAuthRedirect, deleteAccount, deleteMyBugReports, deleteShot, myBugReports, notifyBug, shotUrl, submitBugReport, uploadShot, getCloudSave, leaderboard, myPosition, myProfile, onlineConfigured, putCloudSave, reserveUsername, resetMyProgress, signedEmail, signedIn, signInWithGoogle, signOut, submitScore, usernameAvailable, type BoardQuery, type BoardRow, type BugFilter, type BugRow, type CloudSave } from '../online/client';
+import { accountId, adminBugReports, adminPlayerStats, adminUpdateBug, amIAdmin, consumeAuthRedirect, deleteAccount, deleteMyBugReports, deleteShot, myBugReports, notifyBug, shotUrl, submitBugReport, uploadShot, getCloudSave, leaderboard, myPosition, publicProfile, type PublicProfile, myProfile, onlineConfigured, putCloudSave, reserveUsername, resetMyProgress, signedEmail, signedIn, signInWithGoogle, signOut, submitScore, usernameAvailable, type BoardQuery, type BoardRow, type BugFilter, type BugRow, type CloudSave } from '../online/client';
 import { backup, linkPlan, progressOf, summarize, type SaveSummary } from '../online/cloudSync';
 import { epochOf, freshProgress, resetSummary } from '../systems/resetProgress';
 import { scoreOf, localBoard, recordBest } from '../systems/leaderboard';
@@ -61,7 +63,7 @@ import { confetti, countUp, flyTo } from './rewardFx';
 import { MASTERY_BONUS, MASTERY_USES, masteryLevel, recordMastery } from '../systems/mastery';
 import { MAX_TEAM, canStartWith, startingTech, type Card } from '../systems/cards';
 import { setSquad, SQUAD_SIZE, fillSquad, makeCaptain, placeInSquad, removeFromSquad, squadOf } from '../systems/squad';
-import type { ArenaInit, ArenaScene, HudState, MarkerState, Poi } from '../game/ArenaScene';
+import type { ArenaInit, ArenaScene, HudState, MarkerState, Poi, TrainingSetup } from '../game/ArenaScene';
 import { charCanvas, initPreviews, mountPreviews, setPreviewKit } from './sprites';
 import { sfx, setVolume } from '../game/sfx';
 import { currentTrack, initMusic, setMusicContext, setMusicSource, setMusicVolume, musicUnlocked } from '../game/music';
@@ -946,7 +948,7 @@ export class App {
           </div>
           ${group('g-club', 'team', 'TU CLUB', tile('collection', 'cards', 'COLECCIÓN', claims ? '¡Recompensas!' : `${owned.length} de ${this.m.roster.length}`, claims, !!claims)
             + tile('perks', 'perks', 'MEJORAS', 'Potencia permanente') + tile('shop', 'bolt', 'TÉCNICAS', 'Manuales')
-            + tile('kits', 'shirt', 'EQUIPACIONES', 'Uniforme y escudo') + tile('gear', 'boot', 'EQUIPAMIENTO', 'Botas y accesorios') + tile('hall', 'trophy', 'SALÓN', `${(this.save.hall ?? []).length} victorias`))}
+            + tile('training', 'target', 'ENTRENAMIENTO', 'Prueba técnicas') + tile('kits', 'shirt', 'EQUIPACIONES', 'Uniforme y escudo') + tile('gear', 'boot', 'EQUIPAMIENTO', 'Botas y accesorios') + tile('hall', 'trophy', 'SALÓN', `${(this.save.hall ?? []).length} victorias`))}
           ${group('g-sign', 'capsule', 'FICHAJES', tile('gacha', 'capsule', 'FICHAJES', `${this.save.tokens} fichas`, 0, true) + tile('daily', 'shop', 'TIENDA', 'Ofertas del día') + tile('codes', 'gift', 'CÓDIGOS', 'Canjea regalos'))}
           ${group('g-comp', 'crown', 'COMPETICIÓN', tile('missions', 'missions', 'MISIONES', pending ? '¡Por recoger!' : 'Recompensas', pending, !!pending)
             + tile('pass', 'ticket', 'PASE', pass.available ? '¡Recompensa lista!' : 'Vuelve mañana', pass.available ? 1 : 0, pass.available) + tile('ranking', 'crown', 'RANKING', onlineConfigured() ? 'Global' : 'Tus marcas'))}
@@ -992,6 +994,7 @@ export class App {
         if (squadOf(this.save, this.byId).length) this.mapSelect(); else this.captainSelect();
       }
       if (go === 'squad') this.captainSelect();
+      if (go === 'training') this.trainingField(); // v1.6
       if (go === 'collection') this.collection();
       if (go === 'gacha') this.gacha();
       if (go === 'missions') this.missions();
@@ -1169,7 +1172,7 @@ export class App {
     const mapName = (id: string) => this.m.maps.find((x) => x.id === id)?.name ?? id;
     const row = (pos: number, name: string, captain: number, crest: string, map: string, rank: string, time: number, damage: number, mine = false, score?: number) => {
       const p = this.byId.get(captain), pts = score ?? scoreOf({ rank, time, damage });
-      return `<div class="rank-row${pos <= 3 ? ` top${pos}` : ''}${mine ? ' mine' : ''}" style="--d:${Math.min(pos, 15) * 40}ms">
+      return `<div class="rank-row${pos <= 3 ? ` top${pos}` : ''}${mine ? ' mine' : ''}" style="--d:${Math.min(pos, 15) * 40}ms"${onlineConfigured() ? ` data-user="${esc(name)}" title="Ver el perfil de ${esc(name)}"` : ''}>
         <span class="rk-pos">${pos <= 3 ? ['🥇', '🥈', '🥉'][pos - 1] : `#${pos}`}</span>
         <span class="rk-av${p ? ` r-${p.rarity}` : ''}">${p ? this.mug(p.id, 48) : ''}</span>
         <span class="rk-name"><b>${esc(name)}</b><small>${esc(mapName(map))}</small></span>
@@ -1182,7 +1185,7 @@ export class App {
     const metric = (time: number, damage: number, pts: number) => q.order === 'time' ? [fmtTime(time), 'tiempo'] : q.order === 'damage' ? [damage.toLocaleString('es'), 'daño'] : [pts.toLocaleString('es'), 'puntos'];
     const podium = (top: readonly RowArgs[]) => `<div class="rk-podium">${top.map(([pos, name, captain, crest, map, rank, time, damage, , score]) => {
       const p = this.byId.get(captain), pts = score ?? scoreOf({ rank, time, damage }), [big, unit] = metric(time, damage, pts);
-      return `<div class="rk-pod p${pos}" style="--d:${pos * 90}ms"><span class="rk-medal">${pos}</span>
+      return `<div class="rk-pod p${pos}" style="--d:${pos * 90}ms"${onlineConfigured() ? ` data-user="${esc(name)}" title="Ver el perfil de ${esc(name)}"` : ''}><span class="rk-medal">${pos}</span>
         <span class="rk-pmug${p ? ` r-${p.rarity}` : ''}">${p ? this.mug(p.id, pos === 1 ? 112 : 88) : ''}</span>
         <b class="rk-pname">${esc(name)}</b><small>${p ? esc(p.name) : ''} · ${esc(mapName(map))}</small>
         <div class="rk-pbig"><b>${big}</b><small>${unit}</small></div>
@@ -1204,12 +1207,59 @@ export class App {
       const mine = signedIn() ? await myPosition(q) : null;
       me.innerHTML = mine ? `<h3>${uiIcon('target')}Mi posición</h3>${row(Number(mine.pos), mine.username, mine.captain_id, mine.crest, mine.map, mine.rank, mine.time_sec, Number(mine.damage), true, mine.score == null ? undefined : Number(mine.score))}`
         : `<div class="note">${signedIn() ? 'Aún no tienes marca en este tablero.' : 'Conecta tu cuenta en Perfil para aparecer aquí.'}</div>`;
+      this.bindUsers(list); this.bindUsers(me);
     } catch (err) {
       // Fix 1.32: a clear message and a retry instead of the server's raw text
       void err;
       list.innerHTML = `<div class="panel rank-down"><b>El ranking no está disponible ahora mismo</b><div class="note">El servidor está saturado o no hay conexión. Tu partida y tus marcas no se pierden.</div><button class="btn small" id="rretry">Reintentar</button></div>`;
       document.getElementById('rretry')?.addEventListener('click', () => { list.innerHTML = '<div class="note">Cargando…</div>'; void this.fillRanking(); });
     }
+  }
+
+  /** v1.6 (author): another player's club, opened from the ranking — icon, crest, favourite team, totals and squad */
+  private async otherProfile(username: string) {
+    document.getElementById('opf')?.remove();
+    const box = document.createElement('div');
+    box.className = 'modal';
+    box.id = 'opf';
+    box.innerHTML = `<div class="panel opf-panel"><div class="note">Cargando el perfil de ${esc(username)}…</div></div>`;
+    this.root.appendChild(box);
+    const close = () => box.remove();
+    box.addEventListener('click', (e) => { if (e.target === box) close(); });
+    let p: PublicProfile | null = null;
+    try { p = await publicProfile(username); } catch { /* shown below */ }
+    if (!box.isConnected) return;
+    if (!p) { box.innerHTML = `<div class="panel opf-panel"><p>No se pudo cargar el perfil de ${esc(username)}.</p><button class="btn" data-close>Cerrar</button></div>`; box.querySelector('[data-close]')!.addEventListener('click', close); return; }
+    const icon = (() => {
+      const ic = p.icon;
+      if (ic?.kind === 'player' && this.byId.has(ic.id)) return `<span class="avatar" style="width:88px;height:88px">${this.mug(ic.id, 88 as 64)}</span>`;
+      const list = ic?.kind === 'coach' ? this.m.profile?.coaches : this.m.profile?.emblems;
+      const e = ic ? list?.find((x) => (ic.kind === 'coach' ? x.index : x.teamId) === ic.id) : undefined;
+      return `<span class="avatar" style="width:88px;height:88px">${(e ?? this.m.profile?.emblems?.[0]) ? `<img src="${(e ?? this.m.profile!.emblems![0]).texture}" alt="">` : ''}</span>`;
+    })();
+    const mapName = (id: string) => this.m.maps.find((x) => x.id === id)?.name ?? id;
+    const squad = p.squad.filter((s) => this.byId.has(s.id)).map((s) => {
+      const e = this.byId.get(s.id)!, r = (s.hero ? 'heroe' : s.asc ? (s.ascRarity ?? 'mitico') : e.rarity) as string;
+      const aura = s.aura ? this.byId.get(Number(s.aura)) : undefined;
+      return `<div class="opf-pl" style="--rc:${r === 'heroe' ? '#ffd84a' : RARITY_COLOR[r as Rarity] ?? '#8a9bbd'}">${p!.captain === s.id ? '<span class="opf-cap">C</span>' : ''}${this.mug(s.id, 64)}
+        <b>${esc(e.name)}</b><small>${r === 'heroe' ? `HÉROE${s.heroStars ? ' ' + '★'.repeat(s.heroStars) : ''}` : esc(RARITY_LABEL[r as Rarity] ?? r)}${s.stars ? ` · ${'★'.repeat(s.stars)}` : ''}</small>
+        ${aura ? `<span class="opf-aura" title="Aura: ${esc(aura.name)}">${this.mug(aura.id, 24)}<em>Aura</em></span>` : ''}</div>`;
+    }).join('');
+    const tile = (label: string, v: string | number) => `<span class="opf-stat"><b>${v}</b><small>${label}</small></span>`;
+    box.innerHTML = `<div class="panel opf-panel">
+      <div class="opf-head">${icon}<div><small>PERFIL DE JUGADOR</small><b class="opf-name">${esc(p.username)}</b>
+        <span class="opf-meta">${p.crest && this.emblemOf(p.crest) ? `<img src="${this.emblemOf(p.crest)}" alt="">` : ''}${p.favorite ? `Equipo favorito: <b>${esc(teamLabel(p.favorite))}</b>` : 'Sin equipo favorito'}${p.joined ? ` · desde ${esc(new Date(p.joined).toLocaleDateString('es'))}` : ''}</span></div>
+        <button class="btn small blue" data-close>✕</button></div>
+      <div class="opf-stats">${tile('Partidas', p.stats.runs)}${tile('Victorias', p.stats.wins)}${tile('Eliminaciones', p.stats.kills.toLocaleString('es'))}${tile('Mejor tiempo', fmtTime(p.stats.bestTimeSec))}${tile('Colección', `${p.owned}/${this.m.roster.length}`)}${tile('Héroes', p.heroes)}</div>
+      <h3>${uiIcon('team')}Su equipo</h3><div class="opf-squad">${squad || '<div class="note">Todavía no ha elegido equipo.</div>'}</div>
+      ${p.marks.length ? `<h3>${uiIcon('crown')}Mejores marcas</h3><div class="opf-marks">${p.marks.map((m) => `<span class="opf-mark"><span class="rank-btn r-${esc(m.rank)}"><b>${esc(m.rank)}</b></span>${esc(mapName(m.map))}<b>${fmtTime(m.time_sec)}</b><small>${Number(m.damage).toLocaleString('es')} daño</small></span>`).join('')}</div>` : ''}
+    </div>`;
+    box.querySelector('[data-close]')!.addEventListener('click', close);
+  }
+
+  /** v1.6: every ranking name opens that player's profile */
+  private bindUsers(root: HTMLElement | null) {
+    root?.querySelectorAll<HTMLElement>('[data-user]').forEach((el) => el.addEventListener('click', () => void this.otherProfile(el.dataset.user!)));
   }
 
   /** Main-menu TOP 5 of the global board (time survived, all arenas and ranks) and the player's own position. */
@@ -1230,7 +1280,7 @@ export class App {
       const pts = (r: BoardRow) => r.score == null ? scoreOf({ rank: r.rank, time: r.time_sec, damage: Number(r.damage) }) : Number(r.score);
       const podium = top.slice(0, 3).map((r) => {
         const p = cap(r.captain_id), pos = Number(r.pos);
-        return `<div class="wr-pod p${pos}"><span class="wr-medal">${['🥇', '🥈', '🥉'][pos - 1]}</span>
+        return `<div class="wr-pod p${pos}" data-user="${esc(r.username)}" title="Ver el perfil de ${esc(r.username)}"><span class="wr-medal">${['🥇', '🥈', '🥉'][pos - 1]}</span>
           <span class="wr-mug${p ? ` r-${p.rarity}` : ''}">${p ? this.mug(p.id, pos === 1 ? 96 : 80) : ''}</span>
           <b class="wr-name">${esc(r.username)}</b><small class="wr-cap">${p ? esc(p.name) : ''}</small>
           <div class="wr-pts"><b>${pts(r).toLocaleString('es')}</b> <small>puntos</small></div>
@@ -1238,7 +1288,7 @@ export class App {
       }).join('');
       const row = (r: BoardRow, me = false) => {
         const p = cap(r.captain_id);
-        return `<div class="wr-row${me ? ' me' : ''}"><span class="wr-pos">#${r.pos}</span><span class="wr-mini">${p ? this.mug(p.id, 40) : ''}</span>
+        return `<div class="wr-row${me ? ' me' : ''}" data-user="${esc(r.username)}" title="Ver el perfil de ${esc(r.username)}"><span class="wr-pos">#${r.pos}</span><span class="wr-mini">${p ? this.mug(p.id, 40) : ''}</span>
           <span class="wr-who"><b>${esc(r.username)}</b><small>${p ? esc(p.name) : ''}</small></span>${crest(r.crest)}
           <span class="rank-btn r-${r.rank}"><b>${r.rank}</b></span><span class="wr-num"><b>${pts(r).toLocaleString('es')} pts</b><small>${fmtTime(r.time_sec)} · ${Number(r.damage).toLocaleString('es')} daño</small></span></div>`;
       };
@@ -1246,6 +1296,7 @@ export class App {
         ? `<div class="wr-podium">${podium}</div><div class="wr-list">${top.slice(3, 15).map((r) => row(r)).join('')}</div>`
           + (mine ? `<div class="wr-mine"><small>Tu posición</small>${row(mine, true)}</div>` : signedIn() ? '<div class="note">Juega una partida para aparecer en el ranking.</div>' : '<div class="note">Entra con Google para aparecer en el ranking.</div>')
         : '<div class="note">Aún nadie en el ranking: ¡sé el primero!</div>';
+      this.bindUsers(el);
     } catch { const el = document.getElementById('menurank'); if (el) el.innerHTML = '<div class="note">El ranking no está disponible ahora mismo. <button class="linkbtn" id="mrretry">Reintentar</button></div>'; document.getElementById('mrretry')?.addEventListener('click', () => void this.fillMenuRank()); }
   }
 
@@ -3435,18 +3486,100 @@ export class App {
     });
   }
 
+  // ------------------------------------------------------------- v1.6 training field
+  /** v1.6 (author): what the training field remembers while the game is open (players, techniques and levels, combos, arena) */
+  private train: { ids: number[]; techs: Record<number, Record<number, number>>; combos: Record<string, number>; map: string } | null = null;
+  private inTraining = false;
+
+  /**
+   * v1.6 (author): the training field. Up to five of your footballers, the techniques each one uses and at which level
+   * (all of his repertoire, Aura techniques included), and the combined techniques they can perform together. Played on
+   * a pitch with a steady crowd of rivals: nobody gets hurt, nothing is earned and nothing counts for missions or ranking.
+   */
+  private trainingField() {
+    this.stopScenes();
+    setMusicContext('menu');
+    const owned = this.unlockedRoster();
+    if (!this.train) {
+      const ids = squadOf(this.save, this.byId).slice(0, TRAIN_TEAM).map((p) => p.id);
+      this.train = { ids: ids.length ? ids : owned.slice(0, 1).map((p) => p.id), techs: {}, combos: {}, map: this.m.maps[0]?.id ?? '' };
+    }
+    const tr = this.train;
+    tr.ids = tr.ids.filter((id) => this.owned(id) && this.byId.has(id));
+    const team = tr.ids.map((id) => this.runEntry(this.byId.get(id)!));
+    for (const p of team) if (!tr.techs[p.id]) { // first time: his first three techniques (talents are passive) at level 5
+      const idx = p.techniques.map((t, i) => (t.type === 'talento' ? -1 : i)).filter((i) => i >= 0).slice(0, 3);
+      tr.techs[p.id] = Object.fromEntries(idx.map((i) => [i, 5]));
+    }
+    const auraNames = team.map((p) => p.aura?.name).filter((x): x is string => !!x);
+    const combos = squadCombos(team, auraNames);
+    for (const id of Object.keys(tr.combos)) if (!combos.some((c) => c.ready && c.combo.id === id)) delete tr.combos[id];
+    const stepper = (key: string, lv: number, max: number) => `<span class="tr-lv"><button data-step="${key}:-1" ${lv <= 1 ? 'disabled' : ''}>−</button><b>Nv ${lv}</b><button data-step="${key}:1" ${lv >= max ? 'disabled' : ''}>+</button></span>`;
+    const card = (p: RosterEntry) => {
+      const lv = tr.techs[p.id] ?? {}, active = Object.keys(lv).length;
+      return `<div class="panel tr-player" style="--rc:${RARITY_COLOR[effectiveRarity(this.save, p)]}">
+        <div class="tr-head">${this.mug(p.id, 48)}<div><b>${esc(p.name)}</b><small>${this.rar(p)} ${this.elem(p)}${p.aura ? ` · Aura: ${esc(p.aura.name)}` : ''}</small></div>
+          <button class="btn small blue" data-rm="${p.id}" title="Quitar">✕</button></div>
+        <div class="tr-techs">${p.techniques.map((t, i) => {
+          if (t.type === 'talento') return '';
+          const on = lv[i] !== undefined;
+          return `<div class="tr-tech${on ? ' on' : ''}"><button class="tr-pick" data-tt="${p.id}:${i}" ${!on && active >= TRAIN_SLOTS ? 'disabled' : ''}>${this.techBadge(t, 1)}<span>${esc(t.name)}${t.aura !== undefined ? ' <em>Aura</em>' : ''}</span></button>${on ? stepper(`t:${p.id}:${i}`, lv[i], MAX_TECH_LEVEL) : ''}</div>`;
+        }).join('')}</div><small class="note">${active}/${TRAIN_SLOTS} técnicas activas</small></div>`;
+    };
+    const free = owned.filter((p) => !tr.ids.includes(p.id)).sort((a, b) => a.name.localeCompare(b.name, 'es'));
+    this.show(`<div class="screen tr-screen">${this.titlebar('Campo de entrenamiento', 'Menú')}
+      <p class="note">Prueba las técnicas de tus futbolistas al nivel que quieras, también las combinadas que puedan hacer juntos (con sus Auras incluidas). Nadie recibe daño y no se gana nada: ni recompensas, ni misiones, ni ranking.</p>
+      <div class="tr-bar"><label>Arena <select id="trmap">${this.m.maps.map((mp) => `<option value="${esc(mp.id)}" ${mp.id === tr.map ? 'selected' : ''}>${esc(mp.name)}</option>`).join('')}</select></label>
+        ${tr.ids.length < TRAIN_TEAM ? `<label>Añadir futbolista <select id="tradd"><option value="">Elige…</option>${free.map((p) => `<option value="${p.id}">${esc(p.name)}</option>`).join('')}</select></label>` : `<span class="note">Equipo completo (${TRAIN_TEAM})</span>`}
+        <button class="btn big" id="trgo" ${team.length ? '' : 'disabled'}>¡A ENTRENAR!</button></div>
+      <div class="tr-grid">${team.map(card).join('') || '<div class="panel note">Añade al menos un futbolista.</div>'}</div>
+      <div class="panel tr-combos"><h3>${uiIcon('bolt')}Técnicas combinadas</h3>${combos.map((c) => {
+        const on = tr.combos[c.combo.id] !== undefined;
+        return c.ready ? `<div class="tr-tech${on ? ' on' : ''}"><button class="tr-pick" data-tc="${c.combo.id}"><span>${esc(c.combo.name)}${c.viaAura.length ? ' <em>con Aura</em>' : ''}</span></button>${on ? stepper(`c:${c.combo.id}`, tr.combos[c.combo.id], COMBO_MAX_LEVEL) : ''}</div>`
+          : `<div class="tr-tech off"><span>${esc(c.combo.name)}</span><small>Falta: ${c.missing.map(esc).join(', ')}</small></div>`;
+      }).join('') || '<p class="note">Ninguno de estos futbolistas participa en una técnica combinada.</p>'}</div></div>`);
+    const redraw = () => this.trainingField();
+    this.on('[data-back]', 'click', () => this.mainMenu());
+    document.getElementById('trmap')?.addEventListener('change', (e) => { tr.map = (e.target as HTMLSelectElement).value; });
+    document.getElementById('tradd')?.addEventListener('change', (e) => { const id = Number((e.target as HTMLSelectElement).value); if (id && tr.ids.length < TRAIN_TEAM) { tr.ids.push(id); redraw(); } });
+    this.on('[data-rm]', 'click', (_e, el) => { tr.ids = tr.ids.filter((id) => id !== Number(el.dataset.rm)); redraw(); });
+    this.on('[data-tt]', 'click', (_e, el) => {
+      const [id, i] = el.dataset.tt!.split(':').map(Number), lv = (tr.techs[id] ??= {});
+      if (lv[i] !== undefined) delete lv[i]; else if (Object.keys(lv).length < TRAIN_SLOTS) lv[i] = 5;
+      redraw();
+    });
+    this.on('[data-tc]', 'click', (_e, el) => { const id = el.dataset.tc!; if (tr.combos[id] !== undefined) delete tr.combos[id]; else tr.combos[id] = 3; redraw(); });
+    this.on('[data-step]', 'click', (_e, el) => {
+      const parts = el.dataset.step!.split(':'), d = Number(parts.pop());
+      if (parts[0] === 't') { const lv = tr.techs[Number(parts[1])]; const i = Number(parts[2]); lv[i] = Math.max(1, Math.min(MAX_TECH_LEVEL, lv[i] + d)); }
+      else tr.combos[parts[1]] = Math.max(1, Math.min(COMBO_MAX_LEVEL, tr.combos[parts[1]] + d));
+      redraw();
+    });
+    document.getElementById('trgo')?.addEventListener('click', () => {
+      const ids = tr.ids.filter((id) => Object.keys(tr.techs[id] ?? {}).length);
+      if (!ids.length) { sfx('error'); this.toast('Activa al menos una técnica'); return; }
+      const setup: TrainingSetup = { members: ids.map((id) => ({ id, slots: Object.keys(tr.techs[id]).map(Number), levels: { ...tr.techs[id] } })), combos: { ...tr.combos } };
+      const raw = ids.map((id) => this.byId.get(id)!);
+      this.startRun(tr.map || this.m.maps[0].id, raw, raw, setup);
+    });
+  }
+
   // ------------------------------------------------------------- run
   /** `candidates`: the squad of seven; only they can be recruited during the run (and only their sprites load). */
-  startRun(mapId: string, team: RosterEntry[], candidates: RosterEntry[] = team) {
+  /**
+   * A footballer as he plays: a HÉROE brings its exclusive technique as a fifth repertoire entry; Fix 1.3: real stats
+   * (rarity band, ascension, HÉROE, training); v1.5: a carrier plays with his Aura (stats up to 120, inherited techniques).
+   */
+  private runEntry(p: RosterEntry): RosterEntry {
+    const base: RosterEntry = { ...(isHero(this.save, p.id) && p.heroTech ? { ...p, techniques: [...p.techniques, p.heroTech] } : p), stats: this.statsOf(p) ?? p.stats };
+    const a = auraOf(this.save, p.id), ae = a === null ? undefined : this.byId.get(a);
+    return ae ? carrierForRun(this.save, base, base.stats as Record<StatKey, number> | null, ae) : base;
+  }
+
+  startRun(mapId: string, team: RosterEntry[], candidates: RosterEntry[] = team, training?: TrainingSetup) {
     const map = this.m.maps.find((x) => x.id === mapId)!;
-    // a HÉROE brings its exclusive technique as a fifth repertoire entry
-    // Fix 1.3: the run plays with the real stats (rarity band, ascension, HÉROE, training), not the raw ones
-    // v1.5: a carrier also plays with his Aura: effective stats (up to 120), inherited techniques and the link (auras.ts)
-    const heroed = (p: RosterEntry): RosterEntry => {
-      const base: RosterEntry = { ...(isHero(this.save, p.id) && p.heroTech ? { ...p, techniques: [...p.techniques, p.heroTech] } : p), stats: this.statsOf(p) ?? p.stats };
-      const a = auraOf(this.save, p.id), ae = a === null ? undefined : this.byId.get(a);
-      return ae ? carrierForRun(this.save, base, base.stats as Record<StatKey, number> | null, ae) : base;
-    };
+    const heroed = (p: RosterEntry) => this.runEntry(p);
+    this.inTraining = !!training;
     const runTeam = team.map(heroed), runUnlocked = candidates.filter((p) => this.owned(p.id)).map(heroed);
     this.runById = new Map([...runUnlocked, ...runTeam].map((p) => [p.id, p]));
     const runAuras = [...new Set([...runTeam, ...runUnlocked].map((p) => p.aura?.id).filter((x): x is number => x !== undefined))].map((id) => this.byId.get(id)!).filter(Boolean);
@@ -3488,7 +3621,7 @@ export class App {
       asc: Object.fromEntries(candidates.map((p) => [String(p.id), { ...ascMultipliers(this.save, p), hero: isHero(this.save, p.id) }])),
       manifest: this.m, map, team: runTeam, unlocked: runUnlocked, auras: runAuras, stars, settings: this.save.settings,
       perks: (() => { const e = applyGear(perkEffects(this.save), this.save, this.gear); kitBonus(this.save.kit, this.m.roster).apply(e); return e; })(),
-      kitTeam: this.save.kit || 'Raimon', shop: this.save.shop, mastery: this.save.mastery, loadout: this.validLoadout(), kit: this.m.kits?.[this.save.kit] ?? null, formation: (this.save.formation as FormationId) in FORMATIONS ? this.save.formation as FormationId : 'equilibrada',
+      kitTeam: this.save.kit || 'Raimon', shop: this.save.shop, mastery: this.save.mastery, loadout: this.validLoadout(), training, kit: this.m.kits?.[this.save.kit] ?? null, formation: (this.save.formation as FormationId) in FORMATIONS ? this.save.formation as FormationId : 'equilibrada',
       hooks: {
         hud: (s) => this.renderHud(s),
         markers: (m) => this.renderMarkers(m),
@@ -3501,6 +3634,7 @@ export class App {
       },
     };
     this.runInfo = { map: map.name, difficulty: this.save.difficulty };
+    if (training) document.getElementById('hud')?.insertAdjacentHTML('beforeend', '<div class="train-tag">ENTRENAMIENTO · sin daño ni recompensas · Pausa para salir</div>');
     this.game.scene.start('Arena', init);
   }
 
@@ -3858,7 +3992,8 @@ export class App {
         <button class="btn small blue" id="toggleflash">Destellos: ${s.flashes ? 'sí' : 'no'}</button>
         <button class="btn small blue" id="togglemute">Sonido: ${s.muted ? 'no' : 'sí'}</button></p>
       <p><button class="btn small blue" id="pausebug">Reportar un bug</button></p>
-      <p><button class="btn blue" id="quit">Abandonar partida</button></p><p class="note">Al abandonar conservas las monedas ganadas.</p></div></div>`);
+      ${this.inTraining ? '<p><button class="btn blue" id="quit">Salir del entrenamiento</button></p><p class="note">Vuelves al campo de entrenamiento con la misma configuración.</p>'
+        : '<p><button class="btn blue" id="quit">Abandonar partida</button></p><p class="note">Al abandonar conservas las monedas ganadas.</p>'}</div></div>`);
     const close = () => { document.getElementById('pause')?.remove(); this.game.scene.resume('Arena'); };
     document.getElementById('resume')!.addEventListener('click', close);
     this.on('#pause .fcard', 'click', (_e, el) => { this.arena()?.selectFormation(el.dataset.f as FormationId); close(); });
@@ -3869,6 +4004,7 @@ export class App {
     document.getElementById('pausebug')!.addEventListener('click', () => this.bugReportModal());
     document.getElementById('quit')!.addEventListener('click', () => {
       document.getElementById('pause')?.remove();
+      if (this.inTraining) { this.inTraining = false; this.trainingField(); return; } // v1.6: no results, no rewards
       this.game.scene.resume('Arena');
       this.arena()?.forceEnd();
     });

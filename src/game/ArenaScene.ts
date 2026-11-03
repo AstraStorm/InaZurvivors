@@ -102,7 +102,17 @@ export interface ArenaInit {
   kit?: NonNullable<Manifest['kits']>[string] | null;
   /** v1.5: the Auras of the squad (their own entries), only to show them inside a combined technique */
   auras?: RosterEntry[];
+  /** v1.6: training field — chosen techniques and levels, chosen combined techniques; no damage taken, no rewards */
+  training?: TrainingSetup;
 }
+
+/** v1.6: what the training field puts on the pitch: each footballer's active techniques with their levels, and combos */
+export interface TrainingSetup {
+  members: { id: number; slots: number[]; levels: Record<number, number> }[];
+  combos: Record<string, number>;
+}
+/** rivals kept on the pitch while training */
+const TRAINING_RIVALS = 22;
 
 interface Member {
   f: Footballer; state: TeamMemberState; entry: RosterEntry; damageMult: number;
@@ -314,6 +324,7 @@ export class ArenaScene extends Phaser.Scene {
     this.events.once('shutdown', () => this.scale.off('resize', onResize));
     const sp = this.arena.spawnPoint();
     this.cfg.team.slice(0, MAX_TEAM).forEach((p, i) => this.addMember(p, sp.x + (i ? (i % 2 ? -1 : 1) * 18 * Math.ceil(i / 2) : 0), sp.y + (i ? 14 : 0)));
+    if (this.cfg.training) this.applyTraining(this.cfg.training);
     // soft follow with a small dead zone: the captain can move a little without dragging the view along
     this.cameras.main.startFollow(this.members[0].f.container, true, 0.09, 0.09).setDeadzone(18, 14);
     this.arena.updateFlow(sp.x, sp.y);
@@ -383,6 +394,38 @@ export class ArenaScene extends Phaser.Scene {
     if (asc?.hero) { // HÉROE: golden entrance and a lasting aura
       this.fx.rays(x, y - 12, 12, 46, 0xffe27a, 600);
       this.fx.ring(x, y - 10, 30, 0xffd84a, 500, 3);
+    }
+  }
+
+  /** v1.6: the training field sets every footballer's techniques and levels and the combined techniques by hand */
+  private applyTraining(t: TrainingSetup) {
+    for (const m of this.members) {
+      const c = t.members.find((x) => x.id === m.entry.id);
+      if (!c) continue;
+      const slots = c.slots.filter((i) => m.entry.techniques[i] && m.entry.techniques[i].type !== 'talento').slice(0, 5);
+      if (!slots.length) continue;
+      m.state = { playerId: m.entry.id, slots, levels: Object.fromEntries(slots.map((i) => [i, Math.max(1, Math.min(MAX_TECH_LEVEL, c.levels[i] ?? 1))])) };
+      slots.forEach((idx, k) => {
+        const tech = m.entry.techniques[idx];
+        m.styles[k] = fxStyle(tech); m.trajs[k] = trajectory(tech); m.recipes[k] = recipeFor(tech, this.fxRarity(m.entry));
+        m.cds[k] = 600 + k * 500 + m.slot * 250;
+      });
+    }
+    for (const [id, level] of Object.entries(t.combos)) if (COMBOS.some((c) => c.id === id)) this.combos.set(id, { level: Math.max(1, Math.min(COMBO_MAX_LEVEL, level)), cd: 1500 });
+    // nothing that ends or interrupts the session: no hazards, altars or surrounding waves
+    this.nextHazardAt = Infinity; this.nextAltarAt = Infinity; this.nextSurround = Infinity;
+  }
+
+  /** v1.6: training keeps a steady crowd of ordinary rivals to aim at (no minibosses, boss or waves) */
+  private trainingSpawn(dt: number) {
+    const { map } = this.cfg, units = this.units();
+    this.spawnAcc += dt / 1000;
+    if (this.spawnAcc < 0.25 || !map.enemies.length) return;
+    this.spawnAcc = 0;
+    const alive = this.enemies.filter((e) => !e.dead).length;
+    for (let i = alive; i < TRAINING_RIVALS && i < alive + 4; i++) {
+      const u = units.get(map.enemies[this.rng.between(0, map.enemies.length - 1)]);
+      if (u) this.spawnEnemy(u, u.kind === 'creature' ? 'creature' : 'enemy');
     }
   }
 
@@ -489,6 +532,7 @@ export class ArenaScene extends Phaser.Scene {
     // Fix 1.12: hitstop, a few frames almost frozen on the heaviest impacts (never in reduced motion)
     const dt = Math.min(dtRaw, 50) * (nowMs < this.hitstopUntil ? 0.08 : nowMs < this.slowmoUntil ? 0.2 : 1);
     this.runTime += dt / 1000;
+    if (this.cfg.training) { this.hp = this.maxHp; this.invulnUntil = this.runTime + 1; } // v1.6: nobody gets hurt in training
     this.moveTeam(dt);
     this.runTechniques(dt);
     this.runCombos(dt);
@@ -1326,6 +1370,7 @@ export class ArenaScene extends Phaser.Scene {
   }
 
   private spawn(dt: number) {
+    if (this.cfg.training) { this.trainingSpawn(dt); return; }
     const { map } = this.cfg;
     const units = this.units();
     const frac = this.runTime / map.durationSec;
@@ -2095,6 +2140,7 @@ export class ArenaScene extends Phaser.Scene {
   private xpNext() { return xpForLevel(this.level); }
 
   private gainXp(v: number) {
+    if (this.cfg.training) return; // v1.6: levels are chosen, not earned
     this.xp += v * capXp(this.mods.xp * this.cfg.perks.xpMult * (1 + this.talents().xp)) * (this.buffOn('xp') ? 2 : 1);
     if (this.xp >= this.xpNext() && !this.levelingUp) this.levelUp();
   }
@@ -2119,6 +2165,7 @@ export class ArenaScene extends Phaser.Scene {
 
   /** Card screen, from a level-up or a reward. `recruitOnly` keeps just recruit cards when any can be offered. */
   private offerCards(recruitOnly = false, level = 0) {
+    if (this.cfg.training) return;
     if (this.ended || this.levelingUp) return;
     this.levelingUp = true;
     this.scene.pause();
