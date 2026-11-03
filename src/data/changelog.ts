@@ -37,6 +37,8 @@ export const CHANGELOG: Release[] = [
       'HUD: retrato del Aura en la ficha del portador y técnicas heredadas en cian (en el HUD compacto del móvil, anillo cian en su cara). Elegir arena: el Aura de cada uno junto a su cara.',
       'Tornado de fuego con animación propia (fxAnime tfuego): espiral de llamas que sube alrededor del tirador, anillo de fuego a sus pies, balón con dos lenguas de fuego trenzadas y anillo de llamas al impactar; ya no usa el embudo genérico de «tornado».',
       'Logros: categoría (Auras, colección, combate, progresión), medalla por nivel (bronce 10, plata 20, oro 50 fichas) y aviso «¡Logro conseguido!» una sola vez por logro (save.achShown).',
+      'Arrastrar un Aura: los huecos se iluminan al coger una carta (cian si puede ser Aura), un imán de 26 px atrae la carta al hueco, el hueco enseña el Aura ya encajada (retrato, nombre, % y ♥) antes de soltar, la carta se encaja al soltar y el hueco hace un pequeño golpe; uno que no puede ser Aura lo marca en rojo.',
+      'Sinergias del equipo: las técnicas combinadas cuentan a los futbolistas que van de Aura («✦ Shawn como Aura de Axel»), y la colección también.',
       'Pantalla de título: salida con impulso del logo y destello (antes cortaba de golpe al menú). Explicación de las Auras la primera vez que se entra en Mi Equipo.',
     ],
     balance: [

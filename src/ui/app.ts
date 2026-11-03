@@ -1823,11 +1823,18 @@ export class App {
     const ch = pot.chemistry, cap = pot.captain;
     // Fix 1.32: combined techniques of the squad, two (or three) footballers linked by a chain; the missing ones greyed out
     const byName = new Map(this.m.roster.map((x) => [x.name, x]));
-    const combos = squadCombos(squad).map((c) => {
-      const who = c.combo.needs.map((n) => { const x = squad.find((q) => q.name === n.player) ?? byName.get(n.player); const here = squad.some((q) => q.name === n.player);
-        return `<span class="cb-who${here ? '' : ' miss'}" title="${esc(n.player)}${here ? '' : ' (no está en el equipo)'}">${x ? this.mug(x.id, 40) : ''}<small>${esc(n.player.split(' ')[0])}</small></span>`; }).join('<i class="cb-link">🔗</i>');
-      return `<div class="cb-card${c.ready ? ' ready' : ''}" style="--ec:${ELEMENT_COLOR[c.combo.element] ?? '#ffe27a'}"><div class="cb-team">${who}</div>
-        <div class="cb-info"><b>${esc(c.combo.name)}</b><small>${c.ready ? `¡Lista! Se aprende en la partida cuando sus técnicas llegan al nivel ${Math.max(...c.combo.needs.map((n) => n.level))}` : `Falta: ${esc(c.missing.join(', '))}`}</small></div></div>`;
+    // v1.5 (author): Auras count here too — a participant carried as Aura shows as present, with its carrier named
+    const carrierOfName = new Map<string, string>();
+    for (const q of squad) { const an = this.auraEntryOf(q.id)?.name; if (an) carrierOfName.set(an, q.name); }
+    const combos = squadCombos(squad, [...carrierOfName.keys()]).map((c) => {
+      const who = c.combo.needs.map((n) => {
+        const x = squad.find((q) => q.name === n.player) ?? byName.get(n.player);
+        const self = squad.some((q) => q.name === n.player), via = !self ? carrierOfName.get(n.player) : undefined, here = self || !!via;
+        return `<span class="cb-who${here ? '' : ' miss'}${via ? ' via-aura' : ''}" title="${esc(n.player)}${via ? ` (Aura de ${esc(via)})` : here ? '' : ' (no está en el equipo)'}">${x ? this.mug(x.id, 40) : ''}<small>${via ? '✦ ' : ''}${esc(n.player.split(' ')[0])}</small></span>`;
+      }).join('<i class="cb-link">🔗</i>');
+      const auraNote = c.viaAura.length ? ` · ✦ ${c.viaAura.map((n) => `${n.split(' ')[0]} como Aura de ${(carrierOfName.get(n) ?? '').split(' ')[0]}`).join(', ')}` : '';
+      return `<div class="cb-card${c.ready ? ' ready' : ''}${c.viaAura.length ? ' with-aura' : ''}" style="--ec:${ELEMENT_COLOR[c.combo.element] ?? '#ffe27a'}"><div class="cb-team">${who}</div>
+        <div class="cb-info"><b>${esc(c.combo.name)}</b><small>${c.ready ? `¡Lista! Se aprende en la partida cuando sus técnicas llegan al nivel ${Math.max(...c.combo.needs.map((n) => n.level))}${esc(auraNote)}` : `Falta: ${esc(c.missing.join(', '))}${esc(auraNote)}`}</small></div></div>`;
     }).join('');
     return `<div class="panel syn-panel"><h3>Sinergias del equipo</h3>
       <div class="note">Resonancia: 3 técnicas activas del mismo elemento dan <b>+8%</b> de daño a esas técnicas, 5 dan <b>+15%</b>. Las técnicas activas se eligen al subir de nivel en la partida.</div>
@@ -1842,6 +1849,8 @@ export class App {
   // ------------------------------------------------------------- v1.5: Auras
   /** carrier whose Aura is being chosen from the collection (tap flow, also on touch screens) */
   private auraPick: number | null = null;
+  /** carrier whose socket has just received a card (plays its landing once) */
+  private auraLanded: number | null = null;
   private auraEntryOf(carrierId: number) { const a = auraOf(this.save, carrierId); return a === null ? undefined : this.byId.get(a); }
   private auraBonusOf(p: RosterEntry): AuraBonus | null { const ae = this.auraEntryOf(p.id); return ae ? auraBonus(this.save, p.id, ae) : null; }
   /** own stats (≤ 99), Aura points and effective stats (≤ 120) of a footballer */
@@ -1858,7 +1867,7 @@ export class App {
     if (!ae) return `<button class="aura-mini empty${picking}" data-aura-slot="${p.id}" title="Equipar un Aura (Legendario, Mítico o Leyenda)"><span class="am-plus">+</span><small>AURA</small></button>`;
     const er = effectiveRarity(this.save, ae), tier = isHero(this.save, ae.id) ? 'heroe' : er;
     const b = auraBonus(this.save, p.id, ae);
-    return `<button class="aura-mini t-${tier}${b.bond ? ' bond' : ''}${picking}" data-aura-slot="${p.id}" data-aura-open="${p.id}" style="--rc:${RARITY_COLOR[er]};--ec:${ELEMENT_COLOR[String(ae.element)] ?? '#8a9bbd'}" title="Aura: ${esc(ae.name)} · pulsa para ver lo que aporta">
+    return `<button class="aura-mini t-${tier}${b.bond ? ' bond' : ''}${picking}${this.auraLanded === p.id ? ' landed' : ''}" data-aura-slot="${p.id}" data-aura-open="${p.id}" style="--rc:${RARITY_COLOR[er]};--ec:${ELEMENT_COLOR[String(ae.element)] ?? '#8a9bbd'}" title="Aura: ${esc(ae.name)} · pulsa para ver lo que aporta">
       <span class="am-mug">${this.mug(ae.id, 40)}</span><span class="am-txt"><small>AURA</small><b>${esc(ae.name.split(' ')[0])}</b><em>${b.bond ? '♥ ' : ''}+${Math.round(b.pct * 100)}%</em></span><i class="am-shine"></i></button>`;
   }
 
@@ -2106,15 +2115,35 @@ export class App {
   private squadDrag() {
     if (this.dragReady) return;
     this.dragReady = true;
-    type St = { id: number; el: HTMLElement; x0: number; y0: number; pid: number; fromSlot: number; ghost?: HTMLElement; over?: HTMLElement | null; lx: number; tilt: number };
+    type St = { id: number; el: HTMLElement; x0: number; y0: number; pid: number; fromSlot: number; ghost?: HTMLElement; over?: HTMLElement | null; lx: number; tilt: number; auraOk: boolean; snapped: boolean };
     let st: St | null = null;
+    let preview: HTMLElement | null = null;
+    // v1.5: the Aura sockets are small: within this many pixels of one, the card is pulled into it (magnet)
+    const MAGNET = 26;
+    const socketNear = (x: number, y: number) => {
+      let best: HTMLElement | null = null, bd = Infinity;
+      for (const s of document.querySelectorAll<HTMLElement>('.squad-row [data-aura-slot]')) {
+        const r = s.getBoundingClientRect();
+        const ddx = Math.max(r.left - x, 0, x - r.right), ddy = Math.max(r.top - y, 0, y - r.bottom), d = Math.hypot(ddx, ddy);
+        if (d <= MAGNET && d < bd) { bd = d; best = s; }
+      }
+      return best;
+    };
+    /** where the ghost goes to sit inside a socket: centred on it and scaled to its size (transform from its start box) */
+    const fitInto = (g: HTMLElement, to: DOMRect, extra = 1) => {
+      const x0 = parseFloat(g.style.left), y0 = parseFloat(g.style.top), w = g.offsetWidth, h = g.offsetHeight;
+      const k = Math.min(to.width / w, to.height / h) * extra;
+      return `translate(${(to.left + to.width / 2 - (x0 + w / 2)).toFixed(1)}px, ${(to.top + to.height / 2 - (y0 + h / 2)).toFixed(1)}px) rotate(0deg) scale(${k.toFixed(3)})`;
+    };
     this.root.addEventListener('pointerdown', (e) => {
       if (e.pointerType === 'touch' || e.button !== 0) return;
       const t = e.target as HTMLElement;
       const el = t.closest<HTMLElement>('[data-drag]');
       if (!el || t.closest('.sq-act, button, select, input')) return;
       const slot = el.closest<HTMLElement>('[data-slot]');
-      st = { id: Number(el.dataset.drag), el, x0: e.clientX, y0: e.clientY, pid: e.pointerId, fromSlot: slot ? Number(slot.dataset.slot) : -1, lx: e.clientX, tilt: 0 };
+      const dp = this.byId.get(Number(el.dataset.drag));
+      st = { id: Number(el.dataset.drag), el, x0: e.clientX, y0: e.clientY, pid: e.pointerId, fromSlot: slot ? Number(slot.dataset.slot) : -1, lx: e.clientX, tilt: 0,
+        auraOk: !!dp && canBeAura(this.save, dp) && this.save.captainId !== dp.id, snapped: false };
     });
     window.addEventListener('pointermove', (e) => {
       if (!st || e.pointerId !== st.pid) return;
@@ -2129,26 +2158,59 @@ export class App {
         document.body.appendChild(g);
         st.ghost = g;
         st.el.classList.add('drag-src');
-        document.body.classList.add('dragging-card');
+        document.body.classList.add('dragging-card', st.auraOk ? 'drag-aura-ok' : 'drag-aura-no'); // v1.5: sockets show if it fits
         sfx('click');
       }
       e.preventDefault();
       // the card leans towards where it is going, and settles when the pointer slows down
       st.tilt = st.tilt * 0.8 + Math.max(-14, Math.min(14, (e.clientX - st.lx) * 0.9)) * 0.2;
       st.lx = e.clientX;
-      st.ghost.style.transform = `translate(${dx}px, ${dy}px) rotate(${st.tilt.toFixed(1)}deg) scale(1.08)`;
-      // v1.5: the Aura socket of a slot wins over the slot itself
+      // v1.5: an Aura socket (under the pointer or within the magnet distance) wins over the slot itself
       const hit = document.elementFromPoint(e.clientX, e.clientY);
-      const under = hit?.closest<HTMLElement>('[data-aura-slot]') ?? hit?.closest<HTMLElement>('[data-slot]') ?? null;
-      if (under !== st.over) { st.over?.classList.remove('drop'); under?.classList.add('drop'); st.over = under; if (under) sfx('click'); }
+      const sock = hit?.closest<HTMLElement>('[data-aura-slot]') ?? socketNear(e.clientX, e.clientY);
+      const under = sock ?? hit?.closest<HTMLElement>('[data-slot]') ?? null;
+      const snap = !!sock && st.auraOk && Number(sock.dataset.auraSlot) !== st.id;
+      if (snap !== st.snapped) { st.ghost.style.transition = 'transform .14s ease-out'; window.setTimeout(() => { if (st?.ghost) st.ghost.style.transition = ''; }, 150); st.snapped = snap; }
+      if (snap) {
+        // the card shrinks into the socket and the socket shows the Aura exactly as it will look once dropped
+        // (portrait, name and percentage framed in the socket), so the fit is never in doubt
+        st.ghost.style.transformOrigin = '50% 50%';
+        st.ghost.style.transform = fitInto(st.ghost, sock!.getBoundingClientRect(), 1.15);
+        const r = sock!.getBoundingClientRect();
+        if (!preview || preview.dataset.for !== sock!.dataset.auraSlot) {
+          preview?.remove();
+          const p = this.byId.get(st.id)!, bond = bondOf(Number(sock!.dataset.auraSlot), p.id);
+          preview = document.createElement('div');
+          preview.dataset.for = sock!.dataset.auraSlot;
+          preview.className = `aura-mini aura-preview t-${isHero(this.save, p.id) ? 'heroe' : effectiveRarity(this.save, p)}${bond ? ' bond' : ''}`;
+          preview.style.cssText = `--rc:${RARITY_COLOR[effectiveRarity(this.save, p)]};--ec:${ELEMENT_COLOR[String(p.element)] ?? '#8a9bbd'}`;
+          preview.innerHTML = `<span class="am-mug">${this.mug(p.id, 40)}</span><span class="am-txt"><small>SOLTAR</small><b>${esc(p.name.split(' ')[0])}</b><em>${bond ? '♥ ' : ''}+${Math.round((bond ? BOND_PCT : AURA_PCT) * 100)}%</em></span>`;
+          document.body.appendChild(preview);
+        }
+        Object.assign(preview.style, { left: `${r.left}px`, top: `${r.top}px`, width: `${r.width}px`, height: `${r.height}px` });
+        st.ghost.style.opacity = '0.25';
+      } else {
+        preview?.remove(); preview = null;
+        st.ghost.style.opacity = '';
+        st.ghost.style.transformOrigin = '';
+        st.ghost.style.transform = `translate(${dx}px, ${dy}px) rotate(${st.tilt.toFixed(1)}deg) scale(1.08)`;
+      }
+      st.ghost.classList.toggle('in-socket', snap);
+      if (under !== st.over) {
+        st.over?.classList.remove('drop', 'drop-bad');
+        under?.classList.add(under.dataset.auraSlot && !snap ? 'drop-bad' : 'drop');
+        st.over = under;
+        if (under) sfx(under.dataset.auraSlot && !snap ? 'error' : 'click');
+      }
     }, { passive: false });
     const end = (e: PointerEvent) => {
       if (!st || e.pointerId !== st.pid) return;
       const s0 = st; st = null;
       if (!s0.ghost) return; // no movement: it was a click
       this.dragEndedAt = performance.now();
-      document.body.classList.remove('dragging-card');
-      s0.over?.classList.remove('drop');
+      document.body.classList.remove('dragging-card', 'drag-aura-ok', 'drag-aura-no');
+      preview?.remove(); preview = null;
+      s0.over?.classList.remove('drop', 'drop-bad');
       const g = s0.ghost;
       const fly = (to: DOMRect | null, after: () => void) => {
         const r = g.getBoundingClientRect();
@@ -2162,12 +2224,23 @@ export class App {
       const inRow = !!document.elementFromPoint(e.clientX, e.clientY)?.closest('.squad-row');
       if (s0.over?.dataset.auraSlot) {
         const carrier = Number(s0.over.dataset.auraSlot);
-        const okDrop = s0.id !== carrier && !!this.byId.get(s0.id) && canBeAura(this.save, this.byId.get(s0.id)!);
-        fly(okDrop ? s0.over.getBoundingClientRect() : s0.el.getBoundingClientRect(), () => {
-          s0.el.classList.remove('drag-src');
-          this.tryEquipAura(carrier, s0.id);
-          this.captainSelect();
-        });
+        const okDrop = s0.auraOk && s0.id !== carrier;
+        if (okDrop) {
+          // it settles into the socket (centred, at the socket's size) and fades as the real small card appears there
+          g.style.transformOrigin = '50% 50%';
+          g.style.transition = 'transform .18s cubic-bezier(.2,.9,.3,1.1), opacity .18s .06s';
+          g.style.transform = fitInto(g, s0.over.getBoundingClientRect(), 1);
+          g.style.opacity = '0.2';
+          window.setTimeout(() => {
+            g.remove();
+            s0.el.classList.remove('drag-src');
+            if (this.tryEquipAura(carrier, s0.id)) this.auraLanded = carrier;
+            this.captainSelect();
+            this.auraLanded = null;
+          }, 190);
+        } else {
+          fly(s0.el.getBoundingClientRect(), () => { s0.el.classList.remove('drag-src'); this.tryEquipAura(carrier, s0.id); this.captainSelect(); });
+        }
       } else if (s0.over) {
         const slot = Number(s0.over.dataset.slot);
         const target = (s0.over.querySelector('.pcard') ?? s0.over).getBoundingClientRect();
@@ -2205,7 +2278,7 @@ export class App {
         : mean(b) - mean(a) || a.name.localeCompare(b.name));
     const sq = squadOf(this.save, this.byId);
     const partners = new Map<string, string>();
-    for (const c of squadCombos(sq)) if (!c.ready && c.missing.length === 1) partners.set(c.missing[0], c.combo.name);
+    for (const c of squadCombos(sq, sq.map((x) => this.auraEntryOf(x.id)?.name).filter((x): x is string => !!x))) if (!c.ready && c.missing.length === 1) partners.set(c.missing[0], c.combo.name);
     // v1.5: while choosing an Aura, those who can be one come first (compatible ones before all), the rest greyed out
     const ap = this.auraPick;
     if (ap !== null) list.sort((a, b) => Number(canBeAura(this.save, b) && b.id !== ap) - Number(canBeAura(this.save, a) && a.id !== ap) || Number(!!bondOf(ap, b.id)) - Number(!!bondOf(ap, a.id)));

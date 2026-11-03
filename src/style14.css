@@ -1417,3 +1417,22 @@ body.reduced-motion .cine4 *, body.reduced-motion .cine4 { animation-duration: .
    keep the total only (the +N breakdown stays in the Aura sheet) so labels don't run out of the slot */
 .hud .plate:has(.pl-aura) .pl-mug { box-shadow: 0 0 0 2px var(--aura), 0 0 8px #7ff6ffaa; border-radius: 50%; }
 @media (max-width: 760px), (max-height: 520px) { .sq-radar tspan.ra { display: none; } }
+/* v1.5: Aura drag — sockets light up while a card is held (cyan: it fits; red when hovered by one that can't be an
+   Aura), the held card shrinks into the socket it is over, and the socket pops when it lands */
+body.drag-aura-ok .squad-row .aura-mini { box-shadow: inset 0 0 0 2px var(--aura), 0 0 14px #7ff6ff88 !important; animation: auraPick .9s ease-in-out infinite; }
+body.drag-aura-no .squad-row .aura-mini { opacity: .45; }
+.squad-row .aura-mini.drop { transform: scale(1.1) rotate(0deg) !important; box-shadow: inset 0 0 0 3px #fff, 0 0 0 3px var(--aura), 0 0 26px #7ff6ffcc !important; animation: none !important; z-index: 3; }
+.squad-row .aura-mini.drop-bad { box-shadow: inset 0 0 0 3px #ff4a5a, 0 0 18px #ff4a5a99 !important; animation: auraNo .3s ease-in-out 2 !important; opacity: 1 !important; }
+@keyframes auraNo { 25% { transform: translateX(-3px); } 75% { transform: translateX(3px); } }
+.drag-ghost.in-socket { box-shadow: 0 0 0 3px var(--aura), 0 0 24px #7ff6ffcc !important; }
+.aura-mini.landed { animation: auraLand .5s cubic-bezier(.3,1.7,.6,1) both; }
+.aura-mini.landed::after { content: ''; position: absolute; inset: -4px; border-radius: 12px; box-shadow: 0 0 0 3px var(--aura); animation: auraRing .6s ease-out forwards; pointer-events: none; }
+@keyframes auraLand { from { transform: scale(1.35) rotate(-6deg); } to { transform: rotate(-1.5deg); } }
+@keyframes auraRing { from { opacity: 1; transform: scale(1); } to { opacity: 0; transform: scale(1.35); } }
+/* combined techniques reached through an Aura */
+.cb-who.via-aura .mug, .cb-who.via-aura > span { box-shadow: 0 0 0 2px var(--aura); border-radius: 50%; }
+.cb-who.via-aura small { color: var(--aura); }
+.cb-card.with-aura { box-shadow: inset 0 0 0 1px #7ff6ff66; }
+.aura-preview { position: fixed !important; z-index: 9998; margin: 0 !important; pointer-events: none; transform: scale(1.06) !important; box-shadow: inset 0 0 0 3px #fff, 0 0 0 3px var(--aura), 0 0 26px #7ff6ffcc !important; animation: auraPrev .18s ease-out both; }
+.aura-preview .am-txt small { color: #fff; }
+@keyframes auraPrev { from { transform: scale(.7) !important; opacity: 0; } }
