@@ -1,4 +1,5 @@
 import { RARITY_ORDER, type Rarity } from '../data/manifest';
+import { PENNANT_BY_ID } from '../data/pennants';
 /** Local save with schema version + migrations + validation. Pure logic + a thin localStorage adapter.
  *  Never destroys data: an unreadable save is set aside under a recovery key and the last good copy is tried first. */
 
@@ -69,6 +70,8 @@ export interface SaveData {
   heroes131?: boolean;
   /** Fix 1.53: the Drakul compensation (ascension.ts compensateDrakul153) was already given */
   drakul153?: boolean;
+  /** v1.65: profile banners owned and the one shown (pennants.ts) */
+  pennants?: { owned: string[]; equipped?: string };
   /** Fix 1.32: ids of the news items already opened (news board) */
   newsRead?: string[];
   /** Fix 1.11 weekly pass: rewards claimed in the current cycle (0-6) and the last day one was claimed */
@@ -304,6 +307,13 @@ export function validate(s: SaveData): SaveData {
   if (!Array.isArray(s.gachaHistory)) s.gachaHistory = [];
   if (!obj(s.clearedRanks)) s.clearedRanks = {};
   if (s.progressEpoch !== undefined) s.progressEpoch = Math.max(0, Math.floor(num(s.progressEpoch, 0)));
+  // v1.65: banners — known ids only, no repeats; the equipped one must be owned
+  const pn = obj(s.pennants);
+  if (pn) {
+    const ownedP = Array.isArray(pn.owned) ? [...new Set(pn.owned.filter((x): x is string => typeof x === 'string' && PENNANT_BY_ID.has(x)))] : [];
+    s.pennants = { owned: ownedP };
+    if (typeof pn.equipped === 'string' && ownedP.includes(pn.equipped)) s.pennants.equipped = pn.equipped;
+  } else delete s.pennants;
   // v1.5: Auras — owned on both sides, never oneself, one carrier per Aura, no chains (a carrier is nobody's Aura)
   const au = obj(s.auras);
   if (au) {

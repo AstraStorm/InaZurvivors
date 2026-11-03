@@ -46,7 +46,7 @@ export const AUTHOR_NEWS: NewsItem[] = [
 ];
 
 /** Fix 1.41: a patch has two decimals (1.41, 1.32, 1.22) or says «Fix» in its title; 1.3, 1.4 are updates. */
-export const isFix = (r: PublicRelease) => /^\d+\.\d\d$/.test(r.version) || /\bfix\b/i.test(r.title);
+export const isFix = (r: PublicRelease) => !/semiactualizaci/i.test(r.title) && (/^\d+\.\d\d$/.test(r.version) || /\bfix\b/i.test(r.title)); // v1.65: a semi-update is news, not a fix
 
 /** A public release as an «Actualización» news item. */
 export function releaseNews(r: PublicRelease, online = true): NewsItem {

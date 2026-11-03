@@ -51,7 +51,7 @@ import { USERNAME_MAX, validateUsername } from '../systems/username';
 import { ALTAR_COLOR, ALTAR_ICON, ALTAR_INFO, ALTAR_MODE, ALTAR_REWARD } from '../systems/altars';
 import { adaptedPassive, passiveText, talentChanges, talentText } from '../systems/talents';
 import { redeemCode } from '../online/client';
-import { accountId, adminBugReports, adminPlayerStats, adminUpdateBug, amIAdmin, consumeAuthRedirect, deleteAccount, deleteMyBugReports, deleteShot, myBugReports, notifyBug, shotUrl, submitBugReport, uploadShot, getCloudSave, leaderboard, myPosition, publicProfile, type PublicProfile, myProfile, onlineConfigured, putCloudSave, reserveUsername, resetMyProgress, signedEmail, signedIn, signInWithGoogle, signOut, submitScore, usernameAvailable, type BoardQuery, type BoardRow, type BugFilter, type BugRow, type CloudSave } from '../online/client';
+import { accountId, adminBugReports, adminPlayerStats, adminUpdateBug, amIAdmin, consumeAuthRedirect, deleteAccount, deleteMyBugReports, deleteShot, myBugReports, notifyBug, shotUrl, submitBugReport, uploadShot, getCloudSave, leaderboard, myPosition, profileBanners, publicProfile, type PublicProfile, myProfile, onlineConfigured, putCloudSave, reserveUsername, resetMyProgress, signedEmail, signedIn, signInWithGoogle, signOut, submitScore, usernameAvailable, type BoardQuery, type BoardRow, type BugFilter, type BugRow, type CloudSave } from '../online/client';
 import { backup, linkPlan, progressOf, summarize, type SaveSummary } from '../online/cloudSync';
 import { epochOf, freshProgress, resetSummary } from '../systems/resetProgress';
 import { scoreOf, localBoard, recordBest } from '../systems/leaderboard';
@@ -60,6 +60,9 @@ import { INTRO } from './cinematics';
 import { SIGNATURE } from '../data/signatures';
 import { bindStick, initGamepad } from './gamepad';
 import { confetti, countUp, flyTo } from './rewardFx';
+import { pennantSvg } from './pennantArt';
+import { PENNANTS, PENNANT_BY_ID, PENNANT_EVENT, type PennantDef } from '../data/pennants';
+import { buyPennant, equipPennant, equippedPennant, eventActive, eventLeftMs, eventOdds, grantAchievementPennants, hasPennant, pullEvent, type PennantPull } from '../systems/pennants';
 import { MASTERY_BONUS, MASTERY_USES, masteryLevel, recordMastery } from '../systems/mastery';
 import { MAX_TEAM, canStartWith, startingTech, type Card } from '../systems/cards';
 import { setSquad, SQUAD_SIZE, fillSquad, makeCaptain, placeInSquad, removeFromSquad, squadOf } from '../systems/squad';
@@ -949,7 +952,7 @@ export class App {
           ${group('g-club', 'team', 'TU CLUB', tile('collection', 'cards', 'COLECCIÓN', claims ? '¡Recompensas!' : `${owned.length} de ${this.m.roster.length}`, claims, !!claims)
             + tile('perks', 'perks', 'MEJORAS', 'Potencia permanente') + tile('shop', 'bolt', 'TÉCNICAS', 'Manuales')
             + tile('training', 'target', 'ENTRENAMIENTO', 'Prueba técnicas') + tile('kits', 'shirt', 'EQUIPACIONES', 'Uniforme y escudo') + tile('gear', 'boot', 'EQUIPAMIENTO', 'Botas y accesorios') + tile('hall', 'trophy', 'SALÓN', `${(this.save.hall ?? []).length} victorias`))}
-          ${group('g-sign', 'capsule', 'FICHAJES', tile('gacha', 'capsule', 'FICHAJES', `${this.save.tokens} fichas`, 0, true) + tile('daily', 'shop', 'TIENDA', 'Ofertas del día') + tile('codes', 'gift', 'CÓDIGOS', 'Canjea regalos'))}
+          ${group('g-sign', 'capsule', 'FICHAJES', tile('gacha', 'capsule', 'FICHAJES', `${this.save.tokens} fichas`, 0, true) + (eventActive(serverNow()) ? tile('pnevent', 'gift', 'EVENTO', 'Banners de leyenda', 0, true) : '') + tile('daily', 'shop', 'TIENDA', 'Ofertas del día') + tile('codes', 'gift', 'CÓDIGOS', 'Canjea regalos'))}
           ${group('g-comp', 'crown', 'COMPETICIÓN', tile('missions', 'missions', 'MISIONES', pending ? '¡Por recoger!' : 'Recompensas', pending, !!pending)
             + tile('pass', 'ticket', 'PASE', pass.available ? '¡Recompensa lista!' : 'Vuelve mañana', pass.available ? 1 : 0, pass.available) + tile('ranking', 'crown', 'RANKING', onlineConfigured() ? 'Global' : 'Tus marcas'))}
         </section>
@@ -980,6 +983,8 @@ export class App {
     this.claimsAnnounced = claims;
     // v1.5: an achievement just completed is announced once, with its medal (the claim itself stays in Recompensas)
     recordCollection(this.save, this.m.roster, this.m.mainTeams ?? [], this.auraMaxStat());
+    const newFlags = grantAchievementPennants(this.save, this.m.roster); // v1.65: 200 footballers, a Leyenda
+    if (newFlags.length) { this.persist(); window.setTimeout(() => this.toast(`¡Logro! Nuevo banner: ${newFlags.map((f) => f.name).join(', ')}. Póntelo en tu Perfil.`, 5000), 1500); }
     const shown = new Set(this.save.achShown ?? []);
     const fresh = MISSIONS.filter((d) => d.kind === 'logro' && isClaimable(this.save, d) && !shown.has(d.id));
     if (fresh.length) {
@@ -995,6 +1000,7 @@ export class App {
       }
       if (go === 'squad') this.captainSelect();
       if (go === 'training') this.trainingField(); // v1.6
+      if (go === 'pnevent') this.pennantEvent(); // v1.65
       if (go === 'collection') this.collection();
       if (go === 'gacha') this.gacha();
       if (go === 'missions') this.missions();
@@ -1175,7 +1181,7 @@ export class App {
       return `<div class="rank-row${pos <= 3 ? ` top${pos}` : ''}${mine ? ' mine' : ''}" style="--d:${Math.min(pos, 15) * 40}ms"${onlineConfigured() ? ` data-user="${esc(name)}" title="Ver el perfil de ${esc(name)}"` : ''}>
         <span class="rk-pos">${pos <= 3 ? ['🥇', '🥈', '🥉'][pos - 1] : `#${pos}`}</span>
         <span class="rk-av${p ? ` r-${p.rarity}` : ''}">${p ? this.mug(p.id, 48) : ''}</span>
-        <span class="rk-name"><b>${esc(name)}</b><small>${esc(mapName(map))}</small></span>
+        <span class="rk-name"><b>${this.flagMini(name)}${esc(name)}</b><small>${esc(mapName(map))}</small></span>
         ${crest && this.emblemOf(crest) ? `<img class="rk-crest" src="${this.emblemOf(crest)}" alt="">` : '<span class="rk-crest"></span>'}
         <span class="rank-btn r-${rank} rk-r"><b>${rank}</b></span>
         <span class="rk-num rk-pts${q.order === 'score' || q.order === 'rank' ? ' on' : ''}"><b>${pts.toLocaleString('es')}</b><small>puntos</small></span>
@@ -1187,7 +1193,7 @@ export class App {
       const p = this.byId.get(captain), pts = score ?? scoreOf({ rank, time, damage }), [big, unit] = metric(time, damage, pts);
       return `<div class="rk-pod p${pos}" style="--d:${pos * 90}ms"${onlineConfigured() ? ` data-user="${esc(name)}" title="Ver el perfil de ${esc(name)}"` : ''}><span class="rk-medal">${pos}</span>
         <span class="rk-pmug${p ? ` r-${p.rarity}` : ''}">${p ? this.mug(p.id, pos === 1 ? 112 : 88) : ''}</span>
-        <b class="rk-pname">${esc(name)}</b><small>${p ? esc(p.name) : ''} · ${esc(mapName(map))}</small>
+        <b class="rk-pname">${this.flagMini(name, 26)}${esc(name)}</b><small>${p ? esc(p.name) : ''} · ${esc(mapName(map))}</small>
         <div class="rk-pbig"><b>${big}</b><small>${unit}</small></div>
         <div class="rk-pmeta">${crest && this.emblemOf(crest) ? `<img class="rk-crest" src="${this.emblemOf(crest)}" alt="">` : ''}<span class="rank-btn r-${rank}"><b>${rank}</b></span>
           <span><b>${fmtTime(time)}</b><small>tiempo</small></span><span><b>${damage.toLocaleString('es')}</b><small>daño</small></span></div>
@@ -1202,6 +1208,7 @@ export class App {
     }
     try {
       const rows = await leaderboard(q);
+      await this.loadFlags(rows.map((r) => r.username)); // v1.65
       const all = rows.map((r) => [Number(r.pos), r.username, r.captain_id, r.crest, r.map, r.rank, r.time_sec, Number(r.damage), false, r.score == null ? undefined : Number(r.score)] as const);
       list.innerHTML = all.length ? podium(all.slice(0, 3)) + all.slice(3).map((r) => row(...r)).join('') : '<div class="note">Nadie ha jugado este tablero todavía.</div>';
       const mine = signedIn() ? await myPosition(q) : null;
@@ -1214,6 +1221,72 @@ export class App {
       list.innerHTML = `<div class="panel rank-down"><b>El ranking no está disponible ahora mismo</b><div class="note">El servidor está saturado o no hay conexión. Tu partida y tus marcas no se pierden.</div><button class="btn small" id="rretry">Reintentar</button></div>`;
       document.getElementById('rretry')?.addEventListener('click', () => { list.innerHTML = '<div class="note">Cargando…</div>'; void this.fillRanking(); });
     }
+  }
+
+  // ------------------------------------------------------------- v1.65 profile banners
+  /** banner of each name on the ranking (lowercase name → id), filled before a board is drawn */
+  private flagCache = new Map<string, string>();
+  private async loadFlags(names: string[]) {
+    const want = [...new Set(names.filter(Boolean))];
+    if (!want.length || !onlineConfigured()) return;
+    try { const got = await profileBanners(want); for (const n of want) this.flagCache.delete(n.toLowerCase()); for (const r of got) if (PENNANT_BY_ID.has(r.banner)) this.flagCache.set(r.username.toLowerCase(), r.banner); } catch { /* the board shows without banners */ }
+  }
+  /** the small banner beside a name on a board: mine from my save, the rest from the server */
+  private flagMini(name: string, size = 20) {
+    const me = (this.save.onlineName ?? this.save.profile.name).toLowerCase() === name.toLowerCase();
+    const id = me ? equippedPennant(this.save)?.id : this.flagCache.get(name.toLowerCase());
+    return id ? `<span class="pn-mini">${pennantSvg(id, size)}</span>` : '';
+  }
+  private pennantCard(def: PennantDef, size: number, extra = '', attrs = '') {
+    return `<div class="pn-card r-${def.rarity}" style="--rc:${RARITY_COLOR[def.rarity]}" ${attrs} title="${esc(def.tagline)}">${pennantSvg(def, size)}<b>${esc(def.name)}</b><small>${RARITY_LABEL[def.rarity]}</small>${extra}</div>`;
+  }
+  /** Perfil: every banner, the owned ones to wear (tap again to take it off), the rest with how to get them */
+  private pennantPanel() {
+    const eq = this.save.pennants?.equipped, owned = this.save.pennants?.owned.length ?? 0;
+    const how = (d: PennantDef) => d.source === 'tienda' ? `Tienda · ${d.price?.toLocaleString('es')} ◉` : d.source === 'logro' ? `Logro: ${d.how}` : 'Evento por tiempo limitado';
+    return `<div class="panel pf-pennants"><h3>${uiIcon('crown')}Banners <small>${owned}/${PENNANTS.length}</small></h3>
+      <p class="note">Tu banner sale junto a tu nombre en el ranking y en tu perfil, también cuando otros lo abren.</p>
+      <div class="pn-grid">${PENNANTS.map((d) => { const own = hasPennant(this.save, d.id);
+        return `<button class="pn-pick${own ? '' : ' locked'}${eq === d.id ? ' on' : ''}" data-pn="${d.id}">${this.pennantCard(d, 64, `<span class="pn-how">${own ? (eq === d.id ? '★ Equipado' : 'Equipar') : esc(how(d))}</span>`)}</button>`; }).join('')}</div></div>`;
+  }
+  private eventLeftText(now: number | Date) {
+    const ms = eventLeftMs(now), d = Math.floor(ms / 86_400_000), h = Math.floor(ms / 3_600_000) % 24, m = Math.floor(ms / 60_000) % 60;
+    return d ? `${d} d ${h} h` : `${h} h ${m} min`;
+  }
+  /**
+   * v1.65 (author): the limited-time banner event — three days, paid with coins (1.500 a pull, 10.000 the ×10), it
+   * drops only its ten banners; the Mítico Supernova Oscura only comes from here, at 3%. A banner already owned gives
+   * coins back.
+   */
+  private pennantEvent(results?: PennantPull[]) {
+    setMusicContext('gacha');
+    const now = serverNow(), open = eventActive(now), c = this.save.coins;
+    const odds = eventOdds();
+    const res = results ? `<div class="panel pn-results"><h3>${results.some((r) => r.isNew) ? '¡Banners nuevos!' : 'Resultado'}</h3><div class="pn-grid pn-reveal">${results.map((r, k) =>
+      this.pennantCard(r.def, 72, r.isNew ? '<em class="pn-new">¡NUEVO!</em>' : `<em class="pn-dup">Repetido · +${r.refund} ◉</em>`, `data-k="${k}" style="--rc:${RARITY_COLOR[r.def.rarity]};--k:${k}"`)).join('')}</div></div>` : '';
+    this.show(`<div class="screen pn-screen">${this.titlebar(PENNANT_EVENT.name, 'Menú')}
+      <div class="panel pn-hero"><div class="pn-hero-art">${pennantSvg('supernova', 120)}</div>
+        <div class="pn-hero-tx"><small>EVENTO POR TIEMPO LIMITADO</small><b>Banners de leyenda</b>
+          <p>Diez banners nuevos para tu perfil, del Neumático de Entrenamiento a La Tierra. El <b>Mítico Supernova Oscura</b> solo sale aquí, con un 3%. Si te sale uno que ya tienes, recuperas monedas.</p>
+          <div class="pn-left">${open ? `Termina en <b>${this.eventLeftText(now)}</b>` : +now < Date.parse(PENNANT_EVENT.start) ? 'Todavía no ha empezado' : 'El evento ha terminado'}</div>
+          <div class="pn-buy"><button class="btn big" id="pn1" ${!open || c < PENNANT_EVENT.cost ? 'disabled' : ''}>Tirada · ${PENNANT_EVENT.cost.toLocaleString('es')} ◉</button>
+            <button class="btn big blue" id="pn10" ${!open || c < PENNANT_EVENT.multiCost ? 'disabled' : ''}>×10 · ${PENNANT_EVENT.multiCost.toLocaleString('es')} ◉</button></div>
+          <small class="note">Tienes ${c.toLocaleString('es')} ◉</small></div></div>
+      ${res}
+      <div class="panel"><h3>${uiIcon('capsule')}Banners del evento</h3><div class="pn-grid">${odds.map((o) =>
+        this.pennantCard(o.def, 64, `<span class="pn-odds">${+o.pct.toFixed(2)}%</span>${hasPennant(this.save, o.def.id) ? '<span class="pn-own">✔ Tuyo</span>' : ''}`)).join('')}</div></div></div>`);
+    this.on('[data-back]', 'click', () => this.mainMenu());
+    const pull = (n: 1 | 10) => {
+      const r = pullEvent(this.save, n, serverNow());
+      if (!r) { sfx('error'); this.toast(eventActive(serverNow()) ? 'No tienes monedas suficientes' : 'El evento no está activo'); return; }
+      this.persist();
+      const best = r.some((x) => x.def.rarity === 'mitico' || x.def.rarity === 'legendario');
+      sfx(best ? 'legend' : 'buy');
+      if (best && this.save.settings.particles !== 'desactivado') confetti(80);
+      this.pennantEvent(r);
+    };
+    document.getElementById('pn1')?.addEventListener('click', () => pull(1));
+    document.getElementById('pn10')?.addEventListener('click', (e) => this.armed(e.currentTarget as HTMLElement, () => pull(10)));
   }
 
   /** v1.6 (author): another player's club, opened from the ranking — icon, crest, favourite team, totals and squad */
@@ -1249,7 +1322,7 @@ export class App {
     box.innerHTML = `<div class="panel opf-panel">
       <div class="opf-head">${icon}<div><small>PERFIL DE JUGADOR</small><b class="opf-name">${esc(p.username)}</b>
         <span class="opf-meta">${p.crest && this.emblemOf(p.crest) ? `<img src="${this.emblemOf(p.crest)}" alt="">` : ''}${p.favorite ? `Equipo favorito: <b>${esc(teamLabel(p.favorite))}</b>` : 'Sin equipo favorito'}${p.joined ? ` · desde ${esc(new Date(p.joined).toLocaleDateString('es'))}` : ''}</span></div>
-        <button class="btn small blue" data-close>✕</button></div>
+        ${p.banner && PENNANT_BY_ID.has(p.banner) ? `<span class="opf-pennant" title="${esc(PENNANT_BY_ID.get(p.banner)!.name)}">${pennantSvg(p.banner, 64)}</span>` : ''}<button class="btn small blue" data-close>✕</button></div>
       <div class="opf-stats">${tile('Partidas', p.stats.runs)}${tile('Victorias', p.stats.wins)}${tile('Eliminaciones', p.stats.kills.toLocaleString('es'))}${tile('Mejor tiempo', fmtTime(p.stats.bestTimeSec))}${tile('Colección', `${p.owned}/${this.m.roster.length}`)}${tile('Héroes', p.heroes)}</div>
       <h3>${uiIcon('team')}Su equipo</h3><div class="opf-squad">${squad || '<div class="note">Todavía no ha elegido equipo.</div>'}</div>
       ${p.marks.length ? `<h3>${uiIcon('crown')}Mejores marcas</h3><div class="opf-marks">${p.marks.map((m) => `<span class="opf-mark"><span class="rank-btn r-${esc(m.rank)}"><b>${esc(m.rank)}</b></span>${esc(mapName(m.map))}<b>${fmtTime(m.time_sec)}</b><small>${Number(m.damage).toLocaleString('es')} daño</small></span>`).join('')}</div>` : ''}
@@ -1273,6 +1346,7 @@ export class App {
     try {
       const q: BoardQuery = { map: null, rank: null, order: 'score' }; // Fix 1.31: the menu shows the points ranking
       const [top, mine] = await Promise.all([leaderboard(q), signedIn() ? myPosition(q) : Promise.resolve(null)]);
+      await this.loadFlags(top.map((r) => r.username)); // v1.65
       const el = document.getElementById('menurank');
       if (!el) return;
       const crest = (c: string) => (c && this.emblemOf(c) ? `<img class="wr-crest" src="${this.emblemOf(c)}" alt="">` : '<span class="wr-crest"></span>');
@@ -1282,14 +1356,14 @@ export class App {
         const p = cap(r.captain_id), pos = Number(r.pos);
         return `<div class="wr-pod p${pos}" data-user="${esc(r.username)}" title="Ver el perfil de ${esc(r.username)}"><span class="wr-medal">${['🥇', '🥈', '🥉'][pos - 1]}</span>
           <span class="wr-mug${p ? ` r-${p.rarity}` : ''}">${p ? this.mug(p.id, pos === 1 ? 96 : 80) : ''}</span>
-          <b class="wr-name">${esc(r.username)}</b><small class="wr-cap">${p ? esc(p.name) : ''}</small>
+          <b class="wr-name">${this.flagMini(r.username, 24)}${esc(r.username)}</b><small class="wr-cap">${p ? esc(p.name) : ''}</small>
           <div class="wr-pts"><b>${pts(r).toLocaleString('es')}</b> <small>puntos</small></div>
           <div class="wr-stats">${crest(r.crest)}<span class="rank-btn r-${r.rank}"><b>${r.rank}</b></span><span><b>${fmtTime(r.time_sec)}</b><small>tiempo</small></span><span><b>${Number(r.damage).toLocaleString('es')}</b><small>daño</small></span></div></div>`;
       }).join('');
       const row = (r: BoardRow, me = false) => {
         const p = cap(r.captain_id);
         return `<div class="wr-row${me ? ' me' : ''}" data-user="${esc(r.username)}" title="Ver el perfil de ${esc(r.username)}"><span class="wr-pos">#${r.pos}</span><span class="wr-mini">${p ? this.mug(p.id, 40) : ''}</span>
-          <span class="wr-who"><b>${esc(r.username)}</b><small>${p ? esc(p.name) : ''}</small></span>${crest(r.crest)}
+          <span class="wr-who"><b>${this.flagMini(r.username)}${esc(r.username)}</b><small>${p ? esc(p.name) : ''}</small></span>${crest(r.crest)}
           <span class="rank-btn r-${r.rank}"><b>${r.rank}</b></span><span class="wr-num"><b>${pts(r).toLocaleString('es')} pts</b><small>${fmtTime(r.time_sec)} · ${Number(r.damage).toLocaleString('es')} daño</small></span></div>`;
       };
       el.innerHTML = top.length
@@ -2599,11 +2673,22 @@ export class App {
     const rars = ['todas', ...RARITY_ORDER.filter((r) => offers.some((o) => this.byId.get(o.playerId)?.rarity === r))];
     this.show(`<div class="screen shop-screen">${this.titlebar('Tienda', 'Menú')}
       <div class="shop-head"><span>${offers.length} ofertas · ${timeSource() === 'servidor' ? 'hora del servidor' : 'hora de este dispositivo'}</span><span>Diarias: ${dayLeft} · Semanal: ${weekLeft}</span></div>
+      ${eventActive(serverNow()) ? `<button class="pn-eventcta" id="pnevent"><span class="pn-cta-art">${pennantSvg('supernova', 44)}</span><span><small>EVENTO · TERMINA EN ${this.eventLeftText(serverNow())}</small><b>Banners de leyenda</b><em>${PENNANT_EVENT.cost.toLocaleString('es')} ◉ la tirada · Mítico al 3%</em></span></button>` : ''}
+      <h3 class="shop-sec">Banners de perfil</h3><div class="shop-grid pn-shop">${PENNANTS.filter((d) => d.source === 'tienda').map((d) => { const own = hasPennant(this.save, d.id);
+        return `<article class="shop-card pn-shopcard r-${d.rarity}" style="--rc:${RARITY_COLOR[d.rarity]}"><div class="shop-art">${pennantSvg(d, 70)}</div><b class="shop-name">${esc(d.name)}</b>
+          <div class="shop-meta"><span class="rar ${d.rarity}">${RARITY_LABEL[d.rarity].toUpperCase()}</span></div><small class="shop-left">${esc(d.tagline)}</small>
+          <button class="btn small" data-pnbuy="${d.id}" ${own || this.save.coins < (d.price ?? 0) ? 'disabled' : ''}>${own ? '✔ Tuyo' : `${d.price?.toLocaleString('es')} ◉`}</button></article>`; }).join('')}</div>
       <h3 class="shop-sec">Destacados</h3><div class="shop-grid shop-top">${top.map(card).join('')}</div>
       <h3 class="shop-sec">Del día <span class="shop-filters">${rars.map((r) => `<button class="chip${this.shopFilter === r ? ' on' : ''}" data-sf="${r}">${r === 'todas' ? 'Todas' : RARITY_LABEL[r as Rarity]}</button>`).join('')}</span></h3>
       <div class="shop-grid shop-day">${day.filter((o) => this.shopFilter === 'todas' || this.byId.get(o.playerId)?.rarity === this.shopFilter).map(card).join('') || '<p class="note">Nada de esta rareza hoy.</p>'}</div></div>`);
     this.on('[data-back]', 'click', () => this.mainMenu());
     this.on('[data-sf]', 'click', (_e, el) => { this.shopFilter = el.dataset.sf ?? 'todas'; this.dailyShop(); });
+    document.getElementById('pnevent')?.addEventListener('click', () => this.pennantEvent());
+    this.on('[data-pnbuy]', 'click', (_e, el) => this.armed(el, () => {
+      const d = PENNANT_BY_ID.get(el.dataset.pnbuy!);
+      if (d && buyPennant(this.save, d.id)) { this.persist(); sfx('buy'); this.toast(`¡${d.name} es tuyo! Póntelo en tu Perfil.`, 3500); } else sfx('error');
+      this.dailyShop();
+    }));
     this.on('[data-offer]', 'click', (_e, el) => this.armed(el, () => {
       if (buyOffer(this.save, this.m.roster, Number(el.dataset.offer), serverNow())) { this.persist(); sfx('buy'); this.toast('¡Fichado!'); } else sfx('error');
       this.dailyShop();
@@ -2770,6 +2855,7 @@ export class App {
     const has = !!this.m.capsule;
     setMusicContext('gacha');
     this.show(`<div class="screen gacha-screen">${this.titlebar('Máquina de fichajes', 'Menú')}
+      ${eventActive(serverNow()) ? `<button class="pn-eventcta" id="pnevent"><span class="pn-cta-art">${pennantSvg('supernova', 44)}</span><span><small>EVENTO · TERMINA EN ${this.eventLeftText(serverNow())}</small><b>Banners de leyenda</b><em>Se paga con monedas · Mítico al 3%</em></span></button>` : ''}
       <div class="banner-tabs">${tabs}</div>
       <div class="banner-head bh4" style="--bc:${banner.color}"><div class="bh-tx"><small>MÁQUINA</small><b>${esc(banner.label)}</b><span>${esc(banner.tagline)} · ${pool.length} futbolistas</span> ${teamSel}
           <div class="bh-chips"><span>${uiIcon('capsule')}×1 · <b>${PULL_COST}</b></span><span>${uiIcon('capsule')}×10 · <b>${MULTI_COST}</b></span><span class="ok">×10: Épico o mejor asegurado</span></div>
@@ -2798,6 +2884,7 @@ export class App {
       <div class="panel gi-hist"><h3>${uiIcon('clock')}Últimas tiradas</h3><div class="hist-row">${hist || '<span class="note">Aún no has tirado.</span>'}</div>
         <div class="note">Fichas = máquina de cápsulas · Monedas = mejoras y tiendas. Gráficos de la máquina: Inazuma Eleven 3 (hoja de The Spriters Resource, ripeada por Avegaille), recurso local.</div></div></div>`);
     this.on('[data-back]', 'click', () => this.mainMenu());
+    document.getElementById('pnevent')?.addEventListener('click', () => { if (!this.pulling) this.pennantEvent(); });
     this.on('[data-banner]', 'click', (_e, el) => { if (this.pulling) return; this.gachaBanner = el.dataset.banner as BannerId; this.gacha(); });
     document.getElementById('gteam')?.addEventListener('change', (e) => { this.gachaTeam = (e.target as HTMLSelectElement).value; this.gacha(); });
     this.on('[data-pull]', 'click', async (_e, el) => {
@@ -3499,9 +3586,11 @@ export class App {
           <div class="pf-tags"><span class="pf-tag">${uiIcon('trophy')}${st.wins} ${st.wins === 1 ? 'victoria' : 'victorias'}</span><span class="pf-tag">${uiIcon('cards')}${owned.length}/${this.m.roster.length}</span>${heroes ? `<span class="pf-tag hero">★ ${heroes} HÉROE</span>` : ''}</div>
           <div class="pf-fav">${fav ? `${this.emblemOf(fav) ? `<img src="${this.emblemOf(fav)}" alt="">` : ''}<span><small>EQUIPO FAVORITO</small><b>${esc(teamLabel(fav))}</b></span><em title="El equipo favorito se elige una vez y no se puede cambiar">🔒 Para siempre</em>`
             : `<span><small>EQUIPO FAVORITO</small><b>Aún sin elegir</b></span><select id="pteam"><option value="">Elige… (solo una vez)</option>${teams.map((t) => `<option value="${esc(t)}">${esc(teamLabel(t))}</option>`).join('')}</select>`}</div></div>
+        ${equippedPennant(this.save) ? `<div class="pf-pennant" title="${esc(equippedPennant(this.save)!.name)}">${pennantSvg(equippedPennant(this.save), 84)}</div>` : ''}
         ${best ? `<div class="pf-best" style="--rc:${RARITY_COLOR[effectiveRarity(this.save, best)]}"><small>TU MEJOR FUTBOLISTA</small>${this.mug(best.id, 72)}<b>${esc(best.name)}</b><span>Media ${this.meanOf(best)}</span></div>` : ''}</div>
       <div class="pf-stats">${tile('pitch', 'Partidas', st.runs)}${tile('trophy', 'Victorias', st.wins, 'gold')}${tile('fire', 'Eliminaciones', st.kills.toLocaleString('es'))}${tile('clock', 'Mejor tiempo', fmtTime(st.bestTimeSec))}
         ${tile('capsule', 'Fichajes', st.pulls)}${tile('cards', 'Colección', `${owned.length}/${this.m.roster.length}`)}${tile('crown', 'Logros', `${achv}/${achvAll}`)}${tile('perks', 'Héroes', heroes)}</div>
+      ${this.pennantPanel()}
       ${this.accountPanel()}
       <div class="panel pf-icons"><h3>${uiIcon('target')}Icono de perfil <small>${got}/${items.length} desbloqueados${tab === 'player' ? ' · los de tu colección' : ''}</small></h3>
         <div class="rw-tabs pf-tabs" id="tabs">${tabs.map(([k, l, i]) => `<button data-t="${k}" class="rw-tab${tab === k ? ' on' : ''}"><span class="m4-ic">${uiIcon(i)}</span><span class="rw-tab-tx"><b>${l}</b></span></button>`).join('')}</div>
@@ -3516,6 +3605,12 @@ export class App {
     });
     this.on('#tabs button', 'click', (_e, el) => this.profile(el.dataset.t as 'emblem' | 'player' | 'coach'));
     this.bindAccount(() => this.profile(tab));
+    this.on('[data-pn]', 'click', (_e, el) => { // v1.65: wear a banner, or take it off with a second tap
+      const id = el.dataset.pn!;
+      if (!hasPennant(this.save, id)) { sfx('error'); return; }
+      equipPennant(this.save, this.save.pennants?.equipped === id ? null : id);
+      this.persist(); sfx('click'); this.profile(tab);
+    });
     this.on('.iconpick', 'click', (_e, el) => {
       const it = items.find((x) => x.id === Number(el.dataset.id));
       if (!it?.ok) { sfx('error'); this.toast(it?.why ?? 'Bloqueado'); return; }

@@ -150,9 +150,13 @@ export interface PublicProfile {
   icon: { kind: 'emblem' | 'player' | 'coach'; id: number } | null;
   stats: { runs: number; wins: number; kills: number; bestTimeSec: number; bestEndless: number };
   owned: number; heroes: number; squad: PublicSquadMember[];
+  /** v1.65: the banner they show (an id; unknown ids are ignored) */
+  banner?: string | null;
   marks: { map: string; rank: string; time_sec: number; damage: number; captain_id: number }[];
 }
 export const publicProfile = (username: string) => rpc<PublicProfile | null>('public_profile', { p_username: username }, false);
+/** v1.65: the banners shown by these names (profile_banners.sql); names without one are left out */
+export const profileBanners = (usernames: string[]) => rpc<{ username: string; banner: string }[]>('profile_banners', { p_usernames: usernames.slice(0, 60) }, false);
 export const myPosition = async (q: BoardQuery) => (await rpc<BoardRow[]>('my_position', { p_map: q.map, p_rank: q.rank, p_order: q.order }))[0] ?? null;
 
 export const submitScore = (runId: string, map: string, rank: string, timeSec: number, damage: number, captainId: number) =>

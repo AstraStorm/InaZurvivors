@@ -1,0 +1,62 @@
+/**
+ * v1.65 (author): profile banners. A banner hangs next to the player's name in the ranking and on their profile (their
+ * own and the one others open). Fifteen original designs in the Inazuma style, drawn here as SVG (no third-party art):
+ * three sold in the shop, two earned as achievements, ten that drop from the limited-time banner event (one Mítico
+ * only obtainable there, at 3%).
+ */
+import type { Rarity } from './manifest';
+
+export type PennantSource = 'tienda' | 'logro' | 'evento';
+export type PennantPattern = 'franjas' | 'diagonal' | 'llamas' | 'estrellas' | 'arcoiris' | 'cuadros' | 'tiza' | 'olas' | 'rayos' | 'copos' | 'espiral' | 'nebulosa';
+export type PennantEmblem = 'balon' | 'rayo' | 'llama' | 'caravana' | 'corona' | 'neumatico' | 'pizarra' | 'olas' | 'viento' | 'copo' | 'espiral' | 'mano' | 'reloj' | 'planeta' | 'ojo';
+
+export interface PennantDef {
+  id: string; name: string; rarity: Rarity; source: PennantSource;
+  /** shop price in coins */
+  price?: number;
+  /** how an achievement banner is earned */
+  how?: string;
+  /** cloth gradient (top, bottom), emblem/pattern colour */
+  c1: string; c2: string; accent: string;
+  pattern: PennantPattern; emblem: PennantEmblem;
+  tagline: string;
+}
+
+export const PENNANTS: PennantDef[] = [
+  // ---- shop
+  { id: 'raimon', name: 'Banderín del Raimon', rarity: 'comun', source: 'tienda', price: 2500, c1: '#2a62d8', c2: '#0d2a6a', accent: '#ffd23f', pattern: 'franjas', emblem: 'balon', tagline: 'El de toda la vida, el del club del instituto.' },
+  { id: 'relampago', name: 'Relámpago Inazuma', rarity: 'raro', source: 'tienda', price: 8000, c1: '#1a2f66', c2: '#071233', accent: '#ffe94a', pattern: 'diagonal', emblem: 'rayo', tagline: 'Un rayo amarillo sobre la noche: el once del relámpago.' },
+  { id: 'goleador', name: 'Llama del Goleador', rarity: 'epico', source: 'tienda', price: 20000, c1: '#ff7a1a', c2: '#6a0d00', accent: '#ffe08a', pattern: 'llamas', emblem: 'llama', tagline: 'Para quien remata cada balón con fuego.' },
+  // ---- achievements
+  { id: 'caravana', name: 'Caravana Inazuma', rarity: 'legendario', source: 'logro', how: 'Consigue 200 futbolistas', c1: '#1f47a8', c2: '#081a45', accent: '#ffd23f', pattern: 'estrellas', emblem: 'caravana', tagline: 'Doscientos fichajes: la caravana ya no cabe más.' },
+  { id: 'once-leyenda', name: 'Once de Leyenda', rarity: 'leyenda', source: 'logro', how: 'Consigue un futbolista Leyenda', c1: '#3a1270', c2: '#0a0420', accent: '#fff6c8', pattern: 'arcoiris', emblem: 'corona', tagline: 'Solo para quien tiene una Leyenda en su club.' },
+  // ---- limited-time event
+  { id: 'neumatico', name: 'Neumático de Entrenamiento', rarity: 'comun', source: 'evento', c1: '#4a4a52', c2: '#1a1a20', accent: '#ff9a3a', pattern: 'cuadros', emblem: 'neumatico', tagline: 'Arrastrarlo por la orilla, día tras día.' },
+  { id: 'pizarra', name: 'Pizarra del Míster', rarity: 'comun', source: 'evento', c1: '#2a5a3e', c2: '#0d2a1c', accent: '#eef6e6', pattern: 'tiza', emblem: 'pizarra', tagline: 'Equis, círculos y una flecha: el plan está claro.' },
+  { id: 'ribera', name: 'Ribera del Río', rarity: 'comun', source: 'evento', c1: '#2a8ad8', c2: '#0d3a6a', accent: '#bfe8ff', pattern: 'olas', emblem: 'olas', tagline: 'Donde se entrena al atardecer.' },
+  { id: 'viento-celestial', name: 'Viento Celestial', rarity: 'raro', source: 'evento', c1: '#fff0b8', c2: '#b8861a', accent: '#ffffff', pattern: 'rayos', emblem: 'viento', tagline: 'Una ráfaga dorada que dibuja una S.' },
+  { id: 'ventisca', name: 'Ventisca Eterna', rarity: 'raro', source: 'evento', c1: '#a8ecff', c2: '#1a5a9a', accent: '#ffffff', pattern: 'copos', emblem: 'copo', tagline: 'Frío que no se derrite nunca.' },
+  { id: 'tornado-fuego', name: 'Tornado de Fuego', rarity: 'raro', source: 'evento', c1: '#ff6a2a', c2: '#4a0a00', accent: '#ffd23f', pattern: 'espiral', emblem: 'espiral', tagline: 'Gira, sube y arde.' },
+  { id: 'mano-celestial', name: 'Mano Celestial', rarity: 'epico', source: 'evento', c1: '#ffd84a', c2: '#9a5a0a', accent: '#fff8d8', pattern: 'rayos', emblem: 'mano', tagline: 'La mano que lo para todo.' },
+  { id: 'hora-celestial', name: 'Hora Celestial', rarity: 'epico', source: 'evento', c1: '#c8a8ff', c2: '#2e1470', accent: '#ffffff', pattern: 'estrellas', emblem: 'reloj', tagline: 'Detén el tiempo y avanza con calma.' },
+  { id: 'la-tierra', name: 'La Tierra', rarity: 'legendario', source: 'evento', c1: '#1e62e0', c2: '#04103a', accent: '#5ee07a', pattern: 'estrellas', emblem: 'planeta', tagline: 'Tres corazones, un solo planeta.' },
+  { id: 'supernova', name: 'Supernova Oscura', rarity: 'mitico', source: 'evento', c1: '#2a0a4a', c2: '#050010', accent: '#ff3a1a', pattern: 'nebulosa', emblem: 'ojo', tagline: 'Materia oscura con un ojo rojo. Solo en el evento, 3%.' },
+];
+
+export const PENNANT_BY_ID = new Map(PENNANTS.map((p) => [p.id, p]));
+
+/** v1.65: the limited-time event: 3 days, paid with coins, drops only its own ten banners */
+export const PENNANT_EVENT = {
+  id: 'estandartes-leyenda',
+  name: 'Evento: Banners de leyenda',
+  /** Madrid midnight; three days from here (the server's clock decides) */
+  start: '2026-11-04T00:00:00+01:00',
+  days: 3,
+  cost: 1500,
+  multiCost: 10000, // v1.65 (author): 1500 / 10000 (were 5000 / 50000)
+  /** chance of each rarity (percent); the Mítico is only obtainable here */
+  odds: { comun: 50, raro: 30, epico: 12, legendario: 5, mitico: 3 } as Partial<Record<Rarity, number>>,
+  /** coins back for a banner already owned */
+  refund: { comun: 150, raro: 300, epico: 600, legendario: 1200, mitico: 2500 } as Partial<Record<Rarity, number>>,
+};
+export const EVENT_POOL = PENNANTS.filter((p) => p.source === 'evento');

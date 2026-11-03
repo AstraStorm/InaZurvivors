@@ -15,6 +15,18 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: '7.1', date: '2026-11-04', title: 'Semiactualización 1.65',
+    features: [
+      'Banners de perfil (autor): 15 diseños originales en SVG (data/pennants.ts, ui/pennantArt.ts) con rareza, degradado, patrón, emblema y marco por rareza. Se guardan en save.pennants {owned, equipped} y se muestran en el ranking del menú, la pantalla de ranking, el perfil propio y el de otros.',
+      'Tienda (autor): Raimon Común 2.500, Relámpago Raro 8.000, Llama del Goleador Épico 20.000. Logros: Caravana Inazuma (200 futbolistas, Legendario) y Once de Leyenda (un Leyenda), entregados al entrar al menú (grantAchievementPennants).',
+      'Evento de banners (autor): 3 días desde el 2026-11-04 00:00 (Madrid), con monedas, 1.500 la tirada y 10.000 la ×10 (antes 5.000/50.000). Diez banners propios; probabilidades Común 50 / Raro 30 / Épico 12 / Legendario 5 / Mítico 3 (Supernova Oscura, solo aquí). Repetidos devuelven 150/300/600/1200/2500.',
+      'Servidor: migración 20261103000300_profile_banners.sql (aplicada): profile_banners(usernames) de solo lectura (hasta 60 nombres, id con forma ^[a-z0-9-]{1,32}$) y public_profile con banner.',
+    ],
+    fixes: [],
+    visuals: [],
+    balance: [],
+  },
+  {
     version: '7.0', date: '2026-11-05', title: 'Actualización 1.6',
     features: [
       'Campo de entrenamiento (autor): pantalla nueva (app.ts trainingField) con hasta 5 futbolistas propios, hasta 4 técnicas activas cada uno (repertorio completo, técnica de HÉROE y técnicas del Aura) y su nivel 1-10, más las combinadas que pueden hacer juntos (squadCombos, también vía Aura) con nivel 1-5. La partida usa ArenaInit.training (TrainingSetup): estado de técnicas y combos fijados, vida siempre llena e invulnerable, sin experiencia ni cartas, sin jefes, minijefes, altares, peligros ni oleadas de cerco; mantiene 22 rivales normales. Salir desde Pausa vuelve al campo sin resultados ni recompensas.',
