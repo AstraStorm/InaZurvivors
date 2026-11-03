@@ -1257,7 +1257,7 @@ body.reduced-motion .lvc, body.reduced-motion .lvc-in, body.reduced-motion .lvc-
 .title-screen .ib-logo4.idle .p2 { animation: none; transform: skewX(-12deg); } /* the logo is already built after the opening: no second drop */
 .title-screen .ib-logo4.idle .ib-shine { animation-delay: .4s; }
 .title-screen .cine-shot { animation: tsFade .4s ease-out both; } /* no zoom-in right after the opening */
-@keyframes tsFade { from { opacity: 0; } }
+@keyframes tsFade { from { opacity: 0; } to { opacity: 1; } } /* Fix 1.53: .cine-shot rests at opacity 0, so the end has to be explicit */
 .title-screen #tscont { animation: btnBeat 1.3s ease-in-out infinite; }
 body.reduced-motion .cine4 *, body.reduced-motion .cine4 { animation-duration: .01ms !important; animation-delay: 0s !important; }
 @media (prefers-reduced-motion: reduce) { .cine4 *, .cine4 { animation-duration: .01ms !important; animation-delay: 0s !important; } }

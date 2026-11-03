@@ -6,7 +6,7 @@
  */
 import { CHANGELOG } from './changelog';
 
-export const PUBLIC_VERSION = '1.52';
+export const PUBLIC_VERSION = '1.53';
 export const BUILD = CHANGELOG[0].version;
 export const RELEASED = false;
 export const VERSION_LABEL = RELEASED ? `v${PUBLIC_VERSION}` : `v${PUBLIC_VERSION} · pre-lanzamiento`;
@@ -28,6 +28,17 @@ export interface PublicRelease {
 
 /** Public news, newest first. Starts at v1.0: the internal versions before it are not part of the public history. */
 export const PUBLIC_RELEASES: PublicRelease[] = [
+  {
+    version: '1.53', date: '2026-11-05',
+    title: 'InaZurvivors Fix 1.53 — Vuelve el título',
+    tagline: 'La pantalla de título se ve otra vez, y quien ascendió a Drakul recibe 3 copias',
+    intro: 'Un parche rápido sobre el 1.52.',
+    features: [
+      { icon: '▶', title: 'Pantalla de título', text: 'Al volver al juego, la pantalla de «¡Hola de nuevo!» se quedaba en blanco sobre el estadio y no se veía el botón para continuar. Ya se ve.' },
+      { icon: '★', title: 'Compensación de Drakul', text: 'Si ascendiste a Desmodus Drakul cuando era Raro, recibes 3 copias suyas ahora que es Legendario.' },
+    ],
+    start: [],
+  },
   {
     version: '1.52', date: '2026-11-05',
     title: 'InaZurvivors Fix 1.52 — Ascensión paso a paso',

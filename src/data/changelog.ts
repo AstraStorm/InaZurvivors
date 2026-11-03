@@ -15,6 +15,16 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: '6.3', date: '2026-11-05', title: 'Fix 1.53',
+    features: [],
+    fixes: [
+      'Pantalla de título invisible (regresión del Fix 1.51): @keyframes tsFade solo tenía from y .cine-shot reposa en opacity 0, así que acababa en 0. Ahora termina en opacity 1.',
+      'Compensación (autor): quien había ascendido a Desmodus Drakul (101437) recibe 3 copias, una sola vez por partida (save.drakul153, ascension.ts compensateDrakul153). La ascensión pagada se mantiene.',
+    ],
+    visuals: [],
+    balance: [],
+  },
+  {
     version: '6.2', date: '2026-11-05', title: 'Fix 1.52',
     features: [],
     fixes: [

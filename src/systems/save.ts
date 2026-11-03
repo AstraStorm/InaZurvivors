@@ -67,6 +67,8 @@ export interface SaveData {
   techRev?: number;
   /** Fix 1.31: Míticos/Leyendas ascended the old way were turned into HÉROE (ascension.ts migrateHeroes131) */
   heroes131?: boolean;
+  /** Fix 1.53: the Drakul compensation (ascension.ts compensateDrakul153) was already given */
+  drakul153?: boolean;
   /** Fix 1.32: ids of the news items already opened (news board) */
   newsRead?: string[];
   /** Fix 1.11 weekly pass: rewards claimed in the current cycle (0-6) and the last day one was claimed */

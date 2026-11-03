@@ -94,6 +94,22 @@ export function ascMultipliers(save: SaveData, p: Pick<RosterEntry, 'id' | 'rari
  * become HÉROE with the duplicates they already spent; those that were HÉROE too turn that second payment into their
  * first hero star. Nothing is lost: the spent copies stay spent, and the bonus is at least what they had.
  */
+/** Desmodus Drakul (Raro until Fix 1.52, now Legendario) */
+export const DRAKUL_ID = 101437;
+export const DRAKUL_COPIES = 3;
+
+/**
+ * Fix 1.53 (author), once per save: whoever had ascended Drakul while he was Raro gets 3 copies of him, since he is
+ * Legendario now. The ascension they paid for stays.
+ */
+export function compensateDrakul153(save: SaveData): boolean {
+  if (save.drakul153) return false;
+  const o = save.owned[String(DRAKUL_ID)];
+  if (o && (o.ascMitico || o.hero)) o.copies += DRAKUL_COPIES;
+  save.drakul153 = true;
+  return true; // the flag itself has to be saved even when nothing changed
+}
+
 export function migrateHeroes131(save: SaveData, roster: Pick<RosterEntry, 'id' | 'rarity'>[]): boolean {
   if (save.heroes131) return false;
   let changed = 0;
