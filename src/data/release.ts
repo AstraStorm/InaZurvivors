@@ -40,6 +40,7 @@ export const PUBLIC_RELEASES: PublicRelease[] = [
       { icon: '✊', title: 'Puño de Furia', text: 'Mark cambia La Tierra (que es solo la combinada con Axel y Shawn) por Puño de Furia, con animación nueva según su escena: aura dorada, el gigante dorado y su puñetazo. En partida aparece desde el nivel 5.' },
       { icon: '✦', title: 'Remate caótico', text: 'Byron necesita Disparo sagrado (nivel 3), no su técnica más fuerte.' },
       { icon: '▲', title: 'HÉROE más caro desde abajo', text: 'Llegar a HÉROE con un futbolista nacido Común, Raro o Épico cuesta el doble de duplicados: 20, 16 y 12 (antes 10, 8 y 6). Legendarios, Míticos y Leyendas no cambian.' },
+      { icon: '◎', title: 'Máquina Chrono Stone', text: 'Pasa a ser la máquina más cara: 100 fichas la tirada y 1000 la ×10.' },
       { icon: '★', title: 'Compensación de Drakul', text: 'Si ascendiste a Desmodus Drakul cuando era Raro, recibes 3 copias suyas ahora que es Legendario.' },
     ],
     start: [],

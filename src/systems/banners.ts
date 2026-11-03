@@ -86,11 +86,13 @@ export function teamChoices(roster: RosterEntry[], mainTeams: string[]): { team:
  * Fix 1.31: round, easy prices by what a machine holds, as the author asked — the more Míticos, the dearer:
  *   no Legendario or better: 5 fichas · no Mítico: 10 · 1 to 5 Míticos (or a Leyenda): 15 · 6 or more Míticos: 20.
  * The Fichatrón (loose scouts) is always 5 and a team 15. The ×10 is always ten times the single pull.
+ * Fix 1.53 (author): Chrono Stone is the premium machine, 100 a pull and 1000 the ×10.
  */
+export const CHRONO_PRICE = 100;
 export function bannerPrice(pool: RosterEntry[], banner: BannerId): { cost: number; multiCost: number; mythics: number } {
   const n = (r: Rarity) => pool.filter((p) => p.rarity === r).length;
   const mythics = n('mitico'), stars = n('legendario') + mythics + n('leyenda');
-  const cost = banner === 'fichatron' ? 5 : banner === 'equipo' ? 15
+  const cost = banner === 'fichatron' ? 5 : banner === 'equipo' ? 15 : banner === 'chrono' ? CHRONO_PRICE
     : !stars ? 5 : mythics >= 6 ? 20 : mythics || n('leyenda') ? 15 : 10;
   return { cost, multiCost: cost * 10, mythics };
 }

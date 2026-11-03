@@ -17,7 +17,8 @@ it.skipIf(!fs.existsSync(file))('banner odds: every pool sums to 100 and a rarer
     expect(Object.values(odds).reduce((a, x) => a + x, 0)).toBeCloseTo(100, 6);
     const present = RARITY_ORDER.filter((r) => per[r] > 0);
     for (let i = 1; i < present.length; i++) if (RARITY_ORDER.indexOf(present[i]) >= RARITY_ORDER.indexOf('mitico')) expect(per[present[i]]).toBeLessThan(per[present[i - 1]]);
-    if (b !== 'equipo') expect([5, 10, 15, 20]).toContain(bannerPrice(pool, b).cost); // Fix 1.31: round prices
+    if (b !== 'equipo' && b !== 'chrono') expect([5, 10, 15, 20]).toContain(bannerPrice(pool, b).cost); // Fix 1.31: round prices
+    if (b === 'chrono') expect(bannerPrice(pool, b)).toMatchObject({ cost: 100, multiCost: 1000 }); // Fix 1.53 (author)
     rows.push(`${name} (${pool.length}, ${bannerPrice(pool, b).cost} fichas): ` + present.map((r) => `${r} ${odds[r].toFixed(3)}% total / ${per[r].toFixed(4)}% c.u. (${pool.filter((p: { rarity: string }) => p.rarity === r).length})`).join(' · '));
   }
   // Fix 1.31: each character in exactly one saga machine, and every machine has players
