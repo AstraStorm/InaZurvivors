@@ -182,11 +182,16 @@ export class App {
       if (e.pointerType !== 'mouse' || tiltRaf) return;
       tiltRaf = requestAnimationFrame(() => {
         tiltRaf = 0;
-        const card = (e.target as Element | null)?.closest?.('.pcard:not(.locked), .lvcard') as HTMLElement | null; // v1.4: the level-up cards tilt too
+        // v1.4: the level-up cards tilt too; Fix 1.41: measured on their wrapper (.lvc), which does not move, so the angle
+        // does not feed back on itself, and tilted harder (up to ±11°) so it can actually be seen
+        const card = (e.target as Element | null)?.closest?.('.pcard:not(.locked), .lvc') as HTMLElement | null;
         if (!card) return;
+        const lv = card.classList.contains('lvc');
         const r = card.getBoundingClientRect(), x = (e.clientX - r.left) / r.width, y = (e.clientY - r.top) / r.height;
-        card.style.setProperty('--ry', `${((x - 0.5) * 14).toFixed(1)}deg`);
-        card.style.setProperty('--rx', `${((0.5 - y) * 12).toFixed(1)}deg`);
+        card.style.setProperty('--ry', `${((x - 0.5) * (lv ? 22 : 14)).toFixed(1)}deg`);
+        card.style.setProperty('--rx', `${((0.5 - y) * (lv ? 18 : 12)).toFixed(1)}deg`);
+        card.style.setProperty('--ry-n', ((x - 0.5) * 2).toFixed(2));
+        card.style.setProperty('--rx-n', ((0.5 - y) * 2).toFixed(2));
         card.style.setProperty('--gx', `${Math.round(x * 100)}%`);
         card.style.setProperty('--gy', `${Math.round(y * 100)}%`);
       });
@@ -3458,16 +3463,20 @@ export class App {
         modal.querySelectorAll<HTMLElement>('.lvcard').forEach((el, k) => {
           el.insertAdjacentHTML('afterbegin', `<kbd class="lv-key">${Number(el.dataset.i) + 1}</kbd>`);
           el.insertAdjacentHTML('beforeend', '<i class="lv-glare"></i>');
-          el.addEventListener('click', () => pick(el, cs));
           // v1.4: each card comes in face down and turns over, one after another (a card back with the InaZurvivors bolt)
           const kind = ['recruit', 'upgrade', 'learn', 'combo', 'stat', 'passive', 'heal'].find((c) => el.classList.contains(c)) ?? 'heal';
           const wrap = document.createElement('div');
-          wrap.className = `lvc k-${kind}`;
+          const still = document.body.classList.contains('reduced-motion') || matchMedia('(prefers-reduced-motion: reduce)').matches;
+          wrap.className = `lvc k-${kind}${still ? ' ready' : ''}`;
           wrap.style.setProperty('--k', String(k));
-          wrap.dataset.ready = String(performance.now() + (document.body.classList.contains('reduced-motion') ? 0 : 420 + k * 160));
+          wrap.dataset.ready = String(performance.now() + (still ? 0 : 420 + k * 160));
           wrap.innerHTML = `<div class="lvc-in"><div class="lvc-back"><svg viewBox="0 0 60 100"><polygon points="38,0 6,56 26,56 16,100 56,38 34,38"/></svg><b>INAZURVIVORS</b></div></div>`;
           el.replaceWith(wrap);
           wrap.firstElementChild!.prepend(el);
+          // Fix 1.41: the whole slot picks (the card or anything around it), and the card goes flat once it has turned over
+          wrap.addEventListener('click', () => pick(el, cs));
+          wrap.firstElementChild!.addEventListener('animationend', (e) => { if ((e as AnimationEvent).animationName === 'lvcFlip') wrap.classList.add('ready'); });
+          window.setTimeout(() => wrap.classList.add('ready'), still ? 0 : 1000 + k * 160); // backup if animationend never comes (tab in background)
           if (!document.body.classList.contains('reduced-motion')) window.setTimeout(() => sfx('whoosh', 1 + k * 0.12), 260 + k * 160);
         });
         document.getElementById('reroll')?.addEventListener('click', () => {

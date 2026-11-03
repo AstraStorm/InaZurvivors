@@ -40,17 +40,20 @@ export const AUTHOR_NEWS: NewsItem[] = [
       { divider: true },
       { h: 'El registro de actualizaciones', icon: '📜' },
       { p: 'Todas las versiones públicas, desde la **v1.0**, se quedan en el tablón con su fecha: puedes repasar qué trajo cada una cuando quieras.' },
-      { list: ['Las **actualizaciones** (cambio de versión, como la 1.4) van en verde.', 'Los **fixes** (parches como el Fix 1.31) van en naranja.', 'Los **avisos** van en rojo: léelos, suelen ser importantes.', 'Las **novedades** y los **eventos** van en azul y morado.'] },
+      { list: ['Las **actualizaciones** (cambio de versión, como la 1.4) van en verde.', 'Los **fixes** (parches como el Fix 1.41 o el 1.31) van en naranja, con una llave inglesa.', 'Los **avisos** van en rojo: léelos, suelen ser importantes.', 'Las **novedades** y los **eventos** van en azul y morado.'] },
     ],
   },
 ];
+
+/** Fix 1.41: a patch has two decimals (1.41, 1.32, 1.22) or says «Fix» in its title; 1.3, 1.4 are updates. */
+export const isFix = (r: PublicRelease) => /^\d+\.\d\d$/.test(r.version) || /\bfix\b/i.test(r.title);
 
 /** A public release as an «Actualización» news item. */
 export function releaseNews(r: PublicRelease, online = true): NewsItem {
   const feats = r.features.filter((f) => online || !f.online);
   return {
     // v1.4: a «Fix» (1.31, 1.22...) is a patch, shown in its own colour; a version number change (1.3, 1.4) is an update
-    id: `version-${r.version}`, kind: /fix/i.test(r.title) ? 'fix' : 'actualizacion', date: r.date, icon: '⚙', version: r.version,
+    id: `version-${r.version}`, kind: isFix(r) ? 'fix' : 'actualizacion', date: r.date, icon: '⚙', version: r.version,
     title: r.title, summary: r.tagline,
     blocks: [
       { p: r.intro },

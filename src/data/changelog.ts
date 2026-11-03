@@ -15,6 +15,18 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: '5.4', date: '2026-11-03', title: 'Fix 1.41',
+    features: [],
+    fixes: [
+      'Cartas de subir de nivel que no se dejaban elegir: tras darse la vuelta seguían en un contexto 3D y, al inclinarse, media carta quedaba detrás de su contenedor, que se quedaba el clic. Ahora la carta se aplana al terminar el giro y todo el hueco de la carta elige.',
+      'Tablón: el color de fix depende del número de versión (dos decimales, como 1.41 o 1.32), no solo de que el título diga «Fix»; la 1.32 salía en verde.',
+    ],
+    visuals: [
+      'Inclinación 3D de las cartas de nivel más visible (hasta ±11°, sombra que sigue al ratón, reflejo más fuerte) y sin temblor: el ratón se mide sobre el hueco, que no se mueve.',
+    ],
+    balance: [],
+  },
+  {
     version: '5.3', date: '2026-11-03', title: 'v1.4',
     features: [
       'Técnica inicial de cada futbolista: en su plaza de Mi Equipo pulsas la técnica con la que empieza la partida (★); también desde la tienda de técnicas y la ficha de la colección («Empezar con esta»). Los talentos no cuentan: son pasivos. Antes solo se podía con el capitán.',

@@ -6,7 +6,7 @@
  */
 import { CHANGELOG } from './changelog';
 
-export const PUBLIC_VERSION = '1.4';
+export const PUBLIC_VERSION = '1.41';
 export const BUILD = CHANGELOG[0].version;
 export const RELEASED = false;
 export const VERSION_LABEL = RELEASED ? `v${PUBLIC_VERSION}` : `v${PUBLIC_VERSION} · pre-lanzamiento`;
@@ -29,6 +29,18 @@ export interface PublicRelease {
 /** Public news, newest first. Starts at v1.0: the internal versions before it are not part of the public history. */
 export const PUBLIC_RELEASES: PublicRelease[] = [
   {
+    version: '1.41', date: '2026-11-03',
+    title: 'InaZurvivors Fix 1.41 — Cartas de nivel que se dejan elegir',
+    tagline: 'Las mejoras de la partida se eligen a la primera, las cartas se inclinan en 3D de verdad y los fixes tienen su propio color en el tablón',
+    intro: 'Un parche corto para lo que más molestaba de la 1.4: algunas cartas de subir de nivel no hacían caso al pulsarlas.',
+    features: [
+      { icon: '🃏', title: 'Mejoras a la primera', text: 'Al pulsar una carta de nivel (o el hueco alrededor), se elige siempre. Antes, con la carta inclinada, el clic se perdía en media carta.' },
+      { icon: '✦', title: 'Inclinación 3D visible', text: 'Las cartas se inclinan hacia el ratón con más ángulo, una sombra que se mueve y un reflejo más marcado, sin temblar al pasar por el borde.' },
+      { icon: '📰', title: 'Fixes en naranja', text: 'En el tablón, los fixes (1.41, 1.32, 1.31…) van siempre en naranja con su llave inglesa; las actualizaciones (1.3, 1.4) siguen en verde.' },
+    ],
+    start: [],
+  },
+  {
     version: '1.4', date: '2026-11-03',
     title: 'InaZurvivors 1.4 — Todo nuevo por dentro y por fuera',
     tagline: 'Menús, HUD, cartas de nivel, recompensas, pase y perfil rediseñados; técnica inicial para cada jugador y técnicas de Arion, Axel y Bai Long redibujadas',
@@ -50,7 +62,7 @@ export const PUBLIC_RELEASES: PublicRelease[] = [
   },
   {
     version: '1.32', date: '2026-11-02',
-    title: 'InaZurvivors 1.32 — Tablón de noticias',
+    title: 'InaZurvivors Fix 1.32 — Tablón de noticias',
     tagline: 'Tablón de noticias, tarjetas rediseñadas como cromos y un Mi Equipo más cómodo que enseña tus técnicas combinadas',
     intro: 'Novedades se convierte en Noticias: a la izquierda tienes todas las entradas, con su etiqueta y su fecha, y a la derecha la noticia completa. Ahí verás los avisos y novedades del desarrollo y el registro de todas las actualizaciones desde la v1.0.',
     features: [
