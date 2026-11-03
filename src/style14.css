@@ -1236,10 +1236,9 @@ body.reduced-motion .lvc, body.reduced-motion .lvc-in, body.reduced-motion .lvc-
 .ib-logo4 h1 span { display: inline-block; }
 .ib-logo4 .p1 { animation: ibP1 .45s .5s cubic-bezier(.3,1.5,.5,1) both; }
 .ib-logo4 .p3 { animation: ibP3 .45s .5s cubic-bezier(.3,1.5,.5,1) both; }
-.ib-logo4 .p2 { color: #fff; -webkit-text-fill-color: #fff; animation: ibZ .5s .85s cubic-bezier(.3,1.8,.5,1) both; }
+.ib-logo4 .p2 { color: #fff; -webkit-text-fill-color: #fff; animation: ibZ .62s .85s linear both; transform-origin: 50% 100%; }
 @keyframes ibP1 { from { transform: translateX(-120vw) skewX(-20deg); } }
 @keyframes ibP3 { from { transform: translateX(120vw) skewX(20deg); } }
-@keyframes ibZ { from { transform: translateY(-80vh) rotate(-30deg) scale(2); opacity: 0; } to { transform: skewX(-12deg); opacity: 1; } }
 .ib-shine { position: absolute; inset: 0 auto 0 0; width: 30%; pointer-events: none; background: linear-gradient(100deg, transparent, #ffffffcc 50%, transparent); mix-blend-mode: overlay;
   transform: translateX(-150%) skewX(-18deg); animation: ibShine 3.2s 1.4s ease-in-out infinite; }
 @keyframes ibShine { 0%, 50% { transform: translateX(-150%) skewX(-18deg); } 80%, 100% { transform: translateX(450%) skewX(-18deg); } }
@@ -1255,9 +1254,10 @@ body.reduced-motion .lvc, body.reduced-motion .lvc-in, body.reduced-motion .lvc-
 @keyframes ibSpark { 0% { opacity: 1; transform: rotate(var(--a)) translateX(0); } 100% { opacity: 0; transform: rotate(var(--a)) translateX(var(--r)) scaleX(.3); } }
 /* title screen: the logo is already built and shines; the stage keeps moving */
 .title-screen .ib-logo4.idle .p1, .title-screen .ib-logo4.idle .p3 { animation: none; }
-.title-screen .ib-logo4.idle .p2 { animation: ibZ .5s .1s cubic-bezier(.3,1.8,.5,1) both; }
+.title-screen .ib-logo4.idle .p2 { animation: none; transform: skewX(-12deg); } /* the logo is already built after the opening: no second drop */
 .title-screen .ib-logo4.idle .ib-shine { animation-delay: .4s; }
-.title-screen .cine-shot { animation: cineIn .6s ease-out both; }
+.title-screen .cine-shot { animation: tsFade .4s ease-out both; } /* no zoom-in right after the opening */
+@keyframes tsFade { from { opacity: 0; } }
 .title-screen #tscont { animation: btnBeat 1.3s ease-in-out infinite; }
 body.reduced-motion .cine4 *, body.reduced-motion .cine4 { animation-duration: .01ms !important; animation-delay: 0s !important; }
 @media (prefers-reduced-motion: reduce) { .cine4 *, .cine4 { animation-duration: .01ms !important; animation-delay: 0s !important; } }
@@ -1436,3 +1436,19 @@ body.drag-aura-no .squad-row .aura-mini { opacity: .45; }
 .aura-preview { position: fixed !important; z-index: 9998; margin: 0 !important; pointer-events: none; transform: scale(1.06) !important; box-shadow: inset 0 0 0 3px #fff, 0 0 0 3px var(--aura), 0 0 26px #7ff6ffcc !important; animation: auraPrev .18s ease-out both; }
 .aura-preview .am-txt small { color: #fff; }
 @keyframes auraPrev { from { transform: scale(.7) !important; opacity: 0; } }
+
+/* Fix (author): Mi Equipo slots had overflow: visible (so the border relief shows) and only clip-path trimmed them; the
+   moving shine still counted as overflow and the row flashed a horizontal scrollbar. overflow: clip with the border as
+   margin keeps the relief and stops anything from widening the row. */
+.sq-slot.ccs { overflow: clip !important; overflow-clip-margin: var(--bw, 4px); }
+
+/* Fix (author): the Z of the logo jumped. It fell with an overshooting curve (it went past its place and back) between
+   two different transform lists (translate+rotate+scale and a lone skew), which the browser blends as a matrix: a twist
+   at the end. Now the same functions at both ends, a straight gravity fall, a squash when it lands and a small settle. */
+@keyframes ibZ {
+  0% { transform: translateY(-80vh) rotate(-30deg) scale(2) skewX(-12deg); opacity: 0; animation-timing-function: cubic-bezier(.55,0,.9,.5); }
+  12% { opacity: 1; }
+  70% { transform: translateY(0) rotate(0deg) scale(1.12, .86) skewX(-12deg); animation-timing-function: ease-out; }
+  85% { transform: translateY(-5%) rotate(0deg) scale(.97, 1.04) skewX(-12deg); animation-timing-function: ease-in-out; }
+  100% { transform: translateY(0) rotate(0deg) scale(1) skewX(-12deg); opacity: 1; }
+}

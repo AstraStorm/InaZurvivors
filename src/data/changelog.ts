@@ -27,6 +27,8 @@ export const CHANGELOG: Release[] = [
       'Panel de jugadores para administradores (Ajustes): cuentas, quién ha jugado, partidas y actividad.',
     ],
     fixes: [
+      'Mi Equipo: el brillo que recorre las cartas grandes ya no saca un momento una barra de desplazamiento horizontal (las plazas recortan con overflow: clip en vez de solo clip-path).',
+      'Intro: la Z cae sin el salto raro (curva que se pasaba y mezcla de transformaciones distintas) y la pantalla de título ya no repite la caída ni hace zoom al entrar justo después de la intro.',
       'Las cartas de nivel leen al futbolista de la partida (técnicas de HÉROE y del Aura incluidas), no el del menú.',
       'La carta de fichaje enseña la técnica inicial elegida en Mi Equipo, no siempre la primera.',
       'Viento celestial ya no recibe alas de ángel por llevar «celestial» en el nombre.',
