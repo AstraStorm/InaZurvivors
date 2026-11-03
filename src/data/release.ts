@@ -37,6 +37,7 @@ export const PUBLIC_RELEASES: PublicRelease[] = [
       { icon: '◎', title: 'Campo de entrenamiento', text: 'En el menú, Tu club » Entrenamiento. Elige hasta cinco de tus futbolistas, qué técnicas usa cada uno (hasta cuatro, también las de su Aura) y a qué nivel, del 1 al 10.' },
       { icon: '✦', title: 'Combinadas a tu gusto', text: 'Si los futbolistas que eliges pueden hacer una técnica combinada juntos (o con sus Auras), puedes activarla y elegir su nivel. Si falta alguien, te dice quién.' },
       { icon: '♥', title: 'Sin presión', text: 'En el entrenamiento nadie recibe daño y siempre hay rivales a los que apuntar. No da recompensas, ni cuenta para misiones ni para el ranking. Sales desde Pausa.' },
+      { icon: '⌕', title: 'Filtros en la tienda de técnicas', text: 'Busca futbolistas por nombre o por técnica y filtra tu plantilla por rareza, elemento, tipo de técnica o solo los que aún tienen algo por comprar.' },
       { icon: '☺', title: 'Perfiles de jugadores', text: 'Toca un nombre en el ranking para ver su perfil: icono, escudo, equipo favorito, partidas y victorias, su equipo con capitán, Auras y estrellas, y sus mejores marcas.', online: true },
     ],
     start: [],

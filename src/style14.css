@@ -1502,3 +1502,11 @@ body.drag-aura-no .squad-row .aura-mini { opacity: .45; }
 .opf-mark { display: flex; align-items: center; gap: 8px; font-size: 9px; padding: 4px 8px; border-radius: 6px; background: #ffffff0a; }
 .opf-mark b { margin-left: auto; } .opf-mark small { color: #9fb6d8; font-size: 7px; }
 .opf-mark .rank-btn { transform: scale(.55); margin: -10px -8px; }
+
+/* v1.6: technique shop filters */
+.ts-filters { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
+.ts-filters input[type=search] { width: 100%; box-sizing: border-box; padding: 6px 8px; border-radius: 8px; border: 1px solid var(--g-line, #3a5a9a); background: #0a1630; color: #fff; font: inherit; font-size: 8px; }
+.ts-frow { display: flex; gap: 6px; align-items: center; }
+.ts-frow select { flex: 1; min-width: 0; font-size: 8px; padding: 4px; }
+.ts-chk { display: inline-flex; align-items: center; gap: 4px; font-size: 7px; color: #cfe3ff; white-space: nowrap; cursor: pointer; }
+.ts-pick[hidden] { display: none !important; }

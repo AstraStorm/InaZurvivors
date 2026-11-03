@@ -3256,9 +3256,21 @@ export class App {
     window.setTimeout(close, 3200);
   }
 
+  /** v1.6 (author): filters of the technique shop's squad list, kept while the game is open */
+  private techShopFilter = { q: '', rarity: '', element: '', type: '', pending: false };
+
+  /** True when this footballer still has something to buy: a technique to unlock or a manual short of the maximum */
+  private shopPending(p: RosterEntry) {
+    return p.techniques.some((t, i) => (i !== startingTech(p) && i !== this.startOf(p) && !isBought(this.save, p.id, i) && t.type !== 'talento')
+      || (this.save.shop.techBoosts[String(t.id)] ?? 0) < MAX_TECH_BOOST);
+  }
+
   shop(playerId?: number) {
     setMusicContext('menu');
     const owned = this.unlockedRoster();
+    const f = this.techShopFilter;
+    const elements = [...new Set(owned.map((o) => String(o.element)))].sort((a, b) => a.localeCompare(b, 'es'));
+    const types = (['tiro', 'regate', 'defensa', 'parada', 'talento'] as const).filter((t) => owned.some((o) => o.techniques.some((x) => x.type === t)));
     const p = this.byId.get(playerId ?? this.captainId ?? owned[0]?.id ?? -1);
     const rows = p?.techniques.map((t, i) => {
       const lv = this.save.shop.techBoosts[String(t.id)] ?? 0;
@@ -3277,7 +3289,15 @@ export class App {
     const pr = p ? effectiveRarity(this.save, p) : 'comun';
     this.show(`<div class="screen ts-screen">${this.titlebar('Tienda de técnicas', 'Menú')}
       <div class="ts-wrap">
-        <aside class="ts-side"><h4>${uiIcon('team')}Tu plantilla <small>${owned.length}</small></h4><div class="ts-list">${owned.map((o) => { const r = effectiveRarity(this.save, o); return `<button class="ts-pick${o.id === p?.id ? ' on' : ''}" data-p="${o.id}" style="--rc:${RARITY_COLOR[r]}">${this.mug(o.id, 36)}<span><b>${esc(o.name)}</b><small>${RARITY_LABEL[r]} · ${o.techniques.length} técnicas</small></span></button>`; }).join('')}</div></aside>
+        <aside class="ts-side"><h4>${uiIcon('team')}Tu plantilla <small id="tscount">${owned.length}</small></h4>
+          <div class="ts-filters"><input id="tsq" type="search" placeholder="Buscar futbolista o técnica…" value="${esc(f.q)}" autocomplete="off">
+            <div class="ts-frow"><select id="tsr"><option value="">Rareza</option>${RARITY_ORDER.map((r) => `<option value="${r}" ${f.rarity === r ? 'selected' : ''}>${RARITY_LABEL[r]}</option>`).join('')}<option value="heroe" ${f.rarity === 'heroe' ? 'selected' : ''}>HÉROE</option></select>
+              <select id="tse"><option value="">Elemento</option>${elements.map((e) => `<option value="${esc(e)}" ${f.element === e ? 'selected' : ''}>${esc(e)}</option>`).join('')}</select></div>
+            <div class="ts-frow"><select id="tst"><option value="">Tipo de técnica</option>${types.map((t) => `<option value="${t}" ${f.type === t ? 'selected' : ''}>${esc(TYPE_LABEL[t])}</option>`).join('')}</select>
+              <label class="ts-chk"><input type="checkbox" id="tsp" ${f.pending ? 'checked' : ''}>Por comprar</label></div></div>
+          <div class="ts-list">${owned.map((o) => { const r = effectiveRarity(this.save, o); return `<button class="ts-pick${o.id === p?.id ? ' on' : ''}" data-p="${o.id}" style="--rc:${RARITY_COLOR[r]}"
+              data-name="${esc([o.name, o.nameEn ?? '', ...o.techniques.map((t) => t.name)].join(' ').toLowerCase())}" data-r="${isHero(this.save, o.id) ? 'heroe' : r}" data-el="${esc(String(o.element))}"
+              data-types="${[...new Set(o.techniques.map((t) => t.type))].join(' ')}" data-pend="${this.shopPending(o) ? 1 : 0}">${this.mug(o.id, 36)}<span><b>${esc(o.name)}</b><small>${RARITY_LABEL[r]} · ${o.techniques.length} técnicas</small></span></button>`; }).join('')}</div></aside>
         <section class="ts-main">${p ? `<div class="ts-head" style="--rc:${RARITY_COLOR[pr]}"><span class="ts-mug">${this.mug(p.id, 96)}</span>
             <div><small>REPERTORIO</small><b>${esc(p.name)}</b><div class="ts-tags">${this.rar(p)} ${this.elem(p)}</div>
             <p>Cada futbolista solo usa su propio repertorio. Aquí desbloqueas sus técnicas y compras <b>manuales</b> de daño permanente (subir de nivel una técnica en partida es aparte).</p></div></div>
@@ -3287,6 +3307,25 @@ export class App {
       if (list && on) list.scrollTop = on.offsetTop - list.offsetTop - list.clientHeight / 2 + on.offsetHeight / 2; } // the chosen player stays in view, the page does not jump
     this.on('[data-back]', 'click', () => this.mainMenu());
     this.on('[data-p]', 'click', (_e, el) => this.shop(Number(el.dataset.p)));
+    // v1.6: the list is filtered in place (no redraw), so typing keeps the focus
+    const apply = () => {
+      const q = f.q.trim().toLowerCase();
+      let shown = 0;
+      this.root.querySelectorAll<HTMLElement>('.ts-pick').forEach((b) => {
+        const ok = (!q || (b.dataset.name ?? '').includes(q)) && (!f.rarity || b.dataset.r === f.rarity) && (!f.element || b.dataset.el === f.element)
+          && (!f.type || (b.dataset.types ?? '').split(' ').includes(f.type)) && (!f.pending || b.dataset.pend === '1');
+        b.hidden = !ok;
+        if (ok) shown++;
+      });
+      const c = document.getElementById('tscount');
+      if (c) c.textContent = shown === owned.length ? String(owned.length) : `${shown}/${owned.length}`;
+    };
+    document.getElementById('tsq')?.addEventListener('input', (e) => { f.q = (e.target as HTMLInputElement).value; apply(); });
+    document.getElementById('tsr')?.addEventListener('change', (e) => { f.rarity = (e.target as HTMLSelectElement).value; apply(); });
+    document.getElementById('tse')?.addEventListener('change', (e) => { f.element = (e.target as HTMLSelectElement).value; apply(); });
+    document.getElementById('tst')?.addEventListener('change', (e) => { f.type = (e.target as HTMLSelectElement).value; apply(); });
+    document.getElementById('tsp')?.addEventListener('change', (e) => { f.pending = (e.target as HTMLInputElement).checked; apply(); });
+    apply();
     this.on('[data-start]', 'click', (_e, el) => { this.setStart(el.dataset.start!); this.shop(p?.id); });
     this.on('[data-unlock]', 'click', (_e, el) => this.armed(el, () => { if (p && buyTechUnlock(this.save, p, Number(el.dataset.unlock))) { this.persist(); sfx('buy'); } this.shop(p?.id); }));
     this.on('[data-boost]', 'click', (_e, el) => this.armed(el, () => { if (p && buyTechBoost(this.save, p, Number(el.dataset.boost))) { this.persist(); sfx('buy'); } this.shop(p?.id); }));

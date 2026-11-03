@@ -18,6 +18,7 @@ export const CHANGELOG: Release[] = [
     version: '7.0', date: '2026-11-05', title: 'Actualización 1.6',
     features: [
       'Campo de entrenamiento (autor): pantalla nueva (app.ts trainingField) con hasta 5 futbolistas propios, hasta 4 técnicas activas cada uno (repertorio completo, técnica de HÉROE y técnicas del Aura) y su nivel 1-10, más las combinadas que pueden hacer juntos (squadCombos, también vía Aura) con nivel 1-5. La partida usa ArenaInit.training (TrainingSetup): estado de técnicas y combos fijados, vida siempre llena e invulnerable, sin experiencia ni cartas, sin jefes, minijefes, altares, peligros ni oleadas de cerco; mantiene 22 rivales normales. Salir desde Pausa vuelve al campo sin resultados ni recompensas.',
+      'Tienda de técnicas (autor): filtros de la plantilla (búsqueda por nombre o técnica, rareza o HÉROE, elemento, tipo de técnica y «Por comprar»), aplicados sin redibujar para no perder el foco (app.ts techShopFilter).',
       'Perfiles de otros jugadores (autor): migración 20261103000200_public_profile.sql (aplicada) con public_profile(username), solo lectura y solo datos de juego (icono, escudo, equipo favorito, totales, los 7 candidatos con estrellas, HÉROE, ascensión y Aura, y hasta 6 marcas). Los nombres del ranking (menú y pantalla de ranking) abren la ficha.',
     ],
     fixes: [],
