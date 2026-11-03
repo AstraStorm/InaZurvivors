@@ -84,6 +84,12 @@ export interface MapInfo {
   id: string;
   name: string;
   unlock: string;
+  /** v1.7: the rule before the map path got new arenas in between; a save that met it keeps the arena open */
+  legacyUnlock?: string;
+  /** v1.7: position on the map path (1 = first); every step makes the rivals tougher (mapTierScale) */
+  tier?: number;
+  /** v1.7: one line for the map path */
+  blurb?: string;
   durationSec: number;
   provisional?: string;
   ambience: string;

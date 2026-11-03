@@ -6,7 +6,7 @@
  */
 import { CHANGELOG } from './changelog';
 
-export const PUBLIC_VERSION = '1.66';
+export const PUBLIC_VERSION = '1.7';
 export const BUILD = CHANGELOG[0].version;
 export const RELEASED = false;
 export const VERSION_LABEL = RELEASED ? `v${PUBLIC_VERSION}` : `v${PUBLIC_VERSION} · pre-lanzamiento`;
@@ -28,6 +28,23 @@ export interface PublicRelease {
 
 /** Public news, newest first. Starts at v1.0: the internal versions before it are not part of the public history. */
 export const PUBLIC_RELEASES: PublicRelease[] = [
+  {
+    version: '1.7', date: '2026-11-05',
+    title: 'InaZurvivors 1.7 — Camino de arenas',
+    tagline: 'Seis arenas nuevas y un camino que se pone más difícil a cada paso',
+    intro: 'Las arenas ya no son una lista: son un recorrido, del parque del río hasta el bosque del Fuji.',
+    features: [
+      { icon: '🗺', title: 'Camino de arenas', text: 'El selector es ahora un camino con 12 paradas. Cada arena abre la siguiente, y el color del camino pasa de verde a rojo y morado según aprieta la dificultad. Toca una parada para ver su jefe, su duración y cuánto más fuertes son los rivales.' },
+      { icon: '★', title: '6 arenas nuevas', text: 'Ribera del río, Parque de los Ciervos (Nara), Gran Llanura Nevada, Naniwaland, Instituto Yokato y Mar de Árboles, con la Tormenta de Géminis, Polvo de Diamantes, el Triple C, Épsilon, Prominence y Génesis.' },
+      { icon: '🔥', title: 'Dificultad por etapa', text: 'Cada parada del camino endurece a los rivales: de la primera a la última, hasta +66% de vida y +44% de daño, además del rango que elijas.' },
+      { icon: '🏖', title: 'Isla Mary Times', text: 'Ya se puede bajar a la playa: la ladera de césped y el camino de arena dejaban de ser un muro invisible.' },
+      { icon: '🏅', title: 'Logros', text: 'Un logro por cada arena nueva y uno por completar el camino entero.' },
+      { icon: '🔗', title: 'Pistas de técnicas combinadas', text: 'Las cartas de subir nivel que acercan una técnica combinada llevan una franja dorada que dice cuál y qué nivel pide. En el HUD, las técnicas que hay que subir van marcadas, y en la pausa ves cada combinada con lo que le falta a cada jugador.' },
+      { icon: '✚', title: 'Revivir a la vista', text: 'Debajo de la vida de tu capitán ves cuántas cargas de Revivir te quedan.' },
+      { icon: '🏆', title: 'Ranking', text: 'El ranking volvía a no cargar: un guardado desfasado en la nube se reintentaba sin parar y bloqueaba el servidor. Arreglado.' },
+    ],
+    start: [],
+  },
   {
     version: '1.66', date: '2026-11-05',
     title: 'InaZurvivors Fix 1.66 — Escudo sobre el marco',

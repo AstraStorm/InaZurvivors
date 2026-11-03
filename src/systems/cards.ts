@@ -8,10 +8,13 @@ export const MAX_TEAM = 5; // captain + 4 recruits
 /** Repertoire index in each of the two active slots, and the run level of every technique used so far. */
 export interface TeamMemberState { playerId: number; slots: (number | null)[]; levels: Record<number, number> }
 
+/** v1.7: a combined technique this card brings closer (combos.ts comboHints), shown as a mark on the card */
+export interface ComboHint { name: string; need: number; reaches: boolean }
+
 export type Card =
   | { kind: 'recruit'; playerId: number }
-  | { kind: 'learn'; playerId: number; tech: number }
-  | { kind: 'upgrade'; playerId: number; tech: number; toLevel: number }
+  | { kind: 'learn'; playerId: number; tech: number; combo?: ComboHint[] }
+  | { kind: 'upgrade'; playerId: number; tech: number; toLevel: number; combo?: ComboHint[] }
   | { kind: 'stat'; id: string }
   | { kind: 'passive'; id: string }
   | { kind: 'heal'; amount: number }

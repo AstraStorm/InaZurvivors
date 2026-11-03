@@ -7,7 +7,7 @@ import { evolutionLabel, evolvesAt } from '../src/systems/evolution';
 import { PASSIVES, STAT_CARDS } from '../src/systems/runmods';
 import { rollDrop, rollXpTier, XP_TIERS } from '../src/systems/items';
 import { applyCard, cardPool, drawCards, MAX_TEAM, newMemberState, type CardContext, type TeamMemberState } from '../src/systems/cards';
-import { applyRun, computeRewards, isMapUnlocked, tokenRewards, WELCOME_TOKENS } from '../src/systems/economy';
+import { applyRun, computeRewards, isMapUnlocked, mapTierScale, MAP_ORDER, tokenRewards, WELCOME_TOKENS } from '../src/systems/economy';
 import { directionFromVector, frameAt, flipsFor, animIndex } from '../src/game/rig';
 import type { RosterEntry, Technique } from '../src/data/manifest';
 import { effectiveOdds, eligibleTeams, onboardingPull, recordHistory } from '../src/systems/gacha';
@@ -206,11 +206,23 @@ describe('economy', () => {
     const before = s.coins;
     applyRun(s, { mapId: 'raimon', victory: false, timeSec: 100, kills: 20, minibosses: 0, bossDefeated: false, reachedBoss: false });
     expect(s.coins).toBeGreaterThan(before);
-    expect(isMapUnlocked('clear:raimon', s)).toBe(false);
+    expect(isMapUnlocked({ id: 'ribera', unlock: 'clear:raimon' }, s)).toBe(false);
     applyRun(s, { mapId: 'raimon', victory: true, timeSec: 300, kills: 200, minibosses: 2, bossDefeated: true, reachedBoss: true });
-    expect(isMapUnlocked('clear:raimon', s)).toBe(true);
+    expect(isMapUnlocked({ id: 'ribera', unlock: 'clear:raimon' }, s)).toBe(true);
     expect(computeRewards({ mapId: 'x', victory: true, timeSec: 0, kills: 0, minibosses: 0, bossDefeated: true, reachedBoss: true })
       .map((r) => r.label)).toContain('Jefe derrotado');
+  });
+  it('v1.7 map path: old saves keep arenas opened by the old order, and later arenas are tougher', () => {
+    const s = newSave([10], 10);
+    s.clearedMaps = ['raimon'];
+    // Royal used to open after Raimon; now Ribera del río sits in between
+    expect(isMapUnlocked({ id: 'royal', unlock: 'clear:ribera', legacyUnlock: 'clear:raimon' }, s)).toBe(true);
+    expect(isMapUnlocked({ id: 'nara', unlock: 'clear:royal' }, s)).toBe(false);
+    s.clearedMaps.push('zeus');
+    expect(isMapUnlocked({ id: 'zeus', unlock: 'clear:nara' }, s)).toBe(true);
+    expect(mapTierScale(1)).toEqual({ hp: 1, damage: 1 });
+    expect(mapTierScale(12).hp).toBeGreaterThan(mapTierScale(6).hp);
+    expect(MAP_ORDER.length).toBe(12);
   });
 });
 
@@ -1035,8 +1047,8 @@ describe('reiniciar progreso', () => {
 describe('versión pública y reportes de bugs', () => {
   it('the public news start at v1.0 and no internal version leaks into them', async () => {
     const { PUBLIC_RELEASES, PUBLIC_VERSION, RELEASED, VERSION_LABEL, BUILD, TIKTOK_URL } = await import('../src/data/release');
-    expect(PUBLIC_VERSION).toBe('1.66');
-    expect(PUBLIC_RELEASES.map((r) => r.version)).toEqual(['1.66', '1.65', '1.6', '1.53', '1.52', '1.51', '1.5', '1.41', '1.4', '1.32', '1.31', '1.3', '1.22', '1.21', '1.2', '1.12', '1.11', '1.1', '1.0']); // newest first, starting at v1.0
+    expect(PUBLIC_VERSION).toBe('1.7');
+    expect(PUBLIC_RELEASES.map((r) => r.version)).toEqual(['1.7', '1.66', '1.65', '1.6', '1.53', '1.52', '1.51', '1.5', '1.41', '1.4', '1.32', '1.31', '1.3', '1.22', '1.21', '1.2', '1.12', '1.11', '1.1', '1.0']); // newest first, starting at v1.0
     expect(PUBLIC_RELEASES.at(-1)!.title).toBe('InaZurvivors v1.0 — ¡Comienza la aventura!');
     expect(JSON.stringify(PUBLIC_RELEASES)).not.toMatch(/\bv?[234]\.\d\b/);
     expect(BUILD).not.toBe('1.0');

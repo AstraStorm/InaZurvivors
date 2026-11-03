@@ -15,6 +15,21 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: '8.0', date: '2026-11-05', title: '1.7 Camino de arenas',
+    features: [
+      'Camino de arenas: mapSelect() dibuja las 12 arenas como paradas de un camino en serpiente (SVG + nodos), con panel lateral (jefe, duración, % extra de los rivales, rangos). styleMapPath.css.',
+      'Arenas nuevas horneadas con tools/bake_arena.py: ribera (mr02b04), nara (mr09b02), nevada (mr10b05), naniwa (mr13b02), yokato (mr14b01), fuji (mr16b40). data/maps.json con tier, blurb y legacyUnlock.',
+      'mapTierScale(tier) en economy.ts: +6% vida y +4% daño por etapa. isMapUnlocked(map, save) acepta legacyUnlock y arenas ya ganadas, para no cerrar arenas a partidas antiguas.',
+      'Logros l_ribera, l_nara, l_nevada, l_naniwa, l_yokato, l_fuji y l_camino (12 arenas).',
+      'combos.ts comboGoals/comboHints: cartas upgrade/learn con card.combo (franja .lv-combo), HudTech.combo (ranura marcada), chips de objetivo en #combohud y lista en la pausa (pauseCombos). tests/comboGoals.test.ts.',
+      'HUD: #revchip con las cargas de Revivir (HudState.revives / reviveMax).',
+    ],
+    fixes: ['Ranking 504: put_save lanzaba version_conflict/progress_reset con SQLSTATE 40001 y PostgREST reintenta 40001 sin fin; cada guardado desfasado ocupaba una conexión del pool. Migración 20261105000000_save_conflict_no_retry (P0001), aplicada en vivo.',
+      'Mary Times: bake_arena admite open/close (rectángulos de celdas); se abren la ladera bajo la segunda fila de casas y el camino de arena hacia la playa.'],
+    visuals: [],
+    balance: ['Las arenas antiguas suben de dificultad según su etapa en el camino (Royal 3, Zeus 5, Alpino 6, Claustro 8, Mary Times 11).'],
+  },
+  {
     version: '7.2', date: '2026-11-05', title: 'Fix 1.66',
     features: [],
     fixes: ['Perfil (autor): el escudo del equipo (.pf-crest) queda por encima del marco del icono (z-index 5; el marco va a 3).'],

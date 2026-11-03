@@ -87,12 +87,23 @@ export function tokenRewards(r: RunResult, firstClear: boolean, runsBefore = Inf
   return out;
 }
 
-export const MAP_ORDER = ['raimon', 'royal', 'zeus', 'alpino', 'claustro', 'marytimes'];
+export const MAP_ORDER = ['raimon', 'ribera', 'royal', 'nara', 'zeus', 'alpino', 'nevada', 'claustro', 'naniwa', 'yokato', 'marytimes', 'fuji'];
 
-export function isMapUnlocked(unlockRule: string, save: SaveData): boolean {
-  if (unlockRule === 'start') return true;
-  const m = /^clear:(.+)$/.exec(unlockRule);
+function ruleMet(rule: string | undefined, save: SaveData) {
+  if (!rule) return false;
+  if (rule === 'start') return true;
+  const m = /^clear:(.+)$/.exec(rule);
   return !!m && save.clearedMaps.includes(m[1]);
+}
+/** v1.7: an arena opens when the one before it on the path is cleared; one already won (or open under the old order) stays open */
+export function isMapUnlocked(map: { id: string; unlock: string; legacyUnlock?: string }, save: SaveData): boolean {
+  return ruleMet(map.unlock, save) || ruleMet(map.legacyUnlock, save) || save.clearedMaps.includes(map.id);
+}
+
+/** v1.7: each step of the map path makes rivals tougher: tier 1 is the old balance, the last arena about +66% health, +44% damage */
+export function mapTierScale(tier = 1) {
+  const t = Math.max(0, tier - 1);
+  return { hp: 1 + t * 0.06, damage: 1 + t * 0.04 };
 }
 
 /** Applies a finished run to the save (mutates and returns it). Coins are kept on defeat too. */

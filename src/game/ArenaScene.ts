@@ -20,7 +20,7 @@ import { canStartGuardedMove, GUARD_LOCKOUT_SEC } from '../systems/combat';
 import { FORMATIONS, FORMATION_ORDER, headingFromVector, slotPositions, type FormationId } from '../systems/formations';
 import type { PerkEffects } from '../systems/perks';
 import type { Settings } from '../systems/save';
-import type { RunResult } from '../systems/economy';
+import { mapTierScale, type RunResult } from '../systems/economy';
 import { statCooldown, statDamage, statHealth, statTaken } from '../systems/playerStats';
 import { burstSize, FINAL_STRETCH_FROM, finalStretch, xpForLevel, RANK_ORDER, rankDef, variantRamp, waveIntensity, type RankDef } from '../systems/difficulty';
 import { capArea, capCooldown, capCrit, capLuck, pickupRadius, capRegen, capSpeed, capTaken, capXp, CAPS, softCap } from '../systems/balance';
@@ -37,11 +37,11 @@ import { blackAshCharge, blackAshTrail, illusionBall, signatureOf, stormZone } f
 import { natureArea, natureCharge, natureOf, natureShot, setNatureLowPower } from './fxNature';
 import { animeCharge, animeOf, animeShot, auroraVeil, cometTex, earthBurst, earthCharge, furyFist, breezeStep, chaosBreakCharge, chaosBreakShot, fireBlizzardCharge, fireBlizzardShot, godWindGust } from './fxAnime';
 import { adaptedPassive, CAP_ELEMENTAL, CAP_LAST_STAND, emptyFx, TALENTS, talentScale, type TalentFx } from '../systems/talents';
-import { COMBOS, COMBOS_BY_PRIORITY, COMBO_MAX_LEVEL, comboCast, comboDamage, comboMembers, comboReady, type ComboDef } from '../systems/combos';
+import { COMBOS, COMBOS_BY_PRIORITY, COMBO_MAX_LEVEL, comboCast, comboDamage, comboGoals, comboHints, comboMembers, comboReady, type ComboDef } from '../systems/combos';
 import { AURA_ELEMENT_BONUS, AURA_TECH_DAMAGE } from '../systems/auras';
 import type { Rank } from '../systems/save';
 
-export interface HudTech { name: string; type: Technique['type']; level: number; evolution: string; cd: number; /** v1.5: inherited from the Aura */ aura?: boolean }
+export interface HudTech { name: string; type: Technique['type']; level: number; evolution: string; cd: number; /** v1.5: inherited from the Aura */ aura?: boolean; /** v1.7: combined technique that needs this one higher */ combo?: string }
 export interface HudMember { id: number; techs: (HudTech | null)[]; /** v1.5 */ aura?: { id: number; name: string } | null }
 export interface HudState {
   hp: number; maxHp: number; xp: number; xpNext: number; level: number; timeSec: number; durationSec: number;
@@ -58,6 +58,10 @@ export interface HudState {
   upgraded: { playerId: number; slot: number; at: number } | null;
   /** special slot of the combined techniques (0 = ready) */
   combos: { name: string; level: number; cd: number }[];
+  /** v1.7: combined techniques still to learn with the team on the pitch, and what each participant needs */
+  comboGoals: { id: string; name: string; complete: boolean; ready: boolean; parts: { player: string; tech?: string; need: number; have: number; memberId: number | null; viaAura: boolean }[] }[];
+  /** v1.7: Revivir charges left, and the most a run can hold */
+  revives: number; reviveMax: number;
   /** endless survival: difficulty multiplier and seconds survived after the boss */
   endless: { mult: number; sec: number; phase: string } | null;
 }
@@ -1365,12 +1369,13 @@ export class ArenaScene extends Phaser.Scene {
     const stretch = finalStretch(kind === 'boss' ? 0 : this.runTime / this.cfg.map.durationSec); // the boss keeps its own balance
     const baseHp = 8 + ((st.body ?? 30) + (st.guts ?? 30)) / 14;
     // Fix 1.24: health grows faster as the minutes pass (quadratic term), so the rivals of the last minutes are much tougher
-    const hp = Math.round(baseHp * (1 + minutes * 0.6 + minutes * minutes * 0.07) * hpMult * R.hp * vHp * scaling.hp * stretch.hp);
+    const tier = mapTierScale(this.cfg.map.tier); // v1.7: later arenas on the map path have tougher rivals
+    const hp = Math.round(baseHp * (1 + minutes * 0.6 + minutes * minutes * 0.07) * hpMult * R.hp * vHp * scaling.hp * stretch.hp * tier.hp);
     const e: Enemy = {
       sprite, unit, kind, hp, maxHp: hp, speed: (28 + (st.speed ?? 30) * 0.22) * (kind === 'boss' ? 0.8 : 1) * R.speed * vSpeed * scaling.speed,
       // Fix 1.13: rivals hit about 55% harder and keep growing until minute 12, so health is something to look after
       // Fix 1.24: they hit harder from the start and keep growing (more slowly after minute 12)
-      damage: Math.round((4 + Math.min(minutes, 12) * 2.1 + Math.max(0, minutes - 12) * 0.8) * (kind === 'boss' ? 2.5 : kind === 'miniboss' ? 2 : 1) * R.damage * (variant === 'elite' || variant === 'tank' ? 1.5 : 1) * scaling.damage * stretch.damage),
+      damage: Math.round((4 + Math.min(minutes, 12) * 2.1 + Math.max(0, minutes - 12) * 0.8) * (kind === 'boss' ? 2.5 : kind === 'miniboss' ? 2 : 1) * R.damage * (variant === 'elite' || variant === 'tank' ? 1.5 : 1) * scaling.damage * stretch.damage * tier.damage),
       animTime: this.rng.between(0, 500), dir: 4, hitCd: 0, knockX: 0, knockY: 0,
       radius: 7 * scale * (variant === 'elite' ? 1.18 : variant === 'tank' ? 1.3 : 1), dead: false, pos: sprite, slowUntil: 0, variant, side: this.rng.frac() < 0.5 ? -1 : 1,
       patternCd: kind === 'boss' ? 3 : kind === 'miniboss' ? 5 : undefined,
@@ -2196,6 +2201,16 @@ export class ArenaScene extends Phaser.Scene {
         if (!got && comboReady(c, pitch)) cards.splice(0, 1, { kind: 'combo', id: c.id, toLevel: 1 });
         else if (got && got.level < COMBO_MAX_LEVEL && this.rng.frac() < 0.35) cards.splice(cards.length - 1, 1, { kind: 'combo', id: c.id, toLevel: got.level + 1 });
       }
+      // v1.7: mark the cards that bring a combined technique closer (the technique and level a participant still needs)
+      const goals = comboGoals(pitch, this.combos.keys());
+      for (const card of cards) {
+        if (card.kind !== 'upgrade' && card.kind !== 'learn') continue;
+        const m = this.members.find((x) => x.entry.id === card.playerId);
+        const t = m?.entry.techniques[card.tech];
+        if (!m || !t) continue;
+        const hints = comboHints(goals, m.entry.id, t.name, card.kind === 'learn' ? 1 : card.toLevel);
+        if (hints.length) card.combo = hints;
+      }
       return cards;
     };
     const reroll = () => {
@@ -2483,6 +2498,7 @@ export class ArenaScene extends Phaser.Scene {
   }
 
   private pushHud() {
+    const goals = comboGoals(this.members.map((m) => ({ entry: m.entry, state: m.state })), this.combos.keys()); // v1.7
     this.cfg.hooks.hud({
       hp: Math.max(0, this.hp), maxHp: this.maxHp, xp: Math.floor(this.xp), xpNext: this.xpNext(), level: this.level,
       timeSec: this.runTime, durationSec: this.cfg.map.durationSec, kills: this.kills,
@@ -2490,7 +2506,8 @@ export class ArenaScene extends Phaser.Scene {
         const t = this.activeTech(m, i);
         if (!t) return null;
         const level = this.techLevel(m, i);
-        return { name: t.name, type: t.type, level, evolution: evolutionLabel(t, level), cd: Math.max(0, Math.min(1, m.cds[i] / Math.max(1, m.maxCd[i]))), aura: t.aura !== undefined };
+        return { name: t.name, type: t.type, level, evolution: evolutionLabel(t, level), cd: Math.max(0, Math.min(1, m.cds[i] / Math.max(1, m.maxCd[i]))), aura: t.aura !== undefined,
+          combo: comboHints(goals, m.entry.id, t.name, level + 1)[0]?.name };
       }), aura: m.entry.aura ? { id: m.entry.aura.id, name: m.entry.aura.name } : null })),
       boss: (() => { const b = this.boss ?? this.rival; return b ? { name: b.unit.name, hp: Math.max(0, b.hp), maxHp: b.maxHp, title: this.kitOf(b).title, phase: b.phase ?? 0, rival: !!b.rival } : null; })(),
       rerolls: this.rerolls, formation: this.formation, formationChangedAt: this.formationChangedAt,
@@ -2506,6 +2523,8 @@ export class ArenaScene extends Phaser.Scene {
       buffs: [...this.buffs].filter(([, b]) => b.until > this.runTime).map(([id, b]) => ({ id, left: b.until - this.runTime, total: b.total })),
       endless: this.endless ? { mult: this.endlessScaleNow().hp, sec: this.runTime - this.endless.since, phase: endlessPhase(this.endlessMin()).name } : null,
       combos: [...this.combos].map(([id, s]) => { const d = COMBOS.find((x) => x.id === id)!; return { name: d.name, level: s.level, cd: Math.max(0, Math.min(1, s.cd / d.cooldownMs)) }; }),
+      comboGoals: goals.map((g) => ({ id: g.combo.id, name: g.combo.name, complete: g.complete, ready: g.ready, parts: g.parts })),
+      revives: this.reviveCharges, reviveMax: MAX_REVIVES,
     });
   }
 

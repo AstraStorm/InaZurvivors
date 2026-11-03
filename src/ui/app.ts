@@ -11,7 +11,7 @@ import { applyReward, hasRedeemed, normalizeCode, redeemLocal, type CodeReward }
 import { BANNERS, BANNER_ORDER, bannerPool, bannerPrice, eraOf, featured, perPlayerOdds, rarityOdds, teamChoices, type BannerId } from '../systems/banners';
 import { exportSave, importSave, remapIds, remapTechSlots, storeSave, type SaveData, type ParticleLevel, type Rank } from '../systems/save';
 import { eligibleTeams, pull, recordHistory, COPIES_PER_STAR, DUPLICATE_REFUND_BY, PULL_COST, MAX_STARS, starBonus, onboardingPull, type PullResult } from '../systems/gacha';
-import { applyRun, isMapUnlocked, type RunResult } from '../systems/economy';
+import { applyRun, isMapUnlocked, mapTierScale, type RunResult } from '../systems/economy';
 import { DROPS } from '../systems/items';
 import { STAT_INFO } from '../systems/playerStats';
 import { statChanges, TYPE_LABEL, MAX_TECH_LEVEL } from '../systems/techniques';
@@ -2494,40 +2494,106 @@ export class App {
       <div class="note">${esc(F.description)}</div></div></button>`;
   }
 
+  /** v1.7: the arena picked on the map path (the next one to beat by default) */
+  private mapPick: string | null = null;
+
+  /** v1.7: map path. The arenas as stops of a winding road, each one harder than the one before; a side panel shows the picked one. */
   mapSelect() {
-    const cards = this.m.maps.map((mp) => {
-      const open = isMapUnlocked(mp.unlock, this.save);
-      const cleared = this.save.clearedMaps.includes(mp.id);
-      const boss = this.m.units.find((u) => u.id === mp.boss)?.name ?? '—';
-      const done = this.save.clearedRanks[mp.id] ?? [];
-      const need = this.m.maps.find((x) => `clear:${x.id}` === mp.unlock)?.name ?? '';
-      return `<div class="mc4${open ? '' : ' locked'}${cleared ? ' cleared' : ''}">
-        <div class="mc4-art">${mp.minimapTexture ? `<img src="${mp.minimapTexture}" alt="">` : '<span class="note">Estadio provisional</span>'}
-          ${open ? '' : `<div class="mc4-lock"><span>🔒</span>Supera ${esc(need)}</div>`}${cleared ? '<span class="mc4-ok">✔ SUPERADA</span>' : ''}
-          <h3>${esc(mp.name)}</h3></div>
-        <div class="mc4-body"><div class="mc4-chips"><span>${uiIcon('clock')}${fmtTime(mp.durationSec)}</span><span>${uiIcon('team')}${mp.enemies.length} rivales</span><span class="boss">${uiIcon('fire')}${esc(boss)}</span></div>
-          <div class="m4-ranks mc4-ranks">${RANK_ORDER.map((id) => `<i class="${done.includes(id) ? 'on' : ''} r-${id}">${id}</i>`).join('')}<small>${done.length}/${RANK_ORDER.length} rangos</small></div>
-          <div class="prov">${esc(mp.provisional ?? 'Reconstruido sobre el mapa cenital original con texturas originales.')}</div>
-          <button class="btn" data-map="${mp.id}" ${open ? '' : 'disabled'}>${open ? '¡Saltar al campo! ▶' : 'Bloqueado'}</button></div></div>`;
+    const maps = this.m.maps;
+    const state = (mp: (typeof maps)[number]) => this.save.clearedMaps.includes(mp.id) ? 'cleared' : isMapUnlocked(mp, this.save) ? 'open' : 'locked';
+    const next = maps.find((mp) => state(mp) === 'open');
+    if (!this.mapPick || !maps.some((mp) => mp.id === this.mapPick)) this.mapPick = next?.id ?? maps[maps.length - 1]?.id ?? null;
+    const cleared = maps.filter((mp) => state(mp) === 'cleared').length;
+    // snake layout: rows left to right, then right to left; 2 per row on narrow screens
+    const per = window.innerWidth < 620 ? 2 : maps.length > 8 ? 4 : 3;
+    const rows = Math.ceil(maps.length / per);
+    const pos = maps.map((_, i) => {
+      const r = Math.floor(i / per), c = i % per;
+      const col = r % 2 ? per - 1 - c : c;
+      return { x: (col + 0.5) / per * 100, y: (r + 0.5) / rows * 100, r };
+    });
+    const road = pos.slice(1).map((b, k) => {
+      const a = pos[k], mp = maps[k + 1];
+      const ax = a.x * 10, ay = a.y * 10, bx = b.x * 10, by = b.y * 10;
+      const d = a.r === b.r ? `M${ax} ${ay} C${(ax + bx) / 2} ${ay - 45} ${(ax + bx) / 2} ${by + 45} ${bx} ${by}`
+        : `M${ax} ${ay} C${ax + (ax > 500 ? 1 : -1) * 150} ${ay} ${bx + (bx > 500 ? 1 : -1) * 150} ${by} ${bx} ${by}`;
+      return `<path class="mp-seg ${state(mp)}" style="--tc:${this.tierColor(mp.tier ?? k + 2)}" d="${d}" vector-effect="non-scaling-stroke"/>`;
+    }).join('');
+    const nodes = maps.map((mp, i) => {
+      const st = state(mp), done = this.save.clearedRanks[mp.id] ?? [];
+      return `<button class="mp-node st-${st}${mp.id === next?.id ? ' st-next' : ''}${mp.id === this.mapPick ? ' sel' : ''}" data-pick="${mp.id}"
+        style="left:${pos[i].x}%;top:${pos[i].y}%;--tc:${this.tierColor(mp.tier ?? i + 1)}" title="${esc(mp.name)}">
+        <span class="mp-disc">${mp.minimapTexture ? `<img src="${mp.minimapTexture}" alt="" loading="lazy">` : ''}
+          <i class="mp-num">${mp.tier ?? i + 1}</i>${st === 'locked' ? '<i class="mp-lock">🔒</i>' : st === 'cleared' ? '<i class="mp-ok">✔</i>' : ''}</span>
+        <span class="mp-name">${esc(mp.name)}</span>
+        <span class="mp-pips">${RANK_ORDER.map((id) => `<i class="${done.includes(id) ? 'on' : ''}"></i>`).join('')}</span></button>`;
     }).join('');
     const rk = this.save.difficulty;
     const ranks = RANK_ORDER.map((id) => {
       const R = RANKS[id];
       return `<button class="rk4 r-${id}${id === rk ? ' on' : ''}" data-rank="${id}"><span class="rk4-l">${id}</span><small>×${R.reward}</small></button>`;
     }).join('');
-    this.show(`<div class="screen ms-screen">${this.titlebar('Elige arena', 'Mi Equipo')}
+    this.show(`<div class="screen ms-screen mp-screen">${this.titlebar('Camino de arenas', 'Mi Equipo')}
       <div class="ms-diff r-${rk}"><div class="ms-dl"><small>DIFICULTAD</small><b>Rango ${rk}</b><p>${esc(rankDef(rk).blurb)} Recompensas ×${RANKS[rk].reward}.</p></div><div class="ms-ranks">${ranks}</div></div>
       <div class="ms-team"><span><small>TU EQUIPO</small><b>${esc(squadOf(this.save, this.byId)[0]?.name ?? '—')} (capitán) · ${squadOf(this.save, this.byId).length}/${SQUAD_SIZE}</b></span>
         <span class="m4-faces">${squadOf(this.save, this.byId).slice(0, 7).map((p) => { const ae = this.auraEntryOf(p.id); return `<span class="m4-face${ae ? ' with-aura' : ''}" style="--rc:${RARITY_COLOR[effectiveRarity(this.save, p)]}" title="${esc(p.name)}${ae ? ` · Aura: ${esc(ae.name)}` : ''}">${this.mug(p.id, 38)}${ae ? `<i class="ms-aura">${this.mug(ae.id, 40)}</i>` : ''}</span>`; }).join('')}</span>
         <button class="btn small" id="toteam">${uiIcon('team')} Cambiar equipo</button></div>
-      <div class="maps ms-maps">${cards}</div></div>`);
+      <div class="mp-wrap">
+        <div class="mp-board">
+          <div class="mp-head"><span><small>TU RECORRIDO</small><b>${cleared}/${maps.length} arenas superadas</b></span>
+            <span class="mp-prog"><i style="width:${cleared / Math.max(1, maps.length) * 100}%"></i></span>
+            <span class="mp-legend"><i class="e"></i>Fácil<i class="h"></i>Difícil<i class="x"></i>Brutal</span></div>
+          <div class="mp-road" style="height:${rows * (per === 2 ? 150 : 168)}px">
+            <svg class="mp-svg" viewBox="0 0 1000 1000" preserveAspectRatio="none" aria-hidden="true">${road}</svg>${nodes}</div>
+        </div>
+        <aside class="mp-detail" id="mpdetail"></aside>
+      </div></div>`);
+    const detail = () => {
+      const box = document.getElementById('mpdetail');
+      const mp = maps.find((x) => x.id === this.mapPick);
+      if (!box || !mp) return;
+      const i = maps.indexOf(mp), tier = mp.tier ?? i + 1, st = state(mp), done = this.save.clearedRanks[mp.id] ?? [];
+      const sc = mapTierScale(tier);
+      const prev = maps.find((x) => `clear:${x.id}` === mp.unlock);
+      const bossName = mp.boss !== null ? this.byId.get(mp.boss)?.name ?? this.m.units.find((u) => u.id === mp.boss)?.name ?? '—' : '—';
+      const label = ['Paseo', 'Fácil', 'Normal', 'Exigente', 'Difícil', 'Muy difícil', 'Brutal', 'Leyenda'][Math.min(7, Math.floor((tier - 1) / maps.length * 8))];
+      box.style.setProperty('--tc', this.tierColor(tier));
+      box.className = `mp-detail st-${st}`;
+      box.innerHTML = `<div class="mp-art">${mp.minimapTexture ? `<img src="${mp.minimapTexture}" alt="">` : ''}
+          <span class="mp-stage">ETAPA ${tier} / ${maps.length}</span>${st === 'cleared' ? '<span class="mc4-ok">✔ SUPERADA</span>' : ''}
+          <h3>${esc(mp.name)}</h3>${st === 'locked' ? `<div class="mc4-lock"><span>🔒</span>Supera ${esc(prev?.name ?? 'la arena anterior')}</div>` : ''}</div>
+        <div class="mp-body">
+          <div class="mp-diffbar"><small>DIFICULTAD</small><span class="mp-meter">${maps.map((_, k) => `<i class="${k < tier ? 'on' : ''}" style="--tc:${this.tierColor(k + 1)}"></i>`).join('')}</span><b>${label}</b></div>
+          ${mp.blurb ? `<p class="mp-blurb">${esc(mp.blurb)}</p>` : ''}
+          <div class="mp-boss">${mp.boss !== null ? this.mug(mp.boss, 52) : ''}<div><small>JEFE FINAL</small><b>${esc(bossName)}</b></div></div>
+          <div class="mc4-chips"><span>${uiIcon('clock')}${fmtTime(mp.durationSec)}</span><span>${uiIcon('team')}${mp.enemies.length} rivales</span>${tier > 1 ? `<span class="hard">${uiIcon('fire')}Rivales +${Math.round((sc.hp - 1) * 100)}% vida · +${Math.round((sc.damage - 1) * 100)}% daño</span>` : ''}</div>
+          <div class="m4-ranks mc4-ranks">${RANK_ORDER.map((id) => `<i class="${done.includes(id) ? 'on' : ''} r-${id}">${id}</i>`).join('')}<small>${done.length}/${RANK_ORDER.length} rangos</small></div>
+          <button class="btn mp-go" data-map="${mp.id}" ${st === 'locked' ? 'disabled' : ''}>${st === 'locked' ? '🔒 Bloqueada' : '¡Saltar al campo! ▶'}</button>
+        </div>`;
+      this.on('[data-map]', 'click', () => {
+        const squad = squadOf(this.save, this.byId);
+        if (squad.length) this.startRun(mp.id, [squad[0]], squad);
+      }, box);
+    };
+    detail();
+    this.on('[data-pick]', 'click', (_e, el) => {
+      this.mapPick = el.dataset.pick!;
+      document.querySelectorAll('.mp-node.sel').forEach((n) => n.classList.remove('sel'));
+      el.classList.add('sel');
+      sfx('click');
+      detail();
+      if (window.innerWidth < 900) document.getElementById('mpdetail')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    });
+    document.querySelector('.mp-node.sel')?.scrollIntoView({ block: 'nearest' });
     document.getElementById('toteam')?.addEventListener('click', () => this.captainSelect());
     this.on('[data-rank]', 'click', (_e, el) => { this.save.difficulty = el.dataset.rank as Rank; this.persist(); this.mapSelect(); });
     this.on('[data-back]', 'click', () => this.captainSelect());
-    this.on('[data-map]', 'click', (_e, el) => {
-      const squad = squadOf(this.save, this.byId);
-      if (squad.length) this.startRun(el.dataset.map!, [squad[0]], squad);
-    });
+  }
+  /** green for the first arenas, then yellow, red and purple for the last ones */
+  private tierColor(tier: number) {
+    const n = Math.max(2, this.m.maps.length);
+    const h = (135 - (tier - 1) / (n - 1) * 195 + 360) % 360;
+    return `hsl(${h.toFixed(0)} 80% 55%)`;
   }
 
   // ------------------------------------------------------------- collection
@@ -3769,6 +3835,7 @@ export class App {
         <div class="vbars">
           <div class="cap-name"><b>${esc(team[0]?.name ?? 'Capitán')}</b><span>CAPITÁN</span><em class="crit-tag" id="crittag">¡CRÍTICO!</em></div>
           <div class="hp-bar" id="hpbar"><i class="ghost"></i><i class="fill"></i><span></span></div>
+          <div class="rev-chip none" id="revchip" title="Revivir: si tu capitán cae, se levanta y gasta una carga">✚ Revivir <b>0</b></div>
           <div class="xp-row"><div class="lv-badge" id="lvbadge"><small>NV</small><b>1</b></div><div class="xp-bar" id="xpbar"><i></i><span id="xptext"></span></div></div>
           <div class="hud-stats"><span id="kills"></span><span class="st-coins" id="runcoins"></span><span class="st-tokens" id="runtokens"></span></div>
         </div></div>
@@ -3840,11 +3907,24 @@ export class App {
   }
 
   private lastHudHp: number | null = null;
+  /** v1.7: last HUD state, for the pause screen (combined techniques still to learn) */
+  private lastHud: HudState | null = null;
   private renderHud(s: HudState) {
+    this.lastHud = s;
     const ch = document.getElementById('combohud');
     if (ch) {
-      const html = s.combos.map((c) => `<div class="combo-chip${c.cd <= 0.02 ? ' ready' : ''}"><b>${esc(c.name)}</b> Nv ${c.level}<i style="width:${Math.round((1 - c.cd) * 100)}%"></i></div>`).join('');
+      // v1.7: combinations within reach (everyone on the pitch) show how many participants already have their level
+      const goals = s.comboGoals.filter((g) => g.complete).map((g) => {
+        const ok = g.parts.filter((p) => p.have >= p.need).length;
+        return `<div class="combo-chip goal${g.ready ? ' ready' : ''}" title="${esc(g.parts.map((p) => `${p.player}: ${p.tech ?? 'su mejor técnica'} Nv ${p.have}/${p.need}`).join(' · '))}">🔗 <b>${esc(g.name)}</b> ${g.ready ? '¡lista!' : `${ok}/${g.parts.length}`}</div>`;
+      }).join('');
+      const html = s.combos.map((c) => `<div class="combo-chip${c.cd <= 0.02 ? ' ready' : ''}"><b>${esc(c.name)}</b> Nv ${c.level}<i style="width:${Math.round((1 - c.cd) * 100)}%"></i></div>`).join('') + goals;
       if (ch.innerHTML !== html) ch.innerHTML = html;
+    }
+    const rev = document.getElementById('revchip');
+    if (rev) {
+      const txt = `${s.revives}/${s.reviveMax}`;
+      if (rev.dataset.v !== txt) { rev.dataset.v = txt; rev.querySelector('b')!.textContent = txt; rev.classList.toggle('none', s.revives <= 0); }
     }
     const hud = document.getElementById('hud');
     if (!hud) return;
@@ -3941,10 +4021,12 @@ export class App {
       el.querySelectorAll<HTMLElement>('.pl-tech').forEach((c) => {
         const k = Number(c.dataset.k);
         const tc = t.techs[k];
-        const sig = tc ? `${tc.name}|${tc.level}|${tc.evolution}` : '';
+        const sig = tc ? `${tc.name}|${tc.level}|${tc.evolution}|${tc.combo ?? ''}` : '';
         if (c.dataset.sig !== sig) {
           c.dataset.sig = sig;
           c.classList.toggle('free', !tc);
+          c.classList.toggle('combo', !!tc?.combo); // v1.7: raise this one to unlock a combined technique
+          c.title = tc?.combo ? `Súbela para desbloquear ${tc.combo}` : '';
           c.classList.toggle('aura', !!tc?.aura); // v1.5: inherited from the Aura
           (c.querySelector('.pl-tn') as HTMLElement).textContent = tc ? `${tc.name}${tc.evolution ? ` ${tc.evolution}` : ''}` : 'Ranura libre';
           (c.querySelector('.pl-pips') as HTMLElement).innerHTML = tc ? Array.from({ length: MAX_TECH_LEVEL }, (_, n) => `<i class="${n < tc.level ? 'on' : ''}"></i>`).join('') : '';
@@ -4033,6 +4115,14 @@ export class App {
   }
 
   private cardHtml(c: Card, i: number) {
+    const html = this.cardHtmlBase(c, i);
+    // v1.7: a card that brings a combined technique closer says which one and what it still needs
+    const hints = (c.kind === 'upgrade' || c.kind === 'learn') ? c.combo ?? [] : [];
+    if (!hints.length) return html;
+    const tag = `<div class="lv-combo">${hints.map((h) => `<span class="${h.reaches ? 'done' : ''}">🔗 <b>${esc(h.name)}</b> ${h.reaches ? '· ¡la desbloquea!' : `· pide Nv ${h.need}`}</span>`).join('')}</div>`;
+    return html.replace('class="lvcard ', 'class="lvcard for-combo ').replace(/<\/button>$/, `${tag}</button>`);
+  }
+  private cardHtmlBase(c: Card, i: number) {
     const runP = (id: number) => this.runById.get(id) ?? this.byId.get(id)!;
     const auraTag = (p: RosterEntry) => p.aura ? `<div class="lv-aura">✦ Aura: ${esc(p.aura.name)}</div>` : '';
     if (c.kind === 'recruit') {
@@ -4148,6 +4238,16 @@ export class App {
     });
   }
 
+  /** v1.7: pause screen: combined techniques the team can still learn, with what each participant needs */
+  private pauseCombos() {
+    const goals = (this.lastHud?.comboGoals ?? []).slice().sort((a, b) => Number(b.complete) - Number(a.complete)).slice(0, 6);
+    if (!goals.length) return '';
+    return `<h3 style="margin-top:12px">Técnicas combinadas</h3><div class="cg-list">${goals.map((g) => `<div class="cg${g.ready ? ' ready' : ''}${g.complete ? '' : ' partial'}">
+      <div class="cg-top"><b>🔗 ${esc(g.name)}</b><span>${g.ready ? '¡Lista! Sale al subir de nivel' : g.complete ? 'Sube las técnicas marcadas con 🔗' : 'Falta gente en el campo'}</span></div>
+      <div class="cg-parts">${g.parts.map((p) => `<span class="${p.memberId === null ? 'miss' : p.have >= p.need ? 'ok' : ''}">${p.memberId !== null ? this.mug(p.memberId, 26) : '<i class="cg-q">?</i>'}
+        <em><b>${esc(p.player)}</b>${p.viaAura ? ' (Aura)' : ''}<br>${esc(p.tech ?? 'su mejor técnica')} · ${p.memberId === null ? 'no está' : `Nv ${p.have}/${p.need}`}</em></span>`).join('')}</div></div>`).join('')}</div>`;
+  }
+
   private pauseModal() {
     document.getElementById('pause')?.remove();
     const s = this.save.settings;
@@ -4159,6 +4259,7 @@ export class App {
         <span>Daño recibido <b>${b.damageTakenPct}%</b></span><span>Recarga <b>${b.cooldownPct}%</b></span><span>Área <b>${b.areaPct}%</b></span>
         <span>Suerte <b>+${b.luckPct}%</b></span><span>Recogida <b>${b.pickupPx} px</b> (máx. 130)</span><span>Revivir <b>${b.revives}</b></span></div>
         <p class="note">Solo el capitán recibe daño: tus compañeros son invulnerables.</p>` : ''; })()}
+      ${this.pauseCombos()}
       <h3 style="margin-top:12px">Efectos</h3><div class="seg" id="pp">${(['completo', 'reducido', 'desactivado'] as ParticleLevel[]).map((v) =>
         `<button data-v="${v}" class="${s.particles === v ? 'on' : ''}">Partículas ${v}</button>`).join('')}</div>
       <p><button class="btn small blue" id="toggleshake">Sacudida: ${s.shake > 0 ? 'sí' : 'no'}</button>

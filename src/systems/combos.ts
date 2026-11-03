@@ -160,6 +160,49 @@ export function comboMembers<T extends OnPitch>(c: ComboDef, team: T[]): T[] {
 /** Damage per hit of the combined shot: stronger than either solo shot, +20% per combo level. */
 export const comboDamage = (c: ComboDef, level: number, mult = 1) => Math.round(c.power * 0.75 * (1 + 0.2 * (level - 1)) * mult);
 
+/** v1.7: one participant of a combination still to learn, with the level he has now and the one he needs. */
+export interface ComboPart { player: string; tech?: string; need: number; have: number; /** roster id of who covers him (himself or his Aura carrier); null when nobody on the pitch does */ memberId: number | null; viaAura: boolean }
+export interface ComboGoal { combo: ComboDef; parts: ComboPart[]; /** every participant on the pitch (or carried as Aura) */ complete: boolean; /** every level reached: the card shows up at the next level-up */ ready: boolean }
+
+/**
+ * v1.7: combinations not learned yet that the team on the pitch takes part in (at least one participant), with what each
+ * participant still needs. Same rules as comboCast: the footballer himself first, then a teammate carrying him as Aura.
+ */
+export function comboGoals(team: OnPitch[], learned: Iterable<string> = []): ComboGoal[] {
+  const got = new Set(learned);
+  const out: ComboGoal[] = [];
+  for (const c of COMBOS_BY_PRIORITY) {
+    if (got.has(c.id)) continue;
+    const parts = c.needs.map((n): ComboPart => {
+      const self = team.find((x) => playsAs(x.entry.name, n.player));
+      const m = self ?? team.find((x) => playsAs(x.entry.aura?.name, n.player));
+      return { player: n.player, tech: n.tech, need: n.level, have: m ? activeLevel(m, n.tech) : 0, memberId: m?.entry.id ?? null, viaAura: !self && !!m };
+    });
+    if (!parts.some((p) => p.memberId !== null)) continue;
+    const complete = parts.every((p) => p.memberId !== null);
+    out.push({ combo: c, parts, complete, ready: complete && parts.every((p) => p.have >= p.need) });
+  }
+  return out;
+}
+
+/**
+ * v1.7: combinations a level-up card brings closer: raising technique `techName` of `memberId` to `toLevel` (1 = learning
+ * it). Only for complete goals (everyone on the pitch) and parts still short of their level.
+ */
+export function comboHints(goals: ComboGoal[], memberId: number, techName: string, toLevel: number) {
+  const out: { name: string; need: number; reaches: boolean }[] = [];
+  for (const g of goals) {
+    if (!g.complete || g.ready) continue;
+    for (const p of g.parts) {
+      if (p.memberId !== memberId || p.have >= p.need || toLevel <= p.have) continue;
+      if (p.tech && p.tech.toLowerCase() !== techName.toLowerCase()) continue;
+      out.push({ name: g.combo.name, need: p.need, reaches: toLevel >= p.need });
+      break;
+    }
+  }
+  return out;
+}
+
 /**
  * Fix 1.32: combined techniques of a squad (Mi Equipo), before the run: `ready` when every participant is among the
  * candidates, otherwise the names still missing. Only combos with at least one participant in the squad.
