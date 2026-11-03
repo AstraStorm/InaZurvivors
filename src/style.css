@@ -2029,3 +2029,51 @@ body.reduced-motion .pcard.cc *, body.reduced-motion .pcard.cc .cc-frame { anima
   background-position: 18% 100%, 46% 92%, 72% 100%, 88% 96% !important; }
 @keyframes slotSparks { 0% { transform: translateY(15%); opacity: 0; } 15% { opacity: 1; } 100% { transform: translateY(-95%); opacity: 0; } }
 .still .sq-slot.ccs > .cc-sweep { animation-name: slotSweep !important; } .still .sq-slot.ccs > .cc-sparks { animation-name: slotSparks !important; }
+/* Fix 1.32 perf: no box-shadow / filter animations (they repaint every frame and made Mi Equipo lag): static glows instead */
+.sq-slot.editing, .cb-card.ready, .card-dup.can-asc, .card-asc, .still .cb-card.ready, .still .card-dup.can-asc, .still .card-asc { animation: none !important; }
+.cb-link, .still .cb-link { animation: none !important; }
+.cb-card.ready { box-shadow: 0 0 16px color-mix(in srgb, var(--ec) 60%, transparent); }
+.sq-slot.ccs > .cc-sparks, .sq-slot.ccs > .cc-foil { display: none !important; }
+.sq-slot.ccs.t-raro > .cc-sweep, .sq-slot.ccs.t-epico > .cc-sweep { display: none !important; }
+.grid > .pcard.cc .cc-foil, .grid > .pcard.cc .cc-sparks { display: none; } .grid > .pcard.cc:hover .cc-foil, .grid > .pcard.cc:hover .cc-sparks { display: block; }
+/* Fix 1.32 perf: the «!» marks beat with a scale (compositor) instead of a brightness filter (repaint) */
+.notif, .still .notif { animation: none !important; box-shadow: 0 0 8px #ff4a4a; }
+@keyframes notifBeat { 50% { transform: scale(1.18); } }
+.btn.pulse { animation-name: none !important; }
+
+/* ============================================================ Fix 1.32: frames in RELIEF for the best rarities ======== */
+/* the ring of the frame gets light on the top-left and shade on the bottom-right (a bevel); only Épico and up */
+.pcard.cc .cc-bevel, .sq-slot.ccs > .cc-bevel { display: none; position: absolute; inset: 0; z-index: 9; pointer-events: none; padding: var(--bw);
+  background: linear-gradient(135deg, #ffffffd0 0%, #ffffff40 16%, transparent 38%, transparent 62%, #00000060 84%, #000000b0 100%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0); }
+.sq-slot.ccs > .cc-bevel { inset: calc(var(--bw) * -1); }
+.pcard.cc.t-epico .cc-bevel, .pcard.cc.t-legendario .cc-bevel, .pcard.cc.t-mitico .cc-bevel, .pcard.cc.t-leyenda .cc-bevel, .pcard.cc.t-heroe .cc-bevel,
+.sq-slot.ccs.t-epico > .cc-bevel, .sq-slot.ccs.t-legendario > .cc-bevel, .sq-slot.ccs.t-mitico > .cc-bevel, .sq-slot.ccs.t-leyenda > .cc-bevel, .sq-slot.ccs.t-heroe > .cc-bevel { display: block; }
+/* thicker frames as the rarity goes up */
+.pcard.cc.t-epico { --bw: 6px; } .pcard.cc.t-legendario { --bw: 9px; } .pcard.cc.t-mitico { --bw: 9px; } .pcard.cc.t-leyenda { --bw: 10px; } .pcard.cc.t-heroe { --bw: 10px; }
+.sq-slot.ccs.t-epico { --bw: 6px; } .sq-slot.ccs.t-legendario { --bw: 8px; } .sq-slot.ccs.t-mitico { --bw: 8px; } .sq-slot.ccs.t-leyenda { --bw: 9px; } .sq-slot.ccs.t-heroe { --bw: 9px; }
+/* an inner groove (Épico) and a double rim (Legendario and up) where the frame meets the face */
+.pcard.cc.t-epico .cc-face { box-shadow: inset 0 0 0 2px #1a0630, inset 0 0 0 3px #d8b8ff88, inset 0 0 14px #b36bff55; }
+.pcard.cc.t-legendario .cc-face { box-shadow: inset 0 0 0 2px #2a1600, inset 0 0 0 4px #ffe9a0, inset 0 0 0 5px #6a4000, inset 0 0 18px #ffb02a55; }
+.pcard.cc.t-mitico .cc-face { box-shadow: inset 0 0 0 2px #2a0620, inset 0 0 0 4px #ffc8e8, inset 0 0 0 5px #6a1050, inset 0 0 18px #ff4f8b55; }
+.pcard.cc.t-leyenda .cc-face { box-shadow: inset 0 0 0 2px #2a2040, inset 0 0 0 4px #fffaf0, inset 0 0 0 5px #8a7040, inset 0 0 18px #ffe27a66; }
+.pcard.cc.t-heroe .cc-face { box-shadow: inset 0 0 0 2px #2a0400, inset 0 0 0 4px #ffd27a, inset 0 0 0 5px #7a1000, inset 0 0 18px #ff6a2a66; }
+.sq-slot.ccs.t-epico { box-shadow: inset 0 0 0 1px #1a0630, inset 0 0 0 2px #d8b8ff88 !important; }
+.sq-slot.ccs.t-legendario { box-shadow: inset 0 0 0 1px #2a1600, inset 0 0 0 3px #ffe9a0, inset 0 0 0 4px #6a4000 !important; }
+.sq-slot.ccs.t-mitico { box-shadow: inset 0 0 0 1px #2a0620, inset 0 0 0 3px #ffc8e8, inset 0 0 0 4px #6a1050 !important; }
+.sq-slot.ccs.t-leyenda { box-shadow: inset 0 0 0 1px #2a2040, inset 0 0 0 3px #fffaf0, inset 0 0 0 4px #8a7040 !important; }
+.sq-slot.ccs.t-heroe { box-shadow: inset 0 0 0 1px #2a0400, inset 0 0 0 3px #ffd27a, inset 0 0 0 4px #7a1000 !important; }
+/* a gem set on the top of the frame: Legendario amber, Mítico rose, Leyenda pearl, HÉROE ruby */
+.pcard.cc .cc-crown, .sq-slot.ccs > .cc-crown { display: none; position: absolute; z-index: 11; left: 50%; top: 0; width: 16px; height: 16px; pointer-events: none;
+  transform: translate(-50%, -2px) rotate(45deg); border: 2px solid var(--gb, #fff2b0);
+  background: radial-gradient(circle at 32% 30%, #fff 0 12%, var(--gc, #ffb020) 45%, color-mix(in srgb, var(--gc, #ffb020) 40%, #000) 100%); box-shadow: 0 0 8px var(--gc, #ffb020), 0 2px 0 #0008; }
+.pcard.cc.big .cc-crown { width: 22px; height: 22px; }
+.pcard.cc.t-legendario .cc-crown, .pcard.cc.t-mitico .cc-crown, .pcard.cc.t-leyenda .cc-crown, .pcard.cc.t-heroe .cc-crown,
+.sq-slot.ccs.t-legendario > .cc-crown, .sq-slot.ccs.t-mitico > .cc-crown, .sq-slot.ccs.t-leyenda > .cc-crown, .sq-slot.ccs.t-heroe > .cc-crown { display: block; }
+.t-legendario { --gc: #ffb020; --gb: #fff2b0; } .t-mitico { --gc: #ff4f8b; --gb: #ffd8f0; } .t-leyenda { --gc: #e8f0ff; --gb: #ffe27a; } .t-heroe { --gc: #ff2a2a; --gb: #ffd27a; }
+.pcard.cc .cc-art { z-index: 1; }
+.pcard.cc.t-legendario .cc-art, .pcard.cc.t-mitico .cc-art, .pcard.cc.t-leyenda .cc-art, .pcard.cc.t-heroe .cc-art { margin-top: 4px; }
+/* the plain rarities stay flat: no ornaments, thin frame */
+.pcard.cc.t-comun .cc-orn, .pcard.cc.t-raro .cc-orn { display: none !important; }
+.sq-slot.ccs { overflow: visible !important; } /* the clip-path already trims the shape; overflow would hide the relief on the border */

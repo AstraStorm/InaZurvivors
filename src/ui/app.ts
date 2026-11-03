@@ -547,6 +547,12 @@ export class App {
     if (!same) first?.classList.add('enter');
     if (top && first) first.scrollTop = top;
     mountPreviews();
+    // Fix 1.32 perf: a full-screen menu covers the game canvas: the game loop sleeps (it kept drawing the menu pitch and
+    // its players 60 times a second under Mi Equipo, the collection, the shop...) and wakes on the main menu and runs
+    const covered = !!this.root.querySelector(':scope > .screen');
+    const loop = this.game.loop;
+    if (covered && loop.running) loop.sleep();
+    else if (!covered && !loop.running) loop.wake();
   }
   private on(sel: string, ev: string, fn: (e: Event, el: HTMLElement) => void, scope: ParentNode = this.root) {
     scope.querySelectorAll<HTMLElement>(sel).forEach((el) => el.addEventListener(ev, (e) => fn(e, el)));
@@ -621,7 +627,7 @@ export class App {
     const tier = hero ? 'heroe' : er;
     return `<div class="pcard cc t-${tier} r-${er}${locked ? ' locked' : ''}${opts.sel ? ' sel' : ''}${opts.big ? ' big' : ''}${hero ? ' hero' : ''}" data-id="${p.id}" style="--rc:${RARITY_COLOR[er]};--ec:${ELEMENT_COLOR[e] ?? '#8a9bbd'}">
       ${top ? `<div class="pc-top">${top}</div>` : ''}
-      <div class="cc-frame"><i class="cc-orn tl"></i><i class="cc-orn tr"></i><i class="cc-orn bl"></i><i class="cc-orn br"></i>
+      <div class="cc-frame"><i class="cc-bevel"></i><i class="cc-crown"></i><i class="cc-orn tl"></i><i class="cc-orn tr"></i><i class="cc-orn bl"></i><i class="cc-orn br"></i>
         <div class="cc-face">
           <div class="cc-art${locked ? ' dark' : ''}">${crest ? `<img class="cc-crest" src="${crest}" alt="">` : ''}<i class="cc-rays"></i>
             ${this.mug(p.id, opts.big ? 152 : 112)}${locked ? '<span class="qmark">?</span><span class="lock-tag">Bloqueado</span>' : opts.big || opts.anim !== undefined ? `<span class="minisprite">${charCanvas(p.id, 2, opts.anim ?? 4)}</span>` : ''}
@@ -1703,7 +1709,7 @@ export class App {
         ${comboOf.get(p.name) ? `<span class="sq-combo" title="Técnica combinada: ${esc(comboOf.get(p.name)!)}">🔗 ${esc(comboOf.get(p.name)!)}</span>` : ''}
         ${st ? `<div class="sq-radar"><span class="ovr">${statMean(st)}</span>${statRadar(st, STAT_SHORT, RARITY_COLOR[er])}</div>` : ''}
         <div class="sq-techs">${p.techniques.slice(0, 4).map((t) => `<span title="${esc(t.name)}">${this.icon(ICON.manual[t.type], 1)}${esc(t.name)}</span>`).join('')}</div>
-        <i class="cc-sweep"></i><i class="cc-foil"></i><i class="cc-sparks"></i></div>`;
+        <i class="cc-sweep"></i><i class="cc-foil"></i><i class="cc-sparks"></i><i class="cc-bevel"></i><i class="cc-crown"></i></div>`;
     }).join('');
     this.show(`<div class="screen">${this.titlebar('Mi Equipo', 'Menú')}
       ${this.squadSynergyPanel(squad)}
