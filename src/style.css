@@ -2077,3 +2077,28 @@ body.reduced-motion .pcard.cc *, body.reduced-motion .pcard.cc .cc-frame { anima
 /* the plain rarities stay flat: no ornaments, thin frame */
 .pcard.cc.t-comun .cc-orn, .pcard.cc.t-raro .cc-orn { display: none !important; }
 .sq-slot.ccs { overflow: visible !important; } /* the clip-path already trims the shape; overflow would hide the relief on the border */
+
+/* ============================================================ Fix 1.32: Mi Equipo slot, tidier layout and backdrop ===== */
+.sq-slot.ccs { display: flex; flex-direction: column; align-items: center; gap: 5px; padding: 12px 8px 10px; min-height: 0; justify-content: flex-start; }
+.sq-slot.ccs::before { content: none; }
+/* backdrop: the rarity in depth, a glow of the element behind the portrait and faint diagonal lines */
+.sq-slot.ccs:not(.t-leyenda):not(.t-heroe) { background:
+    radial-gradient(70% 28% at 50% 14%, color-mix(in srgb, var(--ec) 45%, transparent), transparent 70%) padding-box,
+    repeating-linear-gradient(120deg, #ffffff07 0 2px, transparent 2px 14px) padding-box,
+    linear-gradient(180deg, color-mix(in srgb, var(--rc) 34%, #0c1a3a) 0%, color-mix(in srgb, var(--rc) 14%, #081230) 45%, #060d22 100%) padding-box,
+    var(--metal, var(--rc)) border-box !important; }
+.sq-slot.ccs .sq-head { position: relative; margin-top: 2px; }
+.sq-slot.ccs .sq-mug { position: relative; padding: 4px; border-radius: 50%; line-height: 0;
+  background: radial-gradient(circle, color-mix(in srgb, var(--ec) 70%, #fff 20%), color-mix(in srgb, var(--ec) 35%, #000) 72%);
+  box-shadow: 0 0 0 2px var(--rc), 0 0 0 4px #0a1022, 0 0 16px color-mix(in srgb, var(--ec) 70%, transparent); }
+.sq-slot.ccs .sq-mug .mug { border-radius: 50%; }
+.sq-slot.ccs .sq-ovr { position: absolute; right: -12px; bottom: -4px; min-width: 30px; padding: 4px 4px 3px; font-size: 12px; line-height: 1; text-align: center; color: #fff;
+  background: linear-gradient(180deg, #0a1022, #16244a); border: 2px solid var(--rc); clip-path: polygon(50% 0, 100% 22%, 100% 78%, 50% 100%, 0 78%, 0 22%); text-shadow: 0 0 6px var(--rc), 1px 1px 0 #000; }
+.sq-slot.ccs .sq-name { font-size: 10px; line-height: 1.3; min-height: 0; margin-top: 4px; text-align: center; text-shadow: 1px 1px 0 #000; }
+.sq-slot.ccs .sq-tags { display: flex; flex-wrap: wrap; justify-content: center; gap: 3px; }
+.sq-slot.ccs .sq-tags .rar { font-size: 7px; padding: 2px 5px; }
+.sq-slot.ccs .sq-radar { width: 132px; margin: 0 auto; }
+.sq-slot.ccs .sq-radar .ovr { display: none; }
+.sq-slot.ccs .sq-techs { width: 100%; margin-top: 2px; padding-top: 6px; border-top: 1px solid #ffffff1a; }
+.sq-slot.ccs .sq-combo { margin: 0; }
+.squad-row { align-items: stretch; } .sq-slot.ccs .sq-techs { margin-top: auto; }

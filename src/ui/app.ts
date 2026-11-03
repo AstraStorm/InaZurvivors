@@ -1704,10 +1704,11 @@ export class App {
       return `<div class="sq-slot ccs t-${isHero(this.save, p.id) ? 'heroe' : er} rs-${isHero(this.save, p.id) ? 'heroe' : er}${editing}${i === 0 ? ' cap' : ''}${isHero(this.save, p.id) ? ' hero' : ''}${this.squadLanded === i ? ' landed' : ''}" data-slot="${i}" data-drag="${p.id}" style="--rc:${RARITY_COLOR[er]};--ec:${ELEMENT_COLOR[String(p.element)] ?? '#8a9bbd'}">
         ${i === 0 ? '<span class="captain-badge">C</span>' : `<button class="sq-act" data-captain="${p.id}" title="Hacer capitán">★</button>`}
         <button class="sq-act x" data-remove="${p.id}" title="Quitar">✕</button>
-        <div class="sq-mug">${this.mug(p.id, 64)}</div><b>${esc(p.name)}</b>
-        <div class="chips"><span class="pos">${POS_LABEL[p.position] ?? p.position}</span>${this.elem(p)}</div>${this.rar(p)}
+        <div class="sq-head"><div class="sq-mug">${this.mug(p.id, 64)}${st ? `<span class="sq-ovr" title="Media">${statMean(st)}</span>` : ''}</div></div>
+        <b class="sq-name">${esc(p.name)}</b>
+        <div class="sq-tags"><span class="pos">${POS_LABEL[p.position] ?? p.position}</span>${this.elem(p)}${this.rar(p)}</div>
         ${comboOf.get(p.name) ? `<span class="sq-combo" title="Técnica combinada: ${esc(comboOf.get(p.name)!)}">🔗 ${esc(comboOf.get(p.name)!)}</span>` : ''}
-        ${st ? `<div class="sq-radar"><span class="ovr">${statMean(st)}</span>${statRadar(st, STAT_SHORT, RARITY_COLOR[er])}</div>` : ''}
+        ${st ? `<div class="sq-radar">${statRadar(st, STAT_SHORT, RARITY_COLOR[er])}</div>` : ''}
         <div class="sq-techs">${p.techniques.slice(0, 4).map((t) => `<span title="${esc(t.name)}">${this.icon(ICON.manual[t.type], 1)}${esc(t.name)}</span>`).join('')}</div>
         <i class="cc-sweep"></i><i class="cc-foil"></i><i class="cc-sparks"></i><i class="cc-bevel"></i><i class="cc-crown"></i></div>`;
     }).join('');
