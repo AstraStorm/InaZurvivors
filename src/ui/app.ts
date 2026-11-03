@@ -3,6 +3,7 @@
 import type Phaser from 'phaser';
 import type { Manifest, Rarity, RosterEntry, Technique } from '../data/manifest';
 import { ICON, RARITY_LABEL, RARITY_ORDER } from '../data/manifest';
+import { uiIcon, type UiIconName } from './uiIcons';
 import { deathCause } from '../systems/deathCause';
 import { serverNow, syncServerTime, timeSource, trustedClock } from '../online/serverTime';
 import { PASS, claimPass, passStatus } from '../systems/weeklyPass';
@@ -55,7 +56,7 @@ import { INTRO } from './cinematics';
 import { SIGNATURE } from '../data/signatures';
 import { bindStick, initGamepad } from './gamepad';
 import { confetti, countUp, flyTo } from './rewardFx';
-import { MASTERY_BONUS, MASTERY_USES, masteryLevel, masteryProgress, recordMastery } from '../systems/mastery';
+import { MASTERY_BONUS, MASTERY_USES, masteryLevel, recordMastery } from '../systems/mastery';
 import { MAX_TEAM, startingTech, type Card } from '../systems/cards';
 import { setSquad, SQUAD_SIZE, fillSquad, makeCaptain, placeInSquad, removeFromSquad, squadOf } from '../systems/squad';
 import type { ArenaInit, ArenaScene, HudState, MarkerState, Poi } from '../game/ArenaScene';
@@ -181,7 +182,7 @@ export class App {
       if (e.pointerType !== 'mouse' || tiltRaf) return;
       tiltRaf = requestAnimationFrame(() => {
         tiltRaf = 0;
-        const card = (e.target as Element | null)?.closest?.('.pcard:not(.locked)') as HTMLElement | null;
+        const card = (e.target as Element | null)?.closest?.('.pcard:not(.locked), .lvcard') as HTMLElement | null; // v1.4: the level-up cards tilt too
         if (!card) return;
         const r = card.getBoundingClientRect(), x = (e.clientX - r.left) / r.width, y = (e.clientY - r.top) / r.height;
         card.style.setProperty('--ry', `${((x - 0.5) * 14).toFixed(1)}deg`);
@@ -537,6 +538,7 @@ export class App {
     const key = /<h2>(.*?)<\/h2>/.exec(html)?.[1] ?? cls;
     const same = key === this.screenKey;
     const top = same ? this.root.querySelector('.screen, .menu-root')?.scrollTop ?? 0 : 0;
+    if (!same) document.querySelectorAll('.toast.screen-bound').forEach((t) => t.remove());
     this.screenKey = key;
     this.root.innerHTML = html.replace(/<img /g, '<img decoding="sync" ');
     // Fix 1.22: looping effects (card glows, sheens...) are anchored to the document clock, so a repaint (selecting a card
@@ -561,13 +563,13 @@ export class App {
   private armed(el: HTMLElement, fn: () => void) {
     if (el.dataset.armed) { fn(); return; }
     el.dataset.armed = '1';
-    const label = el.textContent;
+    const label = el.innerHTML; // v1.4: buttons can hold icons and price chips
     el.textContent = '¿Confirmar?';
     el.classList.add('arm');
     window.setTimeout(() => {
       if (!el.isConnected) return;
       delete el.dataset.armed;
-      el.textContent = label;
+      el.innerHTML = label ?? '';
       el.classList.remove('arm');
     }, 2500);
   }
@@ -591,9 +593,28 @@ export class App {
     window.setTimeout(() => box.remove(), 3200);
   }
   private emblemOf(team: string) { const n = teamNames(team); return this.m.profile?.emblems?.find((e) => n.includes(e.name))?.texture ?? ''; }
+  /** v1.4: the technique a footballer starts each run with: the one chosen (loadout) or his first active one. */
+  private startOf(p: RosterEntry) {
+    const c = this.save.loadout[String(p.id)];
+    return c !== undefined && this.canStartWith(p, c) ? c : startingTech(p);
+  }
+  /** talents are passive and locked ones must be bought first */
+  private canStartWith(p: RosterEntry, i: number) {
+    const t = p.techniques[i];
+    return !!t && t.type !== 'talento' && (!isLocked(t) || isBought(this.save, p.id, i));
+  }
+  private setStart(key: string) {
+    const [id, i] = key.split(':').map(Number);
+    const p = this.byId.get(id);
+    if (!p || !this.canStartWith(p, i)) { sfx('error'); return; }
+    this.save.loadout[String(id)] = i;
+    this.persist();
+    sfx('click');
+    this.toast(`${p.name} empezará con ${p.techniques[i].name}`, 1800);
+  }
   private titlebar(title: string, back?: string) {
-    return `<div class="titlebar">${back ? `<button class="btn small blue" data-back>◀ ${esc(back)}</button>` : ''}
-      <h2>${esc(title)}</h2><span class="spacer"></span><span class="tokens" title="Fichas de Fichaje">${this.save.tokens}</span><span class="coins">${this.save.coins}</span></div>`;
+    return `<div class="titlebar">${back ? `<button class="tb-back" data-back><span>‹</span>${esc(back)}</button>` : ''}
+      <h2>${esc(title)}</h2><span class="spacer"></span><span class="tb-wallet"><span class="tokens" title="Fichas de Fichaje">${this.save.tokens}</span><span class="coins" title="Monedas">${this.save.coins}</span></span></div>`;
   }
   private techHtml(t: Technique) {
     return `<div class="tech">${this.icon(ICON.manual[t.type], 2)}<div><div class="tn">${esc(t.name)}</div>
@@ -831,60 +852,67 @@ export class App {
     const pending = pendingClaims(this.save);
     const claims = this.collectionClaims();
     const challenges = MISSIONS.filter((d) => d.kind === 'diaria' || d.kind === 'semanal').filter((d) => !isClaimed(this.save, d)).slice(0, 3);
-    const tile = (go: string, icon: string, label: string, sub: string, cls = '', badge = 0) => `<button class="mbtn ${cls}" data-go="${go}"><span class="mi">${icon}</span><span><b>${label}</b><small>${sub}</small></span>${badge ? `<span class="notif">${badge}</span>` : ''}</button>`;
+    const tile = (go: string, icon: UiIconName, label: string, sub: string, badge = 0, hot = false) => `<button class="m4-tile${hot ? ' hot' : ''}" data-go="${go}"><span class="m4-ic">${uiIcon(icon)}</span><span class="m4-tx"><b>${label}</b><small>${sub}</small></span>${badge ? `<span class="m4-badge">${badge}</span>` : ''}</button>`;
+    const group = (cls: string, icon: UiIconName, title: string, tiles: string) => `<div class="m4-group ${cls}"><h4>${uiIcon(icon)}${title}</h4><div class="m4-grid">${tiles}</div></div>`;
     const squad = squadOf(this.save, this.byId);
     const unseenLog = this.save.devlogSeen !== NEWS_KEY;
-    this.show(`<div class="menu-root"><div class="menu-lights"><i></i><i></i><i></i><b></b><b></b><b></b></div>
-      <div class="menu-top"><div class="profile-chip" data-go="profile">${this.profileIcon(52)}${this.save.crest && this.emblemOf(this.save.crest) ? `<img class="chip-crest" src="${this.emblemOf(this.save.crest)}" alt="">` : ''}<div><b>${esc(this.save.profile.name)}</b>
-        <span class="note">${owned.length}/${this.m.roster.length} futbolistas · ${this.save.stats.wins} victorias</span></div></div>
-        <span class="spacer"></span>${this.tiktokLink()}<button class="btn small blue menu-bug" id="menubug">Reportar un bug</button><button class="btn small blue" id="mute" aria-pressed="${!this.save.settings.muted}">${this.save.settings.muted ? 'SONIDO NO' : 'SONIDO SÍ'}</button>
-        <span class="tokens" title="Fichas de Fichaje">${this.save.tokens}</span><span class="coins" title="Monedas">${this.save.coins}</span></div>
-      <div class="menu-stage">
-        <section class="menu-left">
+    const pass = passStatus(this.save, serverNow());
+    const news = allNews()[0];
+    const featR = feat ? effectiveRarity(this.save, feat) : 'comun';
+    const featStats = feat ? this.statsOf(feat) : null;
+    this.show(`<div class="menu-root m4"><div class="menu-lights"><i></i><i></i><i></i><b></b><b></b><b></b></div>
+      <header class="m4-top">
+        <button class="m4-profile" data-go="profile">${this.profileIcon(46)}${this.save.crest && this.emblemOf(this.save.crest) ? `<img class="m4-crest" src="${this.emblemOf(this.save.crest)}" alt="">` : ''}
+          <span><b>${esc(this.save.profile.name)}</b><small>${owned.length}/${this.m.roster.length} futbolistas · ${this.save.stats.wins} victorias</small></span></button>
+        <span class="spacer"></span>
+        <div class="m4-wallet"><span class="tokens" title="Fichas de Fichaje">${this.save.tokens}</span><span class="coins" title="Monedas">${this.save.coins}</span></div>
+        <nav class="m4-tools">${this.tiktokLink()}
+          <button class="m4-tool" data-go="devlog" title="Noticias">${uiIcon('news')}<span>Noticias</span>${unseenLog ? '<i class="m4-dot"></i>' : ''}</button>
+          <button class="m4-tool" data-go="options" title="Ajustes">${uiIcon('cog')}<span>Ajustes</span></button>
+          <button class="m4-tool" id="mute" title="Sonido" aria-pressed="${!this.save.settings.muted}">${uiIcon(this.save.settings.muted ? 'soundOff' : 'soundOn')}</button>
+          <button class="m4-tool" id="menubug" title="Reportar un bug">${uiIcon('bug')}</button></nav>
+      </header>
+      <div class="m4-stage">
+        <section class="m4-left">
           <div class="logo menu-logo brand"><svg class="logo-bolt" viewBox="0 0 60 100"><polygon points="38,0 6,56 26,56 16,100 56,38 34,38"/></svg>
             <h1 aria-label="InaZurvivors"><span class="b1">Ina</span><span class="bz">Z</span><span class="b2">urvivors</span></h1><div class="sub">ROGUELITE DE FÚTBOL · FANGAME <span class="ver-badge">${esc(VERSION_LABEL)}</span></div></div>
-          <div class="play-row"><button class="mbtn play" data-go="play"><span class="mi">▶</span><span><b>JUGAR</b><small>${squad[0] ? `Capitán: ${esc(squad[0].name)} · Rango ${this.save.difficulty}` : 'Prepara tu equipo'}</small></span></button>
-            <button class="mbtn team" data-go="squad"><span class="mi">♜</span><span><b>MI EQUIPO</b><small>${squad.length}/${SQUAD_SIZE} candidatos</small></span></button></div>
-          <nav class="menu-tiles">
-            ${tile('collection', '◆', 'COLECCIÓN', claims ? '¡Recompensas para recoger!' : `${owned.length} de ${this.m.roster.length}`, '', claims)}
-            ${tile('gacha', '◎', 'FICHAJES', `${this.save.tokens} fichas`, 'gacha')}
-            ${tile('missions', '✔', 'MISIONES', 'Recompensas', '', pending)}
-            ${tile('daily', '☼', 'TIENDA', 'Fichajes del día')}
-            ${tile('codes', '✉', 'CÓDIGOS', 'Canjea regalos')}
-            ${tile('pass', '✦', 'PASE SEMANAL', passStatus(this.save, serverNow()).available ? '¡Recompensa lista!' : 'Vuelve mañana', '', passStatus(this.save, serverNow()).available ? 1 : 0)}
-            ${tile('perks', '▲', 'MEJORAS', 'Potencia permanente')}
-            ${tile('shop', '★', 'TÉCNICAS', 'Manuales y refuerzos')}
-            ${tile('kits', '♦', 'EQUIPACIONES', 'Uniforme y escudo')}
-            ${tile('gear', '▣', 'EQUIPAMIENTO', 'Botas y accesorios')}
-            ${tile('ranking', '♛', 'RANKING', onlineConfigured() ? 'Global' : 'Tus marcas')}
-            ${tile('hall', '🏆', 'SALÓN DE LA FAMA', `${(this.save.hall ?? []).length} victorias`)}
-            ${tile('devlog', '📰', 'NOTICIAS', unseenLog ? '¡Hay novedades!' : `v${PUBLIC_VERSION}`, '', unseenLog ? 1 : 0)}
-            ${tile('options', '⚙', 'AJUSTES', 'Sonido, cámara y copia')}
-          </nav>
+          <div class="m4-main">
+            <button class="m4-play" data-go="play"><i class="m4-shine"></i><span class="m4-play-ic">${uiIcon('play')}</span>
+              <span class="m4-tx"><b>JUGAR</b><small>${squad[0] ? `Capitán: ${esc(squad[0].name)} · Rango ${this.save.difficulty}` : 'Prepara tu equipo'}</small></span></button>
+            <button class="m4-team" data-go="squad"><span class="m4-tx"><b>MI EQUIPO</b><small>${squad.length}/${SQUAD_SIZE} candidatos</small></span>
+              <span class="m4-faces">${squad.slice(0, 7).map((p) => `<span class="m4-face r-${effectiveRarity(this.save, p)}" style="--rc:${RARITY_COLOR[effectiveRarity(this.save, p)]}">${this.mug(p.id, 30)}</span>`).join('') || uiIcon('team')}</span></button>
+          </div>
+          ${group('g-club', 'team', 'TU CLUB', tile('collection', 'cards', 'COLECCIÓN', claims ? '¡Recompensas!' : `${owned.length} de ${this.m.roster.length}`, claims, !!claims)
+            + tile('perks', 'perks', 'MEJORAS', 'Potencia permanente') + tile('shop', 'bolt', 'TÉCNICAS', 'Manuales')
+            + tile('kits', 'shirt', 'EQUIPACIONES', 'Uniforme y escudo') + tile('gear', 'boot', 'EQUIPAMIENTO', 'Botas y accesorios') + tile('hall', 'trophy', 'SALÓN', `${(this.save.hall ?? []).length} victorias`))}
+          ${group('g-sign', 'capsule', 'FICHAJES', tile('gacha', 'capsule', 'FICHAJES', `${this.save.tokens} fichas`, 0, true) + tile('daily', 'shop', 'TIENDA', 'Ofertas del día') + tile('codes', 'gift', 'CÓDIGOS', 'Canjea regalos'))}
+          ${group('g-comp', 'crown', 'COMPETICIÓN', tile('missions', 'missions', 'MISIONES', pending ? '¡Por recoger!' : 'Recompensas', pending, !!pending)
+            + tile('pass', 'ticket', 'PASE', pass.available ? '¡Recompensa lista!' : 'Vuelve mañana', pass.available ? 1 : 0, pass.available) + tile('ranking', 'crown', 'RANKING', onlineConfigured() ? 'Global' : 'Tus marcas'))}
         </section>
-        ${feat ? `<section class="hero r-${feat.rarity}" data-go="squad" style="--rc:${RARITY_COLOR[feat.rarity]}"><div class="hero-glow"></div>
-          <div class="hero-art">${this.mug(feat.id, 256)}<span class="hero-sprite">${charCanvas(feat.id, 3, 12)}</span></div>
-          <div class="hero-plate"><small>${this.captainId === feat.id ? 'TU CAPITÁN' : 'TU ESTRELLA'}</small><b>${esc(feat.name)}</b><div>${this.rar(feat)} ${this.elem(feat)}</div>
-            ${feat.stats ? `<div class="hero-stats"><span class="ovr">${statMean(this.statsOf(feat)!)}</span>${statRadar(this.statsOf(feat)!, STAT_SHORT, RARITY_COLOR[effectiveRarity(this.save, feat)])}</div><button class="btn small blue" data-sheet="${feat.id}">Ver ficha y estadísticas</button>` : ''}</div></section>` : ''}
-        <aside class="menu-right">
-          <button class="panel side update-card" data-go="devlog"><small>NOTICIAS · ${esc(VERSION_LABEL)}</small><b>${esc(allNews()[0]?.title ?? CURRENT_PUBLIC.title)}</b>
-            <span>${esc(allNews()[0]?.summary ?? CURRENT_PUBLIC.tagline)}</span>${unseenLog ? '<em>NUEVO</em>' : ''}</button>
-          <div class="panel side"><h3>Desafíos</h3>${challenges.map((d) => `<div class="chal"><span>${esc(d.label)}</span><i style="--p:${Math.round(missionProgress(this.save, d) / d.goal * 100)}%"></i></div>`).join('') || '<div class="note">¡Todo completado por hoy!</div>'}</div>
-          <div class="panel side"><h3>Arenas</h3>${this.m.maps.map((mp) => `<div class="arena-row ${this.save.clearedMaps.includes(mp.id) ? 'ok' : ''}">${this.save.clearedMaps.includes(mp.id) ? '✔' : '·'} ${esc(mp.name)} <span class="rank-done">${(this.save.clearedRanks[mp.id] ?? []).map((r) => `<span class="ok">${r}</span>`).join('')}</span></div>`).join('')}
-            <div class="note">Mejor tiempo ${fmtTime(this.save.stats.bestTimeSec)} · ${this.save.stats.kills} eliminaciones</div></div>
-          <button class="btn small blue" data-go="tutorial">¿Cómo se juega?</button>
+        ${feat ? `<section class="m4-hero" data-go="squad" style="--rc:${RARITY_COLOR[featR]}"><div class="m4-aura"></div><div class="m4-ring"></div>
+          <div class="m4-hero-art">${this.mug(feat.id, 256)}<span class="m4-hero-sprite">${charCanvas(feat.id, 3, 12)}</span></div>
+          <div class="m4-plate"><small>${this.captainId === feat.id ? 'TU CAPITÁN' : 'TU ESTRELLA'}</small><b>${esc(feat.name)}</b><div class="m4-tags">${this.rar(feat)} ${this.elem(feat)}</div>
+            ${featStats ? `<div class="m4-hstats"><span class="m4-ovr"><small>MEDIA</small>${statMean(featStats)}</span><div class="hero-stats">${statRadar(featStats, STAT_SHORT, RARITY_COLOR[featR])}</div></div>
+            <button class="btn small blue" data-sheet="${feat.id}">Ver ficha</button>` : ''}</div></section>` : '<span class="m4-hero"></span>'}
+        <aside class="m4-right">
+          <button class="m4-news" data-go="devlog"><span class="m4-news-head">${uiIcon('news')}NOTICIAS${unseenLog ? '<em>NUEVO</em>' : ''}</span>
+            <b>${esc(news?.title ?? CURRENT_PUBLIC.title)}</b><span>${esc(news?.summary ?? CURRENT_PUBLIC.tagline)}</span><small>${esc(VERSION_LABEL)} · Leer más ›</small></button>
+          <div class="m4-card"><h3>${uiIcon('target')}Desafíos</h3>${challenges.map((d) => { const pc = Math.min(100, Math.round(missionProgress(this.save, d) / d.goal * 100)); return `<div class="m4-chal"><span>${esc(d.label)}</span><em>${pc}%</em><i style="--p:${pc}%"></i></div>`; }).join('') || '<div class="note">¡Todo completado por hoy!</div>'}</div>
+          <div class="m4-card"><h3>${uiIcon('pitch')}Arenas</h3>${this.m.maps.map((mp) => { const ok = this.save.clearedMaps.includes(mp.id); return `<div class="m4-arena${ok ? ' ok' : ''}"><span class="m4-chk">${ok ? '✔' : ''}</span><span>${esc(mp.name)}</span><span class="m4-ranks">${RANK_ORDER.map((r) => `<i class="${(this.save.clearedRanks[mp.id] ?? []).includes(r) ? 'on' : ''}">${r}</i>`).join('')}</span></div>`; }).join('')}
+            <div class="m4-best">${uiIcon('clock')}Mejor tiempo <b>${fmtTime(this.save.stats.bestTimeSec)}</b> · <b>${this.save.stats.kills}</b> eliminaciones</div></div>
+          <button class="m4-help" data-go="tutorial">${uiIcon('help')}¿Cómo se juega?</button>
         </aside>
       </div>
-      <section class="menu-wide">
-        <div class="panel wide-rank"><div class="wide-head"><h3>♛ Ranking mundial</h3><button class="btn small" data-go="ranking">Ver todo</button></div>
+      <section class="m4-wide">
+        <div class="m4-card wide-rank"><div class="wide-head"><h3>${uiIcon('crown')}Ranking mundial</h3><button class="btn small" data-go="ranking">Ver todo</button></div>
           <div id="menurank">${onlineConfigured() ? '<div class="note">Cargando…</div>' : '<div class="note">Disponible cuando se active el servicio online.</div>'}</div></div>
-        <div class="panel wide-pass" id="widepass">${this.passWidget()}</div>
+        <div class="m4-card wide-pass" id="widepass">${this.passWidget()}</div>
       </section>
       <footer class="menu-foot legal-foot"><span>Fangame gratuito, sin ánimo de lucro y no oficial, creado por AstraStorm17. Inazuma Eleven y todos sus derechos pertenecen a LEVEL-5 y sus respectivos titulares. Este proyecto no está afiliado, patrocinado ni aprobado por LEVEL-5. · <button id="credits" class="legal-link">Aviso legal</button> · ${esc(VERSION_LABEL)}</span></footer>
       ${musicUnlocked() ? '' : '<div class="audio-hint">Haz clic en cualquier parte para activar la música</div>'}</div>`, 'menu-mode');
     this.on('[data-sheet]', 'click', (e, el) => { e.stopPropagation(); this.collection(Number(el.dataset.sheet)); });
     // Fix 1.31: notice when the Colección has something new to collect (once per new reward, not on every visit)
-    if (claims > Math.max(0, this.claimsAnnounced)) window.setTimeout(() => this.toast(`¡Tienes ${claims === 1 ? 'una recompensa' : `${claims} recompensas`} para recoger en la Colección!`, 4000), 400);
+    if (claims > Math.max(0, this.claimsAnnounced)) window.setTimeout(() => { if (this.screenKey === 'menu-mode') this.claimNotice(this.teamClaimList(), '¡Para recoger en la Colección!'); }, 400);
     this.claimsAnnounced = claims;
     this.on('[data-go]', 'click', (_e, el) => {
       const go = el.dataset.go;
@@ -918,7 +946,7 @@ export class App {
       this.persist();
       this.applyAudio();
       const b = e.currentTarget as HTMLElement;
-      b.textContent = this.save.settings.muted ? 'SONIDO NO' : 'SONIDO SÍ';
+      b.innerHTML = uiIcon(this.save.settings.muted ? 'soundOff' : 'soundOn');
       b.setAttribute('aria-pressed', String(!this.save.settings.muted));
     });
     document.addEventListener('pointerdown', () => document.querySelector('.audio-hint')?.remove(), { once: true });
@@ -1040,21 +1068,25 @@ export class App {
   ranking() {
     setMusicContext('menu');
     const q = this.rankQuery;
-    const sel = (id: string, opts: [string, string][], cur: string) => `<select id="${id}">${opts.map(([v, l]) => `<option value="${v}" ${cur === v ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select>`;
     const online = onlineConfigured();
-    this.show(`<div class="screen">${this.titlebar('Ranking', 'Menú')}
-      <div class="panel rank-head"><div><b>${online ? 'TOP 15 GLOBAL' : 'RANKING ONLINE NO DISPONIBLE'}</b>
-        <div class="note">${online ? 'Puntos = (segundos × 10 + √daño × 2) × rango (C ×1, B ×1,6, A ×2,4, S ×3,4, X ×4,8): el rango es lo que más cuenta. Cada jugador aparece con su mejor marca.' : 'El servicio online no está activado en esta versión, así que no hay ranking mundial. Debajo solo aparecen TUS marcas de este dispositivo, no las de otros jugadores.'}</div></div>
-        <div class="filters">${sel('rmap', [['', 'Todas las arenas'], ...this.m.maps.map((mp) => [mp.id, mp.name] as [string, string])], q.map ?? '')}
-          ${sel('rrank', [['', 'Todos los rangos'], ...RANK_ORDER.map((r) => [r, `Rango ${r}`] as [string, string])], q.rank ?? '')}
-          ${sel('rorder', [['score', 'Ordenar: puntos'], ['rank', 'Ordenar: rango'], ['time', 'Ordenar: tiempo'], ['damage', 'Ordenar: daño']], q.order)}</div></div>
-      <div class="rank-list" id="rlist"><div class="note">Cargando…</div></div><div id="rme"></div></div>`);
+    // v1.4: the filters are chips (one tap) instead of drop-down lists
+    const chips = (key: 'map' | 'rank' | 'order', opts: [string, string][], cur: string) => `<div class="rk-chips" data-rq="${key}">${opts.map(([v, l]) => `<button class="rk-chip${cur === v ? ' on' : ''}" data-v="${v}">${esc(l)}</button>`).join('')}</div>`;
+    this.show(`<div class="screen rk-screen">${this.titlebar('Ranking', 'Menú')}
+      <div class="rk-hero"><span class="rk-hero-ic">${uiIcon('crown')}</span><div><b>${online ? 'RANKING MUNDIAL' : 'TUS MARCAS'}</b>
+        <small>${online ? 'Top 15 de todos los jugadores, cada uno con su mejor marca.' : 'El servicio online no está activado en esta versión: solo aparecen las marcas de este dispositivo.'}</small></div>
+        <details class="rk-how"><summary>${uiIcon('help')}¿Cómo se calculan los puntos?</summary><div>Puntos = (segundos × 10 + √daño × 2) × rango. El rango es lo que más cuenta: C ×1, B ×1,6, A ×2,4, S ×3,4 y X ×4,8.</div></details></div>
+      <div class="rk-filters">
+        <div class="rk-fg"><small>${uiIcon('target')}Ordenar</small>${chips('order', [['score', 'Puntos'], ['rank', 'Rango'], ['time', 'Tiempo'], ['damage', 'Daño']], q.order)}</div>
+        <div class="rk-fg"><small>${uiIcon('crown')}Rango</small>${chips('rank', [['', 'Todos'], ...RANK_ORDER.map((r) => [r, r] as [string, string])], q.rank ?? '')}</div>
+        <div class="rk-fg wide"><small>${uiIcon('pitch')}Arena</small>${chips('map', [['', 'Todas'], ...this.m.maps.map((mp) => [mp.id, mp.name] as [string, string])], q.map ?? '')}</div></div>
+      <div class="rank-list" id="rlist"><div class="note">Cargando…</div></div><div id="rme" class="rk-me"></div></div>`);
     this.on('[data-back]', 'click', () => this.mainMenu());
-    const upd = () => {
-      this.rankQuery = { map: (document.getElementById('rmap') as HTMLSelectElement).value || null, rank: (document.getElementById('rrank') as HTMLSelectElement).value || null, order: (document.getElementById('rorder') as HTMLSelectElement).value as BoardQuery['order'] };
+    this.on('.rk-chip', 'click', (_e, el) => {
+      const key = (el.parentElement as HTMLElement).dataset.rq as 'map' | 'rank' | 'order', v = el.dataset.v ?? '';
+      el.parentElement!.querySelectorAll('.rk-chip').forEach((c) => c.classList.toggle('on', c === el));
+      this.rankQuery = { ...this.rankQuery, [key]: key === 'order' ? v as BoardQuery['order'] : v || null };
       void this.fillRanking();
-    };
-    ['rmap', 'rrank', 'rorder'].forEach((id) => document.getElementById(id)!.addEventListener('change', upd));
+    });
     void this.fillRanking();
   }
 
@@ -1074,17 +1106,31 @@ export class App {
         <span class="rk-num rk-pts${q.order === 'score' || q.order === 'rank' ? ' on' : ''}"><b>${pts.toLocaleString('es')}</b><small>puntos</small></span>
         <span class="rk-num${q.order === 'time' ? ' on' : ''}"><b>${fmtTime(time)}</b><small>tiempo</small></span><span class="rk-num${q.order === 'damage' ? ' on' : ''}"><b>${damage.toLocaleString('es')}</b><small>daño</small></span></div>`;
     };
+    type RowArgs = readonly [number, string, number, string, string, string, number, number, boolean, number | undefined];
+    const metric = (time: number, damage: number, pts: number) => q.order === 'time' ? [fmtTime(time), 'tiempo'] : q.order === 'damage' ? [damage.toLocaleString('es'), 'daño'] : [pts.toLocaleString('es'), 'puntos'];
+    const podium = (top: readonly RowArgs[]) => `<div class="rk-podium">${top.map(([pos, name, captain, crest, map, rank, time, damage, , score]) => {
+      const p = this.byId.get(captain), pts = score ?? scoreOf({ rank, time, damage }), [big, unit] = metric(time, damage, pts);
+      return `<div class="rk-pod p${pos}" style="--d:${pos * 90}ms"><span class="rk-medal">${pos}</span>
+        <span class="rk-pmug${p ? ` r-${p.rarity}` : ''}">${p ? this.mug(p.id, pos === 1 ? 112 : 88) : ''}</span>
+        <b class="rk-pname">${esc(name)}</b><small>${p ? esc(p.name) : ''} · ${esc(mapName(map))}</small>
+        <div class="rk-pbig"><b>${big}</b><small>${unit}</small></div>
+        <div class="rk-pmeta">${crest && this.emblemOf(crest) ? `<img class="rk-crest" src="${this.emblemOf(crest)}" alt="">` : ''}<span class="rank-btn r-${rank}"><b>${rank}</b></span>
+          <span><b>${fmtTime(time)}</b><small>tiempo</small></span><span><b>${damage.toLocaleString('es')}</b><small>daño</small></span></div>
+        <i class="rk-step"></i></div>`;
+    }).join('')}</div>`;
     if (!onlineConfigured()) {
       const rows = localBoard(this.save, q.map, q.rank, q.order);
-      list.innerHTML = rows.slice(0, 15).map((m) => row(m.pos, this.save.profile.name, m.captainId, this.save.crest, m.map, m.rank, m.time, m.damage, true, m.score)).join('') || '<div class="note">Aún no hay marcas: termina una partida.</div>';
+      const all = rows.slice(0, 15).map((m) => [m.pos, this.save.profile.name, m.captainId, this.save.crest, m.map, m.rank, m.time, m.damage, true, m.score] as const);
+      list.innerHTML = all.length ? podium(all.slice(0, 3)) + all.slice(3).map((r) => row(...r)).join('') : '<div class="note">Aún no hay marcas: termina una partida.</div>';
       me.innerHTML = '';
       return;
     }
     try {
       const rows = await leaderboard(q);
-      list.innerHTML = rows.map((r) => row(Number(r.pos), r.username, r.captain_id, r.crest, r.map, r.rank, r.time_sec, Number(r.damage), false, r.score == null ? undefined : Number(r.score))).join('') || '<div class="note">Nadie ha jugado este tablero todavía.</div>';
+      const all = rows.map((r) => [Number(r.pos), r.username, r.captain_id, r.crest, r.map, r.rank, r.time_sec, Number(r.damage), false, r.score == null ? undefined : Number(r.score)] as const);
+      list.innerHTML = all.length ? podium(all.slice(0, 3)) + all.slice(3).map((r) => row(...r)).join('') : '<div class="note">Nadie ha jugado este tablero todavía.</div>';
       const mine = signedIn() ? await myPosition(q) : null;
-      me.innerHTML = mine ? `<h3>Mi posición</h3>${row(Number(mine.pos), mine.username, mine.captain_id, mine.crest, mine.map, mine.rank, mine.time_sec, Number(mine.damage), true, mine.score == null ? undefined : Number(mine.score))}`
+      me.innerHTML = mine ? `<h3>${uiIcon('target')}Mi posición</h3>${row(Number(mine.pos), mine.username, mine.captain_id, mine.crest, mine.map, mine.rank, mine.time_sec, Number(mine.damage), true, mine.score == null ? undefined : Number(mine.score))}`
         : `<div class="note">${signedIn() ? 'Aún no tienes marca en este tablero.' : 'Conecta tu cuenta en Perfil para aparecer aquí.'}</div>`;
     } catch (err) {
       // Fix 1.32: a clear message and a retry instead of the server's raw text
@@ -1382,9 +1428,11 @@ export class App {
     this.persist();
     const listTop = this.root.querySelector('.nb-list')?.scrollTop ?? 0;
     const list = items.map((n) => `<button class="nb-item k-${n.kind}${n.id === cur?.id ? ' on' : ''}" data-news="${esc(n.id)}">
-        <span class="nb-ic">${esc(n.icon ?? '📰')}</span><span class="nb-txt"><span class="nb-meta"><em class="nb-tag">${NEWS_KIND_LABEL[n.kind]}</em>${n.pinned ? '<i class="nb-pin">📌</i>' : ''}<small>${esc(newsRelDate(n.date))}</small>${this.save.newsRead!.includes(n.id) ? '' : '<i class="nb-dot" title="Sin leer"></i>'}</span>
+        <span class="nb-ic">${this.newsLogo(n)}</span><span class="nb-txt"><span class="nb-meta"><em class="nb-tag">${NEWS_KIND_LABEL[n.kind]}</em>${n.pinned ? '<i class="nb-pin">📌</i>' : ''}<small>${esc(newsRelDate(n.date))}</small>${this.save.newsRead!.includes(n.id) ? '' : '<i class="nb-dot" title="Sin leer"></i>'}</span>
         <b>${esc(n.title)}</b><small class="nb-sum">${esc(n.summary)}</small></span></button>`).join('');
     this.show(`<div class="screen news-board">${this.titlebar('Noticias', 'Menú')}
+      <div class="nb-mast"><svg class="nb-mast-bolt" viewBox="0 0 60 100"><polygon points="38,0 6,56 26,56 16,100 56,38 34,38"/></svg><div><b>LA GACETA <span>INAZURVIVORS</span></b>
+        <small>Noticias, avisos y todas las actualizaciones · ${esc(VERSION_LABEL)}</small></div><span class="nb-mast-n">${items.filter((x) => !this.save.newsRead!.includes(x.id)).length || '✔'}<small>${items.some((x) => !this.save.newsRead!.includes(x.id)) ? 'sin leer' : 'al día'}</small></span></div>
       <div class="nb"><aside class="nb-list">${list}</aside><article class="nb-detail" id="nbdetail">${cur ? this.newsDetail(cur) : ''}</article></div></div>`);
     const listEl = this.root.querySelector('.nb-list');
     if (listEl) listEl.scrollTop = listTop; // choosing an item keeps the list where it was
@@ -1392,6 +1440,23 @@ export class App {
     this.on('[data-news]', 'click', (_e, el) => { this.devlog(el.dataset.news); document.getElementById('nbdetail')?.scrollTo(0, 0); if (window.innerWidth < 760) document.getElementById('nbdetail')?.scrollIntoView({ behavior: 'smooth' }); });
     document.getElementById('newsplay')?.addEventListener('click', () => { this.mainMenu(); (this.root.querySelector('[data-go="play"]') as HTMLElement | null)?.click(); });
     document.getElementById('newsbug')?.addEventListener('click', () => this.bugReportModal());
+  }
+
+  /**
+   * v1.4: the logo of a news item, an original crest per kind: updates carry the InaZurvivors bolt and their version,
+   * news a newspaper, notices an exclamation mark and events a star.
+   */
+  private newsLogo(n: NewsItem) {
+    const C: Record<string, [string, string]> = { actualizacion: ['#2fbf62', '#0a4a22'], fix: ['#ff9a2a', '#6a2a00'], novedad: ['#3a7bff', '#0a2a6a'], aviso: ['#e8484e', '#5a0a10'], evento: ['#b36bff', '#3a0a6a'] };
+    const [c1, c2] = C[n.kind] ?? C.novedad;
+    const inner = n.kind === 'fix' ? '<path d="M39 14a9 9 0 0 0-11 11L16 37a4 4 0 0 0 6 6l12-12a9 9 0 0 0 11-11l-6 6-5-1-1-5z" fill="#fff" stroke="#5a2a00" stroke-width="1.5"/>'
+      : n.kind === 'actualizacion' ? '<polygon points="29,8 15,33 24,33 19,52 37,26 28,26" fill="#ffe24a" stroke="#5a3a00" stroke-width="1.5"/>'
+      : n.kind === 'aviso' ? '<rect x="27" y="12" width="6" height="24" rx="3" fill="#fff"/><circle cx="30" cy="44" r="4" fill="#fff"/>'
+      : n.kind === 'evento' ? '<path d="m30 12 5 11 12 1-9 8 3 12-11-6-11 6 3-12-9-8 12-1z" fill="#ffe24a" stroke="#5a3a00" stroke-width="1.5"/>'
+      : '<rect x="16" y="15" width="28" height="30" rx="2" fill="#fff"/><rect x="20" y="19" width="20" height="6" fill="#0a2a6a"/><rect x="20" y="29" width="20" height="2.5" fill="#7f95b5"/><rect x="20" y="34" width="20" height="2.5" fill="#7f95b5"/><rect x="20" y="39" width="13" height="2.5" fill="#7f95b5"/>';
+    const ver = n.version ? `<text x="30" y="66" text-anchor="middle" font-size="10" fill="#fff" stroke="#000" stroke-width="2.5" paint-order="stroke" font-family="'Press Start 2P', monospace">${esc(n.version)}</text>` : '';
+    return `<svg class="nb-logo" viewBox="0 0 60 ${n.version ? 70 : 60}" aria-hidden="true"><defs><linearGradient id="nbg-${n.kind}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${c1}"/><stop offset="1" stop-color="${c2}"/></linearGradient></defs>
+      <path d="M30 2 54 10v18c0 14-10 24-24 30C16 52 6 42 6 28V10z" fill="url(#nbg-${n.kind})" stroke="#fff" stroke-width="2.5"/><path d="M30 7 49 13v15c0 11-8 19-19 24" fill="none" stroke="#ffffff55" stroke-width="2"/>${inner}${ver}</svg>`;
   }
 
   private newsDetail(n: NewsItem) {
@@ -1403,7 +1468,7 @@ export class App {
       return '<hr class="nb-hr">';
     }).join('');
     const long = new Date(`${n.date}T12:00:00`).toLocaleDateString('es', { day: 'numeric', month: 'long', year: 'numeric' });
-    return `<header class="nb-hero k-${n.kind}"><span class="nb-ic big">${esc(n.icon ?? '📰')}</span><div>
+    return `<header class="nb-hero k-${n.kind}"><span class="nb-ic big">${this.newsLogo(n)}</span><div>
         <div class="nb-meta"><em class="nb-tag">${NEWS_KIND_LABEL[n.kind]}</em>${n.pinned ? '<i class="nb-pin">📌 Fijada</i>' : ''}<small>${esc(long)}</small>${n.version ? `<small>· v${esc(n.version)}</small>` : ''}</div>
         <h2>${esc(n.title)}</h2><p>${esc(n.summary)}</p></div></header>
       <div class="nb-body">${body}</div>
@@ -1709,7 +1774,8 @@ export class App {
         <div class="sq-tags"><span class="pos">${POS_LABEL[p.position] ?? p.position}</span>${this.elem(p)}${this.rar(p)}</div>
         ${comboOf.get(p.name) ? `<span class="sq-combo" title="Técnica combinada: ${esc(comboOf.get(p.name)!)}">🔗 ${esc(comboOf.get(p.name)!)}</span>` : ''}
         ${st ? `<div class="sq-radar">${statRadar(st, STAT_SHORT, RARITY_COLOR[er])}</div>` : ''}
-        <div class="sq-techs">${p.techniques.slice(0, 4).map((t) => `<span title="${esc(t.name)}">${this.icon(ICON.manual[t.type], 1)}${esc(t.name)}</span>`).join('')}</div>
+        <div class="sq-techs"><small>TÉCNICA INICIAL</small>${p.techniques.slice(0, 5).map((t, ti) => { const usable = this.canStartWith(p, ti), on = this.startOf(p) === ti;
+          return `<button class="sq-tech${on ? ' on' : ''}" data-start="${p.id}:${ti}" ${usable ? '' : 'disabled'} title="${esc(t.name)}${usable ? (on ? ' · empieza con esta' : ' · pulsa para empezar con esta') : t.type === 'talento' ? ' · talento pasivo: siempre activo' : ' · bloqueada: desbloquéala en la tienda de técnicas'}">${this.icon(ICON.manual[t.type], 1)}<span>${esc(t.name)}</span>${on ? '<em>★</em>' : ''}</button>`; }).join('')}</div>
         <i class="cc-sweep"></i><i class="cc-foil"></i><i class="cc-sparks"></i><i class="cc-bevel"></i><i class="cc-crown"></i></div>`;
     }).join('');
     this.show(`<div class="screen">${this.titlebar('Mi Equipo', 'Menú')}
@@ -1728,19 +1794,14 @@ export class App {
         <div class="grid" id="sqgrid" style="margin-top:10px"></div></div>
       ${cap ? `<div class="panel detail" style="--rc:${RARITY_COLOR[cap.rarity]}"><div class="art">${this.mug(cap.id, 128)}${charCanvas(cap.id, 3, 12)}</div><div>
         <h3>Capitán: ${esc(cap.name)} ${this.rar(cap)} ${this.elem(cap)}</h3>
-        <h3 style="margin-top:8px">Técnica inicial</h3><div class="loadout">${cap.techniques.map((t, i) => {
-          const on = (this.save.loadout[String(cap.id)] ?? startingTech(cap)) === i;
-          const usable = t.type !== 'talento' && (!isLocked(t) || isBought(this.save, cap.id, i));
-          const uses = this.save.mastery[String(t.id)] ?? 0;
-          return `<button class="load${on ? ' on' : ''}" data-load="${i}" ${usable ? '' : 'disabled'}>${this.icon(ICON.manual[t.type], 2)}<span><b>${esc(t.name)}</b><small>${TYPE_LABEL[t.type]} · poder ${t.power}${usable ? '' : t.type === 'talento' ? ' · pasiva' : ' · en tienda'}</small><i class="mbar-s"><i style="width:${masteryProgress(uses) * 100}%"></i></i><small>Maestría ${masteryLevel(uses)}/${MASTERY_USES.length}</small></span></button>`;
-        }).join('')}</div>
+        <div class="note" style="margin-top:6px">★ La <b>técnica inicial</b> de cada futbolista se elige en su plaza, arriba: pulsa la técnica con la que quieres que empiece.</div>
         <h3 style="margin-top:10px">Formación inicial</h3><div class="formation-pick">${FORMATION_ORDER.map((f) => this.formationCard(f, f === cur)).join('')}</div>
         <p style="text-align:right"><button class="btn big" id="next">Elegir arena ▶</button></p></div></div>` : '<div class="panel"><div class="note">Aún no tienes futbolistas: consíguelos en Fichajes.</div></div>'}
 </div>`);
     this.squadGrid();
     this.on('[data-back]', 'click', () => this.mainMenu());
     this.on('[data-slot]', 'click', (e, el) => {
-      if ((e.target as HTMLElement).closest('.sq-act') || performance.now() - this.dragEndedAt < 300) return;
+      if ((e.target as HTMLElement).closest('.sq-act, .sq-tech') || performance.now() - this.dragEndedAt < 300) return;
       const i = Number(el.dataset.slot);
       // Fix 1.32: a slot is «picked» on purpose; clicking it again unpicks it
       this.squadPicked = !(this.squadPicked && this.squadSlot === i);
@@ -1765,7 +1826,7 @@ export class App {
     this.on('[data-captain]', 'click', (_e, el) => { makeCaptain(this.save, this.byId, Number(el.dataset.captain)); this.persist(); sfx('powerup'); this.captainSelect(0); });
     this.on('[data-remove]', 'click', (_e, el) => { removeFromSquad(this.save, this.byId, Number(el.dataset.remove)); this.persist(); this.captainSelect(); });
     this.on('.fcard', 'click', (_e, el) => { this.save.formation = el.dataset.f!; this.persist(); this.captainSelect(); });
-    this.on('[data-load]', 'click', (_e, el) => { if (this.captainId) { this.save.loadout[String(this.captainId)] = Number(el.dataset.load); this.persist(); this.captainSelect(); } });
+    this.on('[data-start]', 'click', (e, el) => { e.stopPropagation(); this.setStart(el.dataset.start!); this.captainSelect(this.squadSlot); });
     const refilter = () => {
       const v = (id: string) => (document.getElementById(id) as HTMLInputElement | HTMLSelectElement).value;
       this.squadFilter = { q: v('sqq'), rarity: v('sqr'), pos: v('sqp'), el: v('sqe'), sort: v('sqs') || 'media' };
@@ -1921,21 +1982,29 @@ export class App {
       const open = isMapUnlocked(mp.unlock, this.save);
       const cleared = this.save.clearedMaps.includes(mp.id);
       const boss = this.m.units.find((u) => u.id === mp.boss)?.name ?? '—';
-      return `<div class="panel mapcard"><h3>${esc(mp.name)} ${cleared ? '✔' : ''}</h3>
-        <div class="thumb">${mp.minimapTexture ? `<img src="${mp.minimapTexture}" alt="">` : open ? '<div class="note">Estadio provisional</div>' : ''}
-          ${open ? '' : `<div class="lock">BLOQUEADA<br>Supera ${esc(this.m.maps.find((x) => `clear:${x.id}` === mp.unlock)?.name ?? '')}</div>`}</div>
-        <div class="note">Duración ${fmtTime(mp.durationSec)} · ${mp.enemies.length} rivales · jefe: ${esc(boss)}</div>
-        <div class="rank-done">${RANK_ORDER.map((id) => `<span class="${this.save.clearedRanks[mp.id]?.includes(id) ? 'ok' : ''}">${id}</span>`).join('')}</div>
-        <div class="prov">${esc(mp.provisional ?? 'Reconstruido sobre el mapa cenital original con texturas originales.')}</div>
-        <button class="btn" data-map="${mp.id}" ${open ? '' : 'disabled'}>${open ? '¡Saltar al campo! ▶' : 'Bloqueado'}</button></div>`;
+      const done = this.save.clearedRanks[mp.id] ?? [];
+      const need = this.m.maps.find((x) => `clear:${x.id}` === mp.unlock)?.name ?? '';
+      return `<div class="mc4${open ? '' : ' locked'}${cleared ? ' cleared' : ''}">
+        <div class="mc4-art">${mp.minimapTexture ? `<img src="${mp.minimapTexture}" alt="">` : '<span class="note">Estadio provisional</span>'}
+          ${open ? '' : `<div class="mc4-lock"><span>🔒</span>Supera ${esc(need)}</div>`}${cleared ? '<span class="mc4-ok">✔ SUPERADA</span>' : ''}
+          <h3>${esc(mp.name)}</h3></div>
+        <div class="mc4-body"><div class="mc4-chips"><span>${uiIcon('clock')}${fmtTime(mp.durationSec)}</span><span>${uiIcon('team')}${mp.enemies.length} rivales</span><span class="boss">${uiIcon('fire')}${esc(boss)}</span></div>
+          <div class="m4-ranks mc4-ranks">${RANK_ORDER.map((id) => `<i class="${done.includes(id) ? 'on' : ''} r-${id}">${id}</i>`).join('')}<small>${done.length}/${RANK_ORDER.length} rangos</small></div>
+          <div class="prov">${esc(mp.provisional ?? 'Reconstruido sobre el mapa cenital original con texturas originales.')}</div>
+          <button class="btn" data-map="${mp.id}" ${open ? '' : 'disabled'}>${open ? '¡Saltar al campo! ▶' : 'Bloqueado'}</button></div></div>`;
     }).join('');
     const rk = this.save.difficulty;
     const ranks = RANK_ORDER.map((id) => {
       const R = RANKS[id];
-      return `<button class="rank-btn r-${id}${id === rk ? ' on' : ''}" data-rank="${id}"><b>${id}</b><span>${esc(R.blurb)}</span><small><em class="rk-word">Recompensas </em>×${R.reward}</small></button>`;
+      return `<button class="rk4 r-${id}${id === rk ? ' on' : ''}" data-rank="${id}"><span class="rk4-l">${id}</span><small>×${R.reward}</small></button>`;
     }).join('');
-    this.show(`<div class="screen">${this.titlebar('Elige arena', 'Mi Equipo')}
-      <div class="panel"><h3>Dificultad</h3><div class="ranks">${ranks}</div><div class="note rank-blurb">${esc(rankDef(rk).blurb)}</div></div><div class="maps">${cards}</div></div>`);
+    this.show(`<div class="screen ms-screen">${this.titlebar('Elige arena', 'Mi Equipo')}
+      <div class="ms-diff r-${rk}"><div class="ms-dl"><small>DIFICULTAD</small><b>Rango ${rk}</b><p>${esc(rankDef(rk).blurb)} Recompensas ×${RANKS[rk].reward}.</p></div><div class="ms-ranks">${ranks}</div></div>
+      <div class="ms-team"><span><small>TU EQUIPO</small><b>${esc(squadOf(this.save, this.byId)[0]?.name ?? '—')} (capitán) · ${squadOf(this.save, this.byId).length}/${SQUAD_SIZE}</b></span>
+        <span class="m4-faces">${squadOf(this.save, this.byId).slice(0, 7).map((p) => `<span class="m4-face" style="--rc:${RARITY_COLOR[effectiveRarity(this.save, p)]}">${this.mug(p.id, 38)}</span>`).join('')}</span>
+        <button class="btn small" id="toteam">${uiIcon('team')} Cambiar equipo</button></div>
+      <div class="maps ms-maps">${cards}</div></div>`);
+    document.getElementById('toteam')?.addEventListener('click', () => this.captainSelect());
     this.on('[data-rank]', 'click', (_e, el) => { this.save.difficulty = el.dataset.rank as Rank; this.persist(); this.mapSelect(); });
     this.on('[data-back]', 'click', () => this.captainSelect());
     this.on('[data-map]', 'click', (_e, el) => {
@@ -1946,11 +2015,30 @@ export class App {
 
   // ------------------------------------------------------------- collection
   /** Fix 1.31: team rewards (crest, kit, captain) ready to collect in the Colección, counted like its own «!» marks. */
-  private collectionClaims() {
+  private collectionClaims() { return this.teamClaimList().length; }
+  /** v1.4: every team reward ready to collect, with its team, so the notices can say which ones */
+  private teamClaimList() {
     const main = new Set(this.m.mainTeams ?? []);
     const teams = [...new Set(this.m.roster.flatMap((p) => p.teams))].filter((t) => main.has(t));
-    return teams.reduce((n, t) => n + (['crest', 'kit', 'captain'] as TeamRewardKind[])
-      .filter((k) => (k !== 'kit' || !!this.m.kits?.[t]) && canClaim(this.save, this.m.roster, t, k)).length, 0);
+    return teams.flatMap((t) => (['crest', 'kit', 'captain'] as TeamRewardKind[])
+      .filter((k) => (k !== 'kit' || !!this.m.kits?.[t]) && canClaim(this.save, this.m.roster, t, k)).map((k) => ({ team: t, kind: k })));
+  }
+  /** «Raimon: escudo y equipación · Royal Academy: duplicado del capitán» */
+  private claimText(list: { team: string; kind: TeamRewardKind }[]) {
+    const NAME: Record<TeamRewardKind, string> = { crest: 'escudo', kit: 'equipación', captain: 'duplicado del capitán' };
+    const by = new Map<string, string[]>();
+    for (const c of list) by.set(c.team, [...(by.get(c.team) ?? []), NAME[c.kind]]);
+    const parts = [...by].map(([t, ks]) => `${teamLabel(t)}: ${ks.length > 1 ? `${ks.slice(0, -1).join(', ')} y ${ks[ks.length - 1]}` : ks[0]}`);
+    return parts.length > 3 ? `${parts.slice(0, 3).join(' · ')} y ${parts.length - 3} equipo(s) más` : parts.join(' · ');
+  }
+  /** a notice that belongs to the screen it was shown on: it leaves with it, and a tap opens the Colección */
+  private claimNotice(list: { team: string; kind: TeamRewardKind }[], lead: string) {
+    if (!list.length) return;
+    this.toast(`${lead} ${this.claimText(list)}`, 5000);
+    const t = document.querySelector<HTMLElement>('.toast');
+    if (!t) return;
+    t.classList.add('screen-bound', 'tappable');
+    t.addEventListener('click', () => { t.remove(); this.collectionView = 'equipos'; this.collection(); });
   }
   /** claims already announced, so the notice shows only when something new became collectable */
   private claimsAnnounced = -1;
@@ -1970,7 +2058,6 @@ export class App {
       && (!f.saga || p.teams.some((t) => sagaOf(t) === f.saga)) && (!f.owned || this.owned(p.id))
       && (!f.q || `${p.name} ${p.nickname}`.toLowerCase().includes(f.q.toLowerCase())))
       .sort((a, b) => Number(!!this.owned(b.id)) - Number(!!this.owned(a.id)) || RARITY_ORDER.indexOf(b.rarity) - RARITY_ORDER.indexOf(a.rarity));
-    const counts = RARITY_ORDER.map((r) => `${RARITY_LABEL[r]} ${this.m.roster.filter((p) => p.rarity === r && this.owned(p.id)).length}/${this.m.roster.filter((p) => p.rarity === r).length}`).join(' · ');
     const select = (id: string, label: string, opts: [string, string][], cur: string) => `<select id="${id}"><option value="">${label}</option>${opts.map(([v, l]) => `<option value="${esc(v)}" ${cur === v ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select>`;
     const showTeams = this.collectionView === 'equipos' && !f.team && !f.q;
     const rewardOk = (team: string, k: TeamRewardKind) => k !== 'kit' || !!this.m.kits?.[team];
@@ -1980,17 +2067,22 @@ export class App {
       const list = teams.filter((t) => sagaOf(t) === sg);
       return list.length ? `<h3 class="saga">${sg}</h3><div class="team-grid">${list.map((t) => {
         const tp = teamProgress(this.save, this.m.roster, t);
-        const claimable = (['crest', 'kit', 'captain'] as TeamRewardKind[]).some((k) => canClaim(this.save, this.m.roster, t, k));
+        const claimable = (['crest', 'kit', 'captain'] as TeamRewardKind[]).some((k) => rewardOk(t, k) && canClaim(this.save, this.m.roster, t, k));
         return `<button class="team-card big" data-team="${esc(t)}">${this.emblemOf(t) ? `<img src="${this.emblemOf(t)}" alt="">` : '<span class="noemblem">⚽</span>'}<span class="tc-body"><b>${esc(teamLabel(t))}</b><i class="tc-bar"><i style="width:${tp.owned / Math.max(1, tp.total) * 100}%"></i></i><small>${tp.owned}/${tp.total} futbolistas</small></span>${claimable ? '<span class="notif">!</span>' : ''}</button>`;
       }).join('')}</div>` : '';
     }).join('');
     const list = filtered.slice(0, this.collectionLimit);
-    this.show(`<div class="screen">${this.titlebar('Enciclopedia', 'Menú')}
+    const ownedN = this.m.roster.filter((p) => this.owned(p.id)).length;
+    this.show(`<div class="screen col-screen">${this.titlebar('Enciclopedia', 'Menú')}
+      <div class="col-hero"><span class="col-hero-ic">${uiIcon('cards')}</span><div class="col-hero-tx"><small>TU COLECCIÓN</small><b>${ownedN} <em>de ${this.m.roster.length} futbolistas</em></b>
+        <i class="col-bar"><i style="width:${ownedN / Math.max(1, this.m.roster.length) * 100}%"></i></i>
+        <div class="col-rars">${RARITY_ORDER.map((r) => `<span class="rar ${r}">${RARITY_LABEL[r]} ${this.m.roster.filter((p) => p.rarity === r && this.owned(p.id)).length}/${this.m.roster.filter((p) => p.rarity === r).length}</span>`).join('')}</div></div>
+        ${teamClaims ? `<button class="rw-all" id="teamall"><i class="m4-shine"></i>RECLAMAR TODO<em>${teamClaims}</em></button>` : ''}</div>
       ${d && this.compareWith && this.compareWith !== d.id && this.byId.get(this.compareWith) ? this.compareHtml(this.byId.get(this.compareWith)!, d) : ''}
       ${d ? this.playerDetail(d) : ''}
       <div class="mis-top"><div class="seg" id="views"><button data-v="equipos" class="${this.collectionView === 'equipos' ? 'on' : ''}">Por equipos</button><button data-v="fichatron" class="${this.collectionView === 'fichatron' ? 'on' : ''}">Fichatrón</button><button data-v="todos" class="${this.collectionView === 'todos' ? 'on' : ''}">Todos</button></div>
         ${this.collectionView === 'fichatron' ? `<span class="note">Jugadores de Fichatrón / Ojeadores: ${scouts.filter((p) => this.owned(p.id)).length} de ${scouts.length}. No pertenecen a un equipo de la historia, pero juegan igual que los demás.</span>` : ''}
-        ${teamClaims ? `<button class="btn pulse" id="teamall">RECLAMAR TODO (${teamClaims})</button>` : ''}</div>
+</div>
       ${f.team ? `<button class="btn small blue" id="clearteam">◀ Ver equipos</button>${this.teamHeader(f.team)}` : ''}
       <div class="filters"><input id="fq" placeholder="Buscar futbolista por nombre" value="${esc(f.q)}">
         ${select('fsa', 'Saga', SAGAS.map((x) => [x, x]), f.saga)}
@@ -1998,7 +2090,7 @@ export class App {
         ${select('fp', 'Posición', ['GK', 'DF', 'MF', 'FW'].map((x) => [x, POS_LABEL[x]]), f.pos)}
         ${select('fe', 'Elemento', elements.map((x) => [x, x]), f.element)}
         <label class="note"><input type="checkbox" id="fo" ${f.owned ? 'checked' : ''}> Solo desbloqueados</label>
-        <span class="note">${counts}</span></div>
+</div>
       ${showTeams ? teamCards : `<div class="grid">${list.map((p) => this.pcard(p, { locked: !this.owned(p.id), sel: p.id === detailId })).join('')}</div>
         ${filtered.length > list.length ? `<p style="text-align:center"><button class="btn blue" id="more">Ver más (${filtered.length - list.length})</button></p>` : ''}`}</div>`);
     this.on('[data-back]', 'click', () => this.mainMenu());
@@ -2013,9 +2105,10 @@ export class App {
     this.on('[data-trainreset]', 'click', (_e, el) => this.armed(el, () => { const id = Number(el.dataset.trainreset); resetTraining(this.save, id); this.persist(); sfx('click'); this.collection(id); }));
     this.on('[data-compare]', 'click', (_e, el) => { const id = Number(el.dataset.compare); this.compareWith = this.compareWith === id ? null : id; this.collection(id); });
     this.on('[data-uncompare]', 'click', () => { this.compareWith = null; this.collection(detailId); });
+    this.on('[data-start]', 'click', (_e, el) => { this.setStart(el.dataset.start!); this.collection(detailId); });
     this.on('[data-team]', 'click', (_e, el) => { f.team = el.dataset.team!; this.collectionLimit = 36; this.collection(); });
     this.on('[data-reward]', 'click', (_e, el) => {
-      if (claimTeamReward(this.save, this.m.roster, f.team, el.dataset.reward as TeamRewardKind)) { this.persist(); sfx('evolve'); confetti(30); this.toast('¡Recompensa de equipo conseguida!'); }
+      if (claimTeamReward(this.save, this.m.roster, f.team, el.dataset.reward as TeamRewardKind)) { this.persist(); sfx('evolve'); confetti(30); this.toast(`¡${teamLabel(f.team)}: ${({ crest: 'escudo', kit: 'equipación', captain: 'duplicado del capitán' } as Record<string, string>)[el.dataset.reward!]} conseguido!`); }
       this.collection(detailId);
     });
     document.getElementById('teamall')?.addEventListener('click', () => {
@@ -2026,7 +2119,7 @@ export class App {
       confetti(40);
       const n = (k: TeamRewardKind) => got.filter((g) => g.kind === k).length;
       this.collection(detailId);
-      this.rewardSummary('¡Recompensas de equipo!', [`${n('crest')} escudos`, `${n('kit')} equipaciones`, `${n('captain')} duplicados de capitán`].filter((l) => !l.startsWith('0 ')));
+      this.rewardSummary('¡Recompensas de equipo!', [`${n('crest')} escudos`, `${n('kit')} equipaciones`, `${n('captain')} duplicados de capitán`].filter((l) => !l.startsWith('0 ')).concat(this.claimText(got)));
     });
     this.on('#views button', 'click', (_e, el) => { this.collectionView = el.dataset.v as 'equipos' | 'todos' | 'fichatron'; f.team = ''; this.collection(); });
     document.getElementById('clearteam')?.addEventListener('click', () => { f.team = ''; this.collectionView = 'equipos'; this.collection(); });
@@ -2114,24 +2207,40 @@ export class App {
     const st = passStatus(this.save, now);
     const teams = teamChoices(this.m.roster, this.m.mainTeams ?? []);
     if (!teams.some((t) => t.team === this.passTeam)) this.passTeam = (teams.find((t) => t.team === this.save.favoriteTeam) ?? teams[0])?.team ?? '';
+    // v1.4: a road of seven days: the claimed ones stamped, today's big and bouncing, the next ones locked
+    const RIC: Record<string, UiIconName> = { fichas: 'capsule', monedas: 'shop', jugador: 'cards' };
+    const left = msToNextDay(now);
     const days = PASS.map((r, i) => {
-      const state = i < st.index ? 'reclamado' : i === st.index ? (st.available ? 'disponible' : 'bloqueado') : 'bloqueado';
-      const icon = r.kind === 'fichas' ? '◎' : r.kind === 'monedas' ? '◉' : '★';
-      return `<div class="pass-day ${state}"><small>Día ${i + 1}</small><b>${icon}</b><span>${esc(r.label)}</span><em>${state === 'reclamado' ? '✔ Reclamado' : state === 'disponible' ? '¡Disponible!' : i === st.index ? 'Mañana' : 'Bloqueado'}</em></div>`;
+      const state = i < st.index ? 'reclamado' : i === st.index ? (st.available ? 'disponible' : 'siguiente') : 'bloqueado';
+      const big = i === 3 || i === 6;
+      return `<div class="ps4-day ${state}${big ? ' big' : ''} k-${r.kind}" style="--d:${i * 60}ms"><small>DÍA ${i + 1}</small>
+        <span class="ps4-ic">${uiIcon(RIC[r.kind] ?? 'gift')}</span><b>${esc(r.label)}</b>
+        <em>${state === 'reclamado' ? '✔ Cobrado' : state === 'disponible' ? '¡HOY!' : state === 'siguiente' ? 'Mañana' : '🔒'}</em>${state === 'reclamado' ? '<i class="ps4-stamp">✔</i>' : ''}</div>`;
     }).join('');
     const next = PASS[st.index];
-    const teamPick = next.kind === 'jugador' && next.team ? `<label class="team-sel">Equipo objetivo: <select id="passteam">${teams.map((t) => `<option value="${esc(t.team)}" ${t.team === this.passTeam ? 'selected' : ''}>${esc(teamLabel(t.team))}</option>`).join('')}</select></label>` : '';
-    const left = msToNextDay(now);
-    this.show(`<div class="screen">${this.titlebar('Pase semanal', 'Menú')}
-      <div class="panel"><div class="note">Una recompensa por día (${timeSource() === 'servidor' ? 'hora del servidor' : 'hora de este dispositivo'}). Si te saltas días no pierdes nada: el pase espera en la siguiente recompensa. Tras el día 7 empieza un ciclo nuevo.</div></div>
-      <div class="pass-row">${days}</div>
-      <div class="panel" style="text-align:center">${st.available ? `<p>Hoy: <b>${esc(next.label)}</b></p>${teamPick}<p><button class="btn big" id="passclaim">Reclamar</button></p>`
-        : `<p>Ya has reclamado la recompensa de hoy. La siguiente (<b>${esc(next.label)}</b>) estará lista en ${Math.floor(left / 3600000)} h ${Math.floor(left / 60000) % 60} min.</p>`}</div></div>`);
+    const teamPick = next.kind === 'jugador' && next.team ? `<label class="team-sel ps4-team">Equipo: <select id="passteam">${teams.map((t) => `<option value="${esc(t.team)}" ${t.team === this.passTeam ? 'selected' : ''}>${esc(teamLabel(t.team))}</option>`).join('')}</select></label>` : '';
+    const pct = Math.round(st.index / PASS.length * 100);
+    this.show(`<div class="screen ps4-screen">${this.titlebar('Pase semanal', 'Menú')}
+      <div class="ps4-hero${st.available ? ' hot' : ''}"><i class="rw-rays"></i>
+        <div class="ps4-hero-tx"><small>PASE SEMANAL GRATIS · DÍA ${st.index + 1} DE ${PASS.length}</small>
+          <b>${st.available ? '¡Tu recompensa de hoy está lista!' : 'Ya has cobrado hoy'}</b>
+          <span>${st.available ? 'Una recompensa por día. Si te saltas días no pierdes nada: el pase te espera.' : `La siguiente llega en <em id="pscount">${Math.floor(left / 3600000)} h ${Math.floor(left / 60000) % 60} min</em>.`}</span>
+          <div class="ps4-prog"><i style="width:${pct}%"></i><span>${st.index}/${PASS.length} cobrados en este ciclo</span></div></div>
+        <div class="ps4-today${st.available ? '' : ' wait'}"><small>${st.available ? 'HOY' : 'SIGUIENTE'}</small><span class="ps4-ic big">${uiIcon(RIC[next.kind] ?? 'gift')}</span><b>${esc(next.label)}</b>
+          ${st.available ? `${teamPick}<button class="rw-all" id="passclaim"><i class="m4-shine"></i>¡RECLAMAR!</button>` : '<span class="note">Vuelve mañana</span>'}</div></div>
+      <div class="ps4-road">${days}</div>
+      <div class="ps4-foot">${uiIcon('clock')}${timeSource() === 'servidor' ? 'Hora del servidor' : 'Hora de este dispositivo'} · tras el día ${PASS.length} empieza un ciclo nuevo</div></div>`);
     this.on('[data-back]', 'click', () => this.mainMenu());
     document.getElementById('passteam')?.addEventListener('change', (e) => { this.passTeam = (e.target as HTMLSelectElement).value; });
     document.getElementById('passclaim')?.addEventListener('click', (e) => {
-      (e.target as HTMLButtonElement).disabled = true;
-      this.claimPassNow(() => this.weeklyPass());
+      const b = e.currentTarget as HTMLButtonElement;
+      b.disabled = true;
+      // the day card of today pops and gets its stamp before the reward shows
+      const day = this.root.querySelector<HTMLElement>('.ps4-day.disponible');
+      day?.classList.add('claiming');
+      if (day) { flyTo(day, '.coins', 8); flyTo(day, '.tokens', 6); }
+      confetti(40);
+      window.setTimeout(() => this.claimPassNow(() => this.weeklyPass()), 450);
     });
   }
 
@@ -2194,7 +2303,7 @@ export class App {
   private playerDetail(d: RosterEntry) {
     const o = this.owned(d.id);
     const statNames: Record<string, string> = { kick: 'Tiro', body: 'Físico', guard: 'Defensa', control: 'Control', speed: 'Velocidad', guts: 'Agallas', stamina: 'Aguante' };
-    const active = startingTech(d);
+    const active = this.startOf(d);
     const reps = Array.from({ length: Math.max(4, d.techniques.length) }, (_, i) => d.techniques[i]); // GO players can know more than 4
     return `<div class="panel detail r-${d.rarity}${isHero(this.save, d.id) ? ' is-hero' : ''}" style="--rc:${RARITY_COLOR[d.rarity]}"><div class="art">${this.mug(d.id, 128)}${charCanvas(d.id, 3, 12)}</div><div>
       <h3>${esc(d.name)} “${esc(d.nickname)}” ${this.rar(d)} ${this.elem(d)}</h3>
@@ -2205,7 +2314,7 @@ export class App {
       ${d.heroTech ? `<div class="note">Técnica de HÉROE: <b>${esc(d.heroTech.name)}</b>${isHero(this.save, d.id) ? ' (desbloqueada)' : ''}</div>` : ''}
       ${(() => { const pa = adaptedPassive(d); return (pa ? `<div class="note">Pasiva: <b>${esc(pa.name)}</b> · ${esc(passiveText(pa))} <small>(adaptación de InaZurvivors)</small></div>` : '') + d.techniques.filter((t) => t.type === 'talento').map((t) => `<div class="note">Talento: <b>${esc(t.name)}</b> · ${esc(talentText(t.id, 1))} <small>(efecto adaptado; sube con el nivel de la técnica)</small></div>`).join(''); })()}
       <h3 style="margin-top:8px">Repertorio (2 técnicas activas en combate)</h3>
-      ${reps.map((t, i) => (t ? `<div class="rep">${i === active ? '<span class="tag">Inicial</span>' : isLocked(t) && !isBought(this.save, d.id, i) ? '<span class="tag">Tienda</span>' : ''}${this.techHtml(t)}<div class="note">Maestría ${masteryLevel(this.save.mastery[String(t.id)] ?? 0)}/${MASTERY_USES.length} · +${masteryLevel(this.save.mastery[String(t.id)] ?? 0) * MASTERY_BONUS * 100}% daño · ${this.save.mastery[String(t.id)] ?? 0} usos</div></div>`
+      ${reps.map((t, i) => (t ? `<div class="rep">${i === active ? '<span class="tag start">★ Inicial</span>' : o && this.canStartWith(d, i) ? `<button class="ts-start" data-start="${d.id}:${i}">☆ Empezar con esta</button>` : isLocked(t) && !isBought(this.save, d.id, i) ? '<span class="tag">Tienda</span>' : ''}${this.techHtml(t)}<div class="note">Maestría ${masteryLevel(this.save.mastery[String(t.id)] ?? 0)}/${MASTERY_USES.length} · +${masteryLevel(this.save.mastery[String(t.id)] ?? 0) * MASTERY_BONUS * 100}% daño · ${this.save.mastery[String(t.id)] ?? 0} usos</div></div>`
         : '<div class="rep"><div class="tech"><div class="note">Ficha pendiente: sin datos de origen para esta técnica.</div></div></div>')).join('')}
       ${d.stats ? `<h3 style="margin-top:8px">Estadísticas · media ${statMean(this.statsOf(d)!)}</h3><div class="stat-radar">${statRadar(this.statsOf(d)!, statNames, RARITY_COLOR[effectiveRarity(this.save, d)])}</div>
         ${this.trainingHtml(d)}
@@ -2230,8 +2339,12 @@ export class App {
     const price = bannerPrice(pool, banner.id); // Fix 1.31: by how many Míticos the machine holds
     const PULL_COST = price.cost, MULTI_COST = price.multiCost;
     const tabs = BANNER_ORDER.map((b) => {
-      const pr = b === 'equipo' ? { cost: BANNERS.equipo.cost } : bannerPrice(bannerPool(this.m.roster, b), b);
-      return `<button class="banner-tab${b === banner.id ? ' on' : ''}" data-banner="${b}" style="--bc:${BANNERS[b].color}"><b>${esc(BANNERS[b].label)}</b><small>${esc(BANNERS[b].tagline)}</small><em class="bt-price">${pr.cost} fichas</em></button>`;
+      const bp = bannerPool(this.m.roster, b, this.gachaTeam);
+      const pr = b === 'equipo' ? { cost: BANNERS.equipo.cost } : bannerPrice(bp, b);
+      const star = featured(bp, 1)[0]; // v1.4: each machine shows its best player
+      return `<button class="banner-tab bt4${b === banner.id ? ' on' : ''}" data-banner="${b}" style="--bc:${BANNERS[b].color}">
+        <span class="bt-art">${star ? this.mug(star.id, 64) : uiIcon('capsule')}</span>
+        <span class="bt-tx"><b>${esc(BANNERS[b].label)}</b><small>${esc(BANNERS[b].tagline)}</small></span><em class="bt-price">${pr.cost}</em></button>`;
     }).join('');
     const teamSel = banner.id === 'equipo' ? `<label class="team-sel">Equipo: <select id="gteam">${teams.map((t) => `<option value="${esc(t.team)}" ${t.team === this.gachaTeam ? 'selected' : ''}>${esc(teamLabel(t.team))} (${t.size})</option>`).join('')}</select></label>` : '';
     const feat = featured(pool, 5).map((p) => `<span class="feat r-${p.rarity}" style="--rc:${RARITY_COLOR[p.rarity]}" title="${esc(p.name)}">${this.mug(p.id, 48)}<small>${esc(p.name)}</small></span>`).join('');
@@ -2246,7 +2359,10 @@ export class App {
     setMusicContext('gacha');
     this.show(`<div class="screen gacha-screen">${this.titlebar('Máquina de fichajes', 'Menú')}
       <div class="banner-tabs">${tabs}</div>
-      <div class="banner-head" style="--bc:${banner.color}"><div><b>${esc(banner.label)}</b> · ${pool.length} futbolistas ${teamSel}<div class="note">×10 garantiza al menos un Épico o superior. ${banner.id === 'equipo' ? 'Solo futbolistas del equipo elegido; las rarezas altas tienen un tope por jugador.' : `Cada futbolista sale en una sola máquina: la de la primera saga en la que aparece. Precio según sus Míticos (${price.mythics}): sin estrellas 5 · sin Míticos 10 · de 1 a 5 Míticos 15 · 6 o más 20.`}</div></div><div class="feat-row">${feat}</div></div>
+      <div class="banner-head bh4" style="--bc:${banner.color}"><div class="bh-tx"><small>MÁQUINA</small><b>${esc(banner.label)}</b><span>${esc(banner.tagline)} · ${pool.length} futbolistas</span> ${teamSel}
+          <div class="bh-chips"><span>${uiIcon('capsule')}×1 · <b>${PULL_COST}</b></span><span>${uiIcon('capsule')}×10 · <b>${MULTI_COST}</b></span><span class="ok">×10: Épico o mejor asegurado</span></div>
+          <details class="rk-how"><summary>${uiIcon('help')}Precio y reglas</summary><div>${banner.id === 'equipo' ? 'Solo futbolistas del equipo elegido; las rarezas altas tienen un tope por jugador.' : `Cada futbolista sale en una sola máquina: la de la primera saga en la que aparece. Precio según sus Míticos (${price.mythics}): sin estrellas 5 · sin Míticos 10 · de 1 a 5 Míticos 15 · 6 o más 20.`}</div></details></div>
+        <div class="feat-row"><small>DESTACADOS</small><div>${feat}</div></div></div>
       <div class="ie3-machine">${has ? `<div class="ds-top"><img id="globe" src="${this.cap('globe0')}" alt=""></div>
         <div class="ds-bottom" style="background-image:url(${this.cap('panel_bottom')})">
           <img class="goal" src="${this.cap('goal_slot')}" alt=""><div class="knobwrap"><img class="kbase" src="${this.cap('knob_base')}" alt="">
@@ -2258,16 +2374,16 @@ export class App {
           <div class="coins-row"><button class="btn" data-pull="1" ${this.save.tokens < PULL_COST ? 'disabled' : ''}>×1 · ${PULL_COST} fichas</button>
           <button class="btn" data-pull="10" ${this.save.tokens < MULTI_COST ? 'disabled' : ''}>×10 · ${MULTI_COST} fichas</button></div></div>`}</div>
       <div class="gacha-info">
-        <div class="panel gi"><h3>Tus fichas</h3><div class="gi-big"><span class="tokens">${this.save.tokens}</span></div>
+        <div class="panel gi gi-wallet"><h3>${uiIcon('capsule')}Tus fichas</h3><div class="gi-big"><span class="tokens">${this.save.tokens}</span></div>
           <div class="note">×1 cuesta <b>${PULL_COST}</b> · ×10 cuesta <b>${MULTI_COST}</b> (con un Épico o mejor asegurado). ${this.save.tokens < PULL_COST ? `Te faltan ${PULL_COST - this.save.tokens}.` : `Te llega para ${Math.floor(this.save.tokens / PULL_COST)} tirada(s).`}</div></div>
-        <div class="panel gi"><h3>Cómo conseguir fichas</h3><ul class="gi-list"><li>Jugar partidas (más si ganas)</li><li>Misiones diarias, semanales y logros</li><li>Altares y fichas en el campo</li><li>Primera victoria en cada arena y rango</li></ul></div>
-        <div class="panel gi"><h3>Nuevo o duplicado</h3><ul class="gi-list"><li><b class="newtag">NUEVO</b>: se desbloquea para siempre y ya puede ir en Mi Equipo.</li>
+        <div class="panel gi"><h3>${uiIcon('gift')}Cómo conseguir fichas</h3><ul class="gi-list"><li>Jugar partidas (más si ganas)</li><li>Misiones diarias, semanales y logros</li><li>Altares y fichas en el campo</li><li>Primera victoria en cada arena y rango</li></ul></div>
+        <details class="panel gi gi-rules"><summary><h3>${uiIcon('help')}Nuevo, duplicado y ascensión</h3></summary><ul class="gi-list"><li><b class="newtag">NUEVO</b>: se desbloquea para siempre y ya puede ir en Mi Equipo.</li>
           <li><b>Duplicado</b>: suma hacia una estrella (hasta ${MAX_STARS}), cada una +${Math.round((sb.damage - 1) * 100)}% daño y +${Math.round((sb.hp - 1) * 100)}% vida. Copias por estrella: Común ${COPIES_PER_STAR.comun}, Raro y Épico ${COPIES_PER_STAR.raro}, el resto 1.</li>
           <li>Los duplicados también pagan la <b>ascensión</b> de cualquier futbolista (Ascendido y HÉROE): Común ${ASC_COSTS.comun.ascenso}+${ASC_COSTS.comun.heroe}, Raro ${ASC_COSTS.raro.ascenso}+${ASC_COSTS.raro.heroe}, Épico ${ASC_COSTS.epico.ascenso}+${ASC_COSTS.epico.heroe}, Legendario ${ASC_COSTS.legendario.ascenso}+${ASC_COSTS.legendario.heroe}; un Mítico pasa directamente a HÉROE con ${ASC_COSTS.mitico.heroe} y una Leyenda con ${ASC_COSTS.leyenda.heroe}. Después, cada HÉROE gana hasta ${HERO_STARS_MAX} estrellas de héroe (Mítico ${ASC_COSTS.mitico.estrella} duplicados cada una).</li>
-          <li>Con ${MAX_STARS} estrellas y HÉROE, cada copia da monedas (de ${DUPLICATE_REFUND_BY.comun} a ${DUPLICATE_REFUND_BY.leyenda} según la rareza).</li></ul></div>
-        <div class="panel gi"><h3>Probabilidades</h3><div class="odds">${odds}</div>${empty.length ? `<div class="note">${esc(empty.join(', '))}: sin futbolistas por ahora; su probabilidad pasa a la rareza inferior.</div>` : ''}</div>
+          <li>Con ${MAX_STARS} estrellas y HÉROE, cada copia da monedas (de ${DUPLICATE_REFUND_BY.comun} a ${DUPLICATE_REFUND_BY.leyenda} según la rareza).</li></ul></details>
+        <div class="panel gi gi-odds"><h3>${uiIcon('target')}Probabilidades</h3><div class="odds">${odds}</div>${empty.length ? `<div class="note">${esc(empty.join(', '))}: sin futbolistas por ahora; su probabilidad pasa a la rareza inferior.</div>` : ''}</div>
       </div>
-      <div class="panel" style="max-width:980px;margin:10px auto"><h3>Últimas tiradas</h3><div class="hist-row">${hist || '<span class="note">Aún no has tirado.</span>'}</div>
+      <div class="panel gi-hist"><h3>${uiIcon('clock')}Últimas tiradas</h3><div class="hist-row">${hist || '<span class="note">Aún no has tirado.</span>'}</div>
         <div class="note">Fichas = máquina de cápsulas · Monedas = mejoras y tiendas. Gráficos de la máquina: Inazuma Eleven 3 (hoja de The Spriters Resource, ripeada por Avegaille), recurso local.</div></div></div>`);
     this.on('[data-back]', 'click', () => this.mainMenu());
     this.on('[data-banner]', 'click', (_e, el) => { if (this.pulling) return; this.gachaBanner = el.dataset.banner as BannerId; this.gacha(); });
@@ -2278,6 +2394,7 @@ export class App {
       const b = BANNERS[this.gachaBanner];
       const bpool = bannerPool(this.m.roster, b.id, this.gachaTeam);
       const bp = bannerPrice(bpool, b.id);
+      const claimsBefore = new Set(this.teamClaimList().map((c) => `${c.team}|${c.kind}`));
       const res = pull(bpool, this.save, Number(el.dataset.pull) as 1 | 10, Math.random, { cost: bp.cost, multiCost: bp.multiCost, odds: rarityOdds(bpool, b.id) });
       if (!res) { this.pulling = false; return; }
       recordHistory(this.save, res);
@@ -2291,6 +2408,10 @@ export class App {
         this.pulling = false;
       }
       this.gachaSummary(res);
+      // v1.4: a pull that completes a team reward (crest, kit, captain) says which team, right away
+      const fresh = this.teamClaimList().filter((c) => !claimsBefore.has(`${c.team}|${c.kind}`));
+      if (fresh.length) window.setTimeout(() => this.claimNotice(fresh, '¡Nueva recompensa de equipo!'), 300);
+      this.claimsAnnounced = this.collectionClaims(); // already told: the menu does not repeat it
     });
     if (has) this.animateGlobe();
   }
@@ -2358,12 +2479,18 @@ export class App {
       const rank = (r: PullResult) => RARITY_ORDER.indexOf(r.player.rarity) * 2 + (r.isNew ? 1 : 0);
       const sorted = [...results].sort((a, b) => rank(b) - rank(a));
       const badge = (r: PullResult) => r.isNew ? 'NUEVO' : r.refund ? `+${r.refund} ◉` : r.toStar ? `${r.toStar[0]}/${r.toStar[1]} ★` : r.forAscension ? '+1 ascenso' : `★${r.stars}`;
+      const main = new Set(this.m.mainTeams ?? []);
+      const teamOf = (r: PullResult) => teamLabel(r.player.teams.find((t) => main.has(t)) ?? r.player.teams[0] ?? '') || 'Fichatrón';
+      const what = (r: PullResult) => r.isNew ? '<em class="ps-new">¡NUEVO!</em>' : r.refund ? `<em>Duplicado · +${r.refund} monedas</em>` : nextStep(this.save, r.player) && sparesOf(this.save, r.player.id) >= nextStep(this.save, r.player)!.cost ? '<em class="ps-asc">Duplicado · ¡ya puede ascender!</em>' : r.toStar ? `<em>Duplicado · ${r.toStar[0]}/${r.toStar[1]} hacia ★</em>` : '<em>Duplicado</em>';
+      const dupTeams = new Map<string, number>();
+      for (const r of results) if (!r.isNew) dupTeams.set(teamOf(r), (dupTeams.get(teamOf(r)) ?? 0) + 1);
       const news = results.filter((r) => r.isNew).length;
       const ov = document.createElement('div');
       ov.className = 'reveal pull-summary';
       ov.innerHTML = `<div class="pull-summary-box"><h3>${esc(title)} · todo lo que has fichado</h3>
         <div class="note">${[news ? `${news} ${news === 1 ? 'fichaje nuevo' : 'fichajes nuevos'}` : '', results.length - news ? `${results.length - news} ${results.length - news === 1 ? 'duplicado' : 'duplicados'}` : ''].filter(Boolean).join(' · ')}</div>
-        <div class="grid">${sorted.map((r) => `<div class="ps-item r-${r.player.rarity}${r.isNew ? ' is-new' : ''}">${this.pcard(r.player, { badge: badge(r) })}</div>`).join('')}</div>
+        ${dupTeams.size ? `<div class="ps-teams">Duplicados por equipo: ${[...dupTeams].map(([t, n]) => `<span>${esc(t)} ×${n}</span>`).join('')}</div>` : ''}
+        <div class="grid">${sorted.map((r) => `<div class="ps-item r-${r.player.rarity}${r.isNew ? ' is-new' : ''}">${this.pcard(r.player, { badge: badge(r) })}<div class="ps-cap"><b>${esc(teamOf(r))}</b>${what(r)}</div></div>`).join('')}</div>
         <button class="btn big">Aceptar</button></div>`;
       this.root.appendChild(ov);
       mountPreviews();
@@ -2573,22 +2700,31 @@ export class App {
     this.perkTab = cat;
     const levels = categoryLevels(this.save, cat);
     const next = MILESTONES.find((m) => levels < m);
-    const cards = PERKS.filter((p) => p.category === cat).map((p) => {
+    // v1.4: each category with its own colour and icon; cards with the level, now » next and the price on the button
+    const CAT: Record<PerkCategory, [UiIconName, string]> = { Supervivencia: ['soundOn', '#5cdc6a'], Combate: ['fire', '#ff6a3a'], Progresión: ['perks', '#4fd8ff'], Economía: ['shop', '#ffd23f'], Equipo: ['team', '#c58bff'] };
+    CAT.Supervivencia[0] = 'target';
+    const [cic, cc] = CAT[cat];
+    const top = MILESTONES[MILESTONES.length - 1];
+    const cards = PERKS.filter((p) => p.category === cat).map((p, i) => {
       const lv = perkLevel(this.save, p.id);
       const cost = perkCost(p, lv);
       const max = lv >= p.max;
       const blocked = !!p.requires && !perkLevel(this.save, p.requires);
-      return `<div class="perk-card${max ? ' max' : ''}${blocked ? ' blocked' : ''}"><b>${esc(p.label)}</b><div class="note">${esc(p.description)}</div>
-        <div class="perk-now"><span>${lv ? perkValue(p, lv) : '—'}</span>${max ? '' : `<em>»</em><span class="nx">${perkValue(p, lv + 1)}</span>`}</div>
-        <div class="pips">${Array.from({ length: p.max }, (_, i) => `<i class="${i < lv ? 'on' : ''}"></i>`).join('')}</div>
-        <button class="btn small" data-perk="${p.id}" ${max || blocked || this.save.coins < cost ? 'disabled' : ''}>${max ? 'MÁX' : blocked ? 'Requiere la anterior' : `${cost} ◉`}</button></div>`;
+      const poor = !max && !blocked && this.save.coins < cost;
+      return `<div class="pk-card${max ? ' max' : ''}${blocked ? ' blocked' : ''}${lv ? ' some' : ''}" style="--d:${i * 40}ms">
+        <div class="pk-top"><span class="pk-ic">${uiIcon(cic)}</span><b>${esc(p.label)}</b><span class="pk-lv"><em>${lv}</em>/${p.max}</span></div>
+        <div class="pk-desc">${esc(p.description)}</div>
+        <div class="pk-val"><span class="now">${lv ? perkValue(p, lv) : '—'}</span>${max ? '<span class="maxed">MÁXIMO</span>' : `<i>›</i><span class="nx">${perkValue(p, lv + 1)}</span>`}</div>
+        <div class="pk-pips">${Array.from({ length: p.max }, (_, k) => `<i class="${k < lv ? 'on' : ''}"></i>`).join('')}</div>
+        <button class="pk-buy${poor ? ' poor' : ''}" data-perk="${p.id}" ${max || blocked || poor ? 'disabled' : ''}>${max ? '✔ COMPLETA' : blocked ? '🔒 Requiere la anterior' : `<span class="rw-chip c">${cost}</span>${poor ? 'Te faltan monedas' : 'MEJORAR'}`}</button></div>`;
     }).join('');
-    this.show(`<div class="screen">${this.titlebar('Mejoras permanentes', 'Menú')}
-      <div class="seg" id="cats">${PERK_CATEGORIES.map((c) => `<button data-c="${c}" class="${c === cat ? 'on' : ''}">${c} · ${categoryLevels(this.save, c)}</button>`).join('')}</div>
-      <div class="panel cat-head"><div><b>Bonificación de ${cat}: ${CATEGORY_BONUS[cat]}</b><div class="note">Se gana a los ${MILESTONES.join(' y ')} niveles comprados en esta categoría (acumulable).</div></div>
-        <div class="cat-track"><i style="width:${Math.min(100, levels / MILESTONES[MILESTONES.length - 1] * 100)}%"></i><span>${levels}/${next ?? MILESTONES[MILESTONES.length - 1]}</span></div></div>
-      <div class="perk-cards">${cards}</div>
-      <p class="note">Invertido: ${spentOn(this.save)} ◉. Pulsa dos veces para confirmar la compra. <button class="btn small blue" id="refund" ${spentOn(this.save) ? '' : 'disabled'}>Reiniciar y recuperar todo</button></p></div>`);
+    this.show(`<div class="screen pk-screen" style="--cc:${cc}">${this.titlebar('Mejoras permanentes', 'Menú')}
+      <div class="pk-tabs" id="cats">${PERK_CATEGORIES.map((c) => `<button data-c="${c}" class="pk-tab${c === cat ? ' on' : ''}" style="--cc:${CAT[c][1]}"><span class="m4-ic">${uiIcon(CAT[c][0])}</span><b>${c}</b><small>${categoryLevels(this.save, c)} niveles</small></button>`).join('')}</div>
+      <div class="pk-hero"><span class="pk-hero-ic">${uiIcon(cic)}</span><div class="pk-hero-tx"><small>BONIFICACIÓN DE ${cat.toUpperCase()}</small><b>${esc(CATEGORY_BONUS[cat])}</b>
+        <div class="pk-track"><i style="width:${Math.min(100, levels / top * 100)}%"></i>${MILESTONES.map((m) => `<span class="pk-ms${levels >= m ? ' got' : ''}" style="left:${m / top * 100}%"><em>${m}</em></span>`).join('')}</div>
+        <span class="note">${next ? `${levels}/${next} niveles en esta categoría para el siguiente premio (acumulable).` : '¡Todos los premios de esta categoría conseguidos!'}</span></div></div>
+      <div class="pk-cards">${cards}</div>
+      <div class="pk-foot"><span>Invertido: <b>${spentOn(this.save)}</b> monedas · pulsa dos veces para confirmar cada compra</span><button class="btn small blue" id="refund" ${spentOn(this.save) ? '' : 'disabled'}>Reiniciar y recuperar todo</button></div></div>`);
     this.on('[data-back]', 'click', () => this.mainMenu());
     this.on('#cats button', 'click', (_e, el) => this.perks(el.dataset.c as PerkCategory));
     document.getElementById('refund')!.addEventListener('click', (e) => this.armed(e.currentTarget as HTMLElement, () => { refundPerks(this.save); this.persist(); sfx('buy'); this.perks(); }));
@@ -2597,64 +2733,111 @@ export class App {
       if (ok) { this.persist(); sfx('powerup'); } else sfx('error');
       const id = el.dataset.perk;
       this.perks();
-      if (ok) document.querySelector(`[data-perk="${id}"]`)?.closest('.perk-card')?.classList.add('bought');
+      if (ok) document.querySelector(`[data-perk="${id}"]`)?.closest('.pk-card')?.classList.add('bought');
     }));
   }
 
+  /** v1.4: one pending refresh of the rewards screen after the claim animations (several quick claims share it) */
+  private misRefresh = 0;
   missions(kind: MissionKind = this.missionTab, filter = this.missionFilter) {
     setMusicContext('menu');
     rollPeriods(this.save);
     recordCollection(this.save, this.m.roster, this.m.mainTeams ?? []);
     this.missionTab = kind;
     this.missionFilter = filter;
+    window.clearTimeout(this.misRefresh);
     const mult = perkEffects(this.save).missionMult;
-    const tabs: [MissionKind, string][] = [['diaria', 'Diarias'], ['semanal', 'Semanales'], ['partida', 'De partida'], ['logro', 'Logros']];
-    const KIND_ICON: Record<MissionKind, string> = { diaria: '☼', semanal: '▦', partida: '⚽', logro: '★' };
+    const TABS: [MissionKind, string, UiIconName, string][] = [['diaria', 'Diarias', 'clock', 'Se reinician a medianoche'], ['semanal', 'Semanales', 'missions', 'Se reinician el lunes'],
+      ['partida', 'De partida', 'pitch', 'En una sola partida'], ['logro', 'Logros', 'trophy', 'Para siempre']];
     const state = (d: (typeof MISSIONS)[number]) => (isClaimed(this.save, d) ? 'reclamadas' : isClaimable(this.save, d) ? 'disponibles' : 'pendientes');
-    const pend = (k: MissionKind) => MISSIONS.filter((d) => d.kind === k && isClaimable(this.save, d)).length;
-    const list = MISSIONS.filter((d) => d.kind === kind && (filter === 'todas' || state(d) === filter));
+    const ready = MISSIONS.filter((d) => isClaimable(this.save, d));
+    const pend = (k: MissionKind) => ready.filter((d) => d.kind === k).length;
+    const sumCoins = ready.reduce((n, d) => n + Math.round(d.coins * mult), 0), sumTokens = ready.reduce((n, d) => n + d.tokens, 0);
+    const list = MISSIONS.filter((d) => d.kind === kind && (filter === 'todas' || state(d) === filter))
+      .sort((x, y) => ['disponibles', 'pendientes', 'reclamadas'].indexOf(state(x)) - ['disponibles', 'pendientes', 'reclamadas'].indexOf(state(y)));
+    const icon = TABS.find((t) => t[0] === kind)![2];
     const rows = list.map((d, i) => {
-      const p = missionProgress(this.save, d);
-      const st = state(d);
-      return `<div class="mcard ${st}" style="--d:${i * 50}ms"><span class="mc-ic">${KIND_ICON[d.kind]}</span>
-        <div class="mc-body"><b>${esc(d.label)}</b><div class="mbar anim"><i style="--w:${p / d.goal * 100}%"></i><span>${p}/${d.goal}</span></div></div>
-        <div class="mc-rew"><span class="coins">${Math.round(d.coins * mult)}</span>${d.tokens ? `<span class="tokens">${d.tokens}</span>` : ''}${d.dupe ? '<span class="dupe-rew" title="Duplicado de uno de tus Legendarios o Míticos">+1 DUP</span>' : ''}</div>
-        <button class="btn small" data-claim="${d.id}" ${st === 'disponibles' ? '' : 'disabled'}>${st === 'reclamadas' ? '✔ Cobrada' : st === 'disponibles' ? '¡Reclamar!' : 'En curso'}</button></div>`;
-    }).join('') || '<div class="note">Nada en esta lista.</div>';
-    const total = pendingClaims(this.save);
-    const note = kind === 'diaria' ? 'Se reinician a medianoche (hora local).' : kind === 'semanal' ? 'Se reinician el lunes a medianoche (hora local).' : kind === 'partida' ? 'Se cumplen en una sola partida.' : 'Para siempre: se cobran una vez.';
-    this.show(`<div class="screen">${this.titlebar('Misiones', 'Menú')}
-      <div class="mis-top"><div class="seg" id="tabs">${tabs.map(([k, l]) => `<button data-k="${k}" class="${k === kind ? 'on' : ''}">${l}${pend(k) ? ` <span class="notif in">${pend(k)}</span>` : ''}</button>`).join('')}</div>
-        <button class="btn big${total ? ' pulse' : ''}" id="claimall" ${total ? '' : 'disabled'}>RECLAMAR TODO${total ? ` (${total})` : ''}</button></div>
-      <div class="seg small" id="mfilter">${[['todas', 'Todas'], ['disponibles', 'Disponibles'], ['pendientes', 'En curso'], ['reclamadas', 'Reclamadas']].map(([k, l]) => `<button data-f="${k}" class="${k === filter ? 'on' : ''}">${l}</button>`).join('')}</div>
-      <div class="panel mis-list" style="margin-top:10px">${rows}<div class="note">${note}</div></div></div>`);
+      const p = Math.min(d.goal, missionProgress(this.save, d)), st = state(d), pc = Math.round(p / d.goal * 100);
+      return `<div class="rw-card ${st}" data-mid="${d.id}" style="--d:${Math.min(i, 12) * 35}ms;--w:${pc}%"><i class="rw-shine"></i>
+        <span class="rw-ic">${uiIcon(st === 'disponibles' ? 'gift' : icon)}</span>
+        <div class="rw-body"><b>${esc(d.label)}</b><div class="rw-bar"><i></i><span>${p.toLocaleString('es')} / ${d.goal.toLocaleString('es')}</span></div></div>
+        <div class="rw-rew"><span class="rw-chip c">${Math.round(d.coins * mult)}</span>${d.tokens ? `<span class="rw-chip t">${d.tokens}</span>` : ''}${d.train ? `<span class="rw-chip tr" title="Fichas de entrenamiento">+${d.train} ENT</span>` : ''}${d.dupe ? '<span class="rw-chip dp" title="Duplicado de uno de tus Legendarios o Míticos">+1 DUP</span>' : ''}</div>
+        ${st === 'disponibles' ? `<button class="rw-btn" data-claim="${d.id}">¡RECLAMAR!</button>` : st === 'reclamadas' ? '<span class="rw-done">✔ COBRADA</span>' : `<span class="rw-pc">${pc}%</span>`}
+        <span class="rw-stamp">¡COBRADA!</span></div>`;
+    }).join('') || `<div class="rw-empty">${uiIcon('target')}Nada en esta lista.</div>`;
+    this.show(`<div class="screen rw-screen">${this.titlebar('Recompensas', 'Menú')}
+      <div class="rw-hero${ready.length ? ' hot' : ''}"><span class="rw-hero-ic">${uiIcon('gift')}</span>
+        <div class="rw-hero-tx"><small>MISIONES Y LOGROS</small><b>${ready.length ? `¡${ready.length} ${ready.length === 1 ? 'recompensa lista' : 'recompensas listas'}!` : 'Todo cobrado'}</b>
+          <div class="rw-sum">${ready.length ? `<span class="rw-chip c big">${sumCoins}</span><span class="rw-chip t big">${sumTokens}</span>` : '<span class="note">Juega partidas para completar más misiones.</span>'}</div></div>
+        <button class="rw-all" id="claimall" ${ready.length ? '' : 'disabled'}><i class="m4-shine"></i>RECLAMAR TODO${ready.length ? `<em>${ready.length}</em>` : ''}</button></div>
+      <div class="rw-tabs" id="tabs">${TABS.map(([k, l, ic, sub]) => { const all = MISSIONS.filter((d) => d.kind === k), done = all.filter((d) => isClaimed(this.save, d)).length;
+        return `<button data-k="${k}" class="rw-tab${k === kind ? ' on' : ''}"><span class="m4-ic">${uiIcon(ic)}</span><span class="rw-tab-tx"><b>${l}</b><small>${sub}</small><i style="--p:${Math.round(done / Math.max(1, all.length) * 100)}%"></i></span>${pend(k) ? `<span class="m4-badge">${pend(k)}</span>` : ''}</button>`; }).join('')}</div>
+      <div class="rk-chips rw-filter" id="mfilter">${[['todas', 'Todas'], ['disponibles', 'Para cobrar'], ['pendientes', 'En curso'], ['reclamadas', 'Cobradas']].map(([k, l]) => `<button data-f="${k}" class="rk-chip${k === filter ? ' on' : ''}">${l}</button>`).join('')}</div>
+      <div class="rw-list">${rows}</div></div>`);
     this.on('[data-back]', 'click', () => this.mainMenu());
     this.on('#tabs button', 'click', (_e, el) => this.missions(el.dataset.k as MissionKind));
     this.on('#mfilter button', 'click', (_e, el) => this.missions(kind, el.dataset.f as typeof filter));
+    const wallet = () => [this.root.querySelector<HTMLElement>('.titlebar .coins'), this.root.querySelector<HTMLElement>('.titlebar .tokens')] as const;
+    const tick = (c0: number, t0: number) => { // the wallet counts up as the coins land
+      const [wc, wt] = wallet();
+      window.setTimeout(() => { if (wc) countUp(wc, c0, this.save.coins, 650); if (wt) countUp(wt, t0, this.save.tokens, 650); }, 420);
+    };
+    const refreshSoon = (ms: number) => { window.clearTimeout(this.misRefresh); this.misRefresh = window.setTimeout(() => { if (this.screenKey === 'Recompensas') this.missions(kind, filter); }, ms); }; // same screen: show() keeps the scroll
+    const celebrate = (card: HTMLElement) => {
+      card.classList.add('claiming');
+      const btn = card.querySelector('.rw-btn, .rw-rew') ?? card;
+      flyTo(btn, '.coins', 9);
+      if (card.querySelector('.rw-chip.t')) flyTo(btn, '.tokens', 5);
+    };
     document.getElementById('claimall')?.addEventListener('click', (e) => {
-      const at = (e.currentTarget as HTMLElement).getBoundingClientRect();
-      const dupeBefore = this.save.missions.lastDupe;
+      const b = e.currentTarget as HTMLButtonElement;
+      if (b.disabled) return;
+      b.disabled = true;
+      const c0 = this.save.coins, t0 = this.save.tokens, dupeBefore = this.save.missions.lastDupe;
+      const cards = [...this.root.querySelectorAll<HTMLElement>('.rw-card.disponibles')];
       const got = claimAllMissions(this.save, mult, this.m.roster);
       if (!got.count) return;
       this.persist(); // saved before any animation, so closing the tab can't lose it
       sfx('legend');
-      this.missions(kind);
-      flyTo({ x: at.left + at.width / 2, y: at.top }, '.coins', 16);
-      if (got.tokens) flyTo({ x: at.left + at.width / 2, y: at.top }, '.tokens', 8);
-      confetti(40);
+      // the cards of this list pop one after another; the other tabs are paid in the same go
+      cards.forEach((c, i) => window.setTimeout(() => { celebrate(c); sfx('pickup', 1 + i * 0.05); }, i * 90));
+      if (!cards.length) { flyTo(b, '.coins', 16); if (got.tokens) flyTo(b, '.tokens', 8); }
+      tick(c0, t0);
       const dupe = this.save.missions.lastDupe !== dupeBefore && this.save.missions.lastDupe ? this.byId.get(this.save.missions.lastDupe) : undefined;
-      this.rewardSummary('¡Recompensas cobradas!', [`${got.count} ${got.count === 1 ? 'misión' : 'misiones'}`, `+${got.coins} monedas`, ...(got.tokens ? [`+${got.tokens} fichas`] : []), ...(dupe ? [`Duplicado de ${dupe.name}`] : [])]);
+      window.setTimeout(() => { confetti(50); this.rewardBurst(got, dupe?.name); }, Math.min(900, cards.length * 90 + 350));
+      refreshSoon(Math.min(900, cards.length * 90 + 350) + 200);
     });
     this.on('[data-claim]', 'click', (_e, el) => {
-      const coins = claimMission(this.save, el.dataset.claim!, perkEffects(this.save).missionMult, this.m.roster);
-      if (coins) { this.persist(); sfx('buy'); }
-      const at = el.getBoundingClientRect();
-      this.missions(kind);
-      if (coins) {
-        flyTo({ x: at.left + at.width / 2, y: at.top }, '.coins', 12);
-        flyTo({ x: at.left + at.width / 2, y: at.top }, '.tokens', 5);
-      }
+      const card = el.closest('.rw-card') as HTMLElement;
+      if (!card || card.classList.contains('claiming')) return;
+      const c0 = this.save.coins, t0 = this.save.tokens;
+      const coins = claimMission(this.save, el.dataset.claim!, mult, this.m.roster);
+      if (!coins && this.save.tokens === t0) { sfx('error'); return; }
+      this.persist();
+      sfx('buy');
+      (el as HTMLButtonElement).disabled = true;
+      celebrate(card);
+      tick(c0, t0);
+      refreshSoon(1100);
     });
+  }
+
+  /** v1.4: the summary after «Reclamar todo»: the totals count up in big numbers, then it closes itself. */
+  private rewardBurst(got: { count: number; coins: number; tokens: number }, dupe?: string) {
+    document.getElementById('rsum')?.remove();
+    const box = document.createElement('div');
+    box.id = 'rsum';
+    box.className = 'rw-burst';
+    box.innerHTML = `<div class="rw-burst-card"><i class="rw-rays"></i><small>${got.count} ${got.count === 1 ? 'MISIÓN COBRADA' : 'MISIONES COBRADAS'}</small><b>¡Recompensas!</b>
+      <div class="rw-burst-row"><span class="rw-chip c huge"><em id="rbc">+0</em></span>${got.tokens ? `<span class="rw-chip t huge"><em id="rbt">+0</em></span>` : ''}</div>
+      ${dupe ? `<div class="rw-burst-dupe">+1 duplicado de <b>${esc(dupe)}</b></div>` : ''}<span class="note">Toca para cerrar</span></div>`;
+    const close = () => { box.classList.add('out'); window.setTimeout(() => box.remove(), 220); };
+    box.addEventListener('click', close);
+    document.body.appendChild(box);
+    countUp(box.querySelector('#rbc') as HTMLElement, 0, got.coins, 900, '+');
+    const t = box.querySelector('#rbt') as HTMLElement | null;
+    if (t) countUp(t, 0, got.tokens, 900, '+');
+    window.setTimeout(close, 3200);
   }
 
   shop(playerId?: number) {
@@ -2665,16 +2848,30 @@ export class App {
       const lv = this.save.shop.techBoosts[String(t.id)] ?? 0;
       const locked = isLocked(t) && !isBought(this.save, p.id, i);
       const bought = isBought(this.save, p.id, i);
-      return `<div class="perk"><div>${this.techHtml(t)}<div class="note">${locked ? 'Bloqueada: solo se puede aprender comprándola.' : bought ? 'Desbloqueada: aparece desde el nivel 1 de la partida.' : `Aparece en partida a partir del nivel ${Math.floor(t.unlockLevel / 6)}.`} Manual ${lv}/${MAX_TECH_BOOST} (+${lv * 5}% daño).</div></div>
-        <div class="shop-btns">${i === startingTech(p) ? '<span class="tag">Inicial</span>' : `<button class="btn small" data-unlock="${i}" ${bought || this.save.coins < unlockCost(t) ? 'disabled' : ''}>${bought ? 'Desbloqueada' : `Desbloquear ${unlockCost(t)} ◉`}</button>`}
-        <button class="btn small blue" data-boost="${i}" ${lv >= MAX_TECH_BOOST || this.save.coins < boostCost(t, lv) ? 'disabled' : ''}>${lv >= MAX_TECH_BOOST ? 'Manual MÁX' : `Manual ${boostCost(t, lv)} ◉`}</button></div></div>`;
+      const start = i === this.startOf(p);
+      const state = start ? ['★ INICIAL', 'ok'] : bought ? ['DESBLOQUEADA', 'ok'] : locked ? ['SOLO COMPRANDO', 'lock'] : [`DESDE NIVEL ${Math.floor(t.unlockLevel / 6)}`, 'lv'];
+      return `<div class="ts-tech ${state[1]}" style="--d:${i * 50}ms">${this.techHtml(t)}
+        <div class="ts-status"><span class="ts-badge ${state[1]}">${state[0]}</span>
+          <div class="ts-pips" title="Manuales de daño">${Array.from({ length: MAX_TECH_BOOST }, (_, k) => `<i class="${k < lv ? 'on' : ''}"></i>`).join('')}<small>Manual ${lv}/${MAX_TECH_BOOST} · +${lv * 5}% daño</small></div>
+          <small class="ts-why">${locked ? 'Solo se aprende comprándola.' : bought || start ? 'Aparece desde el nivel 1 de la partida.' : `Aparece sola en partida a partir del nivel ${Math.floor(t.unlockLevel / 6)}; comprándola, desde el 1.`}</small></div>
+        <div class="shop-btns">${t.type === 'talento' ? '' : start ? '<span class="ts-start on">★ Técnica inicial</span>' : this.canStartWith(p, i) ? `<button class="ts-start" data-start="${p.id}:${i}">☆ Empezar con esta</button>` : ''}
+        ${start || i === startingTech(p) || bought ? '' : `<button class="btn small" data-unlock="${i}" ${this.save.coins < unlockCost(t) ? 'disabled' : ''}>Desbloquear · ${unlockCost(t)} ◉</button>`}
+        <button class="btn small blue" data-boost="${i}" ${lv >= MAX_TECH_BOOST || this.save.coins < boostCost(t, lv) ? 'disabled' : ''}>${lv >= MAX_TECH_BOOST ? 'Manual MÁX' : `Manual · ${boostCost(t, lv)} ◉`}</button></div></div>`;
     }).join('') ?? '';
-    this.show(`<div class="screen">${this.titlebar('Tienda de técnicas', 'Menú')}
-      <div class="panel"><div class="note">Cada futbolista solo usa su propio repertorio. La tienda desbloquea técnicas de ese repertorio y vende manuales de daño permanente; subir de nivel una técnica en partida es aparte.</div>
-      ${p ? `<h3 style="margin-top:10px">${esc(p.name)}</h3>${rows}` : ''}</div>
-      <h3 class="saga">Elige futbolista</h3><div class="mini-list">${owned.map((o) => `<button class="mini-pick${o.id === p?.id ? ' on' : ''}" data-p="${o.id}" title="${esc(o.name)}">${this.mug(o.id, 48)}</button>`).join('')}</div></div>`);
+    const pr = p ? effectiveRarity(this.save, p) : 'comun';
+    this.show(`<div class="screen ts-screen">${this.titlebar('Tienda de técnicas', 'Menú')}
+      <div class="ts-wrap">
+        <aside class="ts-side"><h4>${uiIcon('team')}Tu plantilla <small>${owned.length}</small></h4><div class="ts-list">${owned.map((o) => { const r = effectiveRarity(this.save, o); return `<button class="ts-pick${o.id === p?.id ? ' on' : ''}" data-p="${o.id}" style="--rc:${RARITY_COLOR[r]}">${this.mug(o.id, 36)}<span><b>${esc(o.name)}</b><small>${RARITY_LABEL[r]} · ${o.techniques.length} técnicas</small></span></button>`; }).join('')}</div></aside>
+        <section class="ts-main">${p ? `<div class="ts-head" style="--rc:${RARITY_COLOR[pr]}"><span class="ts-mug">${this.mug(p.id, 96)}</span>
+            <div><small>REPERTORIO</small><b>${esc(p.name)}</b><div class="ts-tags">${this.rar(p)} ${this.elem(p)}</div>
+            <p>Cada futbolista solo usa su propio repertorio. Aquí desbloqueas sus técnicas y compras <b>manuales</b> de daño permanente (subir de nivel una técnica en partida es aparte).</p></div></div>
+          <div class="ts-techs">${rows}</div>` : '<div class="note">Aún no tienes futbolistas.</div>'}</section>
+      </div></div>`);
+    { const list = this.root.querySelector<HTMLElement>('.ts-list'), on = this.root.querySelector<HTMLElement>('.ts-pick.on');
+      if (list && on) list.scrollTop = on.offsetTop - list.offsetTop - list.clientHeight / 2 + on.offsetHeight / 2; } // the chosen player stays in view, the page does not jump
     this.on('[data-back]', 'click', () => this.mainMenu());
     this.on('[data-p]', 'click', (_e, el) => this.shop(Number(el.dataset.p)));
+    this.on('[data-start]', 'click', (_e, el) => { this.setStart(el.dataset.start!); this.shop(p?.id); });
     this.on('[data-unlock]', 'click', (_e, el) => this.armed(el, () => { if (p && buyTechUnlock(this.save, p, Number(el.dataset.unlock))) { this.persist(); sfx('buy'); } this.shop(p?.id); }));
     this.on('[data-boost]', 'click', (_e, el) => this.armed(el, () => { if (p && buyTechBoost(this.save, p, Number(el.dataset.boost))) { this.persist(); sfx('buy'); } this.shop(p?.id); }));
   }
@@ -2831,22 +3028,36 @@ export class App {
     const got = items.filter((x) => x.ok).length;
     const st = this.save.stats;
     const teams = eligibleTeams(this.m.roster);
-    this.show(`<div class="screen">${this.titlebar('Perfil', 'Menú')}
-      <div class="panel profile-head">${this.profileIcon(96)}<div style="flex:1">
-        <div class="opt-row"><span>Nombre</span><b class="perm-name">${esc(this.save.profile.name)}</b><span class="note">permanente</span></div>
-        <div class="opt-row"><span>Equipo favorito</span><select id="pteam"><option value="">Sin elegir</option>${teams.map((t) => `<option value="${esc(t)}" ${this.save.favoriteTeam === t ? 'selected' : ''}>${esc(teamLabel(t))}</option>`).join('')}</select></div>
-        <div class="result-grid"><div class="stat"><span class="note">Partidas</span><b>${st.runs}</b></div><div class="stat"><span class="note">Victorias</span><b>${st.wins}</b></div>
-        <div class="stat"><span class="note">Eliminaciones</span><b>${st.kills}</b></div><div class="stat"><span class="note">Mejor tiempo</span><b>${fmtTime(st.bestTimeSec)}</b></div>
-        <div class="stat"><span class="note">Colección</span><b>${this.unlockedRoster().length}/${this.m.roster.length}</b></div><div class="stat"><span class="note">Fichajes</span><b>${st.pulls}</b></div></div></div></div>
+    // v1.4: a player card at the top; the favourite team is chosen once and then stays (it shapes the shop and the pass)
+    const fav = this.save.favoriteTeam;
+    const owned = this.unlockedRoster();
+    const heroes = Object.values(this.save.owned).filter((o) => o.hero).length;
+    const achv = MISSIONS.filter((d) => d.kind === 'logro' && isClaimed(this.save, d)).length, achvAll = MISSIONS.filter((d) => d.kind === 'logro').length;
+    const best = owned.slice().sort((x, y) => this.meanOf(y) - this.meanOf(x))[0];
+    const tile = (icon: UiIconName, label: string, val: string | number, cls = '') => `<div class="pf-stat ${cls}"><span class="m4-ic">${uiIcon(icon)}</span><span><small>${label}</small><b>${val}</b></span></div>`;
+    const tabs: ['emblem' | 'player' | 'coach', string, UiIconName][] = [['emblem', 'Escudos de equipo', 'shirt'], ['player', 'Jugadores', 'team'], ['coach', 'Entrenadores', 'crown']];
+    this.show(`<div class="screen pf-screen">${this.titlebar('Perfil', 'Menú')}
+      <div class="pf-card"><i class="rw-rays"></i>
+        <div class="pf-avatar">${this.profileIcon(112)}${this.save.crest && this.emblemOf(this.save.crest) ? `<img class="pf-crest" src="${this.emblemOf(this.save.crest)}" alt="">` : ''}</div>
+        <div class="pf-main"><small>${signedIn() ? 'JUGADOR CON CUENTA' : 'JUGADOR INVITADO'}</small><b class="pf-name">${esc(this.save.onlineName || this.save.profile.name)}</b>
+          <div class="pf-tags"><span class="pf-tag">${uiIcon('trophy')}${st.wins} ${st.wins === 1 ? 'victoria' : 'victorias'}</span><span class="pf-tag">${uiIcon('cards')}${owned.length}/${this.m.roster.length}</span>${heroes ? `<span class="pf-tag hero">★ ${heroes} HÉROE</span>` : ''}</div>
+          <div class="pf-fav">${fav ? `${this.emblemOf(fav) ? `<img src="${this.emblemOf(fav)}" alt="">` : ''}<span><small>EQUIPO FAVORITO</small><b>${esc(teamLabel(fav))}</b></span><em title="El equipo favorito se elige una vez y no se puede cambiar">🔒 Para siempre</em>`
+            : `<span><small>EQUIPO FAVORITO</small><b>Aún sin elegir</b></span><select id="pteam"><option value="">Elige… (solo una vez)</option>${teams.map((t) => `<option value="${esc(t)}">${esc(teamLabel(t))}</option>`).join('')}</select>`}</div></div>
+        ${best ? `<div class="pf-best" style="--rc:${RARITY_COLOR[effectiveRarity(this.save, best)]}"><small>TU MEJOR FUTBOLISTA</small>${this.mug(best.id, 72)}<b>${esc(best.name)}</b><span>Media ${this.meanOf(best)}</span></div>` : ''}</div>
+      <div class="pf-stats">${tile('pitch', 'Partidas', st.runs)}${tile('trophy', 'Victorias', st.wins, 'gold')}${tile('fire', 'Eliminaciones', st.kills.toLocaleString('es'))}${tile('clock', 'Mejor tiempo', fmtTime(st.bestTimeSec))}
+        ${tile('capsule', 'Fichajes', st.pulls)}${tile('cards', 'Colección', `${owned.length}/${this.m.roster.length}`)}${tile('crown', 'Logros', `${achv}/${achvAll}`)}${tile('perks', 'Héroes', heroes)}</div>
       ${this.accountPanel()}
-      <div class="panel"><h3>Icono de perfil</h3><div class="seg" id="tabs">
-        <button data-t="emblem" class="${tab === 'emblem' ? 'on' : ''}">Escudos de equipo</button>
-        <button data-t="player" class="${tab === 'player' ? 'on' : ''}">Jugadores</button>
-        <button data-t="coach" class="${tab === 'coach' ? 'on' : ''}">Entrenadores</button></div>
-        <div class="note">${got}/${items.length} desbloqueados${tab === 'player' ? ' (solo aparecen los de tu colección)' : ''}.</div>
+      <div class="panel pf-icons"><h3>${uiIcon('target')}Icono de perfil <small>${got}/${items.length} desbloqueados${tab === 'player' ? ' · los de tu colección' : ''}</small></h3>
+        <div class="rw-tabs pf-tabs" id="tabs">${tabs.map(([k, l, i]) => `<button data-t="${k}" class="rw-tab${tab === k ? ' on' : ''}"><span class="m4-ic">${uiIcon(i)}</span><span class="rw-tab-tx"><b>${l}</b></span></button>`).join('')}</div>
         <div class="icon-grid">${items.map((it) => `<button class="iconpick${ic.kind === tab && ic.id === it.id ? ' on' : ''}${it.ok ? '' : ' locked'}" data-id="${it.id}" ${it.ok ? '' : 'disabled'} title="${esc(it.label)}${it.ok ? '' : ` · ${esc(it.why)}`}">${it.html}${it.ok ? '' : '<span class="lockic">🔒</span>'}</button>`).join('')}</div></div></div>`);
     this.on('[data-back]', 'click', () => this.mainMenu());
-    document.getElementById('pteam')!.addEventListener('change', (e) => { this.save.favoriteTeam = (e.target as HTMLSelectElement).value || null; this.persist(); });
+    document.getElementById('pteam')?.addEventListener('change', (e) => {
+      const sel = e.target as HTMLSelectElement, v = sel.value;
+      if (!v) return;
+      // chosen once: a second tap confirms, then it is fixed
+      if (sel.dataset.armed !== v) { sel.dataset.armed = v; this.toast(`¿Seguro? ${teamLabel(v)} será tu equipo favorito para siempre. Elígelo otra vez para confirmar.`, 4000); sel.value = ''; return; }
+      this.save.favoriteTeam = v; this.persist(); sfx('legend'); confetti(30); this.profile(tab);
+    });
     this.on('#tabs button', 'click', (_e, el) => this.profile(el.dataset.t as 'emblem' | 'player' | 'coach'));
     this.bindAccount(() => this.profile(tab));
     this.on('.iconpick', 'click', (_e, el) => {
@@ -2882,8 +3093,8 @@ export class App {
           <div class="hud-stats"><span id="kills"></span><span class="st-coins" id="runcoins"></span><span class="st-tokens" id="runtokens"></span></div>
         </div></div>
       <div class="res-chips" id="reson"></div>
-      <div class="top-right"><div class="clock" id="clock"></div>
-        <div class="formation-hud" id="fbtns">${FORMATION_ORDER.map((f) => `<button data-f="${f}" title="${esc(FORMATIONS[f].description)}">${FORMATION_ICON(f, 40)}<span><b>${FORMATIONS[f].key}</b> ${FORMATIONS[f].label}</span></button>`).join('')}</div>
+      <div class="top-right"><div class="clock" id="clock"><span class="ck-ic">${uiIcon('clock')}</span><b id="clocktxt"></b><i class="ck-bar"><i id="clockbar"></i></i></div>
+        <div class="formation-hud" id="fbtns">${FORMATION_ORDER.map((f) => `<button data-f="${f}" title="${esc(FORMATIONS[f].description)}">${FORMATION_ICON(f, 40)}<kbd>${FORMATIONS[f].key}</kbd><span>${FORMATIONS[f].label}</span></button>`).join('')}</div>
         <div class="fdesc" id="fdesc"></div>
         <button class="btn small blue pausebtn" id="pausebtn">II Pausa</button></div>
       <div class="bossbar" id="boss" style="display:none"><div class="bn"></div><div class="bar boss"><i></i></div></div>
@@ -3002,7 +3213,10 @@ export class App {
         return `<div class="syn-chip${x.bonus > 0 ? ' on' : ''}${up}" style="--ec:${ec}" title="${esc(x.hint)}">${icon}<span class="syn-txt"><small>${esc(x.label)}</small><span class="syn-pips">${pips}</span></span><b>${x.bonus > 0 ? `+${Math.round(x.bonus * 100)}%` : `${x.count}/${x.goal}`}</b></div>`;
       }).join('');
     }
-    document.getElementById('clock')!.textContent = s.endless ? `∞ ${fmtTime(s.endless.sec)} · ${s.endless.phase}` : `${fmtTime(s.timeSec)} / ${fmtTime(s.durationSec)}`;
+    document.getElementById('clocktxt')!.textContent = s.endless ? `∞ ${fmtTime(s.endless.sec)} · ${s.endless.phase}` : `${fmtTime(s.timeSec)} / ${fmtTime(s.durationSec)}`;
+    // v1.4: the clock fills up towards the boss and warms up in the last minute
+    (document.getElementById('clockbar') as HTMLElement).style.width = `${s.endless ? 100 : Math.min(100, s.timeSec / Math.max(1, s.durationSec) * 100)}%`;
+    document.getElementById('clock')!.classList.toggle('late', !s.endless && s.durationSec - s.timeSec < 60);
     document.getElementById('kills')!.textContent = `✖ ${s.kills}`;
     this.root.querySelectorAll<HTMLElement>('#fbtns button').forEach((b) => b.classList.toggle('on', b.dataset.f === s.formation));
     const F = FORMATIONS[s.formation];
@@ -3031,7 +3245,7 @@ export class App {
       this.hudTeamKey = key;
       const slots = Array.from({ length: MAX_TEAM }, (_, i) => s.team[i]);
       teamEl.innerHTML = slots.map((t, i) => {
-        if (!t) return '<div class="plate empty"><span>Ficha al subir<br>de nivel</span></div>';
+        if (!t) return '<div class="plate empty"><b>+</b><span>Ficha al subir de nivel</span></div>';
         const p = this.byId.get(t.id)!;
         return `<div class="plate${i === 0 ? ' cap' : ''}" data-m="${t.id}" style="--rc:${RARITY_COLOR[p.rarity]};--ec:${ELEMENT_COLOR[String(p.element)] ?? '#ccc'}">
           <div class="pl-head"><span class="pl-mug">${this.mug(t.id, 40)}</span>${i === 0 ? '<span class="pl-c">C</span>' : ''}
@@ -3191,6 +3405,7 @@ export class App {
       const shownAt = performance.now();
       const pick = (el: HTMLElement, cs: Card[]) => {
         if (chosen) return;
+        if (performance.now() < Number(el.closest<HTMLElement>('.lvc')?.dataset.ready ?? 0)) return; // still turning over: no picks by accident
         chosen = true;
         window.removeEventListener('keydown', keys, true);
         el.classList.add('picked');
@@ -3219,9 +3434,20 @@ export class App {
         mountPreviews();
         const modal = document.getElementById('lvl')!;
         current = cs;
-        modal.querySelectorAll<HTMLElement>('.lvcard').forEach((el) => {
+        modal.querySelectorAll<HTMLElement>('.lvcard').forEach((el, k) => {
           el.insertAdjacentHTML('afterbegin', `<kbd class="lv-key">${Number(el.dataset.i) + 1}</kbd>`);
+          el.insertAdjacentHTML('beforeend', '<i class="lv-glare"></i>');
           el.addEventListener('click', () => pick(el, cs));
+          // v1.4: each card comes in face down and turns over, one after another (a card back with the InaZurvivors bolt)
+          const kind = ['recruit', 'upgrade', 'learn', 'combo', 'stat', 'passive', 'heal'].find((c) => el.classList.contains(c)) ?? 'heal';
+          const wrap = document.createElement('div');
+          wrap.className = `lvc k-${kind}`;
+          wrap.style.setProperty('--k', String(k));
+          wrap.dataset.ready = String(performance.now() + (document.body.classList.contains('reduced-motion') ? 0 : 420 + k * 160));
+          wrap.innerHTML = `<div class="lvc-in"><div class="lvc-back"><svg viewBox="0 0 60 100"><polygon points="38,0 6,56 26,56 16,100 56,38 34,38"/></svg><b>INAZURVIVORS</b></div></div>`;
+          el.replaceWith(wrap);
+          wrap.firstElementChild!.prepend(el);
+          if (!document.body.classList.contains('reduced-motion')) window.setTimeout(() => sfx('whoosh', 1 + k * 0.12), 260 + k * 160);
         });
         document.getElementById('reroll')?.addEventListener('click', () => {
           const next = reroll();

@@ -15,6 +15,42 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: '5.3', date: '2026-11-03', title: 'v1.4',
+    features: [
+      'Técnica inicial de cada futbolista: en su plaza de Mi Equipo pulsas la técnica con la que empieza la partida (★); también desde la tienda de técnicas y la ficha de la colección («Empezar con esta»). Los talentos no cuentan: son pasivos. Antes solo se podía con el capitán.',
+      'Los avisos de la Colección dicen qué equipo y qué recompensa (escudo, equipación o duplicado del capitán) y llevan a ella al pulsarlos; un fichaje que completa una recompensa de equipo te lo dice al momento.',
+      'El resumen de fichajes dice el equipo de cada futbolista, qué ha hecho cada duplicado (estrella, monedas o «¡ya puede ascender!») y cuántos duplicados son de cada equipo.',
+    ],
+    fixes: [
+      'Avisos sin nada detrás: una tarjeta de equipo marcaba «!» por una equipación sin recursos, y el aviso del menú se quedaba encima de otras pantallas. Ahora solo avisan de lo que de verdad se puede recoger, y el aviso se va al cambiar de pantalla.',
+      'HUD en el móvil en vertical: la química y el reloj ya no tapan el panel del capitán, y el minimapa va debajo de los botones.',
+      'Máquina de fichajes en el móvil: la máquina y las pestañas ya no quedan aplastadas ni tapan el resto.',
+      'Arion Sherwind vuelve a ser de elemento Aire (salía como Montaña) y cambia Círculo de hielo por su Brisa deslizante. Corregido también el elemento de otros 11 futbolistas de IE3 que lo tenían mal en los datos (por ejemplo Lance Speares, Shady Shwartz o Hershel Layton).',
+    ],
+    visuals: [
+      'Técnicas rehechas mirando sus escenas del anime fotograma a fotograma: Viento celestial (alas blancas con borde rojo, rayos dorados enroscados al balón y bola de fuego dorada), Tormenta, tornado, huracán (medias lunas de viento blanco que envuelven el balón y estela de arena), Tormenta de fuego (columna de fuego y gigante de llamas detrás que saca músculo; lenguas de fuego en el balón) y Ciclón blanco (rayos dorados, espiral de viento hasta un vórtice y balón dorado en una burbuja con una gran media luna de huracán). Brisa deslizante con cintas de brisa, hojas y huellas del paso.',
+      'Recompensas (misiones y logros) rediseñadas: cabecera con el total listo para cobrar, pestañas con su progreso, tarjetas con barra animada; al reclamar, la tarjeta salta con un sello «¡COBRADA!», las monedas vuelan al monedero y lo cuentan, y «Reclamar todo» abre un resumen con los totales y confeti. Ya no te devuelve arriba del todo al cobrar.',
+      'Pase semanal rediseñado: la recompensa de hoy en grande con su botón, el camino de los siete días (cobrados con sello, el de hoy saltando, el de mañana marcado), barra del ciclo y un cobro con confeti y monedas volando.',
+      'Perfil rediseñado: tarjeta de jugador (icono grande con su escudo, nombre, victorias, colección y héroes), tu mejor futbolista y ocho estadísticas con icono. El equipo favorito se elige una sola vez (con confirmación) y luego queda fijo.',
+      'Elegir arena: tu equipo arriba con sus caras y un botón «Cambiar equipo» que lleva a Mi Equipo.',
+      'Noticias: los fixes (Fix 1.31, 1.22…) van en naranja con una llave inglesa; las actualizaciones de número (1.3, 1.4) siguen en verde.',
+      'Cartas de subir de nivel: entran boca abajo (dorso con el rayo de InaZurvivors y el color de su tipo), se dan la vuelta una tras otra con un destello, se inclinan en 3D con un reflejo al pasar el ratón, y la cinta «¡Nuevo fichaje!» ya no tapa nada (es una etiqueta bajo la cabecera). Mientras gira, una carta no se puede elegir sin querer.',
+      'HUD de partida, segunda vuelta: panel del capitán con franja y escudo redondo, vida con corazón y segmentos, nivel hexagonal, reloj con barra que se llena hasta el jefe (se pone rojo el último minuto), formaciones como un interruptor con sus teclas y fichas del equipo como cartas con retrato redondo, elemento y técnicas con su recarga circular. Cartas de subir de nivel con cabecera del color de su tipo y escenario iluminado.',
+      'Mejoras permanentes rediseñadas: pestañas con color e icono por categoría, premio de la categoría con sus hitos en la barra, y tarjetas con nivel, valor actual » siguiente, barras y el precio en el botón (con un «+1» al comprar). Las cartas de subir de nivel en partida, también renovadas.',
+      'HUD de partida renovado: paneles de cristal redondeados, barras de vida y experiencia con brillo y segmentos, reloj, formaciones y minimapa a juego, y placas del equipo con el color de su rareza.',
+      'Colección con cabecera de progreso (total y por rareza) y «Reclamar todo» grande; tarjetas de equipo y títulos de saga renovados. Fichajes: paneles con iconos y las reglas plegables.',
+      'Noticias personalizadas: cabecera «La Gaceta InaZurvivors» con los no leídos y un escudo propio por tipo (el rayo de InaZurvivors con su versión en las actualizaciones, periódico, aviso o estrella).',
+      'Noticias con el estilo del juego: paneles azules de estadio, titulares en amarillo y etiquetas de color por tipo.',
+      'Menú principal rediseñado: barra superior con perfil, fichas y monedas, y botones de Noticias, Ajustes, sonido y bug; JUGAR y Mi Equipo grandes (con las caras del equipo); el resto en tres grupos con iconos vectoriales nuevos (Tu club, Fichajes, Competición); el capitán sobre un foco del estadio con su media y su radar; noticias como un periódico, desafíos con barras y arenas con sus rangos.',
+      'Ranking: cabecera, filtros de un toque (orden, rango, arena), podio de tres escalones con el capitán de cada jugador y filas nuevas; también el ranking del menú.',
+      'Máquina de fichajes: cada máquina con su mejor futbolista y su precio; cabecera de la máquina elegida con destacados, precios y garantía; reglas plegadas.',
+      'Tienda: tarjetas de producto con el color de la rareza; tienda de técnicas con lista de futbolistas, cabecera del elegido y cada técnica con su estado y manuales.',
+      'Elige arena: dificultad con insignias de rango y arenas con su mapa grande, duración, rivales y jefe.',
+      'Todas las pantallas: fondo de estadio, barra de título flotante con volver y monedero, paneles, botones, pestañas, misiones, mejoras, ajustes, equipaciones, pase y avisos con el mismo estilo.',
+    ],
+    balance: [],
+  },
+  {
     version: '5.2', date: '2026-11-02', title: 'v1.32',
     features: [
       'Noticias: tablón con lista (etiqueta Novedad, Aviso, Actualización o Evento, fijadas, fecha y punto de no leída) y la noticia completa con cabecera, apartados, listas, recuadros de aviso y novedad y separadores. Las noticias del autor se escriben en src/data/news.ts y todas las actualizaciones públicas se añaden solas como registro.',

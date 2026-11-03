@@ -5,7 +5,7 @@
  *
  * HOW TO ADD A NEWS ITEM — copy one entry of AUTHOR_NEWS to the top of the list and change it:
  *   id       unique, never reused (it marks the item as read)
- *   kind     'novedad' (blue) · 'aviso' (red) · 'actualizacion' (green) · 'evento' (purple)
+ *   kind     'novedad' (blue) · 'aviso' (red) · 'actualizacion' (green) · 'fix' (orange, patches) · 'evento' (purple)
  *   date     'YYYY-MM-DD'          pinned   true to keep it at the top
  *   title / summary                icon     one emoji or symbol for its tile
  *   blocks   the body, in order:
@@ -17,7 +17,7 @@
  */
 import { PUBLIC_RELEASES, type PublicRelease } from './release';
 
-export type NewsKind = 'novedad' | 'aviso' | 'actualizacion' | 'evento';
+export type NewsKind = 'novedad' | 'aviso' | 'actualizacion' | 'fix' | 'evento';
 export type NewsBlock =
   | { h: string; icon?: string }
   | { p: string }
@@ -26,7 +26,7 @@ export type NewsBlock =
   | { divider: true };
 export interface NewsItem { id: string; kind: NewsKind; date: string; title: string; summary: string; icon?: string; pinned?: boolean; blocks: NewsBlock[]; version?: string }
 
-export const NEWS_KIND_LABEL: Record<NewsKind, string> = { novedad: 'NOVEDAD', aviso: 'AVISO', actualizacion: 'ACTUALIZACIÓN', evento: 'EVENTO' };
+export const NEWS_KIND_LABEL: Record<NewsKind, string> = { novedad: 'NOVEDAD', aviso: 'AVISO', actualizacion: 'ACTUALIZACIÓN', fix: 'FIX', evento: 'EVENTO' };
 
 export const AUTHOR_NEWS: NewsItem[] = [
   {
@@ -40,7 +40,7 @@ export const AUTHOR_NEWS: NewsItem[] = [
       { divider: true },
       { h: 'El registro de actualizaciones', icon: '📜' },
       { p: 'Todas las versiones públicas, desde la **v1.0**, se quedan en el tablón con su fecha: puedes repasar qué trajo cada una cuando quieras.' },
-      { list: ['Las **actualizaciones** van en verde.', 'Los **avisos** van en rojo: léelos, suelen ser importantes.', 'Las **novedades** y los **eventos** van en azul y morado.'] },
+      { list: ['Las **actualizaciones** (cambio de versión, como la 1.4) van en verde.', 'Los **fixes** (parches como el Fix 1.31) van en naranja.', 'Los **avisos** van en rojo: léelos, suelen ser importantes.', 'Las **novedades** y los **eventos** van en azul y morado.'] },
     ],
   },
 ];
@@ -49,7 +49,8 @@ export const AUTHOR_NEWS: NewsItem[] = [
 export function releaseNews(r: PublicRelease, online = true): NewsItem {
   const feats = r.features.filter((f) => online || !f.online);
   return {
-    id: `version-${r.version}`, kind: 'actualizacion', date: r.date, icon: '⚙', version: r.version,
+    // v1.4: a «Fix» (1.31, 1.22...) is a patch, shown in its own colour; a version number change (1.3, 1.4) is an update
+    id: `version-${r.version}`, kind: /fix/i.test(r.title) ? 'fix' : 'actualizacion', date: r.date, icon: '⚙', version: r.version,
     title: r.title, summary: r.tagline,
     blocks: [
       { p: r.intro },

@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import '@fontsource/press-start-2p';
 import './style.css';
+import './style14.css';
 import type { Manifest } from './data/manifest';
 import { ArenaScene } from './game/ArenaScene';
 import { MenuScene } from './game/MenuScene';

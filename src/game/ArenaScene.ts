@@ -35,6 +35,7 @@ import { orphans } from '../systems/groundSweep';
 import { chaosMeteorCharge, chaosMeteorShot, chaosVortex, fireStormCharge, fireStormShot, earthGlobe, elementBurst, fireIceTwin, phoenix, phoenixFlight, setLowPower, teamBeams } from './fxManif';
 import { blackAshCharge, blackAshTrail, illusionBall, signatureOf, stormZone } from './fxSignature';
 import { natureArea, natureCharge, natureOf, natureShot, setNatureLowPower } from './fxNature';
+import { animeCharge, animeOf, animeShot, breezeStep } from './fxAnime';
 import { adaptedPassive, CAP_ELEMENTAL, CAP_LAST_STAND, emptyFx, TALENTS, talentScale, type TalentFx } from '../systems/talents';
 import { COMBOS, COMBOS_BY_PRIORITY, COMBO_MAX_LEVEL, comboDamage, comboMembers, comboReady, type ComboDef } from '../systems/combos';
 import type { Rank } from '../systems/save';
@@ -765,6 +766,8 @@ export class ArenaScene extends Phaser.Scene {
           if (signatureOf(t.name) === 'ceniza') blackAshCharge(this, ox, oy, lv, recipe.windupSec * 1000);
           const nat = natureOf(t.name); // Fix 1.31: penguins, flowers, sharks... drawn after the wiki
           if (nat) natureCharge(this, nat, ox, oy, lv, recipe.windupSec * 1000);
+          const anime = animeOf(t.name); // v1.4: techniques redrawn from their anime scenes
+          if (anime) animeCharge(this, anime, ox, oy, lv, recipe.windupSec * 1000);
           if (recipe.id === 'dragon') dragon(this, 'rise', ox, oy, c1, c2, lv, recipe.windupSec * 1000 + 160, ox, oy, recipe.tier >= 3);
         } else if (t.type === 'regate') {
           if (!canStartGuardedMove(this.runTime, m.guardLock)) { m.cds[i] = 120; return; }
@@ -777,6 +780,7 @@ export class ArenaScene extends Phaser.Scene {
             const sig = signatureOf(t.name);
             if (sig === 'espejismo') illusionBall(this, ox, oy, lv);
             else if (sig === 'huracan') stormZone(this, ox, oy, r + 10, lv);
+            else if (animeOf(t.name) === 'brisa') { const near = this.nearestEnemy(ox, oy, 160), ba = near ? Math.atan2(near.pos.y - 10 - oy, near.pos.x - ox) : 0; breezeStep(this, ox - Math.cos(ba) * 30, oy - Math.sin(ba) * 30, ox + Math.cos(ba) * 40, oy + Math.sin(ba) * 40, lv); }
             else if (/drag[oó]n/i.test(t.name)) dragon(this, /ascend/i.test(t.name) ? 'rise' : 'coil', ox, oy, c1, c2, lv, 520);
             else elementBurst(this, style, ox, oy, r, 300, c1);
             for (let k = 0; k < 6 + lv * 2; k++) {
@@ -797,6 +801,7 @@ export class ArenaScene extends Phaser.Scene {
             m.guardUntil = Infinity; // released when the movement phase ends
             if (/drag[oó]n/i.test(t.name)) dragon(this, 'strike', m.f.x, m.f.y - 10, c1, c2, lv, 300, m.f.x + Math.cos(ang) * reach, m.f.y - 10 + Math.sin(ang) * reach);
             if (signatureOf(t.name) === 'espejismo') illusionBall(this, m.f.x, m.f.y, lv, 420);
+            if (animeOf(t.name) === 'brisa') breezeStep(this, m.f.x, m.f.y, m.f.x + Math.cos(ang) * reach, m.f.y + Math.sin(ang) * reach, lv, 300);
             if (signatureOf(t.name) === 'huracan') stormZone(this, m.f.x + Math.cos(ang) * reach * 0.5, m.f.y + Math.sin(ang) * reach * 0.5, 34, lv, 520);
             m.dash = { fromX: m.f.x, fromY: m.f.y, toX: m.f.x + Math.cos(ang) * reach, toY: m.f.y + Math.sin(ang) * reach,
               t: 0, dur: 220, hits: new Set(), dmg: s.damage, style, left: s.count - 1 };
@@ -1024,6 +1029,8 @@ export class ArenaScene extends Phaser.Scene {
       if (signatureOf(t.name) === 'ceniza') { blackAshTrail(this, ball, lv); aura.setFillStyle(0x6a2aa8, 0.3); }
       const nat = natureOf(t.name);
       if (nat) natureShot(this, nat, ball, lv, { x: target.pos.x, y: target.pos.y - 10 }, k === 0);
+      const anime = animeOf(t.name);
+      if (k === 0 && anime && anime !== 'brisa') animeShot(this, anime, ball, lv);
       this.projectiles.push({ ball, aura, x, y, vx, vy, t: 0, traj, style, damage: s.damage, pierce: s.pierce, life: 1500,
         hits: new Set(), knock: s.knockback, level: lv, explode: big || s.explodes || recipe.tier >= 2, scale, targetY, phase: k * 1.7,
         dragon: recipe.id === 'dragon', recipe, blast: s.radius });

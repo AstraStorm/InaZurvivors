@@ -6,7 +6,7 @@
  */
 import { CHANGELOG } from './changelog';
 
-export const PUBLIC_VERSION = '1.32';
+export const PUBLIC_VERSION = '1.4';
 export const BUILD = CHANGELOG[0].version;
 export const RELEASED = false;
 export const VERSION_LABEL = RELEASED ? `v${PUBLIC_VERSION}` : `v${PUBLIC_VERSION} · pre-lanzamiento`;
@@ -28,6 +28,26 @@ export interface PublicRelease {
 
 /** Public news, newest first. Starts at v1.0: the internal versions before it are not part of the public history. */
 export const PUBLIC_RELEASES: PublicRelease[] = [
+  {
+    version: '1.4', date: '2026-11-03',
+    title: 'InaZurvivors 1.4 — Todo nuevo por dentro y por fuera',
+    tagline: 'Menús, HUD, cartas de nivel, recompensas, pase y perfil rediseñados; técnica inicial para cada jugador y técnicas de Arion, Axel y Bai Long redibujadas',
+    intro: 'Toda la interfaz se renueva: un menú principal más claro con tus botones agrupados, tu capitán en el centro del estadio, un ranking con podio, tiendas con tarjetas de producto, máquinas de fichajes con su estrella y arenas a pantalla grande. También en el móvil.',
+    features: [
+      { icon: '▶', title: 'Menú principal nuevo', text: 'Botón JUGAR grande, Mi Equipo con las caras de tu equipo, y el resto agrupado en Tu club, Fichajes y Competición, con iconos nuevos. Noticias, Ajustes, sonido y reportar un bug, arriba a la derecha.' },
+      { icon: '♛', title: 'Ranking con podio', text: 'Los tres primeros en un podio con su capitán, y filtros de un toque por puntos, rango, tiempo, daño y arena.', online: true },
+      { icon: '◎', title: 'Máquinas de fichajes', text: 'Cada máquina enseña a su mejor futbolista y su precio; la elegida, sus destacados, precios y garantía de un vistazo.' },
+      { icon: '★', title: 'Tiendas', text: 'Ofertas como tarjetas de producto con el color de su rareza. En la tienda de técnicas eliges futbolista en una lista y ves cada técnica con sus manuales.' },
+      { icon: '⚽', title: 'Arenas y dificultad', text: 'Las arenas con su mapa en grande, duración, rivales y jefe, y los rangos como insignias.' },
+      { icon: '✦', title: 'Todo a juego', text: 'Barra de título, paneles, botones, pestañas, misiones y mejoras con el mismo estilo, también en el móvil.' },
+      { icon: '⚡', title: 'HUD y cartas de nivel', text: 'Vida con corazón, reloj que se llena hasta el jefe, formaciones en un interruptor y fichas del equipo con sus técnicas. Las cartas de subir de nivel entran boca abajo, se dan la vuelta y se inclinan en 3D.' },
+      { icon: '★', title: 'Técnica inicial', text: 'En Mi Equipo eliges con qué técnica empieza cada futbolista (no solo el capitán).' },
+      { icon: '🎁', title: 'Recompensas con chispa', text: 'Misiones y logros con sello «¡COBRADA!», monedas que vuelan al monedero y un resumen con confeti. Pase semanal y perfil rediseñados; el equipo favorito ya es para siempre.' },
+      { icon: '🔥', title: 'Técnicas como en el anime', text: 'Viento celestial, Tormenta, tornado, huracán, Tormenta de fuego, Ciclón blanco y Brisa deslizante, redibujadas a partir de sus escenas.' },
+      { icon: '🛠', title: 'Correcciones', text: 'Arion vuelve a ser de Aire y otros 11 futbolistas tienen su elemento correcto; avisos que salían sin nada; HUD del móvil sin solapes.' },
+    ],
+    start: ['Pulsa JUGAR', 'Mira el podio en Ranking'],
+  },
   {
     version: '1.32', date: '2026-11-02',
     title: 'InaZurvivors 1.32 — Tablón de noticias',
