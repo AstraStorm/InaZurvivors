@@ -98,18 +98,35 @@ function activeLevel(m: OnPitch, tech?: string) {
   return best;
 }
 
-/** True when every participant is on the pitch with the required technique active at the required level. */
-export function comboReady(c: ComboDef, team: OnPitch[]) {
-  return c.needs.every((n) => {
-    const m = team.find((x) => x.entry.name === n.player);
-    return !!m && activeLevel(m, n.tech) >= n.level;
-  });
+/**
+ * v1.5: who covers each participant: the footballer himself on the pitch, or — when he isn't — a teammate carrying him as
+ * Aura (auras.ts). Through an Aura the requirement is checked on the carrier: the needed technique must be active on him
+ * (inherited from the Aura) at the needed level; without a named technique, the carrier's best active level counts.
+ * A carrier can stand for himself and for his Aura in the same combination; nothing else is shared.
+ */
+export function comboCast<T extends OnPitch>(c: ComboDef, team: T[]): { member: T; viaAura: boolean; player: string }[] {
+  const out: { member: T; viaAura: boolean; player: string }[] = [];
+  for (const n of c.needs) {
+    const self = team.find((x) => x.entry.name === n.player && activeLevel(x, n.tech) >= n.level);
+    const carrier = self ? undefined : team.find((x) => x.entry.aura?.name === n.player && activeLevel(x, n.tech) >= n.level);
+    const m = self ?? carrier;
+    if (!m) return [];
+    out.push({ member: m, viaAura: !self, player: n.player });
+  }
+  return out;
 }
 
-/** Members taking part, in the order of the definition (only when all are present). */
+/** True when every participant is on the pitch (or carried as Aura) with the required technique active at the required level. */
+export const comboReady = (c: ComboDef, team: OnPitch[]) => comboCast(c, team).length > 0;
+
+/**
+ * Members taking part, in the order of the definition (only when all are present). Presence only, no level check: once
+ * learned, a combination keeps firing while its participants (or their carriers) are on the pitch.
+ */
 export function comboMembers<T extends OnPitch>(c: ComboDef, team: T[]): T[] {
-  const out = c.needs.map((n) => team.find((x) => x.entry.name === n.player));
-  return out.every(Boolean) ? out as T[] : [];
+  const out = c.needs.map((n) => team.find((x) => x.entry.name === n.player) ?? team.find((x) => x.entry.aura?.name === n.player));
+  if (!out.every(Boolean)) return [];
+  return [...new Set(out as T[])];
 }
 
 /** Damage per hit of the combined shot: stronger than either solo shot, +20% per combo level. */
@@ -119,11 +136,12 @@ export const comboDamage = (c: ComboDef, level: number, mult = 1) => Math.round(
  * Fix 1.32: combined techniques of a squad (Mi Equipo), before the run: `ready` when every participant is among the
  * candidates, otherwise the names still missing. Only combos with at least one participant in the squad.
  */
-export function squadCombos(squad: Pick<RosterEntry, 'name' | 'id'>[]) {
-  const names = new Set(squad.map((p) => p.name));
+export function squadCombos(squad: Pick<RosterEntry, 'name' | 'id'>[], auraNames: string[] = []) {
+  // v1.5: an Aura counts as present (its carrier brings it)
+  const names = new Set([...squad.map((p) => p.name), ...auraNames]);
   return COMBOS_BY_PRIORITY.map((c) => {
     const present = c.needs.filter((n) => names.has(n.player)).map((n) => n.player);
     const missing = c.needs.filter((n) => !names.has(n.player)).map((n) => n.player);
-    return { combo: c, present, missing, ready: !missing.length };
+    return { combo: c, present, missing, ready: !missing.length, viaAura: present.filter((n) => auraNames.includes(n) && !squad.some((p) => p.name === n)) };
   }).filter((x) => x.present.length > 0);
 }

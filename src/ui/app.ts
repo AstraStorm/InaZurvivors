@@ -42,12 +42,14 @@ function newsRelDate(d: string) {
 import { buildMeta, CATEGORIES, SEVERITIES, SHOT_MAX_BYTES, SHOT_MAX_SIDE, SHOT_TYPES, STATUS_LABEL, TECH_FIELDS, validateBug, validateShot } from '../systems/bugReport';
 import { elementIcon } from './elements';
 import { playerStats, resetTraining, trainingOf, trainingUsed, trainRoom, trainStat, trimTraining, TRAIN_MAX, type StatKey } from '../systems/training';
+import { AURA_PCT, AURA_ELEMENT_BONUS, AURA_TECH_DAMAGE, BOND_PCT, EFFECTIVE_STAT_MAX, auraBonus, auraOf, bondOf, canBeAura, carrierForRun, carrierOf, equipAura, inheritedTechs, removeAura, sanitizeAuras, withAura, type AuraBonus } from '../systems/auras';
+import { BOND_KIND_LABEL } from '../data/auraBonds';
 import { ASC_BONUS, ASC_COSTS, HERO_AURA, HERO_STARS_MAX, migrateHeroes131, type AscStep, ascend, ascMultipliers, effectiveRarity, isHero, nextStep, rarityUp, sparesOf } from '../systems/ascension';
 import { USERNAME_MAX, validateUsername } from '../systems/username';
 import { ALTAR_COLOR, ALTAR_ICON, ALTAR_INFO, ALTAR_MODE, ALTAR_REWARD } from '../systems/altars';
 import { adaptedPassive, passiveText, talentChanges, talentText } from '../systems/talents';
 import { redeemCode } from '../online/client';
-import { accountId, adminBugReports, adminUpdateBug, amIAdmin, consumeAuthRedirect, deleteAccount, deleteMyBugReports, deleteShot, myBugReports, notifyBug, shotUrl, submitBugReport, uploadShot, getCloudSave, leaderboard, myPosition, myProfile, onlineConfigured, putCloudSave, reserveUsername, resetMyProgress, signedEmail, signedIn, signInWithGoogle, signOut, submitScore, usernameAvailable, type BoardQuery, type BoardRow, type BugFilter, type BugRow, type CloudSave } from '../online/client';
+import { accountId, adminBugReports, adminPlayerStats, adminUpdateBug, amIAdmin, consumeAuthRedirect, deleteAccount, deleteMyBugReports, deleteShot, myBugReports, notifyBug, shotUrl, submitBugReport, uploadShot, getCloudSave, leaderboard, myPosition, myProfile, onlineConfigured, putCloudSave, reserveUsername, resetMyProgress, signedEmail, signedIn, signInWithGoogle, signOut, submitScore, usernameAvailable, type BoardQuery, type BoardRow, type BugFilter, type BugRow, type CloudSave } from '../online/client';
 import { backup, linkPlan, progressOf, summarize, type SaveSummary } from '../online/cloudSync';
 import { epochOf, freshProgress, resetSummary } from '../systems/resetProgress';
 import { scoreOf, localBoard, recordBest } from '../systems/leaderboard';
@@ -101,17 +103,25 @@ export function footballUrl() {
   return (ballUrl = c.toDataURL());
 }
 /** Fix 1.13: the stats as a radar, the usual polygon of the games (one corner per stat, 0-100 scale, guides every 25). */
-export function statRadar(stats: Record<string, number>, names: Record<string, string>, color: string) {
+export function statRadar(stats: Record<string, number>, names: Record<string, string>, color: string, aura?: Partial<Record<string, number>>) {
   const keys = Object.keys(stats), n = keys.length, R = 62, cx = 100, cy = 84;
+  // v1.5: with an Aura the scale goes to 120 (the effective maximum); the dashed ring marks 99, the normal maximum
+  const hasAura = !!aura && keys.some((k) => (aura[k] ?? 0) > 0);
+  const top = hasAura ? EFFECTIVE_STAT_MAX : 100;
   const at = (i: number, r: number) => { const a = -Math.PI / 2 + (i / n) * Math.PI * 2; return [cx + Math.cos(a) * r, cy + Math.sin(a) * r]; };
   const poly = (r: (i: number) => number) => keys.map((_, i) => at(i, r(i)).map((v) => v.toFixed(1)).join(',')).join(' ');
-  const grid = [0.25, 0.5, 0.75, 1].map((k) => `<polygon points="${poly(() => R * k)}" class="rg"/>`).join('');
+  const grid = [0.25, 0.5, 0.75, 1].map((k) => `<polygon points="${poly(() => R * k)}" class="rg"/>`).join('')
+    + (hasAura ? `<polygon points="${poly(() => R * 99 / top)}" class="rg r99"/>` : '');
   const axes = keys.map((_, i) => { const [x, y] = at(i, R); return `<line x1="${cx}" y1="${cy}" x2="${x.toFixed(1)}" y2="${y.toFixed(1)}" class="rg"/>`; }).join('');
+  const eff = (k: string) => Math.min(top, stats[k] + (aura?.[k] ?? 0));
   const labels = keys.map((k, i) => {
     const [x, y] = at(i, R + 10), side = x > cx + 4 ? 'start' : x < cx - 4 ? 'end' : 'middle';
-    return `<text x="${x.toFixed(1)}" y="${(y + (y > cy ? 9 : y < cy - R ? -2 : 3)).toFixed(1)}" text-anchor="${side}">${esc(names[k] ?? k)} <tspan>${stats[k]}</tspan></text>`;
+    const plus = aura?.[k] ? `<tspan class="ra">+${aura[k]}</tspan>` : '';
+    return `<text x="${x.toFixed(1)}" y="${(y + (y > cy ? 9 : y < cy - R ? -2 : 3)).toFixed(1)}" text-anchor="${side}">${esc(names[k] ?? k)} <tspan>${hasAura ? eff(k) : stats[k]}</tspan>${plus}</text>`;
   }).join('');
-  return `<svg viewBox="-30 0 260 180" role="img" aria-label="Estadísticas">${grid}${axes}<polygon points="${poly((i) => R * Math.min(100, stats[keys[i]]) / 100)}" class="rv" style="--rc:${color}"/>${labels}</svg>`;
+  const base = `<polygon points="${poly((i) => R * Math.min(top, stats[keys[i]]) / top)}" class="rv" style="--rc:${color}"/>`;
+  const extra = hasAura ? `<polygon points="${poly((i) => R * eff(keys[i]) / top)}" class="rv-aura"/>` : '';
+  return `<svg viewBox="-30 0 260 180" role="img" aria-label="Estadísticas${hasAura ? ' (en cian, lo que aporta el Aura)' : ''}">${grid}${axes}${extra}${base}${labels}</svg>`;
 }
 export function autoUiScale() {
   const touch = window.matchMedia?.('(pointer: coarse)').matches || 'ontouchstart' in window;
@@ -135,6 +145,8 @@ async function shrinkShot(src: Blob | HTMLImageElement): Promise<Blob> {
 export class App {
   private root = document.getElementById('ui')!;
   private byId: Map<number, RosterEntry>;
+  /** v1.5: the footballers as the current run plays them (Aura and HÉROE techniques included): what level-up cards show */
+  private runById = new Map<number, RosterEntry>();
   /** width of each mugshot sheet: the last sheet of the atlas is smaller than the others */
   private mugW: number[] = [];
   private iconW: number;
@@ -172,6 +184,7 @@ export class App {
     if (remapIds(save, m.idAliases)) storeSave(save); // characters now on another ROM record keep their progress
     if (remapTechSlots(save, m.techRemaps) >= 0) storeSave(save); // repertoires that changed order keep their purchases
     if (migrateHeroes131(save, m.roster)) storeSave(save); // Fix 1.31: Míticos ascended the old way become HÉROE
+    if (save.auras && sanitizeAuras(save, new Map(m.roster.map((p) => [p.id, p])))) storeSave(save); // v1.5: Auras no longer valid are dropped
     if (this.trimAllTraining(save, m.roster)) storeSave(save); // Fix 1.31: points stuck above 99 come back
     if (m.profile && !iconAllowed(save, m.roster, m.profile.emblems, m.profile.coaches)) save.profile.icon = { kind: 'emblem', id: DEFAULT_EMBLEM };
     initPreviews(m);
@@ -279,7 +292,26 @@ export class App {
       ${guest ? '<p class="wiz-next"><button class="btn google-btn" id="tsgoogle"><span class="g-logo">G</span> Entrar con Google</button></p><p class="note">Ahora juegas como invitado: tu progreso está en este navegador.</p>' : ''}
       </div></div>`, 'title');
     let gone = false;
-    const go = () => { if (gone) return; gone = true; window.removeEventListener('keydown', key); next(); };
+    // v1.5 (author): a real exit instead of a cut — the logo charges at the camera, the rest drops away, a flash of light
+    // covers the change and the menu comes in under it (only transform/opacity: no repaint-heavy animation)
+    const go = () => {
+      if (gone) return;
+      gone = true;
+      window.removeEventListener('keydown', key);
+      const scr = document.querySelector<HTMLElement>('.title-screen');
+      if (!scr || document.body.classList.contains('reduced-motion') || matchMedia('(prefers-reduced-motion: reduce)').matches) { next(); return; }
+      sfx('whoosh');
+      scr.classList.add('leaving');
+      scr.insertAdjacentHTML('beforeend', '<i class="ts-flash"></i>');
+      window.setTimeout(() => {
+        next();
+        // the flash keeps fading over the new screen so the change has no hard edge
+        const f = document.createElement('i');
+        f.className = 'ts-flash after';
+        document.body.appendChild(f);
+        window.setTimeout(() => f.remove(), 520);
+      }, 560);
+    };
     const key = (e: KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') go(); };
     window.addEventListener('keydown', key);
     document.getElementById('tscont')!.addEventListener('click', go);
@@ -940,6 +972,15 @@ export class App {
     // Fix 1.31: notice when the Colección has something new to collect (once per new reward, not on every visit)
     if (claims > Math.max(0, this.claimsAnnounced)) window.setTimeout(() => { if (this.screenKey === 'menu-mode') this.claimNotice(this.teamClaimList(), '¡Para recoger en la Colección!'); }, 400);
     this.claimsAnnounced = claims;
+    // v1.5: an achievement just completed is announced once, with its medal (the claim itself stays in Recompensas)
+    recordCollection(this.save, this.m.roster, this.m.mainTeams ?? [], this.auraMaxStat());
+    const shown = new Set(this.save.achShown ?? []);
+    const fresh = MISSIONS.filter((d) => d.kind === 'logro' && isClaimable(this.save, d) && !shown.has(d.id));
+    if (fresh.length) {
+      this.save.achShown = [...shown, ...fresh.map((d) => d.id)];
+      this.persist();
+      window.setTimeout(() => { if (this.screenKey === 'menu-mode') this.achPop(fresh.map((d) => d.label), fresh[0].tokens); }, claims > 0 ? 2600 : 900);
+    }
     this.on('[data-go]', 'click', (_e, el) => {
       const go = el.dataset.go;
       if (go === 'play') {
@@ -1384,6 +1425,7 @@ export class App {
     remapIds(this.save, this.m.idAliases);
     remapTechSlots(this.save, this.m.techRemaps);
     migrateHeroes131(this.save, this.m.roster);
+    if (this.save.auras) sanitizeAuras(this.save, this.byId); // v1.5
     this.trimAllTraining(this.save, this.m.roster);
     this.captainId = this.save.captainId;
     this.cloudLinked = true;
@@ -1645,6 +1687,28 @@ export class App {
     } catch (e) { list.textContent = /forbidden/.test((e as Error).message) ? 'No tienes permiso para ver este panel.' : `No se pudo cargar: ${(e as Error).message}`; }
   }
 
+  /** Fix 1.41: how many people play (accounts only: guests never reach the server). The server refuses non-admins. */
+  private async adminPlayers() {
+    this.show(`<div class="screen">${this.titlebar('Panel de jugadores', 'Ajustes')}<div class="panel"><div id="aplist" class="note">Cargando…</div></div></div>`);
+    this.on('[data-back]', 'click', () => this.options());
+    const box = document.getElementById('aplist')!;
+    const ago = (iso: string | null) => {
+      if (!iso) return '—';
+      const m = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
+      return m < 60 ? `hace ${m} min` : m < 1440 ? `hace ${Math.round(m / 60)} h` : `hace ${Math.round(m / 1440)} d`;
+    };
+    try {
+      const s = await adminPlayerStats(200);
+      if (!document.getElementById('aplist')) return;
+      const tile = (n: number, t: string) => `<div class="ap-tile"><b>${n.toLocaleString('es')}</b><span>${t}</span></div>`;
+      box.className = '';
+      box.innerHTML = `<div class="ap-tiles">${tile(s.accounts, 'cuentas')}${tile(s.played, 'han jugado')}${tile(s.runs, 'partidas')}${tile(s.active_24h, 'activos 24 h')}${tile(s.active_7d, 'activos 7 días')}${tile(s.new_7d, 'nuevos 7 días')}${tile(s.ranked_runs, 'partidas al ranking')}${tile(s.kills, 'rivales derrotados')}</div>
+        <p class="note">Solo cuenta cuentas con sesión iniciada: quien juega como invitado guarda en su navegador y el servidor no sabe de él. ${s.accounts - s.with_name} cuenta(s) aún sin nombre de usuario.</p>
+        <div class="ap-table"><div class="ap-row ap-head"><span>Usuario</span><span>Última vez</span><span>Partidas</span><span>Ranking</span><span>Mejor tiempo</span><span>Colección</span><span>Alta</span></div>
+        ${s.players.map((p) => `<div class="ap-row"><b>${esc(p.username ?? '(sin nombre)')}</b><span>${ago(p.last_seen)}</span><span>${p.runs}</span><span>${p.ranked_runs}</span><span>${Math.floor(p.best_time / 60)}:${String(p.best_time % 60).padStart(2, '0')}</span><span>${p.owned}</span><span>${new Date(p.created_at).toLocaleDateString('es')}</span></div>`).join('')}</div>`;
+    } catch (e) { box.textContent = /forbidden/.test((e as Error).message) ? 'No tienes permiso para ver este panel.' : `No se pudo cargar: ${(e as Error).message}`; }
+  }
+
   private adminBugDetail(r: BugRow, filter: BugFilter) {
     const box = document.createElement('div');
     box.className = 'tut-modal bug-modal';
@@ -1775,6 +1839,152 @@ export class App {
       </div></div>`;
   }
 
+  // ------------------------------------------------------------- v1.5: Auras
+  /** carrier whose Aura is being chosen from the collection (tap flow, also on touch screens) */
+  private auraPick: number | null = null;
+  private auraEntryOf(carrierId: number) { const a = auraOf(this.save, carrierId); return a === null ? undefined : this.byId.get(a); }
+  private auraBonusOf(p: RosterEntry): AuraBonus | null { const ae = this.auraEntryOf(p.id); return ae ? auraBonus(this.save, p.id, ae) : null; }
+  /** own stats (≤ 99), Aura points and effective stats (≤ 120) of a footballer */
+  private statSplit(p: RosterEntry) {
+    const own = this.statsOf(p) as Record<StatKey, number> | null;
+    const b = this.auraBonusOf(p);
+    return { own, bonus: b, add: (b?.add ?? {}) as Partial<Record<string, number>>, eff: own ? withAura(own, b) : null };
+  }
+
+  /** The small linked card under a squad slot: the Aura (portrait, rarity frame, percentage) or an empty socket. */
+  private auraMini(p: RosterEntry) {
+    const ae = this.auraEntryOf(p.id);
+    const picking = this.auraPick === p.id ? ' picking' : '';
+    if (!ae) return `<button class="aura-mini empty${picking}" data-aura-slot="${p.id}" title="Equipar un Aura (Legendario, Mítico o Leyenda)"><span class="am-plus">+</span><small>AURA</small></button>`;
+    const er = effectiveRarity(this.save, ae), tier = isHero(this.save, ae.id) ? 'heroe' : er;
+    const b = auraBonus(this.save, p.id, ae);
+    return `<button class="aura-mini t-${tier}${b.bond ? ' bond' : ''}${picking}" data-aura-slot="${p.id}" data-aura-open="${p.id}" style="--rc:${RARITY_COLOR[er]};--ec:${ELEMENT_COLOR[String(ae.element)] ?? '#8a9bbd'}" title="Aura: ${esc(ae.name)} · pulsa para ver lo que aporta">
+      <span class="am-mug">${this.mug(ae.id, 40)}</span><span class="am-txt"><small>AURA</small><b>${esc(ae.name.split(' ')[0])}</b><em>${b.bond ? '♥ ' : ''}+${Math.round(b.pct * 100)}%</em></span><i class="am-shine"></i></button>`;
+  }
+
+  /** Everything an Aura gives its carrier, in a sheet (tap on the small card). */
+  private auraInfo(carrierId: number) {
+    const p = this.byId.get(carrierId), ae = this.auraEntryOf(carrierId);
+    if (!p || !ae) return;
+    const b = auraBonus(this.save, p.id, ae), s = this.statSplit(p);
+    const er = effectiveRarity(this.save, ae);
+    const inh = inheritedTechs(p, ae);
+    const sq = squadOf(this.save, this.byId);
+    const auraNames = sq.map((x) => this.auraEntryOf(x.id)?.name).filter((x): x is string => !!x);
+    const joint = squadCombos(sq, auraNames).filter((c) => c.combo.needs.some((n) => n.player === ae.name) && c.combo.needs.some((n) => n.player === p.name || sq.some((q) => q.name === n.player)));
+    const rows = STAT_INFO.map((si) => {
+      const k = si.key as StatKey, own = s.own?.[k] ?? 0, add = b.add[k] ?? 0, tot = Math.min(EFFECTIVE_STAT_MAX, own + add);
+      return `<tr class="${add ? 'up' : ''}"><th>${si.name}</th><td>${own}</td><td class="ai-add">${add ? `+${add}` : '—'}</td><td><b>${tot}</b><small>/${add ? EFFECTIVE_STAT_MAX : 99}</small></td><td class="ai-from">${add ? `${b.from[k]} × ${Math.round(b.pct * 100)}%` : ''}</td></tr>`;
+    }).join('');
+    const box = document.createElement('div');
+    box.className = 'tut-modal aura-modal';
+    box.innerHTML = `<div class="panel aura-sheet" style="--rc:${RARITY_COLOR[er]};--ec:${ELEMENT_COLOR[String(ae.element)] ?? '#8a9bbd'}">
+      <div class="ai-head"><div class="ai-cards"><div class="ai-carrier">${this.mug(p.id, 64)}<small>${esc(p.name)}</small></div><i class="ai-link">${b.bond ? '♥' : '✦'}</i><div class="ai-aura t-${isHero(this.save, ae.id) ? 'heroe' : er}">${this.mug(ae.id, 64)}<small>${esc(ae.name)}</small></div></div>
+        <div><h2>Aura: ${esc(ae.name)}</h2><div class="sq-tags">${this.rar(ae)} ${this.elem(ae)} <span class="pos">${esc(ae.teams.slice(0, 2).map(teamLabel).join(' · '))}</span></div>
+        <div class="ai-pct${b.bond ? ' bond' : ''}">${b.bond ? `♥ Compatibles (${esc(BOND_KIND_LABEL[b.bond.kind])}): <b>${Math.round(BOND_PCT * 100)}%</b>` : `Aura normal: <b>${Math.round(AURA_PCT * 100)}%</b>`} de sus tres mejores estadísticas</div>
+        ${b.bond ? `<p class="note">${esc(b.bond.reason)}</p>` : `<p class="note">Sin vínculo especial con ${esc(p.name)}. Un compañero de historia, familia o técnica conjunta daría ${Math.round(BOND_PCT * 100)}%.</p>`}</div></div>
+      <div class="ai-cols"><div><h3>Estadísticas de ${esc(p.name)}</h3><table class="ai-table"><tr><th></th><th>Propia</th><th>Aura</th><th>Total</th><th></th></tr>${rows}</table>
+        <p class="note">Bonificación = estadística del Aura × ${Math.round(b.pct * 100)}%, redondeada. Lo propio sigue en 99 como máximo; con el Aura, hasta ${EFFECTIVE_STAT_MAX}.</p></div>
+        <div class="stat-radar">${s.own ? statRadar(s.own, STAT_SHORT, RARITY_COLOR[effectiveRarity(this.save, p)], s.add) : ''}</div></div>
+      <h3>✦ Técnicas heredadas</h3><div class="ai-techs">${inh.length ? inh.map((t) => `<span class="ai-tech">${this.icon(ICON.manual[t.type], 1)} ${esc(t.name)} <small>${TYPE_LABEL[t.type]} · ${esc(String(t.element ?? ''))} · poder ${t.power}</small></span>`).join('') : '<span class="note">Ninguna nueva: ya conoce todas las de su Aura.</span>'}</div>
+      <p class="note">La primera empieza la partida en una ranura extra de Aura; la segunda puede aprenderse al subir de nivel. Golpean al ${Math.round(AURA_TECH_DAMAGE * 100)}% (son una técnica activa de más). No sustituyen a las suyas y desaparecen si quitas el Aura.</p>
+      <h3>${elementIcon(String(ae.element), 18)} Afinidad de ${esc(String(ae.element))}</h3><p class="note">Las técnicas de ${esc(p.name)} de elemento ${esc(String(ae.element))} (también las heredadas) hacen <b>+${Math.round(AURA_ELEMENT_BONUS * 100)}%</b> de daño. ${esc(p.name)} sigue siendo de ${esc(String(p.element))} para todo lo demás.</p>
+      ${joint.length ? `<h3>🔗 Técnicas conjuntas</h3><div class="ai-techs">${joint.map((c) => `<span class="ai-tech${c.ready ? ' ready' : ''}"><b>${esc(c.combo.name)}</b> <small>${c.ready ? '¡disponible con este equipo!' : `falta: ${esc(c.missing.join(', '))}`}</small></span>`).join('')}</div>` : ''}
+      <div class="tut-nav"><button class="btn small blue" id="aiclose">Cerrar</button><span class="spacer"></span><button class="btn small blue" id="aichange">Cambiar Aura</button><button class="btn small" id="airemove">Quitar Aura</button></div></div>`;
+    document.body.appendChild(box);
+    const shut = () => box.remove();
+    box.addEventListener('click', (e) => { if (e.target === box) shut(); });
+    box.querySelector('#aiclose')!.addEventListener('click', shut);
+    box.querySelector('#airemove')!.addEventListener('click', () => { removeAura(this.save, p.id); this.persist(); sfx('click'); shut(); this.toast(`${ae.name} ya no es el Aura de ${p.name}`); this.captainSelect(); });
+    box.querySelector('#aichange')!.addEventListener('click', () => { shut(); this.startAuraPick(p.id); });
+  }
+
+  /** v1.5: highest effective stat among all carriers (achievements 110 / 120) */
+  private auraMaxStat() {
+    let best = 0;
+    for (const k of Object.keys(this.save.auras ?? {})) {
+      const p = this.byId.get(Number(k));
+      const e = p?.stats ? this.statSplit(p).eff : null;
+      if (e && this.auraEntryOf(p!.id)) best = Math.max(best, ...Object.values(e));
+    }
+    return best;
+  }
+
+  /** v1.5 (author): the first visit to Mi Equipo explains Auras in four short pages; never again after closing it. */
+  private auraIntro() {
+    if (document.querySelector('.aura-intro')) return;
+    const pages = [
+      { ic: '✦', h: '¡Nuevo: Auras!', p: `Cada plaza de tu equipo tiene ahora una <b>carta pequeña</b> debajo: su <b>Aura</b>. Ahí pones a otro futbolista de tu colección para que apoye al de la plaza. El Aura no juega: lo potencia.`,
+        li: ['Solo pueden ser Aura los <b>Legendarios, Míticos y Leyendas</b>.', 'Cualquier futbolista puede llevar una, también un Común.', 'Una por futbolista. No se gasta nada: tu colección no cambia.'] },
+      { ic: '▲', h: 'Estadísticas hasta 120', p: `El Aura suma el <b>${Math.round(AURA_PCT * 100)}%</b> de sus <b>tres mejores estadísticas</b> a las mismas del portador.`,
+        li: ['Ejemplo: Tiro 90 + Aura con Tiro 95 » 90 + 14 = <b>104</b>.', 'Lo propio sigue en 99 como máximo; con el Aura, hasta <b>120</b>, y en el combate se nota.', 'En el radar, lo que aporta el Aura se ve en <b style="color:#7ff6ff">cian</b>.'] },
+      { ic: '♥', h: `Compatibles: ${Math.round(BOND_PCT * 100)}%`, p: `Si los dos tienen historia (técnica conjunta, amistad, familia o rivalidad), el Aura da el <b>${Math.round(BOND_PCT * 100)}%</b>. Al elegir, los compatibles salen primero con <b>♥</b>.`,
+        li: ['Axel y Shawn, Mark y Nathan, Jude y Celia, Arion y Riccardo...', 'Estar en el mismo equipo no basta.'] },
+      { ic: '⚡', h: 'Técnicas y elemento', p: 'El portador hereda <b>dos técnicas</b> del Aura: una empieza la partida en una ranura extra y la otra llega como carta al subir de nivel. No sustituyen a las suyas.',
+        li: [`Sus técnicas del elemento del Aura hacen <b>+${Math.round(AURA_ELEMENT_BONUS * 100)}%</b>.`, 'Con el Aura puede lanzar <b>técnicas conjuntas</b>: Axel con Shawn de Aura, Fuego cruzado.', '<b>Cómo equiparla:</b> toca «+ AURA» y elige en tu colección, o arrastra la carta encima.'] },
+    ];
+    let i = 0;
+    const box = document.createElement('div');
+    box.className = 'tut-modal aura-intro';
+    const close = () => {
+      box.remove();
+      this.save.auraIntroSeen = true; this.persist();
+      // point at the first empty socket so the next step is obvious
+      const s = document.querySelector<HTMLElement>('.aura-mini.empty');
+      if (s) { s.scrollIntoView({ behavior: 'smooth', block: 'center' }); s.classList.add('picking'); window.setTimeout(() => s.classList.remove('picking'), 2400); }
+    };
+    const draw = () => {
+      const pg = pages[i];
+      box.innerHTML = `<div class="panel aura-intro-card"><div class="ain-ic">${pg.ic}</div><h2>${pg.h}</h2><p>${pg.p}</p><ul>${pg.li.map((x) => `<li>${x}</li>`).join('')}</ul>
+        <div class="ain-dots">${pages.map((_, k) => `<i class="${k === i ? 'on' : ''}"></i>`).join('')}</div>
+        <div class="tut-nav">${i ? '<button class="btn small blue" id="ainback">‹ Atrás</button>' : '<button class="btn small blue" id="ainskip">Saltar</button>'}<span class="spacer"></span>
+        <button class="btn" id="ainnext">${i < pages.length - 1 ? 'Siguiente ›' : '¡A equipar!'}</button></div></div>`;
+      box.querySelector('#ainnext')!.addEventListener('click', () => { if (i < pages.length - 1) { i++; sfx('click'); draw(); } else close(); });
+      box.querySelector('#ainback')?.addEventListener('click', () => { i--; sfx('click'); draw(); });
+      box.querySelector('#ainskip')?.addEventListener('click', close);
+    };
+    draw();
+    document.body.appendChild(box);
+  }
+
+  /** v1.5: «¡LOGRO!» banner: medal of its tier (bronze 10, silver 20, gold 50 fichas), the name and how many more there are. */
+  private achPop(labels: string[], tokens: number) {
+    document.querySelector('.ach-pop')?.remove();
+    const tier = tokens >= 50 ? 'g' : tokens >= 20 ? 's' : 'b';
+    const el = document.createElement('button');
+    el.className = `ach-pop t-${tier}`;
+    el.innerHTML = `<span class="ach-medal">🏆</span><span class="ach-tx"><small>¡LOGRO CONSEGUIDO!</small><b>${esc(labels[0])}</b>${labels.length > 1 ? `<em>y ${labels.length - 1} más · recógelos en Recompensas</em>` : '<em>Recógelo en Recompensas</em>'}</span><i class="ach-shine"></i>`;
+    el.addEventListener('click', () => { el.remove(); this.missions('logro'); });
+    document.body.appendChild(el);
+    sfx('legend');
+    window.setTimeout(() => el.classList.add('out'), 4200);
+    window.setTimeout(() => el.remove(), 4700);
+  }
+
+  private startAuraPick(carrierId: number) {
+    this.auraPick = carrierId;
+    this.squadPicked = false;
+    this.squadFilter = { ...this.squadFilter, rarity: '' };
+    this.captainSelect();
+    document.querySelector('.sq-picker')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  /** Equips (from a tap in the collection or a drop on the socket) and tells what happened. */
+  private tryEquipAura(carrierId: number, auraId: number) {
+    const p = this.byId.get(carrierId), ae = this.byId.get(auraId);
+    if (!p || !ae) return false;
+    const r = equipAura(this.save, p, ae);
+    if (!r.ok) { this.toast(r.why, 3500); sfx('error'); return false; }
+    this.persist();
+    const b = auraBonus(this.save, p.id, ae);
+    sfx(b.bond ? 'legend' : 'powerup');
+    if (b.bond) confetti(18);
+    this.toast(`${ae.name} es el Aura de ${p.name}${b.bond ? ' · ♥ ¡compatibles! 20%' : ' · 15%'}${r.leftSquad ? ' (sale del equipo)' : ''}${r.movedFrom !== null ? ` (deja a ${this.byId.get(r.movedFrom)?.name ?? 'su portador'})` : ''}`, 3500);
+    this.auraPick = null;
+    this.save.achAura = { ...(this.save.achAura ?? {}), equipped: true, bond: this.save.achAura?.bond || !!b.bond };
+    return true;
+  }
+
   /** "Mi Equipo": seven candidates (captain first), the captain's starting technique and the starting formation. */
   captainSelect(slot = this.squadSlot) {
     if (!this.save.squad.length && this.unlockedRoster().length) { fillSquad(this.save, this.m.roster); this.persist(); }
@@ -1785,23 +1995,29 @@ export class App {
     const cur = (this.save.formation as FormationId) in FORMATIONS ? this.save.formation as FormationId : 'equilibrada';
     setMusicContext('map');
     const comboOf = new Map<string, string>();
-    for (const c of squadCombos(squad)) if (c.ready) for (const n of c.combo.needs) if (!comboOf.has(n.player)) comboOf.set(n.player, c.combo.name);
+    const auraNames = squad.map((x) => this.auraEntryOf(x.id)?.name).filter((x): x is string => !!x);
+    for (const c of squadCombos(squad, auraNames)) if (c.ready) for (const n of c.combo.needs) if (!comboOf.has(n.player)) comboOf.set(n.player, c.combo.name);
+    // a carrier also shows the combination his Aura takes part in
+    for (const x of squad) { const an = this.auraEntryOf(x.id)?.name; if (an && comboOf.has(an) && !comboOf.has(x.name)) comboOf.set(x.name, comboOf.get(an)!); }
     const slots = Array.from({ length: SQUAD_SIZE }, (_, i) => {
       const p = squad[i];
       const editing = i === this.squadSlot ? ' editing' : '';
       if (!p) return `<button class="sq-slot empty${editing}" data-slot="${i}"><span class="sq-plus">+</span><small>${i === 0 ? 'Capitán' : 'Plaza libre'}</small><em>Arrastra aquí</em></button>`;
       // Fix 1.32 (author's choice): the slot keeps its radar and techniques, in a frame of its rarity, and can be dragged
-      const er = effectiveRarity(this.save, p), st = p.stats ? this.statsOf(p)! : null;
-      return `<div class="sq-slot ccs t-${isHero(this.save, p.id) ? 'heroe' : er} rs-${isHero(this.save, p.id) ? 'heroe' : er}${editing}${i === 0 ? ' cap' : ''}${isHero(this.save, p.id) ? ' hero' : ''}${this.squadLanded === i ? ' landed' : ''}" data-slot="${i}" data-drag="${p.id}" style="--rc:${RARITY_COLOR[er]};--ec:${ELEMENT_COLOR[String(p.element)] ?? '#8a9bbd'}">
+      const er = effectiveRarity(this.save, p), split = p.stats ? this.statSplit(p) : null, st = split?.own ?? null;
+      const ae = this.auraEntryOf(p.id), inh = ae ? inheritedTechs(p, ae) : [];
+      return `<div class="sq-slot ccs${ae ? ' has-aura' : ''} t-${isHero(this.save, p.id) ? 'heroe' : er} rs-${isHero(this.save, p.id) ? 'heroe' : er}${editing}${i === 0 ? ' cap' : ''}${isHero(this.save, p.id) ? ' hero' : ''}${this.squadLanded === i ? ' landed' : ''}" data-slot="${i}" data-drag="${p.id}" style="--rc:${RARITY_COLOR[er]};--ec:${ELEMENT_COLOR[String(p.element)] ?? '#8a9bbd'}">
         ${i === 0 ? '<span class="captain-badge">C</span>' : `<button class="sq-act" data-captain="${p.id}" title="Hacer capitán">★</button>`}
         <button class="sq-act x" data-remove="${p.id}" title="Quitar">✕</button>
-        <div class="sq-head"><div class="sq-mug">${this.mug(p.id, 64)}${st ? `<span class="sq-ovr" title="Media">${statMean(st)}</span>` : ''}</div></div>
+        <div class="sq-head"><div class="sq-mug">${this.mug(p.id, 64)}${st ? `<span class="sq-ovr${ae ? ' aura' : ''}" title="Media${ae ? ' con su Aura' : ''}">${statMean(split!.eff!)}</span>` : ''}</div></div>
         <b class="sq-name">${esc(p.name)}</b>
         <div class="sq-tags"><span class="pos">${POS_LABEL[p.position] ?? p.position}</span>${this.elem(p)}${this.rar(p)}</div>
         ${comboOf.get(p.name) ? `<span class="sq-combo" title="Técnica combinada: ${esc(comboOf.get(p.name)!)}">🔗 ${esc(comboOf.get(p.name)!)}</span>` : ''}
-        ${st ? `<div class="sq-radar">${statRadar(st, STAT_SHORT, RARITY_COLOR[er])}</div>` : ''}
+        ${st ? `<div class="sq-radar">${statRadar(st, STAT_SHORT, RARITY_COLOR[er], split!.add)}</div>` : ''}
         <div class="sq-techs"><small>TÉCNICA INICIAL</small>${p.techniques.slice(0, 5).map((t, ti) => { const usable = this.canStartWith(p, ti), on = this.startOf(p) === ti;
           return `<button class="sq-tech${on ? ' on' : ''}" data-start="${p.id}:${ti}" ${usable ? '' : 'disabled'} title="${esc(t.name)}${usable ? (on ? ' · empieza con esta' : ' · pulsa para empezar con esta') : t.type === 'talento' ? ' · talento pasivo: siempre activo' : ' · bloqueada: desbloquéala en la tienda de técnicas'}">${this.icon(ICON.manual[t.type], 1)}<span>${esc(t.name)}</span>${on ? '<em>★</em>' : ''}</button>`; }).join('')}</div>
+        ${inh.length ? `<div class="sq-techs aura-techs"><small>✦ DEL AURA</small>${inh.map((t) => `<span class="sq-tech aura" title="${esc(t.name)} · heredada de ${esc(ae!.name)}">${this.icon(ICON.manual[t.type], 1)}<span>${esc(t.name)}</span></span>`).join('')}</div>` : ''}
+        ${this.auraMini(p)}
         <i class="cc-sweep"></i><i class="cc-foil"></i><i class="cc-sparks"></i><i class="cc-bevel"></i><i class="cc-crown"></i></div>`;
     }).join('');
     this.show(`<div class="screen">${this.titlebar('Mi Equipo', 'Menú')}
@@ -1810,7 +2026,7 @@ export class App {
         Pulsa un futbolista de tu colección para añadirlo o quitarlo, pulsa una plaza para cambiarla, o arrastra para colocar e intercambiar. Se guarda solo.</div>
         <div class="squad-row">${slots}</div></div>
       <div class="panel sq-picker"><div class="sq-pick-head"><h3>Tu colección</h3>
-          <span class="note">${this.squadPicked ? `Elige quién va a la <b>plaza ${this.squadSlot + 1}${this.squadSlot === 0 ? ' (capitán)' : ''}</b> · <button class="linkbtn" id="sqcancel">cancelar</button>` : squad.length < SQUAD_SIZE ? 'Pulsa un futbolista para añadirlo o quitarlo · o cógelo y arrástralo a una plaza' : 'Equipo completo: pulsa una plaza para cambiarla, o un futbolista del equipo para quitarlo'}</span>
+          <span class="note">${this.auraPick !== null ? `<span class="aura-pick-note">✦ Elige el <b>Aura de ${esc(this.byId.get(this.auraPick)?.name ?? '')}</b>: un Legendario, Mítico o Leyenda (♥ = compatible, 20%)</span> · <button class="linkbtn" id="aucancel">cancelar</button>` : this.squadPicked ? `Elige quién va a la <b>plaza ${this.squadSlot + 1}${this.squadSlot === 0 ? ' (capitán)' : ''}</b> · <button class="linkbtn" id="sqcancel">cancelar</button>` : squad.length < SQUAD_SIZE ? 'Pulsa un futbolista para añadirlo o quitarlo · o cógelo y arrástralo a una plaza' : 'Equipo completo: pulsa una plaza para cambiarla, o un futbolista del equipo para quitarlo'}</span>
           <span class="spacer"></span><button class="btn small" id="sqauto" title="Rellena las plazas libres con tus mejores futbolistas">★ Autocompletar</button><button class="btn small blue" id="sqclear" title="Deja solo al capitán">Vaciar</button></div>
         <div class="filters"><input id="sqq" placeholder="Buscar nombre o equipo" value="${esc(this.squadFilter.q)}">
           <select id="sqr"><option value="">Rareza</option>${RARITY_ORDER.map((r) => `<option value="${r}" ${this.squadFilter.rarity === r ? 'selected' : ''}>${RARITY_LABEL[r]}</option>`).join('')}</select>
@@ -1827,7 +2043,7 @@ export class App {
     this.squadGrid();
     this.on('[data-back]', 'click', () => this.mainMenu());
     this.on('[data-slot]', 'click', (e, el) => {
-      if ((e.target as HTMLElement).closest('.sq-act, .sq-tech') || performance.now() - this.dragEndedAt < 300) return;
+      if ((e.target as HTMLElement).closest('.sq-act, .sq-tech, .aura-mini') || performance.now() - this.dragEndedAt < 300) return;
       const i = Number(el.dataset.slot);
       // Fix 1.32: a slot is «picked» on purpose; clicking it again unpicks it
       this.squadPicked = !(this.squadPicked && this.squadSlot === i);
@@ -1836,6 +2052,17 @@ export class App {
     });
     this.squadDrag(); // Fix 1.32: pick a card up and move it (slots and collection)
     this.squadLanded = -1;
+    // v1.5: the Aura socket: an equipped Aura opens its sheet, an empty one starts choosing from the collection
+    this.on('[data-aura-slot]', 'click', (e, el) => {
+      e.stopPropagation();
+      if (performance.now() - this.dragEndedAt < 300) return;
+      const id = Number(el.dataset.auraSlot);
+      if (el.dataset.auraOpen) { this.auraInfo(id); return; }
+      if (this.auraPick === id) { this.auraPick = null; this.captainSelect(); return; }
+      this.startAuraPick(id);
+    });
+    document.getElementById('aucancel')?.addEventListener('click', () => { this.auraPick = null; this.captainSelect(); });
+    if (!this.save.auraIntroSeen && squad.length) this.auraIntro(); // v1.5 (author): how Auras work, the first time
     document.getElementById('sqcancel')?.addEventListener('click', () => { this.squadPicked = false; this.captainSelect(); });
     document.getElementById('sqauto')?.addEventListener('click', () => {
       // the best owned footballers by their real mean (ascension, HÉROE and training included) fill the free slots
@@ -1910,7 +2137,9 @@ export class App {
       st.tilt = st.tilt * 0.8 + Math.max(-14, Math.min(14, (e.clientX - st.lx) * 0.9)) * 0.2;
       st.lx = e.clientX;
       st.ghost.style.transform = `translate(${dx}px, ${dy}px) rotate(${st.tilt.toFixed(1)}deg) scale(1.08)`;
-      const under = document.elementFromPoint(e.clientX, e.clientY)?.closest<HTMLElement>('[data-slot]') ?? null;
+      // v1.5: the Aura socket of a slot wins over the slot itself
+      const hit = document.elementFromPoint(e.clientX, e.clientY);
+      const under = hit?.closest<HTMLElement>('[data-aura-slot]') ?? hit?.closest<HTMLElement>('[data-slot]') ?? null;
       if (under !== st.over) { st.over?.classList.remove('drop'); under?.classList.add('drop'); st.over = under; if (under) sfx('click'); }
     }, { passive: false });
     const end = (e: PointerEvent) => {
@@ -1931,7 +2160,15 @@ export class App {
         window.setTimeout(() => { g.remove(); after(); }, 220);
       };
       const inRow = !!document.elementFromPoint(e.clientX, e.clientY)?.closest('.squad-row');
-      if (s0.over) {
+      if (s0.over?.dataset.auraSlot) {
+        const carrier = Number(s0.over.dataset.auraSlot);
+        const okDrop = s0.id !== carrier && !!this.byId.get(s0.id) && canBeAura(this.save, this.byId.get(s0.id)!);
+        fly(okDrop ? s0.over.getBoundingClientRect() : s0.el.getBoundingClientRect(), () => {
+          s0.el.classList.remove('drag-src');
+          this.tryEquipAura(carrier, s0.id);
+          this.captainSelect();
+        });
+      } else if (s0.over) {
         const slot = Number(s0.over.dataset.slot);
         const target = (s0.over.querySelector('.pcard') ?? s0.over).getBoundingClientRect();
         fly(target, () => {
@@ -1969,7 +2206,16 @@ export class App {
     const sq = squadOf(this.save, this.byId);
     const partners = new Map<string, string>();
     for (const c of squadCombos(sq)) if (!c.ready && c.missing.length === 1) partners.set(c.missing[0], c.combo.name);
-    box.innerHTML = list.slice(0, this.squadLimit).map((p) => this.pcard(p, { sel: inSquad.has(p.id), badge: inSquad.has(p.id) ? '✔ EQUIPO' : partners.has(p.name) ? `🔗 ${partners.get(p.name)}` : undefined }).replace('<div class="pcard', `<div data-drag="${p.id}" class="pcard${inSquad.has(p.id) ? ' in-squad' : ''}`)).join('')
+    // v1.5: while choosing an Aura, those who can be one come first (compatible ones before all), the rest greyed out
+    const ap = this.auraPick;
+    if (ap !== null) list.sort((a, b) => Number(canBeAura(this.save, b) && b.id !== ap) - Number(canBeAura(this.save, a) && a.id !== ap) || Number(!!bondOf(ap, b.id)) - Number(!!bondOf(ap, a.id)));
+    const auraBadge = (p: RosterEntry) => {
+      const c = carrierOf(this.save, p.id);
+      if (ap !== null) return !canBeAura(this.save, p) || p.id === ap ? undefined : bondOf(ap, p.id) ? '♥ COMPATIBLE 20%' : c !== null ? `✦ AURA DE ${(this.byId.get(c)?.name ?? '').split(' ')[0].toUpperCase()}` : '✦ AURA 15%';
+      return c !== null ? `✦ AURA DE ${(this.byId.get(c)?.name ?? '').split(' ')[0].toUpperCase()}` : undefined;
+    };
+    box.innerHTML = list.slice(0, this.squadLimit).map((p) => this.pcard(p, { sel: inSquad.has(p.id), badge: auraBadge(p) ?? (inSquad.has(p.id) ? '✔ EQUIPO' : partners.has(p.name) ? `🔗 ${partners.get(p.name)}` : undefined) })
+      .replace('<div class="pcard', `<div data-drag="${p.id}" class="pcard${inSquad.has(p.id) ? ' in-squad' : ''}${ap !== null ? (canBeAura(this.save, p) && p.id !== ap ? ' aura-ok' : ' aura-no') : ''}${ap !== null && bondOf(ap, p.id) ? ' aura-bond' : ''}`)).join('')
       + (list.length > this.squadLimit ? `<button class="btn blue" id="sqmore">Mostrar más (${list.length - this.squadLimit})</button>` : '')
       + (list.length ? '' : '<div class="note">Nadie coincide con el filtro.</div>');
     mountPreviews();
@@ -1978,11 +2224,17 @@ export class App {
         if (performance.now() - this.dragEndedAt < 300) return; // the end of a drag is not a click
         // Fix 1.32: one click adds (first free slot, or the slot picked on purpose) or removes; a full squad asks for a slot
         const id = Number(el.dataset.id), squad = squadOf(this.save, this.byId);
+        if (this.auraPick !== null) { // v1.5: choosing an Aura: the tap equips (or explains why not)
+          if (this.tryEquipAura(this.auraPick, id)) this.captainSelect();
+          return;
+        }
         if (inSquad.has(id) && !this.squadPicked) {
           if (squad.length === 1) { this.toast('Tu equipo necesita al menos al capitán'); sfx('error'); return; }
           removeFromSquad(this.save, this.byId, id); sfx('click');
         } else if (this.squadPicked || squad.length < SQUAD_SIZE) {
+          const was = carrierOf(this.save, id); // v1.5: an Aura that joins the squad stops being an Aura: say so
           placeInSquad(this.save, this.byId, this.squadPicked ? this.squadSlot : squad.length, id); sfx('powerup');
+          if (was !== null) this.toast(`${this.byId.get(id)?.name ?? ''} entra en el equipo y deja de ser el Aura de ${this.byId.get(was)?.name ?? ''}`, 3500);
         } else {
           this.toast('Equipo completo: pulsa la plaza que quieres cambiar o quita a alguien'); sfx('error');
           document.querySelector('.squad-row')?.classList.add('ping'); window.setTimeout(() => document.querySelector('.squad-row')?.classList.remove('ping'), 700);
@@ -2027,7 +2279,7 @@ export class App {
     this.show(`<div class="screen ms-screen">${this.titlebar('Elige arena', 'Mi Equipo')}
       <div class="ms-diff r-${rk}"><div class="ms-dl"><small>DIFICULTAD</small><b>Rango ${rk}</b><p>${esc(rankDef(rk).blurb)} Recompensas ×${RANKS[rk].reward}.</p></div><div class="ms-ranks">${ranks}</div></div>
       <div class="ms-team"><span><small>TU EQUIPO</small><b>${esc(squadOf(this.save, this.byId)[0]?.name ?? '—')} (capitán) · ${squadOf(this.save, this.byId).length}/${SQUAD_SIZE}</b></span>
-        <span class="m4-faces">${squadOf(this.save, this.byId).slice(0, 7).map((p) => `<span class="m4-face" style="--rc:${RARITY_COLOR[effectiveRarity(this.save, p)]}">${this.mug(p.id, 38)}</span>`).join('')}</span>
+        <span class="m4-faces">${squadOf(this.save, this.byId).slice(0, 7).map((p) => { const ae = this.auraEntryOf(p.id); return `<span class="m4-face${ae ? ' with-aura' : ''}" style="--rc:${RARITY_COLOR[effectiveRarity(this.save, p)]}" title="${esc(p.name)}${ae ? ` · Aura: ${esc(ae.name)}` : ''}">${this.mug(p.id, 38)}${ae ? `<i class="ms-aura">${this.mug(ae.id, 40)}</i>` : ''}</span>`; }).join('')}</span>
         <button class="btn small" id="toteam">${uiIcon('team')} Cambiar equipo</button></div>
       <div class="maps ms-maps">${cards}</div></div>`);
     document.getElementById('toteam')?.addEventListener('click', () => this.captainSelect());
@@ -2132,6 +2384,7 @@ export class App {
     this.on('[data-compare]', 'click', (_e, el) => { const id = Number(el.dataset.compare); this.compareWith = this.compareWith === id ? null : id; this.collection(id); });
     this.on('[data-uncompare]', 'click', () => { this.compareWith = null; this.collection(detailId); });
     this.on('[data-start]', 'click', (_e, el) => { this.setStart(el.dataset.start!); this.collection(detailId); });
+    this.on('[data-aura-info]', 'click', (_e, el) => this.auraInfo(Number(el.dataset.auraInfo))); // v1.5
     this.on('[data-team]', 'click', (_e, el) => { f.team = el.dataset.team!; this.collectionLimit = 36; this.collection(); });
     this.on('[data-reward]', 'click', (_e, el) => {
       if (claimTeamReward(this.save, this.m.roster, f.team, el.dataset.reward as TeamRewardKind)) { this.persist(); sfx('evolve'); confetti(30); this.toast(`¡${teamLabel(f.team)}: ${({ crest: 'escudo', kit: 'equipación', captain: 'duplicado del capitán' } as Record<string, string>)[el.dataset.reward!]} conseguido!`); }
@@ -2342,10 +2595,11 @@ export class App {
       <h3 style="margin-top:8px">Repertorio (2 técnicas activas en combate)</h3>
       ${reps.map((t, i) => (t ? `<div class="rep">${i === active ? '<span class="tag start">★ Inicial</span>' : o && this.canStartWith(d, i) ? `<button class="ts-start" data-start="${d.id}:${i}">☆ Empezar con esta</button>` : isLocked(t) && !isBought(this.save, d.id, i) ? '<span class="tag">Tienda</span>' : ''}${this.techHtml(t)}<div class="note">Maestría ${masteryLevel(this.save.mastery[String(t.id)] ?? 0)}/${MASTERY_USES.length} · +${masteryLevel(this.save.mastery[String(t.id)] ?? 0) * MASTERY_BONUS * 100}% daño · ${this.save.mastery[String(t.id)] ?? 0} usos</div></div>`
         : '<div class="rep"><div class="tech"><div class="note">Ficha pendiente: sin datos de origen para esta técnica.</div></div></div>')).join('')}
-      ${d.stats ? `<h3 style="margin-top:8px">Estadísticas · media ${statMean(this.statsOf(d)!)}</h3><div class="stat-radar">${statRadar(this.statsOf(d)!, statNames, RARITY_COLOR[effectiveRarity(this.save, d)])}</div>
+      ${d.stats ? (() => { const sp = this.statSplit(d), ae = this.auraEntryOf(d.id), eff: Record<string, number> = sp.eff ?? this.statsOf(d)!; return `<h3 style="margin-top:8px">Estadísticas · media ${statMean(eff)}${ae ? ` <small class="note">(con su Aura ${esc(ae.name)}; propia ${statMean(sp.own!)})</small>` : ''}</h3><div class="stat-radar">${statRadar(sp.own ?? this.statsOf(d)!, statNames, RARITY_COLOR[effectiveRarity(this.save, d)], sp.add)}</div>
+        ${ae ? `<p><button class="btn small blue" data-aura-info="${d.id}">✦ Ver su Aura</button></p>` : ''}
         ${this.trainingHtml(d)}
-        <div class="stat-explain">${STAT_INFO.map((s) => `<div><b>${s.name} ${this.statsOf(d)![s.key] ?? '—'}</b><span>${esc(s.what(this.statsOf(d)![s.key] ?? 60))}</span></div>`).join('')}</div>
-        <div class="note">Valores centrados en 60: por encima suman, por debajo restan. Cada técnica usa las estadísticas de su futbolista.</div><div class="bars-mini">${Object.entries(this.statsOf(d)!).map(([k, v]) => `<span>${statNames[k] ?? k}</span><i style="width:${Math.min(100, v)}%"></i>`).join('')}</div>${d.statsSource === 'derivado' ? '<div class="note">Estadísticas estimadas por posición y rareza: las de IE3 aún no se han descifrado.</div>' : ''}` : ''}
+        <div class="stat-explain">${STAT_INFO.map((s) => { const add = sp.add[s.key] ?? 0, own = sp.own?.[s.key as StatKey] ?? eff[s.key]; return `<div><b>${s.name} ${eff[s.key] ?? '—'}${add ? ` <small class="ai-break">${own} + <i>${add} Aura</i> = ${eff[s.key]}/${EFFECTIVE_STAT_MAX}</small>` : ''}</b><span>${esc(s.what(eff[s.key] ?? 60))}</span></div>`; }).join('')}</div>
+        <div class="note">Valores centrados en 60: por encima suman, por debajo restan. Cada técnica usa las estadísticas de su futbolista. Lo propio llega a 99; con un Aura, hasta ${EFFECTIVE_STAT_MAX}.</div><div class="bars-mini">${Object.entries(eff).map(([k, v]) => `<span>${statNames[k] ?? k}</span><i style="width:${Math.min(100, v / EFFECTIVE_STAT_MAX * 100)}%"></i>`).join('')}</div>${d.statsSource === 'derivado' ? '<div class="note">Estadísticas estimadas por posición y rareza: las de IE3 aún no se han descifrado.</div>' : ''}`; })() : ''}
       </div></div>`;
   }
 
@@ -2768,7 +3022,7 @@ export class App {
   missions(kind: MissionKind = this.missionTab, filter = this.missionFilter) {
     setMusicContext('menu');
     rollPeriods(this.save);
-    recordCollection(this.save, this.m.roster, this.m.mainTeams ?? []);
+    recordCollection(this.save, this.m.roster, this.m.mainTeams ?? [], this.auraMaxStat());
     this.missionTab = kind;
     this.missionFilter = filter;
     window.clearTimeout(this.misRefresh);
@@ -2784,9 +3038,13 @@ export class App {
     const icon = TABS.find((t) => t[0] === kind)![2];
     const rows = list.map((d, i) => {
       const p = Math.min(d.goal, missionProgress(this.save, d)), st = state(d), pc = Math.round(p / d.goal * 100);
-      return `<div class="rw-card ${st}" data-mid="${d.id}" style="--d:${Math.min(i, 12) * 35}ms;--w:${pc}%"><i class="rw-shine"></i>
-        <span class="rw-ic">${uiIcon(st === 'disponibles' ? 'gift' : icon)}</span>
-        <div class="rw-body"><b>${esc(d.label)}</b><div class="rw-bar"><i></i><span>${p.toLocaleString('es')} / ${d.goal.toLocaleString('es')}</span></div></div>
+      // v1.5: achievements show their category and a medal of their tier (bronze 10, silver 20, gold 50 fichas)
+      const cat = d.kind !== 'logro' ? null : /^a_/.test(d.id) ? ['aura', '✦ AURAS'] : /^c_|col|equipo|mitico|heroe|ascenso|fichajes|eras/.test(d.id) ? ['col', '★ COLECCIÓN']
+        : /^g_|niveles|combos/.test(d.id) ? ['prog', '▲ PROGRESIÓN'] : ['comb', '⚔ COMBATE'];
+      const tier = d.kind !== 'logro' ? '' : d.tokens >= 50 ? ' tier-g' : d.tokens >= 20 ? ' tier-s' : ' tier-b';
+      return `<div class="rw-card ${st}${tier}" data-mid="${d.id}" style="--d:${Math.min(i, 12) * 35}ms;--w:${pc}%"><i class="rw-shine"></i>
+        <span class="rw-ic">${cat ? `<span class="rw-medal">${st === 'disponibles' ? '🏆' : cat[1].slice(0, 1)}</span>` : uiIcon(st === 'disponibles' ? 'gift' : icon)}</span>
+        <div class="rw-body">${cat ? `<small class="rw-cat c-${cat[0]}">${cat[1]}</small>` : ''}<b>${esc(d.label)}</b><div class="rw-bar"><i></i><span>${p.toLocaleString('es')} / ${d.goal.toLocaleString('es')}</span></div></div>
         <div class="rw-rew"><span class="rw-chip c">${Math.round(d.coins * mult)}</span>${d.tokens ? `<span class="rw-chip t">${d.tokens}</span>` : ''}${d.train ? `<span class="rw-chip tr" title="Fichas de entrenamiento">+${d.train} ENT</span>` : ''}${d.dupe ? '<span class="rw-chip dp" title="Duplicado de uno de tus Legendarios o Míticos">+1 DUP</span>' : ''}</div>
         ${st === 'disponibles' ? `<button class="rw-btn" data-claim="${d.id}">¡RECLAMAR!</button>` : st === 'reclamadas' ? '<span class="rw-done">✔ COBRADA</span>' : `<span class="rw-pc">${pc}%</span>`}
         <span class="rw-stamp">¡COBRADA!</span></div>`;
@@ -2976,7 +3234,7 @@ export class App {
       <h3 style="margin-top:12px">Copia de seguridad</h3>
       <div class="opt-row"><span>Tu progreso</span><div><button class="btn small" id="export">Exportar</button> <button class="btn small blue" id="import">Importar</button><input type="file" id="importfile" accept=".json,application/json" hidden></div></div>
       <h3 style="margin-top:12px">Ayuda</h3>
-      <div class="opt-row"><span>¿Algo no funciona?</span><div><button class="btn small" id="optbug">Reportar un bug</button> <button class="btn small blue" id="optadmin" hidden>Panel de bugs</button></div></div>
+      <div class="opt-row"><span>¿Algo no funciona?</span><div><button class="btn small" id="optbug">Reportar un bug</button> <button class="btn small blue" id="optadmin" hidden>Panel de bugs</button> <button class="btn small blue" id="optplayers" hidden>Panel de jugadores</button></div></div>
       <h3 style="margin-top:12px">Empezar de cero</h3>
       <div class="opt-row"><span>Reiniciar progreso</span><button class="btn small" id="resetprog">Reiniciar progreso…</button></div>
       <p class="note">Vuelves a empezar como un jugador nuevo${this.save.onlineName ? `, conservando tu cuenta de Google y tu nombre «${esc(this.save.onlineName)}»` : ''}. No es lo mismo que eliminar la cuenta.</p>
@@ -2990,7 +3248,8 @@ export class App {
     document.getElementById('resetprog')!.addEventListener('click', () => this.resetProgressModal());
     document.getElementById('optbug')!.addEventListener('click', () => this.bugReportModal());
     document.getElementById('optadmin')!.addEventListener('click', () => { void this.adminBugs(); });
-    if (onlineConfigured() && signedIn()) amIAdmin().then((yes) => { const b = document.getElementById('optadmin'); if (b) b.hidden = !yes; }).catch(() => undefined);
+    document.getElementById('optplayers')!.addEventListener('click', () => { void this.adminPlayers(); });
+    if (onlineConfigured() && signedIn()) amIAdmin().then((yes) => { for (const id of ['optadmin', 'optplayers']) { const b = document.getElementById(id); if (b) b.hidden = !yes; } }).catch(() => undefined);
     document.getElementById('fs')!.addEventListener('click', () => {
       const done = () => this.options();
       (document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen()).then(done, done);
@@ -3101,7 +3360,15 @@ export class App {
     const map = this.m.maps.find((x) => x.id === mapId)!;
     // a HÉROE brings its exclusive technique as a fifth repertoire entry
     // Fix 1.3: the run plays with the real stats (rarity band, ascension, HÉROE, training), not the raw ones
-    const heroed = (p: RosterEntry): RosterEntry => ({ ...(isHero(this.save, p.id) && p.heroTech ? { ...p, techniques: [...p.techniques, p.heroTech] } : p), stats: this.statsOf(p) ?? p.stats });
+    // v1.5: a carrier also plays with his Aura: effective stats (up to 120), inherited techniques and the link (auras.ts)
+    const heroed = (p: RosterEntry): RosterEntry => {
+      const base: RosterEntry = { ...(isHero(this.save, p.id) && p.heroTech ? { ...p, techniques: [...p.techniques, p.heroTech] } : p), stats: this.statsOf(p) ?? p.stats };
+      const a = auraOf(this.save, p.id), ae = a === null ? undefined : this.byId.get(a);
+      return ae ? carrierForRun(this.save, base, base.stats as Record<StatKey, number> | null, ae) : base;
+    };
+    const runTeam = team.map(heroed), runUnlocked = candidates.filter((p) => this.owned(p.id)).map(heroed);
+    this.runById = new Map([...runUnlocked, ...runTeam].map((p) => [p.id, p]));
+    const runAuras = [...new Set([...runTeam, ...runUnlocked].map((p) => p.aura?.id).filter((x): x is number => x !== undefined))].map((id) => this.byId.get(id)!).filter(Boolean);
     const stars: Record<string, number> = {};
     for (const [k, v] of Object.entries(this.save.owned)) stars[k] = v.stars;
     this.hudTeamKey = '';
@@ -3138,7 +3405,7 @@ export class App {
         this.toast(`Nuevo: ${label}. ${info}`, 4500);
       },
       asc: Object.fromEntries(candidates.map((p) => [String(p.id), { ...ascMultipliers(this.save, p), hero: isHero(this.save, p.id) }])),
-      manifest: this.m, map, team: team.map(heroed), unlocked: candidates.filter((p) => this.owned(p.id)).map(heroed), stars, settings: this.save.settings,
+      manifest: this.m, map, team: runTeam, unlocked: runUnlocked, auras: runAuras, stars, settings: this.save.settings,
       perks: (() => { const e = applyGear(perkEffects(this.save), this.save, this.gear); kitBonus(this.save.kit, this.m.roster).apply(e); return e; })(),
       kitTeam: this.save.kit || 'Raimon', shop: this.save.shop, mastery: this.save.mastery, loadout: this.save.loadout, kit: this.m.kits?.[this.save.kit] ?? null, formation: (this.save.formation as FormationId) in FORMATIONS ? this.save.formation as FormationId : 'equilibrada',
       hooks: {
@@ -3276,7 +3543,7 @@ export class App {
         return `<div class="plate${i === 0 ? ' cap' : ''}" data-m="${t.id}" style="--rc:${RARITY_COLOR[p.rarity]};--ec:${ELEMENT_COLOR[String(p.element)] ?? '#ccc'}">
           <div class="pl-head"><span class="pl-mug">${this.mug(t.id, 40)}</span>${i === 0 ? '<span class="pl-c">C</span>' : ''}
           <span class="pl-elem" title="${esc(p.element)}">${elementIcon(String(p.element), 18)}</span>
-          <span class="pl-name">${esc(p.name)}<small>${POS_LABEL[p.position]} · ${esc(p.element)}</small></span></div>
+          <span class="pl-name">${esc(p.name)}<small>${POS_LABEL[p.position]} · ${esc(p.element)}</small></span>${t.aura ? `<span class="pl-aura" title="Aura: ${esc(t.aura.name)}">${this.mug(t.aura.id, 40)}</span>` : ''}</div>
           ${t.techs.map((_, k) => `<div class="pl-tech" data-k="${k}"><span class="pl-icon"><i class="cd"></i></span><span class="pl-tn"></span><span class="pl-pips"></span></div>`).join('')}</div>`;
       }).join('');
     }
@@ -3290,6 +3557,7 @@ export class App {
         if (c.dataset.sig !== sig) {
           c.dataset.sig = sig;
           c.classList.toggle('free', !tc);
+          c.classList.toggle('aura', !!tc?.aura); // v1.5: inherited from the Aura
           (c.querySelector('.pl-tn') as HTMLElement).textContent = tc ? `${tc.name}${tc.evolution ? ` ${tc.evolution}` : ''}` : 'Ranura libre';
           (c.querySelector('.pl-pips') as HTMLElement).innerHTML = tc ? Array.from({ length: MAX_TECH_LEVEL }, (_, n) => `<i class="${n < tc.level ? 'on' : ''}"></i>`).join('') : '';
           c.querySelector('.pl-icon .icon')?.remove();
@@ -3377,30 +3645,34 @@ export class App {
   }
 
   private cardHtml(c: Card, i: number) {
+    const runP = (id: number) => this.runById.get(id) ?? this.byId.get(id)!;
+    const auraTag = (p: RosterEntry) => p.aura ? `<div class="lv-aura">✦ Aura: ${esc(p.aura.name)}</div>` : '';
     if (c.kind === 'recruit') {
-      const p = this.byId.get(c.playerId)!;
+      const p = runP(c.playerId);
+      // Fix 1.41 (author): the card shows the technique he really starts with (the one chosen in Mi Equipo), not his first one
+      const start = p.techniques[this.startOf(this.byId.get(p.id) ?? p)] ?? p.techniques[0];
       return `<button class="lvcard recruit" data-i="${i}" style="--rc:${RARITY_COLOR[p.rarity]}"><div class="lv-ribbon">¡NUEVO FICHAJE!</div>
         <div class="lv-type">FICHAJE · ${this.rar(p)}</div><div class="lv-art">${this.mug(p.id, 128)}<span class="minisprite">${charCanvas(p.id, 2, 12)}</span></div>
         <div class="lv-name">${esc(p.name)}</div><div class="lv-sub">${POS_LABEL[p.position]} · ${this.elem(p)}</div>
-        <div class="lv-techs">${p.techniques.slice(0, 1).map((t) => `<div>${this.icon(ICON.manual[t.type], 1.5)} ${esc(t.name)} <small>${TYPE_LABEL[t.type]}</small></div>`).join('')}</div></button>`;
+        <div class="lv-techs">${[start].filter(Boolean).map((t) => `<div>${this.icon(ICON.manual[t.type], 1.5)} ${esc(t.name)} <small>${TYPE_LABEL[t.type]}</small></div>`).join('')}</div>${auraTag(p)}</button>`;
     }
     if (c.kind === 'upgrade') {
-      const p = this.byId.get(c.playerId)!;
+      const p = runP(c.playerId);
       const t = p.techniques[c.tech];
       const pips = Array.from({ length: MAX_TECH_LEVEL }, (_, k) => `<i class="${k < c.toLevel - 1 ? 'on' : k === c.toLevel - 1 ? 'new' : ''}"></i>`).join('');
       const evo = evolvesAt(t, c.toLevel - 1);
       const now = evolutionLabel(t, c.toLevel - 1);
       return `<button class="lvcard upgrade${evo ? ' evolves' : ''}" data-i="${i}" style="--rc:${RARITY_COLOR[p.rarity]}">${evo ? `<div class="lv-ribbon">¡EVOLUCIÓN ${esc(evo)}!</div>` : ''}
-        <div class="lv-type">MEJORA · ${TYPE_LABEL[t.type].toUpperCase()}</div>
+        <div class="lv-type">${t.aura !== undefined ? 'AURA · ' : ''}MEJORA · ${TYPE_LABEL[t.type].toUpperCase()}</div>
         <div class="lv-art">${this.mug(p.id, 96)}${this.techBadge(t)}</div>
         <div class="lv-name">${esc(t.name)}${now ? ` ${esc(now)}` : ''}</div><div class="lv-sub">${esc(p.name)}</div>${this.techChips(t)}
         <div class="lv-level">${esc(evolutionLabel(t, c.toLevel - 1) || 'Base')} <span>»</span> <b>${esc(evolutionLabel(t, c.toLevel) || `Nv ${c.toLevel}`)}</b><span class="pips">${pips}</span></div>
         ${this.statDiff(t, c.toLevel - 1)}</button>`;
     }
     if (c.kind === 'learn') {
-      const p = this.byId.get(c.playerId)!;
+      const p = runP(c.playerId);
       const t = p.techniques[c.tech];
-      return `<button class="lvcard learn" data-i="${i}" style="--rc:${RARITY_COLOR[p.rarity]}"><div class="lv-ribbon">SEGUNDA TÉCNICA</div>
+      return `<button class="lvcard learn${t.aura !== undefined ? ' from-aura' : ''}" data-i="${i}" style="--rc:${RARITY_COLOR[p.rarity]}"><div class="lv-ribbon">${t.aura !== undefined ? `TÉCNICA DEL AURA · ${esc(p.aura?.name ?? '')}` : 'SEGUNDA TÉCNICA'}</div>
         <div class="lv-type">APRENDER · ${TYPE_LABEL[t.type].toUpperCase()}</div>
         <div class="lv-art">${this.mug(p.id, 96)}${this.techBadge(t)}</div>
         <div class="lv-name">${esc(t.name)}</div><div class="lv-sub">${esc(p.name)} · poder ${t.power} · Nv 1/${MAX_TECH_LEVEL}</div>${this.techChips(t)}

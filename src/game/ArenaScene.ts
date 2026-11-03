@@ -35,13 +35,14 @@ import { orphans } from '../systems/groundSweep';
 import { chaosMeteorCharge, chaosMeteorShot, chaosVortex, fireStormCharge, fireStormShot, earthGlobe, elementBurst, fireIceTwin, phoenix, phoenixFlight, setLowPower, teamBeams } from './fxManif';
 import { blackAshCharge, blackAshTrail, illusionBall, signatureOf, stormZone } from './fxSignature';
 import { natureArea, natureCharge, natureOf, natureShot, setNatureLowPower } from './fxNature';
-import { animeCharge, animeOf, animeShot, breezeStep } from './fxAnime';
+import { animeCharge, animeOf, animeShot, breezeStep, godWindGust } from './fxAnime';
 import { adaptedPassive, CAP_ELEMENTAL, CAP_LAST_STAND, emptyFx, TALENTS, talentScale, type TalentFx } from '../systems/talents';
-import { COMBOS, COMBOS_BY_PRIORITY, COMBO_MAX_LEVEL, comboDamage, comboMembers, comboReady, type ComboDef } from '../systems/combos';
+import { COMBOS, COMBOS_BY_PRIORITY, COMBO_MAX_LEVEL, comboCast, comboDamage, comboMembers, comboReady, type ComboDef } from '../systems/combos';
+import { AURA_ELEMENT_BONUS, AURA_TECH_DAMAGE } from '../systems/auras';
 import type { Rank } from '../systems/save';
 
-export interface HudTech { name: string; type: Technique['type']; level: number; evolution: string; cd: number }
-export interface HudMember { id: number; techs: (HudTech | null)[] }
+export interface HudTech { name: string; type: Technique['type']; level: number; evolution: string; cd: number; /** v1.5: inherited from the Aura */ aura?: boolean }
+export interface HudMember { id: number; techs: (HudTech | null)[]; /** v1.5 */ aura?: { id: number; name: string } | null }
 export interface HudState {
   hp: number; maxHp: number; xp: number; xpNext: number; level: number; timeSec: number; durationSec: number;
   kills: number; team: HudMember[]; boss: { name: string; hp: number; maxHp: number; title: string; phase: number; rival: boolean } | null;
@@ -99,6 +100,8 @@ export interface ArenaInit {
   onPickup?: (id: string, label: string, info: string) => void;
   /** body textures of the kit worn by the squad; absent = Raimon */
   kit?: NonNullable<Manifest['kits']>[string] | null;
+  /** v1.5: the Auras of the squad (their own entries), only to show them inside a combined technique */
+  auras?: RosterEntry[];
 }
 
 interface Member {
@@ -194,6 +197,9 @@ export class ArenaScene extends Phaser.Scene {
   private bonusCoins = 0;
   private lastUpgrade: HudState['upgraded'] = null;
   private techUses: Record<string, number> = {};
+  /** v1.5: inherited techniques fired and combined techniques with an Aura taking part (achievements) */
+  private auraTechUses = 0;
+  private auraCombos = 0;
   private bonusTokens = 0;
   private padHeld: Record<number, boolean> = {};
   private xpCombo = 0;
@@ -258,7 +264,7 @@ export class ArenaScene extends Phaser.Scene {
     this.bossSpawned = false; this.ended = false; this.rerolls = 2 + data.perks.extraRerolls; this.levelingUp = false;
     this.formation = data.formation; this.formationChangedAt = -10; this.hurtAt = -10; this.heading = 0; this.capVx = 0; this.capVy = 0; this.invulnUntil = 0; this.hitsTaken = {}; this.lastHit = null; this.reviveCharges = 0; this.hitSrc = { by: '', attack: '' };
     this.rng = new Phaser.Math.RandomDataGenerator([String(data.seed ?? Date.now())]);
-    this.mods = baseMods(); this.taken = {}; this.buffs = new Map(); this.bonusCoins = 0; this.lastUpgrade = null; this.techUses = {}; this.guardBlocks = 0;
+    this.mods = baseMods(); this.taken = {}; this.buffs = new Map(); this.bonusCoins = 0; this.lastUpgrade = null; this.techUses = {}; this.auraTechUses = 0; this.auraCombos = 0; this.guardBlocks = 0;
     this.padHeld = {}; this.xpCombo = 0; this.xpComboUntil = 0; this.techById = {};
     this.rank = rankDef(data.rank); this.shots = []; this.hazards = []; this.nextHazardAt = 20; this.wavePhase = ''; this.stretchAnnounced = false; this.combos = new Map(); this.slowmoUntil = 0; this.hitstopUntil = 0; this.nextHitstop = 0; this.recentKills = []; this.nextSweepCheer = 0; this.endless = null; this.secondWindUsed = false; this.altarsDone = 0; this.damageDealt = 0;
     this.runId = crypto.randomUUID?.() ?? `${Date.now()}-${Math.random()}`; this.spawnAcc = 1.2; // first rivals within a second or two
@@ -278,7 +284,7 @@ export class ArenaScene extends Phaser.Scene {
       sheet(`kit:${kit.field}`, { ...m.bodies.field, texture: kit.field });
       if (kit.gk && m.bodies.gk) sheet(`kit:${kit.gk}`, { ...m.bodies.gk, texture: kit.gk });
     }
-    for (const p of new Map([...unlocked, ...team].map((x) => [x.id, x])).values()) sheet(headKey(p.id), p.head);
+    for (const p of new Map([...unlocked, ...team, ...(this.cfg.auras ?? [])].map((x) => [x.id, x])).values()) sheet(headKey(p.id), p.head);
     const units = new Map(m.units.map((u) => [u.id, u]));
     for (const id of [...map.enemies, ...map.minibosses, ...(map.boss !== null ? [map.boss] : []), ...(m.eventRobot ? [m.eventRobot] : [])]) {
       const u = units.get(id);
@@ -349,13 +355,18 @@ export class ArenaScene extends Phaser.Scene {
     const sb = { ...starBonus(this.cfg.stars[String(entry.id)] ?? 0) };
     const asc = this.cfg.asc?.[String(entry.id)];
     if (asc) { sb.damage *= asc.damage; sb.hp *= asc.hp; }
-    const state = newMemberState(entry, this.cfg.perks.techSlots, this.cfg.loadout?.[String(entry.id)]);
+    // v1.5: a carrier gets one more slot, the Aura slot, holding his first inherited technique from the start; the second
+    // one can be learned into a free normal slot with a level-up card (it never replaces one of his own)
+    const auraFirst = entry.techniques.findIndex((t) => t.aura !== undefined);
+    const state = newMemberState(entry, this.cfg.perks.techSlots + (auraFirst >= 0 ? 1 : 0), this.cfg.loadout?.[String(entry.id)]);
+    if (auraFirst >= 0 && !state.slots.includes(auraFirst)) { state.slots[state.slots.length - 1] = auraFirst; state.levels[auraFirst] = 1; }
     const first = entry.techniques[state.slots[0]!];
+    const perSlot = <T>(f: (k: number) => T) => [0, 1, 2, 3, 4].map(f);
     const m: Member = {
       f, entry, state, damageMult: sb.damage * this.cfg.perks.damageMult,
-      cds: [0, 1, 2, 3].map((k) => 700 + this.members.length * 230 + k * 600), maxCd: [1, 1, 1, 1],
-      styles: [0, 1, 2, 3].map(() => fxStyle(first)), trajs: [0, 1, 2, 3].map(() => trajectory(first)),
-      recipes: [0, 1, 2, 3].map(() => recipeFor(first, this.fxRarity(entry))),
+      cds: perSlot((k) => 700 + this.members.length * 230 + k * 600), maxCd: perSlot(() => 1),
+      styles: perSlot((k) => fxStyle(entry.techniques[state.slots[k] ?? -1] ?? first)), trajs: perSlot((k) => trajectory(entry.techniques[state.slots[k] ?? -1] ?? first)),
+      recipes: perSlot((k) => recipeFor(entry.techniques[state.slots[k] ?? -1] ?? first, this.fxRarity(entry))),
       slot: this.members.length - 1, windup: null, dash: null, vx: 0, vy: 0, settled: false, guardUntil: 0, guardLock: 0,
     };
     this.members.push(m);
@@ -363,6 +374,10 @@ export class ArenaScene extends Phaser.Scene {
     if (this.members.length === 1) this.maxHp = this.hp = add;
     else { this.maxHp += add; this.hp = Math.min(this.maxHp, this.hp + add); }
     if (this.members.length > 1) this.fx.burst(m.styles[0], x, y - 10, 12, 50);
+    if (entry.aura) { // v1.5: the Aura shows itself for a moment when its carrier comes in
+      this.fx.ring(x, y - 10, 34, 0x7ff6ff, 700, 3);
+      this.fx.label(x, y - 40, `Aura: ${entry.aura.name}`, '#7ff6ff');
+    }
     if (asc?.hero) { // HÉROE: golden entrance and a lasting aura
       this.fx.rays(x, y - 12, 12, 46, 0xffe27a, 600);
       this.fx.ring(x, y - 10, 30, 0xffd84a, 500, 3);
@@ -454,7 +469,9 @@ export class ArenaScene extends Phaser.Scene {
     // the build as a whole has a soft limit; the formation and timed buffs stay outside it, they are decisions of the moment
     const fx = this.talents();
     const talent = 1 + (fx.type[t.type] ?? 0) + (fx.element[String(t.element)] ?? 0) + (this.hp < this.maxHp * 0.3 ? Math.min(CAP_LAST_STAND, fx.lastStand) : 0);
-    const build = softCap(m.damageMult * boost * talent * this.mods.damage * (1 + this.cfg.perks.synergy * allies) * this.teamDamageBonus() * this.heroAura()
+    // v1.5: affinity with the Aura's element (one multiplier, the carrier keeps his own element for every other rule)
+    const affinity = (m.entry.aura && t.element && t.element === m.entry.aura.element ? 1 + AURA_ELEMENT_BONUS : 1) * (t.aura !== undefined ? AURA_TECH_DAMAGE : 1);
+    const build = softCap(m.damageMult * boost * talent * affinity * this.mods.damage * (1 + this.cfg.perks.synergy * allies) * this.teamDamageBonus() * this.heroAura()
       * chemistry(this.cfg.kitTeam ?? '', this.members.map((x) => x.entry)));
     const s = techStats(t, this.techLevel(m, i), build * statDamage(m.entry, t.type) * (this.buffOn('dano') ? 1.5 : 1) * this.formationDamage() * (t.type === 'parada' ? 1 + fx.keeper : 1));
     if (t.type === 'parada' && fx.keeper) { s.heal *= 1 + fx.keeper; s.shield = Math.min(0.6, s.shield * (1 + fx.keeper)); } // Portero+
@@ -675,6 +692,7 @@ export class ArenaScene extends Phaser.Scene {
           this.techById[t.id] = (this.techById[t.id] ?? 0) + 1;
           const elementKey = t.element ?? 'neutro';
           this.techUses[elementKey] = (this.techUses[elementKey] ?? 0) + 1;
+          if (t.aura !== undefined) this.auraTechUses++;
         };
         if (/colmillo de pantera/i.test(t.name)) {
           // signature move, deliberately strong: lunges at the closest rival and bites everything in a wide area
@@ -948,6 +966,30 @@ export class ArenaScene extends Phaser.Scene {
     const [c1, c2] = STYLE_COLORS[style];
     // Fix 1.12: the participants send their power to the meeting point and each combination has its own manifestation
     const wind = def.effect === 'tierra' || def.effect === 'tierra-inf' ? 900 : def.effect === 'caos' || def.effect === 'fenix' ? 700 : 360;
+    // v1.5: a participant carried as Aura appears beside its carrier for the technique only, then fades away
+    const ghosts: { x: number; y: number }[] = [];
+    for (const c of comboCast(def, who)) {
+      if (!c.viaAura) continue;
+      const ae = this.cfg.auras?.find((p) => p.id === c.member.entry.aura?.id);
+      const body = ae && (this.cfg.manifest.bodies[ae.body] ?? this.cfg.manifest.bodies.field);
+      if (!ae || !body || !this.textures.exists(headKey(ae.id))) continue;
+      const side = c.member.f.x < mx ? -1 : 1;
+      const gx = c.member.f.x + side * 18, gy = c.member.f.y - 2;
+      const ghost = new Footballer(this, ae, body, gx, gy);
+      ghost.dir = c.member.f.dir;
+      ghost.update(0);
+      ghost.container.setAlpha(0).setDepth(gy);
+      const glow = this.add.circle(gx, gy - 10, 16, 0x7ff6ff, 0.35).setBlendMode(Phaser.BlendModes.ADD).setDepth(gy - 1);
+      this.tweens.add({ targets: ghost.container, alpha: 0.9, duration: 160 });
+      ghost.hop(this, 10, wind);
+      this.fx.ring(gx, gy - 10, 22, 0x7ff6ff, 420, 2);
+      this.time.delayedCall(wind + 260, () => {
+        this.tweens.add({ targets: [ghost.container, glow], alpha: 0, duration: 220, onComplete: () => { ghost.destroy(); glow.destroy(); } });
+      });
+      ghosts.push({ x: gx, y: gy - 12 });
+      this.auraCombos++;
+    }
+    if (ghosts.length) teamBeams(this, ghosts, mx, my, 0x7ff6ff, wind);
     for (const m of who) {
       m.f.hop(this, 9, wind);
       if (def.effect === 'tiro-rayo') this.fx.lightning(m.f.x, m.f.y - 12, mx, my);
@@ -1014,6 +1056,23 @@ export class ArenaScene extends Phaser.Scene {
       dragon(this, 'strike', ox, oy, d1, d2, lv, flight, target.pos.x, target.pos.y - 10, big);
     }
     if (recipe.tier >= 2) this.fx.shake(0.0012, 60);
+    if (animeOf(t.name) === 'godwind') { // v1.5 (author): Viento celestial is a gust drawing an S, hurting along the way
+      const reach = Math.hypot(target.pos.x - ox, target.pos.y - 12 - oy) + 50;
+      const tx = ox + Math.cos(base) * reach, ty = oy + Math.sin(base) * reach;
+      const ms = Math.max(520, Math.min(1100, reach / s.speed * 1000 * 1.5));
+      const hits = new Set<Enemy>(), r = 16 + s.radius * 0.5;
+      // every projectile it would have thrown becomes damage of the one gust; each rival is hit once per gust
+      const dmg = s.damage * (1 + 0.6 * (count - 1));
+      godWindGust(this, ox, oy, tx, ty, lv, ms, (x, y, ang) => {
+        if (this.ended) return;
+        for (const e of this.enemies) {
+          if (e.dead || hits.has(e) || Math.hypot(e.pos.x - x, e.pos.y - 10 - y) > r + e.radius) continue;
+          hits.add(e);
+          this.hit(e, dmg, Math.cos(ang) * s.knockback, Math.sin(ang) * s.knockback, style);
+        }
+      });
+      return;
+    }
     for (let k = 0; k < count; k++) {
       const a = base + (k - (count - 1) / 2) * 0.2;
       const scale = (big ? 1.3 : 1) * (1 + 0.05 * (lv - 1)) * (1 + recipe.tier * 0.12) * recipe.ballScale;
@@ -2313,8 +2372,8 @@ export class ArenaScene extends Phaser.Scene {
         const t = this.activeTech(m, i);
         if (!t) return null;
         const level = this.techLevel(m, i);
-        return { name: t.name, type: t.type, level, evolution: evolutionLabel(t, level), cd: Math.max(0, Math.min(1, m.cds[i] / Math.max(1, m.maxCd[i]))) };
-      }) })),
+        return { name: t.name, type: t.type, level, evolution: evolutionLabel(t, level), cd: Math.max(0, Math.min(1, m.cds[i] / Math.max(1, m.maxCd[i]))), aura: t.aura !== undefined };
+      }), aura: m.entry.aura ? { id: m.entry.aura.id, name: m.entry.aura.name } : null })),
       boss: (() => { const b = this.boss ?? this.rival; return b ? { name: b.unit.name, hp: Math.max(0, b.hp), maxHp: b.maxHp, title: this.kitOf(b).title, phase: b.phase ?? 0, rival: !!b.rival } : null; })(),
       rerolls: this.rerolls, formation: this.formation, formationChangedAt: this.formationChangedAt,
       hurtAt: this.hurtAt, now: this.runTime, upgraded: this.lastUpgrade, runCoins: this.bonusCoins, runTokens: this.bonusTokens,
@@ -2344,7 +2403,7 @@ export class ArenaScene extends Phaser.Scene {
     const lost = !(victory || this.endless);
     this.cfg.hooks.end({ death: (lost || (this.endless && this.hp <= 0)) && this.lastHit ? { ...this.lastHit } : undefined, mapId: this.cfg.map.id, rank: this.rank.id, victory: victory || !!this.endless, endlessSec: this.endless ? this.runTime - this.endless.since : 0, endlessPhase: this.endless ? endlessPhase(this.endlessMin()).name : undefined, endlessBosses: this.endless?.bosses ?? 0, endlessCoins: this.endless?.coins ?? 0, endlessTokens: this.endless?.tokens ?? 0, altars: this.altarsDone, damage: Math.round(this.damageDealt), runId: this.runId, captainId: this.members[0].entry.id, teamIds: this.members.map((m) => m.entry.id), timeSec: this.runTime, kills: this.kills, level: this.level,
       minibosses: this.minibossesKilled, bossDefeated: (victory || !!this.endless) && this.bossSpawned, reachedBoss: this.bossSpawned, bonusCoins: this.bonusCoins, bonusTokens: this.bonusTokens,
-      formation: this.formation, techUses: this.techUses, techById: this.techById,
+      formation: this.formation, techUses: this.techUses, techById: this.techById, auraTechUses: this.auraTechUses, auraCombos: this.auraCombos, withAuras: this.members.some((m) => !!m.entry.aura),
       maxTechLevel: Math.max(...this.members.flatMap((m) => Object.values(m.state.levels))), combos: [...this.combos.keys()] });
   }
 

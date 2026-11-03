@@ -29,7 +29,7 @@ beforeAll(async () => {
   await db.exec(`
     create role anon; create role authenticated;
     create schema auth;
-    create table auth.users (id uuid primary key, email text);
+    create table auth.users (id uuid primary key, email text, created_at timestamptz not null default now(), last_sign_in_at timestamptz);
     create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('test.uid', true), '')::uuid $$;
     create function auth.jwt() returns jsonb language sql stable as $$ select coalesce(nullif(current_setting('test.jwt', true), ''), '{}')::jsonb $$;
     -- Supabase Storage, reduced to what the migrations use
@@ -276,8 +276,15 @@ describe('reportar un bug (database)', () => {
     expect((await api('carla', `select public.am_i_admin() as a`)).rows[0]).toEqual({ a: false });
     await expect(api('carla', `select * from public.admin_bug_reports()`)).rejects.toThrow(/forbidden/);
     await expect(api('carla', `select public.admin_update_bug('BUG-00000000', 'corregido', 'x')`)).rejects.toThrow(/forbidden/);
+    await expect(api('beto', `select public.admin_player_stats()`)).rejects.toThrow(/forbidden/);
+    await expect(api('', `select public.admin_player_stats()`)).rejects.toThrow(/permission denied/);
     await db.query('insert into private.admins (user_id) values ($1)', [ids.carla]);
     expect((await api('carla', `select public.am_i_admin() as a`)).rows[0]).toEqual({ a: true });
+    // Fix 1.41: the players panel counts every account, and lists names without e-mails
+    const st = (await api('carla', `select public.admin_player_stats(50) as s`)).rows[0] as { s: { accounts: number; players: Record<string, unknown>[] } };
+    expect(st.s.accounts).toBe(((await db.query(`select count(*)::int as n from auth.users`)).rows[0] as { n: number }).n);
+    expect(st.s.players.length).toBeGreaterThan(0);
+    expect(JSON.stringify(st.s)).not.toMatch(/@example\.test/);
     const all = (await api('carla', `select code, severity from public.admin_bug_reports(null, null, null, null, null, 'prioridad', 100)`)).rows as { code: string }[];
     expect(all.length).toBeGreaterThanOrEqual(10);
     await api('carla', `select public.admin_update_bug($1, 'revisando', 'Reproducido en Chrome')`, [all[0].code]);

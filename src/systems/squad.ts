@@ -4,6 +4,7 @@
  */
 import { RARITY_ORDER, type RosterEntry } from '../data/manifest';
 import type { SaveData } from './save';
+import { carrierOf, releaseAsAura } from './auras';
 
 export const SQUAD_SIZE = 7;
 const rank = (p: RosterEntry) => RARITY_ORDER.indexOf(p.rarity);
@@ -31,7 +32,7 @@ export function fillSquad(save: SaveData, roster: RosterEntry[]) {
   const byId = new Map(roster.map((p) => [p.id, p]));
   const squad = squadOf(save, byId);
   const inSquad = new Set(squad.map((p) => p.id));
-  const extra = roster.filter((p) => save.owned[String(p.id)] && !inSquad.has(p.id))
+  const extra = roster.filter((p) => save.owned[String(p.id)] && !inSquad.has(p.id) && carrierOf(save, p.id) === null) // v1.5: Auras stay Auras
     .sort((a, b) => rank(b) - rank(a) || (save.owned[String(b.id)].stars - save.owned[String(a.id)].stars) || a.id - b.id);
   for (const p of extra) {
     if (squad.length >= SQUAD_SIZE) break;
@@ -50,6 +51,7 @@ export function setSquad(save: SaveData, ids: number[]) {
 /** Puts a player in a slot (0 = captain). If they were already in the squad, the two slots swap. */
 export function placeInSquad(save: SaveData, byId: Map<number, RosterEntry>, slot: number, id: number) {
   if (!save.owned[String(id)]) return;
+  releaseAsAura(save, id); // v1.5: one copy, one place: an Aura that goes into the squad stops being an Aura
   const ids = squadOf(save, byId).map((p) => p.id);
   const from = ids.indexOf(id);
   if (from >= 0) {

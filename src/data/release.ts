@@ -6,7 +6,7 @@
  */
 import { CHANGELOG } from './changelog';
 
-export const PUBLIC_VERSION = '1.41';
+export const PUBLIC_VERSION = '1.5';
 export const BUILD = CHANGELOG[0].version;
 export const RELEASED = false;
 export const VERSION_LABEL = RELEASED ? `v${PUBLIC_VERSION}` : `v${PUBLIC_VERSION} · pre-lanzamiento`;
@@ -28,6 +28,26 @@ export interface PublicRelease {
 
 /** Public news, newest first. Starts at v1.0: the internal versions before it are not part of the public history. */
 export const PUBLIC_RELEASES: PublicRelease[] = [
+  {
+    version: '1.5', date: '2026-11-05',
+    title: 'InaZurvivors 1.5 — Auras',
+    tagline: 'Cada futbolista puede llevar a otro como Aura: estadísticas hasta 120, técnicas heredadas y técnicas conjuntas con quien no está en el campo',
+    intro: 'Llega la mayor novedad de estrategia hasta ahora. En Mi Equipo, cada plaza tiene una carta pequeña enganchada: su Aura. Pon ahí a un Legendario, Mítico o Leyenda de tu colección y tu futbolista ganará sus mejores estadísticas, dos de sus técnicas y su afinidad elemental. Y si los dos tienen historia juntos, más todavía.',
+    features: [
+      { icon: '✦', title: 'Auras', text: 'Arrastra un Legendario, Mítico o Leyenda a la carta pequeña de una plaza, o tócala y elígelo en tu colección. Cualquier futbolista puede llevar una, también un Común.' },
+      { icon: '▲', title: 'Hasta 120', text: 'El Aura suma el 15% de sus tres mejores estadísticas. Lo propio sigue en 99, pero con el Aura una estadística llega hasta 120, y en el combate se nota.' },
+      { icon: '♥', title: 'Compatibles', text: 'Si tienen historia (Axel y Shawn, Mark y Nathan, Jude y Celia...) el Aura da el 20%. Más de 20 parejas de técnica, amistad, familia o rivalidad.' },
+      { icon: '⚡', title: 'Técnicas heredadas', text: 'Dos técnicas del Aura: una empieza la partida en una ranura extra y la otra llega como carta al subir de nivel. No sustituyen a las suyas.' },
+      { icon: '🔗', title: 'Técnicas conjuntas con el Aura', text: 'Axel con Shawn de Aura puede lanzar Fuego cruzado: Shawn aparece a su lado para el tiro. La Tierra sigue pidiendo a Mark en el campo.' },
+      { icon: '📊', title: 'Gráficos a dos colores', text: 'El radar enseña en cian lo que aporta el Aura, y la ficha del Aura cada estadística como propia + Aura = total.' },
+      { icon: '🏆', title: 'Más logros', text: 'Logros de Auras, colección (Legendarios, Míticos, Leyendas, eras), combate (los cinco rangos, 200 jefes, 20 minutos) y progresión.' },
+      { icon: '🌪', title: 'Viento celestial nuevo', text: 'Sin alas: el viento se arremolina y sale como una ráfaga que dibuja una S hasta el rival y va golpeando todo lo que cruza.' },
+      { icon: '🔥', title: 'Tornado de fuego propio', text: 'El tirador gira dentro de una espiral de llamas y el balón sale envuelto en dos lenguas de fuego que estallan en un anillo de llamas.' },
+      { icon: '🏆', title: 'Logros con medalla', text: 'Cada logro enseña su categoría y su medalla (bronce, plata u oro), y al conseguir uno aparece el aviso «¡Logro conseguido!».' },
+      { icon: '✨', title: 'Pantalla de título', text: 'Al pulsar Continuar el logo sale disparado con un destello en vez de cortarse de golpe.' },
+    ],
+    start: ['Abre Mi Equipo y toca la carta «+ AURA» de una plaza.', 'Elige un Legendario o superior: los compatibles salen primero, con ♥.', 'Toca el Aura equipada para ver todo lo que aporta.'],
+  },
   {
     version: '1.41', date: '2026-11-03',
     title: 'InaZurvivors Fix 1.41 — Cartas de nivel que se dejan elegir',

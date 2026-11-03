@@ -187,7 +187,11 @@ export const amIAdmin = () => rpc<boolean>('am_i_admin', {});
 export const redeemCode = (code: string, alreadyApplied = false) =>
   rpc<{ status: 'ok' | 'used' | 'invalid' | 'linked'; reward?: { tokens: number; coins: number; player: number | null } }>('redeem_code', { p_code: code, p_already_applied: alreadyApplied });
 export const adminBugReports = (f: BugFilter) => rpc<BugRow[]>('admin_bug_reports', { p_category: f.category, p_severity: f.severity, p_status: f.status, p_from: f.from, p_to: f.to, p_order: f.order, p_limit: 200 });
-export const adminUpdateBug = (code: string, status: string | null, notes: string | null) => rpc<string>('admin_update_bug', { p_code: code, p_status: status, p_notes: notes });
+/** Fix 1.41: players panel (admins only; the server refuses everyone else). Guests play locally and are not counted. */
+export interface AdminPlayerRow { username: string | null; created_at: string; last_seen: string | null; runs: number; kills: number; best_time: number; owned: number; ranked_runs: number }
+export interface AdminPlayerStats { accounts: number; with_name: number; played: number; runs: number; kills: number; ranked_runs: number; active_24h: number; active_7d: number; new_7d: number; players: AdminPlayerRow[] }
+export const adminPlayerStats = (limit = 200) => rpc<AdminPlayerStats>('admin_player_stats', { p_limit: limit });
+export const adminUpdateBug =(code: string, status: string | null, notes: string | null) => rpc<string>('admin_update_bug', { p_code: code, p_status: status, p_notes: notes });
 /** Asks the server to tell the author. Best effort: the report is already saved whatever happens here. */
 export async function notifyBug(code: string) {
   try {

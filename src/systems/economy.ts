@@ -19,6 +19,10 @@ export interface RunResult {
   techUses?: Record<string, number>;
   techById?: Record<string, number>;
   maxTechLevel?: number;
+  /** v1.5: inherited techniques fired, combined techniques with an Aura taking part, and whether any carrier played */
+  auraTechUses?: number;
+  auraCombos?: number;
+  withAuras?: boolean;
   /** total damage dealt by the squad, and a unique id of the run (ranking) */
   damage?: number;
   runId?: string;

@@ -15,6 +15,36 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: '6.0', date: '2026-11-05', title: 'v1.5',
+    features: [
+      'Auras (AURAS.md): un Legendario, Mítico o Leyenda de la colección como carta de apoyo de cualquier futbolista. Suma round(15%) de sus tres mejores estadísticas (20% si son compatibles), con lo propio en 99 y la estadística efectiva hasta 120 también en el combate.',
+      'Compatibilidades verificables en src/data/auraBonds.ts (24 parejas por id: técnica conjunta, amistad, familia, rivalidad, compañeros).',
+      'Técnicas heredadas: dos del Aura; la primera en una ranura extra de Aura desde el principio, la segunda como carta «Técnica del Aura». Golpean al 85%.',
+      'Afinidad elemental: +10% a las técnicas del portador del elemento del Aura; el portador conserva su elemento.',
+      'Técnicas conjuntas a través del Aura (combos.ts comboCast): el Aura cuenta como participante si la técnica pedida está activa en su portador; aparece un momento junto a él en la animación.',
+      'Mi Equipo: carta de Aura enganchada a cada plaza, arrastrar y soltar (ratón) o tocar y elegir (móvil), colección ordenada con los compatibles primero, ficha del Aura con estadísticas propia + Aura = total, técnicas heredadas y conjuntas.',
+      '23 logros nuevos: Auras, colección, combate y progresión, con contadores reales.',
+      'Panel de jugadores para administradores (Ajustes): cuentas, quién ha jugado, partidas y actividad.',
+    ],
+    fixes: [
+      'Las cartas de nivel leen al futbolista de la partida (técnicas de HÉROE y del Aura incluidas), no el del menú.',
+      'La carta de fichaje enseña la técnica inicial elegida en Mi Equipo, no siempre la primera.',
+      'Viento celestial ya no recibe alas de ángel por llevar «celestial» en el nombre.',
+    ],
+    visuals: [
+      'Viento celestial rehecho a petición del autor: sin alas; el viento se arremolina alrededor del tirador y sale como una ráfaga que dibuja una S hasta el rival, con una cinta de viento que se desvanece, y daña a lo largo del recorrido.',
+      'Radar de estadísticas a dos colores: lo propio en el color de la rareza y la extensión del Aura en cian, con escala hasta 120 y el anillo de 99 marcado.',
+      'HUD: retrato del Aura en la ficha del portador y técnicas heredadas en cian (en el HUD compacto del móvil, anillo cian en su cara). Elegir arena: el Aura de cada uno junto a su cara.',
+      'Tornado de fuego con animación propia (fxAnime tfuego): espiral de llamas que sube alrededor del tirador, anillo de fuego a sus pies, balón con dos lenguas de fuego trenzadas y anillo de llamas al impactar; ya no usa el embudo genérico de «tornado».',
+      'Logros: categoría (Auras, colección, combate, progresión), medalla por nivel (bronce 10, plata 20, oro 50 fichas) y aviso «¡Logro conseguido!» una sola vez por logro (save.achShown).',
+      'Pantalla de título: salida con impulso del logo y destello (antes cortaba de golpe al menú). Explicación de las Auras la primera vez que se entra en Mi Equipo.',
+    ],
+    balance: [
+      'Técnicas heredadas al 85% de daño (son una técnica activa de más). Auditoría en BALANCE.md.',
+      'Estadísticas: playerStats admite valores efectivos de 30 a 120.',
+    ],
+  },
+  {
     version: '5.4', date: '2026-11-03', title: 'Fix 1.41',
     features: [],
     fixes: [

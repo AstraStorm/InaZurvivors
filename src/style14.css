@@ -1292,3 +1292,128 @@ body.reduced-motion .cine4 *, body.reduced-motion .cine4 { animation-duration: .
 .vs4-new { margin-top: 4px; font-size: 7px; padding: 3px 8px; border-radius: 999px; color: #fff; background: var(--bad); box-shadow: 0 2px 0 #0008; animation: m4Pop 1.2s 2.6s ease-in-out infinite; }
 .vs4.fresh { animation-name: vsIn; box-shadow: 0 0 0 3px #ff4f5a, 0 0 0 7px #0a1022, 0 0 34px #ff4f5a88, 0 14px 30px #000c; }
 @media (max-width: 760px) { .vs4 { right: 50%; margin-right: -50px; top: auto; bottom: 14%; margin-top: 0; } .vs4 b { font-size: 28px; } }
+
+/* Fix 1.41: players panel (admin) */
+.ap-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 8px; margin-bottom: 10px; }
+.ap-tile { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px 6px; border-radius: 12px; background: #0a1d48; box-shadow: inset 0 0 0 2px #ffffff14; }
+.ap-tile b { font-size: 20px; color: #ffe24a; text-shadow: 2px 2px 0 #000; } .ap-tile span { font-size: 8px; color: #cfe3ff; text-align: center; }
+.ap-table { display: flex; flex-direction: column; gap: 3px; overflow-x: auto; }
+.ap-row { display: grid; grid-template-columns: 1.6fr 1fr .7fr .7fr .9fr .8fr .9fr; gap: 6px; min-width: 620px; padding: 6px 8px; border-radius: 8px; background: #ffffff08; font-size: 9px; align-items: center; }
+.ap-row.ap-head { background: none; color: var(--muted); font-size: 8px; }
+.ap-row b { color: #fff; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ==========================================================================================================
+   v1.5: Auras — the small linked support card under each slot, the picker, the sheet, radar extension, HUD
+   ========================================================================================================== */
+:root { --aura: #7ff6ff; --aura-deep: #1a6f8f; --bond: #ff7ab8; }
+.sq-slot.has-aura { box-shadow: inset 0 0 0 1px #7ff6ff44, 0 0 16px #7ff6ff22; }
+.aura-mini { position: relative; display: flex; align-items: center; gap: 6px; align-self: stretch; margin: 4px 2px 0; padding: 4px 6px 4px 4px; min-height: 44px; border-radius: 10px;
+  font: inherit; color: #fff; cursor: pointer; overflow: hidden; border: 0;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--rc, #7ff6ff) 35%, #0a1d48), #06102b 70%);
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--rc, #7ff6ff) 85%, transparent), inset 0 0 0 4px #050c22, 0 4px 10px #0008; transform: rotate(-1.5deg); transition: transform .12s; }
+.aura-mini::before { content: ''; position: absolute; left: 50%; top: -9px; width: 2px; height: 9px; background: linear-gradient(var(--aura), transparent); }
+.aura-mini:hover { transform: rotate(0deg) translateY(-2px); }
+.aura-mini.empty { justify-content: center; gap: 4px; background: repeating-linear-gradient(135deg, #7ff6ff14 0 6px, transparent 6px 12px), #06102b; box-shadow: inset 0 0 0 2px #7ff6ff55; transform: none; border: 0; }
+.aura-mini.empty .am-plus { font-size: 18px; color: var(--aura); line-height: 1; } .aura-mini.empty small { font-size: 7px; letter-spacing: 2px; color: #bff9ff; }
+.aura-mini.picking { box-shadow: inset 0 0 0 2px var(--yellow), 0 0 14px #ffe24a88 !important; animation: auraPick 1s ease-in-out infinite; }
+@keyframes auraPick { 50% { transform: translateY(-2px); } }
+.aura-mini.drop, .sq-slot .aura-mini.drop { box-shadow: inset 0 0 0 3px var(--aura), 0 0 20px #7ff6ffaa !important; }
+.am-mug { flex: none; width: 36px; height: 36px; border-radius: 8px; overflow: hidden; display: grid; place-items: center; background: radial-gradient(circle at 50% 60%, color-mix(in srgb, var(--ec) 55%, transparent), #040a1e 75%); box-shadow: 0 0 0 1px #ffffff33; }
+.am-mug .mug { zoom: .9; }
+.am-txt { display: flex; flex-direction: column; align-items: flex-start; min-width: 0; gap: 1px; text-align: left; }
+.am-txt small { font-size: 6px; letter-spacing: 2px; color: var(--aura); }
+.am-txt b { font-size: 8px; font-weight: normal; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 70px; text-shadow: 1px 1px 0 #000; }
+.am-txt em { font-style: normal; font-size: 8px; color: var(--yellow); }
+.aura-mini.bond .am-txt em { color: var(--bond); }
+.aura-mini.bond { box-shadow: inset 0 0 0 2px var(--bond), inset 0 0 0 4px #050c22, 0 0 12px #ff7ab855, 0 4px 10px #0008; }
+.am-shine { position: absolute; inset: 0; pointer-events: none; background: linear-gradient(115deg, transparent 35%, #ffffff40 50%, transparent 65%); transform: translateX(-120%); }
+.aura-mini.t-legendario .am-shine, .aura-mini.t-mitico .am-shine, .aura-mini.t-leyenda .am-shine, .aura-mini.t-heroe .am-shine { animation: amShine 3.2s ease-in-out infinite; }
+@keyframes amShine { 0%, 60% { transform: translateX(-120%); } 100% { transform: translateX(120%); } }
+.aura-mini.t-mitico { background: linear-gradient(135deg, #5a2a8f, #ff7ab855 45%, #06102b 80%); }
+.aura-mini.t-leyenda { background: linear-gradient(135deg, #2fd8b0aa, #7a4aff88 40%, #ff9a2a55 70%, #06102b); }
+.aura-mini.t-heroe { background: linear-gradient(135deg, #b8141c, #ff9a2a88 45%, #06102b 80%); }
+.sq-ovr.aura { background: linear-gradient(135deg, var(--aura), #3a8cff) !important; color: #041026 !important; }
+.sq-techs.aura-techs small { color: var(--aura); }
+.sq-tech.aura { box-shadow: inset 0 0 0 1px #7ff6ff88; background: linear-gradient(90deg, #7ff6ff26, transparent); cursor: default; }
+/* radar: own stats in the rarity colour, the Aura's extension in cyan, the 99 ring dashed */
+.rv-aura { fill: #7ff6ff40; stroke: var(--aura); stroke-width: 2; stroke-dasharray: 4 2; stroke-linejoin: round; }
+.rg.r99 { stroke: #ffe24a77 !important; stroke-dasharray: 3 3; }
+.stat-radar tspan.ra, .sq-radar tspan.ra, .hero-stats tspan.ra { fill: var(--aura); font-size: .85em; }
+/* picker: who can be an Aura */
+.aura-pick-note { color: var(--aura); }
+.pcard.aura-no { opacity: .35; filter: grayscale(.7); }
+.pcard.aura-ok { box-shadow: 0 0 0 2px #7ff6ff88; }
+.pcard.aura-bond { box-shadow: 0 0 0 3px var(--bond), 0 0 18px #ff7ab877 !important; }
+/* the Aura sheet */
+.aura-modal .aura-sheet { width: min(760px, 100%); max-height: 92vh; overflow: auto; display: flex; flex-direction: column; gap: 8px; }
+.ai-head { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+.ai-head h2 { margin: 0 0 4px; }
+.ai-cards { display: flex; align-items: center; gap: 6px; }
+.ai-carrier, .ai-aura { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 6px; border-radius: 12px; background: #0a1d48; box-shadow: inset 0 0 0 2px #ffffff22; }
+.ai-aura { transform: scale(.82) rotate(-3deg); box-shadow: inset 0 0 0 2px var(--rc), 0 0 16px color-mix(in srgb, var(--rc) 50%, transparent); }
+.ai-carrier small, .ai-aura small { font-size: 7px; max-width: 80px; text-align: center; }
+.ai-link { font-style: normal; font-size: 20px; color: var(--aura); text-shadow: 0 0 10px var(--aura); }
+.ai-pct { margin: 6px 0 2px; padding: 6px 10px; border-radius: 10px; background: #7ff6ff1a; box-shadow: inset 0 0 0 1px #7ff6ff55; font-size: 9px; }
+.ai-pct.bond { background: #ff7ab81f; box-shadow: inset 0 0 0 1px var(--bond); }
+.ai-pct b { color: var(--yellow); font-size: 12px; }
+.ai-cols { display: grid; grid-template-columns: 1fr 240px; gap: 10px; align-items: start; }
+@media (max-width: 640px) { .ai-cols { grid-template-columns: 1fr; } }
+.ai-table { width: 100%; border-collapse: collapse; font-size: 9px; }
+.ai-table th, .ai-table td { padding: 4px 6px; text-align: right; } .ai-table th:first-child { text-align: left; color: #cfe3ff; }
+.ai-table tr.up { background: #7ff6ff12; } .ai-table .ai-add { color: var(--aura); } .ai-table td b { color: #fff; font-size: 11px; } .ai-table td small { color: var(--muted); }
+.ai-table .ai-from { color: var(--muted); font-size: 8px; }
+.ai-techs { display: flex; flex-wrap: wrap; gap: 6px; }
+.ai-tech { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 10px; background: linear-gradient(90deg, #7ff6ff26, #0a1d48); box-shadow: inset 0 0 0 1px #7ff6ff66; font-size: 9px; }
+.ai-tech small { color: #9fb6d8; } .ai-tech.ready { box-shadow: inset 0 0 0 2px var(--yellow); }
+/* level-up cards and HUD */
+.lv-aura { margin: 0 12px; padding: 4px 8px; border-radius: 999px; font-size: 7px; color: #041026; background: var(--aura); }
+.lvcard.from-aura { box-shadow: inset 0 0 0 3px var(--aura), 0 0 22px #7ff6ff55, 0 10px 26px #000a !important; }
+.lvcard.from-aura .lv-ribbon { background: var(--aura) !important; }
+.hud .pl-aura { margin-left: auto; width: 24px; height: 24px; border-radius: 50%; overflow: hidden; display: grid; place-items: center; box-shadow: 0 0 0 2px var(--aura), 0 0 8px #7ff6ff99; background: #06102b; }
+.hud .pl-aura .mug { zoom: .6; }
+.hud .pl-tech.aura .pl-tn { color: var(--aura); }
+.hud .pl-tech.aura .pl-icon { box-shadow: 0 0 0 1px var(--aura); }
+.ai-break { display: block; font-size: 7px; color: #9fb6d8; font-weight: normal; } .ai-break i { font-style: normal; color: var(--aura); }
+.m4-face.with-aura { position: relative; overflow: visible !important; }
+.ms-aura { position: absolute; right: -6px; bottom: -6px; width: 20px; height: 20px; border-radius: 50%; overflow: hidden; display: grid; place-items: center; background: #06102b; box-shadow: 0 0 0 2px var(--aura), 0 0 8px #7ff6ffaa; }
+.ms-aura .mug { zoom: .5; }
+/* v1.5: first-visit explanation of Auras */
+.aura-intro .aura-intro-card { width: min(520px, 100%); text-align: left; display: flex; flex-direction: column; gap: 8px; box-shadow: inset 0 0 0 2px #7ff6ff66, 0 0 40px #7ff6ff33; animation: titleIn .35s cubic-bezier(.3,1.5,.6,1) both; }
+.aura-intro h2 { margin: 0; color: var(--aura); text-shadow: 2px 2px 0 #000; }
+.aura-intro p { margin: 0; font-size: 10px; line-height: 1.6; }
+.aura-intro ul { margin: 0; padding-left: 16px; font-size: 9px; line-height: 1.7; color: #cfe3ff; }
+.ain-ic { align-self: center; width: 64px; height: 64px; display: grid; place-items: center; font-size: 32px; color: #041026; border-radius: 16px; background: linear-gradient(135deg, var(--aura), #3a8cff); box-shadow: 0 0 24px #7ff6ff88; transform: rotate(-4deg); }
+.ain-dots { display: flex; gap: 6px; justify-content: center; } .ain-dots i { width: 8px; height: 8px; border-radius: 50%; background: #ffffff33; } .ain-dots i.on { background: var(--aura); box-shadow: 0 0 8px var(--aura); }
+/* v1.5 (author): exit of the title screen — no more cut to the menu */
+.title-screen.leaving .cine-logo { animation: tsLogoOut .56s cubic-bezier(.45,0,.3,1) forwards !important; }
+.title-screen.leaving .cine-text, .title-screen.leaving .wiz-next, .title-screen.leaving .note { animation: tsDrop .35s ease-in forwards; }
+.title-screen.leaving .wiz-next:nth-of-type(2) { animation-delay: .04s; }
+.title-screen.leaving .cs-light { animation-duration: .5s !important; }
+@keyframes tsLogoOut { 0% { transform: scale(1); } 25% { transform: scale(.94) translateY(6px); } 100% { transform: scale(2.6) translateY(-10px); opacity: 0; } }
+@keyframes tsDrop { to { transform: translateY(40px); opacity: 0; } }
+.ts-flash { position: fixed; inset: 0; z-index: 95; pointer-events: none; background: radial-gradient(circle at 50% 42%, #fff 0, #fff6c8 30%, #ffd23f88 55%, transparent 75%); opacity: 0; transform: scale(.3); animation: tsFlash .56s ease-in forwards; }
+@keyframes tsFlash { 60% { opacity: .9; } 100% { opacity: 1; transform: scale(2.2); } }
+.ts-flash.after { background: #fff6c8; transform: none; opacity: 1; animation: tsFlashOut .5s ease-out forwards; }
+@keyframes tsFlashOut { to { opacity: 0; } }
+/* v1.5: achievements — category, tier medal, «¡LOGRO!» banner */
+.rw-cat { display: inline-block; margin-bottom: 3px; padding: 2px 7px; border-radius: 999px; font-size: 6px; letter-spacing: 1.5px; color: #041026; background: #9fb6d8; }
+.rw-cat.c-aura { background: var(--aura); } .rw-cat.c-col { background: #ffd23f; } .rw-cat.c-prog { background: #7dff9a; } .rw-cat.c-comb { background: #ff9a7a; }
+.rw-medal { display: grid; place-items: center; width: 100%; height: 100%; font-size: 16px; color: #041026; border-radius: 50%; }
+.rw-card.tier-b .rw-ic { background: radial-gradient(circle at 35% 30%, #ffd0a0, #b8743a 70%) !important; box-shadow: 0 0 0 2px #6a3a14; }
+.rw-card.tier-s .rw-ic { background: radial-gradient(circle at 35% 30%, #ffffff, #9fb0c8 70%) !important; box-shadow: 0 0 0 2px #4a5a78; }
+.rw-card.tier-g .rw-ic { background: radial-gradient(circle at 35% 30%, #fff6c8, #e8a810 70%) !important; box-shadow: 0 0 0 2px #7a5200, 0 0 12px #ffd23f88; }
+.ach-pop { position: fixed; left: 50%; top: 14px; z-index: 96; display: flex; align-items: center; gap: 10px; min-width: min(420px, calc(100vw - 32px)); padding: 10px 16px 10px 10px; border: 0; border-radius: 16px; font: inherit; color: #fff; cursor: pointer; overflow: hidden;
+  background: linear-gradient(135deg, #2a1f6a, #0a1d48 60%); box-shadow: inset 0 0 0 2px var(--mc, #ffd23f), 0 10px 30px #000c, 0 0 24px color-mix(in srgb, var(--mc, #ffd23f) 45%, transparent);
+  transform: translateX(-50%); animation: achIn .5s cubic-bezier(.3,1.6,.6,1) both; }
+.ach-pop.t-b { --mc: #d08a4a; } .ach-pop.t-s { --mc: #cfd8e8; } .ach-pop.t-g { --mc: #ffd23f; }
+.ach-pop.out { animation: achOut .45s ease-in forwards; }
+@keyframes achIn { from { transform: translate(-50%, -140%) scale(.8); } to { transform: translate(-50%, 0); } }
+@keyframes achOut { to { transform: translate(-50%, -140%); opacity: 0; } }
+.ach-medal { flex: none; width: 46px; height: 46px; display: grid; place-items: center; font-size: 24px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #fff, var(--mc) 70%); animation: achSpin 1s ease-out both; }
+@keyframes achSpin { from { transform: rotateY(540deg) scale(.4); } to { transform: none; } }
+.ach-tx { display: flex; flex-direction: column; gap: 3px; text-align: left; } .ach-tx small { font-size: 7px; letter-spacing: 2px; color: var(--mc); } .ach-tx b { font-size: 10px; } .ach-tx em { font-style: normal; font-size: 7px; color: #9fb6d8; }
+.ach-shine { position: absolute; inset: 0; pointer-events: none; background: linear-gradient(110deg, transparent 35%, #ffffff40 50%, transparent 65%); transform: translateX(-120%); animation: amShine 1.4s .3s ease-out; }
+/* v1.5 mobile: the compact HUD hides the Aura portrait, so the carrier's face gets a cyan ring instead; narrow radars
+   keep the total only (the +N breakdown stays in the Aura sheet) so labels don't run out of the slot */
+.hud .plate:has(.pl-aura) .pl-mug { box-shadow: 0 0 0 2px var(--aura), 0 0 8px #7ff6ffaa; border-radius: 50%; }
+@media (max-width: 760px), (max-height: 520px) { .sq-radar tspan.ra { display: none; } }

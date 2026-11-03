@@ -119,15 +119,55 @@ export const MISSIONS: MissionDef[] = [
   L('l_eraGo', 'Juega 10 partidas con un capitán de la era GO', 'runs_era_go', 10, 400),
   L('l_eraVr', 'Juega 10 partidas con un capitán de Victory Road', 'runs_era_vr', 10, 400),
   L('l_eraOriginal', 'Juega 10 partidas con un capitán de la saga original', 'runs_era_original', 10, 400),
+  // v1.5: Auras (every one checked from what really happened: the save, the stats or the run)
+  L('a_primera', 'Equipa tu primera Aura', 'aura_equipped', 1, 200),
+  L('a_vinculo', 'Equipa un Aura compatible (♥)', 'aura_bond', 1, 400),
+  L('a_110', 'Lleva una estadística efectiva a 110 con un Aura', 'aura_max', 110, 600, 2),
+  L('a_120', 'Lleva una estadística efectiva a 120 con un Aura', 'aura_max', 120, 1500, 3),
+  L('a_heredada', 'Usa 50 técnicas heredadas de un Aura', 'aura_inherited', 50, 300),
+  L('a_heredada1000', 'Usa 1000 técnicas heredadas de un Aura', 'aura_inherited', 1000, 1200, 2),
+  L('a_conjunta', 'Ejecuta una técnica conjunta con un Aura', 'aura_joint', 1, 500),
+  L('a_conjunta50', 'Ejecuta 50 técnicas conjuntas con Auras', 'aura_joint', 50, 1500, 2),
+  L('a_partida', 'Completa una arena con Auras en el equipo', 'wins_aura', 1, 500),
+  L('a_partidas25', 'Completa 25 arenas con Auras en el equipo', 'wins_aura', 25, 2500, 3),
+  // v1.5: collection
+  L('c_legend5', 'Consigue 5 Legendarios', 'col_legend', 5, 400),
+  L('c_legend25', 'Consigue 25 Legendarios', 'col_legend', 25, 1200, 2),
+  L('c_mitico', 'Consigue un Mítico', 'col_mitico', 1, 600),
+  L('c_leyenda', 'Consigue una Leyenda', 'col_leyenda', 1, 1500, 2),
+  L('c_eras', 'Ten futbolistas de las tres eras (original, GO y Victory Road)', 'col_eras', 3, 500),
+  // v1.5: combat
+  L('k_rangos', 'Gana en los cinco rangos (C, B, A, S y X)', 'ranks_won', 5, 3000, 3),
+  L('k_jefes200', 'Derrota a 200 jefes', 'bosses', 200, 4000, 3),
+  L('k_20min', 'Sobrevive 20 minutos en una partida', 'best_time', 1200, 1500, 3),
+  // v1.5: progression
+  L('g_entreno', 'Reparte 20 puntos de entrenamiento', 'prog_train', 20, 300),
+  L('g_entreno200', 'Reparte 200 puntos de entrenamiento', 'prog_train', 200, 1500, 2),
+  L('g_mejoras', 'Compra 20 niveles de mejoras permanentes', 'prog_upgrades', 20, 600),
+  L('g_tecnicas', 'Desbloquea 10 técnicas en la tienda', 'prog_techs', 10, 600),
+  L('g_misiones', 'Cobra 100 misiones y logros', 'prog_claims', 100, 1500, 2),
 ];
 
 /**
  * Collection goals read the collection itself (not run counters): owned players, ascended players and complete main
  * teams. Called when the missions screen opens and after pulls or ascensions.
  */
-export function recordCollection(s: SaveData, roster: { id: number; teams: string[] }[], mainTeams: string[]) {
+export function recordCollection(s: SaveData, roster: { id: number; teams: string[]; rarity?: string; era?: string }[], mainTeams: string[], auraMax = 0) {
   const owned = Object.values(s.owned);
   const c = s.missions.counters;
+  // v1.5: rarities and eras owned, progression already made, and the Aura milestones (best only ever goes up)
+  const have = roster.filter((p) => s.owned[String(p.id)]);
+  c.col_legend = have.filter((p) => p.rarity === 'legendario').length;
+  c.col_mitico = have.filter((p) => p.rarity === 'mitico').length;
+  c.col_leyenda = have.filter((p) => p.rarity === 'leyenda').length;
+  c.col_eras = new Set(have.map((p) => p.era).filter(Boolean)).size;
+  c.prog_train = owned.reduce((a, o) => a + Object.values(o.train ?? {}).reduce<number>((x, v) => x + (Number(v) || 0), 0), 0);
+  c.prog_upgrades = Object.values(s.upgrades ?? {}).reduce((a, v) => a + (Number(v) || 0), 0);
+  c.prog_techs = Object.values(s.shop?.techUnlocks ?? {}).reduce((a, v) => a + v.length, 0);
+  c.prog_claims = s.missions.claimed.length;
+  if (s.achAura?.equipped) c.aura_equipped = 1;
+  if (s.achAura?.bond) c.aura_bond = 1;
+  c.aura_max = Math.max(c.aura_max ?? 0, auraMax);
   c.col_owned = owned.length;
   c.col_ascended = owned.filter((o) => o.ascMitico).length;
   c.col_heroes = owned.filter((o) => o.hero).length;
@@ -189,6 +229,11 @@ export function recordRun(s: SaveData, r: RunResult, now = periodNow()) {
   best('best_level', r.level ?? 0);
   best('best_tech', r.maxTechLevel ?? 0);
   m.counters.arenas = s.clearedMaps.length;
+  // v1.5: Auras in the run, and the ranks won at least once anywhere
+  m.counters.aura_inherited = (m.counters.aura_inherited ?? 0) + (r.auraTechUses ?? 0);
+  m.counters.aura_joint = (m.counters.aura_joint ?? 0) + (r.auraCombos ?? 0);
+  if (r.victory && r.withAuras) m.counters.wins_aura = (m.counters.wins_aura ?? 0) + 1;
+  m.counters.ranks_won = (['C', 'B', 'A', 'S', 'X'] as const).filter((k) => (m.counters[`wins_${k}`] ?? 0) > 0).length;
 }
 
 export function missionProgress(s: SaveData, d: MissionDef) {

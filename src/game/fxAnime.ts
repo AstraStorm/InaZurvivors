@@ -4,12 +4,14 @@
  *
  *   Brisa deslizante (Easy Breezy) — "evade the opponent with a light and breezy step, like a gust of wind blowing
  *     through" (zukan.inazuma.jp): green-white ribbons of breeze sweep along the step, leaves flutter in its wake.
- *   Viento celestial (God Wind) — white wings with red trim open on the shooter's back in a golden glow; golden
- *     lightning coils around the ball and it flies as a golden fireball.
+ *   Viento celestial (God Wind) — v1.5, redone at the author's request: no wings. The wind whirls around the shooter
+ *     and leaves as a gust that draws a full S towards the rival, hurting what it crosses as it goes (godWindGust).
  *   Tormenta, tornado, huracán — white crescents of wind curl around the ball at the kick and keep wrapping it, while
  *     a trail of sand rises behind.
  *   Tormenta de fuego — the shooter rises in a pillar of fire and a giant of flames appears behind him, flexing; the
  *     ball leaves with tongues of fire and bursts into flames at the end.
+ *   Tornado de fuego (Fire Tornado) — v1.5: the shooter spins up inside a rising spiral of flame, leaving a ring of fire
+ *     at his feet; the ball leaves wrapped in two braided tongues of fire and bursts into a ring of flames.
  *   Ciclón blanco (White Hurricane) — golden rays burst from the shooter, white wind spirals up into a vortex; the
  *     ball, golden inside a bubble of wind, is followed by a huge golden-white crescent of hurricane.
  */
@@ -23,12 +25,13 @@ const ADD = Phaser.BlendModes.NORMAL;
 const rnd = (a: number, b: number) => a + Math.random() * (b - a);
 const BREEZE = 0xc8ffe0, BREEZE2 = 0x7fffc0, GOLD = 0xffd23f, GOLD2 = 0xfff2a0, FIRE = 0xff7a1a, FIRE2 = 0xffd04a;
 
-export type AnimeMove = 'brisa' | 'godwind' | 'tth' | 'fuego' | 'ciclon';
+export type AnimeMove = 'brisa' | 'godwind' | 'tth' | 'fuego' | 'ciclon' | 'tfuego';
 export function animeOf(name: string): AnimeMove | null {
   if (/brisa deslizante|easy breezy|soyokaze/i.test(name)) return 'brisa';
   if (/viento celestial|god ?wind/i.test(name)) return 'godwind';
   if (/tormenta,? tornado,? hurac[aá]n|storm.?tornado.?hurricane/i.test(name)) return 'tth';
   if (/tormenta de fuego|bakunetsu storm|fire ?storm/i.test(name)) return 'fuego';
+  if (/tornado de fuego|fire ?tornado|fire tornado/i.test(name)) return 'tfuego';
   if (/cicl[oó]n blanco|hurac[aá]n blanco|white hurricane/i.test(name)) return 'ciclon';
   return null;
 }
@@ -64,20 +67,6 @@ const leafTex = (scene: S) => tex(scene, 'leaf', 8, 5, (g) => {
 });
 const featherTex = (scene: S) => tex(scene, 'feather', 10, 4, (g) => {
   g.fillStyle(0xffffff, 1); g.fillEllipse(5, 2, 10, 4); g.fillStyle(0xffe8a0, 1); g.fillRect(0, 1.5, 9, 1);
-});
-/** a white wing with red trim: seven feathers fanned from the shoulder (left wing; mirrored for the right one) */
-const wingTex = (scene: S) => tex(scene, 'wing', 46, 34, (g) => {
-  const bx = 44, by = 30;
-  for (let i = 0; i < 7; i++) {
-    const a = Math.PI + 0.2 + i * 0.22, len = 26 + (3 - Math.abs(3 - i)) * 3 + i * 1.2;
-    const tx = bx + Math.cos(a) * len, ty = by + Math.sin(a) * len * 0.95;
-    const nx = -Math.sin(a) * 3.2, ny = Math.cos(a) * 3.2;
-    const quad = [{ x: bx, y: by }, { x: (bx + tx) / 2 + nx, y: (by + ty) / 2 + ny }, { x: tx, y: ty }, { x: (bx + tx) / 2 - nx, y: (by + ty) / 2 - ny }];
-    g.fillStyle(0xffffff, 1); g.fillPoints(quad, true);
-    g.lineStyle(1, i < 2 ? 0xd8202a : 0xc8c8d8, 1); g.strokePoints(quad, true);
-  }
-  g.lineStyle(2, 0xd8202a, 1); g.beginPath(); g.arc(bx, by, 12, Math.PI + 0.15, Math.PI * 1.55); g.strokePath();
-  g.fillStyle(GOLD, 1); g.fillCircle(bx, by, 3);
 });
 /** the giant of flames: head with flame hair, broad shoulders and flexed arms (drawn bright, shown additive) */
 const giantTex = (scene: S) => tex(scene, 'giant', 100, 90, (g) => {
@@ -145,16 +134,16 @@ export function breezeStep(scene: S, x: number, y: number, tx: number, ty: numbe
 // ------------------------------------------------------------------ shots: the charge
 export function animeCharge(scene: S, kind: AnimeMove, x: number, y: number, level: number, ms: number) {
   switch (kind) {
-    case 'godwind': { // a golden glow, the winged armour opens and golden lightning crackles around him
-      const aura = scene.add.circle(x, y - 12, 14, GOLD, 0.45).setDepth(y - 2).setBlendMode(ADD);
-      scene.tweens.add({ targets: aura, scale: 2.4, alpha: 0.15, duration: ms, onComplete: () => aura.destroy() });
-      const key = wingTex(scene), wy = y - 20;
-      const wings = [-1, 1].map((side) => scene.add.image(x + side * 2, wy, key).setOrigin(side < 0 ? 1 : 0, 0.88).setFlipX(side > 0).setDepth(y - 1).setScale(0.1, 0.4));
-      scene.tweens.add({ targets: wings, scaleX: 1.05 + level * 0.03, scaleY: 1.05 + level * 0.03, duration: ms * 0.4, ease: 'Back.easeOut' });
-      scene.tweens.add({ targets: wings[0], angle: -12, yoyo: true, delay: ms * 0.4, duration: ms * 0.2 });
-      scene.tweens.add({ targets: wings[1], angle: 12, yoyo: true, delay: ms * 0.4, duration: ms * 0.2 });
-      wings.forEach((w) => fade(scene, w, ms, 200));
-      rays(scene, x, y - 12, 12, GOLD, 46 + level * 3, ms * 0.8);
+    case 'godwind': { // v1.5 (author): no wings — the wind gathers around him in a whirl, gold sparks crackle in it
+      const aura = scene.add.circle(x, y - 12, 14, GOLD, 0.3).setDepth(y - 2).setBlendMode(ADD);
+      scene.tweens.add({ targets: aura, scale: 2, alpha: 0.1, duration: ms, onComplete: () => aura.destroy() });
+      for (let k = 0; k < 7 + level; k++) {
+        const s = scene.add.image(x, y, streakTex(scene)).setDepth(AIR).setBlendMode(ADD).setTint(k % 3 ? 0xffffff : GOLD2).setAlpha(0).setScale(0.6);
+        const st = { t: 0 }, a0 = (k / (7 + level)) * Math.PI * 2;
+        scene.tweens.add({ targets: st, t: 1, delay: k * 18, duration: ms * 0.85, ease: 'Sine.easeIn',
+          onUpdate: () => { const a = a0 - st.t * 8, r = 34 - st.t * 22; s.setPosition(x + Math.cos(a) * r, y - 10 + Math.sin(a) * r * 0.45).setRotation(a - Math.PI / 2).setAlpha(Math.sin(st.t * Math.PI)); },
+          onComplete: () => s.destroy() });
+      }
       for (let k = 0; k < 5 + Math.floor(level / 2); k++) {
         const a = rnd(0, Math.PI * 2), b = scene.add.image(x + Math.cos(a) * 18, y - 8 + Math.sin(a) * 10, boltTex(scene)).setDepth(AIR).setBlendMode(ADD).setTint(k % 2 ? GOLD : GOLD2).setRotation(a + Math.PI / 2).setScale(0.6).setAlpha(0);
         scene.tweens.add({ targets: b, alpha: 1, yoyo: true, delay: (k / 6) * ms * 0.7, duration: 90, onComplete: () => b.destroy() });
@@ -186,6 +175,25 @@ export function animeCharge(scene: S, kind: AnimeMove, x: number, y: number, lev
       }
       break;
     }
+    case 'tfuego': { // v1.5: he spins up inside a spiral of flame; a ring of fire stays at his feet
+      const ring = scene.add.ellipse(x, y + 4, 18, 7).setStrokeStyle(3, FIRE, 0.9).setDepth(y + 1).setBlendMode(ADD);
+      scene.tweens.add({ targets: ring, scaleX: 2.4, scaleY: 2.4, duration: ms * 0.6, ease: 'Cubic.easeOut' });
+      fade(scene, ring, ms * 0.7, 260);
+      const n = 9 + level;
+      for (let k = 0; k < n; k++) {
+        const s = scene.add.image(x, y + 4, streakTex(scene)).setDepth(AIR).setBlendMode(ADD).setTint(k % 3 ? FIRE : FIRE2).setAlpha(0).setScale(0.75);
+        const st = { t: 0 }, a0 = (k / n) * Math.PI * 2;
+        scene.tweens.add({ targets: st, t: 1, delay: k * 22, duration: ms * 0.8, ease: 'Sine.easeOut',
+          onUpdate: () => { const a = a0 + st.t * 9, r = 16 - st.t * 6; s.setPosition(x + Math.cos(a) * r, y + 4 - st.t * 46 + Math.sin(a) * r * 0.4).setRotation(a + Math.PI / 2).setAlpha(Math.sin(st.t * Math.PI) * 0.95); },
+          onComplete: () => s.destroy() });
+      }
+      for (let k = 0; k < 8 + level; k++) { // embers thrown off the spin
+        const e = scene.add.circle(x, y - rnd(0, 30), rnd(1.2, 2.6), k % 2 ? FIRE : FIRE2, 1).setDepth(AIR).setBlendMode(ADD);
+        const a = rnd(0, Math.PI * 2);
+        scene.tweens.add({ targets: e, x: x + Math.cos(a) * rnd(18, 34), y: e.y + Math.sin(a) * rnd(6, 14) - rnd(6, 20), alpha: 0, delay: rnd(ms * 0.2, ms * 0.8), duration: rnd(260, 420), onComplete: () => e.destroy() });
+      }
+      break;
+    }
     case 'ciclon': { // golden rays burst out, then white wind spirals up around him into a vortex above
       rays(scene, x, y - 10, 14, GOLD2, 60 + level * 3, ms * 0.6);
       const vortex = scene.add.ellipse(x, y - 54, 30, 10).setStrokeStyle(3, 0xffffff, 0.8).setDepth(AIR).setBlendMode(ADD).setAlpha(0);
@@ -201,6 +209,76 @@ export function animeCharge(scene: S, kind: AnimeMove, x: number, y: number, lev
     }
     default: break;
   }
+}
+
+/**
+ * v1.5 (author's request): Viento celestial as a real gust. Instead of a ball, a head of wind leaves the shooter and
+ * draws a full S on its way to the rival (one sine period across the path), leaving white-gold wind behind it that
+ * fades a moment later. `onPoint` is called every frame with the head's position: the scene deals the damage there, so
+ * the hits follow the gust as it travels instead of landing all at once. Nothing stays on screen afterwards.
+ */
+export function godWindGust(scene: S, fx: number, fy: number, tx: number, ty: number, level: number, ms: number, onPoint: (x: number, y: number, ang: number) => void) {
+  const dx = tx - fx, dy = ty - fy, len = Math.hypot(dx, dy) || 1, ux = dx / len, uy = dy / len, nx = -uy, ny = ux;
+  const amp = Math.min(46, 18 + len * 0.16) * (1 + level * 0.02);
+  const at = (p: number) => { const w = Math.sin(p * Math.PI * 2) * amp; return { x: fx + dx * p + nx * w, y: fy + dy * p + ny * w }; };
+  const head = scene.add.circle(fx, fy, 9 + level * 0.6, 0xffffff, 0.75).setDepth(AIR + 1).setBlendMode(ADD);
+  const halo = scene.add.circle(fx, fy, 12 + level * 0.6, GOLD2, 0.2).setDepth(AIR).setBlendMode(ADD);
+  const blades = Array.from({ length: 3 }, (_, i) => scene.add.image(fx, fy, crescentTex(scene)).setDepth(AIR + 2).setBlendMode(ADD).setTint(i === 1 ? GOLD2 : 0xffffff).setScale(0.55 + level * 0.02));
+  const st = { p: 0 };
+  let lastTrail = -1, prev = at(0);
+  // the S itself: a continuous ribbon of wind (three strands) that follows the head, thick near it, thin and faint at
+  // the tail; points older than LIFE fade away, so the S draws itself and then blows away
+  const LIFE = Math.max(650, ms * 0.95), width = 7 + level * 0.5;
+  const ribbon = scene.add.graphics().setDepth(AIR).setBlendMode(ADD);
+  const pts: { x: number; y: number; t: number }[] = [];
+  const drawRibbon = () => {
+    const now = scene.time.now;
+    while (pts.length && now - pts[0].t > LIFE) pts.shift();
+    ribbon.clear();
+    for (let i = 1; i < pts.length; i++) {
+      const a = pts[i - 1], b = pts[i], life = 1 - (now - b.t) / LIFE, along = i / pts.length;
+      const w = width * (0.25 + 0.75 * along) * life;
+      ribbon.lineStyle(w * 2.2, GOLD2, 0.18 * life).lineBetween(a.x, a.y, b.x, b.y);
+      ribbon.lineStyle(w, 0xffffff, 0.75 * life).lineBetween(a.x, a.y, b.x, b.y);
+      for (const side of [-1, 1]) { // two thin strands braided around the core
+        const o = Math.sin(along * 14 + now / 60) * w * 0.9 * side;
+        ribbon.lineStyle(1.5, side < 0 ? 0xdff6ff : GOLD2, 0.8 * life).lineBetween(a.x + nx * o, a.y + ny * o, b.x + nx * o, b.y + ny * o);
+      }
+    }
+  };
+  scene.tweens.add({ targets: st, p: 1, duration: ms, ease: 'Sine.easeInOut',
+    onUpdate: () => {
+      const c = at(st.p), ang = Math.atan2(c.y - prev.y, c.x - prev.x);
+      head.setPosition(c.x, c.y).setScale(1 + Math.sin(st.p * 40) * 0.1);
+      halo.setPosition(c.x, c.y);
+      blades.forEach((b, i) => b.setPosition(c.x, c.y).setRotation(st.p * 30 + (i / 3) * Math.PI * 2));
+      pts.push({ x: c.x, y: c.y, t: scene.time.now });
+      drawRibbon();
+      // wind streaks thrown along the path (lying with it), fading behind the head
+      const step = Math.floor(st.p * 30);
+      if (step !== lastTrail) {
+        lastTrail = step;
+        const off = rnd(-9, 9);
+        const s = scene.add.image(c.x + nx * off, c.y + ny * off, streakTex(scene)).setDepth(AIR).setBlendMode(ADD).setTint(step % 3 ? 0xffffff : GOLD2)
+          .setRotation(ang).setScale(0.6 + level * 0.03, 0.7).setAlpha(0.8);
+        scene.tweens.add({ targets: s, alpha: 0, scaleX: s.scaleX * 1.5, x: s.x + ux * 12, y: s.y + uy * 12, delay: 200, duration: 380, onComplete: () => s.destroy() });
+        if (step % 4 === 0) { // a gold spark thrown off sideways
+          const sp = scene.add.image(c.x, c.y, boltTex(scene)).setDepth(AIR).setBlendMode(ADD).setTint(GOLD).setScale(0.45).setRotation(ang + rnd(-0.6, 0.6));
+          scene.tweens.add({ targets: sp, alpha: 0, x: sp.x + nx * rnd(-14, 14), y: sp.y + ny * rnd(-14, 14), duration: 220, onComplete: () => sp.destroy() });
+        }
+      }
+      prev = c;
+      onPoint(c.x, c.y, ang);
+    },
+    onComplete: () => {
+      const end = at(1);
+      const b = scene.add.circle(end.x, end.y, 12, 0xffffff, 0.7).setDepth(AIR).setBlendMode(ADD);
+      scene.tweens.add({ targets: b, scale: 3.2, alpha: 0, duration: 300, onComplete: () => b.destroy() });
+      scene.tweens.add({ targets: [head, halo, ...blades], alpha: 0, duration: 160, onComplete: () => { head.destroy(); halo.destroy(); blades.forEach((x) => x.destroy()); } });
+      // the ribbon keeps fading on its own, then goes
+      const fadeOut = { k: 0 };
+      scene.tweens.add({ targets: fadeOut, k: 1, duration: LIFE + 50, onUpdate: drawRibbon, onComplete: () => ribbon.destroy() });
+    } });
 }
 
 // ------------------------------------------------------------------ shots: the ball in flight
@@ -228,6 +306,31 @@ export function animeShot(scene: S, kind: AnimeMove, ball: Img, level: number) {
         scene.tweens.add({ targets: b, scale: 3.6, alpha: 0, duration: 320, onComplete: () => b.destroy() });
         rays(scene, bx, by, 10, GOLD2, 34, 300);
         scene.tweens.add({ targets: [core, ...bolts], alpha: 0, duration: 200, onComplete: () => { core.destroy(); bolts.forEach((x) => x.destroy()); } });
+      });
+      break;
+    }
+    case 'tfuego': { // v1.5: two tongues of fire braided around the ball, embers behind, a ring of flames at the end
+      const tongues = [0, 1].map((i) => scene.add.image(ball.x, ball.y, streakTex(scene)).setDepth(AIR + 1).setBlendMode(ADD).setTint(i ? FIRE2 : FIRE).setScale(0.8 + level * 0.03, 1));
+      const core = scene.add.circle(ball.x, ball.y, 9, FIRE, 0.45).setDepth(AIR).setBlendMode(ADD);
+      let lastE = 0;
+      ride(scene, ball, (bx, by, ang, t) => {
+        const nx = -Math.sin(ang), ny = Math.cos(ang);
+        core.setPosition(bx, by).setScale(1 + Math.sin(t * 26) * 0.15);
+        tongues.forEach((g, i) => { const a = t * 20 + i * Math.PI, o = Math.sin(a) * 9; g.setPosition(bx - Math.cos(ang) * 10 + nx * o, by - Math.sin(ang) * 10 + ny * o).setRotation(ang + Math.PI / 2 + Math.cos(a) * 0.6); });
+        if (scene.time.now - lastE > 45) {
+          lastE = scene.time.now;
+          const e = scene.add.circle(bx + rnd(-3, 3), by + rnd(-3, 3), rnd(1.5, 3), Math.random() < 0.5 ? FIRE : FIRE2, 1).setDepth(AIR).setBlendMode(ADD);
+          scene.tweens.add({ targets: e, x: e.x - Math.cos(ang) * rnd(10, 22), y: e.y - Math.sin(ang) * rnd(10, 22) - rnd(2, 8), alpha: 0, scale: 0.4, duration: 360, onComplete: () => e.destroy() });
+        }
+      }, (bx, by) => {
+        const r = scene.add.ellipse(bx, by + 4, 20, 8).setStrokeStyle(4, FIRE, 1).setDepth(AIR).setBlendMode(ADD);
+        scene.tweens.add({ targets: r, scaleX: 3.4, scaleY: 3.4, alpha: 0, duration: 380, onComplete: () => r.destroy() });
+        for (let k = 0; k < 10; k++) {
+          const f = scene.add.circle(bx, by, rnd(2, 4), k % 2 ? FIRE : FIRE2, 1).setDepth(AIR).setBlendMode(ADD);
+          const a = (k / 10) * Math.PI * 2;
+          scene.tweens.add({ targets: f, x: bx + Math.cos(a) * rnd(20, 34), y: by + Math.sin(a) * rnd(8, 16) - rnd(4, 12), alpha: 0, duration: 400, onComplete: () => f.destroy() });
+        }
+        scene.tweens.add({ targets: [core, ...tongues], alpha: 0, duration: 160, onComplete: () => { core.destroy(); tongues.forEach((x) => x.destroy()); } });
       });
       break;
     }

@@ -55,6 +55,14 @@ export interface SaveData {
   mastery: Record<string, number>;
   /** repertoire index each player starts a run with */
   loadout: Record<string, number>;
+  /** v1.5: Auras, carrier id -> Aura id (auras.ts); the roster checks (rarity) run at load in sanitizeAuras */
+  auras?: Record<string, number>;
+  /** v1.5: Aura milestones that are not run counters (first Aura, first compatible pair), for the achievements */
+  achAura?: { equipped?: boolean; bond?: boolean };
+  /** v1.5: the explanation of Auras has been shown (first visit to Mi Equipo) */
+  auraIntroSeen?: boolean;
+  /** v1.5: achievements already announced with the «¡LOGRO!» banner (each one only once) */
+  achShown?: string[];
   /** last manifest techRemaps step applied to this save (remapTechSlots) */
   techRev?: number;
   /** Fix 1.31: Míticos/Leyendas ascended the old way were turned into HÉROE (ascension.ts migrateHeroes131) */
@@ -294,6 +302,19 @@ export function validate(s: SaveData): SaveData {
   if (!Array.isArray(s.gachaHistory)) s.gachaHistory = [];
   if (!obj(s.clearedRanks)) s.clearedRanks = {};
   if (s.progressEpoch !== undefined) s.progressEpoch = Math.max(0, Math.floor(num(s.progressEpoch, 0)));
+  // v1.5: Auras — owned on both sides, never oneself, one carrier per Aura, no chains (a carrier is nobody's Aura)
+  const au = obj(s.auras);
+  if (au) {
+    // read in numeric key order: the first legal link stays, a later one that would repeat an Aura or chain is dropped
+    const clean: Record<string, number> = {};
+    const auras = new Set<number>(), carriers = new Set<number>();
+    for (const k of Object.keys(au).filter((x) => /^\d+$/.test(x)).sort((x, y) => Number(x) - Number(y))) {
+      const c = Number(k), a = Math.floor(num(au[k], -1));
+      if (!owned[k] || !owned[String(a)] || c === a || auras.has(a) || carriers.has(a) || auras.has(c)) continue;
+      clean[k] = a; auras.add(a); carriers.add(c);
+    }
+    s.auras = clean;
+  } else delete s.auras;
   return s;
 }
 

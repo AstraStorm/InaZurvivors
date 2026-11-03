@@ -7,7 +7,8 @@
 import type { RosterEntry, TechType } from '../data/manifest';
 
 export const STAT_CENTER = 60;
-const clamp = (v: number) => Math.max(30, Math.min(99, v));
+// v1.5: up to 120 — a stat only goes over 99 with an Aura (auras.ts), and that is still a real, effective value in combat
+const clamp = (v: number) => Math.max(30, Math.min(120, v));
 const over = (v: number | undefined) => clamp(v ?? STAT_CENTER) - STAT_CENTER;
 
 export interface StatInfo { key: string; name: string; short: string; what: (v: number) => string }

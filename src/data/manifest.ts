@@ -34,6 +34,8 @@ export interface Technique {
   unlockLevel: number;
   /** growth family byte from command.dat (101, 102, 103) */
   growth: number | null;
+  /** v1.5: id of the Aura this technique is inherited from (only on run copies, never in the manifest) */
+  aura?: number;
 }
 
 export interface RosterEntry {
@@ -62,6 +64,8 @@ export interface RosterEntry {
   techniques: Technique[];
   starter: boolean;
   startUnlocked: boolean;
+  /** v1.5: the Aura this footballer carries in a run (auras.ts carrierForRun); never in the manifest */
+  aura?: import('../systems/auras').AuraLink;
 }
 
 export interface UnitAnim { index: number; mirror: boolean; frames: { f: number; d: number }[] }

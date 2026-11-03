@@ -9,7 +9,9 @@ import { angelWings, boltStorm, energyOrb, flames, funnel, iceSpikes, phoenix, s
 
 export type RecipeId = 'fuego' | 'demonio' | 'supernova' | 'tornado' | 'dragon' | 'fenix' | 'meteoro' | 'rayo' | 'hielo' | 'sombra' | 'divino' | 'canon' | 'basico';
 
-export interface Recipe { id: RecipeId; windupSec: number; tier: number; style: FxStyle; ballTexture: string; ballScale: number }
+export interface Recipe { id: RecipeId; windupSec: number; tier: number; style: FxStyle; ballTexture: string; ballScale: number;
+  /** v1.5: the technique draws its own charge (fxAnime): no family manifestation on top (Viento celestial had angel wings) */
+  own?: boolean }
 
 const WINDUP: Record<RecipeId, number> = { fuego: 0.62, demonio: 0.6, supernova: 0.55, tornado: 0.42, dragon: 0.4, fenix: 0.4, meteoro: 0.38, rayo: 0.28, hielo: 0.3, sombra: 0.34, divino: 0.42, canon: 0.3, basico: 0.2 };
 
@@ -38,6 +40,10 @@ export function recipeFor(t: Pick<Technique, 'name' | 'element' | 'power'>, rari
               : style === 'rayo' ? 'rayo' : style === 'hielo' ? 'hielo' : style === 'sombra' ? 'sombra'
                 : (t.power ?? 0) >= 60 ? 'canon' : 'basico';
   const tier = techTier(t, rarity);
+  // v1.5: Viento celestial is wind, not a divine move: its charge and gust are its own (fxAnime godWindGust)
+  // v1.5: Tornado de fuego draws its own spiral of flame (fxAnime), not the generic funnel of «tornado»
+  if (/tornado de fuego|fire ?tornado/i.test(n)) return { id: 'tornado', tier, style: 'fuego' as FxStyle, windupSec: WINDUP.tornado + tier * 0.05, ballTexture: 'fx:ball', ballScale: 1, own: true };
+  if (/viento celestial|god ?wind/i.test(n)) return { id: 'tornado', tier, style: 'viento' as FxStyle, windupSec: WINDUP.tornado + tier * 0.05, ballTexture: 'fx:ball', ballScale: 1, own: true };
   return { id, tier, style: id === 'supernova' ? 'energia' : style, windupSec: WINDUP[id] + tier * 0.05,
     ballTexture: id === 'supernova' ? 'fx:nova' : 'fx:ball', ballScale: id === 'supernova' ? 1.1 : 1 };
 }
@@ -54,6 +60,7 @@ export function charge(fx: Fx, r: Recipe, x: number, y: number, level: number) {
     hielo: () => iceSpikes(w, x, y, size, hold), sombra: () => shadows(w, x, y, size, hold), canon: () => energyOrb(w, x, y, size, hold, c1),
     meteoro: () => energyOrb(w, x, y - 30, size * 0.8, hold, c2), basico: () => energyOrb(w, x, y, size * 0.6, hold, c1),
   };
+  if (r.own) return;
   manifest[r.id]?.();
   switch (r.id) {
     case 'fuego': // preparation -> energy -> fire around the player -> whirl; the ball leaves at the end of the windup
