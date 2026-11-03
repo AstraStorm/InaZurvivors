@@ -47,6 +47,13 @@ export function canLearn(t: Technique, index: number, runLevel: number, bought: 
   return t.unlockLevel < SHOP_ONLY_LEVEL && runLevel >= Math.floor((t.unlockLevel ?? 1) / 6);
 }
 
+/** Fix 1.53 (author): a run can start with a technique only if it is learnable at run level 1 (or bought), or it is the default one */
+export function canStartWith(p: Pick<RosterEntry, 'techniques'>, i: number, bought: number[]) {
+  const t = p.techniques[i];
+  if (!t || t.type === 'talento') return false;
+  return i === startingTech(p) || canLearn(t, i, 1, bought);
+}
+
 export function cardPool(ctx: CardContext): Card[] {
   const { team, unlocked } = ctx;
   const pool: Card[] = [];

@@ -19,6 +19,7 @@ export const CHANGELOG: Release[] = [
     features: [],
     fixes: [
       'Pantalla de título invisible (regresión del Fix 1.51): @keyframes tsFade solo tenía from y .cine-shot reposa en opacity 0, así que acababa en 0. Ahora termina en opacity 1.',
+      'Técnica inicial (autor): solo se puede elegir una técnica aprendible en el nivel 1 de partida (canLearn con runLevel 1), comprada, o la de por defecto (cards.ts canStartWith). Antes bastaba con que no fuera «solo tienda», así que se elegían técnicas que en partida salen desde el nivel 5-16. Las elecciones guardadas que ya no valen vuelven a la de por defecto (startOf).',
       'Compensación (autor): quien había ascendido a Desmodus Drakul (101437) recibe 3 copias, una sola vez por partida (save.drakul153, ascension.ts compensateDrakul153). La ascensión pagada se mantiene.',
     ],
     visuals: [],

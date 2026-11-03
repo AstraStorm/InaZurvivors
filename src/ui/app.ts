@@ -59,7 +59,7 @@ import { SIGNATURE } from '../data/signatures';
 import { bindStick, initGamepad } from './gamepad';
 import { confetti, countUp, flyTo } from './rewardFx';
 import { MASTERY_BONUS, MASTERY_USES, masteryLevel, recordMastery } from '../systems/mastery';
-import { MAX_TEAM, startingTech, type Card } from '../systems/cards';
+import { MAX_TEAM, canStartWith, startingTech, type Card } from '../systems/cards';
 import { setSquad, SQUAD_SIZE, fillSquad, makeCaptain, placeInSquad, removeFromSquad, squadOf } from '../systems/squad';
 import type { ArenaInit, ArenaScene, HudState, MarkerState, Poi } from '../game/ArenaScene';
 import { charCanvas, initPreviews, mountPreviews, setPreviewKit } from './sprites';
@@ -652,10 +652,13 @@ export class App {
     const c = this.save.loadout[String(p.id)];
     return c !== undefined && this.canStartWith(p, c) ? c : startingTech(p);
   }
-  /** talents are passive and locked ones must be bought first */
+  /** talents are passive; techniques that only appear later in a run (or only in the shop) must be bought first */
   private canStartWith(p: RosterEntry, i: number) {
-    const t = p.techniques[i];
-    return !!t && t.type !== 'talento' && (!isLocked(t) || isBought(this.save, p.id, i));
+    return canStartWith(p, i, this.save.shop.techUnlocks[String(p.id)] ?? []);
+  }
+  /** Fix 1.53: choices saved before the lock rule fall back to the default technique in a run */
+  private validLoadout() {
+    return Object.fromEntries(Object.entries(this.save.loadout).filter(([id, i]) => { const p = this.byId.get(Number(id)); return !!p && this.canStartWith(p, i); }));
   }
   private setStart(key: string) {
     const [id, i] = key.split(':').map(Number);
@@ -2029,7 +2032,7 @@ export class App {
         ${comboOf.get(p.name) ? `<span class="sq-combo" title="Técnica combinada: ${esc(comboOf.get(p.name)!)}">🔗 ${esc(comboOf.get(p.name)!)}</span>` : ''}
         ${st ? `<div class="sq-radar">${statRadar(st, STAT_SHORT, RARITY_COLOR[er], split!.add)}</div>` : ''}
         <div class="sq-techs"><small>TÉCNICA INICIAL</small>${p.techniques.slice(0, 5).map((t, ti) => { const usable = this.canStartWith(p, ti), on = this.startOf(p) === ti;
-          return `<button class="sq-tech${on ? ' on' : ''}" data-start="${p.id}:${ti}" ${usable ? '' : 'disabled'} title="${esc(t.name)}${usable ? (on ? ' · empieza con esta' : ' · pulsa para empezar con esta') : t.type === 'talento' ? ' · talento pasivo: siempre activo' : ' · bloqueada: desbloquéala en la tienda de técnicas'}">${this.icon(ICON.manual[t.type], 1)}<span>${esc(t.name)}</span>${on ? '<em>★</em>' : ''}</button>`; }).join('')}</div>
+          return `<button class="sq-tech${on ? ' on' : ''}" data-start="${p.id}:${ti}" ${usable ? '' : 'disabled'} title="${esc(t.name)}${usable ? (on ? ' · empieza con esta' : ' · pulsa para empezar con esta') : t.type === 'talento' ? ' · talento pasivo: siempre activo' : ` · bloqueada: ${isLocked(t) ? 'solo se aprende comprándola' : `aparece en partida desde el nivel ${Math.floor(t.unlockLevel / 6)}; cómprala para empezar con ella`} en la tienda de técnicas`}">${this.icon(ICON.manual[t.type], 1)}<span>${esc(t.name)}</span>${on ? '<em>★</em>' : ''}</button>`; }).join('')}</div>
         ${inh.length ? `<div class="sq-techs aura-techs"><small>✦ DEL AURA</small>${inh.map((t) => `<span class="sq-tech aura" title="${esc(t.name)} · heredada de ${esc(ae!.name)}">${this.icon(ICON.manual[t.type], 1)}<span>${esc(t.name)}</span></span>`).join('')}</div>` : ''}
         ${this.auraMini(p)}
         <i class="cc-sweep"></i><i class="cc-foil"></i><i class="cc-sparks"></i><i class="cc-bevel"></i><i class="cc-crown"></i></div>`;
@@ -3485,7 +3488,7 @@ export class App {
       asc: Object.fromEntries(candidates.map((p) => [String(p.id), { ...ascMultipliers(this.save, p), hero: isHero(this.save, p.id) }])),
       manifest: this.m, map, team: runTeam, unlocked: runUnlocked, auras: runAuras, stars, settings: this.save.settings,
       perks: (() => { const e = applyGear(perkEffects(this.save), this.save, this.gear); kitBonus(this.save.kit, this.m.roster).apply(e); return e; })(),
-      kitTeam: this.save.kit || 'Raimon', shop: this.save.shop, mastery: this.save.mastery, loadout: this.save.loadout, kit: this.m.kits?.[this.save.kit] ?? null, formation: (this.save.formation as FormationId) in FORMATIONS ? this.save.formation as FormationId : 'equilibrada',
+      kitTeam: this.save.kit || 'Raimon', shop: this.save.shop, mastery: this.save.mastery, loadout: this.validLoadout(), kit: this.m.kits?.[this.save.kit] ?? null, formation: (this.save.formation as FormationId) in FORMATIONS ? this.save.formation as FormationId : 'equilibrada',
       hooks: {
         hud: (s) => this.renderHud(s),
         markers: (m) => this.renderMarkers(m),

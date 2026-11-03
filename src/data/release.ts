@@ -35,6 +35,7 @@ export const PUBLIC_RELEASES: PublicRelease[] = [
     intro: 'Un parche rápido sobre el 1.52.',
     features: [
       { icon: '▶', title: 'Pantalla de título', text: 'Al volver al juego, la pantalla de «¡Hola de nuevo!» se quedaba en blanco sobre el estadio y no se veía el botón para continuar. Ya se ve.' },
+      { icon: '◆', title: 'Técnica inicial', text: 'En Mi Equipo ya no se puede elegir para empezar una técnica que aún no está desbloqueada: solo las disponibles desde el nivel 1 o las compradas en la tienda de técnicas.' },
       { icon: '★', title: 'Compensación de Drakul', text: 'Si ascendiste a Desmodus Drakul cuando era Raro, recibes 3 copias suyas ahora que es Legendario.' },
     ],
     start: [],

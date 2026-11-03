@@ -22,3 +22,15 @@ describe('Drakul compensation', () => {
     expect(s.owned[k].copies).toBe(1);
   });
 });
+
+describe('starting technique (Fix 1.53)', async () => {
+  const { canStartWith } = await import('../src/systems/cards');
+  const t = (name: string, unlockLevel: number, type = 'tiro') => ({ id: 1, name, description: '', type, element: null, power: 10, cost: 1, unlockLevel, growth: null }) as never;
+  const p = { techniques: [t('Talento', 1, 'talento'), t('Base', 1), t('Pronto', 9), t('Tarde', 30), t('Tienda', 100)] };
+  it('only techniques available from run level 1, bought ones, or the default', () => {
+    expect([0, 1, 2, 3, 4].map((i) => canStartWith(p, i, []))).toEqual([false, true, true, false, false]);
+    expect(canStartWith(p, 3, [3])).toBe(true);
+    expect(canStartWith(p, 4, [4])).toBe(true);
+    expect(canStartWith({ techniques: [t('Tarde', 30)] }, 0, [])).toBe(true); // the default one is always allowed
+  });
+});
