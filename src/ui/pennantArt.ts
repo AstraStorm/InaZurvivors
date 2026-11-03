@@ -107,8 +107,11 @@ function widePattern(p: PennantPattern, a: string, id: string): string {
   }
 }
 
-/** A banner as a wide ribbon that fills its (relatively positioned) parent. Unknown id → empty string. */
-export function pennantRibbon(def: PennantDef | string | null | undefined): string {
+/**
+ * A banner as a wide ribbon that fills its (relatively positioned) parent. Unknown id → empty string. `withEmblem`
+ * false leaves the big emblem out, for a box whose content would cover it (it goes in its own slot: pennantEmblem).
+ */
+export function pennantRibbon(def: PennantDef | string | null | undefined, withEmblem = true): string {
   const p = typeof def === 'string' ? PENNANT_BY_ID.get(def) : def;
   if (!p) return '';
   const id = `pr${++uid}`;
@@ -123,10 +126,90 @@ export function pennantRibbon(def: PennantDef | string | null | undefined): stri
       <rect width="${RW}" height="${RH}" fill="url(#${id}g)"/>
       ${widePattern(p.pattern, p.accent, id)}
       <g opacity=".2">${echo(300, 1.1)}${echo(1040, 1.1)}</g>
-      <ellipse cx="${EX}" cy="${EY}" rx="120" ry="70" fill="url(#${id}o)"/>
-      <g class="pnr-emb">${emblem(p.emblem, p.accent, `translate(${EX} ${EY}) scale(1.75)`)}</g>
+      ${withEmblem ? `<ellipse cx="${EX}" cy="${EY}" rx="120" ry="70" fill="url(#${id}o)"/>
+      <g class="pnr-emb">${emblem(p.emblem, p.accent, `translate(${EX} ${EY}) scale(1.75)`)}</g>` : ''}
       <rect width="${RW}" height="${RH}" fill="url(#${id}v)"/>
       <path d="M0,7 H${RW} M0,${RH - 7} H${RW}" stroke="${p.accent}" stroke-width="2" opacity=".55"/>
       ${shine ? `<rect class="pnr-shine" x="-200" y="0" width="140" height="${RH}" fill="url(#${id}s)" transform="skewX(-20)"/>` : ''}
     </svg></span></span>`;
+}
+
+/** The emblem of a banner on its own, with its glow (the slot of the profile card). */
+export function pennantEmblem(def: PennantDef | string | null | undefined, size = 120): string {
+  const p = typeof def === 'string' ? PENNANT_BY_ID.get(def) : def;
+  if (!p) return '';
+  const id = `pe${++uid}`;
+  return `<svg class="pn-emblem" viewBox="0 0 100 100" width="${size}" height="${size}" aria-hidden="true">
+    <defs><radialGradient id="${id}o" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="${p.accent}" stop-opacity=".65"/><stop offset="1" stop-color="${p.accent}" stop-opacity="0"/></radialGradient></defs>
+    <circle cx="50" cy="50" r="50" fill="url(#${id}o)"/>${emblem(p.emblem, p.accent, 'translate(50 50) scale(1.5)')}</svg>`;
+}
+
+// ------------------------------------------------------------------ avatar frames (author: "marcos súper guays")
+/*
+ * A frame drawn over the avatar: the avatar fills the middle 100×100 of a 140×140 box (so the overlay sits at
+ * inset -20% around it). Ring in the cloth colours, the pattern as ornaments all around, the emblem as a crest on top,
+ * wings from Legendario up, a gem below from Épico up. `square` follows the rounded square of the profile icons.
+ */
+const FC = 70;
+/** a point on the frame line at angle `a` (circle, or the rounded square pushed out from it), radius `r` */
+function onFrame(a: number, r: number, square: boolean): [number, number] {
+  const c = Math.cos(a), s = Math.sin(a);
+  if (!square) return [FC + c * r, FC + s * r];
+  const k = r / Math.max(Math.abs(c), Math.abs(s), 0.75);
+  return [FC + c * k * 0.97, FC + s * k * 0.97];
+}
+const deg = (a: number) => (a * 180) / Math.PI;
+
+function ornaments(p: PennantPattern, a: string, c1: string, sq: boolean, id: string): string {
+  const around = (n: number, f: (x: number, y: number, ang: number, k: number) => string, r = 58, off = 0) =>
+    Array.from({ length: n }, (_, k) => { const ang = off + (k / n) * Math.PI * 2; const [x, y] = onFrame(ang, r, sq); return f(x, y, ang, k); }).join('');
+  switch (p) {
+    case 'franjas': return around(12, (x, y, g, k) => `<rect x="${x - 3}" y="${y - 5}" width="6" height="10" rx="1.5" fill="${k % 2 ? '#fff' : a}" stroke="#0a1a3a" stroke-width="1" transform="rotate(${deg(g) + 90} ${x} ${y})"/>`, 53);
+    case 'diagonal': return around(6, (x, y, g) => `<path d="M2,-8 L-4,1 L0,1 L-2,8 L5,-2 L1,-2 Z" fill="${a}" stroke="#2a1a00" stroke-width="1" transform="translate(${x} ${y}) rotate(${deg(g) + 90}) scale(1.3)"/>`, 62, 0.5);
+    case 'llamas': return around(14, (x, y, g, k) => `<path d="M0,0 C-5,-4 -4,-10 0,-${14 + (k % 3) * 3} C4,-10 5,-4 0,0 Z" fill="${k % 2 ? a : c1}" opacity=".95" transform="translate(${x} ${y}) rotate(${deg(g) + 90})"/>`, 57)
+      + around(14, (x, y, g) => `<path d="M0,0 C-2,-2 -2,-5 0,-7 C2,-5 2,-2 0,0 Z" fill="#fff" opacity=".8" transform="translate(${x} ${y}) rotate(${deg(g) + 90})"/>`, 57);
+    case 'estrellas': return around(8, (x, y) => `<path d="M${x},${y - 6} l1.8,4.2 4.2,1.8 -4.2,1.8 -1.8,4.2 -1.8,-4.2 -4.2,-1.8 4.2,-1.8 Z" fill="${a}" stroke="#0008" stroke-width=".6"/>`, 62, 0.39)
+      + around(16, (x, y) => `<circle cx="${x}" cy="${y}" r="1.1" fill="#fff" opacity=".85"/>`, 66, 0.2);
+    case 'arcoiris': return ['#ff4a4a', '#ffb020', '#ffe24a', '#5ee05a', '#4fb3ff', '#b36bff'].map((c, k) => { const [x, y] = onFrame(Math.PI * 0.15 + (k / 6) * Math.PI * 2, 53, sq); return `<circle cx="${x}" cy="${y}" r="4.2" fill="${c}" stroke="#fff" stroke-width="1.2"/>`; }).join('');
+    case 'cuadros': return around(16, (x, y, g, k) => `<rect x="${x - 3.5}" y="${y - 3.5}" width="7" height="7" fill="${k % 2 ? a : '#111'}" transform="rotate(${deg(g)} ${x} ${y})"/>`, 53);
+    case 'tiza': return `<g fill="none" stroke="${a}" stroke-width="1.6" stroke-linecap="round" opacity=".9">${around(6, (x, y, _g, k) => k % 2 ? `<circle cx="${x}" cy="${y}" r="3.5"/>` : `<path d="M${x - 3},${y - 3} l6,6 M${x + 3},${y - 3} l-6,6"/>`, 63, 0.5)}</g>`;
+    case 'olas': { let d = ''; for (let k = 0; k <= 72; k++) { const g = (k / 72) * Math.PI * 2; const [x, y] = onFrame(g, 59 + Math.sin(g * 12) * 2.6, sq); d += `${k ? 'L' : 'M'}${x.toFixed(1)},${y.toFixed(1)} `; } return `<path d="${d}Z" fill="none" stroke="${a}" stroke-width="2.4" opacity=".9"/><path d="${d}Z" fill="none" stroke="#fff" stroke-width=".8" opacity=".7"/>`; }
+    case 'rayos': return around(16, (x, y, g) => `<path d="M-3,0 L0,-${12} L3,0 Z" fill="${a}" opacity=".9" transform="translate(${x} ${y}) rotate(${deg(g) + 90})"/>`, 58);
+    case 'copos': return around(10, (x, y, g, k) => `<path d="M-3,0 L0,-${k % 2 ? 9 : 14} L3,0 Z" fill="#fff" stroke="${a}" stroke-width=".8" opacity=".95" transform="translate(${x} ${y}) rotate(${deg(g) + 90})"/>`, 58)
+      + around(5, (x, y) => `<path d="M${x - 3},${y} H${x + 3} M${x},${y - 3} V${y + 3}" stroke="#fff" stroke-width="1"/>`, 66, 0.3);
+    case 'espiral': return `<g fill="none" stroke="${a}" stroke-width="3" stroke-linecap="round">${around(3, (x, y, g) => `<path d="M0,0 a6,6 0 1,1 6,6 a10,10 0 0,1 -14,-6" transform="translate(${x} ${y}) rotate(${deg(g)})"/>`, 60, 0.6)}</g>`;
+    case 'nebulosa': return `<radialGradient id="${id}a" cx=".5" cy=".5" r=".5"><stop offset=".62" stop-color="#b04aff" stop-opacity="0"/><stop offset=".78" stop-color="#b04aff" stop-opacity=".55"/><stop offset="1" stop-color="#000" stop-opacity="0"/></radialGradient><circle cx="${FC}" cy="${FC}" r="70" fill="url(#${id}a)"/>`
+      + around(9, (x, y, _g, k) => `<circle cx="${x}" cy="${y}" r="${k % 3 ? 1.4 : 2.4}" fill="${k % 2 ? a : '#fff'}"/>`, 64, 0.2);
+  }
+}
+
+function wings(a: string, c1: string, c2: string): string {
+  const one = (flip: boolean) => `<g transform="${flip ? `translate(140 0) scale(-1 1)` : ''}">
+    ${[0, 1, 2, 3].map((k) => `<path d="M30,${58 + k * 9} C${16 - k * 2},${50 + k * 8} ${4 - k},${44 + k * 10} ${-2 + k * 2},${36 + k * 14} C${10},${52 + k * 9} ${20},${62 + k * 8} 30,${66 + k * 9} Z" fill="${k % 2 ? c1 : a}" stroke="${c2}" stroke-width="1"/>`).join('')}</g>`;
+  return one(false) + one(true);
+}
+
+/** An avatar frame as SVG; it fills its box (put it at inset -20% around the avatar). Unknown id → empty string. */
+export function frameSvg(def: PennantDef | string | null | undefined, square = false): string {
+  const p = typeof def === 'string' ? PENNANT_BY_ID.get(def) : def;
+  if (!p) return '';
+  const id = `fr${++uid}`;
+  const top = ['epico', 'legendario', 'mitico', 'leyenda'].includes(p.rarity);
+  const ring = p.pattern === 'arcoiris' || p.rarity === 'leyenda' ? `url(#${id}r)` : `url(#${id}g)`;
+  const line = (r: number, w: number, color: string, extra = '') => square
+    ? `<rect x="${FC - r}" y="${FC - r}" width="${r * 2}" height="${r * 2}" rx="${r * 0.3}" fill="none" stroke="${color}" stroke-width="${w}" ${extra}/>`
+    : `<circle cx="${FC}" cy="${FC}" r="${r}" fill="none" stroke="${color}" stroke-width="${w}" ${extra}/>`;
+  return `<svg class="frame fr-${p.rarity}" viewBox="0 0 140 140" aria-hidden="true">
+    <defs><linearGradient id="${id}g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${p.c1}"/><stop offset=".5" stop-color="${p.accent}"/><stop offset="1" stop-color="${p.c2}"/></linearGradient>
+      <linearGradient id="${id}r" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff4a4a"/><stop offset=".25" stop-color="#ffe24a"/><stop offset=".5" stop-color="#5ee05a"/><stop offset=".75" stop-color="#4fb3ff"/><stop offset="1" stop-color="#b36bff"/></linearGradient>
+      <linearGradient id="${id}s" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".5" stop-color="#fff" stop-opacity=".9"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient></defs>
+    ${p.wings ? wings(p.accent, p.c1, p.c2) : ''}
+    ${line(53.5, 9, '#0a1022')}
+    ${line(53.5, 7, ring)}
+    ${line(49.5, 1.4, p.accent, 'opacity=".9"')}${line(57.5, 1.2, '#000', 'opacity=".5"')}
+    ${top ? `<g class="fr-spin">${line(53.5, 3, `url(#${id}s)`, `stroke-dasharray="40 400" stroke-linecap="round"`)}</g>` : ''}
+    ${ornaments(p.pattern, p.accent, p.c1, square, id)}
+    <g transform="translate(${FC} 13)"><circle r="12.5" fill="${p.c2}" stroke="${p.rarity === 'leyenda' ? `url(#${id}r)` : p.accent}" stroke-width="2.4"/>${emblem(p.emblem, p.accent, 'scale(.36)')}</g>
+    ${top ? `<g transform="translate(${FC} 127)"><path d="M0,-7 L7,0 L0,7 L-7,0 Z" fill="${p.accent}" stroke="${p.c2}" stroke-width="1.6"/><path d="M0,-4 L3,0 L0,4 L-3,0 Z" fill="#fff" opacity=".8"/></g>` : ''}
+  </svg>`;
 }

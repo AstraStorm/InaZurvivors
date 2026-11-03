@@ -1,6 +1,6 @@
 /** v1.65: profile banners — owning, buying, equipping, the two achievement banners and the limited-time event. */
 import type { Rarity, RosterEntry } from '../data/manifest';
-import { EVENT_POOL, PENNANT_BY_ID, PENNANT_EVENT, type PennantDef } from '../data/pennants';
+import { EVENT_POOL, isFrame, PENNANT_BY_ID, PENNANT_EVENT, type PennantDef } from '../data/pennants';
 import type { SaveData } from './save';
 
 export const COLLECTION_PENNANT_AT = 200;
@@ -9,7 +9,12 @@ export const ownedPennants = (s: SaveData) => s.pennants?.owned ?? [];
 export const hasPennant = (s: SaveData, id: string) => ownedPennants(s).includes(id);
 export const equippedPennant = (s: SaveData): PennantDef | undefined => {
   const id = s.pennants?.equipped;
-  return id && hasPennant(s, id) ? PENNANT_BY_ID.get(id) : undefined;
+  return id && hasPennant(s, id) && !isFrame(PENNANT_BY_ID.get(id)) ? PENNANT_BY_ID.get(id) : undefined;
+};
+/** v1.65: the avatar frame worn */
+export const equippedFrame = (s: SaveData): PennantDef | undefined => {
+  const id = s.pennants?.frame;
+  return id && hasPennant(s, id) && isFrame(PENNANT_BY_ID.get(id)) ? PENNANT_BY_ID.get(id) : undefined;
 };
 
 function give(s: SaveData, id: string) {
@@ -28,18 +33,26 @@ export function buyPennant(s: SaveData, id: string): boolean {
 
 /** Equips an owned banner, or takes it off with null. */
 export function equipPennant(s: SaveData, id: string | null): boolean {
-  if (id !== null && !hasPennant(s, id)) return false;
+  if (id !== null && (!hasPennant(s, id) || isFrame(PENNANT_BY_ID.get(id)))) return false;
   s.pennants ??= { owned: [] };
   if (id === null) delete s.pennants.equipped; else s.pennants.equipped = id;
   return true;
 }
 
-/** The achievement banners: 200 footballers, and any Leyenda. Returns the ones just earned. */
+/** Wears an owned frame, or takes it off with null. */
+export function equipFrame(s: SaveData, id: string | null): boolean {
+  if (id !== null && (!hasPennant(s, id) || !isFrame(PENNANT_BY_ID.get(id)))) return false;
+  s.pennants ??= { owned: [] };
+  if (id === null) delete s.pennants.frame; else s.pennants.frame = id;
+  return true;
+}
+
+/** The achievement banners and frames: 200 footballers, and any Leyenda. Returns the ones just earned. */
 export function grantAchievementPennants(s: SaveData, roster: Pick<RosterEntry, 'id' | 'rarity'>[]): PennantDef[] {
   const out: PennantDef[] = [];
   const owned = Object.keys(s.owned);
   const leyenda = roster.some((p) => p.rarity === 'leyenda' && s.owned[String(p.id)]);
-  for (const [id, ok] of [['caravana', owned.length >= COLLECTION_PENNANT_AT], ['once-leyenda', leyenda]] as const) {
+  for (const [id, ok] of [['caravana', owned.length >= COLLECTION_PENNANT_AT], ['marco-caravana', owned.length >= COLLECTION_PENNANT_AT], ['once-leyenda', leyenda], ['marco-leyenda', leyenda]] as const) {
     if (ok && !hasPennant(s, id)) { give(s, id); out.push(PENNANT_BY_ID.get(id)!); }
   }
   return out;

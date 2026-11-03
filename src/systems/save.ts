@@ -71,7 +71,7 @@ export interface SaveData {
   /** Fix 1.53: the Drakul compensation (ascension.ts compensateDrakul153) was already given */
   drakul153?: boolean;
   /** v1.65: profile banners owned and the one shown (pennants.ts) */
-  pennants?: { owned: string[]; equipped?: string };
+  pennants?: { owned: string[]; equipped?: string; frame?: string };
   /** Fix 1.32: ids of the news items already opened (news board) */
   newsRead?: string[];
   /** Fix 1.11 weekly pass: rewards claimed in the current cycle (0-6) and the last day one was claimed */
@@ -312,7 +312,8 @@ export function validate(s: SaveData): SaveData {
   if (pn) {
     const ownedP = Array.isArray(pn.owned) ? [...new Set(pn.owned.filter((x): x is string => typeof x === 'string' && PENNANT_BY_ID.has(x)))] : [];
     s.pennants = { owned: ownedP };
-    if (typeof pn.equipped === 'string' && ownedP.includes(pn.equipped)) s.pennants.equipped = pn.equipped;
+    if (typeof pn.equipped === 'string' && ownedP.includes(pn.equipped) && PENNANT_BY_ID.get(pn.equipped)!.kind !== 'marco') s.pennants.equipped = pn.equipped;
+    if (typeof pn.frame === 'string' && ownedP.includes(pn.frame) && PENNANT_BY_ID.get(pn.frame)!.kind === 'marco') s.pennants.frame = pn.frame;
   } else delete s.pennants;
   // v1.5: Auras — owned on both sides, never oneself, one carrier per Aura, no chains (a carrier is nobody's Aura)
   const au = obj(s.auras);

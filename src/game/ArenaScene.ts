@@ -118,8 +118,10 @@ interface Member {
   f: Footballer; state: TeamMemberState; entry: RosterEntry; damageMult: number;
   cds: number[]; maxCd: number[]; styles: FxStyle[]; trajs: Trajectory[]; recipes: Recipe[];
   slot: number; windup: { i: number; until: number } | null;
-  dash: { fromX: number; fromY: number; toX: number; toY: number; t: number; dur: number; hits: Set<Enemy>; dmg: number; style: FxStyle; left: number } | null;
+  dash: { fromX: number; fromY: number; toX: number; toY: number; t: number; dur: number; hits: Set<Enemy>; chain: Set<Enemy>; dmg: number; style: FxStyle; left: number } | null;
   vx: number; vy: number; settled: boolean;
+  /** v1.65: distance to its formation slot; a new dribble only starts back in formation, so nobody sticks to a boss */
+  slotDist: number;
   /** contact-immune until this run time (only while a dribble moves the player) */
   guardUntil: number;
   /** no new dribble may start before this run time: immunity can't be chained */
@@ -380,7 +382,7 @@ export class ArenaScene extends Phaser.Scene {
       cds: perSlot((k) => 700 + this.members.length * 230 + k * 600), maxCd: perSlot(() => 1),
       styles: perSlot((k) => fxStyle(entry.techniques[state.slots[k] ?? -1] ?? first)), trajs: perSlot((k) => trajectory(entry.techniques[state.slots[k] ?? -1] ?? first)),
       recipes: perSlot((k) => recipeFor(entry.techniques[state.slots[k] ?? -1] ?? first, this.fxRarity(entry))),
-      slot: this.members.length - 1, windup: null, dash: null, vx: 0, vy: 0, settled: false, guardUntil: 0, guardLock: 0,
+      slot: this.members.length - 1, windup: null, dash: null, vx: 0, vy: 0, settled: false, slotDist: 0, guardUntil: 0, guardLock: 0,
     };
     this.members.push(m);
     const add = Math.round((this.members.length === 1 ? 160 : 25) * sb.hp * this.cfg.perks.hpMult * statHealth(entry)); // Fix 1.13: teammates add 25 (was 40)
@@ -657,6 +659,7 @@ export class ArenaScene extends Phaser.Scene {
       const target = this.arena.clampToBounds(slots[m.slot % slots.length].x, slots[m.slot % slots.length].y);
       const dx = target.x - fc.x, dy = target.y - fc.y;
       const dist = Math.hypot(dx, dy);
+      m.slotDist = dist;
       // dead zone with hysteresis: stop inside 3px, only start again past 9px, so nobody hunts around the slot
       if (m.settled ? dist > 9 : dist < 3) m.settled = !m.settled;
       // arrival steering; far-behind followers sprint back instead of teleporting
@@ -857,6 +860,8 @@ export class ArenaScene extends Phaser.Scene {
             }
             sfx('whoosh');
           } else {
+            // v1.65 (author: melee players stayed on a tough boss until it died): back to the formation first
+            if (m.slotDist > 36) { m.cds[i] = 150; return; }
             const target = this.nearestEnemy(ox, oy, 120);
             if (!target) { m.cds[i] = 200; return; }
             const ang = Math.atan2(target.pos.y - 10 - oy, target.pos.x - ox);
@@ -868,7 +873,7 @@ export class ArenaScene extends Phaser.Scene {
             if (animeOf(t.name) === 'brisa') breezeStep(this, m.f.x, m.f.y, m.f.x + Math.cos(ang) * reach, m.f.y + Math.sin(ang) * reach, lv, 300);
             if (signatureOf(t.name) === 'huracan') stormZone(this, m.f.x + Math.cos(ang) * reach * 0.5, m.f.y + Math.sin(ang) * reach * 0.5, 34, lv, 520);
             m.dash = { fromX: m.f.x, fromY: m.f.y, toX: m.f.x + Math.cos(ang) * reach, toY: m.f.y + Math.sin(ang) * reach,
-              t: 0, dur: 220, hits: new Set(), dmg: s.damage, style, left: s.count - 1 };
+              t: 0, dur: 220, hits: new Set(), chain: new Set(), dmg: s.damage, style, left: s.count - 1 };
             sfx('whoosh');
           }
         } else if (t.type === 'defensa') {
@@ -1208,13 +1213,23 @@ export class ArenaScene extends Phaser.Scene {
     for (const en of this.enemies) {
       if (d.hits.has(en)) continue;
       if (Math.hypot(en.pos.x - fc.x, en.pos.y - fc.y) < en.radius + 10) {
-        d.hits.add(en);
+        d.hits.add(en); d.chain.add(en);
         this.hit(en, d.dmg, (d.toX - d.fromX) * 0.6, (d.toY - d.fromY) * 0.6, d.style);
       }
     }
     if (p >= 1) {
       if (d.left > 0) {
-        const t = this.nearestEnemy(fc.x, fc.y - 10, 100);
+        // v1.65: the chain only jumps to rivals it has not hit yet; the hops left against one it already hit (a boss)
+        // land at once, so the dribbler keeps its damage and goes back to the formation instead of circling it
+        let t: Enemy | null = null, bd = 100 * 100;
+        for (const en of this.enemies) {
+          const q = (en.pos.x - fc.x) ** 2 + (en.pos.y - 12 - (fc.y - 10)) ** 2;
+          if (!en.dead && !d.chain.has(en) && q < bd) { bd = q; t = en; }
+        }
+        if (!t) {
+          const last = [...d.chain].find((en) => !en.dead && Math.hypot(en.pos.x - fc.x, en.pos.y - fc.y) < en.radius + 60);
+          if (last) { this.hit(last, d.dmg * d.left, 0, 0, d.style); this.fx.burst(d.style, last.pos.x, last.pos.y - 10, 8 + d.left * 2, 40); }
+        }
         if (t) {
           const ang = Math.atan2(t.pos.y - fc.y, t.pos.x - fc.x);
           m.dash = { ...d, fromX: fc.x, fromY: fc.y, toX: fc.x + Math.cos(ang) * 70, toY: fc.y + Math.sin(ang) * 70, t: 0, left: d.left - 1, hits: new Set() };

@@ -29,15 +29,17 @@ export interface PublicRelease {
 /** Public news, newest first. Starts at v1.0: the internal versions before it are not part of the public history. */
 export const PUBLIC_RELEASES: PublicRelease[] = [
   {
-    version: '1.65', date: '2026-11-04',
+    version: '1.65', date: '2026-11-05',
     title: 'InaZurvivors 1.65 — Banners (semiactualización)',
-    tagline: 'Banderines de perfil para lucir en el ranking y en tu perfil, y un evento de 3 días con diez banners nuevos',
+    tagline: 'Banners y marcos de perfil para lucir en el ranking y en tu perfil, y un evento de 3 días con veinte premios nuevos',
     intro: 'Una semiactualización para presumir de club: quince banners al estilo Inazuma que cuelgan junto a tu nombre.',
     features: [
       { icon: '⚑', title: 'Banners de perfil', text: 'Cintas a lo ancho, con su emblema y su corte en cola de golondrina: ocupan tu fila entera en el ranking del menú, en la pantalla de ranking, en tu perfil y en el perfil que abren los demás. Equípalos o quítalos desde Perfil.' },
       { icon: '🛒', title: 'En la tienda', text: 'Banderín del Raimon (Común, 2.500 monedas), Relámpago Inazuma (Raro, 8.000) y Llama del Goleador (Épico, 20.000), en la sección «Banners de perfil» de la tienda.' },
       { icon: '★', title: 'Logros', text: 'Caravana Inazuma (Legendario) al conseguir 200 futbolistas, y Once de Leyenda (Leyenda) al conseguir tu primer futbolista Leyenda. Se entregan solos.' },
-      { icon: '✦', title: 'Evento: Banners de leyenda', text: 'Solo 3 días. Tirada con monedas: 1.500 la simple y 10.000 la ×10. Diez banners exclusivos de Común a Legendario, y Supernova Oscura, Mítico, que solo sale aquí (3%). Un banner repetido devuelve monedas.' },
+      { icon: '◎', title: 'Marcos de perfil', text: 'Quince marcos para tu icono, con llamas, rayos, hielo, estrellas o alas: rodean tu icono en el ranking y en los perfiles. En la tienda el Marco del Raimon (2.000), el del Trueno (6.000) y el Llameante (15.000); por logro el de la Caravana (200 futbolistas) y el de Leyenda (un Leyenda).' },
+      { icon: '✦', title: 'Evento: Banners y marcos de leyenda', text: 'Solo 3 días. Tirada con monedas: 1.500 la simple y 10.000 la ×10. Diez banners y diez marcos exclusivos de Común a Legendario, y los dos Míticos Supernova Oscura, banner y marco, que solo salen aquí (3% cada uno). Un premio repetido devuelve monedas.' },
+      { icon: '⚡', title: 'Regates contra jefes', text: 'Los compañeros con regates ya no se quedan pegados a un jefe hasta tumbarlo: hacen su regate, vuelven a la formación y repiten.' },
     ],
     start: [],
   },

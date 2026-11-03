@@ -1,7 +1,7 @@
 /** v1.65: profile banners — shop, achievements, the limited-time event, and save validation. */
 import { describe, expect, it } from 'vitest';
-import { EVENT_POOL, PENNANTS, PENNANT_EVENT } from '../src/data/pennants';
-import { buyPennant, equipPennant, equippedPennant, eventActive, eventEnd, eventOdds, eventStart, grantAchievementPennants, pullEvent } from '../src/systems/pennants';
+import { EVENT_POOL, FRAMES, PENNANTS, PENNANT_EVENT } from '../src/data/pennants';
+import { buyPennant, equipFrame, equippedFrame, equipPennant, equippedPennant, eventActive, eventEnd, eventOdds, eventStart, grantAchievementPennants, pullEvent } from '../src/systems/pennants';
 import { exportSave, importSave, newSave } from '../src/systems/save';
 
 describe('banners', () => {
@@ -10,7 +10,7 @@ describe('banners', () => {
     expect(new Set(PENNANTS.map((p) => p.id)).size).toBe(15);
     expect(PENNANTS.filter((p) => p.source === 'tienda').map((p) => p.rarity)).toEqual(['comun', 'raro', 'epico']);
     expect(PENNANTS.filter((p) => p.source === 'logro').map((p) => p.rarity)).toEqual(['legendario', 'leyenda']);
-    expect(EVENT_POOL).toHaveLength(10);
+    expect(EVENT_POOL).toHaveLength(20); // ten banners + ten frames
     const myth = PENNANTS.filter((p) => p.rarity === 'mitico');
     expect(myth).toHaveLength(1);
     expect(myth[0].source).toBe('evento');
@@ -36,9 +36,9 @@ describe('banners', () => {
     for (let i = 2; i <= 200; i++) s.owned[String(i)] = { stars: 0, copies: 1, obtainedAt: '' };
     expect(grantAchievementPennants(s, roster).map((p) => p.id)).toEqual([]); // 199
     s.owned['201'] = { stars: 0, copies: 1, obtainedAt: '' };
-    expect(grantAchievementPennants(s, roster).map((p) => p.id)).toEqual(['caravana']);
+    expect(grantAchievementPennants(s, roster).map((p) => p.id)).toEqual(['caravana', 'marco-caravana']);
     s.owned['1'] = { stars: 0, copies: 1, obtainedAt: '' };
-    expect(grantAchievementPennants(s, roster).map((p) => p.id)).toEqual(['once-leyenda']);
+    expect(grantAchievementPennants(s, roster).map((p) => p.id)).toEqual(['once-leyenda', 'marco-leyenda']);
     expect(grantAchievementPennants(s, roster)).toEqual([]);
   });
   it('event: 3 days, 1500 / 10000 coins, duplicates refund coins', () => {
@@ -58,7 +58,24 @@ describe('banners', () => {
     expect(ten.every((r) => !r.isNew && r.refund === 150)).toBe(true);
     expect(s.coins).toBe(1500);
     const myth = pullEvent({ ...s, coins: 1500 }, 1, mid, () => 0.995)!;
-    expect(myth[0].def.id).toBe('supernova');
+    expect(myth[0].def.id).toBe('marco-supernova'); // the pool lists the banners, then the frames
+    expect(pullEvent({ ...s, coins: 1500 }, 1, mid, () => 0.48)![0].def.id).toBe('supernova');
+  });
+  it('frames: fifteen like the banners, worn apart from the banner, each Mítico at 3%', () => {
+    expect(FRAMES).toHaveLength(15);
+    expect(FRAMES.every((f) => f.kind === 'marco')).toBe(true);
+    expect(FRAMES.filter((p) => p.source === 'tienda').map((p) => p.rarity)).toEqual(['comun', 'raro', 'epico']);
+    const odds = eventOdds();
+    expect(odds.filter((o) => o.def.rarity === 'mitico').map((o) => [o.def.id, o.pct])).toEqual([['supernova', 3], ['marco-supernova', 3]]);
+    const s = newSave([], null);
+    s.coins = 2000;
+    expect(buyPennant(s, 'marco-raimon')).toBe(true);
+    expect(equipPennant(s, 'marco-raimon')).toBe(false); // a frame is not a banner
+    expect(equipFrame(s, 'marco-raimon')).toBe(true);
+    expect(equippedFrame(s)?.id).toBe('marco-raimon');
+    expect(equippedPennant(s)).toBeUndefined();
+    s.pennants!.equipped = 'marco-raimon'; // a frame in the banner slot is dropped on load
+    expect(importSave(exportSave(s)).pennants).toEqual({ owned: ['marco-raimon'], frame: 'marco-raimon' });
   });
   it('save keeps known, owned banners only', () => {
     const s = newSave([], null);

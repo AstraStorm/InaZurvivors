@@ -21,8 +21,12 @@ export const CHANGELOG: Release[] = [
       'Tienda (autor): Raimon Común 2.500, Relámpago Raro 8.000, Llama del Goleador Épico 20.000. Logros: Caravana Inazuma (200 futbolistas, Legendario) y Once de Leyenda (un Leyenda), entregados al entrar al menú (grantAchievementPennants).',
       'Evento de banners (autor): 3 días desde el 2026-11-04 00:00 (Madrid), con monedas, 1.500 la tirada y 10.000 la ×10 (antes 5.000/50.000). Diez banners propios; probabilidades Común 50 / Raro 30 / Épico 12 / Legendario 5 / Mítico 3 (Supernova Oscura, solo aquí). Repetidos devuelven 150/300/600/1200/2500.',
       'Servidor: migración 20261103000300_profile_banners.sql (aplicada): profile_banners(usernames) de solo lectura (hasta 60 nombres, id con forma ^[a-z0-9-]{1,32}$) y public_profile con banner.',
+      'Marcos de perfil (autor): 15 marcos (data/pennants.ts FRAMES, kind «marco»; ui/pennantArt.ts frameSvg con anillo, ornamentos por patrón, emblema de cresta, alas desde Legendario), en el mismo owned que los banners y llevados en save.pennants.frame. Tienda 2.000/6.000/15.000, logros 200 futbolistas y un Leyenda, y diez en el evento: probabilidades Común 47 / Mítico 6 (3% cada Mítico). Migración 20261103000400_profile_frames.sql (aplicada): profile_frames(usernames) y public_profile con frame.',
     ],
-    fixes: [],
+    fixes: [
+      'Regates (autor: los compañeros se quedaban en un jefe hasta matarlo): la cadena de regates solo salta a rivales no golpeados en ella; los saltos que quedan contra uno ya golpeado se aplican de golpe; y un regate nuevo solo empieza de vuelta en la formación (Member.slotDist ≤ 36).',
+      'Banners (autor): el emblema de la cabecera del perfil va en su hueco (pennantEmblem) para que no lo tape el contenido, y se quita el pulso de Legendario/Mítico que hacía parpadear los bloqueados. Tablón: la noticia de estreno deja de estar fijada, el menú enseña la 1.65.',
+    ],
     visuals: [],
     balance: [],
   },

@@ -30,7 +30,7 @@ export const NEWS_KIND_LABEL: Record<NewsKind, string> = { novedad: 'NOVEDAD', a
 
 export const AUTHOR_NEWS: NewsItem[] = [
   {
-    id: 'tablon-noticias', kind: 'novedad', date: '2026-11-02', pinned: true, icon: '📰',
+    id: 'tablon-noticias', kind: 'novedad', date: '2026-11-02', icon: '📰',
     title: '¡Estrenamos tablón de noticias!',
     summary: 'Aquí irán los avisos, las novedades del desarrollo y el registro de todas las actualizaciones de InaZurvivors.',
     blocks: [
