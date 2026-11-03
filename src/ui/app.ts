@@ -247,6 +247,17 @@ export class App {
     else this.mainMenu();
   }
 
+  /**
+   * v1.4: the version stamped onto the opening (it follows PUBLIC_VERSION, so 1.5 shows by itself); the first time a new
+   * version is opened it also says «¡NUEVA VERSIÓN!». Remembered in this browser only (a cosmetic, nothing to sync).
+   */
+  private versionStamp() {
+    let fresh = false;
+    try { fresh = localStorage.getItem('iz-intro-version') !== PUBLIC_VERSION; localStorage.setItem('iz-intro-version', PUBLIC_VERSION); } catch { /* private window: just the stamp */ }
+    const [major, minor = '0'] = PUBLIC_VERSION.split('.');
+    return `<div class="vs4${fresh ? ' fresh' : ''}"><i class="vs4-ring"></i><small>VERSIÓN</small><b><span class="vs4-maj">${esc(major)}</span><em>.</em><span class="vs4-min">${esc(minor)}</span></b>${fresh ? '<span class="vs4-new">¡NUEVA VERSIÓN!</span>' : ''}</div>`;
+  }
+
   /** v1.4: the backdrop of the intro and the title: a night stadium, its sweeping lights, speed lines and floating dust. */
   private cineStage() {
     return `<div class="cine-stage"><i class="cs-pitch"></i><i class="cs-light l1"></i><i class="cs-light l2"></i><i class="cs-light l3"></i><i class="cs-lines"></i>${Array.from({ length: 16 }, (_, k) => `<i class="cs-dust" style="--x:${(k * 37) % 100}%;--d:${(k % 8) * -0.9}s;--s:${1 + (k % 3)}px"></i>`).join('')}</div>`;
@@ -701,7 +712,7 @@ export class App {
           const balls = Array.from({ length: 6 }, (_, k) => `<i class="ib-ball" style="--y:${15 + k * 13}%;--d:${0.4 + k * 0.18}s">⚽</i>`).join('');
           const sparks = Array.from({ length: 18 }, (_, k) => `<i class="ib-spark" style="--a:${k * 20}deg;--r:${120 + (k % 3) * 60}px;--d:${0.95 + (k % 4) * 0.03}s"></i>`).join('');
           box.innerHTML = `<div class="intro-burst">${bolts}${balls}<div class="ib-orbit">${orbs}</div><i class="ib-flash"></i><i class="ib-ring"></i><i class="ib-ring r2"></i>${sparks}
-            <div class="logo cine-logo ib-logo4"><h1><span class="p1">INA</span><span class="bolt p2">Z</span><span class="p3">URVIVORS</span><i class="ib-shine"></i></h1><div class="sub">${words('ROGUELITE DE FÚTBOL · FANGAME', 1300)}</div><span class="ver-badge ib-ver">${esc(VERSION_LABEL)}</span></div></div>`;
+            <div class="logo cine-logo ib-logo4"><h1><span class="p1">INA</span><span class="bolt p2">Z</span><span class="p3">URVIVORS</span><i class="ib-shine"></i></h1><div class="sub">${words('ROGUELITE DE FÚTBOL · FANGAME', 1300)}</div><span class="ver-badge ib-ver">${esc(VERSION_LABEL)}</span></div>${this.versionStamp()}</div>`;
           if (!this.save.settings.reducedMotion) window.setTimeout(() => { sfx('boom'); document.querySelector('.cine4')?.classList.add('shake'); window.setTimeout(() => document.querySelector('.cine4')?.classList.remove('shake'), 420); }, 950);
           if (!this.save.settings.reducedMotion) sfx('legend');
         }

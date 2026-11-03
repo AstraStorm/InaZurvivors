@@ -1270,3 +1270,19 @@ body.reduced-motion .cine4 *, body.reduced-motion .cine4 { animation-duration: .
 .cine4 .ib-logo4 h1 { font-size: clamp(24px, 6.4vw, 72px) !important; }
 .cine4 .ib-flash { position: absolute; inset: -50vh -50vw; background: #fff8e0; }
 .ib-logo4 h1 .p1, .ib-logo4 h1 .p3 { filter: none; }
+
+/* ---- v1.4: the version stamped onto the opening, after the logo lands */
+.vs4 { position: absolute; z-index: 4; right: max(4%, calc(50% - 470px)); top: 50%; margin-top: -150px; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 12px 18px 10px;
+  border-radius: 16px; background: radial-gradient(circle at 50% 30%, #2a5ab0, #0a1d48 70%); box-shadow: 0 0 0 3px var(--yellow), 0 0 0 7px #0a1022, 0 0 30px #ffd23f66, 0 14px 30px #000c;
+  transform: rotate(10deg); opacity: 0; animation: vsIn .55s 1.7s cubic-bezier(.3,1.8,.5,1) both; }
+@keyframes vsIn { from { opacity: 0; transform: rotate(-200deg) scale(3.5); } to { opacity: 1; transform: rotate(10deg) scale(1); } }
+.vs4 small { font-size: 7px; letter-spacing: 3px; color: #cfe3ff; }
+.vs4 b { display: flex; align-items: baseline; font-weight: normal; font-size: 40px; line-height: 1; color: var(--yellow); text-shadow: 3px 3px 0 #7a2e00, 0 0 16px #ffb020; }
+.vs4 b em { font-style: normal; color: #fff; margin: 0 2px; }
+.vs4-min { display: inline-block; animation: vsTick .5s 2.2s cubic-bezier(.3,1.8,.5,1) both; }
+@keyframes vsTick { from { transform: translateY(-30px) scale(1.6); opacity: 0; color: #fff; } }
+.vs4-ring { position: absolute; inset: -6px; border-radius: 20px; border: 3px solid var(--yellow); opacity: 0; animation: vsRing .7s 2.15s ease-out both; pointer-events: none; }
+@keyframes vsRing { 0% { opacity: 1; transform: scale(1); } 100% { opacity: 0; transform: scale(1.8); } }
+.vs4-new { margin-top: 4px; font-size: 7px; padding: 3px 8px; border-radius: 999px; color: #fff; background: var(--bad); box-shadow: 0 2px 0 #0008; animation: m4Pop 1.2s 2.6s ease-in-out infinite; }
+.vs4.fresh { animation-name: vsIn; box-shadow: 0 0 0 3px #ff4f5a, 0 0 0 7px #0a1022, 0 0 34px #ff4f5a88, 0 14px 30px #000c; }
+@media (max-width: 760px) { .vs4 { right: 50%; margin-right: -50px; top: auto; bottom: 14%; margin-top: 0; } .vs4 b { font-size: 28px; } }
