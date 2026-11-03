@@ -6,7 +6,7 @@
  */
 import { CHANGELOG } from './changelog';
 
-export const PUBLIC_VERSION = '1.65';
+export const PUBLIC_VERSION = '1.66';
 export const BUILD = CHANGELOG[0].version;
 export const RELEASED = false;
 export const VERSION_LABEL = RELEASED ? `v${PUBLIC_VERSION}` : `v${PUBLIC_VERSION} · pre-lanzamiento`;
@@ -28,6 +28,16 @@ export interface PublicRelease {
 
 /** Public news, newest first. Starts at v1.0: the internal versions before it are not part of the public history. */
 export const PUBLIC_RELEASES: PublicRelease[] = [
+  {
+    version: '1.66', date: '2026-11-05',
+    title: 'InaZurvivors Fix 1.66 — Escudo sobre el marco',
+    tagline: 'El escudo de tu equipo vuelve a verse encima del marco en tu perfil',
+    intro: 'Un parche pequeño sobre la 1.65.',
+    features: [
+      { icon: '◎', title: 'Escudo y marco', text: 'Con un marco puesto, el escudo de tu equipo quedaba por debajo del marco en la cabecera de tu perfil. Ahora va por encima.' },
+    ],
+    start: [],
+  },
   {
     version: '1.65', date: '2026-11-05',
     title: 'InaZurvivors 1.65 — Banners (semiactualización)',

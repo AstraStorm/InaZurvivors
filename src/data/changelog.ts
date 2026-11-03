@@ -15,6 +15,13 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: '7.2', date: '2026-11-05', title: 'Fix 1.66',
+    features: [],
+    fixes: ['Perfil (autor): el escudo del equipo (.pf-crest) queda por encima del marco del icono (z-index 5; el marco va a 3).'],
+    visuals: [],
+    balance: [],
+  },
+  {
     version: '7.1', date: '2026-11-04', title: 'Semiactualización 1.65',
     features: [
       'Banners de perfil (autor): 15 diseños originales en SVG (data/pennants.ts, ui/pennantArt.ts) con rareza, degradado, patrón, emblema y marco por rareza; se dibujan como cinta horizontal a lo ancho (pennantRibbon: escena 1200×120 recortada a la caja, cola de golondrina y marco con clip-path) detrás de la fila del ranking, del nombre en el podio y de la cabecera del perfil, estilo Clash Royale. Se guardan en save.pennants {owned, equipped} y se muestran en el ranking del menú, la pantalla de ranking, el perfil propio y el de otros.',
