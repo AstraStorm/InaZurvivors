@@ -30,8 +30,7 @@ function pattern(p: PennantPattern, a: string, id: string): string {
   }
 }
 
-function emblem(e: PennantEmblem, a: string): string {
-  const C = 'translate(50 52)';
+function emblem(e: PennantEmblem, a: string, C = 'translate(50 52)'): string {
   switch (e) {
     case 'balon': return `<g transform="${C}"><circle r="19" fill="#fff" stroke="#0a1a3a" stroke-width="2"/><path d="M0,-7 L6.7,-2.2 L4.1,5.7 L-4.1,5.7 L-6.7,-2.2 Z" fill="#0a1a3a"/><path d="M0,-7 V-19 M6.7,-2.2 L17,-6 M4.1,5.7 L11,15 M-4.1,5.7 L-11,15 M-6.7,-2.2 L-17,-6" stroke="#0a1a3a" stroke-width="1.6"/></g>`;
     case 'rayo': return `<g transform="${C}"><path d="M6,-24 L-12,4 L-1,4 L-7,26 L13,-4 L2,-4 Z" fill="${a}" stroke="#2a1a00" stroke-width="2" stroke-linejoin="round"/></g>`;
@@ -70,4 +69,64 @@ export function pennantSvg(def: PennantDef | string | undefined, size = 48): str
     <path d="${CLOTH}" fill="none" stroke="${frame}" stroke-width="${p.rarity === 'comun' ? 4 : 5}" stroke-linejoin="round" class="pn-frame"/>
     <path d="M14,100 L50,86 L86,100" fill="none" stroke="#fff" stroke-width="1.5" opacity=".35"/>
   </svg>`;
+}
+
+// ------------------------------------------------------------------ the wide ribbon (author: "que ocupen todo en horizontal")
+/*
+ * The banner as a horizontal ribbon, Clash Royale style but drawn in the Inazuma style: the art is a 1200×120 scene
+ * (pattern across the cloth, glow and the big emblem a bit right of centre, faint echoes of it, gold trims) cropped to
+ * the box it fills; the swallowtail cut and the rarity frame are CSS (clip-path), so they keep their size on any width.
+ */
+const RW = 1200, RH = 120, EX = 700, EY = 60;
+const rnd = (k: number, m: number) => (((k * 7919) % 1000) / 1000) * m;
+
+function widePattern(p: PennantPattern, a: string, id: string): string {
+  switch (p) {
+    case 'franjas': return Array.from({ length: 14 }, (_, k) => `<path d="M${k * 96 - 40},${RH} L${k * 96 + 10},0 h34 L${k * 96 - 6},${RH} Z" fill="${a}" opacity=".16"/>`).join('');
+    case 'diagonal': return `<pattern id="${id}d" width="26" height="26" patternUnits="userSpaceOnUse" patternTransform="rotate(35)"><rect width="9" height="26" fill="${a}" opacity=".14"/></pattern><rect width="${RW}" height="${RH}" fill="url(#${id}d)"/>`
+      + `<path d="M0,96 L380,70 L360,84 L760,58 L740,74 L1200,44" stroke="${a}" stroke-width="3" fill="none" opacity=".45"/>`;
+    case 'llamas': {
+      const flame = (base: number, lift: number) => { let d = `M0,${RH} L0,${base}`; for (let x = 0; x < RW; x += 40) d += ` Q${x + 10},${base - lift - rnd(x + 3, 26)} ${x + 20},${base - 6} Q${x + 30},${base - lift - 14 - rnd(x + 9, 30)} ${x + 40},${base}`; return `${d} L${RW},${RH} Z`; };
+      return `<path d="${flame(84, 20)}" fill="${a}" opacity=".32"/><path d="${flame(100, 8)}" fill="#fff" opacity=".14"/>`;
+    }
+    case 'estrellas': return Array.from({ length: 70 }, (_, k) => `<circle cx="${rnd(k + 1, RW)}" cy="${6 + rnd(k * 3 + 2, RH - 12)}" r="${k % 5 ? 1.1 : 2.2}" fill="#fff" opacity="${k % 2 ? 0.45 : 0.9}"/>`).join('')
+      + [180, 420, 980, 1120].map((x, k) => `<path d="M${x},${30 + k * 14} l3,8 8,3 -8,3 -3,8 -3,-8 -8,-3 8,-3 Z" fill="${a}" opacity=".7"/>`).join('');
+    case 'arcoiris': return ['#ff4a4a', '#ffb020', '#ffe24a', '#5ee05a', '#4fb3ff', '#b36bff'].map((c, k) => `<path d="M-20,${100 + k * 7} Q${EX},${-30 + k * 7} ${RW + 20},${100 + k * 7}" stroke="${c}" stroke-width="6" fill="none" opacity=".5"/>`).join('');
+    case 'cuadros': return `<pattern id="${id}c" width="24" height="24" patternUnits="userSpaceOnUse"><rect width="12" height="12" fill="${a}" opacity=".13"/><rect x="12" y="12" width="12" height="12" fill="${a}" opacity=".13"/></pattern><rect width="${RW}" height="${RH}" fill="url(#${id}c)"/>`
+      + `<path d="M0,104 C200,80 300,112 520,96 S900,70 1200,92" stroke="#c8a070" stroke-width="3" fill="none" opacity=".5"/>`;
+    case 'tiza': return `<g stroke="${a}" stroke-width="2.2" fill="none" opacity=".4" stroke-linecap="round">${[60, 250, 430, 960, 1110].map((x, k) => k % 2
+      ? `<circle cx="${x}" cy="${36 + k * 10}" r="9"/>` : `<path d="M${x - 8},${30 + k * 8} l16,16 M${x + 8},${30 + k * 8} l-16,16"/>`).join('')}<path d="M90,90 Q240,40 400,82 M400,82 l-14,-2 M400,82 l-6,-12" stroke-dasharray="6 5"/><path d="M880,30 Q1000,90 1140,60"/></g>`;
+    case 'olas': return [24, 48, 72, 96].map((y, k) => { let d = `M-20,${y}`; for (let x = -20; x < RW; x += 60) d += ' q15,-10 30,0 t30,0'; return `<path d="${d}" stroke="${k % 2 ? '#fff' : a}" stroke-width="${k % 2 ? 1.5 : 2.5}" fill="none" opacity=".3"/>`; }).join('')
+      + '<circle cx="1080" cy="34" r="22" fill="#ffd27a" opacity=".55"/>';
+    case 'rayos': return Array.from({ length: 28 }, (_, k) => { const g = (k / 28) * Math.PI * 2, L = 900; return `<path d="M${EX},${EY} L${EX + Math.cos(g - 0.05) * L},${EY + Math.sin(g - 0.05) * L} L${EX + Math.cos(g + 0.05) * L},${EY + Math.sin(g + 0.05) * L} Z" fill="${a}" opacity=".12"/>`; }).join('');
+    case 'copos': return Array.from({ length: 34 }, (_, k) => { const x = rnd(k * 5 + 1, RW), y = 10 + rnd(k * 11 + 4, RH - 20), r = k % 4 ? 4 : 8; return `<path d="M${x - r},${y} H${x + r} M${x},${y - r} V${y + r} M${x - r * 0.7},${y - r * 0.7} L${x + r * 0.7},${y + r * 0.7} M${x - r * 0.7},${y + r * 0.7} L${x + r * 0.7},${y - r * 0.7}" stroke="${a}" stroke-width="1.4" opacity=".55"/>`; }).join('');
+    case 'espiral': return ([[EX, EY, 1], [220, 60, 0.6], [1060, 50, 0.5]] as const).map(([x, y, k]) => `<path d="M${x},${y} m0,-8 a8,8 0 1,1 -8,8 a20,20 0 1,1 20,20 a36,36 0 1,1 -36,-36 a58,58 0 1,1 58,58 a86,86 0 1,1 -86,-86" stroke="${a}" stroke-width="3" fill="none" opacity="${0.32 * k}"/>`).join('');
+    case 'nebulosa': return `<radialGradient id="${id}n" cx=".58" cy=".5" r=".5"><stop offset="0" stop-color="#b04aff" stop-opacity=".6"/><stop offset=".5" stop-color="#4a1a8a" stop-opacity=".25"/><stop offset="1" stop-color="#000" stop-opacity="0"/></radialGradient><rect width="${RW}" height="${RH}" fill="url(#${id}n)"/>`
+      + '<ellipse cx="250" cy="70" rx="180" ry="40" fill="#ff3a6a" opacity=".12"/><ellipse cx="1050" cy="40" rx="140" ry="34" fill="#3a6aff" opacity=".14"/>'
+      + Array.from({ length: 50 }, (_, k) => `<circle cx="${rnd(k * 3 + 7, RW)}" cy="${rnd(k * 13 + 1, RH)}" r="${k % 6 ? 0.9 : 1.8}" fill="#fff" opacity=".75"/>`).join('');
+  }
+}
+
+/** A banner as a wide ribbon that fills its (relatively positioned) parent. Unknown id → empty string. */
+export function pennantRibbon(def: PennantDef | string | null | undefined): string {
+  const p = typeof def === 'string' ? PENNANT_BY_ID.get(def) : def;
+  if (!p) return '';
+  const id = `pr${++uid}`;
+  const shine = ['epico', 'legendario', 'mitico', 'leyenda'].includes(p.rarity);
+  const echo = (x: number, k: number) => emblem(p.emblem, p.accent, `translate(${x} ${EY}) scale(${k})`);
+  return `<span class="pn-ribbon pnr-${p.rarity}" style="--rc:${RARITY_COLOR[p.rarity]}" aria-hidden="true"><span class="pnr-in">
+    <svg class="pnr-art" viewBox="0 0 ${RW} ${RH}" preserveAspectRatio="xMidYMid slice">
+      <defs><linearGradient id="${id}g" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="${p.c2}"/><stop offset=".58" stop-color="${p.c1}"/><stop offset="1" stop-color="${p.c2}"/></linearGradient>
+        <linearGradient id="${id}v" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".18"/><stop offset=".45" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".35"/></linearGradient>
+        <radialGradient id="${id}o" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="${p.accent}" stop-opacity=".6"/><stop offset="1" stop-color="${p.accent}" stop-opacity="0"/></radialGradient>
+        ${shine ? `<linearGradient id="${id}s" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".5" stop-color="#fff" stop-opacity=".45"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>` : ''}</defs>
+      <rect width="${RW}" height="${RH}" fill="url(#${id}g)"/>
+      ${widePattern(p.pattern, p.accent, id)}
+      <g opacity=".2">${echo(300, 1.1)}${echo(1040, 1.1)}</g>
+      <ellipse cx="${EX}" cy="${EY}" rx="120" ry="70" fill="url(#${id}o)"/>
+      <g class="pnr-emb">${emblem(p.emblem, p.accent, `translate(${EX} ${EY}) scale(1.75)`)}</g>
+      <rect width="${RW}" height="${RH}" fill="url(#${id}v)"/>
+      <path d="M0,7 H${RW} M0,${RH - 7} H${RW}" stroke="${p.accent}" stroke-width="2" opacity=".55"/>
+      ${shine ? `<rect class="pnr-shine" x="-200" y="0" width="140" height="${RH}" fill="url(#${id}s)" transform="skewX(-20)"/>` : ''}
+    </svg></span></span>`;
 }

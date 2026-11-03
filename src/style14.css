@@ -1522,8 +1522,6 @@ body.drag-aura-no .squad-row .aura-mini { opacity: .45; }
 .pennant .pn-eye { animation: pnEye 1.4s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
 @keyframes pnEye { 50% { transform: scale(1.18); } }
 @media (prefers-reduced-motion: reduce) { .pennant, .pennant * { animation: none !important; } }
-.pn-mini { display: inline-block; vertical-align: middle; margin-right: 5px; line-height: 0; }
-.pn-mini .pennant { filter: drop-shadow(0 1px 2px #000a); }
 .pn-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 10px; }
 .pn-card { position: relative; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px 6px 8px; border-radius: 10px; text-align: center;
   background: radial-gradient(circle at 50% 30%, color-mix(in srgb, var(--rc) 22%, transparent), #ffffff08 70%); box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--rc) 70%, transparent); }
@@ -1551,5 +1549,45 @@ body.drag-aura-no .squad-row .aura-mini { opacity: .45; }
 .pn-eventcta span:last-child { display: flex; flex-direction: column; gap: 3px; } .pn-eventcta small { font-size: 7px; letter-spacing: 1.5px; color: #ffd0ee; }
 .pn-eventcta b { font-size: 12px; } .pn-eventcta em { font-style: normal; font-size: 8px; color: #ffe08a; }
 .pn-shopcard .shop-art { display: grid; place-items: center; min-height: 100px; }
-.pf-pennant { align-self: center; }
-.opf-pennant { margin-left: auto; }
+
+/* v1.65 (author): the banners are wide ribbons across the row / card, Clash Royale style. The art (SVG, cropped to the
+   box) sits under the content; the swallowtail cut and the rarity frame are clip-paths, a fixed size on any width. */
+.pn-ribbon { position: absolute !important; inset: 0; z-index: 0 !important; pointer-events: none; --notch: 26px; background: var(--rc);
+  clip-path: polygon(0 0, 100% 0, calc(100% - var(--notch)) 50%, 100% 100%, 0 100%); }
+.pnr-comun { --bw: 2px; } .pnr-raro, .pnr-epico { --bw: 3px; } .pnr-legendario, .pnr-mitico, .pnr-leyenda { --bw: 3px; }
+.pnr-legendario, .pnr-mitico { animation: pnrGlow 2.4s ease-in-out infinite; }
+@keyframes pnrGlow { 50% { filter: brightness(1.25) saturate(1.2); } }
+.pnr-leyenda { background: linear-gradient(90deg, #ff4a4a, #ffe24a, #5ee05a, #4fb3ff, #b36bff, #ff4a4a); background-size: 200% 100%; animation: pnrRain 4s linear infinite; }
+@keyframes pnrRain { to { background-position: 200% 0; } }
+.pnr-in { position: absolute !important; inset: var(--bw, 3px); overflow: hidden; clip-path: polygon(0 0, 100% 0, calc(100% - var(--notch) + var(--bw, 3px)) 50%, 100% 100%, 0 100%); }
+.pnr-art { display: block; width: 100%; height: 100%; }
+.pnr-in::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, #04102ad0, #04102a8a 28%, #04102a1a 52%, #04102a40 74%, #04102a99); }
+.pnr-shine { animation: pnrShine 3.4s ease-in-out infinite; }
+@keyframes pnrShine { 0% { transform: skewX(-20deg) translateX(0); } 55%, 100% { transform: skewX(-20deg) translateX(1700px); } }
+.pn-ribbon .pn-eye { animation: pnEye 1.4s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+@media (prefers-reduced-motion: reduce) { .pn-ribbon, .pn-ribbon * { animation: none !important; } }
+/* rows of the rankings */
+.rank-row.has-pn, .wr-row.has-pn { position: relative; overflow: hidden; flex-shrink: 0; }
+.rank-row.has-pn > :not(.pn-ribbon), .wr-row.has-pn > :not(.pn-ribbon) { position: relative; z-index: 1; }
+.rank-row.has-pn { padding-right: 34px; } .wr-row.has-pn { padding-right: 24px; } .wr-row .pn-ribbon { --notch: 16px; }
+.has-pn .rk-name b, .has-pn .wr-who b { text-shadow: 2px 2px 0 #000; }
+/* podium names on a plate */
+.pn-plate { position: relative; display: block; align-self: stretch; padding: 7px 22px 7px 10px; border-radius: 4px; overflow: hidden; }
+.pn-plate > span { position: relative; z-index: 1; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-shadow: 2px 2px 0 #000; }
+.pn-plate .pn-ribbon { --notch: 14px; } .pn-plate .pnr-in::after { background: #04102a70; }
+/* own profile card and another player's profile */
+.pf-card.has-pn > .pn-ribbon.pn-ribbon { position: absolute; z-index: 0; --notch: 40px; }
+.pf-card.has-pn .rw-rays { opacity: .25; } .pf-card.has-pn { padding-right: 56px; }
+.pf-card.has-pn .pf-name { text-shadow: 3px 3px 0 #000; }
+.opf-head.has-pn { position: relative; padding: 12px 40px 12px 12px; border-radius: 10px; overflow: hidden; }
+.opf-head.has-pn > :not(.pn-ribbon) { position: relative; z-index: 1; }
+.opf-head.has-pn .opf-name { text-shadow: 2px 2px 0 #000; }
+/* previews in the panel, the shop and the event */
+.pn-grid { grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); }
+.pn-prev { position: relative; display: block; align-self: stretch; height: 54px; line-height: 0; }
+.pn-prev .pnr-in::after { background: none; }
+.pn-pick.locked .pn-ribbon { filter: grayscale(1) brightness(.45); }
+.pn-shopcard .shop-art.pn-prev { display: block; min-height: 0; height: 72px; margin: 0 4px; }
+.pn-hero-art { position: relative; flex: 1 1 300px; max-width: 460px; height: 110px; }
+.pn-hero-art .pnr-in::after { background: none; }
+@media (max-width: 760px) { .pf-card.has-pn { padding-right: 20px; } .pf-card.has-pn > .pn-ribbon.pn-ribbon { --notch: 22px; } }

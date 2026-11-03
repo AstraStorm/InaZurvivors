@@ -60,7 +60,7 @@ import { INTRO } from './cinematics';
 import { SIGNATURE } from '../data/signatures';
 import { bindStick, initGamepad } from './gamepad';
 import { confetti, countUp, flyTo } from './rewardFx';
-import { pennantSvg } from './pennantArt';
+import { pennantRibbon, pennantSvg } from './pennantArt';
 import { PENNANTS, PENNANT_BY_ID, PENNANT_EVENT, type PennantDef } from '../data/pennants';
 import { buyPennant, equipPennant, equippedPennant, eventActive, eventLeftMs, eventOdds, grantAchievementPennants, hasPennant, pullEvent, type PennantPull } from '../systems/pennants';
 import { MASTERY_BONUS, MASTERY_USES, masteryLevel, recordMastery } from '../systems/mastery';
@@ -1177,11 +1177,11 @@ export class App {
     if (!list || !me) return;
     const mapName = (id: string) => this.m.maps.find((x) => x.id === id)?.name ?? id;
     const row = (pos: number, name: string, captain: number, crest: string, map: string, rank: string, time: number, damage: number, mine = false, score?: number) => {
-      const p = this.byId.get(captain), pts = score ?? scoreOf({ rank, time, damage });
-      return `<div class="rank-row${pos <= 3 ? ` top${pos}` : ''}${mine ? ' mine' : ''}" style="--d:${Math.min(pos, 15) * 40}ms"${onlineConfigured() ? ` data-user="${esc(name)}" title="Ver el perfil de ${esc(name)}"` : ''}>
-        <span class="rk-pos">${pos <= 3 ? ['🥇', '🥈', '🥉'][pos - 1] : `#${pos}`}</span>
+      const p = this.byId.get(captain), pts = score ?? scoreOf({ rank, time, damage }), rb = this.flagMini(name);
+      return `<div class="rank-row${pos <= 3 ? ` top${pos}` : ''}${mine ? ' mine' : ''}${rb ? ' has-pn' : ''}" style="--d:${Math.min(pos, 15) * 40}ms"${onlineConfigured() ? ` data-user="${esc(name)}" title="Ver el perfil de ${esc(name)}"` : ''}>
+        ${rb}<span class="rk-pos">${pos <= 3 ? ['🥇', '🥈', '🥉'][pos - 1] : `#${pos}`}</span>
         <span class="rk-av${p ? ` r-${p.rarity}` : ''}">${p ? this.mug(p.id, 48) : ''}</span>
-        <span class="rk-name"><b>${this.flagMini(name)}${esc(name)}</b><small>${esc(mapName(map))}</small></span>
+        <span class="rk-name"><b>${esc(name)}</b><small>${esc(mapName(map))}</small></span>
         ${crest && this.emblemOf(crest) ? `<img class="rk-crest" src="${this.emblemOf(crest)}" alt="">` : '<span class="rk-crest"></span>'}
         <span class="rank-btn r-${rank} rk-r"><b>${rank}</b></span>
         <span class="rk-num rk-pts${q.order === 'score' || q.order === 'rank' ? ' on' : ''}"><b>${pts.toLocaleString('es')}</b><small>puntos</small></span>
@@ -1193,7 +1193,7 @@ export class App {
       const p = this.byId.get(captain), pts = score ?? scoreOf({ rank, time, damage }), [big, unit] = metric(time, damage, pts);
       return `<div class="rk-pod p${pos}" style="--d:${pos * 90}ms"${onlineConfigured() ? ` data-user="${esc(name)}" title="Ver el perfil de ${esc(name)}"` : ''}><span class="rk-medal">${pos}</span>
         <span class="rk-pmug${p ? ` r-${p.rarity}` : ''}">${p ? this.mug(p.id, pos === 1 ? 112 : 88) : ''}</span>
-        <b class="rk-pname">${this.flagMini(name, 26)}${esc(name)}</b><small>${p ? esc(p.name) : ''} · ${esc(mapName(map))}</small>
+        ${this.namePlate('rk-pname', name)}<small>${p ? esc(p.name) : ''} · ${esc(mapName(map))}</small>
         <div class="rk-pbig"><b>${big}</b><small>${unit}</small></div>
         <div class="rk-pmeta">${crest && this.emblemOf(crest) ? `<img class="rk-crest" src="${this.emblemOf(crest)}" alt="">` : ''}<span class="rank-btn r-${rank}"><b>${rank}</b></span>
           <span><b>${fmtTime(time)}</b><small>tiempo</small></span><span><b>${damage.toLocaleString('es')}</b><small>daño</small></span></div>
@@ -1231,14 +1231,19 @@ export class App {
     if (!want.length || !onlineConfigured()) return;
     try { const got = await profileBanners(want); for (const n of want) this.flagCache.delete(n.toLowerCase()); for (const r of got) if (PENNANT_BY_ID.has(r.banner)) this.flagCache.set(r.username.toLowerCase(), r.banner); } catch { /* the board shows without banners */ }
   }
-  /** the small banner beside a name on a board: mine from my save, the rest from the server */
-  private flagMini(name: string, size = 20) {
+  /** the banner ribbon behind a name on a board: mine from my save, the rest from the server ('' without one) */
+  private flagMini(name: string) {
     const me = (this.save.onlineName ?? this.save.profile.name).toLowerCase() === name.toLowerCase();
     const id = me ? equippedPennant(this.save)?.id : this.flagCache.get(name.toLowerCase());
-    return id ? `<span class="pn-mini">${pennantSvg(id, size)}</span>` : '';
+    return id ? pennantRibbon(id) : '';
   }
-  private pennantCard(def: PennantDef, size: number, extra = '', attrs = '') {
-    return `<div class="pn-card r-${def.rarity}" style="--rc:${RARITY_COLOR[def.rarity]}" ${attrs} title="${esc(def.tagline)}">${pennantSvg(def, size)}<b>${esc(def.name)}</b><small>${RARITY_LABEL[def.rarity]}</small>${extra}</div>`;
+  /** a podium name on its banner ribbon (author: banners across, Clash Royale style) */
+  private namePlate(cls: string, name: string) {
+    const rb = this.flagMini(name);
+    return `<b class="${cls}${rb ? ' pn-plate' : ''}">${rb}<span>${esc(name)}</span></b>`;
+  }
+  private pennantCard(def: PennantDef, extra = '', attrs = '') {
+    return `<div class="pn-card r-${def.rarity}" style="--rc:${RARITY_COLOR[def.rarity]}" ${attrs} title="${esc(def.tagline)}"><span class="pn-prev">${pennantRibbon(def)}</span><b>${esc(def.name)}</b><small>${RARITY_LABEL[def.rarity]}</small>${extra}</div>`;
   }
   /** Perfil: every banner, the owned ones to wear (tap again to take it off), the rest with how to get them */
   private pennantPanel() {
@@ -1247,7 +1252,7 @@ export class App {
     return `<div class="panel pf-pennants"><h3>${uiIcon('crown')}Banners <small>${owned}/${PENNANTS.length}</small></h3>
       <p class="note">Tu banner sale junto a tu nombre en el ranking y en tu perfil, también cuando otros lo abren.</p>
       <div class="pn-grid">${PENNANTS.map((d) => { const own = hasPennant(this.save, d.id);
-        return `<button class="pn-pick${own ? '' : ' locked'}${eq === d.id ? ' on' : ''}" data-pn="${d.id}">${this.pennantCard(d, 64, `<span class="pn-how">${own ? (eq === d.id ? '★ Equipado' : 'Equipar') : esc(how(d))}</span>`)}</button>`; }).join('')}</div></div>`;
+        return `<button class="pn-pick${own ? '' : ' locked'}${eq === d.id ? ' on' : ''}" data-pn="${d.id}">${this.pennantCard(d, `<span class="pn-how">${own ? (eq === d.id ? '★ Equipado' : 'Equipar') : esc(how(d))}</span>`)}</button>`; }).join('')}</div></div>`;
   }
   private eventLeftText(now: number | Date) {
     const ms = eventLeftMs(now), d = Math.floor(ms / 86_400_000), h = Math.floor(ms / 3_600_000) % 24, m = Math.floor(ms / 60_000) % 60;
@@ -1263,9 +1268,9 @@ export class App {
     const now = serverNow(), open = eventActive(now), c = this.save.coins;
     const odds = eventOdds();
     const res = results ? `<div class="panel pn-results"><h3>${results.some((r) => r.isNew) ? '¡Banners nuevos!' : 'Resultado'}</h3><div class="pn-grid pn-reveal">${results.map((r, k) =>
-      this.pennantCard(r.def, 72, r.isNew ? '<em class="pn-new">¡NUEVO!</em>' : `<em class="pn-dup">Repetido · +${r.refund} ◉</em>`, `data-k="${k}" style="--rc:${RARITY_COLOR[r.def.rarity]};--k:${k}"`)).join('')}</div></div>` : '';
+      this.pennantCard(r.def, r.isNew ? '<em class="pn-new">¡NUEVO!</em>' : `<em class="pn-dup">Repetido · +${r.refund} ◉</em>`, `data-k="${k}" style="--rc:${RARITY_COLOR[r.def.rarity]};--k:${k}"`)).join('')}</div></div>` : '';
     this.show(`<div class="screen pn-screen">${this.titlebar(PENNANT_EVENT.name, 'Menú')}
-      <div class="panel pn-hero"><div class="pn-hero-art">${pennantSvg('supernova', 120)}</div>
+      <div class="panel pn-hero"><div class="pn-hero-art">${pennantRibbon('supernova')}</div>
         <div class="pn-hero-tx"><small>EVENTO POR TIEMPO LIMITADO</small><b>Banners de leyenda</b>
           <p>Diez banners nuevos para tu perfil, del Neumático de Entrenamiento a La Tierra. El <b>Mítico Supernova Oscura</b> solo sale aquí, con un 3%. Si te sale uno que ya tienes, recuperas monedas.</p>
           <div class="pn-left">${open ? `Termina en <b>${this.eventLeftText(now)}</b>` : +now < Date.parse(PENNANT_EVENT.start) ? 'Todavía no ha empezado' : 'El evento ha terminado'}</div>
@@ -1274,7 +1279,7 @@ export class App {
           <small class="note">Tienes ${c.toLocaleString('es')} ◉</small></div></div>
       ${res}
       <div class="panel"><h3>${uiIcon('capsule')}Banners del evento</h3><div class="pn-grid">${odds.map((o) =>
-        this.pennantCard(o.def, 64, `<span class="pn-odds">${+o.pct.toFixed(2)}%</span>${hasPennant(this.save, o.def.id) ? '<span class="pn-own">✔ Tuyo</span>' : ''}`)).join('')}</div></div></div>`);
+        this.pennantCard(o.def, `<span class="pn-odds">${+o.pct.toFixed(2)}%</span>${hasPennant(this.save, o.def.id) ? '<span class="pn-own">✔ Tuyo</span>' : ''}`)).join('')}</div></div></div>`);
     this.on('[data-back]', 'click', () => this.mainMenu());
     const pull = (n: 1 | 10) => {
       const r = pullEvent(this.save, n, serverNow());
@@ -1320,9 +1325,9 @@ export class App {
     }).join('');
     const tile = (label: string, v: string | number) => `<span class="opf-stat"><b>${v}</b><small>${label}</small></span>`;
     box.innerHTML = `<div class="panel opf-panel">
-      <div class="opf-head">${icon}<div><small>PERFIL DE JUGADOR</small><b class="opf-name">${esc(p.username)}</b>
+      <div class="opf-head${p.banner && PENNANT_BY_ID.has(p.banner) ? ' has-pn' : ''}">${pennantRibbon(p.banner)}${icon}<div><small>PERFIL DE JUGADOR</small><b class="opf-name">${esc(p.username)}</b>
         <span class="opf-meta">${p.crest && this.emblemOf(p.crest) ? `<img src="${this.emblemOf(p.crest)}" alt="">` : ''}${p.favorite ? `Equipo favorito: <b>${esc(teamLabel(p.favorite))}</b>` : 'Sin equipo favorito'}${p.joined ? ` · desde ${esc(new Date(p.joined).toLocaleDateString('es'))}` : ''}</span></div>
-        ${p.banner && PENNANT_BY_ID.has(p.banner) ? `<span class="opf-pennant" title="${esc(PENNANT_BY_ID.get(p.banner)!.name)}">${pennantSvg(p.banner, 64)}</span>` : ''}<button class="btn small blue" data-close>✕</button></div>
+        <button class="btn small blue" data-close>✕</button></div>
       <div class="opf-stats">${tile('Partidas', p.stats.runs)}${tile('Victorias', p.stats.wins)}${tile('Eliminaciones', p.stats.kills.toLocaleString('es'))}${tile('Mejor tiempo', fmtTime(p.stats.bestTimeSec))}${tile('Colección', `${p.owned}/${this.m.roster.length}`)}${tile('Héroes', p.heroes)}</div>
       <h3>${uiIcon('team')}Su equipo</h3><div class="opf-squad">${squad || '<div class="note">Todavía no ha elegido equipo.</div>'}</div>
       ${p.marks.length ? `<h3>${uiIcon('crown')}Mejores marcas</h3><div class="opf-marks">${p.marks.map((m) => `<span class="opf-mark"><span class="rank-btn r-${esc(m.rank)}"><b>${esc(m.rank)}</b></span>${esc(mapName(m.map))}<b>${fmtTime(m.time_sec)}</b><small>${Number(m.damage).toLocaleString('es')} daño</small></span>`).join('')}</div>` : ''}
@@ -1356,14 +1361,14 @@ export class App {
         const p = cap(r.captain_id), pos = Number(r.pos);
         return `<div class="wr-pod p${pos}" data-user="${esc(r.username)}" title="Ver el perfil de ${esc(r.username)}"><span class="wr-medal">${['🥇', '🥈', '🥉'][pos - 1]}</span>
           <span class="wr-mug${p ? ` r-${p.rarity}` : ''}">${p ? this.mug(p.id, pos === 1 ? 96 : 80) : ''}</span>
-          <b class="wr-name">${this.flagMini(r.username, 24)}${esc(r.username)}</b><small class="wr-cap">${p ? esc(p.name) : ''}</small>
+          ${this.namePlate('wr-name', r.username)}<small class="wr-cap">${p ? esc(p.name) : ''}</small>
           <div class="wr-pts"><b>${pts(r).toLocaleString('es')}</b> <small>puntos</small></div>
           <div class="wr-stats">${crest(r.crest)}<span class="rank-btn r-${r.rank}"><b>${r.rank}</b></span><span><b>${fmtTime(r.time_sec)}</b><small>tiempo</small></span><span><b>${Number(r.damage).toLocaleString('es')}</b><small>daño</small></span></div></div>`;
       }).join('');
       const row = (r: BoardRow, me = false) => {
-        const p = cap(r.captain_id);
-        return `<div class="wr-row${me ? ' me' : ''}" data-user="${esc(r.username)}" title="Ver el perfil de ${esc(r.username)}"><span class="wr-pos">#${r.pos}</span><span class="wr-mini">${p ? this.mug(p.id, 40) : ''}</span>
-          <span class="wr-who"><b>${this.flagMini(r.username)}${esc(r.username)}</b><small>${p ? esc(p.name) : ''}</small></span>${crest(r.crest)}
+        const p = cap(r.captain_id), rb = this.flagMini(r.username);
+        return `<div class="wr-row${me ? ' me' : ''}${rb ? ' has-pn' : ''}" data-user="${esc(r.username)}" title="Ver el perfil de ${esc(r.username)}">${rb}<span class="wr-pos">#${r.pos}</span><span class="wr-mini">${p ? this.mug(p.id, 40) : ''}</span>
+          <span class="wr-who"><b>${esc(r.username)}</b><small>${p ? esc(p.name) : ''}</small></span>${crest(r.crest)}
           <span class="rank-btn r-${r.rank}"><b>${r.rank}</b></span><span class="wr-num"><b>${pts(r).toLocaleString('es')} pts</b><small>${fmtTime(r.time_sec)} · ${Number(r.damage).toLocaleString('es')} daño</small></span></div>`;
       };
       el.innerHTML = top.length
@@ -2675,7 +2680,7 @@ export class App {
       <div class="shop-head"><span>${offers.length} ofertas · ${timeSource() === 'servidor' ? 'hora del servidor' : 'hora de este dispositivo'}</span><span>Diarias: ${dayLeft} · Semanal: ${weekLeft}</span></div>
       ${eventActive(serverNow()) ? `<button class="pn-eventcta" id="pnevent"><span class="pn-cta-art">${pennantSvg('supernova', 44)}</span><span><small>EVENTO · TERMINA EN ${this.eventLeftText(serverNow())}</small><b>Banners de leyenda</b><em>${PENNANT_EVENT.cost.toLocaleString('es')} ◉ la tirada · Mítico al 3%</em></span></button>` : ''}
       <h3 class="shop-sec">Banners de perfil</h3><div class="shop-grid pn-shop">${PENNANTS.filter((d) => d.source === 'tienda').map((d) => { const own = hasPennant(this.save, d.id);
-        return `<article class="shop-card pn-shopcard r-${d.rarity}" style="--rc:${RARITY_COLOR[d.rarity]}"><div class="shop-art">${pennantSvg(d, 70)}</div><b class="shop-name">${esc(d.name)}</b>
+        return `<article class="shop-card pn-shopcard r-${d.rarity}" style="--rc:${RARITY_COLOR[d.rarity]}"><div class="shop-art pn-prev">${pennantRibbon(d)}</div><b class="shop-name">${esc(d.name)}</b>
           <div class="shop-meta"><span class="rar ${d.rarity}">${RARITY_LABEL[d.rarity].toUpperCase()}</span></div><small class="shop-left">${esc(d.tagline)}</small>
           <button class="btn small" data-pnbuy="${d.id}" ${own || this.save.coins < (d.price ?? 0) ? 'disabled' : ''}>${own ? '✔ Tuyo' : `${d.price?.toLocaleString('es')} ◉`}</button></article>`; }).join('')}</div>
       <h3 class="shop-sec">Destacados</h3><div class="shop-grid shop-top">${top.map(card).join('')}</div>
@@ -3580,13 +3585,12 @@ export class App {
     const tile = (icon: UiIconName, label: string, val: string | number, cls = '') => `<div class="pf-stat ${cls}"><span class="m4-ic">${uiIcon(icon)}</span><span><small>${label}</small><b>${val}</b></span></div>`;
     const tabs: ['emblem' | 'player' | 'coach', string, UiIconName][] = [['emblem', 'Escudos de equipo', 'shirt'], ['player', 'Jugadores', 'team'], ['coach', 'Entrenadores', 'crown']];
     this.show(`<div class="screen pf-screen">${this.titlebar('Perfil', 'Menú')}
-      <div class="pf-card"><i class="rw-rays"></i>
+      <div class="pf-card${equippedPennant(this.save) ? ' has-pn' : ''}">${pennantRibbon(equippedPennant(this.save))}<i class="rw-rays"></i>
         <div class="pf-avatar">${this.profileIcon(112)}${this.save.crest && this.emblemOf(this.save.crest) ? `<img class="pf-crest" src="${this.emblemOf(this.save.crest)}" alt="">` : ''}</div>
         <div class="pf-main"><small>${signedIn() ? 'JUGADOR CON CUENTA' : 'JUGADOR INVITADO'}</small><b class="pf-name">${esc(this.save.onlineName || this.save.profile.name)}</b>
           <div class="pf-tags"><span class="pf-tag">${uiIcon('trophy')}${st.wins} ${st.wins === 1 ? 'victoria' : 'victorias'}</span><span class="pf-tag">${uiIcon('cards')}${owned.length}/${this.m.roster.length}</span>${heroes ? `<span class="pf-tag hero">★ ${heroes} HÉROE</span>` : ''}</div>
           <div class="pf-fav">${fav ? `${this.emblemOf(fav) ? `<img src="${this.emblemOf(fav)}" alt="">` : ''}<span><small>EQUIPO FAVORITO</small><b>${esc(teamLabel(fav))}</b></span><em title="El equipo favorito se elige una vez y no se puede cambiar">🔒 Para siempre</em>`
             : `<span><small>EQUIPO FAVORITO</small><b>Aún sin elegir</b></span><select id="pteam"><option value="">Elige… (solo una vez)</option>${teams.map((t) => `<option value="${esc(t)}">${esc(teamLabel(t))}</option>`).join('')}</select>`}</div></div>
-        ${equippedPennant(this.save) ? `<div class="pf-pennant" title="${esc(equippedPennant(this.save)!.name)}">${pennantSvg(equippedPennant(this.save), 84)}</div>` : ''}
         ${best ? `<div class="pf-best" style="--rc:${RARITY_COLOR[effectiveRarity(this.save, best)]}"><small>TU MEJOR FUTBOLISTA</small>${this.mug(best.id, 72)}<b>${esc(best.name)}</b><span>Media ${this.meanOf(best)}</span></div>` : ''}</div>
       <div class="pf-stats">${tile('pitch', 'Partidas', st.runs)}${tile('trophy', 'Victorias', st.wins, 'gold')}${tile('fire', 'Eliminaciones', st.kills.toLocaleString('es'))}${tile('clock', 'Mejor tiempo', fmtTime(st.bestTimeSec))}
         ${tile('capsule', 'Fichajes', st.pulls)}${tile('cards', 'Colección', `${owned.length}/${this.m.roster.length}`)}${tile('crown', 'Logros', `${achv}/${achvAll}`)}${tile('perks', 'Héroes', heroes)}</div>

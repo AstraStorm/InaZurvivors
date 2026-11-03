@@ -34,7 +34,7 @@ export const PUBLIC_RELEASES: PublicRelease[] = [
     tagline: 'Banderines de perfil para lucir en el ranking y en tu perfil, y un evento de 3 días con diez banners nuevos',
     intro: 'Una semiactualización para presumir de club: quince banners al estilo Inazuma que cuelgan junto a tu nombre.',
     features: [
-      { icon: '⚑', title: 'Banners de perfil', text: 'Se ven junto a tu nombre en el ranking del menú, en la pantalla de ranking, en tu perfil y en el perfil que abren los demás. Equípalos o quítalos desde Perfil.' },
+      { icon: '⚑', title: 'Banners de perfil', text: 'Cintas a lo ancho, con su emblema y su corte en cola de golondrina: ocupan tu fila entera en el ranking del menú, en la pantalla de ranking, en tu perfil y en el perfil que abren los demás. Equípalos o quítalos desde Perfil.' },
       { icon: '🛒', title: 'En la tienda', text: 'Banderín del Raimon (Común, 2.500 monedas), Relámpago Inazuma (Raro, 8.000) y Llama del Goleador (Épico, 20.000), en la sección «Banners de perfil» de la tienda.' },
       { icon: '★', title: 'Logros', text: 'Caravana Inazuma (Legendario) al conseguir 200 futbolistas, y Once de Leyenda (Leyenda) al conseguir tu primer futbolista Leyenda. Se entregan solos.' },
       { icon: '✦', title: 'Evento: Banners de leyenda', text: 'Solo 3 días. Tirada con monedas: 1.500 la simple y 10.000 la ×10. Diez banners exclusivos de Común a Legendario, y Supernova Oscura, Mítico, que solo sale aquí (3%). Un banner repetido devuelve monedas.' },
