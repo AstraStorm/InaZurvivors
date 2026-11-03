@@ -247,11 +247,16 @@ export class App {
     else this.mainMenu();
   }
 
+  /** v1.4: the backdrop of the intro and the title: a night stadium, its sweeping lights, speed lines and floating dust. */
+  private cineStage() {
+    return `<div class="cine-stage"><i class="cs-pitch"></i><i class="cs-light l1"></i><i class="cs-light l2"></i><i class="cs-light l3"></i><i class="cs-lines"></i>${Array.from({ length: 16 }, (_, k) => `<i class="cs-dust" style="--x:${(k * 37) % 100}%;--d:${(k % 8) * -0.9}s;--s:${1 + (k % 3)}px"></i>`).join('')}</div>`;
+  }
+
   /** Returning player: their club is already here, one click (or key) carries on. A guest can still link Google. */
   private titleScreen(next: () => void) {
     const name = this.save.onlineName ?? this.save.profile.name;
     const guest = onlineConfigured() && !signedIn();
-    this.show(`<div class="cine title-screen"><div class="cine-shot in"><div class="logo cine-logo"><h1>INA<span class="bolt">Z</span>URVIVORS</h1>
+    this.show(`<div class="cine cine4 title-screen">${this.cineStage()}<div class="cine-shot in"><div class="logo cine-logo ib-logo4 idle"><h1><span class="p1">INA</span><span class="bolt p2">Z</span><span class="p3">URVIVORS</span><i class="ib-shine"></i></h1>
       <div class="sub">ROGUELITE DE FÚTBOL · FANGAME</div></div>
       <p class="cine-text">¡Hola de nuevo, ${esc(name)}!</p>
       <p class="wiz-next"><button class="btn big" id="tscont">Continuar ▶</button></p>
@@ -671,7 +676,7 @@ export class App {
     const cast = [...this.m.roster].sort((a, b) => RARITY_ORDER.indexOf(b.rarity) - RARITY_ORDER.indexOf(a.rarity)).slice(0, 5);
     return new Promise((resolve) => {
       // its own screen key: with an empty key show() took it for a repeat of the empty start screen and froze its animations
-      this.show('<div class="cine"><div class="cine-shot" id="shot"></div><button class="btn small blue cine-skip" id="skip">Saltar ▶▶</button></div>', 'intro');
+      this.show(`<div class="cine cine4">${this.cineStage()}<div class="cine-shot" id="shot"></div><i class="cine-bar top"></i><i class="cine-bar bot"></i><button class="btn small blue cine-skip" id="skip">Saltar ▶▶</button></div>`, 'intro');
       let i = 0, timer = 0, done = false;
       const finish = () => {
         if (done) return;
@@ -685,14 +690,19 @@ export class App {
         const shot = (short ? INTRO.filter((s) => s.kind === 'logo') : INTRO)[i++];
         const box = document.getElementById('shot');
         if (!shot || !box) { finish(); return; }
-        if (shot.kind === 'text') box.innerHTML = `<p class="cine-text">${esc(shot.text)}</p>`;
-        else if (shot.kind === 'cast') box.innerHTML = `<div class="cine-cast">${cast.map((p) => `<span style="--rc:${RARITY_COLOR[p.rarity]}">${this.mug(p.id, 128)}</span>`).join('')}</div><p class="cine-text">${esc(shot.text)}</p>`;
+        // v1.4: the words come in one by one; the last one of each sentence lands in yellow
+        const words = (t: string, d0 = 0) => t.split(' ').map((w, k, a) => `<span class="cw${k === a.length - 1 ? ' hi' : ''}" style="--d:${d0 + k * 70}ms">${esc(w)}</span>`).join(' ');
+        if (shot.kind === 'text') box.innerHTML = `<i class="cine-slash"></i><p class="cine-text">${words(shot.text)}</p>`;
+        else if (shot.kind === 'cast') box.innerHTML = `<div class="cine-cast">${cast.map((p, k) => `<span class="cc4" style="--rc:${RARITY_COLOR[p.rarity]};--k:${k}"><i class="cc4-flash"></i>${this.mug(p.id, 128)}<b>${esc(p.name)}</b></span>`).join('')}</div><p class="cine-text">${words(shot.text, 900)}</p>`;
         else if (shot.kind === 'video') box.innerHTML = `<video src="${shot.src}" autoplay muted></video>`;
         else { // own animated title: lightning strikes, the logo slams in, the four elements orbit, balls fly past
           const bolts = Array.from({ length: 5 }, (_, k) => `<svg class="ib-bolt" style="--x:${10 + k * 20}%;--d:${k * 0.12}s" viewBox="0 0 60 100"><polygon points="38,0 6,56 26,56 16,100 56,38 34,38"/></svg>`).join('');
           const orbs = ['Fuego', 'Aire', 'Bosque', 'Montaña'].map((e, k) => `<span class="ib-orb" style="--k:${k}">${elementIcon(e, 40)}</span>`).join('');
           const balls = Array.from({ length: 6 }, (_, k) => `<i class="ib-ball" style="--y:${15 + k * 13}%;--d:${0.4 + k * 0.18}s">⚽</i>`).join('');
-          box.innerHTML = `<div class="intro-burst">${bolts}${balls}<div class="ib-orbit">${orbs}</div><div class="logo cine-logo ib-logo"><h1>INA<span class="bolt">Z</span>URVIVORS</h1><div class="sub">ROGUELITE DE FÚTBOL · FANGAME</div></div></div>`;
+          const sparks = Array.from({ length: 18 }, (_, k) => `<i class="ib-spark" style="--a:${k * 20}deg;--r:${120 + (k % 3) * 60}px;--d:${0.95 + (k % 4) * 0.03}s"></i>`).join('');
+          box.innerHTML = `<div class="intro-burst">${bolts}${balls}<div class="ib-orbit">${orbs}</div><i class="ib-flash"></i><i class="ib-ring"></i><i class="ib-ring r2"></i>${sparks}
+            <div class="logo cine-logo ib-logo4"><h1><span class="p1">INA</span><span class="bolt p2">Z</span><span class="p3">URVIVORS</span><i class="ib-shine"></i></h1><div class="sub">${words('ROGUELITE DE FÚTBOL · FANGAME', 1300)}</div><span class="ver-badge ib-ver">${esc(VERSION_LABEL)}</span></div></div>`;
+          if (!this.save.settings.reducedMotion) window.setTimeout(() => { sfx('boom'); document.querySelector('.cine4')?.classList.add('shake'); window.setTimeout(() => document.querySelector('.cine4')?.classList.remove('shake'), 420); }, 950);
           if (!this.save.settings.reducedMotion) sfx('legend');
         }
         box.classList.remove('in');
