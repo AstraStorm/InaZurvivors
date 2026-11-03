@@ -36,6 +36,10 @@ export const PUBLIC_RELEASES: PublicRelease[] = [
     features: [
       { icon: '▶', title: 'Pantalla de título', text: 'Al volver al juego, la pantalla de «¡Hola de nuevo!» se quedaba en blanco sobre el estadio y no se veía el botón para continuar. Ya se ve.' },
       { icon: '◆', title: 'Técnica inicial', text: 'En Mi Equipo ya no se puede elegir para empezar una técnica que aún no está desbloqueada: solo las disponibles desde el nivel 1 o las compradas en la tienda de técnicas.' },
+      { icon: '●', title: 'La Tierra', text: 'Rehecha según su escena: el aura crece y crece, aparece el planeta con su órbita y estalla en cometas de luz en todas direcciones, más a cada nivel.' },
+      { icon: '✊', title: 'Puño de Furia', text: 'Mark cambia La Tierra (que es solo la combinada con Axel y Shawn) por Puño de Furia, con animación nueva según su escena: aura dorada, el gigante dorado y su puñetazo. En partida aparece desde el nivel 5.' },
+      { icon: '✦', title: 'Remate caótico', text: 'Byron necesita Disparo sagrado (nivel 3), no su técnica más fuerte.' },
+      { icon: '▲', title: 'HÉROE más caro desde abajo', text: 'Llegar a HÉROE con un futbolista nacido Común, Raro o Épico cuesta el doble de duplicados: 20, 16 y 12 (antes 10, 8 y 6). Legendarios, Míticos y Leyendas no cambian.' },
       { icon: '★', title: 'Compensación de Drakul', text: 'Si ascendiste a Desmodus Drakul cuando era Raro, recibes 3 copias suyas ahora que es Legendario.' },
     ],
     start: [],

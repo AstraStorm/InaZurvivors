@@ -32,10 +32,10 @@ import { teamLabel as kitTeamLabel } from '../data/sagas';
 import { HERO_AURA } from '../systems/ascension';
 import { dragon, handKind, keeperHand } from './fxTech';
 import { orphans } from '../systems/groundSweep';
-import { chaosMeteorCharge, chaosMeteorShot, fireStormCharge, fireStormShot, earthGlobe, elementBurst, fireIceTwin, phoenix, phoenixFlight, setLowPower, teamBeams } from './fxManif';
+import { chaosMeteorCharge, chaosMeteorShot, fireStormCharge, fireStormShot, elementBurst, fireIceTwin, phoenix, phoenixFlight, setLowPower, teamBeams } from './fxManif';
 import { blackAshCharge, blackAshTrail, illusionBall, signatureOf, stormZone } from './fxSignature';
 import { natureArea, natureCharge, natureOf, natureShot, setNatureLowPower } from './fxNature';
-import { animeCharge, animeOf, animeShot, auroraVeil, breezeStep, chaosBreakCharge, chaosBreakShot, fireBlizzardCharge, fireBlizzardShot, godWindGust } from './fxAnime';
+import { animeCharge, animeOf, animeShot, auroraVeil, cometTex, earthBurst, earthCharge, furyFist, breezeStep, chaosBreakCharge, chaosBreakShot, fireBlizzardCharge, fireBlizzardShot, godWindGust } from './fxAnime';
 import { adaptedPassive, CAP_ELEMENTAL, CAP_LAST_STAND, emptyFx, TALENTS, talentScale, type TalentFx } from '../systems/talents';
 import { COMBOS, COMBOS_BY_PRIORITY, COMBO_MAX_LEVEL, comboCast, comboDamage, comboMembers, comboReady, type ComboDef } from '../systems/combos';
 import { AURA_ELEMENT_BONUS, AURA_TECH_DAMAGE } from '../systems/auras';
@@ -145,6 +145,8 @@ interface Projectile {
   ball: Phaser.GameObjects.Image; aura: Phaser.GameObjects.Arc; x: number; y: number; vx: number; vy: number; t: number;
   traj: Trajectory; style: FxStyle; damage: number; pierce: number; life: number; hits: Set<Enemy>; knock: number;
   level: number; explode: boolean; scale: number; targetY?: number; phase: number; dragon: boolean; recipe: Recipe; blast: number; exploded?: boolean;
+  /** Fix 1.53: La Tierra's comets leave a streak of light instead of the element trail */
+  comet?: boolean;
 }
 /** x/y is the real position; the image only adds a bob on top while it rests, so nothing fights the pull */
 interface Pickup { img: Phaser.GameObjects.Image; kind: 'xp' | 'item'; value: number; drop?: DropDef; pulled: boolean; x: number; y: number; speed: number; born: number }
@@ -850,6 +852,7 @@ export class ArenaScene extends Phaser.Scene {
         } else if (t.type === 'parada') {
           const heal = Math.round(this.maxHp * s.heal);
           let cx = ox, cy = oy; // centre of the area hit
+          let later = false; // Fix 1.53: the hit comes with the animation, not at once
           if (/olvido|the end/i.test(t.name)) {
             // El Olvido (The End): a black hole in front of the keeper swallows the rivals' balls and pulls rivals in
             const big = ['mitico', 'leyenda'].includes(m.entry.rarity) || !!this.cfg.asc?.[String(m.entry.id)]?.hero;
@@ -913,6 +916,25 @@ export class ArenaScene extends Phaser.Scene {
             // Fix 1.31: Mano de pingüinos, Tormenta de pétalos, Hojarasca... drawn after the wiki
             natureArea(this, natureOf(t.name)!, ox, oy, s.radius, lv, this.enemies.filter((e) => !e.dead && Math.hypot(e.pos.x - ox, e.pos.y - oy) < s.radius).map((e) => ({ x: e.pos.x, y: e.pos.y - 10 })));
             this.fx.ring(ox, oy, s.radius, 0xffe27a, 480, 2);
+          } else if (/pu[ñn]o de furia/i.test(t.name)) {
+            // Fix 1.53 (author, from the scene): the golden giant's fist comes down on the closest rival, 30% more damage and
+            // reach than a plain catch; the heal is immediate, the hit lands with the fist
+            const near = this.nearestEnemy(ox, oy, 210 * this.cfg.perks.rangeMult);
+            if (!near) { m.cds[i] = 200; return; }
+            const fx0 = near.pos.x, fy0 = near.pos.y - 10, r = s.radius * 1.3;
+            later = true;
+            m.f.hop(this, 16, 380);
+            sfx('whoosh');
+            furyFist(this, ox, oy, fx0, fy0, lv, 640, () => {
+              if (this.ended) return;
+              sfx('boom');
+              this.fx.shake(0.007, 220);
+              for (const e of this.enemies) {
+                const d = Math.hypot(e.pos.x - fx0, e.pos.y - 10 - fy0);
+                if (d < r + e.radius) this.hit(e, s.damage * 1.3, (e.pos.x - fx0) / (d || 1) * s.knockback, (e.pos.y - fy0) / (d || 1) * s.knockback, 'fuego', true);
+              }
+              this.shots = this.shots.filter((b) => { if (Math.hypot(b.x - fx0, b.y - fy0) >= r) return true; b.img.destroy(); return false; });
+            });
           } else if (handKind(t.name)) {
             // Fix 1.11: drawn hands and fists per family (fxTech.ts); fists hit where they land
             const kind = handKind(t.name)!;
@@ -929,7 +951,7 @@ export class ArenaScene extends Phaser.Scene {
           // El Olvido pulls inwards (into the hole) instead of pushing away; same damage and reach as every parada
           const pull = /olvido|the end/i.test(t.name) ? -0.8 : 1;
           this.hp = Math.min(this.maxHp, this.hp + heal); // after the target check: an Olvido with no rival in reach does nothing
-          for (const e of this.enemies) {
+          if (!later) for (const e of this.enemies) {
             const d = Math.hypot(e.pos.x - cx, e.pos.y - cy);
             if (d < s.radius) this.hit(e, s.damage, (e.pos.x - cx) / (d || 1) * s.knockback * pull, (e.pos.y - cy) / (d || 1) * s.knockback * pull, style);
           }
@@ -996,7 +1018,7 @@ export class ArenaScene extends Phaser.Scene {
       else this.fx.burst(style, m.f.x, m.f.y - 12, 10, 40, true);
     }
     teamBeams(this, who.map((m) => ({ x: m.f.x, y: m.f.y - 12 })), mx, my, c1, wind);
-    if (def.effect === 'tierra' || def.effect === 'tierra-inf') { earthGlobe(this, mx, my - 40, 26 + level * 2, wind, def.effect === 'tierra-inf'); this.fx.pillar(mx, my + 10, 0xfff0a0, 8 + level); }
+    if (def.effect === 'tierra' || def.effect === 'tierra-inf') earthCharge(this, mx, my - 40, 24 + level * 2, wind, def.effect === 'tierra-inf'); // Fix 1.53: the aura grows, the Earth appears
     else if (def.effect === 'caos') chaosBreakCharge(this, mx, my, 34 + level * 2, wind); // v1.5: its own chaos vortex
     else if (def.effect === 'ventisca') fireBlizzardCharge(this, mx, my, 30 + level * 2, wind); // v1.5: half fire, half ice
     else if (def.effect === 'tiro-doble') fireIceTwin(this, mx, my, 30 + level * 2, wind);
@@ -1015,9 +1037,12 @@ export class ArenaScene extends Phaser.Scene {
       const flight = Math.min(900, Math.hypot(target.pos.x - mx, target.pos.y - my) / 260 * 1000);
       if (def.effect === 'fenix') phoenixFlight(this, mx, my, target.pos.x, target.pos.y - 10, 40 + level * 3, flight);
       if (def.effect === 'tierra' || def.effect === 'tierra-inf') {
-        const globe = earthGlobe(this, mx, my - 40, 22 + level * 2, flight, def.effect === 'tierra-inf');
-        this.tweens.add({ targets: globe, x: target.pos.x, y: target.pos.y - 10, duration: flight, ease: 'Quad.easeIn' });
-        this.time.delayedCall(flight, () => { if (!this.ended) { this.fx.shake(0.008, 260); this.fx.flashDisc(target.pos.x, target.pos.y - 10, 90, 0xfff0a0, 320); } });
+        // Fix 1.53 (author): the Earth bursts into comets in every direction, 2 more each combo level (10 to 18)
+        earthBurst(this, mx, my - 40, 24 + level * 2);
+        this.earthComets(mx, my - 40, 8 + level * 2, dmg * 0.75, 6 + level, 4 + level, a, recipe, 1.5 + level * 0.1);
+        this.fx.shake(0.008, 300);
+        sfx('kick');
+        return;
       }
       for (const off of shots) {
         const ang = a + off, speed = 260;
@@ -1037,6 +1062,17 @@ export class ArenaScene extends Phaser.Scene {
       this.fx.shake(0.003, 120);
       sfx('kick');
     });
+  }
+
+  /** Fix 1.53: La Tierra's comets, evenly round the circle, the first one aimed at `aim`; they pierce and explode */
+  private earthComets(cx: number, cy: number, n: number, damage: number, level: number, pierce: number, aim: number, recipe: Recipe, scale: number) {
+    for (let k = 0; k < n; k++) {
+      const ang = aim + (k / n) * Math.PI * 2, speed = 240;
+      const aura = this.add.circle(cx, cy, 7 * scale, 0x9fdcff, 0.45).setDepth(8900).setBlendMode(Phaser.BlendModes.ADD);
+      const ball = this.add.image(cx, cy, cometTex(this)).setScale(scale * 0.7).setDepth(8901);
+      this.projectiles.push({ ball, aura, x: cx, y: cy, vx: Math.cos(ang) * speed, vy: Math.sin(ang) * speed, t: 0, traj: 'recta', style: 'hielo',
+        damage, pierce, life: 1300, hits: new Set(), knock: 110, level, explode: true, scale, phase: k, dragon: false, recipe, blast: 26 + level * 3, comet: true });
+    }
   }
 
   private fireShot(m: Member, i: number, ox: number, oy: number) {
@@ -1066,6 +1102,12 @@ export class ArenaScene extends Phaser.Scene {
       dragon(this, 'strike', ox, oy, d1, d2, lv, flight, target.pos.x, target.pos.y - 10, big);
     }
     if (recipe.tier >= 2) this.fx.shake(0.0012, 60);
+    if (animeOf(t.name) === 'tierra') { // Fix 1.53 (author): the solo La Tierra bursts into 4 + level comets all round
+      earthBurst(this, ox, oy - 30, 12 + lv);
+      this.earthComets(ox, oy - 30, 4 + lv, s.damage, lv, s.pierce + 1, base, recipe, 1 + lv * 0.05);
+      this.fx.shake(0.004, 160);
+      return;
+    }
     if (animeOf(t.name) === 'godwind') { // v1.5 (author): Viento celestial is a gust drawing an S, hurting along the way
       const reach = Math.hypot(target.pos.x - ox, target.pos.y - 12 - oy) + 50;
       const tx = ox + Math.cos(base) * reach, ty = oy + Math.sin(base) * reach;
@@ -1165,6 +1207,7 @@ export class ArenaScene extends Phaser.Scene {
         this.fx.segment(rx, ry, Math.floor(p.t * 24) % 2 ? 0xbfa8ff : 0xfff2a8, 2 + p.scale * 2);
         this.fx.trail('energia', rx, ry, 0.8);
       }
+      if (p.comet) this.fx.segment(rx, ry, Math.floor(p.t * 30) % 2 ? 0x9fdcff : 0xffffff, 2 + p.scale * 2);
       if (p.dragon) this.fx.segment(rx, ry, STYLE_COLORS[p.style][(Math.floor(p.t * 30) % 2) as 0 | 1], 3 + p.scale * 2);
       if (p.style === 'rayo' && Math.random() < 0.08) this.fx.lightning(rx, ry, rx + Phaser.Math.Between(-14, 14), ry + Phaser.Math.Between(-14, 14));
       if (p.targetY !== undefined && ry >= p.targetY) {

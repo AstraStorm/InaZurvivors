@@ -20,6 +20,9 @@ export const CHANGELOG: Release[] = [
     fixes: [
       'Pantalla de título invisible (regresión del Fix 1.51): @keyframes tsFade solo tenía from y .cine-shot reposa en opacity 0, así que acababa en 0. Ahora termina en opacity 1.',
       'Técnica inicial (autor): solo se puede elegir una técnica aprendible en el nivel 1 de partida (canLearn con runLevel 1), comprada, o la de por defecto (cards.ts canStartWith). Antes bastaba con que no fuera «solo tienda», así que se elegían técnicas que en partida salen desde el nivel 5-16. Las elecciones guardadas que ya no valen vuelven a la de por defecto (startOf).',
+      'La Tierra (autor, de su escena): carga con aura azul-blanca que crece, el planeta aparece con órbita roja y disco, y estalla en cometas en todas direcciones (combinada 8 + 2/nivel, 75% del daño cada uno; individual 4 + nivel). fxAnime earthCharge/earthBurst, ArenaScene earthComets. Mark Evans (autor): La Tierra (solo tienda) cambiada en su sitio por Puño de Furia con unlockLevel 30, vía rosterFixes (campos nuevos «cambiar» y «nivel»). Puño de Furia: animación propia (fxAnime furyFist), golpe al aterrizar el puño, 130% de daño y alcance de una parada, anula balones rivales en la zona.',
+      'Remate caótico (autor): Byron necesita «Disparo sagrado» a nivel 3 (antes valía su mejor técnica activa, normalmente Sabiduría divina).',
+      'HÉROE (autor): ASC_COSTS.heroe de Común/Raro/Épico pasa de 10/8/6 a 20/16/12. La ayuda de duplicados explica ya la ascensión paso a paso del Fix 1.52.',
       'Compensación (autor): quien había ascendido a Desmodus Drakul (101437) recibe 3 copias, una sola vez por partida (save.drakul153, ascension.ts compensateDrakul153). La ascensión pagada se mantiene.',
     ],
     visuals: [],

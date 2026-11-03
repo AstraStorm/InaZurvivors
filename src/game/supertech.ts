@@ -44,6 +44,7 @@ export function recipeFor(t: Pick<Technique, 'name' | 'element' | 'power'>, rari
   // v1.5: Viento celestial is wind, not a divine move: its charge and gust are its own (fxAnime godWindGust)
   // Fix 1.51: Supernova draws its own X and dark-matter sphere (fxAnime 'supernova'), not the generic star burst
   if (/^big ?bang$/i.test(n.trim())) return { id: 'supernova', tier, style: 'fuego' as FxStyle, windupSec: 0.75 + tier * 0.05, ballTexture: 'fx:ball', ballScale: 1.3, own: true }; // Fix 1.51: its own atom and explosion
+  if (/^la tierra$|^the earth$/i.test(n.trim())) return { id: 'hielo', tier, style: 'hielo' as FxStyle, windupSec: 0.85 + tier * 0.05, ballTexture: 'fx:ball', ballScale: 1, own: true }; // Fix 1.53: its own aura and Earth
   if (/^supernova$/i.test(n.trim())) return { id: 'supernova', tier, style: 'energia' as FxStyle, windupSec: WINDUP.supernova + tier * 0.05, ballTexture: 'fx:nova', ballScale: 1.1, own: true };
   // v1.5: Tornado de fuego draws its own spiral of flame (fxAnime), not the generic funnel of «tornado»
   if (/tornado de fuego|fire ?tornado/i.test(n)) return { id: 'tornado', tier, style: 'fuego' as FxStyle, windupSec: WINDUP.tornado + tier * 0.05, ballTexture: 'fx:ball', ballScale: 1, own: true };

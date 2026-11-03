@@ -18,7 +18,8 @@ export type AscStep = 'ascenso' | 'heroe' | 'estrella';
 /** Mítico and Leyenda have no `ascenso`: their first step is the HÉROE (Fix 1.31). `estrella` = each of the 3 hero stars. */
 export const ASC_COSTS: Record<Rarity, Record<AscStep, number>> = {
   // Fix 1.31 (author's request): a few copies for the low rarities, fewer for the high ones (were 12+20 ... 1+3)
-  comun: { ascenso: 6, heroe: 10, estrella: 10 }, raro: { ascenso: 5, heroe: 8, estrella: 8 }, epico: { ascenso: 4, heroe: 6, estrella: 6 },
+  // Fix 1.53 (author): HÉROE costs twice as much for footballers born Común, Raro or Épico (were 10 / 8 / 6)
+  comun: { ascenso: 6, heroe: 20, estrella: 10 }, raro: { ascenso: 5, heroe: 16, estrella: 8 }, epico: { ascenso: 4, heroe: 12, estrella: 6 },
   legendario: { ascenso: 2, heroe: 4, estrella: 4 }, mitico: { ascenso: 0, heroe: 2, estrella: 3 }, leyenda: { ascenso: 0, heroe: 1, estrella: 2 },
 };
 export const HERO_STARS_MAX = 3;

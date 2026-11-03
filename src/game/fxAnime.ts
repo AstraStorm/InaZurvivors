@@ -12,6 +12,10 @@
  *     ball leaves with tongues of fire and bursts into flames at the end.
  *   Tornado de fuego (Fire Tornado) — v1.5: the shooter spins up inside a rising spiral of flame, leaving a ring of fire
  *     at his feet; the ball leaves wrapped in two braided tongues of fire and bursts into a ring of flames.
+ *   La Tierra (The Earth) — Fix 1.53: the aura grows and grows, the Earth appears in it with its red orbit, and it
+ *     bursts into comets of light in every direction (more of them each level).
+ *   Puño de Furia — Fix 1.53: golden aura with red crests, a golden giant rises behind the keeper and its fist comes
+ *     down on the rival: white-gold impact, a shock ring and cracks in the ground.
  *   Ciclón blanco (White Hurricane) — golden rays burst from the shooter, white wind spirals up into a vortex; the
  *     ball, golden inside a bubble of wind, is followed by a huge golden-white crescent of hurricane.
  */
@@ -25,7 +29,7 @@ const ADD = Phaser.BlendModes.NORMAL;
 const rnd = (a: number, b: number) => a + Math.random() * (b - a);
 const BREEZE = 0xc8ffe0, BREEZE2 = 0x7fffc0, GOLD = 0xffd23f, GOLD2 = 0xfff2a0, FIRE = 0xff7a1a, FIRE2 = 0xffd04a;
 
-export type AnimeMove = 'brisa' | 'godwind' | 'tth' | 'fuego' | 'ciclon' | 'tfuego' | 'supernova' | 'bigbang';
+export type AnimeMove = 'brisa' | 'godwind' | 'tth' | 'fuego' | 'ciclon' | 'tfuego' | 'supernova' | 'bigbang' | 'tierra';
 export function animeOf(name: string): AnimeMove | null {
   if (/brisa deslizante|easy breezy|soyokaze/i.test(name)) return 'brisa';
   if (/viento celestial|god ?wind/i.test(name)) return 'godwind';
@@ -34,6 +38,7 @@ export function animeOf(name: string): AnimeMove | null {
   if (/tornado de fuego|fire ?tornado|fire tornado/i.test(name)) return 'tfuego';
   if (/^supernova$/i.test(name.trim())) return 'supernova';
   if (/^big ?bang$/i.test(name.trim())) return 'bigbang'; // the combined technique (Xavier, Jude, Shawn), not «Corte Big Bang»
+  if (/^la tierra$|^the earth$/i.test(name.trim())) return 'tierra'; // Fix 1.53: the solo version (Mark, Nelly, Adam)
   if (/cicl[oó]n blanco|hurac[aá]n blanco|white hurricane/i.test(name)) return 'ciclon';
   return null;
 }
@@ -136,6 +141,7 @@ export function breezeStep(scene: S, x: number, y: number, tx: number, ty: numbe
 // ------------------------------------------------------------------ shots: the charge
 export function animeCharge(scene: S, kind: AnimeMove, x: number, y: number, level: number, ms: number) {
   switch (kind) {
+    case 'tierra': earthCharge(scene, x, y - 30, 12 + level, ms); break; // Fix 1.53: the burst and its comets are the scene's
     case 'godwind': { // v1.5 (author): no wings — the wind gathers around him in a whirl, gold sparks crackle in it
       const aura = scene.add.circle(x, y - 12, 14, GOLD, 0.3).setDepth(y - 2).setBlendMode(ADD);
       scene.tweens.add({ targets: aura, scale: 2, alpha: 0.1, duration: ms, onComplete: () => aura.destroy() });
@@ -518,6 +524,141 @@ export function chaosBreakShot(scene: S, ball: Img, level: number) {
     });
     rays(scene, bx, by, 12, SUN, 40, 300);
     scene.tweens.add({ targets: core, alpha: 0, duration: 120, onComplete: () => core.destroy() });
+  });
+}
+
+// ------------------------------------------------------------------ La Tierra (The Earth)
+/**
+ * Fix 1.53 (author, from the scene): a blue-white aura gathers and keeps growing, streaks of light are drawn into it,
+ * then the Earth appears inside — a translucent blue globe with glowing continents, a red orbit and a pale disk round it.
+ * Returns the centre so the caller can burst it (earthBurst) when the charge ends. `inf`: the rainbow orbit of La Tierra ∞.
+ */
+export function earthCharge(scene: S, x: number, y: number, size: number, ms: number, inf = false) {
+  const g = scene.add.graphics().setDepth(AIR);
+  const lands = Array.from({ length: 6 }, (_, i) => ({ a: i * 1.05, lat: Math.sin(i * 2.3) * 0.55, r: 0.2 + (i % 3) * 0.06 }));
+  const st = { t: 0 };
+  scene.tweens.add({ targets: st, t: 1, duration: ms, ease: 'Linear',
+    onUpdate: () => {
+      const k = st.t, pulse = 1 + Math.sin(k * 40) * 0.04;
+      g.clear();
+      // the aura: grows and grows, flickering — a light veil with a bright edge, so the players stay visible
+      const aura = size * (0.4 + k * 1.1) * pulse;
+      g.fillStyle(0x3a8cff, 0.08 + k * 0.06).fillCircle(0, 0, aura * 1.2);
+      g.fillStyle(0x9fdcff, 0.1 + k * 0.08).fillCircle(0, 0, aura);
+      g.lineStyle(2 + k * 2, 0xbfe8ff, 0.55 + k * 0.3).strokeCircle(0, 0, aura);
+      g.fillStyle(0xffffff, 0.5 + k * 0.3).fillCircle(0, 0, size * (0.18 + k * 0.12));
+      // the Earth comes out of the light in the second half
+      const e = Math.max(0, (k - 0.4) / 0.6);
+      if (e > 0) {
+        const r = size * (0.3 + e * 0.75), spin = k * 5;
+        g.fillStyle(0xdff6ff, 0.18 * e).fillEllipse(0, 0, r * 4.2, r * 1.1); // the pale disk
+        g.fillStyle(0xffffff, 0.3 * e).fillCircle(0, 0, r * 1.18); // its glow
+        g.fillStyle(0x1e62e0, e).fillCircle(0, 0, r);
+        for (const b of lands) {
+          const lon = (b.a + spin) % (Math.PI * 2), vis = Math.cos(lon);
+          if (vis < -0.1) continue;
+          g.fillStyle(0x4fd86a, e).fillEllipse(Math.sin(lon) * r * 0.78, b.lat * r, r * b.r * 2 * Math.max(0.2, vis), r * b.r * 1.5);
+        }
+        g.fillStyle(0xffffff, 0.4 * e).fillCircle(-r * 0.35, -r * 0.38, r * 0.28); // the shine
+        g.lineStyle(2, 0xdff6ff, e).strokeCircle(0, 0, r);
+        if (inf) [0xff4a4a, 0xffb020, 0xffe24a, 0x5ee05a, 0x4fb3ff, 0xb36bff].forEach((c, i) => g.lineStyle(2, c, 0.9 * e).strokeEllipse(0, 0, r * (2.7 + i * 0.12), r * (0.7 + i * 0.05)));
+        else g.lineStyle(2, 0xff4a4a, 0.85 * e).strokeEllipse(0, 0, r * 2.7, r * 0.75); // the red orbit
+      }
+      g.setPosition(x, y);
+    },
+    onComplete: () => g.destroy() });
+  // streaks of light pulled into the aura, more and more of them
+  const n = 12 + Math.round(size / 3);
+  for (let k = 0; k < n; k++) {
+    const a = rnd(0, Math.PI * 2), d = size * rnd(2.2, 3.4);
+    const s = scene.add.rectangle(x + Math.cos(a) * d, y + Math.sin(a) * d * 0.8, 14, 2, k % 3 ? 0xffffff : 0x9fdcff, 0).setDepth(AIR + 1).setRotation(a);
+    scene.tweens.add({ targets: s, x, y, alpha: { from: 0.95, to: 0.2 }, scaleX: 2, delay: (k / n) * ms * 0.8, duration: ms * 0.3, ease: 'Quad.easeIn', onComplete: () => s.destroy() });
+  }
+  return { x, y };
+}
+
+/** a comet of light: white head, blue glow (drawn once per scene) */
+export const cometTex = (scene: S) => tex(scene, 'comet', 24, 24, (g) => {
+  g.fillStyle(0x3a8cff, 0.35).fillCircle(12, 12, 12); g.fillStyle(0x9fdcff, 0.7).fillCircle(12, 12, 8); g.fillStyle(0xffffff, 1).fillCircle(12, 12, 5);
+});
+
+/** The Earth bursts: a white flash, a ring that runs out and shards of light in every direction. */
+export function earthBurst(scene: S, x: number, y: number, size: number) {
+  const flash = scene.add.circle(x, y, size * 1.4, 0xffffff, 0.95).setDepth(AIR + 2);
+  scene.tweens.add({ targets: flash, scale: 2.2, alpha: 0, duration: 380, ease: 'Cubic.easeOut', onComplete: () => flash.destroy() });
+  const ring = scene.add.circle(x, y, size, 0x9fdcff, 0).setStrokeStyle(4, 0x9fdcff, 1).setDepth(AIR + 1);
+  scene.tweens.add({ targets: ring, scale: 5, alpha: 0, duration: 520, ease: 'Cubic.easeOut', onComplete: () => ring.destroy() });
+  for (let k = 0; k < 14; k++) {
+    const a = (k / 14) * Math.PI * 2, s = scene.add.rectangle(x, y, 18, 3, k % 2 ? 0xffffff : 0x7dff9a, 1).setDepth(AIR + 1).setRotation(a);
+    scene.tweens.add({ targets: s, x: x + Math.cos(a) * size * 3, y: y + Math.sin(a) * size * 3, alpha: 0, duration: 420, ease: 'Cubic.easeOut', onComplete: () => s.destroy() });
+  }
+}
+
+// ------------------------------------------------------------------ Puño de Furia (a keeper's catch)
+/** the golden giant of Puño de Furia: gold body, red crests of fire on the head, one fist drawn back */
+const furyGiantTex = (scene: S) => tex(scene, 'furygiant', 100, 96, (g) => {
+  const body = (c: number, s: number) => {
+    g.fillStyle(c, 1);
+    g.fillEllipse(50, 66, 66 * s, 48 * s); // chest
+    g.fillEllipse(50, 34, 28 * s, 28 * s); // head
+    g.fillEllipse(17, 52, 22 * s, 36 * s); g.fillEllipse(83, 50, 24 * s, 30 * s); // shoulders
+    g.fillEllipse(10, 34, 18 * s, 22 * s); // the drawn-back fist
+  };
+  g.fillStyle(0xe0281a, 1); // crests of red flame, sweeping back like his hair in the scene
+  for (let k = 0; k < 6; k++) g.fillTriangle(30 + k * 7, 30, 40 + k * 7, 28, 22 + k * 9, 2 + (k % 2) * 6);
+  body(0xff9a10, 1); body(0xffd23f, 0.78); body(0xfff2a0, 0.42);
+  g.fillStyle(0x7a3a00, 1); g.fillRect(43, 32, 4, 3); g.fillRect(53, 32, 4, 3);
+});
+/** a huge golden fist, knuckles forward, white-hot in the middle */
+const furyFistTex = (scene: S) => tex(scene, 'furyfist', 48, 48, (g) => {
+  g.fillStyle(0xff9a10, 1).fillRoundedRect(4, 8, 40, 34, 12);
+  g.fillStyle(0xffd23f, 1).fillRoundedRect(8, 11, 32, 27, 10);
+  for (let k = 0; k < 4; k++) g.fillStyle(0xfff2a0, 1).fillCircle(12 + k * 8, 14, 4); // knuckles
+  g.fillStyle(0xffffff, 0.8).fillCircle(22, 24, 6);
+  g.fillStyle(0xff9a10, 1).fillRoundedRect(30, 26, 14, 10, 4); // thumb
+});
+
+/**
+ * Fix 1.53 (author, from the scene): a golden aura bursts round the keeper with red crests of flame, he leaps, a giant
+ * of golden energy rises behind him and drives its fist down onto the ball: white-gold impact, shock ring and cracks.
+ * Visual only; `onImpact` fires when the fist lands (the scene does the damage there).
+ */
+export function furyFist(scene: S, x: number, y: number, tx: number, ty: number, level: number, ms: number, onImpact: () => void) {
+  const rise = ms * 0.45, punch = ms - rise, k = 1 + level * 0.04;
+  // the aura and its crests
+  const aura = scene.add.ellipse(x, y - 8, 30, 44, GOLD, 0.45).setDepth(y - 2).setBlendMode(ADD);
+  scene.tweens.add({ targets: aura, scaleX: 1.8, scaleY: 2.2, alpha: 0.15, duration: ms, onComplete: () => aura.destroy() });
+  for (let c = 0; c < 5; c++) {
+    const cr = scene.add.triangle(x - 8 + c * 4, y - 22, 0, 12, 6, 12, 3 - c, -14 - (c % 2) * 6, 0xe0281a, 0.95).setDepth(y - 1).setAlpha(0);
+    scene.tweens.add({ targets: cr, alpha: 1, y: cr.y - 6, scaleY: 1.3, delay: c * 30, duration: rise * 0.7, ease: 'Back.easeOut', onComplete: () => fade(scene, cr, punch * 0.5) });
+  }
+  rays(scene, x, y - 12, 8 + level, GOLD2, 34 + level * 2, rise);
+  // the giant behind him, rising
+  const giant = scene.add.image(x, y + 6, furyGiantTex(scene)).setOrigin(0.5, 1).setDepth(y - 3).setAlpha(0).setScale(0.35 * k);
+  scene.tweens.add({ targets: giant, alpha: 0.82, scale: 0.72 * k, y: y - 2, duration: rise, ease: 'Back.easeOut' });
+  fade(scene, giant, ms + 120, 280);
+  // the fist: starts drawn back over the giant's shoulder, grows as it drives down onto the target
+  const fist = scene.add.image(x - 26 * k, y - 50 * k, furyFistTex(scene)).setDepth(AIR + 1).setAlpha(0).setScale(0.7 * k);
+  scene.tweens.add({ targets: fist, alpha: 1, duration: rise * 0.6 });
+  scene.time.delayedCall(rise, () => {
+    if (!fist.active) return;
+    fist.setRotation(Math.atan2(ty - fist.y, tx - fist.x));
+    scene.tweens.add({ targets: fist, x: tx, y: ty, scale: 1.4 * k, duration: punch, ease: 'Cubic.easeIn',
+      onUpdate: () => { const t = scene.add.circle(fist.x, fist.y, 10 * k, GOLD, 0.45).setDepth(AIR); fade(scene, t, 0, 160); },
+      onComplete: () => {
+        onImpact();
+        const flash = scene.add.circle(tx, ty, 26 * k, 0xffffff, 0.95).setDepth(AIR + 2);
+        scene.tweens.add({ targets: flash, scale: 2.4, alpha: 0, duration: 300, onComplete: () => flash.destroy() });
+        const ring = scene.add.circle(tx, ty + 6, 20, GOLD, 0).setStrokeStyle(4, GOLD2, 1).setDepth(ty + 6);
+        scene.tweens.add({ targets: ring, scaleX: 4 * k, scaleY: 2.4 * k, alpha: 0, duration: 460, ease: 'Cubic.easeOut', onComplete: () => ring.destroy() });
+        for (let c = 0; c < 6 + level; c++) { // cracks and gold sparks
+          const a = (c / (6 + level)) * Math.PI * 2, crack = scene.add.rectangle(tx, ty + 8, 4, 2, 0x5a3a10, 0.9).setOrigin(0, 0.5).setRotation(a).setDepth(ty + 5);
+          scene.tweens.add({ targets: crack, displayWidth: rnd(18, 34) * k, duration: 160, onComplete: () => fade(scene, crack, 500, 300) });
+          const sp = scene.add.circle(tx, ty, rnd(2, 3.5), c % 2 ? GOLD : 0xffffff, 1).setDepth(AIR + 1);
+          scene.tweens.add({ targets: sp, x: tx + Math.cos(a) * rnd(30, 60) * k, y: ty + Math.sin(a) * rnd(20, 40) * k, alpha: 0, duration: 420, ease: 'Cubic.easeOut', onComplete: () => sp.destroy() });
+        }
+        fade(scene, fist, 60, 200);
+      } });
   });
 }
 

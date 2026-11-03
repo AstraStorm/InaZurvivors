@@ -65,7 +65,7 @@ export const COMBOS: ComboDef[] = [
   },
   {
     id: 'remate-caotico', name: 'Remate caótico', jp: 'カオスブレイク', en: 'Chaos Break', element: 'Fuego', power: 140,
-    needs: [{ player: 'Byron Love', level: 3 }, { player: 'Claude Beacons', level: 3 }, { player: 'Bryce Whitingale', level: 5 }],
+    needs: [{ player: 'Byron Love', tech: 'Disparo sagrado', level: 3 }, { player: 'Claude Beacons', level: 3 }, { player: 'Bryce Whitingale', level: 5 }], // Fix 1.53 (author): Byron with Disparo sagrado, not his strongest
     cooldownMs: 8500, effect: 'caos', priority: 9,
     source: 'Wiki de Inazuma Eleven (fandom), «Chaos Break»: Afuro (Byron), Nagumo (Claude) y Suzuno (Bryce) en Fire Dragon. Condición de niveles: diseño de InaZurvivors.',
   },
