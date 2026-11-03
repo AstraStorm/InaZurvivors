@@ -23,6 +23,7 @@ export const CHANGELOG: Release[] = [
       'Afinidad elemental: +10% a las técnicas del portador del elemento del Aura; el portador conserva su elemento.',
       'Técnicas conjuntas a través del Aura (combos.ts comboCast): el Aura cuenta como participante si la técnica pedida está activa en su portador; aparece un momento junto a él en la animación.',
       'Mi Equipo: carta de Aura enganchada a cada plaza, arrastrar y soltar (ratón) o tocar y elegir (móvil), colección ordenada con los compatibles primero, ficha del Aura con estadísticas propia + Aura = total, técnicas heredadas y conjuntas.',
+      'Nueva técnica combinada La Aurora (The Birth, ザ・バース; ROM IE3: tiro, poder 110): Xavier y Shawn, con cortinas de aurora sobre el punto de encuentro. También a través del Aura (Shawn como Aura de Xavier). Xavier y Shawn son compatibles.',
       '23 logros nuevos: Auras, colección, combate y progresión, con contadores reales.',
       'Panel de jugadores para administradores (Ajustes): cuentas, quién ha jugado, partidas y actividad.',
     ],

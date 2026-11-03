@@ -39,6 +39,7 @@ export const PUBLIC_RELEASES: PublicRelease[] = [
       { icon: '♥', title: 'Compatibles', text: 'Si tienen historia (Axel y Shawn, Mark y Nathan, Jude y Celia...) el Aura da el 20%. Más de 20 parejas de técnica, amistad, familia o rivalidad.' },
       { icon: '⚡', title: 'Técnicas heredadas', text: 'Dos técnicas del Aura: una empieza la partida en una ranura extra y la otra llega como carta al subir de nivel. No sustituyen a las suyas.' },
       { icon: '🔗', title: 'Técnicas conjuntas con el Aura', text: 'Axel con Shawn de Aura puede lanzar Fuego cruzado: Shawn aparece a su lado para el tiro. La Tierra sigue pidiendo a Mark en el campo.' },
+      { icon: '🌌', title: 'La Aurora', text: 'Nueva técnica combinada de Xavier y Shawn, con cortinas de aurora en el cielo. También con Shawn como Aura de Xavier.' },
       { icon: '📊', title: 'Gráficos a dos colores', text: 'El radar enseña en cian lo que aporta el Aura, y la ficha del Aura cada estadística como propia + Aura = total.' },
       { icon: '🏆', title: 'Más logros', text: 'Logros de Auras, colección (Legendarios, Míticos, Leyendas, eras), combate (los cinco rangos, 200 jefes, 20 minutos) y progresión.' },
       { icon: '🌪', title: 'Viento celestial nuevo', text: 'Sin alas: el viento se arremolina y sale como una ráfaga que dibuja una S hasta el rival y va golpeando todo lo que cruza.' },

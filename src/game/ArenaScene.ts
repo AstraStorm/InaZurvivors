@@ -35,7 +35,7 @@ import { orphans } from '../systems/groundSweep';
 import { chaosMeteorCharge, chaosMeteorShot, chaosVortex, fireStormCharge, fireStormShot, earthGlobe, elementBurst, fireIceTwin, phoenix, phoenixFlight, setLowPower, teamBeams } from './fxManif';
 import { blackAshCharge, blackAshTrail, illusionBall, signatureOf, stormZone } from './fxSignature';
 import { natureArea, natureCharge, natureOf, natureShot, setNatureLowPower } from './fxNature';
-import { animeCharge, animeOf, animeShot, breezeStep, godWindGust } from './fxAnime';
+import { animeCharge, animeOf, animeShot, auroraVeil, breezeStep, godWindGust } from './fxAnime';
 import { adaptedPassive, CAP_ELEMENTAL, CAP_LAST_STAND, emptyFx, TALENTS, talentScale, type TalentFx } from '../systems/talents';
 import { COMBOS, COMBOS_BY_PRIORITY, COMBO_MAX_LEVEL, comboCast, comboDamage, comboMembers, comboReady, type ComboDef } from '../systems/combos';
 import { AURA_ELEMENT_BONUS, AURA_TECH_DAMAGE } from '../systems/auras';
@@ -965,7 +965,7 @@ export class ArenaScene extends Phaser.Scene {
     const style = fxStyle(t);
     const [c1, c2] = STYLE_COLORS[style];
     // Fix 1.12: the participants send their power to the meeting point and each combination has its own manifestation
-    const wind = def.effect === 'tierra' || def.effect === 'tierra-inf' ? 900 : def.effect === 'caos' || def.effect === 'fenix' ? 700 : 360;
+    const wind = def.effect === 'tierra' || def.effect === 'tierra-inf' ? 900 : def.effect === 'caos' || def.effect === 'fenix' || def.effect === 'aurora' ? 700 : 360;
     // v1.5: a participant carried as Aura appears beside its carrier for the technique only, then fades away
     const ghosts: { x: number; y: number }[] = [];
     for (const c of comboCast(def, who)) {
@@ -1000,6 +1000,7 @@ export class ArenaScene extends Phaser.Scene {
     else if (def.effect === 'caos') chaosVortex(this, mx, my - 20, 34 + level * 2, wind);
     else if (def.effect === 'ventisca' || def.effect === 'tiro-doble') fireIceTwin(this, mx, my, 30 + level * 2, wind);
     else if (def.effect === 'fenix') phoenix(this, mx, my, 40 + level * 3, wind);
+    else if (def.effect === 'aurora') auroraVeil(this, mx, my, 30 + level * 2, wind); // v1.5: La Aurora
     this.fx.ring(mx, my, 34, c2, 360, 3);
     this.fx.label(mx, my - 30, def.name, '#ffe24a');
     sfx('evolve');

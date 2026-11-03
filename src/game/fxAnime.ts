@@ -281,6 +281,31 @@ export function godWindGust(scene: S, fx: number, fy: number, tx: number, ty: nu
     } });
 }
 
+/**
+ * v1.5: La Aurora (The Birth), combined shot of Xavier and Shawn: curtains of aurora (green, cyan and violet) wave in the
+ * sky over the meeting point while the power gathers, then fade. Graphics redrawn every frame, gone at the end.
+ */
+export function auroraVeil(scene: S, x: number, y: number, size: number, ms: number) {
+  const g = scene.add.graphics().setDepth(AIR).setBlendMode(Phaser.BlendModes.ADD);
+  const cols = [0x5cffb0, 0x7ff6ff, 0xb98aff, 0x5cffb0, 0x7ff6ff];
+  const st = { t: 0 };
+  scene.tweens.add({ targets: st, t: 1, duration: ms + 300, onUpdate: () => {
+    g.clear();
+    const life = Math.sin(Math.min(1, st.t * 1.15) * Math.PI); // rises, holds, fades
+    cols.forEach((c, i) => {
+      const cx = x + (i - 2) * size * 0.45, top = y - size * 2.2, h = size * 1.6;
+      for (let k = 0; k < 14; k++) {
+        const yy = top + (k / 14) * h, sway = Math.sin(k * 0.5 + st.t * 9 + i) * size * 0.18;
+        g.fillStyle(c, 0.16 * life * (1 - k / 16)).fillRect(cx + sway - size * 0.12, yy, size * 0.24, h / 14 + 1);
+      }
+    });
+  }, onComplete: () => g.destroy() });
+  for (let k = 0; k < 12; k++) { // motes of light drifting down into the ball
+    const m = scene.add.circle(x + rnd(-size, size), y - rnd(size, size * 2.2), rnd(1.2, 2.4), k % 2 ? 0x7ff6ff : 0xb98aff, 1).setDepth(AIR).setBlendMode(Phaser.BlendModes.ADD);
+    scene.tweens.add({ targets: m, x, y, alpha: 0.2, delay: rnd(0, ms * 0.5), duration: ms * 0.5, ease: 'Sine.easeIn', onComplete: () => m.destroy() });
+  }
+}
+
 // ------------------------------------------------------------------ shots: the ball in flight
 export function animeShot(scene: S, kind: AnimeMove, ball: Img, level: number) {
   switch (kind) {

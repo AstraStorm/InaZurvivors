@@ -24,7 +24,7 @@ export interface ComboDef {
   needs: { player: string; tech?: string; level: number }[];
   cooldownMs: number;
   /** what the special slot does when it fires (each one has its own animation in the scene) */
-  effect: 'tiro-doble' | 'tiro-dragon' | 'tiro-rayo' | 'fenix' | 'tierra' | 'caos' | 'ventisca' | 'tierra-inf';
+  effect: 'tiro-doble' | 'tiro-dragon' | 'tiro-rayo' | 'fenix' | 'tierra' | 'caos' | 'ventisca' | 'tierra-inf' | 'aurora';
   /** Fix 1.12: when several are learnable at once, the higher one is offered first */
   priority: number;
   source: string;
@@ -73,6 +73,13 @@ export const COMBOS: ComboDef[] = [
     needs: [{ player: 'Claude Beacons', tech: 'Ventisca de fuego', level: 3 }, { player: 'Bryce Whitingale', tech: 'Ventisca de fuego', level: 3 }],
     cooldownMs: 6000, effect: 'ventisca', priority: 6,
     source: 'ROM IE2 en español (tabla de técnicas): «Ventisca de fuego» en el repertorio de Torch (Claude) y Gazelle (Bryce). Condición de niveles: diseño de InaZurvivors.',
+  },
+  // v1.5 (author's request)
+  {
+    id: 'la-aurora', name: 'La Aurora', jp: 'ザ・バース', en: 'The Birth', element: 'Neutro', power: 110,
+    needs: [{ player: 'Xavier Foster', level: 6 }, { player: 'Shawn Froste', level: 6 }],
+    cooldownMs: 7000, effect: 'aurora', priority: 8,
+    source: 'ROM IE3 (tabla de técnicas): «The Birth» (ザ・バース), tiro, poder 110, sin elemento propio; nombre español «La Aurora» en inazumo.es. Tiro combinado de Hiroto (Xavier) y Fubuki (Shawn), añadido a petición del autor. Condición de niveles: diseño de InaZurvivors.',
   },
   {
     id: 'la-tierra-inf', name: 'La Tierra ∞', jp: 'ジ・アース∞', en: 'The Earth ∞', element: 'Montaña', power: 165,
