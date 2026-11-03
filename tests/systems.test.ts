@@ -719,12 +719,16 @@ describe('combined techniques', () => {
     expect(COMBOS.length).toBeLessThanOrEqual(12);
     for (const c of COMBOS) { expect(c.source).toMatch(/fandom|MyAnimeList|ROM/); expect(c.needs.length).toBeGreaterThanOrEqual(2); }
   });
-  it('Fuego cruzado needs Axel and Shawn on the pitch with both techniques at max level', () => {
-    const axel = member('Axel Blaze', ['Tornado de fuego'], 10), shawn = member('Shawn Froste', ['Ventisca eterna'], 10);
+  it('Fuego cruzado needs Axel (Tornado de fuego 3) and Shawn (Ventisca eterna 5) on the pitch (Fix 1.51)', () => {
+    const axel = member('Axel Blaze', ['Tornado de fuego'], 3), shawn = member('Shawn Froste', ['Ventisca eterna'], 5);
     expect(comboReady(cross, [axel, shawn])).toBe(true);
     expect(comboReady(cross, [axel])).toBe(false);
-    expect(comboReady(cross, [axel, member('Shawn Froste', ['Ventisca eterna'], 9)])).toBe(false);
+    expect(comboReady(cross, [axel, member('Shawn Froste', ['Ventisca eterna'], 4)])).toBe(false);
+    expect(comboReady(cross, [member('Axel Blaze', ['Tornado de fuego'], 2), shawn])).toBe(false);
     expect(comboReady(cross, [axel, member('Shawn Froste', ['Entrada huracán'], 10)])).toBe(false);
+  });
+  it('Fix 1.51: two participants need levels 3 and 5, three participants 3, 3 and 5', () => {
+    for (const c of COMBOS) expect(c.needs.map((n) => n.level), c.name).toEqual(c.needs.length === 2 ? [3, 5] : [3, 3, 5]);
   });
   it('upgrades make it stronger', () => {
     expect(comboDamage(cross, 5)).toBeGreaterThan(comboDamage(cross, 1));
@@ -1025,8 +1029,8 @@ describe('reiniciar progreso', () => {
 describe('versión pública y reportes de bugs', () => {
   it('the public news start at v1.0 and no internal version leaks into them', async () => {
     const { PUBLIC_RELEASES, PUBLIC_VERSION, RELEASED, VERSION_LABEL, BUILD, TIKTOK_URL } = await import('../src/data/release');
-    expect(PUBLIC_VERSION).toBe('1.5');
-    expect(PUBLIC_RELEASES.map((r) => r.version)).toEqual(['1.5', '1.41', '1.4', '1.32', '1.31', '1.3', '1.22', '1.21', '1.2', '1.12', '1.11', '1.1', '1.0']); // newest first, starting at v1.0
+    expect(PUBLIC_VERSION).toBe('1.51');
+    expect(PUBLIC_RELEASES.map((r) => r.version)).toEqual(['1.51', '1.5', '1.41', '1.4', '1.32', '1.31', '1.3', '1.22', '1.21', '1.2', '1.12', '1.11', '1.1', '1.0']); // newest first, starting at v1.0
     expect(PUBLIC_RELEASES.at(-1)!.title).toBe('InaZurvivors v1.0 — ¡Comienza la aventura!');
     expect(JSON.stringify(PUBLIC_RELEASES)).not.toMatch(/\bv?[234]\.\d\b/);
     expect(BUILD).not.toBe('1.0');
@@ -1037,7 +1041,7 @@ describe('versión pública y reportes de bugs', () => {
   it('the news board shows fixes (two decimals) in their own colour, updates in green', async () => {
     const { allNews } = await import('../src/data/news');
     const kind = Object.fromEntries(allNews(true).filter((n) => n.version).map((n) => [n.version, n.kind]));
-    for (const v of ['1.41', '1.32', '1.31', '1.22', '1.21', '1.12', '1.11']) expect(kind[v], v).toBe('fix');
+    for (const v of ['1.51', '1.41', '1.32', '1.31', '1.22', '1.21', '1.12', '1.11']) expect(kind[v], v).toBe('fix');
     for (const v of ['1.5', '1.4', '1.3', '1.2', '1.1', '1.0']) expect(kind[v], v).toBe('actualizacion');
   });
   it('form rules', async () => {

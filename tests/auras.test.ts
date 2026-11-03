@@ -120,15 +120,15 @@ describe('techniques and combined techniques', () => {
     expect(run.aura?.name).toBe('Shawn Froste');
     expect(axel.techniques).toHaveLength(2);
   });
-  it('Fuego cruzado with Shawn as Axel\'s Aura: needs Ventisca eterna active on Axel at level 10', () => {
+  it('Fuego cruzado with Shawn as Axel\'s Aura: needs Ventisca eterna active on Axel at level 5 (Fix 1.51)', () => {
     const fc = COMBOS.find((c) => c.id === 'fuego-cruzado')!;
     const s = fresh();
     const run = carrierForRun(s, axel, playerStats(s, axel, 'legendario', false), shawn);
     const vent = run.techniques.findIndex((t) => t.name === 'Ventisca eterna');
     const at = (lv: number) => [{ entry: run, state: { playerId: 10, slots: [0, vent], levels: { 0: 10, [vent]: lv } } }];
-    expect(comboReady(fc, at(9))).toBe(false);
-    expect(comboReady(fc, at(10))).toBe(true);
-    expect(comboCast(fc, at(10)).map((c) => c.viaAura)).toEqual([false, true]);
+    expect(comboReady(fc, at(4))).toBe(false);
+    expect(comboReady(fc, at(5))).toBe(true);
+    expect(comboCast(fc, at(5)).map((c) => c.viaAura)).toEqual([false, true]);
   });
   it('La Tierra is NOT ready with Axel + Shawn-as-Aura alone: Mark has to be on the pitch', () => {
     const lt = COMBOS.find((c) => c.id === 'la-tierra')!;
@@ -138,6 +138,20 @@ describe('techniques and combined techniques', () => {
     const axelOn = { entry: run, state: { playerId: 10, slots: [0, 2], levels: { 0: 7, 2: 7 } } };
     expect(comboReady(lt, [axelOn])).toBe(false);
     expect(comboReady(lt, [axelOn, { entry: mark, state: { playerId: 1, slots: [0], levels: { 0: 7 } } }])).toBe(true);
+  });
+});
+
+describe('counterparts (Fix 1.51)', () => {
+  it('Xene plays Xavier and Shawn + Axel plays Shawn in combined techniques, on the pitch or as an Aura', () => {
+    const aurora = COMBOS.find((c) => c.id === 'la-aurora')!;
+    const xene = P(1406, 'Xene', 'mitico', [tech(20, 'Tiro', 'tiro', 60)]);
+    const shaxel = P(101321, 'Shawn + Axel', 'mitico', [tech(21, 'Tiro', 'tiro', 60)]);
+    const on = (e: RosterEntry, lv: number) => ({ entry: e, state: { playerId: e.id, slots: [0], levels: { 0: lv } } });
+    expect(comboReady(aurora, [on(xene, 3), on(shaxel, 5)])).toBe(true);
+    expect(comboReady(aurora, [on(xene, 3)])).toBe(false);
+    const s = newSave([1406, 1513], 1406);
+    const run = carrierForRun(s, xene, playerStats(s, xene, 'mitico', false), shawn);
+    expect(comboReady(aurora, [{ entry: run, state: { playerId: 1406, slots: [0], levels: { 0: 5 } } }])).toBe(true);
   });
 });
 

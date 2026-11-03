@@ -15,6 +15,26 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: '6.1', date: '2026-11-05', title: 'Fix 1.51',
+    features: [],
+    fixes: [
+      'Gazelle (Bryce Whitingale) empezaba con «Ventisca de fuego», que es la técnica combinada, y tenía Balón Iceberg al nivel 21: ajuste en data/anime_techs.json (quitar Ventisca de fuego, Balón Iceberg primero), como ya tenía Torch. Los guardados lo recolocan con el paso 29 de techRemaps.',
+      'Ventisca de fuego nunca se podía aprender: pedía «Ventisca de fuego» activa en Torch, que no la tiene. Ahora pide Llamarada atómica (Torch) y Balón Iceberg (Gazelle).',
+      'Técnicas combinadas más fáciles (autor): dos participantes piden niveles 3 y 5; tres, 3, 3 y 5 (antes hasta 10/10 o 7/7/7). Test que lo comprueba en todas.',
+      'Contrapartes en las técnicas combinadas (autor): Xene, Kira Hiroto y Jordan + Xavier cuentan como Xavier; Shawn + Axel como Shawn (COUNTERPARTS en combos.ts), también como Aura y en Mi Equipo.',
+      'Auditoría de daño: una técnica de cada uno de los 164 caminos de código (tipo, trayectoria, familia, animación propia, nombre especial) lanzada en partida con rivales cerca: todas hacen daño (El Detonador, 16 782 en 3 s).',
+      'Ranking: solo cuentan las partidas completadas (victoria, también la supervivencia infinita tras ganar); las derrotas y abandonos no guardan marca ni se envían.',
+    ],
+    visuals: [
+      'Ventisca de fuego redibujada fotograma a fotograma de su escena (youtube.com/watch?v=_CFd8fHa72o): anillos de ventisca blanco-azulados que suben con el salto, chute doble con rayos dorados en un anillo de fuego naranja, y en vuelo una gran espiral doble de fuego y viento helado detrás del balón.',
+      'Remate caótico redibujado de su escena (youtube.com/watch?v=JcKLI16tWAE): el balón se vuelve un sol blanco-dorado con halo y rayos, estelas de llamas suben hacia él, chute triple con un abanico de destellos dorados y fogonazo; en vuelo, un solo balón con núcleo brillante en un remolino de hielo azul y fuego naranja. Sustituye al vórtice oscuro anterior, que no era el de la serie.',
+      'Big Bang (ビッグバン; ROM IE3: tiro de Fuego, poder 120): técnica combinada de Xavier, Jude y Shawn (3/3/5) con animación propia de su escena (youtube.com/watch?v=HCJnnUIr3h4): vórtice blanco-azul, un átomo (núcleo y tres órbitas con electrones) que crece hasta ser un sol, bola de luz con estela de fuego enorme y explosión inmensa (fogonazo, tres ondas, 34 llamaradas, temblor). El «Corte Big Bang» individual sigue con su efecto.',
+      'Supernova redibujada de su escena (youtube.com/watch?v=2r8nnad6HFU): X de energía naranja y blanca con haz central al chutar; esfera de materia oscura en un remolino violeta con un ojo de energía rojo; implosión violeta al impactar. 1 esfera, 2 desde el nivel 5 y 3 en el nivel 10, cada una hacia un rival distinto.',
+      'Adiós a las alas (autor): la familia divina (celestial, sagrado, ángel, divino...) ya no abre alas de ángel; abre un círculo de luz en el suelo con haces que caen alrededor, chispas que suben y un halo (holyLight en fxAnime.ts). La familia de sombra deja de invocar alas moradas.',
+    ],
+    balance: [],
+  },
+  {
     version: '6.0', date: '2026-11-05', title: 'v1.5',
     features: [
       'Auras (AURAS.md): un Legendario, Mítico o Leyenda de la colección como carta de apoyo de cualquier futbolista. Suma round(15%) de sus tres mejores estadísticas (20% si son compatibles), con lo propio en 99 y la estadística efectiva hasta 120 también en el combate.',

@@ -1,6 +1,7 @@
 /**
  * Combined supertechniques. Only combinations whose participants were checked against a documented source are listed;
- * the unlock conditions (technique levels) are InaZurvivors design, not canon. Names and power come from the IE2 Spanish
+ * the unlock conditions (technique levels) are InaZurvivors design, not canon. Fix 1.51 (author): two participants need
+ * levels 3 and 5, three participants 3, 3 and 5. Names and power come from the IE2 Spanish
  * ROM table (data/extracted/ie2_gamedata.json): Fuego cruzado 298/311, Tornado dragón 204, Ruptura relámpago 207.
  *
  * Activation: a SPECIAL slot, separate from each player's technique slots. Once learned (a level-up card that appears
@@ -24,7 +25,7 @@ export interface ComboDef {
   needs: { player: string; tech?: string; level: number }[];
   cooldownMs: number;
   /** what the special slot does when it fires (each one has its own animation in the scene) */
-  effect: 'tiro-doble' | 'tiro-dragon' | 'tiro-rayo' | 'fenix' | 'tierra' | 'caos' | 'ventisca' | 'tierra-inf' | 'aurora';
+  effect: 'tiro-doble' | 'tiro-dragon' | 'tiro-rayo' | 'fenix' | 'tierra' | 'caos' | 'ventisca' | 'tierra-inf' | 'aurora' | 'bigbang';
   /** Fix 1.12: when several are learnable at once, the higher one is offered first */
   priority: number;
   source: string;
@@ -33,61 +34,81 @@ export interface ComboDef {
 export const COMBOS: ComboDef[] = [
   {
     id: 'fuego-cruzado', name: 'Fuego cruzado', jp: 'クロスファイア', en: 'Crossfire', element: 'Fuego', power: 120,
-    needs: [{ player: 'Axel Blaze', tech: 'Tornado de fuego', level: 10 }, { player: 'Shawn Froste', tech: 'Ventisca eterna', level: 10 }],
+    needs: [{ player: 'Axel Blaze', tech: 'Tornado de fuego', level: 3 }, { player: 'Shawn Froste', tech: 'Ventisca eterna', level: 5 }],
     cooldownMs: 6500, effect: 'tiro-doble', priority: 8,
     source: 'Wiki de Inazuma Eleven (fandom), «Crossfire»: Gouenji (Axel) y Fubuki (Shawn) la crean y la usan en el anime. Condición de niveles: diseño de InaZurvivors.',
   },
   {
     id: 'tornado-dragon', name: 'Tornado dragón', jp: 'ドラゴントルネード', en: 'Dragon Tornado', element: 'Fuego', power: 79,
-    needs: [{ player: 'Kevin Dragonfly', tech: 'Remate dragón', level: 5 }, { player: 'Axel Blaze', tech: 'Tornado de fuego', level: 5 }],
+    needs: [{ player: 'Kevin Dragonfly', tech: 'Remate dragón', level: 3 }, { player: 'Axel Blaze', tech: 'Tornado de fuego', level: 5 }],
     cooldownMs: 5000, effect: 'tiro-dragon', priority: 5,
     source: 'Wiki de Inazuma Eleven (fandom), «Dragon Tornado»: Someoka (Kevin) pasa con Dragon Crash al Fire Tornado de Gouenji (Axel). Condición de niveles: diseño de InaZurvivors.',
   },
   {
     id: 'ruptura-relampago', name: 'Ruptura relámpago', jp: 'イナズマブレイク', en: 'Inazuma Break', element: 'Aire', power: 99,
-    needs: [{ player: 'Jude Sharp', level: 4 }, { player: 'Mark Evans', level: 4 }, { player: 'Axel Blaze', level: 4 }],
+    needs: [{ player: 'Jude Sharp', level: 3 }, { player: 'Mark Evans', level: 3 }, { player: 'Axel Blaze', level: 5 }],
     cooldownMs: 7000, effect: 'tiro-rayo', priority: 7,
     source: 'Wiki de Inazuma Eleven (fandom), «Inazuma Break»: Kidou (Jude), Endou (Mark) y Gouenji (Axel) la usan contra Senbayama (episodio 018). Condición de niveles: diseño de InaZurvivors.',
   },
   // Fix 1.12
   {
     id: 'el-fenix', name: 'El Fénix', jp: 'ザ・フェニックス', en: 'The Phoenix', element: 'Fuego', power: 125,
-    needs: [{ player: 'Erik Eagle', level: 5 }, { player: 'Bobby Shearer', level: 5 }, { player: 'Mark Evans', level: 5 }],
+    needs: [{ player: 'Erik Eagle', level: 3 }, { player: 'Bobby Shearer', level: 3 }, { player: 'Mark Evans', level: 5 }],
     cooldownMs: 7500, effect: 'fenix', priority: 8,
     source: 'MyAnimeList, Ichinose Kazuya (Erik Eagle): «The Phoenix», con Endou (Mark) y Domon (Bobby). Condición de niveles: diseño de InaZurvivors.',
   },
   {
     id: 'la-tierra', name: 'La Tierra', jp: 'ジ・アース', en: 'The Earth', element: 'Montaña', power: 160,
-    needs: [{ player: 'Mark Evans', level: 7 }, { player: 'Axel Blaze', level: 7 }, { player: 'Shawn Froste', level: 7 }],
+    needs: [{ player: 'Mark Evans', level: 3 }, { player: 'Axel Blaze', level: 3 }, { player: 'Shawn Froste', level: 5 }],
     cooldownMs: 11000, effect: 'tierra', priority: 10,
     source: 'Wiki de Inazuma Eleven (fandom), «The Earth»: tiro combinado de Gouenji (Axel) que en IE2 hacen Endou (Mark), Gouenji y Fubuki (Shawn) (o Gran). Técnica de máxima categoría: condición de niveles alta, diseño de InaZurvivors.',
   },
   {
     id: 'remate-caotico', name: 'Remate caótico', jp: 'カオスブレイク', en: 'Chaos Break', element: 'Fuego', power: 140,
-    needs: [{ player: 'Byron Love', level: 5 }, { player: 'Claude Beacons', level: 5 }, { player: 'Bryce Whitingale', level: 5 }],
+    needs: [{ player: 'Byron Love', level: 3 }, { player: 'Claude Beacons', level: 3 }, { player: 'Bryce Whitingale', level: 5 }],
     cooldownMs: 8500, effect: 'caos', priority: 9,
     source: 'Wiki de Inazuma Eleven (fandom), «Chaos Break»: Afuro (Byron), Nagumo (Claude) y Suzuno (Bryce) en Fire Dragon. Condición de niveles: diseño de InaZurvivors.',
   },
   {
     id: 'ventisca-de-fuego', name: 'Ventisca de fuego', jp: 'ファイアブリザード', en: 'Fire Blizzard', element: 'Fuego', power: 105,
-    needs: [{ player: 'Claude Beacons', tech: 'Ventisca de fuego', level: 3 }, { player: 'Bryce Whitingale', tech: 'Ventisca de fuego', level: 3 }],
+    // Fix 1.51: each one needs his own signature shot (Claude no longer had «Ventisca de fuego», so it could never fire)
+    needs: [{ player: 'Claude Beacons', tech: 'Llamarada atómica', level: 3 }, { player: 'Bryce Whitingale', tech: 'Balón Iceberg', level: 5 }],
     cooldownMs: 6000, effect: 'ventisca', priority: 6,
     source: 'ROM IE2 en español (tabla de técnicas): «Ventisca de fuego» en el repertorio de Torch (Claude) y Gazelle (Bryce). Condición de niveles: diseño de InaZurvivors.',
+  },
+  // Fix 1.51 (author's request)
+  {
+    id: 'big-bang', name: 'Big Bang', jp: 'ビッグバン', en: 'Big Bang', element: 'Fuego', power: 120,
+    needs: [{ player: 'Xavier Foster', level: 3 }, { player: 'Jude Sharp', level: 3 }, { player: 'Shawn Froste', level: 5 }],
+    cooldownMs: 10000, effect: 'bigbang', priority: 9,
+    source: 'ROM IE3 (tabla de técnicas): «Big Bang» (ビッグバン), tiro de Fuego, poder 120, nombre español verificado. Tiro combinado de Hiroto (Xavier), Kidou (Jude) y Fubuki (Shawn), indicado por el autor con su escena. Condición de niveles: regla del Fix 1.51.',
   },
   // v1.5 (author's request)
   {
     id: 'la-aurora', name: 'La Aurora', jp: 'ザ・バース', en: 'The Birth', element: 'Neutro', power: 110,
-    needs: [{ player: 'Xavier Foster', level: 6 }, { player: 'Shawn Froste', level: 6 }],
+    needs: [{ player: 'Xavier Foster', level: 3 }, { player: 'Shawn Froste', level: 5 }],
     cooldownMs: 7000, effect: 'aurora', priority: 8,
     source: 'ROM IE3 (tabla de técnicas): «The Birth» (ザ・バース), tiro, poder 110, sin elemento propio; nombre español «La Aurora» en inazumo.es. Tiro combinado de Hiroto (Xavier) y Fubuki (Shawn), añadido a petición del autor. Condición de niveles: diseño de InaZurvivors.',
   },
   {
     id: 'la-tierra-inf', name: 'La Tierra ∞', jp: 'ジ・アース∞', en: 'The Earth ∞', element: 'Montaña', power: 165,
-    needs: [{ player: 'Arion Sherwind', level: 7 }, { player: 'Riccardo Di Rigo', level: 7 }, { player: 'Victor Blade', level: 7 }],
+    needs: [{ player: 'Arion Sherwind', level: 3 }, { player: 'Riccardo Di Rigo', level: 3 }, { player: 'Victor Blade', level: 5 }],
     cooldownMs: 11000, effect: 'tierra-inf', priority: 10,
     source: 'Wiki de Inazuma Eleven (fandom), «The Earth ∞»: Matsukaze Tenma (Arion), Shindou Takuto (Riccardo) y Tsurugi Kyousuke (Victor) en GO Galaxy, episodio 43. Condición de niveles: diseño de InaZurvivors.',
   },
 ];
+/**
+ * Fix 1.51 (author): other versions of a footballer can stand in for him in every combined technique — his alias in
+ * another arc, his alternate-universe self and his Miximax fusions. Roster names; checked against the roster in
+ * tests/aura_roster.test.ts.
+ */
+export const COUNTERPARTS: Record<string, string[]> = {
+  'Shawn Froste': ['Shawn + Axel'],
+  'Xavier Foster': ['Xene', 'Kira Hiroto', 'Jordan + Xavier'],
+};
+/** True when a roster name can play the part of a participant (himself or one of his counterparts). */
+export const playsAs = (name: string | undefined, player: string) => !!name && (name === player || !!COUNTERPARTS[player]?.includes(name));
+
 /** Highest priority first: the order in which learnable combinations are offered. */
 export const COMBOS_BY_PRIORITY = [...COMBOS].sort((a, b) => b.priority - a.priority);
 
@@ -114,8 +135,8 @@ function activeLevel(m: OnPitch, tech?: string) {
 export function comboCast<T extends OnPitch>(c: ComboDef, team: T[]): { member: T; viaAura: boolean; player: string }[] {
   const out: { member: T; viaAura: boolean; player: string }[] = [];
   for (const n of c.needs) {
-    const self = team.find((x) => x.entry.name === n.player && activeLevel(x, n.tech) >= n.level);
-    const carrier = self ? undefined : team.find((x) => x.entry.aura?.name === n.player && activeLevel(x, n.tech) >= n.level);
+    const self = team.find((x) => playsAs(x.entry.name, n.player) && activeLevel(x, n.tech) >= n.level);
+    const carrier = self ? undefined : team.find((x) => playsAs(x.entry.aura?.name, n.player) && activeLevel(x, n.tech) >= n.level);
     const m = self ?? carrier;
     if (!m) return [];
     out.push({ member: m, viaAura: !self, player: n.player });
@@ -131,7 +152,7 @@ export const comboReady = (c: ComboDef, team: OnPitch[]) => comboCast(c, team).l
  * learned, a combination keeps firing while its participants (or their carriers) are on the pitch.
  */
 export function comboMembers<T extends OnPitch>(c: ComboDef, team: T[]): T[] {
-  const out = c.needs.map((n) => team.find((x) => x.entry.name === n.player) ?? team.find((x) => x.entry.aura?.name === n.player));
+  const out = c.needs.map((n) => team.find((x) => playsAs(x.entry.name, n.player)) ?? team.find((x) => playsAs(x.entry.aura?.name, n.player)));
   if (!out.every(Boolean)) return [];
   return [...new Set(out as T[])];
 }
@@ -147,8 +168,9 @@ export function squadCombos(squad: Pick<RosterEntry, 'name' | 'id'>[], auraNames
   // v1.5: an Aura counts as present (its carrier brings it)
   const names = new Set([...squad.map((p) => p.name), ...auraNames]);
   return COMBOS_BY_PRIORITY.map((c) => {
-    const present = c.needs.filter((n) => names.has(n.player)).map((n) => n.player);
-    const missing = c.needs.filter((n) => !names.has(n.player)).map((n) => n.player);
-    return { combo: c, present, missing, ready: !missing.length, viaAura: present.filter((n) => auraNames.includes(n) && !squad.some((p) => p.name === n)) };
+    const has = (player: string) => [...names].some((nm) => playsAs(nm, player));
+    const present = c.needs.filter((n) => has(n.player)).map((n) => n.player);
+    const missing = c.needs.filter((n) => !has(n.player)).map((n) => n.player);
+    return { combo: c, present, missing, ready: !missing.length, viaAura: present.filter((n) => auraNames.some((a) => playsAs(a, n)) && !squad.some((p) => playsAs(p.name, n))) };
   }).filter((x) => x.present.length > 0);
 }

@@ -63,8 +63,12 @@ export const AURA_BONDS: AuraBond[] = [
     source: 'Wiki de Inazuma Eleven (fandom), «Jirou Sakuma».' },
   { a: 29, aName: 'Jude Sharp', b: 1541, bName: 'Caleb Stonewall', kind: 'rivalidad', reason: 'Rivales desde Shin Teikoku que acaban jugando juntos en Inazuma Japón.',
     source: 'Wiki de Inazuma Eleven (fandom), «Akio Fudou».' },
-  { a: 101722, aName: 'Xavier Foster', b: 1513, bName: 'Shawn Froste', kind: 'tecnica', reason: 'De rivales en Alius a compañeros en Inazuma Japón: juntos lanzan La Aurora.', combos: ['la-aurora'],
+  { a: 101722, aName: 'Xavier Foster', b: 1513, bName: 'Shawn Froste', kind: 'tecnica', reason: 'De rivales en Alius a compañeros en Inazuma Japón: juntos lanzan La Aurora y, con Jude, Big Bang.', combos: ['la-aurora', 'big-bang'],
     source: 'ROM IE3: «The Birth» (ザ・バース), «La Aurora» en inazumo.es; pareja indicada por el autor.' },
+  { a: 101722, aName: 'Xavier Foster', b: 29, bName: 'Jude Sharp', kind: 'tecnica', reason: 'Compañeros en Inazuma Japón: con Shawn lanzan Big Bang.', combos: ['big-bang'],
+    source: 'ROM IE3: «Big Bang» (ビッグバン); participantes indicados por el autor.' },
+  { a: 29, aName: 'Jude Sharp', b: 1513, bName: 'Shawn Froste', kind: 'tecnica', reason: 'Compañeros en Raimon e Inazuma Japón: con Xavier lanzan Big Bang.', combos: ['big-bang'],
+    source: 'ROM IE3: «Big Bang» (ビッグバン); participantes indicados por el autor.' },
   // Alius / Fire Dragon
   { a: 1371, aName: 'Claude Beacons', b: 1370, bName: 'Bryce Whitingale', kind: 'tecnica', reason: 'Los capitanes rivales de Prominence y Diamond Dust: Ventisca de fuego.', combos: ['ventisca-de-fuego', 'remate-caotico'],
     source: 'ROM IE2 en español: «Ventisca de fuego» en el repertorio de ambos; wiki, «Chaos Break».' },

@@ -26,7 +26,7 @@ import { SAGAS, sagaOf, setTeamLabels, setTeamSagas, teamLabel, teamNames } from
 import { canClaim, claimAllTeamRewards, claimTeamReward, grantFavorite, hasCrest, hasKit, teamCaptain, teamMembers, teamProgress, type TeamRewardKind } from '../systems/teamRewards';
 import { buyOffer, isBought as isOfferBought, msToNextDay, msToNextWeek, PRICE, rollDaily, type Offer } from '../systems/dailyShop';
 import { rankDef, RANKS, RANK_ORDER } from '../systems/difficulty';
-import { squadCombos, COMBOS } from '../systems/combos';
+import { squadCombos, COMBOS, playsAs } from '../systems/combos';
 import { CLUB_CHEMISTRY, kitBonus } from '../systems/kitBonus';
 import { squadPotential } from '../systems/synergy';
 import { championsTable, recordTriumph } from '../systems/hallOfFame';
@@ -1828,11 +1828,13 @@ export class App {
     for (const q of squad) { const an = this.auraEntryOf(q.id)?.name; if (an) carrierOfName.set(an, q.name); }
     const combos = squadCombos(squad, [...carrierOfName.keys()]).map((c) => {
       const who = c.combo.needs.map((n) => {
-        const x = squad.find((q) => q.name === n.player) ?? byName.get(n.player);
-        const self = squad.some((q) => q.name === n.player), via = !self ? carrierOfName.get(n.player) : undefined, here = self || !!via;
+        // Fix 1.51: a counterpart (Xene for Xavier, Shawn + Axel for Shawn...) plays the part too
+        const x = squad.find((q) => playsAs(q.name, n.player)) ?? byName.get(n.player);
+        const self = squad.some((q) => playsAs(q.name, n.player)), viaKey = !self ? [...carrierOfName.keys()].find((an) => playsAs(an, n.player)) : undefined;
+        const via = viaKey ? carrierOfName.get(viaKey) : undefined, here = self || !!via;
         return `<span class="cb-who${here ? '' : ' miss'}${via ? ' via-aura' : ''}" title="${esc(n.player)}${via ? ` (Aura de ${esc(via)})` : here ? '' : ' (no está en el equipo)'}">${x ? this.mug(x.id, 40) : ''}<small>${via ? '✦ ' : ''}${esc(n.player.split(' ')[0])}</small></span>`;
       }).join('<i class="cb-link">🔗</i>');
-      const auraNote = c.viaAura.length ? ` · ✦ ${c.viaAura.map((n) => `${n.split(' ')[0]} como Aura de ${(carrierOfName.get(n) ?? '').split(' ')[0]}`).join(', ')}` : '';
+      const auraNote = c.viaAura.length ? ` · ✦ ${c.viaAura.map((n) => `${n.split(' ')[0]} como Aura de ${(carrierOfName.get([...carrierOfName.keys()].find((an) => playsAs(an, n)) ?? n) ?? '').split(' ')[0]}`).join(', ')}` : '';
       return `<div class="cb-card${c.ready ? ' ready' : ''}${c.viaAura.length ? ' with-aura' : ''}" style="--ec:${ELEMENT_COLOR[c.combo.element] ?? '#ffe27a'}"><div class="cb-team">${who}</div>
         <div class="cb-info"><b>${esc(c.combo.name)}</b><small>${c.ready ? `¡Lista! Se aprende en la partida cuando sus técnicas llegan al nivel ${Math.max(...c.combo.needs.map((n) => n.level))}${esc(auraNote)}` : `Falta: ${esc(c.missing.join(', '))}${esc(auraNote)}`}</small></div></div>`;
     }).join('');
@@ -1880,7 +1882,7 @@ export class App {
     const inh = inheritedTechs(p, ae);
     const sq = squadOf(this.save, this.byId);
     const auraNames = sq.map((x) => this.auraEntryOf(x.id)?.name).filter((x): x is string => !!x);
-    const joint = squadCombos(sq, auraNames).filter((c) => c.combo.needs.some((n) => n.player === ae.name) && c.combo.needs.some((n) => n.player === p.name || sq.some((q) => q.name === n.player)));
+    const joint = squadCombos(sq, auraNames).filter((c) => c.combo.needs.some((n) => playsAs(ae.name, n.player)) && c.combo.needs.some((n) => playsAs(p.name, n.player) || sq.some((q) => playsAs(q.name, n.player))));
     const rows = STAT_INFO.map((si) => {
       const k = si.key as StatKey, own = s.own?.[k] ?? 0, add = b.add[k] ?? 0, tot = Math.min(EFFECTIVE_STAT_MAX, own + add);
       return `<tr class="${add ? 'up' : ''}"><th>${si.name}</th><td>${own}</td><td class="ai-add">${add ? `+${add}` : '—'}</td><td><b>${tot}</b><small>/${add ? EFFECTIVE_STAT_MAX : 99}</small></td><td class="ai-from">${add ? `${b.from[k]} × ${Math.round(b.pct * 100)}%` : ''}</td></tr>`;
@@ -3877,12 +3879,13 @@ export class App {
     recordRun(this.save, r);
     recordMastery(this.save, r.techById ?? {});
     const runId = r.runId ?? `${Date.now()}`;
-    const best = recordBest(this.save, runId, { map: r.mapId, rank: r.rank ?? 'C', time: Math.floor(r.timeSec), damage: r.damage ?? 0, captainId: r.captainId ?? 0, at: new Date().toISOString() });
+    // Fix 1.51 (author): only a completed run (the arena won, endless survival after it included) counts for the ranking
+    const best = r.victory && recordBest(this.save, runId, { map: r.mapId, rank: r.rank ?? 'C', time: Math.floor(r.timeSec), damage: r.damage ?? 0, captainId: r.captainId ?? 0, at: new Date().toISOString() });
     if (best) records.push('ranking');
     if (r.victory) recordTriumph(this.save, { runId, at: new Date().toISOString(), map: r.mapId, rank: r.rank ?? 'C', team: r.teamIds ?? (r.captainId ? [r.captainId] : []),
       time: Math.floor(r.timeSec), kills: r.kills, damage: r.damage ?? 0, endless: Math.floor(r.endlessSec ?? 0) });
     this.persist();
-    if (onlineConfigured() && signedIn() && this.save.onlineName) {
+    if (r.victory && onlineConfigured() && signedIn() && this.save.onlineName) {
       submitScore(runId, r.mapId, r.rank ?? 'C', r.timeSec, r.damage ?? 0, r.captainId ?? 0)
         .then((res) => this.toast(res === 'duplicate' ? 'Esta partida ya estaba en el ranking' : 'Marca enviada al ranking global'))
         .catch((err: Error) => this.toast(`Ranking: ${err.message}`, 4000));

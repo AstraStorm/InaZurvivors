@@ -32,10 +32,10 @@ import { teamLabel as kitTeamLabel } from '../data/sagas';
 import { HERO_AURA } from '../systems/ascension';
 import { dragon, handKind, keeperHand } from './fxTech';
 import { orphans } from '../systems/groundSweep';
-import { chaosMeteorCharge, chaosMeteorShot, chaosVortex, fireStormCharge, fireStormShot, earthGlobe, elementBurst, fireIceTwin, phoenix, phoenixFlight, setLowPower, teamBeams } from './fxManif';
+import { chaosMeteorCharge, chaosMeteorShot, fireStormCharge, fireStormShot, earthGlobe, elementBurst, fireIceTwin, phoenix, phoenixFlight, setLowPower, teamBeams } from './fxManif';
 import { blackAshCharge, blackAshTrail, illusionBall, signatureOf, stormZone } from './fxSignature';
 import { natureArea, natureCharge, natureOf, natureShot, setNatureLowPower } from './fxNature';
-import { animeCharge, animeOf, animeShot, auroraVeil, breezeStep, godWindGust } from './fxAnime';
+import { animeCharge, animeOf, animeShot, auroraVeil, breezeStep, chaosBreakCharge, chaosBreakShot, fireBlizzardCharge, fireBlizzardShot, godWindGust } from './fxAnime';
 import { adaptedPassive, CAP_ELEMENTAL, CAP_LAST_STAND, emptyFx, TALENTS, talentScale, type TalentFx } from '../systems/talents';
 import { COMBOS, COMBOS_BY_PRIORITY, COMBO_MAX_LEVEL, comboCast, comboDamage, comboMembers, comboReady, type ComboDef } from '../systems/combos';
 import { AURA_ELEMENT_BONUS, AURA_TECH_DAMAGE } from '../systems/auras';
@@ -965,7 +965,7 @@ export class ArenaScene extends Phaser.Scene {
     const style = fxStyle(t);
     const [c1, c2] = STYLE_COLORS[style];
     // Fix 1.12: the participants send their power to the meeting point and each combination has its own manifestation
-    const wind = def.effect === 'tierra' || def.effect === 'tierra-inf' ? 900 : def.effect === 'caos' || def.effect === 'fenix' || def.effect === 'aurora' ? 700 : 360;
+    const wind = def.effect === 'tierra' || def.effect === 'tierra-inf' || def.effect === 'bigbang' ? 900 : def.effect === 'caos' || def.effect === 'fenix' || def.effect === 'aurora' ? 700 : 360;
     // v1.5: a participant carried as Aura appears beside its carrier for the technique only, then fades away
     const ghosts: { x: number; y: number }[] = [];
     for (const c of comboCast(def, who)) {
@@ -997,10 +997,12 @@ export class ArenaScene extends Phaser.Scene {
     }
     teamBeams(this, who.map((m) => ({ x: m.f.x, y: m.f.y - 12 })), mx, my, c1, wind);
     if (def.effect === 'tierra' || def.effect === 'tierra-inf') { earthGlobe(this, mx, my - 40, 26 + level * 2, wind, def.effect === 'tierra-inf'); this.fx.pillar(mx, my + 10, 0xfff0a0, 8 + level); }
-    else if (def.effect === 'caos') chaosVortex(this, mx, my - 20, 34 + level * 2, wind);
-    else if (def.effect === 'ventisca' || def.effect === 'tiro-doble') fireIceTwin(this, mx, my, 30 + level * 2, wind);
+    else if (def.effect === 'caos') chaosBreakCharge(this, mx, my, 34 + level * 2, wind); // v1.5: its own chaos vortex
+    else if (def.effect === 'ventisca') fireBlizzardCharge(this, mx, my, 30 + level * 2, wind); // v1.5: half fire, half ice
+    else if (def.effect === 'tiro-doble') fireIceTwin(this, mx, my, 30 + level * 2, wind);
     else if (def.effect === 'fenix') phoenix(this, mx, my, 40 + level * 3, wind);
     else if (def.effect === 'aurora') auroraVeil(this, mx, my, 30 + level * 2, wind); // v1.5: La Aurora
+    else if (def.effect === 'bigbang') animeCharge(this, 'bigbang', mx, my + 10, 4 + level, wind); // Fix 1.51: the atom and its sun
     this.fx.ring(mx, my, 34, c2, 360, 3);
     this.fx.label(mx, my - 30, def.name, '#ffe24a');
     sfx('evolve');
@@ -1023,6 +1025,10 @@ export class ArenaScene extends Phaser.Scene {
         const scale = 1.7 + level * 0.1;
         const aura = this.add.circle(mx, my, 8 * scale, color, 0.4).setDepth(8900).setBlendMode(Phaser.BlendModes.ADD);
         const ball = this.add.image(mx, my, recipe.ballTexture).setScale(scale).setDepth(8901);
+        if (def.effect === 'ventisca') fireBlizzardShot(this, ball, level, off > 0 ? 'ice' : 'fire'); // v1.5
+        // Remate caótico is one ball in the scene: the second one keeps its damage but is not drawn
+        else if (def.effect === 'bigbang') animeShot(this, 'bigbang', ball, 4 + level); // Fix 1.51: immense ball and explosion
+        else if (def.effect === 'caos') { if (off > 0) { ball.setVisible(false); aura.setVisible(false); } else chaosBreakShot(this, ball, level); }
         this.projectiles.push({ ball, aura, x: mx, y: my, vx: Math.cos(ang) * speed, vy: Math.sin(ang) * speed, t: 0,
           traj: twin ? 'espiral' : 'recta' as Trajectory, style: twin && off > 0 ? 'hielo' : style,
           damage: dmg, pierce: 4 + level, life: 1700, hits: new Set(), knock: 120, level: 6 + level, explode: true, scale, phase: off * 10,
@@ -1046,7 +1052,10 @@ export class ArenaScene extends Phaser.Scene {
     const style = m.styles[i];
     const traj = m.trajs[i];
     const big = (t.power ?? 0) >= 60;
-    const count = s.count + (traj === 'multiple' ? 1 : 0);
+    // Fix 1.51 (author): Supernova throws 1 sphere, 2 from level 5 and 3 at level 10, each at a different rival
+    const nova = animeOf(t.name) === 'supernova';
+    const count = nova ? (lv >= 10 ? 3 : lv >= 5 ? 2 : 1) : s.count + (traj === 'multiple' ? 1 : 0);
+    const novaTargets = nova ? [...this.enemies].filter((e) => !e.dead).sort((p, q) => Math.hypot(p.pos.x - ox, p.pos.y - oy) - Math.hypot(q.pos.x - ox, q.pos.y - oy)).slice(0, count) : [];
     const base = Math.atan2(target.pos.y - 12 - oy, target.pos.x - ox);
     sfx('kick');
     // release: short burst at the foot
@@ -1075,7 +1084,8 @@ export class ArenaScene extends Phaser.Scene {
       return;
     }
     for (let k = 0; k < count; k++) {
-      const a = base + (k - (count - 1) / 2) * 0.2;
+      const nt = novaTargets[k % Math.max(1, novaTargets.length)];
+      const a = nova && nt ? Math.atan2(nt.pos.y - 12 - oy, nt.pos.x - ox) : base + (k - (count - 1) / 2) * 0.2;
       const scale = (big ? 1.3 : 1) * (1 + 0.05 * (lv - 1)) * (1 + recipe.tier * 0.12) * recipe.ballScale;
       const c1 = recipe.id === 'supernova' ? 0xbfa8ff : STYLE_COLORS[style][0];
       let x = ox, y = oy, vx = Math.cos(a) * s.speed, vy = Math.sin(a) * s.speed;
@@ -1090,10 +1100,12 @@ export class ArenaScene extends Phaser.Scene {
       const nat = natureOf(t.name);
       if (nat) natureShot(this, nat, ball, lv, { x: target.pos.x, y: target.pos.y - 10 }, k === 0);
       const anime = animeOf(t.name);
-      if (k === 0 && anime && anime !== 'brisa') animeShot(this, anime, ball, lv);
+      if ((k === 0 || anime === 'supernova') && anime && anime !== 'brisa') animeShot(this, anime, ball, lv); // every Supernova sphere has its whirl and eye
+      // Fix 1.51: Big Bang always explodes, over twice the usual area (its explosion fills the screen)
+      const bigBang = anime === 'bigbang';
       this.projectiles.push({ ball, aura, x, y, vx, vy, t: 0, traj, style, damage: s.damage, pierce: s.pierce, life: 1500,
-        hits: new Set(), knock: s.knockback, level: lv, explode: big || s.explodes || recipe.tier >= 2, scale, targetY, phase: k * 1.7,
-        dragon: recipe.id === 'dragon', recipe, blast: s.radius });
+        hits: new Set(), knock: s.knockback, level: lv, explode: bigBang || big || s.explodes || recipe.tier >= 2, scale, targetY, phase: k * 1.7,
+        dragon: recipe.id === 'dragon', recipe, blast: bigBang ? s.radius * 2.4 + 30 : s.radius });
     }
   }
 

@@ -5,7 +5,8 @@
  */
 import type { Rarity, Technique } from '../data/manifest';
 import { fxStyle, trajectory, STYLE_COLORS, type Fx, type FxStyle } from './fx';
-import { angelWings, boltStorm, energyOrb, flames, funnel, iceSpikes, phoenix, shadows, starburst } from './fxManif';
+import { holyLight } from './fxAnime';
+import { boltStorm, energyOrb, flames, funnel, iceSpikes, phoenix, shadows, starburst } from './fxManif';
 
 export type RecipeId = 'fuego' | 'demonio' | 'supernova' | 'tornado' | 'dragon' | 'fenix' | 'meteoro' | 'rayo' | 'hielo' | 'sombra' | 'divino' | 'canon' | 'basico';
 
@@ -41,6 +42,9 @@ export function recipeFor(t: Pick<Technique, 'name' | 'element' | 'power'>, rari
                 : (t.power ?? 0) >= 60 ? 'canon' : 'basico';
   const tier = techTier(t, rarity);
   // v1.5: Viento celestial is wind, not a divine move: its charge and gust are its own (fxAnime godWindGust)
+  // Fix 1.51: Supernova draws its own X and dark-matter sphere (fxAnime 'supernova'), not the generic star burst
+  if (/^big ?bang$/i.test(n.trim())) return { id: 'supernova', tier, style: 'fuego' as FxStyle, windupSec: 0.75 + tier * 0.05, ballTexture: 'fx:ball', ballScale: 1.3, own: true }; // Fix 1.51: its own atom and explosion
+  if (/^supernova$/i.test(n.trim())) return { id: 'supernova', tier, style: 'energia' as FxStyle, windupSec: WINDUP.supernova + tier * 0.05, ballTexture: 'fx:nova', ballScale: 1.1, own: true };
   // v1.5: Tornado de fuego draws its own spiral of flame (fxAnime), not the generic funnel of «tornado»
   if (/tornado de fuego|fire ?tornado/i.test(n)) return { id: 'tornado', tier, style: 'fuego' as FxStyle, windupSec: WINDUP.tornado + tier * 0.05, ballTexture: 'fx:ball', ballScale: 1, own: true };
   if (/viento celestial|god ?wind/i.test(n)) return { id: 'tornado', tier, style: 'viento' as FxStyle, windupSec: WINDUP.tornado + tier * 0.05, ballTexture: 'fx:ball', ballScale: 1, own: true };
@@ -55,7 +59,7 @@ export function charge(fx: Fx, r: Recipe, x: number, y: number, level: number) {
   // Fix 1.11: a drawn manifestation per family, on top of the particles below (fxManif.ts)
   const size = (22 + level * 2) * (1 + r.tier * 0.18), w = fx.world, hold = ms + 160;
   const manifest: Partial<Record<RecipeId, () => void>> = {
-    fuego: () => flames(w, x, y, size, hold), fenix: () => phoenix(w, x, y, size * 1.3, hold, c1, c2), divino: () => angelWings(w, x, y, size * 1.2, hold),
+    fuego: () => flames(w, x, y, size, hold), fenix: () => phoenix(w, x, y, size * 1.3, hold, c1, c2), divino: () => holyLight(w, x, y, size * 1.2, hold), // Fix 1.51: light that strikes, no more angel wings
     tornado: () => funnel(w, x, y, size, hold, c1, c2), supernova: () => starburst(w, x, y, size, hold), rayo: () => boltStorm(w, x, y, size, hold),
     hielo: () => iceSpikes(w, x, y, size, hold), sombra: () => shadows(w, x, y, size, hold), canon: () => energyOrb(w, x, y, size, hold, c1),
     meteoro: () => energyOrb(w, x, y - 30, size * 0.8, hold, c2), basico: () => energyOrb(w, x, y, size * 0.6, hold, c1),
@@ -103,7 +107,6 @@ export function charge(fx: Fx, r: Recipe, x: number, y: number, level: number) {
       break;
     case 'sombra':
       fx.gather(x, y - 12, c1, c2, 10 + level, 36, ms);
-      if (r.tier) fx.summon('fx:wings', x, y - 14, 0x5a2a90, 0.8 + r.tier * 0.3, ms + 100);
       break;
     case 'canon':
       fx.pillar(x, y + 4, c1, level + 2);

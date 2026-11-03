@@ -25,13 +25,15 @@ const ADD = Phaser.BlendModes.NORMAL;
 const rnd = (a: number, b: number) => a + Math.random() * (b - a);
 const BREEZE = 0xc8ffe0, BREEZE2 = 0x7fffc0, GOLD = 0xffd23f, GOLD2 = 0xfff2a0, FIRE = 0xff7a1a, FIRE2 = 0xffd04a;
 
-export type AnimeMove = 'brisa' | 'godwind' | 'tth' | 'fuego' | 'ciclon' | 'tfuego';
+export type AnimeMove = 'brisa' | 'godwind' | 'tth' | 'fuego' | 'ciclon' | 'tfuego' | 'supernova' | 'bigbang';
 export function animeOf(name: string): AnimeMove | null {
   if (/brisa deslizante|easy breezy|soyokaze/i.test(name)) return 'brisa';
   if (/viento celestial|god ?wind/i.test(name)) return 'godwind';
   if (/tormenta,? tornado,? hurac[aá]n|storm.?tornado.?hurricane/i.test(name)) return 'tth';
   if (/tormenta de fuego|bakunetsu storm|fire ?storm/i.test(name)) return 'fuego';
   if (/tornado de fuego|fire ?tornado|fire tornado/i.test(name)) return 'tfuego';
+  if (/^supernova$/i.test(name.trim())) return 'supernova';
+  if (/^big ?bang$/i.test(name.trim())) return 'bigbang'; // the combined technique (Xavier, Jude, Shawn), not «Corte Big Bang»
   if (/cicl[oó]n blanco|hurac[aá]n blanco|white hurricane/i.test(name)) return 'ciclon';
   return null;
 }
@@ -175,6 +177,60 @@ export function animeCharge(scene: S, kind: AnimeMove, x: number, y: number, lev
       }
       break;
     }
+    case 'bigbang': { // Fix 1.51, from the scene: a white-blue vortex, an atom forms (nucleus and three orbits) and swells into a sun
+      const cx = x, cy = y - 26;
+      const g = scene.add.graphics().setDepth(AIR + 1).setBlendMode(ADD);
+      const st = { t: 0 };
+      scene.tweens.add({ targets: st, t: 1, duration: ms, ease: 'Sine.easeIn', onUpdate: () => {
+        g.clear();
+        const k = st.t, grow = 0.6 + k * 1.6, rot = k * 14;
+        for (let o = 0; o < 3; o++) { // the three orbits, tilted 60° apart, each with its electron
+          const tilt = o * (Math.PI / 3), rx = 22 * grow, ry = 7 * grow;
+          g.lineStyle(2, o === 1 ? 0x7fd3ff : 0xffffff, 0.75);
+          let px = 0, py = 0;
+          for (let i = 0; i <= 24; i++) {
+            const a = (i / 24) * Math.PI * 2, ex = Math.cos(a) * rx, ey = Math.sin(a) * ry;
+            const qx = cx + ex * Math.cos(tilt) - ey * Math.sin(tilt), qy = cy + ex * Math.sin(tilt) + ey * Math.cos(tilt);
+            if (i) g.lineBetween(px, py, qx, qy);
+            px = qx; py = qy;
+          }
+          const a = rot * (1 + o * 0.3) + o * 2, ex = Math.cos(a) * rx, ey = Math.sin(a) * ry;
+          g.fillStyle(0x7fd3ff, 1).fillCircle(cx + ex * Math.cos(tilt) - ey * Math.sin(tilt), cy + ex * Math.sin(tilt) + ey * Math.cos(tilt), 3);
+        }
+        g.fillStyle(0xffd27a, 0.5).fillCircle(cx, cy, 9 * grow); // the nucleus swelling into a sun
+        g.fillStyle(0xffffff, 0.95).fillCircle(cx, cy, 5 * grow);
+      }, onComplete: () => {
+        g.destroy();
+        const sun = scene.add.circle(cx, cy, 30, 0xfff2c0, 0.95).setDepth(AIR + 2).setBlendMode(ADD);
+        scene.tweens.add({ targets: sun, scale: 2.4, alpha: 0, duration: 260, onComplete: () => sun.destroy() });
+        rays(scene, cx, cy, 18, 0xffb04a, 90 + level * 4, 320);
+      } });
+      for (let k = 0; k < 14; k++) { // the white-blue vortex winding in
+        const s = scene.add.image(cx, cy, streakTex(scene)).setDepth(AIR).setBlendMode(ADD).setTint(k % 3 ? 0xffffff : 0x7fd3ff).setAlpha(0).setScale(1.1);
+        const t0 = { t: 0 }, a0 = (k / 14) * Math.PI * 2;
+        scene.tweens.add({ targets: t0, t: 1, delay: k * 20, duration: ms * 0.85, ease: 'Sine.easeIn',
+          onUpdate: () => { const a = a0 + t0.t * 7, r = 90 * (1 - t0.t) + 10; s.setPosition(cx + Math.cos(a) * r, cy + Math.sin(a) * r * 0.6).setRotation(a + Math.PI / 2).setAlpha(Math.sin(t0.t * Math.PI)); },
+          onComplete: () => s.destroy() });
+      }
+      break;
+    }
+    case 'supernova': { // Fix 1.51, from the scene: the kick draws a great X of orange-white energy with a beam down its middle
+      const cx = x, cy = y - 18, L = 46 + level * 3;
+      const beams = [Math.PI / 4, -Math.PI / 4, Math.PI / 2].map((a, i) => {
+        const b = scene.add.rectangle(cx, cy, L * (i === 2 ? 1.6 : 2.2), i === 2 ? 5 : 7, i === 2 ? 0xffffff : 0xffb04a, 0.95).setRotation(a).setDepth(AIR + 1).setBlendMode(ADD).setScale(0, 1);
+        const glow = scene.add.rectangle(cx, cy, L * (i === 2 ? 1.6 : 2.2), i === 2 ? 12 : 16, 0xff5a1a, 0.35).setRotation(a).setDepth(AIR).setBlendMode(ADD).setScale(0, 1);
+        scene.tweens.add({ targets: [b, glow], scaleX: 1, delay: ms * 0.45 + i * 60, duration: 160, ease: 'Cubic.easeOut' });
+        [b, glow].forEach((o) => fade(scene, o, ms * 0.45 + 360, 200));
+        return b;
+      });
+      void beams;
+      scene.time.delayedCall(ms * 0.45, () => { const f = scene.add.circle(cx, cy, 10, 0xffffff, 1).setDepth(AIR + 2).setBlendMode(ADD); scene.tweens.add({ targets: f, scale: 3.5, alpha: 0, duration: 300, onComplete: () => f.destroy() }); });
+      for (let k = 0; k < 8 + level; k++) { // star dust drawn in before the kick
+        const a = rnd(0, Math.PI * 2), d = rnd(30, 60), p = scene.add.circle(cx + Math.cos(a) * d, cy + Math.sin(a) * d * 0.7, rnd(1, 2), k % 3 ? 0xd8c8ff : 0xffffff, 1).setDepth(AIR).setBlendMode(ADD);
+        scene.tweens.add({ targets: p, x: cx, y: cy, alpha: 0.2, delay: rnd(0, ms * 0.3), duration: ms * 0.35, ease: 'Sine.easeIn', onComplete: () => p.destroy() });
+      }
+      break;
+    }
     case 'tfuego': { // v1.5: he spins up inside a spiral of flame; a ring of fire stays at his feet
       const ring = scene.add.ellipse(x, y + 4, 18, 7).setStrokeStyle(3, FIRE, 0.9).setDepth(y + 1).setBlendMode(ADD);
       scene.tweens.add({ targets: ring, scaleX: 2.4, scaleY: 2.4, duration: ms * 0.6, ease: 'Cubic.easeOut' });
@@ -306,6 +362,165 @@ export function auroraVeil(scene: S, x: number, y: number, size: number, ms: num
   }
 }
 
+/**
+ * Fix 1.51 (author: «las alas esas, horribles»): the divine family (celestial, sagrado, ángel, divino...) no longer opens
+ * angel wings. A circle of holy light opens on the ground, beams of light fall around the player, motes rise and a halo
+ * crowns him: light that strikes, not decoration.
+ */
+export function holyLight(scene: S, x: number, y: number, size: number, ms: number) {
+  const ring = scene.add.ellipse(x, y + 4, size * 0.6, size * 0.22).setStrokeStyle(3, GOLD2, 0.95).setDepth(y + 1).setBlendMode(ADD);
+  const disc = scene.add.ellipse(x, y + 4, size * 0.6, size * 0.22, 0xfff2c0, 0.18).setDepth(y).setBlendMode(ADD);
+  scene.tweens.add({ targets: [ring, disc], scaleX: 2.6, scaleY: 2.6, duration: ms * 0.5, ease: 'Cubic.easeOut' });
+  [ring, disc].forEach((o) => fade(scene, o, ms * 0.75, 220));
+  for (let k = 0; k < 6; k++) { // beams of light falling around him, one after another
+    const a = (k / 6) * Math.PI * 2, bx = x + Math.cos(a) * size * 0.8, by = y + 4 + Math.sin(a) * size * 0.3;
+    const beam = scene.add.rectangle(bx, by, 6, 70, 0xfff6d0, 0.85).setOrigin(0.5, 1).setDepth(by).setBlendMode(ADD).setScale(1, 0);
+    scene.tweens.add({ targets: beam, scaleY: 1, alpha: { from: 0.95, to: 0 }, delay: (k / 6) * ms * 0.6, duration: 260, ease: 'Cubic.easeOut', onComplete: () => beam.destroy() });
+    scene.time.delayedCall((k / 6) * ms * 0.6 + 120, () => { const f = scene.add.circle(bx, by, 4, 0xffffff, 0.9).setDepth(by).setBlendMode(ADD); scene.tweens.add({ targets: f, scale: 3, alpha: 0, duration: 260, onComplete: () => f.destroy() }); });
+  }
+  for (let k = 0; k < 10; k++) { // motes rising
+    const m = scene.add.circle(x + rnd(-size * 0.6, size * 0.6), y + rnd(-2, 6), rnd(1.2, 2.2), k % 2 ? GOLD2 : 0xffffff, 1).setDepth(AIR).setBlendMode(ADD);
+    scene.tweens.add({ targets: m, y: m.y - rnd(30, 60), alpha: 0, delay: rnd(0, ms * 0.6), duration: rnd(400, 700), onComplete: () => m.destroy() });
+  }
+  const halo = scene.add.ellipse(x, y - 30, 18, 6).setStrokeStyle(2, GOLD, 1).setDepth(AIR).setBlendMode(ADD).setAlpha(0);
+  scene.tweens.add({ targets: halo, alpha: 1, y: y - 34, duration: ms * 0.4, yoyo: true, hold: ms * 0.3, onComplete: () => halo.destroy() });
+}
+
+// ------------------------------------------------------------------ v1.5: Ventisca de fuego and Remate caótico
+// Both redrawn from their anime scenes, watched frame by frame (author's request, links to the scenes in the changelog).
+const ICE = 0x9fe8ff, ICE2 = 0xffffff, SUN = 0xfff6d0;
+
+/** a spiral arm (fire or ice/wind) behind a point, redrawn each frame: thick near the centre, thin at the tail */
+function spiralArm(g: Phaser.GameObjects.Graphics, x: number, y: number, ang: number, rot: number, len: number, rMax: number, color: number, alpha: number) {
+  const back = ang + Math.PI;
+  let px = x, py = y;
+  for (let i = 1; i <= 18; i++) {
+    const u = i / 18, a = rot + u * Math.PI * 1.7, r = 4 + u * rMax;
+    const cx = x + Math.cos(back) * u * len, cy = y + Math.sin(back) * u * len;
+    const nx = cx + Math.cos(a) * r, ny = cy + Math.sin(a) * r * 0.75;
+    g.lineStyle(Math.max(1, (1 - u) * 7), color, alpha * (1 - u * 0.7)).lineBetween(px, py, nx, ny);
+    px = nx; py = ny;
+  }
+}
+
+/**
+ * Ventisca de fuego (Fire Blizzard), from the scene: the two leap towards the sun wrapped in a whirl of white-blue wind
+ * (blizzard rings around their legs); the double kick is a burst of golden speed rays inside a big orange ring of fire.
+ */
+export function fireBlizzardCharge(scene: S, x: number, y: number, size: number, ms: number) {
+  const top = y - size * 1.4;
+  for (let k = 0; k < 7; k++) { // blizzard rings rising around the jump
+    const ring = scene.add.ellipse(x + rnd(-6, 6), y - 4, size * 0.9, size * 0.32).setStrokeStyle(3, k % 2 ? ICE : ICE2, 0.9).setDepth(AIR).setBlendMode(ADD).setAlpha(0);
+    scene.tweens.add({ targets: ring, y: top + k * 4, alpha: { from: 0.9, to: 0 }, scaleX: 0.5, scaleY: 0.5, delay: k * (ms * 0.08), duration: ms * 0.55, ease: 'Sine.easeOut', onComplete: () => ring.destroy() });
+  }
+  for (let k = 0; k < 12; k++) { // white-blue wind streaks spiralling up
+    const s = scene.add.image(x, y, streakTex(scene)).setDepth(AIR).setBlendMode(ADD).setTint(k % 3 ? ICE2 : ICE).setAlpha(0).setScale(0.8);
+    const st = { t: 0 }, a0 = (k / 12) * Math.PI * 2;
+    scene.tweens.add({ targets: st, t: 1, delay: k * 25, duration: ms * 0.75, ease: 'Sine.easeOut',
+      onUpdate: () => { const a = a0 + st.t * 8, r = size * (0.55 - st.t * 0.25); s.setPosition(x + Math.cos(a) * r, y - st.t * size * 1.3 + Math.sin(a) * r * 0.35).setRotation(a + Math.PI / 2).setAlpha(Math.sin(st.t * Math.PI)); },
+      onComplete: () => s.destroy() });
+  }
+  scene.time.delayedCall(ms * 0.85, () => { // the double kick: golden speed rays in a ring of fire
+    rays(scene, x, top, 16, GOLD2, size * 1.6, 320);
+    const fireRing = scene.add.circle(x, top, size * 0.35).setStrokeStyle(6, FIRE, 1).setDepth(AIR + 1).setBlendMode(ADD);
+    scene.tweens.add({ targets: fireRing, scale: 3.2, alpha: 0, duration: 380, ease: 'Cubic.easeOut', onComplete: () => fireRing.destroy() });
+    const flash = scene.add.circle(x, top, size * 0.3, 0xffffff, 0.9).setDepth(AIR + 2).setBlendMode(ADD);
+    scene.tweens.add({ targets: flash, scale: 2, alpha: 0, duration: 220, onComplete: () => flash.destroy() });
+  });
+}
+
+/**
+ * In flight, as in the scene: the ball drills ahead with a great double spiral behind it — an arm of orange fire and an
+ * arm of white-blue wind, wound round each other like a galaxy. One arm per ball (the two balls spiral together).
+ */
+export function fireBlizzardShot(scene: S, ball: Img, level: number, kind: 'fire' | 'ice') {
+  const g = scene.add.graphics().setDepth(AIR).setBlendMode(ADD);
+  const core = scene.add.circle(ball.x, ball.y, 9, kind === 'fire' ? FIRE2 : ICE2, 0.55).setDepth(AIR + 1).setBlendMode(ADD);
+  const col = kind === 'fire' ? FIRE : ICE, col2 = kind === 'fire' ? FIRE2 : ICE2;
+  ride(scene, ball, (bx, by, ang, t) => {
+    g.clear();
+    const rot = t * 14 + (kind === 'ice' ? Math.PI : 0), rMax = 18 + level * 1.2;
+    spiralArm(g, bx, by, ang, rot, 46, rMax, col, 0.9);
+    spiralArm(g, bx, by, ang, rot + 0.35, 40, rMax * 0.8, col2, 0.6);
+    core.setPosition(bx, by).setScale(1 + Math.sin(t * 26) * 0.12);
+  }, (bx, by) => {
+    g.destroy();
+    for (let k = 0; k < 10; k++) {
+      const a = (k / 10) * Math.PI * 2;
+      const s = kind === 'ice' ? scene.add.rectangle(bx, by, 3, 10, k % 2 ? ICE : ICE2, 1).setRotation(a + Math.PI / 2) : scene.add.circle(bx, by, rnd(2.5, 4), k % 2 ? FIRE : FIRE2, 1);
+      s.setDepth(AIR).setBlendMode(ADD);
+      scene.tweens.add({ targets: s, x: bx + Math.cos(a) * rnd(18, 32), y: by + Math.sin(a) * rnd(10, 18), alpha: 0, duration: 340, onComplete: () => s.destroy() });
+    }
+    scene.tweens.add({ targets: core, alpha: 0, scale: 2.4, duration: 220, onComplete: () => core.destroy() });
+  });
+}
+
+/**
+ * Remate caótico (Chaos Break), from the scene: the ball goes up and turns into a white-gold sun (halo and long rays);
+ * the three rise to it through streaks of orange flame and kick it together in a fan of golden flares, then a white flash.
+ */
+export function chaosBreakCharge(scene: S, x: number, y: number, size: number, ms: number) {
+  const sy = y - size * 1.6;
+  const sun = scene.add.circle(x, sy, size * 0.22, SUN, 0.95).setDepth(AIR + 1).setBlendMode(ADD).setScale(0.3);
+  const halo = scene.add.circle(x, sy, size * 0.75).setStrokeStyle(3, SUN, 0.7).setDepth(AIR + 1).setBlendMode(ADD).setScale(0.3).setAlpha(0);
+  scene.tweens.add({ targets: sun, scale: 1, duration: ms * 0.4, ease: 'Back.easeOut' });
+  scene.tweens.add({ targets: halo, scale: 1, alpha: 0.8, duration: ms * 0.45, ease: 'Cubic.easeOut' });
+  rays(scene, x, sy, 12, SUN, size * 1.7, ms * 0.5);
+  for (let k = 0; k < 9; k++) { // flame streaks rising towards the sun (the three flying up)
+    const s = scene.add.image(x + rnd(-size, size), y + rnd(-4, 8), streakTex(scene)).setDepth(AIR).setBlendMode(ADD).setTint(k % 2 ? FIRE : FIRE2).setRotation(-Math.PI / 2).setScale(0.6, 1.4).setAlpha(0);
+    scene.tweens.add({ targets: s, x: x + (s.x - x) * 0.2, y: sy + 10, alpha: { from: 0.9, to: 0 }, delay: ms * 0.25 + k * 25, duration: ms * 0.45, ease: 'Sine.easeIn', onComplete: () => s.destroy() });
+  }
+  scene.time.delayedCall(ms * 0.8, () => { // the triple kick: a fan of golden flares like wings, then the flash
+    for (let k = 0; k < 9; k++) {
+      const a = -Math.PI / 2 + (k - 4) * 0.32, f = scene.add.image(x, sy, streakTex(scene)).setDepth(AIR + 2).setBlendMode(ADD).setTint(k % 2 ? GOLD : GOLD2).setRotation(a + Math.PI / 2).setScale(0.6, 1.8).setAlpha(0.95);
+      scene.tweens.add({ targets: f, x: x + Math.cos(a) * size * 0.9, y: sy + Math.sin(a) * size * 0.9, scaleY: 2.6, alpha: 0, duration: 340, onComplete: () => f.destroy() });
+    }
+    const flash = scene.add.circle(x, sy, size * 0.4, 0xffffff, 1).setDepth(AIR + 3).setBlendMode(ADD);
+    scene.tweens.add({ targets: flash, scale: 4.5, alpha: 0, duration: 300, onComplete: () => flash.destroy() });
+    scene.tweens.add({ targets: [sun, halo], alpha: 0, duration: 200, onComplete: () => { sun.destroy(); halo.destroy(); } });
+  });
+}
+
+/**
+ * In flight, as in the scene: a bright core inside a round whirlpool of blue ice and orange fire turning around the ball
+ * (a disc, not a trail), with speed lines; a white-gold burst at the end.
+ */
+export function chaosBreakShot(scene: S, ball: Img, level: number) {
+  const g = scene.add.graphics().setDepth(AIR).setBlendMode(ADD);
+  const core = scene.add.circle(ball.x, ball.y, 11, SUN, 0.8).setDepth(AIR + 1).setBlendMode(ADD);
+  const R = 22 + level * 1.5;
+  let last = 0;
+  ride(scene, ball, (bx, by, ang, t) => {
+    g.clear();
+    for (let arm = 0; arm < 4; arm++) {
+      const col = arm % 2 ? 0x5aa8ff : FIRE, rot = t * 12 + arm * (Math.PI / 2);
+      let px = bx, py = by;
+      for (let i = 1; i <= 14; i++) {
+        const u = i / 14, a = rot + u * Math.PI * 1.3, r = 6 + u * R;
+        const nx = bx + Math.cos(a) * r, ny = by + Math.sin(a) * r * 0.8;
+        g.lineStyle(Math.max(1, (1 - u) * 6 + 1), u < 0.2 ? 0xffffff : col, 0.85 * (1 - u * 0.6)).lineBetween(px, py, nx, ny);
+        px = nx; py = ny;
+      }
+    }
+    core.setPosition(bx, by).setScale(1 + Math.sin(t * 30) * 0.1);
+    if (scene.time.now - last > 50) { // speed lines past the whirl
+      last = scene.time.now;
+      const l = scene.add.image(bx - Math.cos(ang) * R, by - Math.sin(ang) * R + rnd(-R * 0.6, R * 0.6), streakTex(scene)).setDepth(AIR - 1).setBlendMode(ADD).setTint(0xdff0ff).setRotation(ang).setScale(0.8, 0.5).setAlpha(0.7);
+      scene.tweens.add({ targets: l, x: l.x - Math.cos(ang) * 24, y: l.y - Math.sin(ang) * 24, alpha: 0, duration: 240, onComplete: () => l.destroy() });
+    }
+  }, (bx, by) => {
+    g.destroy();
+    const b = scene.add.circle(bx, by, 14, 0xffffff, 0.95).setDepth(AIR).setBlendMode(ADD);
+    scene.tweens.add({ targets: b, scale: 4.2, alpha: 0, duration: 360, onComplete: () => b.destroy() });
+    [[FIRE, 1], [0x5aa8ff, 1.3]].forEach(([c, s]) => {
+      const r = scene.add.circle(bx, by, 10).setStrokeStyle(4, c as number, 1).setDepth(AIR).setBlendMode(ADD);
+      scene.tweens.add({ targets: r, scale: 4 * (s as number), alpha: 0, duration: 420, onComplete: () => r.destroy() });
+    });
+    rays(scene, bx, by, 12, SUN, 40, 300);
+    scene.tweens.add({ targets: core, alpha: 0, duration: 120, onComplete: () => core.destroy() });
+  });
+}
+
 // ------------------------------------------------------------------ shots: the ball in flight
 export function animeShot(scene: S, kind: AnimeMove, ball: Img, level: number) {
   switch (kind) {
@@ -331,6 +546,81 @@ export function animeShot(scene: S, kind: AnimeMove, ball: Img, level: number) {
         scene.tweens.add({ targets: b, scale: 3.6, alpha: 0, duration: 320, onComplete: () => b.destroy() });
         rays(scene, bx, by, 10, GOLD2, 34, 300);
         scene.tweens.add({ targets: [core, ...bolts], alpha: 0, duration: 200, onComplete: () => { core.destroy(); bolts.forEach((x) => x.destroy()); } });
+      });
+      break;
+    }
+    case 'bigbang': { // Fix 1.51: an immense ball of light with a huge trail of fire, and an explosion that fills the screen
+      const sun = scene.add.circle(ball.x, ball.y, 20 + level, 0xfff2c0, 0.9).setDepth(AIR + 1).setBlendMode(ADD);
+      const rim = scene.add.circle(ball.x, ball.y, 26 + level).setStrokeStyle(4, 0x7fd3ff, 0.8).setDepth(AIR + 1).setBlendMode(ADD);
+      let last = 0;
+      ride(scene, ball, (bx, by, ang, t) => {
+        sun.setPosition(bx, by).setScale(1 + Math.sin(t * 22) * 0.08);
+        rim.setPosition(bx, by).setScale(1 + Math.sin(t * 15) * 0.12);
+        if (scene.time.now - last > 30) {
+          last = scene.time.now;
+          for (let k = 0; k < 3; k++) {
+            const f = scene.add.circle(bx - Math.cos(ang) * (16 + k * 6) + rnd(-10, 10), by - Math.sin(ang) * (16 + k * 6) + rnd(-10, 10), rnd(6, 13), [0xff5a1a, 0xff9a2a, 0xffd04a][k], 0.85).setDepth(AIR).setBlendMode(ADD);
+            scene.tweens.add({ targets: f, x: f.x - Math.cos(ang) * rnd(30, 60), y: f.y - Math.sin(ang) * rnd(30, 60), scale: 0.3, alpha: 0, duration: rnd(380, 560), onComplete: () => f.destroy() });
+          }
+        }
+      }, (bx, by) => {
+        scene.tweens.add({ targets: [sun, rim], alpha: 0, duration: 100, onComplete: () => { sun.destroy(); rim.destroy(); } });
+        scene.cameras.main.shake(420, 0.012);
+        const flash = scene.add.circle(bx, by, 40, 0xffffff, 1).setDepth(AIR + 3).setBlendMode(ADD);
+        scene.tweens.add({ targets: flash, scale: 6, alpha: 0, duration: 420, onComplete: () => flash.destroy() });
+        [[0xffd04a, 0], [0xff5a1a, 80], [0x7fd3ff, 160]].forEach(([c, d]) => {
+          const r = scene.add.circle(bx, by, 16).setStrokeStyle(7, c, 1).setDepth(AIR + 2).setBlendMode(ADD);
+          scene.tweens.add({ targets: r, scale: 10, alpha: 0, delay: d, duration: 620, ease: 'Cubic.easeOut', onComplete: () => r.destroy() });
+        });
+        for (let k = 0; k < 34; k++) {
+          const a = (k / 34) * Math.PI * 2 + rnd(-0.1, 0.1), d = rnd(60, 150);
+          const f = scene.add.circle(bx, by, rnd(5, 11), k % 3 === 0 ? 0xffd04a : k % 3 === 1 ? 0xff5a1a : 0xffffff, 0.95).setDepth(AIR + 1).setBlendMode(ADD);
+          scene.tweens.add({ targets: f, x: bx + Math.cos(a) * d, y: by + Math.sin(a) * d * 0.7, scale: 0.2, alpha: 0, duration: rnd(500, 800), ease: 'Cubic.easeOut', onComplete: () => f.destroy() });
+        }
+        rays(scene, bx, by, 20, 0xfff2c0, 170, 480);
+        const scorch = scene.add.ellipse(bx, by + 8, 120, 46, 0x1a0a00, 0.45).setDepth(by - 1);
+        scene.tweens.add({ targets: scorch, alpha: 0, delay: 900, duration: 800, onComplete: () => scorch.destroy() });
+      });
+      break;
+    }
+    case 'supernova': { // Fix 1.51: a sphere of dark matter in a violet whirl, with a red energy eye at its heart
+      const g = scene.add.graphics().setDepth(AIR + 1);
+      const glow = scene.add.graphics().setDepth(AIR + 2).setBlendMode(ADD);
+      const R = 11 + level * 0.5;
+      let last = 0;
+      ride(scene, ball, (bx, by, ang, t) => {
+        g.clear(); glow.clear();
+        g.fillStyle(0x07020f, 0.95).fillCircle(bx, by, R);
+        for (let arm = 0; arm < 3; arm++) { // the violet whirl around the dark sphere
+          const rot = t * 9 + arm * (Math.PI * 2 / 3);
+          let px = bx + Math.cos(rot) * R, py = by + Math.sin(rot) * R;
+          for (let i = 1; i <= 10; i++) {
+            const u = i / 10, a = rot + u * Math.PI * 1.1, r = R + u * R * 0.9;
+            const nx = bx + Math.cos(a) * r, ny = by + Math.sin(a) * r * 0.85;
+            glow.lineStyle(Math.max(1, (1 - u) * 5), u < 0.3 ? 0xd8a8ff : 0x8a3aff, 0.9 * (1 - u * 0.7)).lineBetween(px, py, nx, ny);
+            px = nx; py = ny;
+          }
+        }
+        // the eye: a red-orange glow with a bright slit, pulsing
+        const pulse = 1 + Math.sin(t * 18) * 0.15;
+        glow.fillStyle(0xff3a1a, 0.55).fillCircle(bx, by, R * 0.55 * pulse);
+        glow.fillStyle(0xffb04a, 0.95).fillEllipse(bx, by, R * 0.35 * pulse, R * 0.9 * pulse);
+        glow.fillStyle(0xffffff, 0.9).fillEllipse(bx, by, R * 0.12, R * 0.55);
+        if (scene.time.now - last > 50) {
+          last = scene.time.now;
+          const d = scene.add.circle(bx - Math.cos(ang) * R, by - Math.sin(ang) * R, rnd(2, 4), Math.random() < 0.5 ? 0x8a3aff : 0x2a0a50, 0.8).setDepth(AIR).setBlendMode(ADD);
+          scene.tweens.add({ targets: d, x: d.x - Math.cos(ang) * 14, y: d.y - Math.sin(ang) * 14, scale: 0.3, alpha: 0, duration: 360, onComplete: () => d.destroy() });
+        }
+      }, (bx, by) => {
+        g.destroy(); glow.destroy();
+        const ring = scene.add.circle(bx, by, 34).setStrokeStyle(4, 0x8a3aff, 1).setDepth(AIR).setBlendMode(ADD);
+        scene.tweens.add({ targets: ring, scale: 0.15, duration: 130, ease: 'Quad.easeIn', onComplete: () => {
+          ring.destroy();
+          const b = scene.add.circle(bx, by, 12, 0xffd8a0, 0.95).setDepth(AIR).setBlendMode(ADD);
+          scene.tweens.add({ targets: b, scale: 3.6, alpha: 0, duration: 340, onComplete: () => b.destroy() });
+          const r2 = scene.add.circle(bx, by, 10).setStrokeStyle(4, 0xb98aff, 1).setDepth(AIR).setBlendMode(ADD);
+          scene.tweens.add({ targets: r2, scale: 4.5, alpha: 0, duration: 420, onComplete: () => r2.destroy() });
+        } });
       });
       break;
     }

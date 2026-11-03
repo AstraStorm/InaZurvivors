@@ -18,7 +18,7 @@
  */
 import { RARITY_ORDER, type Rarity, type RosterEntry, type Technique } from '../data/manifest';
 import { AURA_BONDS, BOND_PCT, type AuraBond } from '../data/auraBonds';
-import { COMBOS } from './combos';
+import { COMBOS, playsAs } from './combos';
 import { effectiveRarity, isHero } from './ascension';
 import { STAT_KEYS, playerStats, type StatKey } from './training';
 import type { SaveData } from './save';
@@ -157,7 +157,7 @@ export function withAura(base: Record<StatKey, number>, b: AuraBonus | null): Re
  */
 export function inheritedTechs(carrier: Pick<RosterEntry, 'techniques'>, aura: Pick<RosterEntry, 'name' | 'techniques'>): Technique[] {
   const known = new Set(carrier.techniques.map((t) => t.name.toLowerCase()));
-  const needed = new Set(COMBOS.flatMap((c) => c.needs.filter((n) => n.player === aura.name && n.tech).map((n) => n.tech!.toLowerCase())));
+  const needed = new Set(COMBOS.flatMap((c) => c.needs.filter((n) => playsAs(aura.name, n.player) && n.tech).map((n) => n.tech!.toLowerCase())));
   const pool = aura.techniques.filter((t) => t.type !== 'talento' && !known.has(t.name.toLowerCase()));
   const seen = new Set<string>();
   return [...pool].sort((a, b) => Number(needed.has(b.name.toLowerCase())) - Number(needed.has(a.name.toLowerCase())) || (b.power ?? 0) - (a.power ?? 0))

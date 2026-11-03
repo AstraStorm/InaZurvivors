@@ -6,7 +6,7 @@
  */
 import { CHANGELOG } from './changelog';
 
-export const PUBLIC_VERSION = '1.5';
+export const PUBLIC_VERSION = '1.51';
 export const BUILD = CHANGELOG[0].version;
 export const RELEASED = false;
 export const VERSION_LABEL = RELEASED ? `v${PUBLIC_VERSION}` : `v${PUBLIC_VERSION} · pre-lanzamiento`;
@@ -28,6 +28,24 @@ export interface PublicRelease {
 
 /** Public news, newest first. Starts at v1.0: the internal versions before it are not part of the public history. */
 export const PUBLIC_RELEASES: PublicRelease[] = [
+  {
+    version: '1.51', date: '2026-11-05',
+    title: 'InaZurvivors Fix 1.51 — Combinadas más fáciles, técnicas como en el anime y adiós a las alas',
+    tagline: 'Las dos técnicas combinadas de Torch y Gazelle redibujadas mirando sus escenas, y Gazelle vuelve a empezar con su Balón Iceberg',
+    intro: 'Un parche para dos técnicas combinadas que no se parecían a las del anime, y para un fallo que impedía aprender Ventisca de fuego.',
+    features: [
+      { icon: '🔥', title: 'Ventisca de fuego', text: 'Torch y Gazelle saltan envueltos en un torbellino de ventisca, chutan a la vez en un anillo de fuego con rayos dorados y el balón sale con una gran espiral de fuego y viento helado detrás.' },
+      { icon: '☀', title: 'Remate caótico', text: 'El balón sube y se convierte en un sol, los tres suben entre llamas y chutan a la vez en un abanico de destellos dorados; un fogonazo y el balón sale en un remolino de hielo y fuego.' },
+      { icon: '💥', title: 'Big Bang', text: 'Nueva técnica combinada de Xavier, Jude y Shawn: un átomo que se forma en un vórtice, crece hasta ser un sol y sale con una estela de fuego enorme hasta una explosión que lo llena todo.' },
+      { icon: '🌌', title: 'Supernova', text: 'La X de energía del chute y la esfera de materia oscura con su ojo rojo, como en el anime. 2 esferas a nivel 5 y 3 a nivel 10, cada una a un rival.' },
+      { icon: '👥', title: 'Contrapartes', text: 'Xene, Kira Hiroto y Jordan + Xavier cuentan como Xavier en las técnicas combinadas, y Shawn + Axel como Shawn.' },
+      { icon: '❄', title: 'Gazelle con su Balón Iceberg', text: 'Gazelle empieza con Balón Iceberg: Ventisca de fuego es una técnica combinada, no suya sola.' },
+      { icon: '🔗', title: 'Combinadas más fáciles', text: 'Las de dos piden una técnica a nivel 3 y otra a nivel 5; las de tres, dos a nivel 3 y una a nivel 5. Ventisca de fuego ya se puede aprender (pedía una técnica que Torch no tiene).' },
+      { icon: '✨', title: 'Sin alas', text: 'Las técnicas divinas (celestial, sagrada, ángel...) abren un círculo de luz con haces que caen alrededor, en vez de las alas de ángel. Las de sombra tampoco sacan alas.' },
+      { icon: '♛', title: 'Ranking justo', text: 'Solo cuentan para el ranking las partidas completadas: perder o abandonar ya no sube marcas.', online: true },
+    ],
+    start: [],
+  },
   {
     version: '1.5', date: '2026-11-05',
     title: 'InaZurvivors 1.5 — Auras',
