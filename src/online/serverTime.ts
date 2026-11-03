@@ -18,7 +18,7 @@ export async function syncServerTime(): Promise<void> {
   try {
     const t0 = Date.now();
     // the Date response header is not readable cross-origin (CORS), so the server tells the time itself
-    const res = await fetch(`${URL_}/rest/v1/rpc/server_now`, { method: 'POST', headers: { apikey: KEY, 'Content-Type': 'application/json' }, body: '{}', cache: 'no-store' });
+    const res = await fetch(`${URL_}/rest/v1/rpc/server_now`, { method: 'POST', headers: { apikey: KEY, 'Content-Type': 'application/json' }, body: '{}', cache: 'no-store', signal: AbortSignal.timeout(8000) }); // Fix 1.32: never hangs
     if (!res.ok) return; // function not deployed yet: device clock
     const server = new Date(await res.json() as string).getTime();
     if (Number.isNaN(server)) return;

@@ -63,12 +63,20 @@ export function setMusicContext(c: MusicContext) {
   if (unlocked) start(c);
 }
 
+/**
+ * Fix 1.32: each screen family keeps ITS theme and where it was: going back to the menu resumes the menu theme from the
+ * same point instead of starting it over (it sounded broken, cut on every screen change).
+ */
+const contextTrack: Record<string, string> = {};
+const positions = new Map<string, number>();
+
 function start(c: MusicContext) {
   if (source === 'local') {
-    const pool = localPools[c] ?? [];
-    const id = nextTrack(pool.filter((t) => tracks.has(t)), lastId, Math.random);
+    const pool = (localPools[c] ?? []).filter((t) => tracks.has(t));
     if (nowPlaying && voice && pool.includes(nowPlaying)) return; // screens sharing a track keep it playing instead of restarting it
-    if (id) { lastId = id; playLocal(tracks.get(id)!, c); return; }
+    const keep = contextTrack[c] && pool.includes(contextTrack[c]) ? contextTrack[c] : null;
+    const id = keep ?? nextTrack(pool, lastId, Math.random);
+    if (id) { lastId = id; contextTrack[c] = id; playLocal(tracks.get(id)!, c); return; }
   }
   const id = nextTrack(PLAYLISTS[c], lastId, Math.random);
   if (id) { lastId = id; playComposition(COMPOSITIONS.find((x) => x.id === id)!, c); }
@@ -176,9 +184,15 @@ function playLocal(t: MusicTrack, c: MusicContext) {
   const el = new Audio(t.src);
   audioEl = el;
   el.volume = 0;
+  el.preload = 'auto';
+  // resume where this theme was left (Fix 1.32)
+  const at = positions.get(t.id);
+  if (at) el.addEventListener('loadedmetadata', () => { if (at < (el.duration || Infinity) - 1) el.currentTime = at; }, { once: true });
+  el.addEventListener('error', () => { if (mine === token) { voice = null; nowPlaying = ''; delete contextTrack[c]; } }); // a file that fails doesn't block the music
   el.addEventListener('ended', () => {
     if (mine !== token) return;
-    if ((localPools[c]?.length ?? 0) > 1 && context === c) { voice = null; nowPlaying = ''; start(c); return; } // next theme of the playlist
+    positions.delete(t.id);
+    if ((localPools[c]?.length ?? 0) > 1 && context === c) { voice = null; nowPlaying = ''; delete contextTrack[c]; start(c); return; } // next theme of the playlist
     el.currentTime = t.loopStartSec ?? 0;
     void el.play().catch(() => undefined);
   });
@@ -186,6 +200,7 @@ function playLocal(t: MusicTrack, c: MusicContext) {
   voice = {
     stop() {
       if (audioEl === el) audioEl = null;
+      if (el.currentTime > 1) positions.set(t.id, el.currentTime);
       fade(el, 0, 500, () => { el.pause(); el.removeAttribute('src'); el.load(); });
     },
   };

@@ -32,12 +32,22 @@ const ERRORS: Record<string, string> = {
   already_has_username: 'Tu cuenta ya tiene un nombre global.',
 };
 
+/** Fix 1.32: no call may hang the game: after this many ms it fails with a clear message (the server was saturated) */
+export const HTTP_TIMEOUT_MS = 10000;
 async function http(path: string, body: unknown, token?: string) {
-  const res = await fetch(`${URL_}${path}`, {
-    method: 'POST',
-    headers: { apikey: KEY, 'Content-Type': 'application/json', Authorization: `Bearer ${token ?? KEY}` },
-    body: JSON.stringify(body),
-  });
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), HTTP_TIMEOUT_MS);
+  let res: Response;
+  try {
+    res = await fetch(`${URL_}${path}`, {
+      method: 'POST',
+      headers: { apikey: KEY, 'Content-Type': 'application/json', Authorization: `Bearer ${token ?? KEY}` },
+      body: JSON.stringify(body),
+      signal: ctl.signal,
+    });
+  } catch (e) {
+    throw new Error((e as Error).name === 'AbortError' ? 'El servidor no responde ahora mismo; inténtalo en un rato' : 'Sin conexión con el servidor');
+  } finally { clearTimeout(timer); }
   const text = await res.text();
   const data = text ? JSON.parse(text) : null;
   if (!res.ok) {

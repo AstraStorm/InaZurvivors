@@ -1098,7 +1098,7 @@ body.reduced-motion .ib-orbit, body.reduced-motion .ib-ball { animation: none; }
 @media (max-width: 620px) { .pass-row { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
 
 /* Fix 1.12: shop */
-.shop-screen { max-width: 1180px; margin: 0 auto; }
+.shop-screen > * { max-width: 1180px; margin-left: auto; margin-right: auto; } /* Fix 1.32: the content is narrow, not the screen (the pitch showed at the sides) */
 .shop-head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; padding: 8px 12px; margin: 0 0 6px; font-size: 9px; color: var(--muted); background: #06102bd0; border: 2px solid var(--frame-dim); }
 .shop-sec { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 14px 4px 8px; font-size: 12px; color: var(--yellow); }
 .shop-filters { display: flex; flex-wrap: wrap; gap: 4px; }
@@ -1948,3 +1948,10 @@ body.reduced-motion .pcard.cc *, body.reduced-motion .pcard.cc .cc-frame { anima
 .sq-slot[data-drag] .sq-act { position: absolute; top: 4px; }
 .sq-slot.landed { animation: cardLand .45s cubic-bezier(.2,1.6,.4,1); }
 .sq-slot.drop[data-drag] { transform: scale(.95); opacity: .7; }
+/* Fix 1.32 perf: cards are many — rays stay still, one shadow instead of two filters, and effects pause off-screen */
+.pcard.cc .cc-rays { animation: none !important; }
+.pcard.cc.cc.cc { filter: drop-shadow(0 0 8px var(--glow)); }
+.pcard.cc.t-comun.t-comun.t-comun, .pcard.cc.t-raro.t-raro.t-raro { filter: none; }
+.grid > .pcard.cc { content-visibility: auto; contain-intrinsic-size: 190px 330px; }
+#sqgrid > .pcard.cc, .grid > .pcard.cc { contain: layout paint; }
+.rank-down { max-width: 980px; margin: 10px auto; text-align: center; display: flex; flex-direction: column; gap: 8px; align-items: center; }

@@ -24,6 +24,10 @@ export const CHANGELOG: Release[] = [
       'Mi Equipo: las sinergias van arriba, con las técnicas combinadas del equipo (jugadores enlazados, las que ya se pueden aprender brillan y las incompletas dicen quién falta); las plazas marcan su combinada y la colección marca a quien la completaría.',
     ],
     fixes: [
+      'Online: ninguna petición puede colgar el juego (10 s como mucho), el juego arranca aunque el servidor no responda (espera 6 s y sigue), el ranking enseña un aviso con «Reintentar» en vez de quedarse cargando, y los guardados en la nube van de uno en uno. En el servidor, un guardado ya no puede bloquear a los demás (límites de espera y cierre de transacciones colgadas).',
+      'Música: cada pantalla mantiene su tema y al volver sigue por donde iba (antes el menú volvía a empezar en cada cambio de pantalla); un archivo que falla ya no deja el juego en silencio.',
+      'Tienda: el fondo cubre toda la pantalla (se veía el campo a los lados).',
+      'Tarjetas más ligeras: los rayos ya no giran y llevan una sola sombra, para que la colección vaya fluida con cientos de tarjetas.',
       'Tarjetas: los distintivos (EN EL EQUIPO, ASCENDER, capitán) van en una columna y los duplicados, las estrellas y la marca en una fila: ya no se tapan entre sí ni tapan la cinta de HÉROE.',
       'Plazas de Mi Equipo: el brillo de Mítico y HÉROE ya no se queda congelado pintando media plaza; marco y fondo de HÉROE propios.',
     ],

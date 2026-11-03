@@ -220,7 +220,12 @@ export class App {
     if (onlineConfigured()) {
       const ret = await consumeAuthRedirect();
       if (ret?.error) window.setTimeout(() => this.toast(`No se pudo entrar con Google: ${ret.error}`, 5000), 600);
-      if (signedIn()) after = await this.resolveAccount();
+      // Fix 1.32: the game never waits long for the server: after 6 s it opens and the account resolves in the background
+      if (signedIn()) {
+        const acct = this.resolveAccount();
+        after = await Promise.race([acct, new Promise<null>((ok) => window.setTimeout(() => ok(null), 6000))]);
+        if (!after) void acct.then((fn) => fn?.()).catch(() => undefined);
+      }
       if (ret?.signedIn && !after) window.setTimeout(() => this.toast(this.save.onlineName ? `¡Hola de nuevo, ${this.save.onlineName}!` : '¡Conectado con Google!', 3500), 600);
     }
     const returning = this.save.onboardingDone;
@@ -1076,7 +1081,10 @@ export class App {
       me.innerHTML = mine ? `<h3>Mi posición</h3>${row(Number(mine.pos), mine.username, mine.captain_id, mine.crest, mine.map, mine.rank, mine.time_sec, Number(mine.damage), true, mine.score == null ? undefined : Number(mine.score))}`
         : `<div class="note">${signedIn() ? 'Aún no tienes marca en este tablero.' : 'Conecta tu cuenta en Perfil para aparecer aquí.'}</div>`;
     } catch (err) {
-      list.innerHTML = `<div class="note">No se pudo cargar el ranking (${esc((err as Error).message)}). Comprueba la conexión.</div>`;
+      // Fix 1.32: a clear message and a retry instead of the server's raw text
+      void err;
+      list.innerHTML = `<div class="panel rank-down"><b>El ranking no está disponible ahora mismo</b><div class="note">El servidor está saturado o no hay conexión. Tu partida y tus marcas no se pierden.</div><button class="btn small" id="rretry">Reintentar</button></div>`;
+      document.getElementById('rretry')?.addEventListener('click', () => { list.innerHTML = '<div class="note">Cargando…</div>'; void this.fillRanking(); });
     }
   }
 
@@ -1114,7 +1122,7 @@ export class App {
         ? `<div class="wr-podium">${podium}</div><div class="wr-list">${top.slice(3, 15).map((r) => row(r)).join('')}</div>`
           + (mine ? `<div class="wr-mine"><small>Tu posición</small>${row(mine, true)}</div>` : signedIn() ? '<div class="note">Juega una partida para aparecer en el ranking.</div>' : '<div class="note">Entra con Google para aparecer en el ranking.</div>')
         : '<div class="note">Aún nadie en el ranking: ¡sé el primero!</div>';
-    } catch { const el = document.getElementById('menurank'); if (el) el.innerHTML = '<div class="note">No se pudo cargar el ranking ahora.</div>'; }
+    } catch { const el = document.getElementById('menurank'); if (el) el.innerHTML = '<div class="note">El ranking no está disponible ahora mismo. <button class="linkbtn" id="mrretry">Reintentar</button></div>'; document.getElementById('mrretry')?.addEventListener('click', () => void this.fillMenuRank()); }
   }
 
   /** Fix 1.12: the weekly pass in the main menu, the seven days at a glance (days 1, 4 and 7 stand out). */
@@ -1322,11 +1330,17 @@ export class App {
     });
   }
 
+  private cloudBusy = false;
+  private cloudAgain = false;
   /** Uploads the save on top of the version it was based on. A newer copy elsewhere stops it: conflict, not overwrite. */
   private async pushCloud(now = false) {
     if (!onlineConfigured() || !signedIn() || !this.cloudLinked) return;
     window.clearTimeout(this.cloudTimer);
     const go = async () => {
+      // Fix 1.32: never two uploads at once (they queued on the same row and wedged the database); what changes during
+      // an upload goes in the next one
+      if (this.cloudBusy) { this.cloudAgain = true; return; }
+      this.cloudBusy = true;
       try {
         const v = await putCloudSave(this.save, this.save.cloudVersion ?? 0);
         this.save.cloudVersion = v;
@@ -1337,7 +1351,10 @@ export class App {
         if (/progress_reset/.test(m)) { const cloud = await getCloudSave(); if (cloud) this.reloadAfterReset(cloud); }
         else if (/version_conflict/.test(m)) { this.cloudState = { status: 'conflicto', at: Date.now(), msg: m }; this.cloudLinked = false; this.toast('Otro dispositivo guardó un progreso más nuevo. Revisa Perfil » Vincular.', 5000); }
         else if (/too_fast/.test(m)) this.cloudTimer = window.setTimeout(() => void go(), 3000);
-        else this.cloudState = { status: 'error', at: Date.now(), msg: m };
+        else { this.cloudState = { status: 'error', at: Date.now(), msg: m }; this.cloudTimer = window.setTimeout(() => void go(), 30000); } // retry calmly
+      } finally {
+        this.cloudBusy = false;
+        if (this.cloudAgain) { this.cloudAgain = false; this.cloudTimer = window.setTimeout(() => void go(), 2500); }
       }
     };
     if (now) await go();
