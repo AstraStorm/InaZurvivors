@@ -72,11 +72,28 @@ function render(c: HTMLCanvasElement, t: number) {
   drawCell(ctx, p.head, frame.h, 20, 41, anim.mirror !== frame.hf, scale);
 }
 
+/**
+ * Fix 1.32: the little animated sprites were all redrawn 60 times a second, visible or not (the Mi Equipo screen lagged).
+ * Now only the ones on screen are drawn, about 12 times a second (the sprite frames change far slower than that).
+ */
+const visible = new Set<HTMLCanvasElement>();
+const seen = new WeakSet<HTMLCanvasElement>();
+const io = typeof IntersectionObserver !== 'undefined'
+  ? new IntersectionObserver((entries) => { for (const e of entries) { const c = e.target as HTMLCanvasElement; if (e.isIntersecting) visible.add(c); else visible.delete(c); } })
+  : null;
+let lastDraw = 0;
 function loop(t: number) {
   const list = document.querySelectorAll<HTMLCanvasElement>('canvas.char');
-  list.forEach((c) => render(c, t));
-  if (list.length) requestAnimationFrame(loop);
-  else running = false;
+  if (!list.length) { running = false; visible.clear(); return; }
+  if (t - lastDraw >= 80) {
+    lastDraw = t;
+    list.forEach((c) => {
+      if (io && !seen.has(c)) { seen.add(c); io.observe(c); }
+      if (!io || visible.has(c)) render(c, t);
+    });
+    for (const c of visible) if (!c.isConnected) { visible.delete(c); io?.unobserve(c); }
+  }
+  requestAnimationFrame(loop);
 }
 
 export function mountPreviews() {

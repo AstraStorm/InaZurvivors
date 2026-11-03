@@ -624,7 +624,7 @@ export class App {
       <div class="cc-frame"><i class="cc-orn tl"></i><i class="cc-orn tr"></i><i class="cc-orn bl"></i><i class="cc-orn br"></i>
         <div class="cc-face">
           <div class="cc-art${locked ? ' dark' : ''}">${crest ? `<img class="cc-crest" src="${crest}" alt="">` : ''}<i class="cc-rays"></i>
-            ${this.mug(p.id, opts.big ? 152 : 112)}${locked ? '<span class="qmark">?</span><span class="lock-tag">Bloqueado</span>' : `<span class="minisprite">${charCanvas(p.id, 2, opts.anim ?? 4)}</span>`}
+            ${this.mug(p.id, opts.big ? 152 : 112)}${locked ? '<span class="qmark">?</span><span class="lock-tag">Bloqueado</span>' : opts.big || opts.anim !== undefined ? `<span class="minisprite">${charCanvas(p.id, 2, opts.anim ?? 4)}</span>` : ''}
             <div class="cc-gem" title="${esc(e)}">${locked ? '' : elementIcon(e, 16)}</div>
             ${st ? `<div class="cc-ovr" title="Media de estadísticas"><b>${statMean(st)}</b><small>${POS_LABEL[p.position] ?? p.position}</small></div>` : `<div class="cc-ovr pos"><small>${POS_LABEL[p.position] ?? p.position}</small></div>`}
             <div class="cc-name"><span>${locked ? '???' : esc(p.name)}</span></div></div>
@@ -1695,14 +1695,15 @@ export class App {
       if (!p) return `<button class="sq-slot empty${editing}" data-slot="${i}"><span class="sq-plus">+</span><small>${i === 0 ? 'Capitán' : 'Plaza libre'}</small><em>Arrastra aquí</em></button>`;
       // Fix 1.32 (author's choice): the slot keeps its radar and techniques, in a frame of its rarity, and can be dragged
       const er = effectiveRarity(this.save, p), st = p.stats ? this.statsOf(p)! : null;
-      return `<div class="sq-slot rs-${isHero(this.save, p.id) ? 'heroe' : er}${editing}${i === 0 ? ' cap' : ''}${isHero(this.save, p.id) ? ' hero' : ''}${this.squadLanded === i ? ' landed' : ''}" data-slot="${i}" data-drag="${p.id}" style="--rc:${RARITY_COLOR[er]};--ec:${ELEMENT_COLOR[String(p.element)] ?? '#8a9bbd'}">
+      return `<div class="sq-slot ccs t-${isHero(this.save, p.id) ? 'heroe' : er} rs-${isHero(this.save, p.id) ? 'heroe' : er}${editing}${i === 0 ? ' cap' : ''}${isHero(this.save, p.id) ? ' hero' : ''}${this.squadLanded === i ? ' landed' : ''}" data-slot="${i}" data-drag="${p.id}" style="--rc:${RARITY_COLOR[er]};--ec:${ELEMENT_COLOR[String(p.element)] ?? '#8a9bbd'}">
         ${i === 0 ? '<span class="captain-badge">C</span>' : `<button class="sq-act" data-captain="${p.id}" title="Hacer capitán">★</button>`}
         <button class="sq-act x" data-remove="${p.id}" title="Quitar">✕</button>
         <div class="sq-mug">${this.mug(p.id, 64)}</div><b>${esc(p.name)}</b>
         <div class="chips"><span class="pos">${POS_LABEL[p.position] ?? p.position}</span>${this.elem(p)}</div>${this.rar(p)}
         ${comboOf.get(p.name) ? `<span class="sq-combo" title="Técnica combinada: ${esc(comboOf.get(p.name)!)}">🔗 ${esc(comboOf.get(p.name)!)}</span>` : ''}
         ${st ? `<div class="sq-radar"><span class="ovr">${statMean(st)}</span>${statRadar(st, STAT_SHORT, RARITY_COLOR[er])}</div>` : ''}
-        <div class="sq-techs">${p.techniques.slice(0, 4).map((t) => `<span title="${esc(t.name)}">${this.icon(ICON.manual[t.type], 1)}${esc(t.name)}</span>`).join('')}</div></div>`;
+        <div class="sq-techs">${p.techniques.slice(0, 4).map((t) => `<span title="${esc(t.name)}">${this.icon(ICON.manual[t.type], 1)}${esc(t.name)}</span>`).join('')}</div>
+        <i class="cc-sweep"></i><i class="cc-foil"></i><i class="cc-sparks"></i></div>`;
     }).join('');
     this.show(`<div class="screen">${this.titlebar('Mi Equipo', 'Menú')}
       ${this.squadSynergyPanel(squad)}
@@ -1864,15 +1865,17 @@ export class App {
     if (!box) return;
     const f = this.squadFilter, q = f.q.trim().toLowerCase();
     const inSquad = new Set(squadOf(this.save, this.byId).map((p) => p.id));
+    const meanCache = new Map<number, number>();
+    const mean = (p: RosterEntry) => { let v = meanCache.get(p.id); if (v === undefined) { v = this.meanOf(p); meanCache.set(p.id, v); } return v; };
     const list = this.unlockedRoster().filter((p) => (!f.rarity || p.rarity === f.rarity) && (!f.pos || p.position === f.pos) && (!f.el || String(p.element) === f.el)
       && (!q || p.name.toLowerCase().includes(q) || p.teams.some((t) => teamLabel(t).toLowerCase().includes(q))))
       .sort((a, b) => f.sort === 'nombre' ? a.name.localeCompare(b.name)
-        : f.sort === 'rareza' ? RARITY_ORDER.indexOf(effectiveRarity(this.save, b)) - RARITY_ORDER.indexOf(effectiveRarity(this.save, a)) || this.meanOf(b) - this.meanOf(a)
-        : this.meanOf(b) - this.meanOf(a) || a.name.localeCompare(b.name));
+        : f.sort === 'rareza' ? RARITY_ORDER.indexOf(effectiveRarity(this.save, b)) - RARITY_ORDER.indexOf(effectiveRarity(this.save, a)) || mean(b) - mean(a)
+        : mean(b) - mean(a) || a.name.localeCompare(b.name));
     const sq = squadOf(this.save, this.byId);
     const partners = new Map<string, string>();
     for (const c of squadCombos(sq)) if (!c.ready && c.missing.length === 1) partners.set(c.missing[0], c.combo.name);
-    box.innerHTML = list.slice(0, this.squadLimit).map((p) => this.pcard(p, { sel: inSquad.has(p.id), badge: inSquad.has(p.id) ? '✔ EN EL EQUIPO' : partners.has(p.name) ? `🔗 ${partners.get(p.name)}` : undefined }).replace('<div class="pcard', `<div data-drag="${p.id}" class="pcard${inSquad.has(p.id) ? ' in-squad' : ''}`)).join('')
+    box.innerHTML = list.slice(0, this.squadLimit).map((p) => this.pcard(p, { sel: inSquad.has(p.id), badge: inSquad.has(p.id) ? '✔ EQUIPO' : partners.has(p.name) ? `🔗 ${partners.get(p.name)}` : undefined }).replace('<div class="pcard', `<div data-drag="${p.id}" class="pcard${inSquad.has(p.id) ? ' in-squad' : ''}`)).join('')
       + (list.length > this.squadLimit ? `<button class="btn blue" id="sqmore">Mostrar más (${list.length - this.squadLimit})</button>` : '')
       + (list.length ? '' : '<div class="note">Nadie coincide con el filtro.</div>');
     mountPreviews();

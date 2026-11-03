@@ -27,6 +27,8 @@ export const CHANGELOG: Release[] = [
       'Online: ninguna petición puede colgar el juego (10 s como mucho), el juego arranca aunque el servidor no responda (espera 6 s y sigue), el ranking enseña un aviso con «Reintentar» en vez de quedarse cargando, y los guardados en la nube van de uno en uno. En el servidor, un guardado ya no puede bloquear a los demás (límites de espera y cierre de transacciones colgadas).',
       'Música: cada pantalla mantiene su tema y al volver sigue por donde iba (antes el menú volvía a empezar en cada cambio de pantalla); un archivo que falla ya no deja el juego en silencio.',
       'Tienda: el fondo cubre toda la pantalla (se veía el campo a los lados).',
+      'Rarezas que se distinguen de un vistazo: el fondo del retrato y de la tarjeta toman el color de la rareza y la rareza va en una placa ancha con su acabado (oro, holográfico, aurora, fuego).',
+      'Mi Equipo: las plazas mantienen su radar y técnicas con el marco metálico y los brillos de su rareza; «✔ EQUIPO» ya no tapa la media; y va mucho más fluido (los efectos de la colección solo se animan al pasar el ratón, los muñequitos animados solo se dibujan si se ven y unas 12 veces por segundo, el orden por media se calcula una vez y los brillos de las plazas los mueve la tarjeta gráfica).',
       'Tarjetas más ligeras: los rayos ya no giran y llevan una sola sombra, para que la colección vaya fluida con cientos de tarjetas.',
       'Tarjetas: los distintivos (EN EL EQUIPO, ASCENDER, capitán) van en una columna y los duplicados, las estrellas y la marca en una fila: ya no se tapan entre sí ni tapan la cinta de HÉROE.',
       'Plazas de Mi Equipo: el brillo de Mítico y HÉROE ya no se queda congelado pintando media plaza; marco y fondo de HÉROE propios.',

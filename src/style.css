@@ -1955,3 +1955,77 @@ body.reduced-motion .pcard.cc *, body.reduced-motion .pcard.cc .cc-frame { anima
 .grid > .pcard.cc { content-visibility: auto; contain-intrinsic-size: 190px 330px; }
 #sqgrid > .pcard.cc, .grid > .pcard.cc { contain: layout paint; }
 .rank-down { max-width: 980px; margin: 10px auto; text-align: center; display: flex; flex-direction: column; gap: 8px; align-items: center; }
+
+/* ============================================================ Fix 1.32: rarities that read at a glance, slots with card fx */
+/* the portrait backdrop and the face take the RARITY colour (the element stays as the light behind the head) */
+.pcard.cc .cc-art { background: radial-gradient(circle at 50% 60%, color-mix(in srgb, var(--ec) 55%, #fff 25%) 0%, color-mix(in srgb, var(--rc) 75%, #000 5%) 48%, color-mix(in srgb, var(--rc) 40%, #050a18) 100%); }
+.pcard.cc .cc-face { background: linear-gradient(180deg, color-mix(in srgb, var(--rc) 38%, #0a1022), color-mix(in srgb, var(--rc) 12%, #070d1c) 70%); }
+/* the rarity as a wide plate with its own finish */
+.pcard.cc .cc-rar .rar { display: block; width: 100%; text-align: center; font-size: 9px; letter-spacing: 2px; padding: 3px 0; clip-path: polygon(6px 0, calc(100% - 6px) 0, 100% 50%, calc(100% - 6px) 100%, 6px 100%, 0 50%); }
+.pcard.cc.t-comun .cc-rar .rar { background: #6a7388; color: #e8ecf4; }
+.pcard.cc.t-raro .cc-rar .rar { background: linear-gradient(90deg, #2a6ad8, #6ac8ff, #2a6ad8); color: #fff; text-shadow: 1px 1px 0 #0a2a6a; }
+.pcard.cc.t-epico .cc-rar .rar { background: linear-gradient(90deg, #6a2ab0, #c58bff, #6a2ab0); color: #fff; text-shadow: 1px 1px 0 #2a0a4a; }
+.pcard.cc.t-legendario .cc-rar .rar { background: linear-gradient(90deg, #b07a10, #fff2b0, #ffb020, #fff2b0, #b07a10); background-size: 200% 100%; color: #3a2004; animation: heroShine 3s linear infinite; }
+.pcard.cc.t-mitico .cc-rar .rar { background: linear-gradient(90deg, #ff4f8b, #ffd23f, #4fffb0, #4fb3ff, #b36bff, #ff4f8b); background-size: 200% 100%; color: #fff; text-shadow: 1px 1px 0 #000; animation: heroShine 2.4s linear infinite; }
+.pcard.cc.t-leyenda .cc-rar .rar { background: linear-gradient(90deg, #fff6c8, #ffb0e0, #b0e8ff, #fff6c8); background-size: 200% 100%; color: #2a1a04; animation: heroShine 2.6s linear infinite; }
+.pcard.cc.t-heroe .cc-rar .rar { background: linear-gradient(90deg, #b0101a, #ff9a2a, #fff2b0, #ff9a2a, #b0101a); background-size: 200% 100%; color: #3a0a04; animation: heroShine 2.2s linear infinite; }
+.still .pcard.cc .cc-rar .rar { animation-name: heroShine !important; }
+.pcard.cc.t-comun .cc-rar .rar { animation: none !important; }
+/* corner flags: one short line, never over the mean medallion */
+.pcard.cc .pc-top { max-width: calc(100% - 84px); }
+.pcard.cc .pc-top .badge { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+
+/* ---- Mi Equipo slots: their layout, with the card's metal frame per rarity and its light effects ---- */
+.sq-slot.ccs { --cut: 10px; --bw: 4px; position: relative; border: var(--bw) solid transparent !important; overflow: hidden;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--rc) 30%, #0c1a3a), #081230 75%) padding-box, var(--metal, var(--rc)) border-box !important;
+  clip-path: polygon(var(--cut) 0, calc(100% - var(--cut)) 0, 100% var(--cut), 100% calc(100% - var(--cut)), calc(100% - var(--cut)) 100%, var(--cut) 100%, 0 calc(100% - var(--cut)), 0 var(--cut));
+  box-shadow: none !important; border-image: none !important; }
+.sq-slot.ccs.t-comun { --metal: linear-gradient(160deg, #c9ccd6, #6a7388 50%, #c9ccd6); }
+.sq-slot.ccs.t-raro { --cut: 12px; --metal: linear-gradient(160deg, #f2f6ff, #4f8bdc 35%, #ffffff 52%, #2a5aa8 70%, #c8d6ee); }
+.sq-slot.ccs.t-epico { --cut: 14px; --metal: linear-gradient(160deg, #e8d4ff, #6a2ab0 35%, #f2e4ff 52%, #3a1270 72%, #b884ff); }
+.sq-slot.ccs.t-legendario { --cut: 16px; --bw: 6px; --metal: linear-gradient(160deg, #fff6c8, #c08a1a 30%, #fff2b0 48%, #8a5a00 66%, #ffe27a 84%, #b07a10); }
+.sq-slot.ccs.t-mitico { --cut: 16px; --bw: 6px; --metal: conic-gradient(from var(--ring), #ff4f8b, #ffd23f, #4fffb0, #4fb3ff, #b36bff, #ff4f8b); animation: leyRing 5s linear infinite; }
+.sq-slot.ccs.t-leyenda { --cut: 18px; --bw: 7px; --metal: conic-gradient(from var(--ring), #fff6c8, #ffb020, #ffffff, #ff9ad8, #fff6c8, #9ad8ff, #fff6c8); animation: leyRing 3.5s linear infinite;
+  background: radial-gradient(circle, #ffffff33 0 1px, transparent 1.5px) 0 0 / 26px 22px padding-box, linear-gradient(180deg, #3a2a50, #120a24 75%) padding-box, var(--metal) border-box !important; }
+.sq-slot.ccs.t-heroe { --cut: 18px; --bw: 7px; --metal: conic-gradient(from var(--ring), #ffd21f, #ff5a1a, #b0101a, #ff9a2a, #fff2b0, #ff5a1a, #ffd21f); animation: leyRing 2.6s linear infinite;
+  background: radial-gradient(120% 60% at 50% 0%, #6a1410, #2a0810 60%, #12040a) padding-box, var(--metal) border-box !important; }
+.sq-slot.ccs > .cc-sweep, .sq-slot.ccs > .cc-foil, .sq-slot.ccs > .cc-sparks { position: absolute; inset: 0; pointer-events: none; z-index: 6; }
+.sq-slot.ccs > .cc-sweep { background: linear-gradient(115deg, transparent 40%, #ffffff44 48%, #ffffff99 50%, #ffffff44 52%, transparent 60%) no-repeat; background-size: 250% 100%; background-position: 150% 0; opacity: 0; }
+.sq-slot.ccs.t-raro > .cc-sweep { animation: ccSweep 6s ease-in-out infinite; } .sq-slot.ccs.t-epico > .cc-sweep { animation: ccSweep 5s ease-in-out infinite; }
+.sq-slot.ccs.t-legendario > .cc-sweep { animation: ccSweep 4s ease-in-out infinite; } .sq-slot.ccs.t-mitico > .cc-sweep, .sq-slot.ccs.t-leyenda > .cc-sweep, .sq-slot.ccs.t-heroe > .cc-sweep { animation: ccSweep 3.2s ease-in-out infinite; }
+.sq-slot.ccs.t-epico > .cc-foil { background: linear-gradient(130deg, transparent 20%, #c58bff33 40%, #7fd3ff22 55%, transparent 75%); background-size: 300% 300%; mix-blend-mode: screen; animation: ccFoil 6s linear infinite; }
+.sq-slot.ccs.t-mitico > .cc-foil { background: linear-gradient(125deg, #ff4f8b, #ffd23f, #4fffb0, #4fb3ff, #b36bff, #ff4f8b); background-size: 300% 300%; mix-blend-mode: color-dodge; opacity: .18; animation: ccFoil 5s linear infinite; }
+.sq-slot.ccs.t-leyenda > .cc-foil { background: linear-gradient(120deg, transparent 10%, #ffe27a33 30%, #ff9ad833 45%, #9ad8ff33 60%, transparent 80%); background-size: 300% 300%; mix-blend-mode: screen; animation: ccFoil 4s linear infinite; }
+.sq-slot.ccs.t-heroe > .cc-foil { background: linear-gradient(0deg, #ff5a1a44, transparent 40%); }
+.sq-slot.ccs.t-legendario > .cc-sparks, .sq-slot.ccs.t-mitico > .cc-sparks, .sq-slot.ccs.t-leyenda > .cc-sparks, .sq-slot.ccs.t-heroe > .cc-sparks {
+  background: radial-gradient(circle, #fff6c0 0 1.5px, transparent 2px) 18% 100% / 100% 100% no-repeat, radial-gradient(circle, #ffd23f 0 1.2px, transparent 2px) 46% 100% / 100% 100% no-repeat,
+    radial-gradient(circle, #fff6c0 0 1.5px, transparent 2px) 72% 100% / 100% 100% no-repeat, radial-gradient(circle, #ffd23f 0 1px, transparent 2px) 88% 100% / 100% 100% no-repeat;
+  animation: ccSparks 3s linear infinite; mix-blend-mode: screen; }
+.sq-slot.ccs.t-legendario, .sq-slot.ccs.t-mitico, .sq-slot.ccs.t-leyenda, .sq-slot.ccs.t-heroe { filter: drop-shadow(0 0 10px color-mix(in srgb, var(--rc) 60%, transparent)); }
+.sq-slot.ccs .captain-badge, .sq-slot.ccs .sq-act { z-index: 8; }
+.sq-slot.ccs .captain-badge { top: calc(var(--cut) * .5); left: calc(var(--cut) * .5); }
+.sq-slot.ccs .sq-act { top: calc(var(--cut) * .5); } .sq-slot.ccs .sq-act:not(.x) { left: calc(var(--cut) * .5); } .sq-slot.ccs .sq-act.x { right: calc(var(--cut) * .5); }
+.still .sq-slot.ccs.t-mitico, .still .sq-slot.ccs.t-leyenda, .still .sq-slot.ccs.t-heroe { animation-name: leyRing !important; }
+.still .sq-slot.ccs > .cc-sweep { animation-name: ccSweep !important; } .still .sq-slot.ccs > .cc-foil { animation-name: ccFoil !important; } .still .sq-slot.ccs > .cc-sparks { animation-name: ccSparks !important; }
+.still .sq-slot.ccs.t-comun > .cc-sweep, .still .sq-slot.ccs.t-comun > .cc-foil, .still .sq-slot.ccs.t-comun > .cc-sparks { animation: none !important; }
+
+/* Fix 1.32 perf: in the grids, the light effects of a card play only while the pointer is over it (dozens of cards
+   animating at once made Mi Equipo and the collection lag); the slots and big cards keep them always on */
+.grid > .pcard.cc .cc-sweep, .grid > .pcard.cc .cc-foil, .grid > .pcard.cc .cc-sparks, .grid > .pcard.cc .cc-frame, .grid > .pcard.cc .cc-rar .rar,
+.grid > .pcard.cc .card-dup.can-asc { animation-play-state: paused !important; }
+.grid > .pcard.cc:hover .cc-sweep, .grid > .pcard.cc:hover .cc-foil, .grid > .pcard.cc:hover .cc-sparks, .grid > .pcard.cc:hover .cc-frame, .grid > .pcard.cc:hover .cc-rar .rar { animation-play-state: running !important; }
+.grid > .pcard.cc.cc.cc { filter: none; }
+.grid > .pcard.cc.cc.cc:hover { filter: drop-shadow(0 0 10px var(--glow)); }
+
+/* Fix 1.32 perf: the slot effects move with transforms (done by the graphics card) instead of repainting the slot every
+   frame; the metal frame stays still. Mi Equipo went from ~10 to ~20+ fps in the test browser. */
+.sq-slot.ccs, .still .sq-slot.ccs.t-mitico, .still .sq-slot.ccs.t-leyenda, .still .sq-slot.ccs.t-heroe { animation: none !important; filter: none !important; }
+.sq-slot.ccs > .cc-sweep { inset: 0 auto 0 0 !important; width: 55%; opacity: 1 !important; background: linear-gradient(100deg, transparent, #ffffff30 40%, #ffffffaa 50%, #ffffff30 60%, transparent) !important;
+  transform: translateX(-130%) skewX(-14deg); will-change: transform; animation: slotSweep 5s ease-in-out infinite !important; }
+.sq-slot.ccs.t-comun > .cc-sweep { display: none; }
+@keyframes slotSweep { 0%, 58% { transform: translateX(-130%) skewX(-14deg); } 88%, 100% { transform: translateX(260%) skewX(-14deg); } }
+.sq-slot.ccs > .cc-foil { animation: none !important; background-size: 100% 100% !important; }
+.sq-slot.ccs > .cc-sparks { will-change: transform, opacity; animation: slotSparks 3.2s linear infinite !important;
+  background-position: 18% 100%, 46% 92%, 72% 100%, 88% 96% !important; }
+@keyframes slotSparks { 0% { transform: translateY(15%); opacity: 0; } 15% { opacity: 1; } 100% { transform: translateY(-95%); opacity: 0; } }
+.still .sq-slot.ccs > .cc-sweep { animation-name: slotSweep !important; } .still .sq-slot.ccs > .cc-sparks { animation-name: slotSparks !important; }
