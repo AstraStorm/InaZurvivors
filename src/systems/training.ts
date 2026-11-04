@@ -2,6 +2,8 @@
  * Fix 1.23: the stats a footballer really has in the game, rebuilt from the raw ones so rarity means something, plus the
  * training points the player hands out.
  * Fix 1.31: bands raised at the top (Legendario 81-85, Mítico 88-92, Leyenda 94-98).
+ * 1.76: the 95 ceiling of a single stat clipped the Leyendas down to Mítico level (means 90-91): a Leyenda has no ceiling
+ * below 99 and its band is centred at 98, so its real mean lands at 94-95.
  *
  * Raw stats (ROM, Great Road, derived) overlapped across rarities: Épicos with a mean of 83, Legendarios of 59, every
  * Mítico at 70-72. Each rarity now has its own band of means that never overlaps the next one; inside it a footballer
@@ -16,7 +18,7 @@ export const STAT_KEYS = ['kick', 'control', 'guard', 'body', 'speed', 'guts', '
 export type StatKey = (typeof STAT_KEYS)[number];
 /** centre of the band of means of each rarity; a footballer lands within ±BAND of it */
 // Fix 1.31 (author's request): Legendarios in the 80s, Míticos around 90; the band narrows to ±2 so rarities still never overlap
-export const RARITY_STAT_MEAN: Record<Rarity, number> = { comun: 50, raro: 59, epico: 70, legendario: 83, mitico: 89, leyenda: 94 };
+export const RARITY_STAT_MEAN: Record<Rarity, number> = { comun: 50, raro: 59, epico: 70, legendario: 83, mitico: 89, leyenda: 98 };
 export const BAND = 2;
 export const TRAIN_MAX = 20;
 export const STAT_MAX = 99;
@@ -43,7 +45,7 @@ export function rebuildStats(raw: Partial<Record<string, number>> | null | undef
   const r = raw ?? {}, m = mean(r);
   const target = RARITY_STAT_MEAN[rarity] + Math.max(-BAND, Math.min(BAND, (m - RAW_CENTER) * 0.25)) + bonus;
   const out = {} as Record<StatKey, number>;
-  const cap = Math.min(STAT_MAX, BASE_STAT_MAX + bonus);
+  const cap = rarity === 'leyenda' ? STAT_MAX : Math.min(STAT_MAX, BASE_STAT_MAX + bonus);
   const pos = POSITION_PROFILE[position ?? ''];
   for (const k of STAT_KEYS) out[k] = Math.max(25, Math.min(cap, Math.round(target + (pos?.[k] ?? 0) + ((r[k] ?? m) - m) * 0.6)));
   return out;

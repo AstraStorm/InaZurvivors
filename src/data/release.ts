@@ -6,7 +6,7 @@
  */
 import { CHANGELOG } from './changelog';
 
-export const PUBLIC_VERSION = '1.75';
+export const PUBLIC_VERSION = '1.76';
 export const BUILD = CHANGELOG[0].version;
 export const RELEASED = false;
 export const VERSION_LABEL = RELEASED ? `v${PUBLIC_VERSION}` : `v${PUBLIC_VERSION} · pre-lanzamiento`;
@@ -28,6 +28,19 @@ export interface PublicRelease {
 
 /** Public news, newest first. Starts at v1.0: the internal versions before it are not part of the public history. */
 export const PUBLIC_RELEASES: PublicRelease[] = [
+  {
+    version: '1.76', date: '2026-11-04',
+    title: 'InaZurvivors 1.76 — Altar de despido',
+    tagline: 'Echa a quien no te sirva y deja sitio a otro fichaje.',
+    intro: 'Un altar nuevo, Leyendas que por fin se notan y varios arreglos que pedisteis.',
+    features: [
+      { icon: '✖', title: 'Altar de despido', text: 'Quédate un momento junto a él y elige a un compañero para echarlo de la partida (nunca al capitán). Se lleva sus técnicas y su parte de la vida, su hueco queda libre para otro fichaje y no vuelve a salir en esa partida.' },
+      { icon: '★', title: 'Leyendas más fuertes', text: 'Los Leyenda ya no se quedan en 95 por estadística: su media sube a 94-95 (Axel Encapuchado, 95). Los porteros Leyenda pegan mucho más con sus paradas, curan más y suman el escudo de todas ellas.' },
+      { icon: '🔗', title: 'Mejoras de técnicas combinadas', text: 'La carta de mejora de una técnica combinada dice qué gana: daño, recarga, rivales que atraviesa, tamaño de la explosión y, en La Tierra, cometas.' },
+      { icon: '🔧', title: 'Arreglos', text: 'Quitar la sacudida de cámara funciona de verdad, también desde la pausa y en las técnicas Keshin y especiales. Las resonancias ya no tapan las bajas. Axel Encapuchado ya no parpadea al correr.' },
+    ],
+    start: [],
+  },
   {
     version: '1.75', date: '2026-11-04',
     title: 'InaZurvivors 1.75 — Banner de agradecimiento',

@@ -15,14 +15,18 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
-    version: '8.2', date: '2026-11-04', title: '1.75 Altar de despido',
+    version: '8.2', date: '2026-11-04', title: '1.76 Altar de despido y Leyendas',
     features: ['Altar de despido (altars.ts «despido», ArenaScene.offerDismiss/dismissMember, app.dismissModal): echa a un compañero de la partida (nunca al capitán); se lleva su vida, sus técnicas y sus combinadas, y no vuelve como fichaje.'],
     fixes: [
       'Sacudida de cámara: el botón de Pausa no llegaba a la partida (Fx trabaja con una copia: ArenaScene.liveSettings) y los Keshin/efectos del anime sacudían la cámara aunque estuviera apagada (Fx envuelve cameras.main.shake). Partículas y Destellos de Pausa también se aplican al momento.',
       'Las resonancias del HUD tapaban las bajas: ahora se colocan siempre debajo del panel del capitán.',
+      'Axel Encapuchado parpadeaba al correr (menús y partida): su hoja de la ROM guarda la carrera en las celdas 40-49; tools/fullBodyRun.ts la copia a las 20-39 que lee el rig (paso «especiales» de sync-assets).',
     ],
     visuals: ['Las cartas de mejora de técnica combinada muestran qué ganan (daño, recarga, atraviesa, explosión, cometas).'],
-    balance: [],
+    balance: [
+      'Leyendas: sin el tope de 95 por estadística y banda centrada en 98 (training.ts): medias 94-95 (antes 90-91, casi como un Mítico). Axel Encapuchado 95.',
+      'Porteros Leyenda: sus paradas hacen ×2,4 de daño y curan ×1,5, y los escudos de todas sus paradas se suman (máx. 60%); los demás porteros solo cuentan la mejor.',
+    ],
   },
   {
     version: '8.1', date: '2026-11-04', title: '1.75 Banner de agradecimiento',

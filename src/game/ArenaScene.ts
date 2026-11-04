@@ -118,6 +118,9 @@ export interface TrainingSetup {
   members: { id: number; slots: number[]; levels: Record<number, number> }[];
   combos: Record<string, number>;
 }
+/** 1.76: the saves of a Leyenda keeper hit like shots (base parada damage is 0.2 of the power, a shot 0.5) and heal more */
+const LEGEND_SAVE_DAMAGE = 2.4;
+const LEGEND_SAVE_HEAL = 1.5;
 /** rivals kept on the pitch while training */
 const TRAINING_RIVALS = 22;
 
@@ -495,9 +498,17 @@ export class ArenaScene extends Phaser.Scene {
 
   private shield() {
     let s = 0;
-    for (const m of this.members) for (let i = 0; i < m.state.slots.length; i++) {
-      const t = this.activeTech(m, i);
-      if (t?.type === 'parada') s = Math.max(s, Math.min(0.6, techStats(t, this.techLevel(m, i)).shield * (1 + this.talents().keeper)));
+    for (const m of this.members) {
+      // 1.76: a Leyenda keeper adds up the shields of all his saves (any other keeper counts only his best one)
+      const legend = m.entry.rarity === 'leyenda';
+      let own = 0;
+      for (let i = 0; i < m.state.slots.length; i++) {
+        const t = this.activeTech(m, i);
+        if (t?.type !== 'parada') continue;
+        const v = techStats(t, this.techLevel(m, i)).shield * (1 + this.talents().keeper);
+        own = legend ? own + v : Math.max(own, v);
+      }
+      s = Math.max(s, Math.min(0.6, own));
     }
     return s + this.talents().shield;
   }
@@ -534,6 +545,7 @@ export class ArenaScene extends Phaser.Scene {
       * chemistry(this.cfg.kitTeam ?? '', this.members.map((x) => x.entry)));
     const s = techStats(t, this.techLevel(m, i), build * statDamage(m.entry, t.type) * (this.buffOn('dano') ? 1.5 : 1) * this.formationDamage() * (t.type === 'parada' ? 1 + fx.keeper : 1));
     if (t.type === 'parada' && fx.keeper) { s.heal *= 1 + fx.keeper; s.shield = Math.min(0.6, s.shield * (1 + fx.keeper)); } // Portero+
+    if (t.type === 'parada' && m.entry.rarity === 'leyenda') { s.damage = Math.round(s.damage * LEGEND_SAVE_DAMAGE); s.heal *= LEGEND_SAVE_HEAL; } // 1.76
     s.cooldownMs = Math.round(s.cooldownMs * capCooldown(this.mods.cooldown * this.cfg.perks.cooldownMult * (1 - fx.cooldown) * statCooldown(m.entry)) * (this.buffOn('recarga') ? 0.6 : 1) * FORMATIONS[this.formation].cooldownMult);
     s.radius = Math.round(s.radius * capArea(this.mods.area * this.cfg.perks.areaMult * (this.buffOn('amplio') ? 1.2 : 1)));
     return s;
