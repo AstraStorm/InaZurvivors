@@ -2111,3 +2111,8 @@ body.reduced-motion .pcard.cc *, body.reduced-motion .pcard.cc .cc-frame { anima
 .dm-pick b { white-space: normal; line-height: 1.4; }
 .dm-pick small { font-size: 7px; opacity: .7; }
 .lv-gains { text-align: left; line-height: 1.7; } .lv-gains b { color: #ffe24a; }
+/* 1.76: the profile opened from the ranking is the same player card as the Perfil screen */
+.opf-panel.opf-full { max-width: 1020px !important; position: relative; }
+.opf-full .opf-x { position: absolute; right: 10px; top: 10px; z-index: 3; }
+.opf-full .pf-card { margin-bottom: 0; }
+.opf-full > * { flex-shrink: 0; }

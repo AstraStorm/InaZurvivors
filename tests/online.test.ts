@@ -361,3 +361,17 @@ describe('promotional codes (Fix 1.12)', () => {
     expect((await redeem('carla', 'GRACIAS')).status).toBe('used');
   });
 });
+describe('public profile (1.76)', () => {
+  it('carries pulls, claimed achievements and the collection for the player card; nothing private', async () => {
+    await db.query('insert into auth.users (id) values ($1)', [(ids.eva = '00000000-0000-0000-0000-0000000000cc')]);
+    await api('eva', `select public.reserve_username('Eva_P', '7', 'Raimon')`);
+    await api('eva', `select public.put_save($1::jsonb, 0)`, [JSON.stringify({ stats: { runs: 3, wins: 1, pulls: 12 },
+      owned: { 10: { copies: 2, stars: 1, hero: true, heroStars: 2, train: { kick: 3 } }, x: { copies: 1 } },
+      missions: { claimed: ['primera-victoria', 'diaria1@2026-11-04', 'bad id!'] }, coins: 5 })]);
+    const p = (await api('', `select public.public_profile('Eva_P') as p`)).rows[0] as { p: Record<string, unknown> };
+    expect(p.p.stats).toMatchObject({ runs: 3, wins: 1, pulls: 12 });
+    expect(p.p.collection).toEqual({ 10: { stars: 1, hero: true, heroStars: 2, train: { kick: 3 } } });
+    expect(p.p.achievements).toEqual(['primera-victoria']);
+    expect(JSON.stringify(p.p)).not.toMatch(/coins|copies|example\.test/);
+  });
+});

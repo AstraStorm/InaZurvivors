@@ -16,7 +16,9 @@ export interface Release {
 export const CHANGELOG: Release[] = [
   {
     version: '8.2', date: '2026-11-04', title: '1.76 Altar de despido y Leyendas',
-    features: ['Altar de despido (altars.ts «despido», ArenaScene.offerDismiss/dismissMember, app.dismissModal): echa a un compañero de la partida (nunca al capitán); se lleva su vida, sus técnicas y sus combinadas, y no vuelve como fichaje.'],
+    features: [
+      'Perfil del ranking = ficha del Perfil (app.playerCard compartida): migración 20261105000200_public_profile_full añade stats.pulls, collection (estrellas, ascensión, HÉROE, entrenamiento) y achievements; el mejor futbolista y su media se calculan en el cliente como en el Perfil propio. Recupera el statement_timeout de 5 s que perdía cada create or replace.',
+      'Altar de despido (altars.ts «despido», ArenaScene.offerDismiss/dismissMember, app.dismissModal): echa a un compañero de la partida (nunca al capitán); se lleva su vida, sus técnicas y sus combinadas, y no vuelve como fichaje.'],
     fixes: [
       'Sacudida de cámara: el botón de Pausa no llegaba a la partida (Fx trabaja con una copia: ArenaScene.liveSettings) y los Keshin/efectos del anime sacudían la cámara aunque estuviera apagada (Fx envuelve cameras.main.shake). Partículas y Destellos de Pausa también se aplican al momento.',
       'Las resonancias del HUD tapaban las bajas: ahora se colocan siempre debajo del panel del capitán.',

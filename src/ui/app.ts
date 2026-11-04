@@ -563,12 +563,32 @@ export class App {
     return `<span class="icon" style="width:${16 * scale}px;height:${16 * scale}px;background-image:url(${this.m.atlases.items.image});`
       + `background-position:-${f.x * scale}px -${f.y * scale}px;background-size:${this.iconW * scale}px auto"></span>`;
   }
-  private profileIcon(size = 56) {
-    const ic = this.save.profile.icon;
-    if (ic.kind === 'player' && this.byId.has(ic.id)) return `<span class="avatar" style="width:${size}px;height:${size}px">${this.mug(ic.id, size as 64)}</span>`;
-    const list = ic.kind === 'coach' ? this.m.profile?.coaches : this.m.profile?.emblems;
-    const e = list?.find((x) => (ic.kind === 'coach' ? x.index : x.teamId) === ic.id) ?? this.m.profile?.emblems?.[0];
+  private profileIcon(size = 56, ic: { kind: 'emblem' | 'player' | 'coach'; id: number } | null = this.save.profile.icon) {
+    if (ic?.kind === 'player' && this.byId.has(ic.id)) return `<span class="avatar" style="width:${size}px;height:${size}px">${this.mug(ic.id, size as 64)}</span>`;
+    const list = ic?.kind === 'coach' ? this.m.profile?.coaches : this.m.profile?.emblems;
+    const e = (ic ? list?.find((x) => (ic.kind === 'coach' ? x.index : x.teamId) === ic.id) : undefined) ?? this.m.profile?.emblems?.[0];
     return `<span class="avatar" style="width:${size}px;height:${size}px">${e ? `<img src="${e.texture}" alt="">` : ''}</span>`;
+  }
+
+  /**
+   * 1.76 (author): the player card of the Perfil screen, shared with the profile opened from the ranking so both look the
+   * same. `fav` is the favourite-team block (the own one can still be chosen there); unknown numbers show «—».
+   */
+  private playerCard(v: { tag: string; name: string; icon: string; frame?: string | null; crest?: string | null; pennant?: string | null;
+    wins: number; owned: number; heroes: number; fav: string; best: { id: number; mean: number; rarity: Rarity } | null; bestLabel: string;
+    runs: number; kills: number; bestTimeSec: number; pulls: number | null; achv: number | null }) {
+    const pn = v.pennant && PENNANT_BY_ID.has(v.pennant) ? v.pennant : null;
+    const achvAll = MISSIONS.filter((d) => d.kind === 'logro').length;
+    const tile = (icon: UiIconName, label: string, val: string | number, cls = '') => `<div class="pf-stat ${cls}"><span class="m4-ic">${uiIcon(icon)}</span><span><small>${label}</small><b>${val}</b></span></div>`;
+    return `<div class="pf-card${pn ? ' has-pn' : ''}">${pennantRibbon(pn, false)}<i class="rw-rays"></i>
+        <div class="pf-avatar">${this.framed(v.icon, v.frame, true)}${v.crest && this.emblemOf(v.crest) ? `<img class="pf-crest" src="${this.emblemOf(v.crest)}" alt="">` : ''}</div>
+        <div class="pf-main"><small>${v.tag}</small><b class="pf-name">${esc(v.name)}</b>
+          <div class="pf-tags"><span class="pf-tag">${uiIcon('trophy')}${v.wins} ${v.wins === 1 ? 'victoria' : 'victorias'}</span><span class="pf-tag">${uiIcon('cards')}${v.owned}/${this.m.roster.length}</span>${v.heroes ? `<span class="pf-tag hero">★ ${v.heroes} HÉROE</span>` : ''}</div>
+          <div class="pf-fav">${v.fav}</div></div>
+        ${pn ? `<div class="pf-flag" title="${esc(PENNANT_BY_ID.get(pn)!.name)}">${pennantEmblem(pn)}</div>` : ''}
+        ${v.best ? `<div class="pf-best" style="--rc:${RARITY_COLOR[v.best.rarity]}"><small>${v.bestLabel}</small>${this.mug(v.best.id, 72)}<b>${esc(this.byId.get(v.best.id)?.name ?? '')}</b><span>Media ${v.best.mean}</span></div>` : ''}</div>
+      <div class="pf-stats">${tile('pitch', 'Partidas', v.runs)}${tile('trophy', 'Victorias', v.wins, 'gold')}${tile('fire', 'Eliminaciones', v.kills.toLocaleString('es'))}${tile('clock', 'Mejor tiempo', fmtTime(v.bestTimeSec))}
+        ${tile('capsule', 'Fichajes', v.pulls ?? '—')}${tile('cards', 'Colección', `${v.owned}/${this.m.roster.length}`)}${tile('crown', 'Logros', v.achv === null ? '—' : `${v.achv}/${achvAll}`)}${tile('perks', 'Héroes', v.heroes)}</div>`;
   }
   /** Fix 1.3: the stats the game really uses (rarity band, ascension, HÉROE, training: training.ts); null without data. */
   private statsOf(p: RosterEntry): Record<string, number> | null {
@@ -1344,13 +1364,6 @@ export class App {
     try { p = await publicProfile(username); } catch { /* shown below */ }
     if (!box.isConnected) return;
     if (!p) { box.innerHTML = `<div class="panel opf-panel"><p>No se pudo cargar el perfil de ${esc(username)}.</p><button class="btn" data-close>Cerrar</button></div>`; box.querySelector('[data-close]')!.addEventListener('click', close); return; }
-    const icon = (() => {
-      const ic = p.icon;
-      if (ic?.kind === 'player' && this.byId.has(ic.id)) return `<span class="avatar" style="width:88px;height:88px">${this.mug(ic.id, 88 as 64)}</span>`;
-      const list = ic?.kind === 'coach' ? this.m.profile?.coaches : this.m.profile?.emblems;
-      const e = ic ? list?.find((x) => (ic.kind === 'coach' ? x.index : x.teamId) === ic.id) : undefined;
-      return `<span class="avatar" style="width:88px;height:88px">${(e ?? this.m.profile?.emblems?.[0]) ? `<img src="${(e ?? this.m.profile!.emblems![0]).texture}" alt="">` : ''}</span>`;
-    })();
     const mapName = (id: string) => this.m.maps.find((x) => x.id === id)?.name ?? id;
     const squad = p.squad.filter((s) => this.byId.has(s.id)).map((s) => {
       const e = this.byId.get(s.id)!, r = (s.hero ? 'heroe' : s.asc ? (s.ascRarity ?? 'mitico') : e.rarity) as string;
@@ -1359,12 +1372,23 @@ export class App {
         <b>${esc(e.name)}</b><small>${r === 'heroe' ? `HÉROE${s.heroStars ? ' ' + '★'.repeat(s.heroStars) : ''}` : esc(RARITY_LABEL[r as Rarity] ?? r)}${s.stars ? ` · ${'★'.repeat(s.stars)}` : ''}</small>
         ${aura ? `<span class="opf-aura" title="Aura: ${esc(aura.name)}">${this.mug(aura.id, 24)}<em>Aura</em></span>` : ''}</div>`;
     }).join('');
-    const tile = (label: string, v: string | number) => `<span class="opf-stat"><b>${v}</b><small>${label}</small></span>`;
-    box.innerHTML = `<div class="panel opf-panel">
-      <div class="opf-head${p.banner && PENNANT_BY_ID.has(p.banner) ? ' has-pn' : ''}">${pennantRibbon(p.banner)}${this.framed(icon, p.frame, true)}<div><small>PERFIL DE JUGADOR</small><b class="opf-name">${esc(p.username)}</b>
-        <span class="opf-meta">${p.crest && this.emblemOf(p.crest) ? `<img src="${this.emblemOf(p.crest)}" alt="">` : ''}${p.favorite ? `Equipo favorito: <b>${esc(teamLabel(p.favorite))}</b>` : 'Sin equipo favorito'}${p.joined ? ` · desde ${esc(new Date(p.joined).toLocaleDateString('es'))}` : ''}</span></div>
-        <button class="btn small blue" data-close>✕</button></div>
-      <div class="opf-stats">${tile('Partidas', p.stats.runs)}${tile('Victorias', p.stats.wins)}${tile('Eliminaciones', p.stats.kills.toLocaleString('es'))}${tile('Mejor tiempo', fmtTime(p.stats.bestTimeSec))}${tile('Colección', `${p.owned}/${this.m.roster.length}`)}${tile('Héroes', p.heroes)}</div>
+    // 1.76: the best footballer and his mean, worked out from their collection exactly like the own Perfil does
+    const theirs = { owned: p.collection ?? {} } as unknown as SaveData;
+    let best: { id: number; mean: number; rarity: Rarity } | null = null;
+    for (const id of Object.keys(p.collection ?? {})) {
+      const e = this.byId.get(Number(id));
+      if (!e?.stats) continue;
+      const r = effectiveRarity(theirs, e), mean = statMean(playerStats(theirs, e, r, isHero(theirs, e.id)));
+      if (!best || mean > best.mean) best = { id: e.id, mean, rarity: r };
+    }
+    const claimed = new Set(p.achievements ?? []);
+    const fav = p.favorite ? `${this.emblemOf(p.favorite) ? `<img src="${this.emblemOf(p.favorite)}" alt="">` : ''}<span><small>EQUIPO FAVORITO</small><b>${esc(teamLabel(p.favorite))}</b></span>`
+      : '<span><small>EQUIPO FAVORITO</small><b>Aún sin elegir</b></span>';
+    box.innerHTML = `<div class="panel opf-panel opf-full"><button class="btn small blue opf-x" data-close>✕</button>
+      ${this.playerCard({ tag: `PERFIL DE JUGADOR${p.joined ? ` · desde ${esc(new Date(p.joined).toLocaleDateString('es'))}` : ''}`, name: p.username, icon: this.profileIcon(112, p.icon),
+        frame: p.frame, crest: p.crest, pennant: p.banner ?? null, wins: p.stats.wins, owned: p.owned, heroes: p.heroes, fav, best, bestLabel: 'SU MEJOR FUTBOLISTA',
+        runs: p.stats.runs, kills: p.stats.kills, bestTimeSec: p.stats.bestTimeSec, pulls: p.stats.pulls ?? null,
+        achv: p.achievements ? MISSIONS.filter((d) => d.kind === 'logro' && claimed.has(d.id)).length : null })}
       <h3>${uiIcon('team')}Su equipo</h3><div class="opf-squad">${squad || '<div class="note">Todavía no ha elegido equipo.</div>'}</div>
       ${p.marks.length ? `<h3>${uiIcon('crown')}Mejores marcas</h3><div class="opf-marks">${p.marks.map((m) => `<span class="opf-mark"><span class="rank-btn r-${esc(m.rank)}"><b>${esc(m.rank)}</b></span>${esc(mapName(m.map))}<b>${fmtTime(m.time_sec)}</b><small>${Number(m.damage).toLocaleString('es')} daño</small></span>`).join('')}</div>` : ''}
     </div>`;
@@ -3708,21 +3732,16 @@ export class App {
     const fav = this.save.favoriteTeam;
     const owned = this.unlockedRoster();
     const heroes = Object.values(this.save.owned).filter((o) => o.hero).length;
-    const achv = MISSIONS.filter((d) => d.kind === 'logro' && isClaimed(this.save, d)).length, achvAll = MISSIONS.filter((d) => d.kind === 'logro').length;
+    const achv = MISSIONS.filter((d) => d.kind === 'logro' && isClaimed(this.save, d)).length;
     const best = owned.slice().sort((x, y) => this.meanOf(y) - this.meanOf(x))[0];
-    const tile = (icon: UiIconName, label: string, val: string | number, cls = '') => `<div class="pf-stat ${cls}"><span class="m4-ic">${uiIcon(icon)}</span><span><small>${label}</small><b>${val}</b></span></div>`;
     const tabs: ['emblem' | 'player' | 'coach', string, UiIconName][] = [['emblem', 'Escudos de equipo', 'shirt'], ['player', 'Jugadores', 'team'], ['coach', 'Entrenadores', 'crown']];
     this.show(`<div class="screen pf-screen">${this.titlebar('Perfil', 'Menú')}
-      <div class="pf-card${equippedPennant(this.save) ? ' has-pn' : ''}">${pennantRibbon(equippedPennant(this.save), false)}<i class="rw-rays"></i>
-        <div class="pf-avatar">${this.framed(this.profileIcon(112), equippedFrame(this.save)?.id, true)}${this.save.crest && this.emblemOf(this.save.crest) ? `<img class="pf-crest" src="${this.emblemOf(this.save.crest)}" alt="">` : ''}</div>
-        <div class="pf-main"><small>${signedIn() ? 'JUGADOR CON CUENTA' : 'JUGADOR INVITADO'}</small><b class="pf-name">${esc(this.save.onlineName || this.save.profile.name)}</b>
-          <div class="pf-tags"><span class="pf-tag">${uiIcon('trophy')}${st.wins} ${st.wins === 1 ? 'victoria' : 'victorias'}</span><span class="pf-tag">${uiIcon('cards')}${owned.length}/${this.m.roster.length}</span>${heroes ? `<span class="pf-tag hero">★ ${heroes} HÉROE</span>` : ''}</div>
-          <div class="pf-fav">${fav ? `${this.emblemOf(fav) ? `<img src="${this.emblemOf(fav)}" alt="">` : ''}<span><small>EQUIPO FAVORITO</small><b>${esc(teamLabel(fav))}</b></span><em title="El equipo favorito se elige una vez y no se puede cambiar">🔒 Para siempre</em>`
-            : `<span><small>EQUIPO FAVORITO</small><b>Aún sin elegir</b></span><select id="pteam"><option value="">Elige… (solo una vez)</option>${teams.map((t) => `<option value="${esc(t)}">${esc(teamLabel(t))}</option>`).join('')}</select>`}</div></div>
-        ${equippedPennant(this.save) ? `<div class="pf-flag" title="${esc(equippedPennant(this.save)!.name)}">${pennantEmblem(equippedPennant(this.save))}</div>` : ''}
-        ${best ? `<div class="pf-best" style="--rc:${RARITY_COLOR[effectiveRarity(this.save, best)]}"><small>TU MEJOR FUTBOLISTA</small>${this.mug(best.id, 72)}<b>${esc(best.name)}</b><span>Media ${this.meanOf(best)}</span></div>` : ''}</div>
-      <div class="pf-stats">${tile('pitch', 'Partidas', st.runs)}${tile('trophy', 'Victorias', st.wins, 'gold')}${tile('fire', 'Eliminaciones', st.kills.toLocaleString('es'))}${tile('clock', 'Mejor tiempo', fmtTime(st.bestTimeSec))}
-        ${tile('capsule', 'Fichajes', st.pulls)}${tile('cards', 'Colección', `${owned.length}/${this.m.roster.length}`)}${tile('crown', 'Logros', `${achv}/${achvAll}`)}${tile('perks', 'Héroes', heroes)}</div>
+      ${this.playerCard({ tag: signedIn() ? 'JUGADOR CON CUENTA' : 'JUGADOR INVITADO', name: this.save.onlineName || this.save.profile.name, icon: this.profileIcon(112),
+        frame: equippedFrame(this.save)?.id, crest: this.save.crest, pennant: equippedPennant(this.save)?.id ?? null, wins: st.wins, owned: owned.length, heroes,
+        fav: fav ? `${this.emblemOf(fav) ? `<img src="${this.emblemOf(fav)}" alt="">` : ''}<span><small>EQUIPO FAVORITO</small><b>${esc(teamLabel(fav))}</b></span><em title="El equipo favorito se elige una vez y no se puede cambiar">🔒 Para siempre</em>`
+          : `<span><small>EQUIPO FAVORITO</small><b>Aún sin elegir</b></span><select id="pteam"><option value="">Elige… (solo una vez)</option>${teams.map((t) => `<option value="${esc(t)}">${esc(teamLabel(t))}</option>`).join('')}</select>`,
+        best: best ? { id: best.id, mean: this.meanOf(best), rarity: effectiveRarity(this.save, best) } : null, bestLabel: 'TU MEJOR FUTBOLISTA',
+        runs: st.runs, kills: st.kills, bestTimeSec: st.bestTimeSec, pulls: st.pulls, achv })}
       ${this.pennantPanel()}
       ${this.accountPanel()}
       <div class="panel pf-icons"><h3>${uiIcon('target')}Icono de perfil <small>${got}/${items.length} desbloqueados${tab === 'player' ? ' · los de tu colección' : ''}</small></h3>

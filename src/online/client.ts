@@ -3,6 +3,8 @@
  * VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY: the anon key is public by design; no secret ever goes in the browser.
  * Everything that writes goes through the SQL functions in supabase/schema.sql, which check the caller's identity.
  */
+import type { Rarity } from '../data/manifest';
+
 const URL_ = (import.meta.env?.VITE_SUPABASE_URL as string | undefined) ?? '';
 const KEY = (import.meta.env?.VITE_SUPABASE_ANON_KEY as string | undefined) ?? '';
 const SESSION = 'inazurivors-session';
@@ -148,8 +150,11 @@ export interface PublicSquadMember { id: number; stars: number; hero: boolean; h
 export interface PublicProfile {
   username: string; avatar: string; crest: string; joined: string; favorite: string; kit: string; captain: number | null;
   icon: { kind: 'emblem' | 'player' | 'coach'; id: number } | null;
-  stats: { runs: number; wins: number; kills: number; bestTimeSec: number; bestEndless: number };
+  stats: { runs: number; wins: number; kills: number; bestTimeSec: number; bestEndless: number; /** 1.76 */ pulls?: number };
   owned: number; heroes: number; squad: PublicSquadMember[];
+  /** 1.76: the collection (stars, ascension, HÉROE, training) and the achievements claimed, for the same card as the own Perfil */
+  collection?: Record<string, { stars?: number; hero?: boolean; heroStars?: number; ascMitico?: boolean; ascRarity?: Rarity; train?: Partial<Record<string, number>> }>;
+  achievements?: string[];
   /** v1.65: the banner they show (an id; unknown ids are ignored) */
   banner?: string | null;
   /** v1.65: avatar frame worn */
