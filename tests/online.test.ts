@@ -390,10 +390,12 @@ describe('GTS (1.8)', () => {
     await u('juan', '00000000-0000-0000-0000-0000000000d3');
   });
 
-  it('only a spare copy can be left: never the only one, a HÉROE, a Leyenda or an event footballer', async () => {
+  it('only a spare copy can be left: never the only one, a Leyenda or an event footballer; an ascended HÉROE can', async () => {
     await save('hugo', { owned: { 10: { copies: 1 }, 20: { copies: 3, spent: 1 }, 30: { copies: 4, hero: true }, 100234: { copies: 5 }, 900001: { copies: 3 } } });
     await expect(dep('hugo', 10, 20)).rejects.toThrow(/gts_no_spare/);
-    await expect(dep('hugo', 30, 20)).rejects.toThrow(/gts_banned/);
+    const hero = await dep('hugo', 30, 20); // the spare copy of a HÉROE travels clean
+    expect(hero).toBeGreaterThan(0);
+    expect((await api('hugo', 'select public.gts_withdraw($1) as ok', [hero])).rows[0]).toEqual({ ok: true });
     await expect(dep('hugo', 100234, 20)).rejects.toThrow(/gts_banned/);
     await expect(dep('hugo', 900001, 20)).rejects.toThrow(/gts_banned/);
     await expect(dep('hugo', 20, 100234)).rejects.toThrow(/gts_banned/); // nobody could ever give a Leyenda

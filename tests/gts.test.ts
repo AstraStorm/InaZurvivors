@@ -8,14 +8,14 @@ const row = (id: number, role: GtsRow['role'], give: number, want: number, statu
 const fresh = () => { const s = newSave([10, 20], 10); s.owned['10'].copies = 3; s.owned['10'].train = { kick: 5 }; return s; };
 
 describe('GTS (1.8)', () => {
-  it('only spare copies, never Leyenda, HÉROE or event footballers', () => {
+  it('only spare copies, never Leyenda or event footballers; an ascended HÉROE can', () => {
     const s = fresh();
     expect(canLeave(s, { id: 10, rarity: 'raro' })).toBeNull();
     expect(canLeave(s, { id: 20, rarity: 'raro' })).toMatch(/repetidas/);
     expect(canLeave(s, { id: 10, rarity: 'leyenda' })).toMatch(/Leyenda/);
     expect(canLeave(s, { id: 10, rarity: 'raro', exclusive: 'evento' })).toMatch(/evento/);
     s.owned['10'].hero = true;
-    expect(canLeave(s, { id: 10, rarity: 'raro' })).toMatch(/HÉROE/);
+    expect(canLeave(s, { id: 10, rarity: 'raro' })).toBeNull();
   });
   it('a deposit leaves one copy; withdrawn it comes back; traded the one asked for arrives; each only once', () => {
     const s = fresh();
