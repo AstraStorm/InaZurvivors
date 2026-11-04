@@ -19,6 +19,9 @@
  * Dribbles (movieDribble): Espada real (ZjEVeVIzEy8) a golden sword held high, then a dash in blue speed lines; El ojo del
  *   huracán (bOjcMVCzKkg) two walls of white wind in a V and a blue cross flash, then a sandy whirlwind with debris; Hora
  *   celestial (BJtlb_kJtzA) a finger to the sky, time stops (grey, rivals still) and he crosses as a pale afterimage.
+ *   Descenso Estelar (Tenkuu Otoshi, KAKIJkqOqLo) — he jumps into a starry night, the clouds part, golden streaks rise and a
+ *     grey cratered rock wrapped in purple and blue falls on the goal. Mano Celestial X (same scene, manoX): red fists, a giant
+ *     hand of red light with a white palm and a red X. Lanza Nórdica Congelada and Frente Frío: Shawn and Aiden (combos).
  *   Ataque Omega (TssCtlpb8sM) — the three of Protocol Omega come in, each in a triangle of red, blue and green; a white
  *     crystal breaks, the ball arcs high in a streak of fire and lands in a burst of rainbow rays.
  */
@@ -30,7 +33,7 @@ type G = Phaser.GameObjects.Graphics;
 const AIR = 8900;
 const ADD = Phaser.BlendModes.ADD;
 
-export type MovieMove = 'umbrio' | 'espadas' | 'atomica' | 'ruptura' | 'superrayo' | 'omega' | 'odin' | 'sabiduria';
+export type MovieMove = 'umbrio' | 'espadas' | 'atomica' | 'ruptura' | 'superrayo' | 'omega' | 'odin' | 'sabiduria' | 'descenso';
 export function movieOf(name: string): MovieMove | null {
   const n = name.trim();
   if (/^campo umbr[ií]o$|black ?field/i.test(n)) return 'umbrio';
@@ -41,6 +44,7 @@ export function movieOf(name: string): MovieMove | null {
   if (/^ataque omega$|omega attack/i.test(n)) return 'omega';
   if (/^lanza de od[ií]n$|gungnir/i.test(n)) return 'odin';
   if (/^sabidur[ií]a divina$|god knows/i.test(n)) return 'sabiduria';
+  if (/^descenso estelar$|tenkuu otoshi/i.test(n)) return 'descenso';
   return null;
 }
 
@@ -357,6 +361,7 @@ function omegaShot(scene: S, ball: Img, lv: number) {
 
 export function movieCharge(scene: S, m: MovieMove, x: number, y: number, lv: number, ms: number) {
   if (m === 'odin') odinCharge(scene, x, y, lv, ms);
+  else if (m === 'descenso') descensoCharge(scene, x, y, lv, ms);
   else if (m === 'sabiduria') sabiduriaCharge(scene, x, y, lv, ms);
   else if (m === 'umbrio') umbrioCharge(scene, x, y, lv, ms);
   else if (m === 'espadas') espadasCharge(scene, x, y, lv, ms);
@@ -367,6 +372,7 @@ export function movieCharge(scene: S, m: MovieMove, x: number, y: number, lv: nu
 }
 export function movieShot(scene: S, m: MovieMove, ball: Img, lv: number) {
   if (m === 'odin') odinShot(scene, ball, lv);
+  else if (m === 'descenso') descensoShot(scene, ball, lv);
   else if (m === 'sabiduria') sabiduriaShot(scene, ball, lv);
   else if (m === 'umbrio') umbrioShot(scene, ball, lv);
   else if (m === 'espadas') espadasShot(scene, ball, lv);
@@ -555,4 +561,182 @@ export function movieDribble(scene: S, d: MovieDribble, x: number, y: number, tx
       for (let i = 0; i < 4; i++) { const u = Math.max(0, (k - 0.3) / 0.7 - i * 0.12); g.fillStyle(0xf0f4ff, 0.4 - i * 0.08).fillEllipse(Math.cos(ang) * len * u, Math.sin(ang) * len * u, 12, 22); }
     }, true);
   }
+}
+
+// ------------------------------------------------------------------ Descenso Estelar (Tenkuu Otoshi)
+const DE_NIGHT = 0x0a1240, DE_GOLD = 0xffd04a, DE_ROCK = 0xa8a8b4, DE_ROCK2 = 0x6a6a78, DE_AURA = 0x8a5aff, DE_BLUE = 0x7fb8ff;
+/** The rock of the scene: grey, round, with craters */
+function rock(g: G, x: number, y: number, r: number, alpha: number) {
+  g.fillStyle(DE_ROCK, alpha).fillCircle(x, y, r);
+  g.fillStyle(DE_ROCK2, alpha).fillCircle(x + r * 0.25, y + r * 0.2, r * 0.75).fillStyle(DE_ROCK, alpha).fillCircle(x - r * 0.1, y - r * 0.1, r * 0.75);
+  for (const [cx, cy, cr] of [[-0.35, -0.3, 0.2], [0.3, -0.35, 0.15], [0.1, 0.25, 0.22], [-0.4, 0.3, 0.12], [0.45, 0.15, 0.1]]) {
+    g.fillStyle(DE_ROCK2, alpha).fillCircle(x + cx * r, y + cy * r, cr * r);
+    g.lineStyle(1, 0xe0e0ea, 0.6 * alpha).strokeCircle(x + cx * r, y + cy * r, cr * r);
+  }
+}
+function descensoCharge(scene: S, x: number, y: number, lv: number, ms: number) {
+  const size = 30 + lv * 2;
+  const stars = Array.from({ length: 14 }, (_, i) => ({ a: i * 2.3, d: 0.3 + ((i * 41) % 10) / 12 }));
+  play(scene, x, y - 30, AIR - 2, ms, (g, k, t) => { // the sky goes dark and starry over him, the clouds part, golden streaks rise
+    const a = Math.min(1, k * 3);
+    for (let i = 0; i < 3; i++) g.fillStyle(DE_NIGHT, (0.25 - i * 0.05) * a).fillEllipse(0, -size * 0.6, size * (4 - i), size * (3 - i * 0.6));
+    for (const s2 of stars) g.fillStyle(0xffffff, a * (0.5 + 0.5 * Math.sin(t * 8 + s2.a))).fillCircle(Math.cos(s2.a) * s2.d * size * 1.8, -size * 0.6 + Math.sin(s2.a) * s2.d * size * 1.2, 1.2);
+    const part = Math.min(1, k * 1.6) * size * 1.2; // the clouds pushed to both sides
+    for (const side of [-1, 1]) for (let i = 0; i < 3; i++) g.fillStyle(0xf0e8d8, 0.85 * a).fillCircle(side * (part + i * 9), size * 0.2 - i * 10, 10 - i * 2);
+    for (let i = 0; i < 4; i++) { const h = ((t * 1.6 + i * 0.25) % 1) * size * 2.4; g.lineStyle(2, DE_GOLD, 0.8 * a).lineBetween((i - 1.5) * 9, size * 0.4 - h, (i - 1.5) * 9, size * 0.4 - h - 14); }
+  });
+  play(scene, x, y - size * 1.6, AIR + 1, ms, (g, k) => { // the rock forms high above him
+    const s2 = Math.max(0, k - 0.35) / 0.65;
+    if (s2 > 0) { g.fillStyle(DE_AURA, 0.3 * s2).fillCircle(0, 0, size * 0.55 * s2 + 4); rock(g, 0, 0, size * 0.38 * s2, s2); }
+  });
+}
+function descensoShot(scene: S, ball: Img, lv: number) {
+  const r = 12 + lv * 0.8;
+  ride(scene, ball, (g, bx, by, ang, t) => { // the rock falls wrapped in purple and blue, golden streaks behind
+    for (let i = 0; i < 5; i++) { const off = (i - 2) * r * 0.35, len = 40 + (i % 2) * 18; g.lineStyle(3, i % 2 ? DE_GOLD : 0xffa83a, 0.8).lineBetween(bx - Math.sin(ang) * off, by + Math.cos(ang) * off, bx - Math.cos(ang) * len - Math.sin(ang) * off, by - Math.sin(ang) * len + Math.cos(ang) * off); }
+    g.fillStyle(DE_AURA, 0.35).fillCircle(bx, by, r * 1.55);
+    g.lineStyle(3, DE_BLUE, 0.8).strokeCircle(bx, by, r * (1.3 + Math.sin(t * 20) * 0.05));
+    rock(g, bx, by, r, 1);
+  }, (x, y) => {
+    play(scene, x, y, AIR + 2, 460, (g, k) => {
+      const a = 1 - k;
+      g.fillStyle(DE_AURA, 0.45 * a).fillCircle(0, 0, 20 + k * 60);
+      g.lineStyle(4, DE_GOLD, a).strokeEllipse(0, 6, 40 + k * 100, 14 + k * 34);
+      for (let i = 0; i < 6; i++) { const an = i * 1.047 + 0.4, d = 10 + k * 46; rock(g, Math.cos(an) * d, Math.sin(an) * d * 0.6, 4 * (1 - k * 0.5), a); } // the rock bursts in pieces
+    });
+    sparks(scene, x, y, 12, 50, [DE_GOLD, DE_AURA, DE_BLUE]);
+  });
+}
+
+// ------------------------------------------------------------------ Mano Celestial X (God Hand X)
+const GX_RED = 0xff3a2a, GX_ORANGE = 0xff8a3a, GX_PALE = 0xffe0d0;
+/** A giant hand of red-orange light with a white glow in the palm (open, fingers up) */
+function giantHand(g: G, x: number, y: number, s: number, alpha: number) {
+  g.fillStyle(GX_RED, 0.3 * alpha).fillCircle(x, y, 34 * s);
+  g.fillStyle(GX_ORANGE, 0.55 * alpha).fillEllipse(x, y + 4 * s, 34 * s, 30 * s); // palm
+  for (let i = 0; i < 4; i++) { // fingers
+    const fx = x + (i - 1.5) * 8.5 * s, h = (i === 1 || i === 2 ? 26 : 21) * s;
+    g.fillStyle(GX_ORANGE, 0.55 * alpha).fillRoundedRect(fx - 3.6 * s, y - 8 * s - h, 7.2 * s, h + 6 * s, 3.5 * s);
+    g.lineStyle(1.5, GX_PALE, 0.8 * alpha).strokeRoundedRect(fx - 3.6 * s, y - 8 * s - h, 7.2 * s, h + 6 * s, 3.5 * s);
+  }
+  g.fillStyle(GX_ORANGE, 0.55 * alpha).fillRoundedRect(x - 22 * s, y - 4 * s, 9 * s, 18 * s, 4 * s); // thumb
+  g.fillStyle(0xffffff, 0.85 * alpha).fillCircle(x, y + 4 * s, 9 * s);
+  g.lineStyle(2, GX_PALE, 0.9 * alpha).strokeEllipse(x, y + 4 * s, 34 * s, 30 * s);
+}
+/** The keeper's red fists light up, he punches and the giant hand of red light rises behind him with the X. */
+export function manoX(scene: S, x: number, y: number, lv: number, big = false) {
+  const s = (0.9 + lv * 0.05) * (big ? 1.25 : 1);
+  play(scene, x, y - 14, AIR + 1, 220, (g, k) => { for (const side of [-1, 1]) { g.fillStyle(GX_RED, 0.6).fillCircle(side * 9, -4, 6 + k * 3); g.fillStyle(0xffffff, 0.9).fillCircle(side * 9, -4, 2.5); } }, true);
+  scene.time.delayedCall(180, () => {
+    play(scene, x, y - 40 * s, AIR, 620, (g, k, t) => {
+      const grow = Math.min(1, k * 4), a = k > 0.7 ? (1 - k) / 0.3 : 1;
+      for (let i = 0; i < 14; i++) { const an = i * 0.449 + t * 0.4; g.lineStyle(3, i % 2 ? GX_ORANGE : GX_RED, 0.5 * a).lineBetween(Math.cos(an) * 20 * s, Math.sin(an) * 20 * s, Math.cos(an) * 64 * s * grow, Math.sin(an) * 64 * s * grow); }
+      giantHand(g, 0, 0, s * grow, a);
+      if (k > 0.25) { const c = Math.min(1, (k - 0.25) * 5); for (const an of [Math.PI / 4, -Math.PI / 4]) g.lineStyle(6, GX_RED, 0.8 * a * c).lineBetween(-Math.cos(an) * 40 * s * c, -Math.sin(an) * 40 * s * c, Math.cos(an) * 40 * s * c, Math.sin(an) * 40 * s * c); }
+    }, true);
+    sparks(scene, x, y - 40 * s, 10, 50 * s, [GX_RED, GX_ORANGE, 0xffffff]);
+  });
+}
+
+// ------------------------------------------------------------------ Lanza Nórdica Congelada and Frente Frío (Shawn and Aiden)
+const IC_BLUE = 0x3a9aff, IC_CYAN = 0x8fe8ff, IC_WHITE = 0xf4fbff, IC_RED = 0xd82a4a;
+/** A snowflake of ice: six arms with side branches, big */
+function snowflake(g: G, x: number, y: number, r: number, rot: number, alpha: number) {
+  for (let i = 0; i < 6; i++) {
+    const an = rot + i * 1.047, ex = x + Math.cos(an) * r, ey = y + Math.sin(an) * r;
+    g.lineStyle(Math.max(2, r * 0.09), IC_CYAN, 0.9 * alpha).lineBetween(x, y, ex, ey);
+    g.lineStyle(Math.max(1, r * 0.035), IC_WHITE, alpha).lineBetween(x, y, ex, ey);
+    for (const u of [0.45, 0.72]) for (const sd of [-1, 1]) {
+      const bx = x + Math.cos(an) * r * u, by = y + Math.sin(an) * r * u, ba = an + sd * 0.8, bl = r * (0.9 - u) * 0.8;
+      g.lineStyle(Math.max(1.5, r * 0.05), IC_CYAN, 0.9 * alpha).lineBetween(bx, by, bx + Math.cos(ba) * bl, by + Math.sin(ba) * bl);
+    }
+  }
+  g.fillStyle(IC_WHITE, alpha).fillCircle(x, y, r * 0.14);
+}
+/** Lanza Nórdica Congelada (Hyouketsu no Gungnir, -9yTX2fAMqg, as the author describes it): Shawn howls and freezes, a huge
+ *  snowflake of ice forms, Aiden comes in with flips and kicks the snowflake. `shawn` and `aiden` are where they stand. */
+export function gungnirCharge(scene: S, shawn: { x: number; y: number }, aiden: { x: number; y: number }, x: number, y: number, lv: number, ms: number) {
+  const size = 34 + lv * 2;
+  play(scene, shawn.x, shawn.y - 14, AIR, ms * 0.5, (g, k) => { // the howl: rings of sound, then the ice closes round him
+    for (let i = 0; i < 3; i++) { const u = (k * 2 + i * 0.33) % 1; g.lineStyle(3 * (1 - u), IC_WHITE, 0.8 * (1 - u)).strokeEllipse(0, 0, 14 + u * 70, 10 + u * 44); }
+    const f = Math.max(0, k - 0.4) / 0.6;
+    if (f > 0) for (let i = 0; i < 6; i++) { const an = i * 1.047; g.fillStyle(IC_CYAN, 0.7 * f).fillTriangle(Math.cos(an) * 6, 6 + Math.sin(an) * 4, Math.cos(an) * 16 * f, 6 + Math.sin(an) * 10 * f - 14 * f, Math.cos(an + 0.3) * 8, 6 + Math.sin(an + 0.3) * 5); }
+  }, true);
+  play(scene, x, y - 18, AIR + 1, ms + 120, (g, k, t) => { // the huge snowflake
+    const s2 = Math.min(1, Math.max(0, k - 0.25) / 0.45);
+    if (s2 > 0) { g.fillStyle(IC_BLUE, 0.2 * s2).fillCircle(0, 0, size * 1.1 * s2); snowflake(g, 0, 0, size * s2, t * 0.6, Math.min(1, s2 * 1.5) * (k > 0.92 ? (1 - k) * 12 : 1)); }
+  }, true);
+  play(scene, 0, 0, AIR + 2, ms, (g, k, t) => { // Aiden flips towards the snowflake in his red and black aura
+    if (k < 0.45) return;
+    const u = Math.min(1, (k - 0.45) / 0.45), px = aiden.x + (x - aiden.x) * u, py = aiden.y - 10 + (y - 18 - aiden.y + 10) * u - Math.sin(u * Math.PI) * 30;
+    g.fillStyle(0x1a0008, 0.45).fillCircle(px, py, 14);
+    g.lineStyle(3, IC_RED, 0.9).beginPath().arc(px, py, 13, t * 18, t * 18 + 4.4).strokePath(); // the flip
+    g.lineStyle(2, 0x2a0a10, 0.9).beginPath().arc(px, py, 17, -t * 14, -t * 14 + 3.2).strokePath();
+  });
+}
+/** The frozen shot: an icy ball in Aiden's red and black aura, leaving spikes of ice along its path. */
+export function gungnirShot(scene: S, ball: Img, lv: number) {
+  let lastX = ball.x, lastY = ball.y;
+  ride(scene, ball, (g, bx, by, ang, t) => {
+    if (Math.hypot(bx - lastX, by - lastY) > 22) { // a spike of ice left on the ground
+      lastX = bx; lastY = by;
+      const sp = scene.add.graphics({ x: bx, y: by + 8 }).setDepth(by + 8);
+      const h = 10 + Math.random() * 8 + lv * 0.4;
+      sp.fillStyle(IC_CYAN, 0.9).fillTriangle(-4, 0, 4, 0, 0, -h).fillStyle(IC_WHITE, 0.9).fillTriangle(-1.5, 0, 1.5, 0, 0, -h * 0.8);
+      sp.fillStyle(IC_BLUE, 0.8).fillTriangle(3, 0, 9, 0, 6, -h * 0.6);
+      scene.tweens.add({ targets: sp, alpha: 0, delay: 500, duration: 300, onComplete: () => sp.destroy() });
+    }
+    const r = 11 + lv * 0.6;
+    g.fillStyle(0x1a0008, 0.4).fillCircle(bx, by, r * 2); // Aiden's aura, red and black
+    for (let i = 0; i < 3; i++) g.lineStyle(3, i % 2 ? 0x2a0a10 : IC_RED, 0.85).beginPath().arc(bx, by, r * (1.4 + i * 0.25), t * (12 - i * 3) + i * 2, t * (12 - i * 3) + i * 2 + 2.6).strokePath();
+    for (let i = 1; i < 6; i++) g.fillStyle(IC_CYAN, 0.4 - i * 0.06).fillCircle(bx - Math.cos(ang) * i * 9, by - Math.sin(ang) * i * 9, r * (1 - i * 0.12));
+    snowflake(g, bx, by, r * 1.1, t * 5, 1);
+  }, (x, y) => {
+    play(scene, x, y, AIR + 2, 480, (g, k, t) => {
+      const a = 1 - k;
+      snowflake(g, 0, 0, 20 + k * 46, t, a);
+      g.lineStyle(4, IC_RED, a).strokeCircle(0, 0, 18 + k * 56);
+    }, true);
+    sparks(scene, x, y, 14, 52, [IC_WHITE, IC_CYAN, IC_RED]);
+  });
+}
+/** Frente Frío (Cold Front, Q8a41dHqJWA): the ball hangs in a crystal of ice in a snowy sky, two serpents of ice rise from the
+ *  brothers round it, and it comes down as a sphere of blue ice and lightning; a wave of ice at the goal. */
+export function frenteCharge(scene: S, who: { x: number; y: number }[], x: number, y: number, lv: number, ms: number) {
+  const size = 30 + lv * 2, top = { x, y: y - size * 1.5 };
+  play(scene, x, y - size * 0.6, AIR - 2, ms, (g, k, t) => { // the snowy sky
+    const a = Math.min(1, k * 3);
+    g.fillStyle(0xc8d8f0, 0.22 * a).fillEllipse(0, 0, size * 4.2, size * 3);
+    for (let i = 0; i < 16; i++) { const sx = ((i * 37) % 100 - 50) / 50 * size * 2, sy = (((t * 30 + i * 23) % 100) - 50) / 50 * size * 1.4; g.fillStyle(0xffffff, 0.9 * a).fillCircle(sx, sy, 1.3); }
+  });
+  for (const p of who) play(scene, 0, 0, AIR, ms, (g, k, t) => { // a serpent of ice from each brother up to the ball
+    const a = Math.min(1, k * 3);
+    g.lineStyle(9, IC_CYAN, 0.45 * a).beginPath();
+    for (let i = 0; i <= 18; i++) { const u = i / 18 * Math.min(1, k * 1.5), w = Math.sin(u * 9 + t * 6) * 10, px = p.x + (top.x - p.x) * u + w, py = p.y - 8 + (top.y - p.y + 8) * u; if (i) g.lineTo(px, py); else g.moveTo(px, py); }
+    g.strokePath();
+    g.lineStyle(3, IC_WHITE, 0.8 * a).strokePath();
+  }, true);
+  play(scene, top.x, top.y, AIR + 1, ms, (g, k, t) => { // the ball shut in its crystal of ice
+    const s2 = Math.min(1, k * 2), r = 10 + s2 * 6;
+    const pts = [0, 1, 2, 3, 4, 5].map((i) => new Phaser.Math.Vector2(Math.cos(i * 1.047 + t) * r, Math.sin(i * 1.047 + t) * r));
+    g.fillStyle(IC_CYAN, 0.5 * s2).fillPoints(pts, true);
+    g.lineStyle(2, IC_WHITE, s2).strokePoints(pts, true);
+  }, true);
+}
+export function frenteShot(scene: S, ball: Img, lv: number) {
+  const r = 12 + lv * 0.7;
+  ride(scene, ball, (g, bx, by, ang, t) => {
+    for (let i = 1; i < 7; i++) g.fillStyle(i % 2 ? IC_CYAN : IC_BLUE, 0.4 - i * 0.05).fillCircle(bx - Math.cos(ang) * i * 8, by - Math.sin(ang) * i * 8, r * (1 - i * 0.1));
+    g.fillStyle(IC_BLUE, 0.55).fillCircle(bx, by, r * 1.3);
+    g.fillStyle(IC_WHITE, 0.85).fillCircle(bx, by, r * 0.55);
+    const seed = Math.floor(t * 14);
+    for (let i = 0; i < 4; i++) { const an = i * 1.57 + seed; bolt(g, bx, by, bx + Math.cos(an) * r * 1.5, by + Math.sin(an) * r * 1.5, seed + i, 1.5, IC_WHITE, IC_BLUE, 0.9, 4); }
+  }, (x, y) => {
+    play(scene, x, y, AIR + 2, 480, (g, k) => { // the wave of ice
+      const a = 1 - k;
+      for (let i = 0; i < 3; i++) g.lineStyle(6 - i * 2, i % 2 ? IC_WHITE : IC_CYAN, 0.8 * a).beginPath().arc(0, 6, 20 + k * 70 + i * 8, Math.PI * 1.05, Math.PI * 1.95).strokePath();
+      g.fillStyle(IC_BLUE, 0.35 * a).fillEllipse(0, 8, 50 + k * 110, 16 + k * 30);
+    }, true);
+    sparks(scene, x, y, 14, 52, [IC_WHITE, IC_CYAN, IC_BLUE]);
+  });
 }

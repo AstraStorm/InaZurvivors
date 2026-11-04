@@ -5,6 +5,7 @@
  * that tweens out and destroys itself, so nothing stays on the pitch. Original recreations; the games use 3D models.
  */
 import Phaser from 'phaser';
+import { manoX } from './fxMovie';
 import type { Fx } from './fx';
 
 type G = Phaser.GameObjects.Graphics;
@@ -115,7 +116,7 @@ export function keeperHand(fx: Fx, scene: Phaser.Scene, name: string, kind: Hand
     case 'celestial': {
       // Mano celestial: a golden hand of light behind the keeper. V: wings of light in a V; X: two crossed beams;
       // Bimano / Trimano: two or three hands fanned out
-      const gold = /celest|divin|dios|god/.test(n) ? 0xffd84a : color;
+      const gold = /\bx\b|mano celestial x/.test(n) ? 0xff5a3a : /celest|divin|dios|god/.test(n) ? 0xffd84a : color; // 1.76: X is red
       const count = /trimano|triple/.test(n) ? 3 : /bimano|doble|double/.test(n) ? 2 : 1;
       fx.pillar(x, y + 4, 0xfff0b0, level + 4);
       aura(scene, x, y - 30, 22 + level * 2, gold, 700);
@@ -130,6 +131,7 @@ export function keeperHand(fx: Fx, scene: Phaser.Scene, name: string, kind: Hand
         }
       }
       if (/\bx\b|mano celestial x/.test(n)) {
+        manoX(scene, x, y, level, big); // 1.76: red fists and a giant red hand, from the anime scene (fxMovie.ts)
         for (const a of [Math.PI / 4, -Math.PI / 4]) {
           const b = scene.add.rectangle(x, y - 30, 7, 84 * s, 0xffd84a, 0.6).setRotation(a).setBlendMode(Phaser.BlendModes.ADD).setDepth(8795);
           scene.tweens.add({ targets: b, scaleY: { from: 0.1, to: 1 }, duration: 180, ease: 'Quad.easeOut' });

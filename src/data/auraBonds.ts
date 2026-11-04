@@ -60,7 +60,7 @@ export const AURA_BONDS: AuraBond[] = [
     source: 'Wiki de Inazuma Eleven (fandom), «Daisuke Endou».' },
   { a: 1, aName: 'Mark Evans', b: 1616, bName: 'Canon Evans', kind: 'familia', reason: 'Canon es el bisnieto de Mark, llegado del futuro.',
     source: 'Wiki de Inazuma Eleven (fandom), «Kanon Endou».' },
-  { a: 1513, aName: 'Shawn Froste', b: 100797, bName: 'Aiden Froste', kind: 'familia', reason: 'Hermanos: Aiden vive en el juego de Shawn.',
+  { a: 1513, aName: 'Shawn Froste', b: 100797, bName: 'Aiden Froste', kind: 'familia', reason: 'Hermanos: Aiden vive en el juego de Shawn. Juntos lanzan Lanza Nórdica Congelada o Frente Frío.', combos: ['lanza-nordica', 'frente-frio'],
     source: 'Wiki de Inazuma Eleven (fandom), «Atsuya Fubuki».' },
   { a: 29, aName: 'Jude Sharp', b: 1620, bName: 'Celia Hills', kind: 'familia', reason: 'Hermanos separados de pequeños.',
     source: 'Wiki de Inazuma Eleven (fandom), «Haruna Otonashi».' },

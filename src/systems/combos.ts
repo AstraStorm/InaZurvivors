@@ -25,10 +25,12 @@ export interface ComboDef {
   needs: { player: string; tech?: string; level: number }[];
   cooldownMs: number;
   /** what the special slot does when it fires (each one has its own animation in the scene) */
-  effect: 'tiro-doble' | 'tiro-dragon' | 'tiro-rayo' | 'fenix' | 'tierra' | 'caos' | 'ventisca' | 'tierra-inf' | 'aurora' | 'bigbang' | 'fuego-total' | 'zero' | 'superrayo';
+  effect: 'tiro-doble' | 'tiro-dragon' | 'tiro-rayo' | 'fenix' | 'tierra' | 'caos' | 'ventisca' | 'tierra-inf' | 'aurora' | 'bigbang' | 'fuego-total' | 'zero' | 'superrayo' | 'gungnir' | 'frente';
   /** Fix 1.12: when several are learnable at once, the higher one is offered first */
   priority: number;
   source: string;
+  /** 1.76: combos of one group are alternatives: a run offers one of them at random and learns only one */
+  group?: string;
 }
 
 export const COMBOS: ComboDef[] = [
@@ -124,6 +126,19 @@ export const COMBOS: ComboDef[] = [
     needs: [{ player: 'Mark Evans', level: 3 }, { player: 'Axel Blaze', level: 5 }],
     cooldownMs: 6000, effect: 'superrayo', priority: 6,
     source: 'Wiki de Inazuma Eleven (fandom), «Inazuma 1»; escena enlazada por el autor (youtube ZnmZGFITVtw): Endou (Mark) y Gouenji (Axel) chutan juntos. Potencia: la del Súper relámpago del plantel (79) subida como combinada; condición de niveles: regla del Fix 1.51.',
+  },
+  // 1.76 (author): Shawn and Aiden, two alternatives (group): a run offers one of them and keeps it when it levels up
+  {
+    id: 'lanza-nordica', name: 'Lanza Nórdica Congelada', jp: '氷結のグングニル', en: 'Northern Impact', element: 'Aire', power: 135,
+    needs: [{ player: 'Shawn Froste', level: 3 }, { player: 'Aiden Froste', level: 5 }],
+    cooldownMs: 8000, effect: 'gungnir', priority: 9, group: 'hermanos-froste',
+    source: 'Wiki de Inazuma Eleven (fandom), «Hyouketsu no Gungnir» (Orion no Kokuin); escena enlazada por el autor (youtube -9yTX2fAMqg) y su descripción: Shawn aúlla y se congela, copo de nieve de hielo, Aiden lo chuta con piruetas. Potencia y niveles: diseño de InaZurvivors.',
+  },
+  {
+    id: 'frente-frio', name: 'Frente Frío', jp: 'コールドフロント', en: 'Cold Front', element: 'Aire', power: 125,
+    needs: [{ player: 'Shawn Froste', level: 3 }, { player: 'Aiden Froste', level: 5 }],
+    cooldownMs: 7000, effect: 'frente', priority: 9, group: 'hermanos-froste',
+    source: 'Wiki de Inazuma Eleven (fandom) y códice oficial de Victory Road (zukan.inazuma.jp), «Cold Front»: tiro combinado de clase ventisca con brillo plateado; escena enlazada por el autor (youtube Q8a41dHqJWA, Ares). Potencia y niveles: diseño de InaZurvivors.',
   },
   // (author) Fuego total: the hooded Axel (data/special_players.json) also does it alone, as his own technique
   {

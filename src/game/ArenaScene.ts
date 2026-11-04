@@ -34,7 +34,7 @@ import { dragon, handKind, keeperHand } from './fxTech';
 import { orphans } from '../systems/groundSweep';
 import { chaosMeteorCharge, chaosMeteorShot, fireStormCharge, fireStormShot, elementBurst, phoenix, phoenixFlight, setLowPower, teamBeams } from './fxManif';
 import { crossfireCharge, crossfireShot } from './fxCross';
-import { dribbleOf, movieCharge, movieDribble, movieOf, movieShot, rupturaCharge, rupturaShot, superrayoCharge, superrayoShot, zeroCharge, zeroShot } from './fxMovie';
+import { dribbleOf, frenteCharge, frenteShot, gungnirCharge, gungnirShot, movieCharge, movieDribble, movieOf, movieShot, rupturaCharge, rupturaShot, superrayoCharge, superrayoShot, zeroCharge, zeroShot } from './fxMovie';
 import { blackAshCharge, blackAshTrail, illusionBall, signatureOf, stormZone } from './fxSignature';
 import { natureArea, natureCharge, natureOf, natureShot, setNatureLowPower } from './fxNature';
 import { animeCharge, animeOf, animeShot, auroraVeil, cometTex, earthBurst, earthCharge, furyFist, breezeStep, chaosBreakCharge, chaosBreakShot, fireBlizzardCharge, fireBlizzardShot, godWindGust } from './fxAnime';
@@ -1074,7 +1074,7 @@ export class ArenaScene extends Phaser.Scene {
     const style = fxStyle(t);
     const [c1, c2] = STYLE_COLORS[style];
     // Fix 1.12: the participants send their power to the meeting point and each combination has its own manifestation
-    const wind = def.effect === 'tierra' || def.effect === 'tierra-inf' || def.effect === 'bigbang' || def.effect === 'fuego-total' ? 900 : def.effect === 'caos' || def.effect === 'fenix' || def.effect === 'aurora' || def.effect === 'tiro-doble' || def.effect === 'zero' ? 700 : def.effect === 'tiro-rayo' || def.effect === 'superrayo' ? 600 : 360;
+    const wind = def.effect === 'tierra' || def.effect === 'tierra-inf' || def.effect === 'bigbang' || def.effect === 'fuego-total' ? 900 : def.effect === 'caos' || def.effect === 'fenix' || def.effect === 'aurora' || def.effect === 'tiro-doble' || def.effect === 'zero' || def.effect === 'frente' ? 700 : def.effect === 'gungnir' ? 900 : def.effect === 'tiro-rayo' || def.effect === 'superrayo' ? 600 : 360;
     // v1.5: a participant carried as Aura appears beside its carrier for the technique only, then fades away
     const ghosts: { x: number; y: number }[] = [];
     for (const c of comboCast(def, who)) {
@@ -1111,6 +1111,12 @@ export class ArenaScene extends Phaser.Scene {
     else if (def.effect === 'tiro-rayo') rupturaCharge(this, mx, my, 4 + level, wind); // 1.76: Ruptura relámpago as in the anime (fxMovie.ts)
     else if (def.effect === 'zero') zeroCharge(this, who.map((m) => ({ x: m.f.x, y: m.f.y })), mx, my, 4 + level, wind); // 1.76: Zero Magnum (Bailong, Tezcat)
     else if (def.effect === 'superrayo') superrayoCharge(this, mx, my, 4 + level, wind); // 1.76: Súper relámpago (Mark, Axel)
+    else if (def.effect === 'gungnir' || def.effect === 'frente') { // 1.76: Shawn and Aiden (fxMovie.ts)
+      const pos = (m: Member) => ({ x: m.f.x, y: m.f.y });
+      const shawn = who.find((m) => m.entry.name.includes('Shawn')) ?? who[0], aiden = who.find((m) => m !== shawn) ?? shawn;
+      if (def.effect === 'gungnir') gungnirCharge(this, pos(shawn), pos(aiden), mx, my, 4 + level, wind);
+      else frenteCharge(this, who.map(pos), mx, my, 4 + level, wind);
+    }
     else if (def.effect === 'tiro-doble') { // 1.76: Fuego cruzado as in the anime (fxCross.ts): Axel's sphere of fire, Shawn's of ice
       const fire = who.find((m) => m.entry.element === 'Fuego') ?? who[0], ice = who.find((m) => m !== fire) ?? fire;
       crossfireCharge(this, { x: fire.f.x, y: fire.f.y }, { x: ice.f.x, y: ice.f.y }, mx, my, 30 + level * 2, wind);
@@ -1159,6 +1165,8 @@ export class ArenaScene extends Phaser.Scene {
         else if (def.effect === 'tiro-rayo') rupturaShot(this, ball, 4 + level);
         else if (def.effect === 'zero') zeroShot(this, ball, 4 + level);
         else if (def.effect === 'superrayo') superrayoShot(this, ball, 4 + level);
+        else if (def.effect === 'gungnir') gungnirShot(this, ball, 4 + level);
+        else if (def.effect === 'frente') frenteShot(this, ball, 4 + level);
         else if (def.effect === 'ventisca') fireBlizzardShot(this, ball, level, off > 0 ? 'ice' : 'fire'); // v1.5
         // Remate caótico is one ball in the scene: the second one keeps its damage but is not drawn
         else if (def.effect === 'bigbang') animeShot(this, 'bigbang', ball, 4 + level); // Fix 1.51: immense ball and explosion
@@ -2306,8 +2314,17 @@ export class ArenaScene extends Phaser.Scene {
       if (recruitOnly) return cards;
       // a combination that just became possible always shows up; upgrades of learned ones now and then
       const pitch = this.members.map((m) => ({ entry: m.entry, state: m.state }));
+      // 1.76: combos of a group are alternatives (Lanza Nórdica Congelada / Frente Frío): one of the ready ones at random,
+      // and none of them once the run has learned one of the group
+      const groupPick = new Map<string, string>();
+      for (const c of COMBOS) {
+        if (!c.group || groupPick.has(c.group)) continue;
+        const ready = COMBOS.filter((o) => o.group === c.group && comboReady(o, pitch));
+        if (ready.length) groupPick.set(c.group, ready[this.rng.between(0, ready.length - 1)].id);
+      }
       for (const c of [...COMBOS_BY_PRIORITY].reverse()) { // the highest priority ends up first
         const got = this.combos.get(c.id);
+        if (!got && c.group && ([...this.combos.keys()].some((id) => COMBOS.find((x) => x.id === id)?.group === c.group) || groupPick.get(c.group) !== c.id)) continue;
         if (!got && comboReady(c, pitch)) cards.splice(0, 1, { kind: 'combo', id: c.id, toLevel: 1 });
         else if (got && got.level < COMBO_MAX_LEVEL && this.rng.frac() < 0.35) cards.splice(cards.length - 1, 1, { kind: 'combo', id: c.id, toLevel: got.level + 1 });
       }
