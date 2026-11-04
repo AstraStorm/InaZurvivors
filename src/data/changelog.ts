@@ -17,7 +17,7 @@ export const CHANGELOG: Release[] = [
   {
     version: '9.0', date: '2026-11-04', title: '1.8 La GTS',
     features: [
-      'GTS (migración 20261106000000_gts): private.gts_deposits / gts_done / gts_banned, RPC gts_deposit, gts_withdraw, gts_take (una sola toma gana: fila bloqueada), gts_mine, gts_search y gts_feed (anónimas). gts_spare descuenta lo que el cliente aún no ha aplicado (save.gts.applied) para que un guardado viejo no deje dos veces la misma copia. Huecos: 1 + nivel de la mejora gts (máx. 5). Sin Leyenda, HÉROE ni exclusivos; sin cambios repetidos.',
+      'GTS (migración 20261106000000_gts): private.gts_deposits / gts_done / gts_banned, RPC gts_deposit, gts_withdraw, gts_take (una sola toma gana: fila bloqueada), gts_mine, gts_search y gts_feed (anónimas). gts_spare descuenta lo que el cliente aún no ha aplicado (save.gts.applied) para que un guardado viejo no deje dos veces la misma copia. Huecos: 1 + nivel de la mejora gts (máx. 5). Sin Leyenda ni exclusivos (un HÉROE ascendido sí puede dejar copias: viaja limpia, migración 20261106000100_gts_heroes); sin cambios repetidos.',
       'Cliente: systems/gts.ts (applyGtsLedger aplica cada movimiento una vez: d/w/r/t; canLeave; gtsSlots), pantalla GTS (Mis depósitos, Buscar, Historial), elegir copia y petición, animaciones de ida y vuelta (styleGts.css), casilla y feed en el menú; se sincroniza al abrir el menú. Mejora «Ventanilla GTS» (perks.ts).',
     ],
     fixes: [

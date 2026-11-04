@@ -1501,7 +1501,7 @@ export class App {
           if (i < slots) return `<button class="gts-slot free" id="${i === open.length ? 'gtsnew' : ''}"><span class="gts-plus">+</span><b>Dejar un futbolista</b><small>Solo copias repetidas</small></button>`;
           return `<div class="gts-slot locked"><span class="gts-plus">🔒</span><small>Mejora la «Ventanilla GTS» en Mejoras</small></div>`;
         }).join('')}</div>
-        <p class="note">Huecos: ${open.length}/${slots}. La copia que dejas va sin entrenamiento, estrellas ni ascensión: tu futbolista se queda con todo. No se pueden dejar Leyenda, HÉROE ni futbolistas de evento, ni repetir un cambio.</p>`;
+        <p class="note">Huecos: ${open.length}/${slots}. La copia que dejas va sin entrenamiento, estrellas ni ascensión: tu futbolista se queda con todo. Un HÉROE ascendido sí puede dejar sus copias repetidas. No se pueden dejar Leyenda ni futbolistas de evento, ni repetir un cambio.</p>`;
       } else if (this.gtsTab === 'buscar') {
         const q = this.gtsQuery.trim().toLowerCase();
         const offers = (this.gtsOffers ?? []).filter((o) => !q || (this.byId.get(o.give_id)?.name ?? '').toLowerCase().includes(q) || (this.byId.get(o.want_id)?.name ?? '').toLowerCase().includes(q))
@@ -1509,7 +1509,7 @@ export class App {
         body = `<div class="filters"><input id="gtsq" placeholder="Buscar futbolista (el que quieres o el que piden)" value="${esc(this.gtsQuery)}">
           <label class="note"><input type="checkbox" id="gtsmine" ${this.gtsOnlyMine ? 'checked' : ''}> Solo los que puedo cambiar</label><button class="btn small blue" id="gtsreload">↻ Actualizar</button></div>
           <div class="gts-list">${this.gtsOffers === null ? '<div class="note">Cargando…</div>' : offers.map((o) => {
-            const can = gtsSpare(this.save, o.want_id) > 0 && !this.save.owned[String(o.want_id)]?.hero;
+            const can = gtsSpare(this.save, o.want_id) > 0;
             return `<div class="gts-offer${can ? ' can' : ''}"><div class="gts-who"><small>${esc(o.username)} deja</small></div>${pair(o.give_id, o.want_id)}
               <button class="btn small${can ? '' : ' blue'}" data-take="${o.id}" ${can ? '' : 'disabled'} title="${can ? 'Das tu copia repetida y te llevas el suyo' : 'Necesitas una copia repetida del que pide'}">${can ? 'Cambiar' : 'No lo tienes repetido'}</button></div>`;
           }).join('') || '<div class="note">No hay depósitos que coincidan.</div>'}</div>`;

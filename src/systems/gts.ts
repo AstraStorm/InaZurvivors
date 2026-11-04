@@ -17,11 +17,11 @@ export const gtsSlots = (s: SaveData) => Math.min(GTS_MAX_SLOTS, 1 + perkLevel(s
 /** copies beyond the one the player keeps and beyond those spent on ascensions */
 export const gtsSpare = (s: SaveData, id: number) => { const o = s.owned[String(id)]; return o ? Math.max(0, o.copies - 1 - (o.spent ?? 0)) : 0; };
 
-/** Leyenda, HÉROE and limited-event footballers never travel (the server checks it too, private.gts_banned) */
+/** Leyenda and limited-event footballers never travel (the server checks it too, private.gts_banned). A footballer the
+ * player ascended to HÉROE can: the spare copy travels clean, the HÉROE stays (author, 1.8). */
 export const gtsBanned = (p: Pick<RosterEntry, 'rarity' | 'exclusive'>) => p.rarity === 'leyenda' || !!p.exclusive;
 export function canLeave(s: SaveData, p: Pick<RosterEntry, 'id' | 'rarity' | 'exclusive'>): string | null {
   if (gtsBanned(p)) return p.rarity === 'leyenda' ? 'Los Leyenda no se pueden dejar en la GTS.' : 'Los futbolistas de evento no se pueden dejar en la GTS.';
-  if (s.owned[String(p.id)]?.hero) return 'Un HÉROE no se puede dejar en la GTS.';
   if (gtsSpare(s, p.id) < 1) return 'Solo puedes dejar copias repetidas: necesitas al menos 2.';
   return null;
 }
@@ -61,7 +61,7 @@ export function applyGtsLedger(s: SaveData, rows: GtsRow[]): GtsEvent[] {
 export function gtsError(e: unknown): string {
   const m = String((e as Error)?.message ?? e);
   if (/gts_no_spare/.test(m)) return 'No tienes una copia repetida de ese futbolista (o aún no se ha guardado en la nube).';
-  if (/gts_banned/.test(m)) return 'Los Leyenda, los HÉROE y los futbolistas de evento no se pueden cambiar.';
+  if (/gts_banned/.test(m)) return 'Los Leyenda y los futbolistas de evento no se pueden cambiar.';
   if (/gts_slots/.test(m)) return 'No te quedan huecos en la GTS. Mejora la «Ventanilla GTS» en Mejoras para tener más.';
   if (/gts_repeated/.test(m)) return 'Ese cambio ya lo hiciste (o ya tienes ese depósito): no se puede repetir.';
   if (/gts_gone/.test(m)) return 'Alguien se te adelantó: ese depósito ya no está.';

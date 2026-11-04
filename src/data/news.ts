@@ -47,7 +47,7 @@ export const AUTHOR_NEWS: NewsItem[] = [
       { h: 'Reglas', icon: '🔒' },
       { list: [
         'Solo se dejan **copias repetidas**: nunca la única que tienes.',
-        'Los **Leyenda**, los **HÉROE** y los futbolistas de **evento** no se pueden dejar.',
+        'Los **Leyenda** y los futbolistas de **evento** no se pueden dejar. Si has subido a alguien a **HÉROE**, sus copias repetidas sí.',
         'La copia que viaja va **sin entrenamiento, estrellas ni ascensión**: tu futbolista se queda con todo.',
         'Puedes pedir el futbolista que quieras, pero **no puedes repetir un cambio** que ya hiciste.',
       ] },
