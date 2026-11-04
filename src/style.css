@@ -308,6 +308,8 @@ body.reduced-motion .menu-lights i { animation: none; }
 .coinbtn:disabled { filter: grayscale(1) brightness(.6); cursor: not-allowed; }
 .coinbtn img { width: 34px; height: 34px; object-fit: contain; }
 .reveal-title { position: absolute; top: 5vh; left: 0; right: 0; text-align: center; color: var(--yellow); font-size: 14px; text-shadow: 2px 2px 0 #000; }
+/* phones: the title sat on top of the machine's title bar; it gets its own dark strip */
+@media (max-width: 560px) { .reveal-title { top: 0; padding: max(22px, env(safe-area-inset-top)) 8px 30px; background: linear-gradient(180deg, #020814 0, #020814 70%, #02081400); } }
 .cap-sprite { width: 144px; height: 144px; object-fit: contain; animation: drop .55s cubic-bezier(.3,1.4,.6,1) both; }
 .cap-sprite.wobble { animation: wobble .25s ease-in-out infinite; }
 .cap-sprite.pop { animation: capout .5s ease-out forwards; }
@@ -1784,7 +1786,7 @@ body.reduced-motion .pcard:not(.locked):hover { transform: translateY(-4px); }
 .pcard.cc.big .cc-name span { font-size: 13px; }
 .pcard.cc .cc-rar { display: flex; justify-content: center; }
 .pcard.cc .cc-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 3px 8px; padding: 0 2px; min-height: 42px; }
-.pcard.cc .cc-stats span { display: grid; grid-template-columns: 22px 1fr 16px; align-items: center; gap: 3px; }
+.pcard.cc .cc-stats span { display: grid; grid-template-columns: minmax(22px, auto) 1fr minmax(16px, auto); align-items: center; gap: 3px; } /* labels like FÍS never under the bar */
 .pcard.cc .cc-stats small { font-size: 7px; color: #9fb2d8; }
 .pcard.cc .cc-stats i { height: 4px; background: #ffffff18; position: relative; overflow: hidden; }
 .pcard.cc .cc-stats i::after { content: ''; position: absolute; inset: 0 auto 0 0; width: var(--v); background: linear-gradient(90deg, color-mix(in srgb, var(--rc) 60%, #fff), var(--rc)); }
