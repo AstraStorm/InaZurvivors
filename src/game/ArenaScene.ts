@@ -34,7 +34,7 @@ import { dragon, handKind, keeperHand } from './fxTech';
 import { orphans } from '../systems/groundSweep';
 import { chaosMeteorCharge, chaosMeteorShot, fireStormCharge, fireStormShot, elementBurst, phoenix, phoenixFlight, setLowPower, teamBeams } from './fxManif';
 import { crossfireCharge, crossfireShot } from './fxCross';
-import { movieCharge, movieOf, movieShot, rupturaCharge, rupturaShot, superrayoCharge, superrayoShot, zeroCharge, zeroShot } from './fxMovie';
+import { dribbleOf, movieCharge, movieDribble, movieOf, movieShot, rupturaCharge, rupturaShot, superrayoCharge, superrayoShot, zeroCharge, zeroShot } from './fxMovie';
 import { blackAshCharge, blackAshTrail, illusionBall, signatureOf, stormZone } from './fxSignature';
 import { natureArea, natureCharge, natureOf, natureShot, setNatureLowPower } from './fxNature';
 import { animeCharge, animeOf, animeShot, auroraVeil, cometTex, earthBurst, earthCharge, furyFist, breezeStep, chaosBreakCharge, chaosBreakShot, fireBlizzardCharge, fireBlizzardShot, godWindGust } from './fxAnime';
@@ -875,8 +875,12 @@ export class ArenaScene extends Phaser.Scene {
             m.guardUntil = this.runTime + 0.26;
             m.guardLock = m.guardUntil + GUARD_LOCKOUT_SEC;
             this.fx.ring(ox, oy + 6, r, c1, 260, 2 + Math.floor(lv / 2));
-            const sig = signatureOf(t.name);
-            if (sig === 'espejismo') illusionBall(this, ox, oy, lv);
+            const sig = signatureOf(t.name), dr = dribbleOf(t.name); // 1.76: Espada real, El ojo del huracán, Hora celestial (fxMovie.ts)
+            const near0 = dr ? this.nearestEnemy(ox, oy, 160) : null;
+            if (dr) {
+              movieDribble(this, dr, ox, oy, near0 ? near0.pos.x : ox + 40, near0 ? near0.pos.y - 10 : oy, lv, 420);
+              if (dr === 'hora') for (const e of this.enemies) if (Math.hypot(e.pos.x - ox, e.pos.y - oy) < 90) e.slowUntil = this.runTime + 1.2; // time stops round him
+            } else if (sig === 'espejismo') illusionBall(this, ox, oy, lv);
             else if (sig === 'huracan') stormZone(this, ox, oy, r + 10, lv);
             else if (animeOf(t.name) === 'brisa') { const near = this.nearestEnemy(ox, oy, 160), ba = near ? Math.atan2(near.pos.y - 10 - oy, near.pos.x - ox) : 0; breezeStep(this, ox - Math.cos(ba) * 30, oy - Math.sin(ba) * 30, ox + Math.cos(ba) * 40, oy + Math.sin(ba) * 40, lv); }
             else if (/drag[oó]n/i.test(t.name)) dragon(this, /ascend/i.test(t.name) ? 'rise' : 'coil', ox, oy, c1, c2, lv, 520);
@@ -902,7 +906,10 @@ export class ArenaScene extends Phaser.Scene {
             if (/drag[oó]n/i.test(t.name)) dragon(this, 'strike', m.f.x, m.f.y - 10, c1, c2, lv, 300, m.f.x + Math.cos(ang) * reach, m.f.y - 10 + Math.sin(ang) * reach);
             if (signatureOf(t.name) === 'espejismo') illusionBall(this, m.f.x, m.f.y, lv, 420);
             if (animeOf(t.name) === 'brisa') breezeStep(this, m.f.x, m.f.y, m.f.x + Math.cos(ang) * reach, m.f.y + Math.sin(ang) * reach, lv, 300);
-            if (signatureOf(t.name) === 'huracan') stormZone(this, m.f.x + Math.cos(ang) * reach * 0.5, m.f.y + Math.sin(ang) * reach * 0.5, 34, lv, 520);
+            const dr = dribbleOf(t.name); // 1.76 (fxMovie.ts)
+            if (dr) movieDribble(this, dr, m.f.x, m.f.y, m.f.x + Math.cos(ang) * reach, m.f.y + Math.sin(ang) * reach, lv, 420);
+            if (dr === 'hora') for (const e of this.enemies) if (Math.hypot(e.pos.x - m.f.x, e.pos.y - m.f.y) < 90) e.slowUntil = this.runTime + 1.2;
+            if (!dr && signatureOf(t.name) === 'huracan') stormZone(this, m.f.x + Math.cos(ang) * reach * 0.5, m.f.y + Math.sin(ang) * reach * 0.5, 34, lv, 520);
             m.dash = { fromX: m.f.x, fromY: m.f.y, toX: m.f.x + Math.cos(ang) * reach, toY: m.f.y + Math.sin(ang) * reach,
               t: 0, dur: 220, hits: new Set(), chain: new Set(), dmg: s.damage, style, left: s.count - 1 };
             sfx('whoosh');

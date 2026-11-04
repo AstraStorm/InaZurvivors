@@ -156,7 +156,7 @@ export class App {
   /** width of each mugshot sheet: the last sheet of the atlas is smaller than the others */
   private mugW: number[] = [];
   private iconW: number;
-  private collectionFilter = { q: '', rarity: '', team: '', pos: '', element: '', saga: '', owned: false };
+  private collectionFilter = { q: '', rarity: '', team: '', pos: '', element: '', saga: '', owned: false, upgrade: false };
   private collectionView: 'equipos' | 'todos' | 'fichatron' = 'equipos';
   private collectionLimit = 36;
   /** Fix 1.22: first footballer of a comparison, waiting for the second */
@@ -2710,11 +2710,13 @@ export class App {
     const filtered = this.m.roster.filter((p) => (!f.rarity || p.rarity === f.rarity) && (!f.pos || p.position === f.pos)
       && (!f.element || String(p.element) === f.element) && (!f.team || p.teams.includes(f.team))
       && (this.collectionView !== 'fichatron' || f.q !== '' || !p.teams.some((t) => main.has(t)))
-      && (!f.saga || p.teams.some((t) => sagaOf(t) === f.saga)) && (!f.owned || this.owned(p.id))
+      && (!f.saga || p.teams.some((t) => sagaOf(t) === f.saga)) && (!f.owned || this.owned(p.id)) && (!f.upgrade || this.canUpgrade(p))
       && (!f.q || `${p.name} ${p.nickname}`.toLowerCase().includes(f.q.toLowerCase())))
-      .sort((a, b) => Number(!!this.owned(b.id)) - Number(!!this.owned(a.id)) || RARITY_ORDER.indexOf(b.rarity) - RARITY_ORDER.indexOf(a.rarity));
+      // 1.76 (author): by rarity (HÉROE first, then the rarity each one really has), owned before locked, then by name
+      .sort((a, b) => this.rarityRank(b) - this.rarityRank(a) || Number(!!this.owned(b.id)) - Number(!!this.owned(a.id)) || a.name.localeCompare(b.name, 'es'));
     const select = (id: string, label: string, opts: [string, string][], cur: string) => `<select id="${id}"><option value="">${label}</option>${opts.map(([v, l]) => `<option value="${esc(v)}" ${cur === v ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select>`;
-    const showTeams = this.collectionView === 'equipos' && !f.team && !f.q;
+    const showTeams = this.collectionView === 'equipos' && !f.team && !f.q && !f.upgrade;
+    const upgradable = this.m.roster.filter((p) => this.canUpgrade(p)).length;
     const rewardOk = (team: string, k: TeamRewardKind) => k !== 'kit' || !!this.m.kits?.[team];
     const teamClaims = allTeams.reduce((n, t) => n + (['crest', 'kit', 'captain'] as TeamRewardKind[]).filter((k) => rewardOk(t, k) && canClaim(this.save, this.m.roster, t, k)).length, 0);
     const teams = allTeams.filter((t) => !f.saga || sagaOf(t) === f.saga);
@@ -2745,6 +2747,7 @@ export class App {
         ${select('fp', 'Posición', ['GK', 'DF', 'MF', 'FW'].map((x) => [x, POS_LABEL[x]]), f.pos)}
         ${select('fe', 'Elemento', elements.map((x) => [x, x]), f.element)}
         <label class="note"><input type="checkbox" id="fo" ${f.owned ? 'checked' : ''}> Solo desbloqueados</label>
+        <label class="note"><input type="checkbox" id="fu" ${f.upgrade ? 'checked' : ''}> Se pueden mejorar (${upgradable})</label>
 </div>
       ${showTeams ? teamCards : `<div class="grid">${list.map((p) => this.pcard(p, { locked: !this.owned(p.id), sel: p.id === detailId })).join('')}</div>
         ${filtered.length > list.length ? `<p style="text-align:center"><button class="btn blue" id="more">Ver más (${filtered.length - list.length})</button></p>` : ''}`}</div>`);
@@ -2792,11 +2795,23 @@ export class App {
       f.pos = (document.getElementById('fp') as HTMLSelectElement).value;
       f.element = (document.getElementById('fe') as HTMLSelectElement).value;
       f.owned = (document.getElementById('fo') as HTMLInputElement).checked;
+      f.upgrade = (document.getElementById('fu') as HTMLInputElement).checked;
       this.collectionLimit = 36;
       this.collection(detailId);
     };
     document.getElementById('fq')!.addEventListener('change', upd);
-    ['fsa', 'fr', 'fp', 'fe', 'fo'].forEach((id) => document.getElementById(id)!.addEventListener('change', upd));
+    ['fsa', 'fr', 'fp', 'fe', 'fo', 'fu'].forEach((id) => document.getElementById(id)!.addEventListener('change', upd));
+  }
+
+  /** 1.76: owned and with enough spare copies for its next step right now (ascension, HÉROE or a hero star). */
+  private canUpgrade(p: RosterEntry) {
+    const next = this.owned(p.id) ? nextStep(this.save, p) : null;
+    return !!next && sparesOf(this.save, p.id) >= next.cost;
+  }
+  /** 1.76: sort key of the collection: HÉROE above every rarity; an owned footballer counts with the rarity he reached. */
+  private rarityRank(p: RosterEntry) {
+    if (!this.owned(p.id)) return RARITY_ORDER.indexOf(p.rarity);
+    return isHero(this.save, p.id) ? RARITY_ORDER.length : RARITY_ORDER.indexOf(effectiveRarity(this.save, p));
   }
 
   private teamHeader(team: string) {

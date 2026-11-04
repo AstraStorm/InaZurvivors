@@ -6,6 +6,7 @@ import './styleMapPath.css';
 import './styleThanks.css';
 import type { Manifest } from './data/manifest';
 import { applyRosterFixes } from './data/rosterFixes';
+import { applyTechFixes } from './data/techFixes';
 import { ArenaScene } from './game/ArenaScene';
 import { MenuScene } from './game/MenuScene';
 import { loadSave, storeSave } from './systems/save';
@@ -58,6 +59,7 @@ async function boot() {
   }
   // quick footballer corrections (rarity, element, techniques) that ship without repackaging resources
   for (const w of applyRosterFixes(manifest)) console.warn('[rosterFixes]', w);
+  applyTechFixes(manifest); // 1.76: fixed elements of some techniques
   progress(0.75, 'Preparando caras y objetos…');
   const [mugs, icons] = await Promise.all([
     fetch(manifest.atlases.mugshots.json).then((r) => r.json()),
