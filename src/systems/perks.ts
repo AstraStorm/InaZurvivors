@@ -32,6 +32,7 @@ export const PERKS: PerkDef[] = [
   P('monedas', 'Economía', 'Patrocinio', '+6% monedas al terminar', 5, 200, 150),
   P('final', 'Economía', 'Prima de victoria', '+10% de las primas de jefe y victoria por nivel', 5, 180, 120),
   P('objetivos', 'Economía', 'Contrato de objetivos', '+10% recompensa de misiones por nivel', 5, 200, 130),
+  P('gts', 'Economía', 'Ventanilla GTS', '+1 hueco para dejar futbolistas en la GTS (máx. 5)', 4, 1500, 1500),
   P('fichas', 'Economía', 'Ojeador', '+1 ficha al terminar una partida de 3 minutos o más', 3, 450, 450),
   P('formaciones', 'Equipo', 'Pizarra táctica', '+1% daño por nivel en cualquier formación', 6, 170, 110),
   P('seguimiento', 'Equipo', 'Velocidad', '+2% velocidad del equipo por nivel', 6, 150, 100),

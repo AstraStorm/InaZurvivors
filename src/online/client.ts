@@ -161,6 +161,15 @@ export interface PublicProfile {
   frame?: string | null;
   marks: { map: string; rank: string; time_sec: number; damage: number; captain_id: number }[];
 }
+// ---- 1.8: GTS (migration 20261106000000_gts)
+export interface GtsOffer { id: number; username: string; give_id: number; want_id: number; created_at: string }
+export interface GtsFeedRow { id: number; username: string; give_id: number; want_id: number; status: 'open' | 'traded'; at: string }
+export const gtsDeposit = (give: number, want: number) => rpc<number>('gts_deposit', { p_give: give, p_want: want });
+export const gtsWithdraw = (id: number) => rpc<boolean>('gts_withdraw', { p_id: id });
+export const gtsTake = (id: number) => rpc<{ id: number; give: number; get: number }>('gts_take', { p_id: id });
+export const gtsMine = () => rpc<import('../systems/gts').GtsRow[]>('gts_mine', {});
+export const gtsSearch = (get: number | null, give: number | null) => rpc<GtsOffer[]>('gts_search', { p_get: get, p_give: give }, false);
+export const gtsFeed = () => rpc<GtsFeedRow[]>('gts_feed', {}, false);
 export const publicProfile = (username: string) => rpc<PublicProfile | null>('public_profile', { p_username: username }, false);
 /** v1.65: the banners shown by these names (profile_banners.sql); names without one are left out */
 export const profileBanners = (usernames: string[]) => rpc<{ username: string; banner: string }[]>('profile_banners', { p_usernames: usernames.slice(0, 60) }, false);

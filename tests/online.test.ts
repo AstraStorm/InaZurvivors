@@ -375,3 +375,63 @@ describe('public profile (1.76)', () => {
     expect(JSON.stringify(p.p)).not.toMatch(/coins|copies|example\.test/);
   });
 });
+describe('GTS (1.8)', () => {
+  const u = async (name: string, id: string) => {
+    await db.query('insert into auth.users (id) values ($1) on conflict do nothing', [(ids[name] = id)]);
+    await api(name, `select public.reserve_username($1, '7', 'Raimon')`, [name.toUpperCase() + '_G']);
+  };
+  // the cloud save, written straight to the table (put_save has its own tests and rate limit)
+  const save = (name: string, data: unknown) => db.query('insert into public.saves (user_id, data) values ($1, $2) on conflict (user_id) do update set data = excluded.data', [ids[name], JSON.stringify(data)]);
+  const dep = (name: string, give: number, want: number) => api(name, 'select public.gts_deposit($1, $2) as id', [give, want]).then((r) => Number((r.rows[0] as { id: number }).id));
+  const take = (name: string, id: number) => api(name, 'select public.gts_take($1) as r', [id]).then((r) => (r.rows[0] as { r: { give: number; get: number } }).r);
+  beforeAll(async () => {
+    await u('hugo', '00000000-0000-0000-0000-0000000000d1');
+    await u('ines', '00000000-0000-0000-0000-0000000000d2');
+    await u('juan', '00000000-0000-0000-0000-0000000000d3');
+  });
+
+  it('only a spare copy can be left: never the only one, a HÉROE, a Leyenda or an event footballer', async () => {
+    await save('hugo', { owned: { 10: { copies: 1 }, 20: { copies: 3, spent: 1 }, 30: { copies: 4, hero: true }, 100234: { copies: 5 }, 900001: { copies: 3 } } });
+    await expect(dep('hugo', 10, 20)).rejects.toThrow(/gts_no_spare/);
+    await expect(dep('hugo', 30, 20)).rejects.toThrow(/gts_banned/);
+    await expect(dep('hugo', 100234, 20)).rejects.toThrow(/gts_banned/);
+    await expect(dep('hugo', 900001, 20)).rejects.toThrow(/gts_banned/);
+    await expect(dep('hugo', 20, 100234)).rejects.toThrow(/gts_banned/); // nobody could ever give a Leyenda
+    await expect(dep('hugo', 20, 20)).rejects.toThrow(/gts_invalid/);
+    expect(await dep('hugo', 20, 10)).toBeGreaterThan(0);
+  });
+  it('one slot (more with the Ventanilla GTS upgrade, 5 at most); the same deposit can\'t be open twice; a stale save can\'t leave a copy twice', async () => {
+    await save('ines', { owned: { 40: { copies: 3 }, 41: { copies: 9 } } });
+    const a = await dep('ines', 40, 1);
+    await expect(dep('ines', 41, 2)).rejects.toThrow(/gts_slots/);
+    await save('ines', { owned: { 40: { copies: 3 }, 41: { copies: 9 } }, upgrades: { gts: 9 } });
+    await expect(dep('ines', 40, 1)).rejects.toThrow(/gts_repeated/);
+    const b = await dep('ines', 40, 2); // the second and last spare of 40 (the save still says 3 copies: the ledger discounts)
+    await expect(dep('ines', 40, 3)).rejects.toThrow(/gts_no_spare/);
+    for (const w of [3, 4, 5]) await dep('ines', 41, w);
+    await expect(dep('ines', 41, 6)).rejects.toThrow(/gts_slots/); // 5 at most
+    expect((await api('ines', 'select public.gts_withdraw($1) as ok', [a])).rows[0]).toEqual({ ok: true });
+    expect((await api('hugo', 'select public.gts_withdraw($1) as ok', [b])).rows[0]).toEqual({ ok: false }); // not his
+  });
+  it('a taker with a spare of the footballer asked for gets the deposit; exactly once; the same exchange is never repeated', async () => {
+    await save('juan', { owned: { 10: { copies: 3 } } });
+    const id = Number(((await api('juan', 'select * from public.gts_search(20, null)')).rows[0] as { id: number }).id);
+    await expect(take('hugo', id)).rejects.toThrow(/gts_own/);
+    const both = await Promise.allSettled([take('juan', id), take('juan', id)]);
+    expect(both.filter((r) => r.status === 'fulfilled')).toHaveLength(1);
+    expect((both.find((r) => r.status === 'fulfilled') as PromiseFulfilledResult<{ give: number; get: number }>).value).toMatchObject({ give: 10, get: 20 });
+    await expect(take('ines', id)).rejects.toThrow(/gts_gone/);
+    // Hugo can't leave 20 for 10 again, and Juan can't take another 20-for-10
+    await save('hugo', { owned: { 20: { copies: 9 } }, gts: { applied: [`d:${id}`] } });
+    await expect(dep('hugo', 20, 10)).rejects.toThrow(/gts_repeated/);
+    const mine = (await api('hugo', 'select role, status, other from public.gts_mine()')).rows;
+    expect(mine).toContainEqual({ role: 'deposito', status: 'traded', other: 'JUAN_G' });
+    expect((await api('juan', 'select role from public.gts_mine()')).rows).toContainEqual({ role: 'tomado' });
+  });
+  it('anyone can read the feed and search; only signed-in players trade; tables are closed', async () => {
+    expect((await api('', 'select count(*)::int as n from public.gts_feed()')).rows[0]).toMatchObject({ n: expect.any(Number) });
+    await expect(api('', 'select public.gts_deposit(1, 2)')).rejects.toThrow();
+    await expect(api('hugo', 'select * from private.gts_deposits')).rejects.toThrow();
+    await expect(api('hugo', 'select private.gts_spare($1, 20)', [ids.hugo])).rejects.toThrow();
+  });
+});

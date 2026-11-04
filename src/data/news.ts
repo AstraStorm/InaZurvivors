@@ -30,6 +30,31 @@ export const NEWS_KIND_LABEL: Record<NewsKind, string> = { novedad: 'NOVEDAD', a
 
 export const AUTHOR_NEWS: NewsItem[] = [
   {
+    id: 'gts-1-8', kind: 'novedad', date: '2026-11-04', icon: '🌐', pinned: true,
+    title: '¡Llega la GTS! Cambia futbolistas con todo el mundo',
+    summary: 'La 1.8 trae la Estación Global de Intercambio: deja una copia repetida, pide el futbolista que te falta y recoge tu cambio cuando vuelvas.',
+    blocks: [
+      { h: 'La Estación Global de Intercambio', icon: '🌐' },
+      { p: 'La **GTS** es un banco online de futbolistas. Dejas una **copia repetida** pidiendo el futbolista que quieres a cambio, y cualquier jugador que lo tenga repetido puede cambiártelo **aunque no estés conectado**. Cuando vuelvas, te estará esperando.' },
+      { list: [
+        '**Dejar:** elige tu copia repetida y el futbolista que pides. Se va a la GTS en su cápsula.',
+        '**Buscar:** mira lo que han dejado los demás. Si tienes repetido el que piden, cámbialo al momento.',
+        '**Recuperar:** mientras nadie te lo cambie, puedes recuperar tu futbolista cuando quieras.',
+        '**Historial:** todos tus cambios, con quién los hiciste.',
+      ] },
+      { callout: 'info', text: 'La encontrarás en el menú, en **FICHAJES » GTS**. En la portada verás también los últimos intercambios de todo el mundo. Necesitas **entrar con tu cuenta**.' },
+      { divider: true },
+      { h: 'Reglas', icon: '🔒' },
+      { list: [
+        'Solo se dejan **copias repetidas**: nunca la única que tienes.',
+        'Los **Leyenda**, los **HÉROE** y los futbolistas de **evento** no se pueden dejar.',
+        'La copia que viaja va **sin entrenamiento, estrellas ni ascensión**: tu futbolista se queda con todo.',
+        'Puedes pedir el futbolista que quieras, pero **no puedes repetir un cambio** que ya hiciste.',
+      ] },
+      { callout: 'nuevo', text: 'Empiezas con **1 hueco** para dejar futbolistas. Mejora la **Ventanilla GTS** en MEJORAS (Economía) para tener hasta **5**.' },
+    ],
+  },
+  {
     id: 'banner-agradecimiento', kind: 'evento', date: '2026-11-04', icon: '♥', pinned: true,
     title: '¡Gracias por ser más de 50 jugando!',
     summary: 'Banner de agradecimiento durante 7 días, con futbolistas que solo salen ahí, y el código GRACIAS.',

@@ -6,7 +6,7 @@
  */
 import { CHANGELOG } from './changelog';
 
-export const PUBLIC_VERSION = '1.77';
+export const PUBLIC_VERSION = '1.8';
 export const BUILD = CHANGELOG[0].version;
 export const RELEASED = false;
 export const VERSION_LABEL = RELEASED ? `v${PUBLIC_VERSION}` : `v${PUBLIC_VERSION} · pre-lanzamiento`;
@@ -28,6 +28,21 @@ export interface PublicRelease {
 
 /** Public news, newest first. Starts at v1.0: the internal versions before it are not part of the public history. */
 export const PUBLIC_RELEASES: PublicRelease[] = [
+  {
+    version: '1.8', date: '2026-11-04',
+    title: 'InaZurvivors 1.8 — La GTS',
+    tagline: 'La Estación Global de Intercambio: cambia futbolistas con jugadores de todo el mundo',
+    intro: 'Llega la GTS, un banco online de futbolistas. Deja una copia repetida, pide el futbolista que te falta y recoge tu cambio cuando vuelvas.',
+    features: [
+      { icon: '🌐', title: 'Deja un futbolista', text: 'Elige una copia repetida (nunca la única que tienes) y el futbolista que quieres a cambio. Se va a la GTS con su animación y espera a que alguien te lo cambie, aunque no estés conectado.' },
+      { icon: '🔍', title: 'Busca y cambia', text: 'Busca los depósitos de otros jugadores. Si tienes repetido el futbolista que piden, cámbialo al momento: el tuyo se va y el suyo llega a tu club.' },
+      { icon: '↩', title: 'Recupéralo cuando quieras', text: 'Mientras nadie lo cambie, puedes recuperar tu futbolista. Y si te lo cambian, al volver te espera el que pediste.' },
+      { icon: '🔒', title: 'Reglas', text: 'Los Leyenda, los HÉROE y los futbolistas de evento no se pueden dejar. La copia que viaja va sin entrenamiento, estrellas ni ascensión: tu futbolista se queda con todo. No se puede repetir un cambio que ya hiciste. Necesitas entrar con tu cuenta.' },
+      { icon: '⬆', title: 'Ventanilla GTS', text: 'Empiezas con 1 hueco para dejar futbolistas. Mejora la «Ventanilla GTS» en Mejoras para tener hasta 5.' },
+      { icon: '📺', title: 'En el menú', text: 'El menú de inicio muestra los últimos movimientos de la GTS.' },
+    ],
+    start: [],
+  },
   {
     version: '1.77', date: '2026-11-04',
     title: 'InaZurvivors Fix 1.77 — Manos con su color y técnicas nuevas',

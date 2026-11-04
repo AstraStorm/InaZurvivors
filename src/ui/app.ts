@@ -52,6 +52,8 @@ import { ALTAR_COLOR, ALTAR_ICON, ALTAR_INFO, ALTAR_MODE, ALTAR_REWARD } from '.
 import { adaptedPassive, passiveText, talentChanges, talentText } from '../systems/talents';
 import { redeemCode } from '../online/client';
 import { THANKS_EVENT, addThanksTokens, thanksActive, thanksLeftMs, thanksTokens } from '../systems/thanksEvent';
+import { gtsDeposit, gtsFeed, gtsMine, gtsSearch, gtsTake, gtsWithdraw, type GtsOffer } from '../online/client';
+import { applyGtsLedger, canLeave, gtsBanned, gtsError, gtsSlots, gtsSpare, type GtsRow } from '../systems/gts';
 import { accountId, adminBugReports, adminPlayerStats, adminUpdateBug, amIAdmin, consumeAuthRedirect, deleteAccount, deleteMyBugReports, deleteShot, myBugReports, notifyBug, shotUrl, submitBugReport, uploadShot, getCloudSave, leaderboard, myPosition, profileBanners, profileFrames, publicProfile, type PublicProfile, myProfile, onlineConfigured, putCloudSave, reserveUsername, resetMyProgress, signedEmail, signedIn, signInWithGoogle, signOut, submitScore, usernameAvailable, type BoardQuery, type BoardRow, type BugFilter, type BugRow, type CloudSave } from '../online/client';
 import { backup, linkPlan, progressOf, summarize, type SaveSummary } from '../online/cloudSync';
 import { epochOf, freshProgress, resetSummary } from '../systems/resetProgress';
@@ -973,7 +975,7 @@ export class App {
           ${group('g-club', 'team', 'TU CLUB', tile('collection', 'cards', 'COLECCIÓN', claims ? '¡Recompensas!' : `${owned.length} de ${this.m.roster.length}`, claims, !!claims)
             + tile('perks', 'perks', 'MEJORAS', 'Potencia permanente') + tile('shop', 'bolt', 'TÉCNICAS', 'Manuales')
             + tile('training', 'target', 'ENTRENAMIENTO', 'Prueba técnicas') + tile('kits', 'shirt', 'EQUIPACIONES', 'Uniforme y escudo') + tile('gear', 'boot', 'EQUIPAMIENTO', 'Botas y accesorios') + tile('hall', 'trophy', 'SALÓN', `${(this.save.hall ?? []).length} victorias`))}
-          ${group('g-sign', 'capsule', 'FICHAJES', tile('gacha', 'capsule', 'FICHAJES', `${this.save.tokens} fichas`, 0, true) + (thanksActive(serverNow()) ? tile('thanksev', 'gift', 'AGRADECIMIENTO', `${this.save.eventTokens ?? 0} fichas de evento`, 0, true) : '') + (eventActive(serverNow()) ? tile('pnevent', 'gift', 'EVENTO', 'Banners de leyenda', 0, true) : '') + tile('daily', 'shop', 'TIENDA', 'Ofertas del día') + tile('codes', 'gift', 'CÓDIGOS', 'Canjea regalos'))}
+          ${group('g-sign', 'capsule', 'FICHAJES', tile('gacha', 'capsule', 'FICHAJES', `${this.save.tokens} fichas`, 0, true) + (thanksActive(serverNow()) ? tile('thanksev', 'gift', 'AGRADECIMIENTO', `${this.save.eventTokens ?? 0} fichas de evento`, 0, true) : '') + (eventActive(serverNow()) ? tile('pnevent', 'gift', 'EVENTO', 'Banners de leyenda', 0, true) : '') + tile('daily', 'shop', 'TIENDA', 'Ofertas del día') + tile('gts', 'gts', 'GTS', 'Intercambios online') + tile('codes', 'gift', 'CÓDIGOS', 'Canjea regalos'))}
           ${group('g-comp', 'crown', 'COMPETICIÓN', tile('missions', 'missions', 'MISIONES', pending ? '¡Por recoger!' : 'Recompensas', pending, !!pending)
             + tile('pass', 'ticket', 'PASE', pass.available ? '¡Recompensa lista!' : 'Vuelve mañana', pass.available ? 1 : 0, pass.available) + tile('ranking', 'crown', 'RANKING', onlineConfigured() ? 'Global' : 'Tus marcas'))}
         </section>
@@ -988,6 +990,7 @@ export class App {
           <div class="m4-card"><h3>${uiIcon('target')}Desafíos</h3>${challenges.map((d) => { const pc = Math.min(100, Math.round(missionProgress(this.save, d) / d.goal * 100)); return `<div class="m4-chal"><span>${esc(d.label)}</span><em>${pc}%</em><i style="--p:${pc}%"></i></div>`; }).join('') || '<div class="note">¡Todo completado por hoy!</div>'}</div>
           <div class="m4-card"><h3>${uiIcon('pitch')}Arenas</h3>${this.m.maps.map((mp) => { const ok = this.save.clearedMaps.includes(mp.id); return `<div class="m4-arena${ok ? ' ok' : ''}"><span class="m4-chk">${ok ? '✔' : ''}</span><span>${esc(mp.name)}</span><span class="m4-ranks">${RANK_ORDER.map((r) => `<i class="${(this.save.clearedRanks[mp.id] ?? []).includes(r) ? 'on' : ''}">${r}</i>`).join('')}</span></div>`; }).join('')}
             <div class="m4-best">${uiIcon('clock')}Mejor tiempo <b>${fmtTime(this.save.stats.bestTimeSec)}</b> · <b>${this.save.stats.kills}</b> eliminaciones</div></div>
+          <div class="m4-card m4-gts" data-go="gts"><h3>${uiIcon('gts')}GTS · Intercambios</h3><div id="menugts">${onlineConfigured() ? '<div class="note">Cargando…</div>' : '<div class="note">Disponible con el servicio online.</div>'}</div></div>
           <button class="m4-help" data-go="tutorial">${uiIcon('help')}¿Cómo se juega?</button>
         </aside>
       </div>
@@ -1024,6 +1027,7 @@ export class App {
       if (go === 'pnevent') this.pennantEvent(); // v1.65
       if (go === 'thanksev') { this.gachaBanner = 'evento'; this.gacha(); } // 1.75
       if (go === 'collection') this.collection();
+      if (go === 'gts') void this.gts(); // 1.8
       if (go === 'gacha') this.gacha();
       if (go === 'missions') this.missions();
       if (go === 'perks') this.perks();
@@ -1053,6 +1057,8 @@ export class App {
     });
     document.addEventListener('pointerdown', () => document.querySelector('.audio-hint')?.remove(), { once: true });
     if (onlineConfigured()) void this.fillMenuRank();
+    if (onlineConfigured()) void this.fillMenuGts(); // 1.8
+    if (onlineConfigured() && signedIn()) void this.gtsSync().catch(() => undefined); // 1.8: a trade that happened while away arrives here
     document.getElementById('wpclaim')?.addEventListener('click', (e) => { (e.target as HTMLButtonElement).disabled = true; this.claimPassNow(() => this.mainMenu()); });
     if (this.save.tutorial === 'pendiente' && this.save.onboardingDone) window.setTimeout(() => { if (this.screenKey === 'menu-mode') this.tutorial(); }, 400);
     // 1.75 (author): the thank-you notice, once, while the Banner de agradecimiento is open
@@ -1405,6 +1411,182 @@ export class App {
    * Fix 1.12: the big ranking of the main menu, from the real Supabase board: a podium for the top 3 (captain portrait,
    * crest, rank, time, damage), places 4-15 in a scrolling list and the player's own position pinned below.
    */
+  // ------------------------------------------------------------- 1.8 GTS
+  private gtsTab: 'mios' | 'buscar' | 'historial' = 'mios';
+  private gtsQuery = '';
+  private gtsOnlyMine = false;
+  private gtsRows: GtsRow[] = [];
+  private gtsOffers: GtsOffer[] | null = null;
+
+  /** Reads the ledger and applies to the save whatever is new; plays the arrival of what came in. */
+  private async gtsSync(animate = true) {
+    if (!onlineConfigured() || !signedIn()) return [];
+    this.gtsRows = await gtsMine();
+    const ev = applyGtsLedger(this.save, this.gtsRows);
+    if (ev.length) { this.persist(); void this.pushCloud(true); }
+    if (animate) for (const e of ev.filter((x) => x.kind === 'recibido')) await this.gtsAnim('vuelve', e.arrived!, `¡Te han cambiado a ${this.byId.get(e.left!)?.name ?? '?'}! Llega ${this.byId.get(e.arrived!)?.name ?? '?'}${e.other ? ` de ${e.other}` : ''}.`);
+    return ev;
+  }
+
+  /**
+   * The footballer leaving (runs up into a beam of light and goes off as a capsule) or arriving (the capsule comes down,
+   * opens and he lands). Resolves when it ends or is clicked.
+   */
+  private gtsAnim(kind: 'se-va' | 'vuelve', id: number, text: string, other?: number): Promise<void> {
+    return new Promise((resolve) => {
+      const p = this.byId.get(id);
+      const box = document.createElement('div');
+      box.className = `modal gts-anim ${kind}`;
+      box.innerHTML = `<div class="gts-stage"><i class="gts-beam"></i><i class="gts-ring"></i><span class="gts-capsule">${uiIcon('capsule')}</span>
+        <span class="gts-runner">${charCanvas(id, 4, kind === 'se-va' ? 8 : 4)}</span>
+        ${other !== undefined ? `<span class="gts-runner gts-other">${charCanvas(other, 4, 4)}</span>` : ''}</div>
+        <div class="gts-caption"><span class="gts-mug" style="--rc:${p ? RARITY_COLOR[p.rarity] : '#8a9bbd'}">${this.mug(id, 64)}</span><b>${esc(text)}</b><small>Toca para seguir</small></div>`;
+      this.root.appendChild(box);
+      mountPreviews();
+      sfx(kind === 'se-va' ? 'whoosh' : 'legend');
+      let gone = false;
+      const done = () => { if (gone) return; gone = true; box.remove(); resolve(); };
+      box.addEventListener('click', () => { if (performance.now() - t0 > 500) done(); });
+      const t0 = performance.now();
+      window.setTimeout(done, 3600);
+    });
+  }
+
+  /** The GTS: your deposits (slots), search other players' deposits, and the history of your exchanges. */
+  async gts() {
+    setMusicContext('menu');
+    const online = onlineConfigured() && signedIn();
+    const render = () => {
+      const slots = gtsSlots(this.save);
+      const open = this.gtsRows.filter((r) => r.role === 'deposito' && r.status === 'open');
+      const name = (id: number) => esc(this.byId.get(id)?.name ?? '?');
+      const face = (id: number, size = 48) => { const p = this.byId.get(id); return `<span class="gts-face" style="--rc:${p ? RARITY_COLOR[p.rarity] : '#8a9bbd'}">${this.mug(id, size as 64)}</span>`; };
+      const pair = (give: number, want: number) => `<div class="gts-pair">${face(give)}<span class="gts-arrow">⇄</span>${face(want)}</div><div class="gts-names"><b>${name(give)}</b><span>por</span><b>${name(want)}</b></div>`;
+      let body = '';
+      if (!online) body = `<div class="panel"><p>La GTS es un banco online de futbolistas: dejas una copia repetida pidiendo otro futbolista a cambio, y cualquiera que tenga el que pides puede cambiártelo aunque no estés conectado.</p>
+        <p class="note">Para usarla tienes que entrar con tu cuenta.</p><p><button class="btn" data-go2="profile">Ir a Perfil para entrar</button></p></div>`;
+      else if (this.gtsTab === 'mios') {
+        body = `<div class="gts-slots">${Array.from({ length: 5 }, (_, i) => {
+          const r = open[i];
+          if (r) return `<div class="gts-slot on">${pair(r.give_id, r.want_id)}<small>Esperando desde ${new Date(r.created_at).toLocaleDateString('es')}</small><button class="btn small blue" data-withdraw="${r.id}">Recuperar</button></div>`;
+          if (i < slots) return `<button class="gts-slot free" id="${i === open.length ? 'gtsnew' : ''}"><span class="gts-plus">+</span><b>Dejar un futbolista</b><small>Solo copias repetidas</small></button>`;
+          return `<div class="gts-slot locked"><span class="gts-plus">🔒</span><small>Mejora la «Ventanilla GTS» en Mejoras</small></div>`;
+        }).join('')}</div>
+        <p class="note">Huecos: ${open.length}/${slots}. La copia que dejas va sin entrenamiento, estrellas ni ascensión: tu futbolista se queda con todo. No se pueden dejar Leyenda, HÉROE ni futbolistas de evento, ni repetir un cambio.</p>`;
+      } else if (this.gtsTab === 'buscar') {
+        const q = this.gtsQuery.trim().toLowerCase();
+        const offers = (this.gtsOffers ?? []).filter((o) => !q || (this.byId.get(o.give_id)?.name ?? '').toLowerCase().includes(q) || (this.byId.get(o.want_id)?.name ?? '').toLowerCase().includes(q))
+          .filter((o) => !this.gtsOnlyMine || gtsSpare(this.save, o.want_id) > 0);
+        body = `<div class="filters"><input id="gtsq" placeholder="Buscar futbolista (el que quieres o el que piden)" value="${esc(this.gtsQuery)}">
+          <label class="note"><input type="checkbox" id="gtsmine" ${this.gtsOnlyMine ? 'checked' : ''}> Solo los que puedo cambiar</label><button class="btn small blue" id="gtsreload">↻ Actualizar</button></div>
+          <div class="gts-list">${this.gtsOffers === null ? '<div class="note">Cargando…</div>' : offers.map((o) => {
+            const can = gtsSpare(this.save, o.want_id) > 0 && !this.save.owned[String(o.want_id)]?.hero;
+            return `<div class="gts-offer${can ? ' can' : ''}"><div class="gts-who"><small>${esc(o.username)} deja</small></div>${pair(o.give_id, o.want_id)}
+              <button class="btn small${can ? '' : ' blue'}" data-take="${o.id}" ${can ? '' : 'disabled'} title="${can ? 'Das tu copia repetida y te llevas el suyo' : 'Necesitas una copia repetida del que pide'}">${can ? 'Cambiar' : 'No lo tienes repetido'}</button></div>`;
+          }).join('') || '<div class="note">No hay depósitos que coincidan.</div>'}</div>`;
+      } else {
+        const hist = this.gtsRows.filter((r) => r.status !== 'open');
+        body = `<div class="gts-list">${hist.map((r) => `<div class="gts-offer"><div class="gts-who"><small>${r.role === 'tomado' ? `Cambiaste con ${esc(r.other ?? '?')}` : r.status === 'traded' ? `${esc(r.other ?? '?')} te lo cambió` : 'Lo recuperaste'}</small></div>
+          ${r.role === 'tomado' ? pair(r.want_id, r.give_id) : pair(r.give_id, r.want_id)}<small>${new Date(r.closed_at ?? r.created_at).toLocaleDateString('es')}</small></div>`).join('') || '<div class="note">Todavía no has hecho ningún cambio.</div>'}</div>`;
+      }
+      this.show(`<div class="screen gts-screen">${this.titlebar('GTS · Estación de intercambio', 'Menú')}
+        <div class="gts-hero"><span class="gts-globe">${uiIcon('gts')}</span><div><b>Estación Global de Intercambio</b><small>Deja una copia repetida, pide el futbolista que te falta y recoge tu cambio cuando vuelvas.</small></div></div>
+        ${online ? `<div class="rw-tabs gts-tabs">${([['mios', 'Mis depósitos'], ['buscar', 'Buscar'], ['historial', 'Historial']] as const).map(([k, l]) => `<button class="rw-tab${this.gtsTab === k ? ' on' : ''}" data-gtab="${k}"><span class="rw-tab-tx"><b>${l}</b></span></button>`).join('')}</div>` : ''}
+        ${body}</div>`);
+      this.on('[data-back]', 'click', () => this.mainMenu());
+      this.on('[data-go2]', 'click', () => this.profile());
+      this.on('[data-gtab]', 'click', (_e, el) => { this.gtsTab = el.dataset.gtab as typeof this.gtsTab; if (this.gtsTab === 'buscar' && this.gtsOffers === null) void loadOffers(); render(); });
+      document.getElementById('gtsnew')?.addEventListener('click', () => this.gtsDepositModal(() => { render(); }));
+      this.on('[data-withdraw]', 'click', (_e, el) => this.armed(el, async () => {
+        try {
+          const id = Number(el.dataset.withdraw);
+          if (!(await gtsWithdraw(id))) { this.toast('Ese depósito ya no está: puede que alguien te lo acabe de cambiar.'); await this.gtsSync(); render(); return; }
+          const row = this.gtsRows.find((r) => r.id === id);
+          await this.gtsSync(false);
+          if (row) await this.gtsAnim('vuelve', row.give_id, `${this.byId.get(row.give_id)?.name ?? '?'} vuelve a tu club.`);
+          render();
+        } catch (e) { this.toast(gtsError(e), 4000); }
+      }));
+      this.on('[data-take]', 'click', (_e, el) => this.armed(el, async () => {
+        const o = this.gtsOffers?.find((x) => x.id === Number(el.dataset.take));
+        if (!o) return;
+        try {
+          await this.pushCloud(true); // the server checks the spare copy against the cloud save
+          await gtsTake(o.id);
+          await this.gtsSync(false);
+          await this.gtsAnim('se-va', o.want_id, `${this.byId.get(o.want_id)?.name ?? '?'} se va con ${o.username}…`);
+          await this.gtsAnim('vuelve', o.give_id, `¡Llega ${this.byId.get(o.give_id)?.name ?? '?'}!`);
+          this.gtsOffers = this.gtsOffers?.filter((x) => x.id !== o.id) ?? null;
+          render();
+        } catch (e) { this.toast(gtsError(e), 4000); void loadOffers(); }
+      }));
+      document.getElementById('gtsq')?.addEventListener('change', (e) => { this.gtsQuery = (e.target as HTMLInputElement).value; render(); });
+      document.getElementById('gtsmine')?.addEventListener('change', (e) => { this.gtsOnlyMine = (e.target as HTMLInputElement).checked; render(); });
+      document.getElementById('gtsreload')?.addEventListener('click', () => void loadOffers());
+    };
+    const loadOffers = async () => {
+      try { this.gtsOffers = await gtsSearch(null, null); } catch { this.gtsOffers = []; this.toast('No se pudo cargar la GTS.'); }
+      if (this.screenKey === 'gts' || document.querySelector('.gts-screen')) render();
+    };
+    render();
+    if (online) {
+      try { await this.gtsSync(); } catch (e) { this.toast(gtsError(e), 4000); }
+      if (this.gtsTab === 'buscar') await loadOffers(); else render();
+    }
+  }
+
+  /** Two steps: the spare copy to leave, then the footballer asked for in exchange. */
+  private gtsDepositModal(after: () => void) {
+    let give: number | null = null, q = '';
+    const box = document.createElement('div');
+    box.className = 'modal';
+    this.root.appendChild(box);
+    const close = () => box.remove();
+    const draw = () => {
+      const ql = q.trim().toLowerCase();
+      const list = give === null
+        ? this.unlockedRoster().filter((p) => !canLeave(this.save, p)).sort((a, b) => RARITY_ORDER.indexOf(b.rarity) - RARITY_ORDER.indexOf(a.rarity) || a.name.localeCompare(b.name, 'es'))
+        : this.m.roster.filter((p) => p.id !== give && !gtsBanned(p)).sort((a, b) => RARITY_ORDER.indexOf(b.rarity) - RARITY_ORDER.indexOf(a.rarity) || a.name.localeCompare(b.name, 'es'));
+      const shown = list.filter((p) => !ql || p.name.toLowerCase().includes(ql)).slice(0, 120);
+      box.innerHTML = `<div class="panel gts-pick"><div class="gts-pick-head"><b>${give === null ? '1. ¿Qué copia repetida dejas?' : `2. ¿Qué futbolista pides a cambio de ${esc(this.byId.get(give)?.name ?? '')}?`}</b>
+        <button class="btn small blue" id="gpclose">✕</button></div>
+        <input id="gpq" placeholder="Buscar por nombre" value="${esc(q)}">
+        <div class="gts-pick-grid">${shown.map((p) => `<button class="gts-pickcard" data-pick="${p.id}" style="--rc:${RARITY_COLOR[p.rarity]}">${this.mug(p.id, 48)}<b>${esc(p.name)}</b><small>${RARITY_LABEL[p.rarity]}${give === null ? ` · ${gtsSpare(this.save, p.id)} de sobra` : this.save.owned[String(p.id)] ? ' · lo tienes' : ''}</small></button>`).join('')
+          || `<div class="note">${give === null ? 'No tienes copias repetidas que se puedan dejar.' : 'Nadie con ese nombre.'}</div>`}</div>
+        ${give !== null ? '<p><button class="btn small blue" id="gpback">‹ Elegir otra copia</button></p>' : ''}</div>`;
+      box.querySelector('#gpclose')!.addEventListener('click', close);
+      box.querySelector('#gpback')?.addEventListener('click', () => { give = null; q = ''; draw(); });
+      const inp = box.querySelector('#gpq') as HTMLInputElement;
+      inp.addEventListener('change', () => { q = inp.value; draw(); });
+      box.querySelectorAll<HTMLElement>('[data-pick]').forEach((el) => el.addEventListener('click', async () => {
+        const id = Number(el.dataset.pick);
+        if (give === null) { give = id; q = ''; draw(); return; }
+        const want = id, left = give;
+        close();
+        try {
+          await this.pushCloud(true);
+          await gtsDeposit(left, want);
+          await this.gtsSync(false);
+          await this.gtsAnim('se-va', left, `${this.byId.get(left)?.name ?? '?'} se va a la GTS. Pides a ${this.byId.get(want)?.name ?? '?'}.`);
+        } catch (e) { this.toast(gtsError(e), 4500); }
+        after();
+      }));
+    };
+    draw();
+  }
+
+  /** Main menu: the latest movements of the GTS, loaded after the menu is shown. */
+  private async fillMenuGts() {
+    const box = document.getElementById('menugts');
+    if (!box || !onlineConfigured()) return;
+    try {
+      const rows = (await gtsFeed()).filter((r) => this.byId.has(r.give_id) && this.byId.has(r.want_id)).slice(0, 4);
+      if (!document.body.contains(box)) return;
+      box.innerHTML = rows.map((r) => `<div class="gts-feed${r.status === 'traded' ? ' done' : ''}">${this.mug(r.give_id, 26 as 64)}<span>${r.status === 'traded' ? '⇄' : '→'}</span>${this.mug(r.want_id, 26 as 64)}
+        <small><b>${esc(r.username)}</b> ${r.status === 'traded' ? 'cambió' : 'deja'} ${esc(this.byId.get(r.give_id)!.name)}</small></div>`).join('') || '<div class="note">Aún no hay intercambios. ¡Sé el primero!</div>';
+    } catch { box.innerHTML = '<div class="note">La GTS no responde ahora.</div>'; }
+  }
+
   private async fillMenuRank() {
     const box = document.getElementById('menurank');
     if (!box) return;

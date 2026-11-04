@@ -88,6 +88,8 @@ export interface SaveData {
    */
   squads?: SquadPreset[];
   activeSquad?: number;
+  /** 1.8: GTS movements already applied to this save (gts.ts) */
+  gts?: { applied: string[] };
   /** run difficulty rank chosen last */
   difficulty: Rank;
   /** best rank cleared per arena */
@@ -358,6 +360,10 @@ export function validate(s: SaveData): SaveData {
     while (s.squads.length < SQUAD_SLOTS) s.squads.push({ name: `Equipo ${s.squads.length + 1}`, squad: [] });
     s.activeSquad = Math.max(0, Math.min(SQUAD_SLOTS - 1, Math.floor(num(s.activeSquad, 0))));
   } else { delete s.squads; delete s.activeSquad; }
+  // 1.8: GTS ledger marks: short strings only
+  const gt = obj(s.gts);
+  if (gt && Array.isArray(gt.applied)) s.gts = { applied: (gt.applied as unknown[]).filter((x): x is string => typeof x === 'string' && /^[dwrt]:\d{1,12}$/.test(x)).slice(-400) };
+  else delete s.gts;
   return s;
 }
 

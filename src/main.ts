@@ -4,6 +4,7 @@ import './style.css';
 import './style14.css';
 import './styleMapPath.css';
 import './styleThanks.css';
+import './styleGts.css';
 import type { Manifest } from './data/manifest';
 import { applyRosterFixes } from './data/rosterFixes';
 import { applyTechFixes } from './data/techFixes';
