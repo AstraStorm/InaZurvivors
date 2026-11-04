@@ -15,6 +15,16 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: '8.3', date: '2026-11-04', title: 'Fix 1.77',
+    features: [],
+    fixes: [],
+    visuals: [
+      'fxTech handTintOf: Mano Mágica (fx.magicHand + entidad majin) y Mano Celestial con el color de su portero: Mark amarillo-naranja, Darren LaChance azul. La X sigue roja.',
+      'fxMovie: Rayo de Diamante / Curvo / Filo de Diamante (youtube QDOp9WfCb-M), Víbora de Orión (TK0j_9Bicac; ArenaScene.darkClone dibuja el clon oscuro de la tiradora) e Himno de Atenea (g4zjlcMkMVs, regate; ralentiza 1,2 s a los rivales cercanos).',
+    ],
+    balance: [],
+  },
+  {
     version: '8.2', date: '2026-11-04', title: '1.76 Altar de despido y Leyendas',
     features: [
       'Lanza Nórdica Congelada y Frente Frío (Shawn 3 + Aiden 5, group hermanos-froste: ArenaScene.offerCards ofrece una al azar y ninguna más del grupo tras aprender una). fxMovie gungnir (aullido, copo de hielo, Aiden con piruetas, pinchos de hielo y aura roja y negra, descrito por el autor) y frente (Q8a41dHqJWA). Descenso Estelar (KAKIJkqOqLo) y Mano Celestial X (manoX, misma escena; fxTech la usa) redibujadas.',

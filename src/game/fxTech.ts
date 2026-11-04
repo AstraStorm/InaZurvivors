@@ -6,7 +6,7 @@
  */
 import Phaser from 'phaser';
 import { manoX } from './fxMovie';
-import type { Fx } from './fx';
+import type { Fx, HandTint } from './fx';
 
 type G = Phaser.GameObjects.Graphics;
 
@@ -105,18 +105,29 @@ export function handKind(name: string): HandKind | null {
 }
 
 /**
+ * 1.76 (author): Mano Mágica and Mano Celestial take their keeper's colour, as in the anime: Mark's are yellow-orange,
+ * Darren's blue. Everyone else keeps the usual colours (violet magic hand, golden heavenly hand).
+ */
+const HAND_TINTS: [RegExp, HandTint][] = [
+  [/^mark evans$|^mark \+|\+ mark$/i, { main: 0xffa82a, light: 0xffe08a, dark: 0x8a4a00 }],
+  [/^darren lachance$/i, { main: 0x3a8aff, light: 0xa8d8ff, dark: 0x0a2a6a }],
+];
+export const handTintOf = (owner?: string): HandTint | null => (owner ? HAND_TINTS.find(([r]) => r.test(owner.trim()))?.[1] ?? null : null);
+
+/**
  * Goalkeeper hands. x,y: the keeper; tx,ty: the rival aimed at (fists fly there); targets: rivals for flying fists.
  * `big` for Mítico / Leyenda / HÉROE owners.
  */
 export function keeperHand(fx: Fx, scene: Phaser.Scene, name: string, kind: HandKind, x: number, y: number, level: number, color: number,
-  tx: number, ty: number, targets: { x: number; y: number }[], big = false) {
+  tx: number, ty: number, targets: { x: number; y: number }[], big = false, owner?: string) {
   const s = (1.15 + level * 0.07) * (big ? 1.3 : 1);
   const n = name.toLowerCase();
   switch (kind) {
     case 'celestial': {
       // Mano celestial: a golden hand of light behind the keeper. V: wings of light in a V; X: two crossed beams;
       // Bimano / Trimano: two or three hands fanned out
-      const gold = /\bx\b|mano celestial x/.test(n) ? 0xff5a3a : /celest|divin|dios|god/.test(n) ? 0xffd84a : color; // 1.76: X is red
+      const tint = handTintOf(owner);
+      const gold = /\bx\b|mano celestial x/.test(n) ? 0xff5a3a : tint ? tint.main : /celest|divin|dios|god/.test(n) ? 0xffd84a : color; // 1.76: X is red; Mark's and Darren's are their own colour
       const count = /trimano|triple/.test(n) ? 3 : /bimano|doble|double/.test(n) ? 2 : 1;
       fx.pillar(x, y + 4, 0xfff0b0, level + 4);
       aura(scene, x, y - 30, 22 + level * 2, gold, 700);

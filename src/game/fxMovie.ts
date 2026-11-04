@@ -22,6 +22,9 @@
  *   Descenso Estelar (Tenkuu Otoshi, KAKIJkqOqLo) — he jumps into a starry night, the clouds part, golden streaks rise and a
  *     grey cratered rock wrapped in purple and blue falls on the goal. Mano Celestial X (same scene, manoX): red fists, a giant
  *     hand of red light with a white palm and a red X. Lanza Nórdica Congelada and Frente Frío: Shawn and Aiden (combos).
+ *   Clario's Rayo de Diamante / Curvo / Filo de Diamante (QDOp9WfCb-M): violet night, an arc of light, the ball becomes a cut
+ *     diamond. Víbora de Orión (TK0j_9Bicac): her dark clone (drawn by the scene) and a whirl of red and black, two vipers of fire
+ *     round the ball, a magenta burst. Himno de Atenea (g4zjlcMkMVs, dribble): golden light, temple columns, a staff of notes.
  *   Ataque Omega (TssCtlpb8sM) — the three of Protocol Omega come in, each in a triangle of red, blue and green; a white
  *     crystal breaks, the ball arcs high in a streak of fire and lands in a burst of rainbow rays.
  */
@@ -33,7 +36,7 @@ type G = Phaser.GameObjects.Graphics;
 const AIR = 8900;
 const ADD = Phaser.BlendModes.ADD;
 
-export type MovieMove = 'umbrio' | 'espadas' | 'atomica' | 'ruptura' | 'superrayo' | 'omega' | 'odin' | 'sabiduria' | 'descenso';
+export type MovieMove = 'umbrio' | 'espadas' | 'atomica' | 'ruptura' | 'superrayo' | 'omega' | 'odin' | 'sabiduria' | 'descenso' | 'diamante' | 'diamantecurvo' | 'filo' | 'vibora';
 export function movieOf(name: string): MovieMove | null {
   const n = name.trim();
   if (/^campo umbr[ií]o$|black ?field/i.test(n)) return 'umbrio';
@@ -45,6 +48,10 @@ export function movieOf(name: string): MovieMove | null {
   if (/^lanza de od[ií]n$|gungnir/i.test(n)) return 'odin';
   if (/^sabidur[ií]a divina$|god knows/i.test(n)) return 'sabiduria';
   if (/^descenso estelar$|tenkuu otoshi/i.test(n)) return 'descenso';
+  if (/^rayo de diamante curvo$|magaru diamond/i.test(n)) return 'diamantecurvo';
+  if (/^rayo de diamante$|diamond ray/i.test(n)) return 'diamante';
+  if (/^filo de diamante$|diamond edge/i.test(n)) return 'filo';
+  if (/v[ií]bora (cruzada )?de ori[oó]n|orion cross ?viper/i.test(n)) return 'vibora';
   return null;
 }
 
@@ -362,6 +369,8 @@ function omegaShot(scene: S, ball: Img, lv: number) {
 export function movieCharge(scene: S, m: MovieMove, x: number, y: number, lv: number, ms: number) {
   if (m === 'odin') odinCharge(scene, x, y, lv, ms);
   else if (m === 'descenso') descensoCharge(scene, x, y, lv, ms);
+  else if (m === 'diamante' || m === 'diamantecurvo' || m === 'filo') diamanteCharge(scene, x, y, lv, ms);
+  else if (m === 'vibora') viboraCharge(scene, x, y, lv, ms);
   else if (m === 'sabiduria') sabiduriaCharge(scene, x, y, lv, ms);
   else if (m === 'umbrio') umbrioCharge(scene, x, y, lv, ms);
   else if (m === 'espadas') espadasCharge(scene, x, y, lv, ms);
@@ -373,6 +382,8 @@ export function movieCharge(scene: S, m: MovieMove, x: number, y: number, lv: nu
 export function movieShot(scene: S, m: MovieMove, ball: Img, lv: number) {
   if (m === 'odin') odinShot(scene, ball, lv);
   else if (m === 'descenso') descensoShot(scene, ball, lv);
+  else if (m === 'diamante' || m === 'diamantecurvo' || m === 'filo') diamanteShot(scene, ball, lv, m === 'diamante' ? 'rayo' : m === 'diamantecurvo' ? 'curvo' : 'filo');
+  else if (m === 'vibora') viboraShot(scene, ball, lv);
   else if (m === 'sabiduria') sabiduriaShot(scene, ball, lv);
   else if (m === 'umbrio') umbrioShot(scene, ball, lv);
   else if (m === 'espadas') espadasShot(scene, ball, lv);
@@ -510,17 +521,19 @@ function sabiduriaShot(scene: S, ball: Img, lv: number) {
 }
 
 // ------------------------------------------------------------------ dribbles
-export type MovieDribble = 'espadareal' | 'huracan' | 'hora';
+export type MovieDribble = 'espadareal' | 'huracan' | 'hora' | 'atenea';
 export function dribbleOf(name: string): MovieDribble | null {
   const n = name.trim();
   if (/^espada real$|king'?s sword/i.test(n)) return 'espadareal';
   if (/ojo del hurac[aá]n|storm zone|eye of the storm/i.test(n)) return 'huracan';
   if (/^hora celestial$|heaven'?s time/i.test(n)) return 'hora';
+  if (/^himno de atenea$|athena assault/i.test(n)) return 'atenea';
   return null;
 }
 /** A dribble from (x,y) towards (tx,ty) over `ms`; Hora celestial greys the area round it (time stopped). */
 export function movieDribble(scene: S, d: MovieDribble, x: number, y: number, tx: number, ty: number, lv: number, ms = 420) {
   const ang = Math.atan2(ty - y, tx - x), len = Math.max(30, Math.hypot(tx - x, ty - y));
+  if (d === 'atenea') { ateneaDribble(scene, x, y, ang, len, lv, ms + 200); return; }
   if (d === 'espadareal') {
     play(scene, x, y - 14, AIR + 1, ms * 0.55, (g, k) => { // the golden sword held high
       const h = 18 + k * 18, a = Math.min(1, k * 4);
@@ -739,4 +752,109 @@ export function frenteShot(scene: S, ball: Img, lv: number) {
     }, true);
     sparks(scene, x, y, 14, 52, [IC_WHITE, IC_CYAN, IC_BLUE]);
   });
+}
+
+// ------------------------------------------------------------------ Clario's diamonds (QDOp9WfCb-M)
+const DI_VIOLET = 0x6a4aff, DI_NIGHT = 0x14104a, DI_WHITE = 0xffffff, DI_ICE = 0xd8e8ff, DI_GOLD = 0xfff0a0;
+/** A cut diamond: a faceted disc, bright, with a sparkle */
+function diamond(g: G, x: number, y: number, r: number, rot: number, alpha: number) {
+  g.fillStyle(DI_VIOLET, 0.3 * alpha).fillCircle(x, y, r * 1.5);
+  g.fillStyle(DI_ICE, 0.95 * alpha).fillCircle(x, y, r);
+  for (let i = 0; i < 8; i++) { // facets
+    const a0 = rot + i * 0.785, a1 = a0 + 0.785;
+    g.fillStyle(i % 2 ? 0xc8b8ff : DI_WHITE, 0.55 * alpha).fillTriangle(x, y, x + Math.cos(a0) * r, y + Math.sin(a0) * r, x + Math.cos(a1) * r, y + Math.sin(a1) * r);
+    g.lineStyle(1, 0x9a8aff, 0.7 * alpha).lineBetween(x + Math.cos(a0) * r * 0.45, y + Math.sin(a0) * r * 0.45, x + Math.cos(a0) * r, y + Math.sin(a0) * r);
+  }
+  g.lineStyle(1, 0x9a8aff, 0.7 * alpha).strokeCircle(x, y, r * 0.45);
+  g.lineStyle(1.5, DI_WHITE, alpha).strokeCircle(x, y, r);
+  g.fillStyle(DI_WHITE, alpha).fillCircle(x - r * 0.35, y - r * 0.35, r * 0.15);
+}
+/** The windup: a violet night with streaks of light, an arc of light swinging round, the ball turning into a diamond. */
+function diamanteCharge(scene: S, x: number, y: number, lv: number, ms: number) {
+  const size = 28 + lv * 2;
+  play(scene, x, y - 16, AIR - 1, ms, (g, k, t) => {
+    const a = Math.min(1, k * 3);
+    g.fillStyle(DI_NIGHT, 0.32 * a).fillEllipse(0, 0, size * 3.6, size * 2.4);
+    for (let i = 0; i < 10; i++) { const an = i * 0.63 + t * 0.6, r0 = size * 0.5, r1 = size * (1.4 + (i % 3) * 0.2); g.lineStyle(1.5, DI_ICE, 0.6 * a).lineBetween(Math.cos(an) * r0, Math.sin(an) * r0 * 0.6, Math.cos(an) * r1, Math.sin(an) * r1 * 0.6); }
+    g.lineStyle(5, DI_VIOLET, 0.7 * a).beginPath().arc(0, 0, size * 0.95, -2.6 + k * 2, -0.6 + k * 2).strokePath(); // the arc of light
+    g.lineStyle(2, DI_WHITE, 0.9 * a).beginPath().arc(0, 0, size * 0.95, -2.6 + k * 2, -0.6 + k * 2).strokePath();
+  }, true);
+  play(scene, x, y - 16, AIR + 1, ms, (g, k, t) => {
+    if (k < 0.5) { g.fillStyle(DI_WHITE, 0.8 * k * 2).fillCircle(0, 0, 6 + k * 10); return; }
+    diamond(g, 0, 0, 8 + (k - 0.5) * 14, t, 1);
+    for (let i = 0; i < 4; i++) { const an = t * 3 + i * 1.57; g.fillStyle(DI_GOLD, 0.9).fillCircle(Math.cos(an) * 18, Math.sin(an) * 12 - 6, 1.6); }
+  }, true);
+}
+function diamanteShot(scene: S, ball: Img, lv: number, kind: 'rayo' | 'curvo' | 'filo') {
+  const r = 10 + lv * 0.6, trail: [number, number][] = [];
+  ride(scene, ball, (g, bx, by, ang, t) => {
+    trail.push([bx, by]); if (trail.length > 14) trail.shift();
+    if (kind === 'curvo') { // a curving ribbon of violet light behind it
+      for (let i = 1; i < trail.length; i++) { const u = i / trail.length, bend = Math.sin(u * Math.PI) * 18; g.lineStyle(6 * u + 1, DI_VIOLET, 0.7 * u).lineBetween(trail[i - 1][0], trail[i - 1][1] - bend, trail[i][0], trail[i][1] - bend); }
+    } else for (let i = 1; i < trail.length; i++) { const u = i / trail.length; g.lineStyle(8 * u + 1, DI_VIOLET, 0.6 * u).lineBetween(trail[i - 1][0], trail[i - 1][1], trail[i][0], trail[i][1]); g.lineStyle(3 * u, DI_WHITE, 0.9 * u).lineBetween(trail[i - 1][0], trail[i - 1][1], trail[i][0], trail[i][1]); }
+    if (kind === 'filo') for (let i = 0; i < 5; i++) { // sharp shards of diamond flying with it
+      const an = t * 6 + i * 1.257, d = r * 1.8;
+      const px = bx + Math.cos(an) * d, py = by + Math.sin(an) * d * 0.7;
+      g.fillStyle(DI_ICE, 0.95).fillTriangle(px + Math.cos(ang) * 8, py + Math.sin(ang) * 8, px - Math.sin(ang) * 3, py + Math.cos(ang) * 3, px + Math.sin(ang) * 3, py - Math.cos(ang) * 3);
+    }
+    diamond(g, bx, by, r, t * 4, 1);
+  }, (x, y) => {
+    play(scene, x, y, AIR + 2, 420, (g, k, t) => {
+      const a = 1 - k;
+      diamond(g, 0, 0, r * (1 + k * 2), t * 2, a);
+      for (let i = 0; i < 10; i++) { const an = i * 0.628, d = 14 + k * 50; g.lineStyle(2, i % 2 ? DI_VIOLET : DI_WHITE, a).lineBetween(Math.cos(an) * d * 0.5, Math.sin(an) * d * 0.5, Math.cos(an) * d, Math.sin(an) * d); }
+    }, true);
+    sparks(scene, x, y, 12, 48, [DI_WHITE, DI_ICE, DI_VIOLET, DI_GOLD]);
+  });
+}
+
+// ------------------------------------------------------------------ Víbora de Orión (Orion Crossviper, TK0j_9Bicac)
+const OV_RED = 0xe0102a, OV_HOT = 0xff3a6a, OV_BLACK = 0x14040c, OV_MAGENTA = 0xff2ad8;
+/** The windup round the shooter: a whirl of dark red ribbons (her dark clone is added by the scene) */
+function viboraCharge(scene: S, x: number, y: number, lv: number, ms: number) {
+  const size = 30 + lv * 2;
+  play(scene, x, y - 8, AIR - 1, ms, (g, k, t) => {
+    const a = Math.min(1, k * 3);
+    for (let arm = 0; arm < 4; arm++) {
+      g.lineStyle(5, arm % 2 ? OV_BLACK : OV_RED, 0.75 * a).beginPath();
+      for (let i = 0; i <= 18; i++) { const u = i / 18, an = t * 6 + arm * 1.57 + u * 5, r = size * (0.3 + u * 0.9); const px = Math.cos(an) * r, py = Math.sin(an) * r * 0.55; if (i) g.lineTo(px, py); else g.moveTo(px, py); }
+      g.strokePath();
+    }
+  });
+}
+function viboraShot(scene: S, ball: Img, lv: number) {
+  ride(scene, ball, (g, bx, by, ang, t) => { // two vipers of red and black fire twisting round the ball
+    const r = 10 + lv * 0.6, c = Math.cos(ang), sn = Math.sin(ang), nx = -sn, ny = c, len = 56 + lv * 3;
+    for (const ph of [0, Math.PI]) for (const [w, col, al] of [[6, OV_RED, 0.8], [2.5, OV_BLACK, 1]] as const) {
+      g.lineStyle(w, col, al).beginPath();
+      for (let i = 0; i <= 16; i++) { const u = i / 16, wv = Math.sin(t * 18 - u * 8 + ph) * r * (1 - u * 0.3); const px = bx - c * u * len + nx * wv, py = by - sn * u * len + ny * wv; if (i) g.lineTo(px, py); else g.moveTo(px, py); }
+      g.strokePath();
+    }
+    g.fillStyle(OV_RED, 0.45).fillCircle(bx, by, r * 1.5);
+    g.fillStyle(OV_HOT, 0.7).fillCircle(bx, by, r * 0.8);
+  }, (x, y) => {
+    play(scene, x, y, AIR + 2, 420, (g, k) => { // the magenta star burst of the scene
+      const a = 1 - k, r = 14 + k * 50;
+      g.fillStyle(OV_MAGENTA, 0.45 * a).fillCircle(0, 0, r);
+      for (let i = 0; i < 16; i++) { const an = i * 0.393; g.lineStyle(2, i % 2 ? OV_RED : 0xffffff, a).lineBetween(Math.cos(an) * r * 0.6, Math.sin(an) * r * 0.6, Math.cos(an) * r * 1.5, Math.sin(an) * r * 1.5); }
+    }, true);
+    sparks(scene, x, y, 12, 48, [OV_RED, OV_MAGENTA, OV_BLACK]);
+  });
+}
+
+// ------------------------------------------------------------------ Himno de Atenea (g4zjlcMkMVs, dribble)
+/** He prays in golden light, white temple columns rise and a staff of music notes charms the rivals as he passes. */
+function ateneaDribble(scene: S, x: number, y: number, ang: number, len: number, _lv: number, ms: number) {
+  play(scene, x, y - 10, AIR - 1, ms, (g, k, t) => {
+    const a = Math.sin(Math.min(1, k * 1.3) * Math.PI);
+    for (let i = 0; i < 12; i++) { const an = -Math.PI / 2 + (i - 5.5) * 0.22; g.lineStyle(3, 0xfff0a0, 0.55 * a).lineBetween(0, 0, Math.cos(an) * 60, Math.sin(an) * 60); } // golden light from above
+    for (let i = 0; i < 5; i++) { // the temple columns behind him
+      const cx = (i - 2) * 16, h = 46 * Math.min(1, k * 2.5);
+      g.fillStyle(0xf8f4ec, 0.75 * a).fillRect(cx - 4, -h + 8, 8, h);
+      g.fillStyle(0xffffff, 0.9 * a).fillRect(cx - 6, -h + 6, 12, 3);
+    }
+    g.lineStyle(1, 0x3a7aff, 0.8 * a); // the staff of music, waving towards where he goes
+    for (let l = 0; l < 5; l++) { g.beginPath(); for (let i = 0; i <= 14; i++) { const u = i / 14, px = Math.cos(ang) * len * u, py = Math.sin(ang) * len * u + l * 3 - 6 + Math.sin(u * 7 + t * 6) * 5; if (i) g.lineTo(px, py); else g.moveTo(px, py); } g.strokePath(); }
+    for (let i = 0; i < 5; i++) { const u = ((t * 0.9 + i * 0.2) % 1), px = Math.cos(ang) * len * u, py = Math.sin(ang) * len * u - 4 + Math.sin(u * 7 + t * 6) * 5; g.fillStyle(0x2a5adf, a).fillEllipse(px, py, 5, 4); g.lineStyle(1.5, 0x2a5adf, a).lineBetween(px + 2, py, px + 2, py - 9); }
+  }, true);
 }

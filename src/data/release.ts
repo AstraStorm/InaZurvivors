@@ -6,7 +6,7 @@
  */
 import { CHANGELOG } from './changelog';
 
-export const PUBLIC_VERSION = '1.76';
+export const PUBLIC_VERSION = '1.77';
 export const BUILD = CHANGELOG[0].version;
 export const RELEASED = false;
 export const VERSION_LABEL = RELEASED ? `v${PUBLIC_VERSION}` : `v${PUBLIC_VERSION} · pre-lanzamiento`;
@@ -28,6 +28,19 @@ export interface PublicRelease {
 
 /** Public news, newest first. Starts at v1.0: the internal versions before it are not part of the public history. */
 export const PUBLIC_RELEASES: PublicRelease[] = [
+  {
+    version: '1.77', date: '2026-11-04',
+    title: 'InaZurvivors Fix 1.77 — Manos con su color y técnicas nuevas',
+    tagline: 'Cada portero con el color de su mano, y más técnicas redibujadas',
+    intro: 'Un parche sobre la 1.76.',
+    features: [
+      { icon: '✋', title: 'Mano Mágica y Mano Celestial', text: 'Cada portero con su color, como en el anime: las de Mark son amarillo-naranja y las de Darren, azules (la mano y también el espíritu de la Mano Mágica).' },
+      { icon: '💎', title: 'Diamantes de Clario', text: 'Rayo de Diamante, Rayo de Diamante Curvo y Filo de Diamante: una noche violeta, un arco de luz y el balón convertido en un diamante tallado.' },
+      { icon: '🐍', title: 'Víbora de Orión', text: 'Yurika saca un clon oscuro de sí misma que chuta con ella; el balón vuela entre dos víboras de fuego rojo y negro.' },
+      { icon: '🎵', title: 'Himno de Atenea', text: 'Luz dorada, columnas de templo y un pentagrama que encandila a los rivales cercanos, que se ralentizan un momento.' },
+    ],
+    start: [],
+  },
   {
     version: '1.76', date: '2026-11-04',
     title: 'InaZurvivors 1.76 — Altar de despido',

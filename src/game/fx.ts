@@ -197,6 +197,9 @@ export function makeFxTextures(scene: Phaser.Scene) {
 /** Live decorative objects allowed at once; beyond this, optional detail is skipped instead of dropping frames. */
 const DECOR_LIMIT = 160;
 
+/** 1.76: the colours of a keeper's own hand and Majin (fxTech handTintOf) */
+export interface HandTint { main: number; light: number; dark: number }
+
 export class Fx {
   private emitters = new Map<string, Phaser.GameObjects.Particles.ParticleEmitter>();
   private numbers: Phaser.GameObjects.Text[] = [];
@@ -449,14 +452,14 @@ export class Fx {
   }
 
   /** Mano Mágica: violet hand in a turning rune circle, closing into a fist of light. Reads apart from the golden Mano Celestial. */
-  magicHand(x: number, y: number, level: number) {
-    const violet = 0xb36bff;
+  magicHand(x: number, y: number, level: number, tint?: HandTint | null) {
+    const violet = tint?.main ?? 0xb36bff; // 1.76: each keeper's own colour (fxTech handTintOf)
     const s0 = 1.4 + level * 0.1;
     if (this.free(1)) {
-      const circle = this.scene.add.ellipse(x, y + 8, 60 + level * 4, 26 + level * 2, violet, 0.12).setStrokeStyle(2, 0xe6c8ff).setDepth(y - 1);
+      const circle = this.scene.add.ellipse(x, y + 8, 60 + level * 4, 26 + level * 2, violet, 0.12).setStrokeStyle(2, tint?.light ?? 0xe6c8ff).setDepth(y - 1);
       this.deco(circle, { angle: 40, scaleX: 1.3, scaleY: 1.3, alpha: 0, duration: 680 });
     }
-    this.orbit(x, y - 16, 'fx:star', 0xe6c8ff, 6, 34 + level, 560);
+    this.orbit(x, y - 16, 'fx:star', tint?.light ?? 0xe6c8ff, 6, 34 + level, 560);
     const h = this.scene.add.image(x, y + 8, 'fx:hand').setOrigin(0.5, 1).setTint(violet).setBlendMode(Phaser.BlendModes.ADD).setScale(0.3, 1.2).setAlpha(0).setDepth(8800);
     this.scene.tweens.add({ targets: h, y: y - 8, scaleX: s0, scaleY: s0, alpha: 0.9, duration: 200, ease: 'Sine.easeOut' });
     this.scene.tweens.add({ targets: h, scaleX: s0 * 0.75, scaleY: s0 * 0.75, delay: 300, duration: 120, yoyo: true });
@@ -470,7 +473,7 @@ export class Fx {
    *  - demonio: horned figure with bat wings and red eyes, rising behind the shooter, wings beating once
    *  - majin: giant muscular spirit behind a keeper, raising its arm to block
    */
-  entity(kind: 'demonio' | 'majin', x: number, y: number, ms: number, big = false) {
+  entity(kind: 'demonio' | 'majin', x: number, y: number, ms: number, big = false, tint?: HandTint | null) {
     if (!this.free(1)) return;
     const s = big ? 1.35 : 1;
     const g = this.scene.add.graphics().setDepth(y - 2).setPosition(x, y);
@@ -492,8 +495,8 @@ export class Fx {
       this.scene.tweens.add({ targets: g, alpha: 0, y: y - 12, delay: ms * 0.8, duration: ms * 0.45, onComplete: () => g.destroy() });
       this.burst('sombra', x, y - 30, 10, 60, true);
     } else {
-      const skin = 0xffa040, dark = 0x7a2a00;
-      g.fillStyle(0xffd060, 0.2).fillEllipse(0, -46, 120, 110);
+      const skin = tint?.main ?? 0xffa040, dark = tint?.dark ?? 0x7a2a00;
+      g.fillStyle(tint?.light ?? 0xffd060, 0.2).fillEllipse(0, -46, 120, 110);
       g.fillStyle(skin, 0.9).fillEllipse(0, -46, 54, 46).fillCircle(0, -78, 13); // torso, head
       g.fillStyle(dark, 0.9).fillRect(-14, -80, 28, 5); // brow band
       g.fillStyle(0xffffff).fillRect(-7, -79, 4, 2).fillRect(3, -79, 4, 2);
@@ -506,7 +509,7 @@ export class Fx {
       this.scene.tweens.add({ targets: g, scaleX: s, scaleY: s, alpha: 0.95, duration: ms * 0.3, ease: 'Cubic.easeOut' });
       this.scene.tweens.add({ targets: arm, alpha: 1, angle: -10, delay: ms * 0.3, duration: ms * 0.25, ease: 'Back.easeOut' }); // the block
       this.scene.tweens.add({ targets: [g, arm], alpha: 0, delay: ms * 0.8, duration: ms * 0.4, onComplete: () => { g.destroy(); arm.destroy(); } });
-      this.rays(x + 24 * s, y - 100 * s, 10, 40, 0xffe080, ms * 0.6);
+      this.rays(x + 24 * s, y - 100 * s, 10, 40, tint?.light ?? 0xffe080, ms * 0.6);
     }
   }
 

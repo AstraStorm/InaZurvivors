@@ -30,7 +30,7 @@ import { chemistry } from '../systems/kitBonus';
 import { captainSynergy, chemistrySynergy, resonances, type Synergy } from '../systems/synergy';
 import { teamLabel as kitTeamLabel } from '../data/sagas';
 import { HERO_AURA } from '../systems/ascension';
-import { dragon, handKind, keeperHand } from './fxTech';
+import { dragon, handKind, handTintOf, keeperHand } from './fxTech';
 import { orphans } from '../systems/groundSweep';
 import { chaosMeteorCharge, chaosMeteorShot, fireStormCharge, fireStormShot, elementBurst, phoenix, phoenixFlight, setLowPower, teamBeams } from './fxManif';
 import { crossfireCharge, crossfireShot } from './fxCross';
@@ -863,6 +863,7 @@ export class ArenaScene extends Phaser.Scene {
           if (anime) animeCharge(this, anime, ox, oy, lv, recipe.windupSec * 1000);
           const mv = movieOf(t.name); // 1.76: six more shots redrawn from their scenes (fxMovie.ts)
           if (mv) movieCharge(this, mv, ox, oy, lv, recipe.windupSec * 1000);
+          if (mv === 'vibora') this.darkClone(m, recipe.windupSec * 1000); // Víbora de Orión: her dark clone kicks with her
           const fuego = fuegoOf(t.name); // Axel Blaze Encapuchado: Fuego supremo / Fuego total (fxFuego.ts)
           if (fuego === 'supremo') supremoCharge(this, ox, oy, lv, recipe.windupSec * 1000);
           else if (fuego === 'total') totalCharge(this, ox, oy, lv, recipe.windupSec * 1000);
@@ -879,7 +880,7 @@ export class ArenaScene extends Phaser.Scene {
             const near0 = dr ? this.nearestEnemy(ox, oy, 160) : null;
             if (dr) {
               movieDribble(this, dr, ox, oy, near0 ? near0.pos.x : ox + 40, near0 ? near0.pos.y - 10 : oy, lv, 420);
-              if (dr === 'hora') for (const e of this.enemies) if (Math.hypot(e.pos.x - ox, e.pos.y - oy) < 90) e.slowUntil = this.runTime + 1.2; // time stops round him
+              if (dr === 'hora' || dr === 'atenea') for (const e of this.enemies) if (Math.hypot(e.pos.x - ox, e.pos.y - oy) < 90) e.slowUntil = this.runTime + 1.2; // time stops / the hymn charms them
             } else if (sig === 'espejismo') illusionBall(this, ox, oy, lv);
             else if (sig === 'huracan') stormZone(this, ox, oy, r + 10, lv);
             else if (animeOf(t.name) === 'brisa') { const near = this.nearestEnemy(ox, oy, 160), ba = near ? Math.atan2(near.pos.y - 10 - oy, near.pos.x - ox) : 0; breezeStep(this, ox - Math.cos(ba) * 30, oy - Math.sin(ba) * 30, ox + Math.cos(ba) * 40, oy + Math.sin(ba) * 40, lv); }
@@ -908,7 +909,7 @@ export class ArenaScene extends Phaser.Scene {
             if (animeOf(t.name) === 'brisa') breezeStep(this, m.f.x, m.f.y, m.f.x + Math.cos(ang) * reach, m.f.y + Math.sin(ang) * reach, lv, 300);
             const dr = dribbleOf(t.name); // 1.76 (fxMovie.ts)
             if (dr) movieDribble(this, dr, m.f.x, m.f.y, m.f.x + Math.cos(ang) * reach, m.f.y + Math.sin(ang) * reach, lv, 420);
-            if (dr === 'hora') for (const e of this.enemies) if (Math.hypot(e.pos.x - m.f.x, e.pos.y - m.f.y) < 90) e.slowUntil = this.runTime + 1.2;
+            if (dr === 'hora' || dr === 'atenea') for (const e of this.enemies) if (Math.hypot(e.pos.x - m.f.x, e.pos.y - m.f.y) < 90) e.slowUntil = this.runTime + 1.2;
             if (!dr && signatureOf(t.name) === 'huracan') stormZone(this, m.f.x + Math.cos(ang) * reach * 0.5, m.f.y + Math.sin(ang) * reach * 0.5, 34, lv, 520);
             m.dash = { fromX: m.f.x, fromY: m.f.y, toX: m.f.x + Math.cos(ang) * reach, toY: m.f.y + Math.sin(ang) * reach,
               t: 0, dur: 220, hits: new Set(), chain: new Set(), dmg: s.damage, style, left: s.count - 1 };
@@ -996,9 +997,10 @@ export class ArenaScene extends Phaser.Scene {
             sfx('whoosh');
           } else if (/m[aá]gica|majin/i.test(t.name)) {
             // Mano mágica (Majin The Hand): the Majin rises behind the keeper and raises its arm, then the hand blocks
-            this.fx.entity('majin', ox, oy + 6, 900, ['mitico', 'leyenda'].includes(m.entry.rarity) || !!this.cfg.asc?.[String(m.entry.id)]?.hero);
-            this.fx.magicHand(ox, oy, lv);
-            this.fx.ring(ox, oy, s.radius, 0xb36bff, 420, 2);
+            const tint = handTintOf(m.entry.name); // 1.76: Mark's yellow-orange, Darren's blue
+            this.fx.entity('majin', ox, oy + 6, 900, ['mitico', 'leyenda'].includes(m.entry.rarity) || !!this.cfg.asc?.[String(m.entry.id)]?.hero, tint);
+            this.fx.magicHand(ox, oy, lv, tint);
+            this.fx.ring(ox, oy, s.radius, tint?.main ?? 0xb36bff, 420, 2);
           } else if (natureOf(t.name)) {
             // Fix 1.31: Mano de pingüinos, Tormenta de pétalos, Hojarasca... drawn after the wiki
             natureArea(this, natureOf(t.name)!, ox, oy, s.radius, lv, this.enemies.filter((e) => !e.dead && Math.hypot(e.pos.x - ox, e.pos.y - oy) < s.radius).map((e) => ({ x: e.pos.x, y: e.pos.y - 10 })));
@@ -1029,7 +1031,7 @@ export class ArenaScene extends Phaser.Scene {
             if (kind === 'puno' && near) { cx = near.pos.x; cy = near.pos.y - 10; }
             const aims = this.enemies.filter((e) => !e.dead && Math.hypot(e.pos.x - ox, e.pos.y - oy) < 200).slice(0, 6).map((e) => ({ x: e.pos.x, y: e.pos.y - 10 }));
             keeperHand(this.fx, this, t.name, kind, ox, oy, lv, c2, near?.pos.x ?? ox + 60, (near?.pos.y ?? oy) - 10, aims,
-              ['mitico', 'leyenda'].includes(m.entry.rarity) || !!this.cfg.asc?.[String(m.entry.id)]?.hero);
+              ['mitico', 'leyenda'].includes(m.entry.rarity) || !!this.cfg.asc?.[String(m.entry.id)]?.hero, m.entry.name);
             if (kind === 'punos') for (const a of aims) for (const e of this.enemies) if (Math.hypot(e.pos.x - a.x, e.pos.y - 10 - a.y) < 18 + e.radius) this.hit(e, s.damage * 0.6, 0, 0, style);
             this.fx.ring(cx, cy, s.radius, 0xffe27a, 480, 3); // the push that rejects rivals
           }
@@ -1181,6 +1183,21 @@ export class ArenaScene extends Phaser.Scene {
       this.fx.shake(0.003, 120);
       sfx('kick');
     });
+  }
+
+  /** 1.76: Víbora de Orión — a dark copy of the shooter appears beside her, hops with her and fades after the kick. */
+  private darkClone(m: Member, ms: number) {
+    const body = this.cfg.manifest.bodies[m.entry.body] ?? this.cfg.manifest.bodies.field;
+    if (!body || !this.textures.exists(headKey(m.entry.id))) return;
+    const side = this.rng.frac() < 0.5 ? -1 : 1;
+    const clone = new Footballer(this, m.entry, body, m.f.x + side * 20, m.f.y - 2);
+    clone.dir = m.f.dir; clone.update(0);
+    for (const o of clone.container.list as Phaser.GameObjects.Sprite[]) o.setTint(0x2a0a14);
+    clone.container.setAlpha(0).setDepth(m.f.y - 1);
+    const glow = this.add.ellipse(m.f.x + side * 20, m.f.y - 12, 22, 34, 0xe0102a, 0.35).setDepth(m.f.y - 2);
+    this.tweens.add({ targets: clone.container, alpha: 0.85, duration: 160 });
+    clone.hop(this, 9, ms);
+    this.time.delayedCall(ms + 200, () => this.tweens.add({ targets: [clone.container, glow], alpha: 0, duration: 260, onComplete: () => { clone.destroy(); glow.destroy(); } }));
   }
 
   /** Fix 1.53: La Tierra's comets, evenly round the circle, the first one aimed at `aim`; they pierce and explode */
