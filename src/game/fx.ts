@@ -202,7 +202,18 @@ export class Fx {
   private numbers: Phaser.GameObjects.Text[] = [];
   private numberIdx = 0;
 
+  private rawShake: Phaser.Cameras.Scene2D.Camera['shake'];
+
   constructor(private scene: Phaser.Scene, public settings: Settings) {
+    // every camera shake obeys the player's setting, also the techniques that shake the camera directly (Keshin, anime
+    // effects): off = nothing, and the slider scales them (their strengths were tuned for the default 0.35)
+    const cam = scene.cameras.main as Phaser.Cameras.Scene2D.Camera & { rawShake?: Phaser.Cameras.Scene2D.Camera['shake'] };
+    this.rawShake = cam.rawShake ??= cam.shake.bind(cam); // a restarted scene may keep its camera: never wrap twice
+    cam.shake = ((ms: number, intensity?: number | Phaser.Math.Vector2, ...rest: unknown[]) => {
+      if (this.settings.shake <= 0 || this.settings.reducedMotion) return cam;
+      const k = typeof intensity === 'number' ? intensity * Math.min(1, this.settings.shake / 0.35) : intensity;
+      return (this.rawShake as (...a: unknown[]) => Phaser.Cameras.Scene2D.Camera)(ms, k, ...rest);
+    }) as Phaser.Cameras.Scene2D.Camera['shake'];
     makeFxTextures(scene);
     for (const key of ['fx:flame', 'fx:snow', 'fx:spark', 'fx:leaf', 'fx:rock', 'fx:star']) {
       const e = scene.add.particles(0, 0, key, {
@@ -339,7 +350,7 @@ export class Fx {
   shake(intensity: number, ms = 80) {
     if (this.settings.shake <= 0 || this.settings.reducedMotion) return;
     // capped: only strong hits, bosses and big explosions call this, and never stronger than a light rumble
-    this.scene.cameras.main.shake(ms, Math.min(0.006, intensity) * this.settings.shake);
+    this.rawShake(ms, Math.min(0.006, intensity) * this.settings.shake);
   }
 
   lightning(x1: number, y1: number, x2: number, y2: number, color = 0xfff27a) {

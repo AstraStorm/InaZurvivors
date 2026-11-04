@@ -86,6 +86,8 @@ export interface ArenaHooks {
   event?(r: { ok: boolean; title: string; detail: string }): void;
   /** Fix 1.12: a combined technique was just learned: participants' portraits and its name */
   combo?(c: { name: string; ids: number[] }): void;
+  /** Altar de despido: the player picks a teammate to send off (never the captain); null = nobody */
+  dismiss?(ids: number[]): Promise<number | null>;
 }
 
 export interface ArenaInit {
@@ -131,6 +133,8 @@ interface Member {
   guardUntil: number;
   /** no new dribble may start before this run time: immunity can't be chained */
   guardLock: number;
+  /** max health this teammate added to the team (taken back if he is sent off) */
+  hpAdd: number;
 }
 interface Enemy {
   sprite: Phaser.GameObjects.Sprite; unit: UnitInfo; hp: number; maxHp: number; speed: number; damage: number;
@@ -175,6 +179,8 @@ export class ArenaScene extends Phaser.Scene {
   private arena!: Arena;
   private fx!: Fx;
   private members: Member[] = [];
+  /** players sent off at an Altar de despido: they don't come back as recruit cards this run */
+  private dismissed = new Set<number>();
   private enemies: Enemy[] = [];
   private projectiles: Projectile[] = [];
   private pickups: Pickup[] = [];
@@ -285,7 +291,7 @@ export class ArenaScene extends Phaser.Scene {
     this.rng = new Phaser.Math.RandomDataGenerator([String(data.seed ?? Date.now())]);
     this.mods = baseMods(); this.taken = {}; this.buffs = new Map(); this.bonusCoins = 0; this.lastUpgrade = null; this.techUses = {}; this.auraTechUses = 0; this.auraCombos = 0; this.guardBlocks = 0;
     this.padHeld = {}; this.xpCombo = 0; this.xpComboUntil = 0; this.techById = {};
-    this.rank = rankDef(data.rank); this.shots = []; this.hazards = []; this.nextHazardAt = 20; this.wavePhase = ''; this.stretchAnnounced = false; this.combos = new Map(); this.slowmoUntil = 0; this.hitstopUntil = 0; this.nextHitstop = 0; this.recentKills = []; this.nextSweepCheer = 0; this.endless = null; this.secondWindUsed = false; this.altarsDone = 0; this.damageDealt = 0;
+    this.rank = rankDef(data.rank); this.shots = []; this.hazards = []; this.nextHazardAt = 20; this.wavePhase = ''; this.stretchAnnounced = false; this.combos = new Map(); this.slowmoUntil = 0; this.hitstopUntil = 0; this.nextHitstop = 0; this.recentKills = []; this.nextSweepCheer = 0; this.endless = null; this.secondWindUsed = false; this.altarsDone = 0; this.damageDealt = 0; this.dismissed = new Set();
     this.runId = crypto.randomUUID?.() ?? `${Date.now()}-${Math.random()}`; this.spawnAcc = 1.2; // first rivals within a second or two
     this.bonusTokens = 0; this.altar = null; this.altarGfx = []; this.altarTag = null; this.rival = null; this.altarRival = null; this.fxCache = null; this.fxAt = -1; this.reviveUsed = false; this.shocks = []; this.campSince = 0; this.campWarned = false; this.nextCampHit = 0; this.nextSurround = 60; this.lastMagnetAt = -MAGNET_GAP_SEC; this.nextAltarAt = FIRST_ALTAR_SEC; this.altarKills = 0; this.freezeUntil = 0; this.lure = null;
     setVolume(data.settings.volume);
@@ -387,10 +393,11 @@ export class ArenaScene extends Phaser.Scene {
       cds: perSlot((k) => 700 + this.members.length * 230 + k * 600), maxCd: perSlot(() => 1),
       styles: perSlot((k) => fxStyle(entry.techniques[state.slots[k] ?? -1] ?? first)), trajs: perSlot((k) => trajectory(entry.techniques[state.slots[k] ?? -1] ?? first)),
       recipes: perSlot((k) => recipeFor(entry.techniques[state.slots[k] ?? -1] ?? first, this.fxRarity(entry))),
-      slot: this.members.length - 1, windup: null, dash: null, vx: 0, vy: 0, settled: false, slotDist: 0, guardUntil: 0, guardLock: 0,
+      slot: this.members.length - 1, windup: null, dash: null, vx: 0, vy: 0, settled: false, slotDist: 0, guardUntil: 0, guardLock: 0, hpAdd: 0,
     };
     this.members.push(m);
     const add = Math.round((this.members.length === 1 ? 160 : 25) * sb.hp * this.cfg.perks.hpMult * statHealth(entry)); // Fix 1.13: teammates add 25 (was 40)
+    m.hpAdd = add;
     if (this.members.length === 1) this.maxHp = this.hp = add;
     else { this.maxHp += add; this.hp = Math.min(this.maxHp, this.hp + add); }
     if (this.members.length > 1) this.fx.burst(m.styles[0], x, y - 10, 12, 50);
@@ -2255,7 +2262,7 @@ export class ArenaScene extends Phaser.Scene {
     this.scene.pause();
     const shop = this.cfg.shop;
     const draw = () => {
-      const cards = drawCards({ team: this.currentTeam(), unlocked: this.cfg.unlocked, runLevel: this.level, taken: this.taken,
+      const cards = drawCards({ team: this.currentTeam(), unlocked: this.cfg.unlocked.filter((p) => !this.dismissed.has(p.id)), runLevel: this.level, taken: this.taken,
         bought: (id) => shop?.techUnlocks[String(id)] ?? [], onlyRecruits: recruitOnly }, () => this.rng.frac(), 3 + this.cfg.perks.extraChoices);
       if (recruitOnly) return cards;
       // a combination that just became possible always shows up; upgrades of learned ones now and then
@@ -2316,7 +2323,7 @@ export class ArenaScene extends Phaser.Scene {
         this.slowmoUntil = performance.now() + 700;
         this.cfg.hooks.combo?.({ name: def.name, ids: comboMembers(def, this.members).map((m) => m.entry.id) });
         for (const m of comboMembers(def, this.members)) this.fx.ring(m.f.x, m.f.y - 10, 26, 0xffe24a, 600, 3);
-      }
+      } else this.fx.label(c.x, c.y - 52, `${def.name}: +daño, -recarga, +1 atraviesa`, '#ffe24a'); // what the level gave
       return;
     }
     if (card.kind === 'heal') {
@@ -2385,7 +2392,9 @@ export class ArenaScene extends Phaser.Scene {
     const at = this.arena.randomCellAround(c.x, c.y, 220, 420, this.rng);
     // never inside an obstacle or outside the map: the whole marker area must stand on walkable ground
     if (!at || !this.arena.walkableAt(at.x, at.y, 28) || !this.arena.walkableAt(at.x + 40, at.y, 8) || !this.arena.walkableAt(at.x - 40, at.y, 8)) { this.nextAltarAt = this.runTime + 3; return; }
-    const type = ALTAR_TYPES[this.rng.between(0, ALTAR_TYPES.length - 1)];
+    // the Altar de despido only shows up when there is someone besides the captain to send off
+    const types = ALTAR_TYPES.filter((t) => t !== 'despido' || this.members.length > 1);
+    const type = types[this.rng.between(0, types.length - 1)];
     this.altar = createAltar(type, at.x, at.y, this.runTime / 60);
     this.altarAccepted = false; this.altarWait = ALTAR_WAIT_SEC; this.altarRival = null;
     if (type === 'duelo') this.altarRival = this.pickRival();
@@ -2536,9 +2545,42 @@ export class ArenaScene extends Phaser.Scene {
     else if (t === 'minijefe') { this.gainXp(this.xpNext() * 1.2); this.dropItem(a.x, a.y, DROPS.find((d) => d.id === 'chocolate')!); }
     else if (t === 'cofre') { coins += Math.round(CHEST_COINS * this.cfg.perks.eventMult); this.time.delayedCall(0, () => this.offerCards()); }
     else if (t === 'duelo') this.time.delayedCall(0, () => this.offerCards());
+    else if (t === 'despido') this.time.delayedCall(0, () => this.offerDismiss());
     else this.time.delayedCall(0, () => this.offerCards(true));
     this.bonusCoins += coins;
     this.cfg.hooks.event?.({ ok: true, title: ALTAR_LABEL[a.type], detail: `+${tokens} ${tokens > 1 ? 'fichas' : 'ficha'} · +${coins} monedas · ${ALTAR_REWARD[a.type]}` });
+  }
+
+  /** Altar de despido: the scene waits paused while the player picks who leaves (or nobody). */
+  private offerDismiss() {
+    const hook = this.cfg.hooks.dismiss;
+    if (!hook || this.ended || this.levelingUp || this.members.length < 2) return;
+    this.levelingUp = true;
+    this.scene.pause();
+    void hook(this.members.slice(1).map((m) => m.entry.id)).then((id) => {
+      this.levelingUp = false;
+      if (this.ended) return;
+      this.scene.resume();
+      if (id !== null) this.dismissMember(id);
+      if (this.xp >= this.xpNext()) this.levelUp();
+    });
+  }
+
+  /** Sends a teammate off: his techniques, his health share and his combined techniques go with him; the slot is free again. */
+  dismissMember(id: number) {
+    const i = this.members.findIndex((m) => m.entry.id === id);
+    if (i <= 0) return; // never the captain
+    const [m] = this.members.splice(i, 1);
+    this.members.forEach((o, k) => { o.slot = k - 1; });
+    this.dismissed.add(id);
+    this.maxHp = Math.max(1, this.maxHp - m.hpAdd);
+    this.hp = Math.min(this.hp, this.maxHp);
+    const { x, y } = m.f;
+    this.fx.implode(x, y - 10, 30, 0xb0b6c8, 300);
+    this.fx.label(x, y - 34, `${m.entry.name} deja el equipo`, '#d0d6e8');
+    this.tweens.add({ targets: m.f.container, alpha: 0, y: y - 12, duration: 300, onComplete: () => m.f.destroy() });
+    if (this.lastUpgrade?.playerId === id) this.lastUpgrade = null;
+    sfx('whoosh');
   }
 
   /** Points of interest for the minimap and the arrows at the edge of the screen (drawn by the HUD, in screen pixels). */
@@ -2612,6 +2654,10 @@ export class ArenaScene extends Phaser.Scene {
   forceEnd() { this.finish(false); }
   cycleFormation() { this.setFormation(FORMATION_ORDER[(FORMATION_ORDER.indexOf(this.formation) + 1) % 3]); }
   selectFormation(id: FormationId) { this.setFormation(id); }
+  /** settings changed during the run (pause screen, options): applied at once, the effects work on a copy of them */
+  liveSettings(s: Settings) {
+    Object.assign(this.fx.settings, { shake: s.shake, flashes: s.flashes, reducedMotion: s.reducedMotion, damageNumbers: s.damageNumbers, particles: s.particles });
+  }
 
   /** Debug/test hook used by the browser smoke test. */
   /** Real values of the build right now, for the pause screen (same formulas as combat). */

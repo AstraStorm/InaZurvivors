@@ -2104,3 +2104,10 @@ body.reduced-motion .pcard.cc *, body.reduced-motion .pcard.cc .cc-frame { anima
 .sq-slot.ccs .sq-techs { width: 100%; margin-top: 2px; padding-top: 6px; border-top: 1px solid #ffffff1a; }
 .sq-slot.ccs .sq-combo { margin: 0; }
 .squad-row { align-items: stretch; } .sq-slot.ccs .sq-techs { margin-top: auto; }
+/* Altar de despido */
+.dm-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 8px; margin: 12px 0; }
+.dm-pick { display: flex; align-items: center; gap: 8px; text-align: left; }
+.dm-pick span { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.dm-pick b { white-space: normal; line-height: 1.4; }
+.dm-pick small { font-size: 7px; opacity: .7; }
+.lv-gains { text-align: left; line-height: 1.7; } .lv-gains b { color: #ffe24a; }

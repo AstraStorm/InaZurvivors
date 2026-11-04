@@ -26,7 +26,7 @@ import { SAGAS, sagaOf, setTeamLabels, setTeamSagas, teamLabel, teamNames } from
 import { canClaim, claimAllTeamRewards, claimTeamReward, grantFavorite, hasCrest, hasKit, teamCaptain, teamMembers, teamProgress, type TeamRewardKind } from '../systems/teamRewards';
 import { buyOffer, isBought as isOfferBought, msToNextDay, msToNextWeek, PRICE, rollDaily, type Offer } from '../systems/dailyShop';
 import { rankDef, RANKS, RANK_ORDER } from '../systems/difficulty';
-import { squadCombos, COMBOS, COMBO_MAX_LEVEL, playsAs } from '../systems/combos';
+import { squadCombos, COMBOS, COMBO_MAX_LEVEL, comboDamage, playsAs } from '../systems/combos';
 /** v1.6: training field limits: footballers on the pitch and active techniques each */
 const TRAIN_TEAM = 5, TRAIN_SLOTS = 4;
 import { CLUB_CHEMISTRY, kitBonus } from '../systems/kitBonus';
@@ -760,7 +760,7 @@ export class App {
           const sparks = Array.from({ length: 18 }, (_, k) => `<i class="ib-spark" style="--a:${k * 20}deg;--r:${120 + (k % 3) * 60}px;--d:${0.95 + (k % 4) * 0.03}s"></i>`).join('');
           box.innerHTML = `<div class="intro-burst">${bolts}${balls}<div class="ib-orbit">${orbs}</div><i class="ib-flash"></i><i class="ib-ring"></i><i class="ib-ring r2"></i>${sparks}
             <div class="logo cine-logo ib-logo4"><h1><span class="p1">INA</span><span class="bolt p2">Z</span><span class="p3">URVIVORS</span><i class="ib-shine"></i></h1><div class="sub">${words('ROGUELITE DE FÚTBOL · FANGAME', 1300)}</div><span class="ver-badge ib-ver">${esc(VERSION_LABEL)}</span></div>${this.versionStamp()}</div>`;
-          if (!this.save.settings.reducedMotion) window.setTimeout(() => { sfx('boom'); document.querySelector('.cine4')?.classList.add('shake'); window.setTimeout(() => document.querySelector('.cine4')?.classList.remove('shake'), 420); }, 950);
+          if (!this.save.settings.reducedMotion) window.setTimeout(() => { sfx('boom'); if (this.save.settings.shake <= 0) return; document.querySelector('.cine4')?.classList.add('shake'); window.setTimeout(() => document.querySelector('.cine4')?.classList.remove('shake'), 420); }, 950);
           if (!this.save.settings.reducedMotion) sfx('legend');
         }
         box.classList.remove('in');
@@ -3905,6 +3905,7 @@ export class App {
         end: (r) => this.results(r),
         pause: () => this.pauseModal(),
         bossDown: () => this.bossDownModal(),
+        dismiss: (ids) => this.dismissModal(ids),
       },
     };
     this.runInfo = { map: map.name, difficulty: this.save.difficulty };
@@ -3930,6 +3931,47 @@ export class App {
       const done = (c: 'end' | 'continue') => { box.remove(); resolve(c); };
       box.querySelector('#bd-end')!.addEventListener('click', () => done('end'));
       box.querySelector('#bd-go')!.addEventListener('click', () => done('continue'));
+    });
+  }
+
+  /** What a combined technique gains from one level to the next (same formulas as ArenaScene.comboShot/runCombos). */
+  private comboGains(d: (typeof COMBOS)[number], to: number) {
+    const from = to - 1;
+    const cd = (l: number) => d.cooldownMs * (1 - 0.06 * (l - 1)) / 1000;
+    const rows = [
+      `Daño <b>${comboDamage(d, from)} → ${comboDamage(d, to)}</b>`,
+      `Recarga <b>${cd(from).toFixed(1)} s → ${cd(to).toFixed(1)} s</b>`,
+      `Atraviesa <b>${4 + from} → ${4 + to}</b> rivales`,
+      `Explosión <b>+${Math.round(((40 + to * 6) / (40 + from * 6) - 1) * 100)}%</b> más grande`,
+    ];
+    if (d.effect === 'tierra' || d.effect === 'tierra-inf') rows.push(`Cometas <b>${8 + from * 2} → ${8 + to * 2}</b>`);
+    return `<div class="lv-desc lv-gains">Nv ${from} → Nv ${to}<br>${rows.join('<br>')}</div>`;
+  }
+
+  /** Altar de despido: pick the teammate who leaves the run (1-9 also pick, Esc = nobody). */
+  private dismissModal(ids: number[]): Promise<number | null> {
+    return new Promise((resolve) => {
+      sfx('reveal');
+      const name = (id: number) => this.m.roster.find((p) => p.id === id)?.name ?? '?';
+      const box = document.createElement('div');
+      box.className = 'modal';
+      box.id = 'dismiss';
+      box.innerHTML = `<div class="panel" style="max-width:620px;text-align:center"><div class="lvl-title">✖ ALTAR DE DESPIDO</div>
+        <p>Elige a quién echas del equipo. Pierdes sus técnicas y su parte de la vida, y su hueco queda libre para otro fichaje. El capitán no se puede echar.</p>
+        <div class="dm-list">${ids.map((id, i) => `<button class="btn dm-pick" data-id="${id}">${this.mug(id, 48)}<span><b>${esc(name(id))}</b><small>${i < 9 ? `Tecla ${i + 1}` : ''}</small></span></button>`).join('')}</div>
+        <p><button class="btn blue" id="dm-none">No echar a nadie</button></p></div>`;
+      this.root.appendChild(box);
+      const shownAt = performance.now();
+      const done = (id: number | null) => { window.removeEventListener('keydown', keys, true); box.remove(); if (id !== null) sfx('hurt'); resolve(id); };
+      const keys = (e: KeyboardEvent) => {
+        if (e.repeat || performance.now() - shownAt < 150) return;
+        const n = /^(?:Digit|Numpad)([1-9])$/.exec(e.code)?.[1];
+        if (e.code === 'Escape') { e.preventDefault(); e.stopPropagation(); done(null); return; }
+        if (n && ids[Number(n) - 1] !== undefined) { e.preventDefault(); e.stopPropagation(); done(ids[Number(n) - 1]!); }
+      };
+      window.addEventListener('keydown', keys, true);
+      box.querySelectorAll<HTMLElement>('.dm-pick').forEach((el) => el.addEventListener('click', () => done(Number(el.dataset.id))));
+      box.querySelector('#dm-none')!.addEventListener('click', () => done(null));
     });
   }
 
@@ -4007,6 +4049,12 @@ export class App {
         const up = x.bonus > (before.get(x.key) ?? 0) ? ' up' : '';
         return `<div class="syn-chip${x.bonus > 0 ? ' on' : ''}${up}" style="--ec:${ec}" title="${esc(x.hint)}">${icon}<span class="syn-txt"><small>${esc(x.label)}</small><span class="syn-pips">${pips}</span></span><b>${x.bonus > 0 ? `+${Math.round(x.bonus * 100)}%` : `${x.count}/${x.goal}`}</b></div>`;
       }).join('');
+    }
+    // the captain panel grows (Revivir row, small screens): the chips always sit right under it, never over kills/coins
+    const capPanel = document.querySelector<HTMLElement>('#hud .cap-panel');
+    if (capPanel && resEl.offsetParent) {
+      const top = Math.round(capPanel.getBoundingClientRect().bottom - resEl.offsetParent.getBoundingClientRect().top + 6);
+      if (resEl.dataset.top !== String(top)) { resEl.dataset.top = String(top); resEl.style.setProperty('top', `${top}px`, 'important'); }
     }
     document.getElementById('clocktxt')!.textContent = s.endless ? `∞ ${fmtTime(s.endless.sec)} · ${s.endless.phase}` : `${fmtTime(s.timeSec)} / ${fmtTime(s.durationSec)}`;
     // v1.4: the clock fills up towards the boss and warms up in the last minute
@@ -4198,7 +4246,7 @@ export class App {
         <div class="lv-type">COMBINADA · RANURA ESPECIAL</div>
         <div class="lv-art combo-art">${ids.map((id) => this.mug(id, 64)).join('')}${this.techBadge(t, 2)}</div>
         <div class="lv-name">${esc(d.name)}${c.toLevel > 1 ? ` Nv ${c.toLevel}` : ''}</div><div class="lv-sub">${esc(d.needs.map((n) => n.player).join(' + '))}</div>${this.techChips(t)}
-        <div class="lv-desc">Se lanza sola mientras estén todos en el campo. No ocupa ninguna ranura de técnica.</div></button>`;
+        ${c.toLevel > 1 ? this.comboGains(d, c.toLevel) : '<div class="lv-desc">Se lanza sola mientras estén todos en el campo. No ocupa ninguna ranura de técnica.</div>'}</button>`;
     }
     if (c.kind === 'stat' || c.kind === 'passive') {
       const d = modDef(c.id)!;
@@ -4305,9 +4353,11 @@ export class App {
     const close = () => { document.getElementById('pause')?.remove(); this.game.scene.resume('Arena'); };
     document.getElementById('resume')!.addEventListener('click', close);
     this.on('#pause .fcard', 'click', (_e, el) => { this.arena()?.selectFormation(el.dataset.f as FormationId); close(); });
-    this.on('#pp button', 'click', (_e, el) => { s.particles = el.dataset.v as ParticleLevel; this.persist(); this.pauseModal(); });
-    document.getElementById('toggleshake')!.addEventListener('click', () => { s.shake = s.shake > 0 ? 0 : 0.35; this.persist(); this.pauseModal(); });
-    document.getElementById('toggleflash')!.addEventListener('click', () => { s.flashes = !s.flashes; this.persist(); this.pauseModal(); });
+    // the running match works on a copy of the settings: hand it the change at once, not only from the next match on
+    const live = () => { this.arena()?.liveSettings(s); this.persist(); this.pauseModal(); };
+    this.on('#pp button', 'click', (_e, el) => { s.particles = el.dataset.v as ParticleLevel; live(); });
+    document.getElementById('toggleshake')!.addEventListener('click', () => { s.shake = s.shake > 0 ? 0 : 0.35; live(); });
+    document.getElementById('toggleflash')!.addEventListener('click', () => { s.flashes = !s.flashes; live(); });
     document.getElementById('togglemute')!.addEventListener('click', () => { s.muted = !s.muted; this.applyAudio(); this.persist(); this.pauseModal(); });
     document.getElementById('pausebug')!.addEventListener('click', () => this.bugReportModal());
     document.getElementById('quit')!.addEventListener('click', () => {

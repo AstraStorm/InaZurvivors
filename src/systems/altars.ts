@@ -4,18 +4,18 @@
  */
 
 export type AltarType = 'entrenamiento' | 'resistencia' | 'elemental' | 'fichaje'
-  | 'supervivencia' | 'portal' | 'duelo' | 'contrarreloj' | 'defensa' | 'cofre' | 'minijefe';
-export const ALTAR_TYPES: AltarType[] = ['entrenamiento', 'resistencia', 'elemental', 'fichaje', 'supervivencia', 'portal', 'duelo', 'contrarreloj', 'defensa', 'cofre', 'minijefe'];
+  | 'supervivencia' | 'portal' | 'duelo' | 'contrarreloj' | 'defensa' | 'cofre' | 'minijefe' | 'despido';
+export const ALTAR_TYPES: AltarType[] = ['entrenamiento', 'resistencia', 'elemental', 'fichaje', 'supervivencia', 'portal', 'duelo', 'contrarreloj', 'defensa', 'cofre', 'minijefe', 'despido'];
 export const ALTAR_LABEL: Record<AltarType, string> = {
   entrenamiento: 'Altar de entrenamiento', resistencia: 'Altar de resistencia', elemental: 'Altar elemental', fichaje: 'Altar de fichaje',
   supervivencia: 'Desafío de supervivencia', portal: 'Portal de rivales', duelo: 'Desafío de rival', contrarreloj: 'Contrarreloj',
-  defensa: 'Defiende la zona', cofre: 'Cofre especial', minijefe: 'Encuentro con minijefe',
+  defensa: 'Defiende la zona', cofre: 'Cofre especial', minijefe: 'Encuentro con minijefe', despido: 'Altar de despido',
 };
 export const ALTAR_TASK: Record<AltarType, string> = {
   entrenamiento: 'Derrota rivales en el área', resistencia: 'Aguanta dentro del área', elemental: 'Derrota rivales a tiempo', fichaje: 'Supera la oleada',
   supervivencia: 'Sobrevive a la oleada especial', portal: 'Derrota a los que salen del portal', duelo: 'Derrota al rival',
   contrarreloj: 'Derrota rivales antes de que acabe el tiempo', defensa: 'Quédate en la zona con pocos rivales dentro', cofre: 'Llega al cofre a tiempo',
-  minijefe: 'Derrota al minijefe',
+  minijefe: 'Derrota al minijefe', despido: 'Quédate junto al altar',
 };
 /** What the card shows before accepting: what happens, how it can be lost and how hard it is. */
 export const ALTAR_INFO: Record<AltarType, { description: string; fail: string; difficulty: 'Fácil' | 'Media' | 'Difícil' }> = {
@@ -30,9 +30,10 @@ export const ALTAR_INFO: Record<AltarType, { description: string; fail: string; 
   defensa: { description: 'Quédate en la zona. Si entran 4 rivales o más, el contador se detiene.', fail: 'Se acaba el tiempo', difficulty: 'Difícil' },
   cofre: { description: 'El cofre se abre si te quedas junto a él un momento.', fail: 'Te alejas hasta que se acaba el tiempo', difficulty: 'Fácil' },
   minijefe: { description: 'Aparece un minijefe. Derrótalo antes de que se acabe el tiempo.', fail: 'Se acaba el tiempo: el minijefe se va', difficulty: 'Difícil' },
+  despido: { description: 'Quédate un momento junto al altar y elige a un compañero para echarlo del equipo (nunca al capitán). Deja su hueco libre para otro fichaje.', fail: 'Te alejas hasta que se acaba el tiempo', difficulty: 'Fácil' },
 };
 export const ALTAR_ICON: Record<AltarType, string> = {
-  entrenamiento: '⚑', resistencia: '⛨', elemental: '✦', fichaje: '✚', supervivencia: '☠', portal: '◉', duelo: '⚔', contrarreloj: '⏱', defensa: '▣', cofre: '✪', minijefe: '♛',
+  entrenamiento: '⚑', resistencia: '⛨', elemental: '✦', fichaje: '✚', supervivencia: '☠', portal: '◉', duelo: '⚔', contrarreloj: '⏱', defensa: '▣', cofre: '✪', minijefe: '♛', despido: '✖',
 };
 /** seconds an unaccepted event stays on the pitch */
 export const ALTAR_WAIT_SEC = 45;
@@ -41,15 +42,16 @@ export const ALTAR_REWARD: Record<AltarType, string> = {
   entrenamiento: 'Experiencia', resistencia: 'Curación y escudo', elemental: 'Daño aumentado', fichaje: 'Carta de fichaje',
   supervivencia: 'Monedas y ficha', portal: 'Experiencia y ficha', duelo: 'Ficha y mejora gratis', contrarreloj: 'Recarga rápida',
   defensa: 'Curación y escudo', cofre: 'Monedas y mejora gratis', minijefe: 'Mucha experiencia y objeto',
+  despido: 'Echa a un compañero de la partida',
 };
 export const ALTAR_COLOR: Record<AltarType, number> = {
   entrenamiento: 0xffb020, resistencia: 0x4fb3ff, elemental: 0xff5a1f, fichaje: 0x5ee05a,
-  supervivencia: 0xff4f8b, portal: 0x9a4aff, duelo: 0xffffff, contrarreloj: 0xffe24a, defensa: 0x3fd0c0, cofre: 0xffc83a, minijefe: 0xff2a2a,
+  supervivencia: 0xff4f8b, portal: 0x9a4aff, duelo: 0xffffff, contrarreloj: 0xffe24a, defensa: 0x3fd0c0, cofre: 0xffc83a, minijefe: 0xff2a2a, despido: 0xb0b6c8,
 };
 /** How progress is earned: kills near the altar, any kill, kills of the event's own rivals, or seconds. */
 export const ALTAR_MODE: Record<AltarType, 'cerca' | 'cualquiera' | 'propios' | 'tiempo-dentro' | 'tiempo'> = {
   entrenamiento: 'cerca', resistencia: 'tiempo-dentro', elemental: 'cualquiera', fichaje: 'propios', supervivencia: 'tiempo', portal: 'propios',
-  duelo: 'propios', contrarreloj: 'cualquiera', defensa: 'tiempo-dentro', cofre: 'tiempo-dentro', minijefe: 'propios',
+  duelo: 'propios', contrarreloj: 'cualquiera', defensa: 'tiempo-dentro', cofre: 'tiempo-dentro', minijefe: 'propios', despido: 'tiempo-dentro',
 };
 
 export const FIRST_ALTAR_SEC = 40;
@@ -63,7 +65,7 @@ export function createAltar(type: AltarType, x: number, y: number, minute: numbe
   const [goal, timeLeft] = ({
     entrenamiento: [8 + m * 2, 40], resistencia: [8 + Math.min(m, 6), 30], elemental: [6 + m * 2, 16], fichaje: [8 + m * 2, 45],
     supervivencia: [20 + Math.min(m, 5) * 2, 45], portal: [10 + m * 2, 40], duelo: [1, 45], contrarreloj: [10 + m * 3, 14],
-    defensa: [12 + Math.min(m, 6), 35], cofre: [0.4, 15], minijefe: [1, 50],
+    defensa: [12 + Math.min(m, 6), 35], cofre: [0.4, 15], minijefe: [1, 50], despido: [1.2, 20],
   } as Record<AltarType, [number, number]>)[type];
   return { type, x, y, state: 'idle', progress: 0, goal, timeLeft };
 }

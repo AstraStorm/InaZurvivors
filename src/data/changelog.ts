@@ -15,6 +15,16 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: '8.2', date: '2026-11-04', title: '1.75 Altar de despido',
+    features: ['Altar de despido (altars.ts «despido», ArenaScene.offerDismiss/dismissMember, app.dismissModal): echa a un compañero de la partida (nunca al capitán); se lleva su vida, sus técnicas y sus combinadas, y no vuelve como fichaje.'],
+    fixes: [
+      'Sacudida de cámara: el botón de Pausa no llegaba a la partida (Fx trabaja con una copia: ArenaScene.liveSettings) y los Keshin/efectos del anime sacudían la cámara aunque estuviera apagada (Fx envuelve cameras.main.shake). Partículas y Destellos de Pausa también se aplican al momento.',
+      'Las resonancias del HUD tapaban las bajas: ahora se colocan siempre debajo del panel del capitán.',
+    ],
+    visuals: ['Las cartas de mejora de técnica combinada muestran qué ganan (daño, recarga, atraviesa, explosión, cometas).'],
+    balance: [],
+  },
+  {
     version: '8.1', date: '2026-11-04', title: '1.75 Banner de agradecimiento',
     features: [
       'Futbolistas especiales (data/special_players.json): Axel Blaze Encapuchado (1085, fullBody) y la colaboración Ataque a los Titanes / Los Siete Pecados Capitales (900001-900008, torso de retrato por complexión). exclusive: fuera de las máquinas normales.',
