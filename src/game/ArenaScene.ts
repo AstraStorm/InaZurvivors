@@ -34,6 +34,7 @@ import { dragon, handKind, keeperHand } from './fxTech';
 import { orphans } from '../systems/groundSweep';
 import { chaosMeteorCharge, chaosMeteorShot, fireStormCharge, fireStormShot, elementBurst, phoenix, phoenixFlight, setLowPower, teamBeams } from './fxManif';
 import { crossfireCharge, crossfireShot } from './fxCross';
+import { movieCharge, movieOf, movieShot, rupturaCharge, rupturaShot } from './fxMovie';
 import { blackAshCharge, blackAshTrail, illusionBall, signatureOf, stormZone } from './fxSignature';
 import { natureArea, natureCharge, natureOf, natureShot, setNatureLowPower } from './fxNature';
 import { animeCharge, animeOf, animeShot, auroraVeil, cometTex, earthBurst, earthCharge, furyFist, breezeStep, chaosBreakCharge, chaosBreakShot, fireBlizzardCharge, fireBlizzardShot, godWindGust } from './fxAnime';
@@ -860,6 +861,8 @@ export class ArenaScene extends Phaser.Scene {
           if (nat) natureCharge(this, nat, ox, oy, lv, recipe.windupSec * 1000);
           const anime = animeOf(t.name); // v1.4: techniques redrawn from their anime scenes
           if (anime) animeCharge(this, anime, ox, oy, lv, recipe.windupSec * 1000);
+          const mv = movieOf(t.name); // 1.76: six more shots redrawn from their scenes (fxMovie.ts)
+          if (mv) movieCharge(this, mv, ox, oy, lv, recipe.windupSec * 1000);
           const fuego = fuegoOf(t.name); // Axel Blaze Encapuchado: Fuego supremo / Fuego total (fxFuego.ts)
           if (fuego === 'supremo') supremoCharge(this, ox, oy, lv, recipe.windupSec * 1000);
           else if (fuego === 'total') totalCharge(this, ox, oy, lv, recipe.windupSec * 1000);
@@ -1064,7 +1067,7 @@ export class ArenaScene extends Phaser.Scene {
     const style = fxStyle(t);
     const [c1, c2] = STYLE_COLORS[style];
     // Fix 1.12: the participants send their power to the meeting point and each combination has its own manifestation
-    const wind = def.effect === 'tierra' || def.effect === 'tierra-inf' || def.effect === 'bigbang' || def.effect === 'fuego-total' ? 900 : def.effect === 'caos' || def.effect === 'fenix' || def.effect === 'aurora' || def.effect === 'tiro-doble' ? 700 : 360;
+    const wind = def.effect === 'tierra' || def.effect === 'tierra-inf' || def.effect === 'bigbang' || def.effect === 'fuego-total' ? 900 : def.effect === 'caos' || def.effect === 'fenix' || def.effect === 'aurora' || def.effect === 'tiro-doble' ? 700 : def.effect === 'tiro-rayo' ? 600 : 360;
     // v1.5: a participant carried as Aura appears beside its carrier for the technique only, then fades away
     const ghosts: { x: number; y: number }[] = [];
     for (const c of comboCast(def, who)) {
@@ -1098,6 +1101,7 @@ export class ArenaScene extends Phaser.Scene {
     if (def.effect === 'tierra' || def.effect === 'tierra-inf') earthCharge(this, mx, my - 40, 24 + level * 2, wind, def.effect === 'tierra-inf'); // Fix 1.53: the aura grows, the Earth appears
     else if (def.effect === 'caos') chaosBreakCharge(this, mx, my, 34 + level * 2, wind); // v1.5: its own chaos vortex
     else if (def.effect === 'ventisca') fireBlizzardCharge(this, mx, my, 30 + level * 2, wind); // v1.5: half fire, half ice
+    else if (def.effect === 'tiro-rayo') rupturaCharge(this, mx, my, 4 + level, wind); // 1.76: Ruptura relámpago as in the anime (fxMovie.ts)
     else if (def.effect === 'tiro-doble') { // 1.76: Fuego cruzado as in the anime (fxCross.ts): Axel's sphere of fire, Shawn's of ice
       const fire = who.find((m) => m.entry.element === 'Fuego') ?? who[0], ice = who.find((m) => m !== fire) ?? fire;
       crossfireCharge(this, { x: fire.f.x, y: fire.f.y }, { x: ice.f.x, y: ice.f.y }, mx, my, 30 + level * 2, wind);
@@ -1143,14 +1147,17 @@ export class ArenaScene extends Phaser.Scene {
         const aura = this.add.circle(mx, my, 8 * scale, color, 0.4).setDepth(8900).setBlendMode(Phaser.BlendModes.ADD);
         const ball = this.add.image(mx, my, recipe.ballTexture).setScale(scale).setDepth(8901);
         if (cross) crossfireShot(this, ball, level);
+        else if (def.effect === 'tiro-rayo') rupturaShot(this, ball, 4 + level);
         else if (def.effect === 'ventisca') fireBlizzardShot(this, ball, level, off > 0 ? 'ice' : 'fire'); // v1.5
         // Remate caótico is one ball in the scene: the second one keeps its damage but is not drawn
         else if (def.effect === 'bigbang') animeShot(this, 'bigbang', ball, 4 + level); // Fix 1.51: immense ball and explosion
         else if (def.effect === 'caos') { if (off > 0) { ball.setVisible(false); aura.setVisible(false); } else chaosBreakShot(this, ball, level); }
         this.projectiles.push({ ball, aura, x: mx, y: my, vx: Math.cos(ang) * speed, vy: Math.sin(ang) * speed, t: 0,
           traj: twin ? 'espiral' : 'recta' as Trajectory, style: twin && off > 0 ? 'hielo' : style,
-          damage: cross ? dmg * 2 : dmg, pierce: 4 + level, life: 1700, hits: new Set(), knock: 120, level: 6 + level, explode: true, scale, phase: off * 10,
-          dragon: def.effect === 'tiro-dragon', recipe, blast: (40 + level * 6) * (cross ? 1.25 : 1) });
+          // 1.76: Big Bang explodes on the first rival it touches, over the area its explosion is drawn on (it pierced
+          // 5-9 rivals first and hit only 46-70 px round the blast, so it rarely seemed to hit in an area)
+          damage: cross ? dmg * 2 : dmg, pierce: def.effect === 'bigbang' ? 0 : 4 + level, life: 1700, hits: new Set(), knock: 120, level: 6 + level, explode: true, scale, phase: off * 10,
+          dragon: def.effect === 'tiro-dragon', recipe, blast: def.effect === 'bigbang' ? 150 + level * 10 : (40 + level * 6) * (cross ? 1.25 : 1) });
       }
       this.fx.shake(0.003, 120);
       sfx('kick');
@@ -1262,11 +1269,13 @@ export class ArenaScene extends Phaser.Scene {
       if (nat) natureShot(this, nat, ball, lv, { x: target.pos.x, y: target.pos.y - 10 }, k === 0);
       const anime = animeOf(t.name);
       if ((k === 0 || anime === 'supernova') && anime && anime !== 'brisa') animeShot(this, anime, ball, lv); // every Supernova sphere has its whirl and eye
+      const mv = movieOf(t.name);
+      if (mv && k === 0) movieShot(this, mv, ball, lv);
       // Fix 1.51: Big Bang always explodes, over twice the usual area (its explosion fills the screen)
       const bigBang = anime === 'bigbang';
-      this.projectiles.push({ ball, aura, x, y, vx, vy, t: 0, traj, style, damage: s.damage, pierce: s.pierce, life: 1500,
+      this.projectiles.push({ ball, aura, x, y, vx, vy, t: 0, traj, style, damage: s.damage, pierce: bigBang ? 0 : s.pierce, life: 1500,
         hits: new Set(), knock: s.knockback, level: lv, explode: bigBang || big || s.explodes || recipe.tier >= 2, scale, targetY, phase: k * 1.7,
-        dragon: recipe.id === 'dragon', recipe, blast: bigBang ? s.radius * 2.4 + 30 : s.radius });
+        dragon: recipe.id === 'dragon', recipe, blast: bigBang ? Math.max(140, s.radius * 2.4 + 30) : s.radius }); // 1.76: Big Bang bursts on the first rival
     }
   }
 

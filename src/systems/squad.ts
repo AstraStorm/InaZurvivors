@@ -3,8 +3,8 @@
  * offer the other six, and the pitch still holds five at most (cards.ts MAX_TEAM). Only owned players, no repeats.
  */
 import { RARITY_ORDER, type RosterEntry } from '../data/manifest';
-import type { SaveData } from './save';
-import { carrierOf, releaseAsAura } from './auras';
+import { SQUAD_SLOTS, type SaveData, type SquadPreset } from './save';
+import { carrierOf, releaseAsAura, removeAura } from './auras';
 
 export const SQUAD_SIZE = 7;
 const rank = (p: RosterEntry) => RARITY_ORDER.indexOf(p.rarity);
@@ -56,16 +56,69 @@ export function placeInSquad(save: SaveData, byId: Map<number, RosterEntry>, slo
   const from = ids.indexOf(id);
   if (from >= 0) {
     if (slot < ids.length) [ids[from], ids[slot]] = [ids[slot], ids[from]];
-  } else if (slot < ids.length) ids[slot] = id;
+  } else if (slot < ids.length) { removeAura(save, ids[slot]); ids[slot] = id; } // 1.76: whoever leaves takes his Aura off
   else ids.push(id);
   setSquad(save, ids);
 }
 
+/** 1.76 (author): a footballer who leaves the squad also takes his Aura off. */
 export function removeFromSquad(save: SaveData, byId: Map<number, RosterEntry>, id: number) {
   const ids = squadOf(save, byId).map((p) => p.id).filter((x) => x !== id);
+  removeAura(save, id);
   save.squad = ids;
   save.captainId = ids[0] ?? save.captainId;
 }
+
+/** «Vaciar»: everyone but the captain leaves, with their Auras. */
+export function clearSquad(save: SaveData, byId: Map<number, RosterEntry>) {
+  const ids = squadOf(save, byId).map((p) => p.id);
+  for (const id of ids.slice(1)) removeAura(save, id);
+  setSquad(save, ids.slice(0, 1));
+}
+
+// ---------------------------------------------------------------- 1.76: five saved teams
+/** The five saved teams; the first time, the current team becomes team 1 and the others start empty. */
+export function savedSquads(save: SaveData): SquadPreset[] {
+  if (!save.squads?.length) {
+    save.squads = Array.from({ length: SQUAD_SLOTS }, (_, i) => ({ name: `Equipo ${i + 1}`, squad: [] as number[] }));
+    save.activeSquad = 0;
+    storeActive(save);
+  }
+  return save.squads;
+}
+
+/** Copies the live team (squad, its Auras, formation) into its slot. */
+function storeActive(save: SaveData) {
+  const list = save.squads!, i = save.activeSquad ?? 0;
+  const ids = [save.captainId, ...save.squad].filter((x, k, a): x is number => x !== null && x !== undefined && a.indexOf(x) === k).slice(0, SQUAD_SIZE);
+  const auras = Object.fromEntries(Object.entries(save.auras ?? {}).filter(([c]) => ids.includes(Number(c))));
+  list[i] = { ...list[i], squad: ids, auras, formation: save.formation };
+}
+
+/** Saves the live team in its slot and loads team `i`; its Auras replace the live ones. */
+export function switchSquad(save: SaveData, i: number) {
+  const list = savedSquads(save);
+  if (i < 0 || i >= list.length || i === (save.activeSquad ?? 0)) return false;
+  storeActive(save);
+  const next = list[i];
+  save.activeSquad = i;
+  const ids = next.squad.filter((id) => save.owned[String(id)]);
+  save.squad = ids;
+  save.captainId = ids[0] ?? null; // an empty team has no captain yet
+  // one copy, one place: an Aura of this team that is also in it is dropped (squad wins)
+  save.auras = Object.fromEntries(Object.entries(next.auras ?? {}).filter(([c, a]) => ids.includes(Number(c)) && !ids.includes(a) && save.owned[String(a)]));
+  if (next.formation) save.formation = next.formation;
+  return true;
+}
+
+export function renameSquad(save: SaveData, i: number, name: string) {
+  const list = savedSquads(save);
+  if (!list[i]) return;
+  list[i] = { ...list[i], name: name.trim().slice(0, 16) || `Equipo ${i + 1}` };
+}
+
+/** Keeps the slot of the live team up to date (called whenever the team is saved). */
+export function syncActiveSquad(save: SaveData) { if (save.squads?.length) storeActive(save); }
 
 export function makeCaptain(save: SaveData, byId: Map<number, RosterEntry>, id: number) {
   const ids = squadOf(save, byId).map((p) => p.id);

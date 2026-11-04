@@ -66,7 +66,7 @@ import { FRAMES, isFrame, PENNANTS, PENNANT_BY_ID, PENNANT_EVENT, type PennantDe
 import { buyPennant, equipFrame, equippedFrame, equipPennant, equippedPennant, eventActive, eventLeftMs, eventOdds, grantAchievementPennants, hasPennant, pullEvent, type PennantPull } from '../systems/pennants';
 import { MASTERY_BONUS, MASTERY_USES, masteryLevel, recordMastery } from '../systems/mastery';
 import { MAX_TEAM, canStartWith, startingTech, type Card } from '../systems/cards';
-import { setSquad, SQUAD_SIZE, fillSquad, makeCaptain, placeInSquad, removeFromSquad, squadOf } from '../systems/squad';
+import { clearSquad, renameSquad, savedSquads, setSquad, SQUAD_SIZE, fillSquad, makeCaptain, placeInSquad, removeFromSquad, squadOf, switchSquad, syncActiveSquad } from '../systems/squad';
 import type { ArenaInit, ArenaScene, HudState, MarkerState, Poi, TrainingSetup } from '../game/ArenaScene';
 import { charCanvas, initPreviews, mountPreviews, setPreviewKit } from './sprites';
 import { sfx, setVolume } from '../game/sfx';
@@ -482,7 +482,7 @@ export class App {
   }
 
   // ------------------------------------------------------------- helpers
-  private persist() { storeSave(this.save); void this.pushCloud(); }
+  private persist() { syncActiveSquad(this.save); storeSave(this.save); void this.pushCloud(); } // 1.76: the live team also refreshes its saved slot
   private owned(id: number) { return this.save.owned[String(id)]; }
   private unlockedRoster() { return this.m.roster.filter((p) => this.owned(p.id)); }
   private applyAudio() {
@@ -2212,9 +2212,20 @@ export class App {
     return true;
   }
 
+  /** 1.76 (author): the five saved teams of Mi Equipo — captain portrait, name and size; the open one has its name field. */
+  private teamBar() {
+    const list = savedSquads(this.save), on = this.save.activeSquad ?? 0;
+    return `<div class="team-bar">${list.map((q, i) => {
+      const ids = i === on ? squadOf(this.save, this.byId).map((p) => p.id) : q.squad.filter((id) => this.byId.has(id) && this.owned(id));
+      return `<button class="team-tab${i === on ? ' on' : ''}" data-team="${i}">${ids[0] !== undefined ? this.mug(ids[0], 32 as 64) : '<span class="team-empty">+</span>'}
+        <span><b>${esc(q.name)}</b><small>${ids.length}/${SQUAD_SIZE}</small></span></button>`;
+    }).join('')}<label class="team-name">✎ <input id="tmname" maxlength="16" value="${esc(list[on].name)}" aria-label="Nombre del equipo"></label></div>`;
+  }
+
   /** "Mi Equipo": seven candidates (captain first), the captain's starting technique and the starting formation. */
   captainSelect(slot = this.squadSlot) {
-    if (!this.save.squad.length && this.unlockedRoster().length) { fillSquad(this.save, this.m.roster); this.persist(); }
+    // only the very first time: a saved team switched to empty stays empty until the player fills it (★ Autocompletar)
+    if (!this.save.squads && !this.save.squad.length && this.unlockedRoster().length) { fillSquad(this.save, this.m.roster); this.persist(); }
     const squad = squadOf(this.save, this.byId);
     this.captainId = squad[0]?.id ?? null;
     this.squadSlot = Math.max(0, Math.min(slot, squad.length < SQUAD_SIZE ? squad.length : SQUAD_SIZE - 1));
@@ -2249,8 +2260,9 @@ export class App {
     }).join('');
     this.show(`<div class="screen">${this.titlebar('Mi Equipo', 'Menú')}
       ${this.squadSynergyPanel(squad)}
-      <div class="panel"><div class="note">Elige <b>7 candidatos</b>. Empiezas solo con el <b>capitán</b>; al subir de nivel podrás fichar a los otros seis (máximo ${MAX_TEAM} en el campo).
+      <div class="panel"><div class="note">Tienes <b>5 equipos</b>: cambia entre ellos arriba. Elige <b>7 candidatos</b>. Empiezas solo con el <b>capitán</b>; al subir de nivel podrás fichar a los otros seis (máximo ${MAX_TEAM} en el campo).
         Pulsa un futbolista de tu colección para añadirlo o quitarlo, pulsa una plaza para cambiarla, o arrastra para colocar e intercambiar. Se guarda solo.</div>
+        ${this.teamBar()}
         <div class="squad-row">${slots}</div></div>
       <div class="panel sq-picker"><div class="sq-pick-head"><h3>Tu colección</h3>
           <span class="note">${this.auraPick !== null ? `<span class="aura-pick-note">✦ Elige el <b>Aura de ${esc(this.byId.get(this.auraPick)?.name ?? '')}</b>: un Legendario, Mítico o Leyenda (♥ = compatible, 20%)</span> · <button class="linkbtn" id="aucancel">cancelar</button>` : this.squadPicked ? `Elige quién va a la <b>plaza ${this.squadSlot + 1}${this.squadSlot === 0 ? ' (capitán)' : ''}</b> · <button class="linkbtn" id="sqcancel">cancelar</button>` : squad.length < SQUAD_SIZE ? 'Pulsa un futbolista para añadirlo o quitarlo · o cógelo y arrástralo a una plaza' : 'Equipo completo: pulsa una plaza para cambiarla, o un futbolista del equipo para quitarlo'}</span>
@@ -2265,7 +2277,7 @@ export class App {
         <h3>Capitán: ${esc(cap.name)} ${this.rar(cap)} ${this.elem(cap)}</h3>
         <div class="note" style="margin-top:6px">★ La <b>técnica inicial</b> de cada futbolista se elige en su plaza, arriba: pulsa la técnica con la que quieres que empiece.</div>
         <h3 style="margin-top:10px">Formación inicial</h3><div class="formation-pick">${FORMATION_ORDER.map((f) => this.formationCard(f, f === cur)).join('')}</div>
-        <p style="text-align:right"><button class="btn big" id="next">Elegir arena ▶</button></p></div></div>` : '<div class="panel"><div class="note">Aún no tienes futbolistas: consíguelos en Fichajes.</div></div>'}
+        <p style="text-align:right"><button class="btn big" id="next">Elegir arena ▶</button></p></div></div>` : (this.unlockedRoster().length ? '<div class="panel"><div class="note">Este equipo está vacío: elige a tus futbolistas en tu colección o pulsa <b>★ Autocompletar</b>.</div></div>' : '<div class="panel"><div class="note">Aún no tienes futbolistas: consíguelos en Fichajes.</div></div>')}
 </div>`);
     this.squadGrid();
     this.on('[data-back]', 'click', () => this.mainMenu());
@@ -2278,6 +2290,15 @@ export class App {
       if (this.squadPicked) document.querySelector('.sq-picker')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     });
     this.squadDrag(); // Fix 1.32: pick a card up and move it (slots and collection)
+    // 1.76 (author): five teams to rotate between; the open one can be renamed
+    this.on('[data-team]', 'click', (_e, el) => {
+      const i = Number(el.dataset.team);
+      if (i === (this.save.activeSquad ?? 0)) return;
+      switchSquad(this.save, i); this.persist(); sfx('powerup'); this.squadPicked = false; this.auraPick = null;
+      this.toast(`${savedSquads(this.save)[i].name}: ${this.save.squad.length ? 'cargado' : 'vacío, elige a tus futbolistas'}`);
+      this.captainSelect(0);
+    });
+    document.getElementById('tmname')?.addEventListener('change', (e) => { renameSquad(this.save, this.save.activeSquad ?? 0, (e.target as HTMLInputElement).value); this.persist(); this.captainSelect(); });
     this.squadLanded = -1;
     // v1.5: the Aura socket: an equipped Aura opens its sheet, an empty one starts choosing from the collection
     this.on('[data-aura-slot]', 'click', (e, el) => {
@@ -2299,8 +2320,7 @@ export class App {
       setSquad(this.save, ids); this.persist(); sfx('powerup'); this.squadPicked = false; this.captainSelect();
     });
     document.getElementById('sqclear')?.addEventListener('click', (e) => this.armed(e.currentTarget as HTMLElement, () => {
-      const cap = squadOf(this.save, this.byId)[0];
-      if (cap) setSquad(this.save, [cap.id]);
+      clearSquad(this.save, this.byId); // 1.76: the ones who leave take their Auras off
       this.persist(); sfx('click'); this.squadPicked = false; this.captainSelect(1);
     }));
     this.on('[data-captain]', 'click', (_e, el) => { makeCaptain(this.save, this.byId, Number(el.dataset.captain)); this.persist(); sfx('powerup'); this.captainSelect(0); });

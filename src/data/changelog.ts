@@ -17,6 +17,7 @@ export const CHANGELOG: Release[] = [
   {
     version: '8.2', date: '2026-11-04', title: '1.76 Altar de despido y Leyendas',
     features: [
+      'Mi Equipo: 5 equipos guardados (save.squads/activeSquad, squad.ts switchSquad/renameSquad/syncActiveSquad en persist), cada uno con su squad, sus Auras y su formación; quitar a un futbolista (✕, cambio de plaza, Vaciar) le quita el Aura.',
       'Perfil del ranking = ficha del Perfil (app.playerCard compartida): migración 20261105000200_public_profile_full añade stats.pulls, collection (estrellas, ascensión, HÉROE, entrenamiento) y achievements; el mejor futbolista y su media se calculan en el cliente como en el Perfil propio. Recupera el statement_timeout de 5 s que perdía cada create or replace.',
       'Altar de despido (altars.ts «despido», ArenaScene.offerDismiss/dismissMember, app.dismissModal): echa a un compañero de la partida (nunca al capitán); se lleva su vida, sus técnicas y sus combinadas, y no vuelve como fichaje.'],
     fixes: [
@@ -25,9 +26,11 @@ export const CHANGELOG: Release[] = [
       'Axel Encapuchado parpadeaba al correr (menús y partida): su hoja de la ROM guarda la carrera en las celdas 40-49; tools/fullBodyRun.ts la copia a las 20-39 que lee el rig (paso «especiales» de sync-assets).',
     ],
     visuals: [
+      'fxMovie.ts (escenas que enlazó el autor): Campo Umbrío (estadio negro y rojo, grietas, sol rojo, bestias de sombra), Círculo de Espadas (anillo de espadas y espadas junto al balón), Llamarada atómica (anillo, columnas de fuego, el balón es un sol), Ruptura relámpago (rayo dorado con borde morado, también la combinada), Súper relámpago (rayos amarillos en zigzag) y Ataque Omega (los tres en triángulos rojo, azul y verde, cristal, estela de fuego y rayos de arcoíris). supertech: own, sin la manifestación genérica.',
       'Fuego cruzado redibujado desde el anime (youtube RQPV63KFMC8, fotograma a fotograma; src/game/fxCross.ts): esferas de fuego (Axel) y hielo (Shawn), cielo estrellado con cintas de hielo en espiral, X de fuego y hielo al chutar y al impactar; un solo balón con las dos cintas trenzadas y el daño de los dos (×2), explosión ×1,25. Sustituye a fireIceTwin.',
       'Las cartas de mejora de técnica combinada muestran qué ganan (daño, recarga, atraviesa, explosión, cometas).'],
     balance: [
+      'Big Bang (combinada y en solitario): pierce 0, revienta en el primer rival; explosión de 150+10/nivel px (combinada) y mínimo 140 px (en solitario), antes atravesaba 5-9 rivales y la explosión era de 46-70 px.',
       'Leyendas: sin el tope de 95 por estadística y banda centrada en 98 (training.ts): medias 94-95 (antes 90-91, casi como un Mítico). Axel Encapuchado 95.',
       'Porteros Leyenda: sus paradas hacen ×2,4 de daño y curan ×1,5, y los escudos de todas sus paradas se suman (máx. 60%); los demás porteros solo cuentan la mejor.',
     ],

@@ -7,6 +7,7 @@ import type { Rarity, Technique } from '../data/manifest';
 import { fxStyle, trajectory, STYLE_COLORS, type Fx, type FxStyle } from './fx';
 import { holyLight } from './fxAnime';
 import { boltStorm, energyOrb, flames, funnel, iceSpikes, phoenix, shadows, starburst } from './fxManif';
+import { movieOf } from './fxMovie';
 
 export type RecipeId = 'fuego' | 'demonio' | 'supernova' | 'tornado' | 'dragon' | 'fenix' | 'meteoro' | 'rayo' | 'hielo' | 'sombra' | 'divino' | 'canon' | 'basico';
 
@@ -49,6 +50,8 @@ export function recipeFor(t: Pick<Technique, 'name' | 'element' | 'power'>, rari
   // v1.5: Tornado de fuego draws its own spiral of flame (fxAnime), not the generic funnel of «tornado»
   if (/tornado de fuego|fire ?tornado/i.test(n)) return { id: 'tornado', tier, style: 'fuego' as FxStyle, windupSec: WINDUP.tornado + tier * 0.05, ballTexture: 'fx:ball', ballScale: 1, own: true };
   if (/viento celestial|god ?wind/i.test(n)) return { id: 'tornado', tier, style: 'viento' as FxStyle, windupSec: WINDUP.tornado + tier * 0.05, ballTexture: 'fx:ball', ballScale: 1, own: true };
+  // 1.76: the six shots of fxMovie.ts draw their own charge and ball (Ataque Omega is no starburst, Campo Umbrío no generic shadow)
+  if (movieOf(n)) return { id, tier, style, windupSec: Math.max(0.6, WINDUP[id] + tier * 0.05), ballTexture: 'fx:ball', ballScale: 1, own: true };
   return { id, tier, style: id === 'supernova' ? 'energia' : style, windupSec: WINDUP[id] + tier * 0.05,
     ballTexture: id === 'supernova' ? 'fx:nova' : 'fx:ball', ballScale: id === 'supernova' ? 1.1 : 1 };
 }

@@ -2116,3 +2116,14 @@ body.reduced-motion .pcard.cc *, body.reduced-motion .pcard.cc .cc-frame { anima
 .opf-full .opf-x { position: absolute; right: 10px; top: 10px; z-index: 3; }
 .opf-full .pf-card { margin-bottom: 0; }
 .opf-full > * { flex-shrink: 0; }
+/* 1.76: the five saved teams of Mi Equipo */
+.team-bar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 10px; }
+.team-tab { display: flex; align-items: center; gap: 6px; padding: 4px 10px 4px 4px; min-width: 120px; border-radius: 10px; border: 2px solid #ffffff22; background: #06102bcc; color: #cfe3ff; cursor: pointer; font: inherit; }
+.team-tab.on { border-color: #ffd23f; background: linear-gradient(90deg, #3a2a00cc, #06102bcc); color: #fff; box-shadow: 0 0 10px #ffd23f55; }
+.team-tab span { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-width: 0; }
+.team-tab b { font-size: 9px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 110px; } .team-tab small { font-size: 7px; opacity: .75; }
+.team-tab .mug, .team-empty { width: 32px; height: 32px; flex: none; }
+.team-empty { display: grid; place-items: center; border: 2px dashed #ffffff33; border-radius: 6px; font-size: 16px; color: #ffffff66; }
+.team-name { display: flex; align-items: center; gap: 4px; margin-left: auto; font-size: 9px; color: #ffd23f; }
+.team-name input { width: 140px; font: inherit; font-size: 9px; padding: 5px 8px; border-radius: 8px; border: 2px solid #ffffff22; background: #020818; color: #fff; }
+@media (max-width: 560px) { .team-tab { min-width: 0; flex: 1 1 30%; } .team-name { margin-left: 0; width: 100%; } .team-name input { flex: 1; } }

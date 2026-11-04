@@ -82,6 +82,12 @@ export interface SaveData {
   weeklyPass?: { claimed: number; lastDay: string };
   /** "Mi Equipo": up to seven owned candidates for a run, captain first */
   squad: number[];
+  /**
+   * 1.76 (author): five saved teams to rotate between (squad.ts). The live team is always `squad` + `auras` +
+   * `formation`; the slot `activeSquad` holds a copy that is refreshed when switching away from it.
+   */
+  squads?: SquadPreset[];
+  activeSquad?: number;
   /** run difficulty rank chosen last */
   difficulty: Rank;
   /** best rank cleared per arena */
@@ -149,6 +155,10 @@ export const DEFAULT_SETTINGS: Settings = { volume: 0.5, musicVolume: 0.45, mute
   shake: 0.35, flashes: true, damageNumbers: true, reducedMotion: false, musicSource: 'local', uiScale: 1, quality: 'alta', moveKeys: 'ambos', camera: 'normal' };
 
 export const emptyMissions = (): MissionState => ({ counters: {}, daily: { key: '', counters: {} }, weekly: { key: '', counters: {} }, claimed: [] });
+
+/** 1.76: one of the five saved teams of Mi Equipo */
+export interface SquadPreset { name: string; squad: number[]; auras?: Record<string, number>; formation?: string }
+export const SQUAD_SLOTS = 5;
 
 export function newSave(starterIds: number[], captainId: number | null): SaveData {
   const owned: Record<string, OwnedPlayer> = {};
@@ -236,6 +246,7 @@ export function remapIds(s: SaveData, aliases: Record<string, number> = {}) {
     const map = (id: number) => (String(id) === from ? to : id);
     s.squad = [...new Set((s.squad ?? []).map(map))];
     if (s.captainId !== null) s.captainId = map(s.captainId);
+    for (const q of s.squads ?? []) q.squad = [...new Set(q.squad.map(map))]; // 1.76: the saved teams follow too
     if (s.loadout[from] !== undefined && s.loadout[String(to)] === undefined) s.loadout[String(to)] = s.loadout[from];
     for (const h of s.hall ?? []) h.team = h.team.map(map);
     moved++;
@@ -321,8 +332,7 @@ export function validate(s: SaveData): SaveData {
     if (typeof pn.frame === 'string' && ownedP.includes(pn.frame) && PENNANT_BY_ID.get(pn.frame)!.kind === 'marco') s.pennants.frame = pn.frame;
   } else delete s.pennants;
   // v1.5: Auras — owned on both sides, never oneself, one carrier per Aura, no chains (a carrier is nobody's Aura)
-  const au = obj(s.auras);
-  if (au) {
+  const cleanAuras = (au: Record<string, unknown>) => {
     // read in numeric key order: the first legal link stays, a later one that would repeat an Aura or chain is dropped
     const clean: Record<string, number> = {};
     const auras = new Set<number>(), carriers = new Set<number>();
@@ -331,8 +341,23 @@ export function validate(s: SaveData): SaveData {
       if (!owned[k] || !owned[String(a)] || c === a || auras.has(a) || carriers.has(a) || auras.has(c)) continue;
       clean[k] = a; auras.add(a); carriers.add(c);
     }
-    s.auras = clean;
-  } else delete s.auras;
+    return clean;
+  };
+  const au = obj(s.auras);
+  if (au) s.auras = cleanAuras(au);
+  else delete s.auras;
+  // 1.76: the five saved teams, cleaned the same way as the live one
+  if (Array.isArray(s.squads)) {
+    s.squads = (s.squads as unknown[]).slice(0, SQUAD_SLOTS).map((q, i) => {
+      const o = obj(q) ?? {};
+      const ids = Array.isArray(o.squad) ? [...new Set((o.squad as unknown[]).filter((id): id is number => Number.isInteger(id) && !!owned[String(id)]))].slice(0, 7) : [];
+      const pa = obj(o.auras);
+      const name = typeof o.name === 'string' && o.name.trim() ? o.name.trim().slice(0, 16) : `Equipo ${i + 1}`;
+      return { name, squad: ids, ...(pa ? { auras: cleanAuras(pa) } : {}), ...(typeof o.formation === 'string' ? { formation: o.formation.slice(0, 24) } : {}) };
+    });
+    while (s.squads.length < SQUAD_SLOTS) s.squads.push({ name: `Equipo ${s.squads.length + 1}`, squad: [] });
+    s.activeSquad = Math.max(0, Math.min(SQUAD_SLOTS - 1, Math.floor(num(s.activeSquad, 0))));
+  } else { delete s.squads; delete s.activeSquad; }
   return s;
 }
 
