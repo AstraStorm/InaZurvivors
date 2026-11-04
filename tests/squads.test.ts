@@ -67,3 +67,45 @@ describe('five saved teams (1.76)', () => {
     expect(s.activeSquad).toBe(4);
   });
 });
+
+import { charactersOf, sameCharacter } from '../src/systems/identity';
+import { equipAura } from '../src/systems/auras';
+describe('one of each character (1.8)', () => {
+  const R = (id: number, name: string, rarity: RosterEntry['rarity'] = 'legendario'): RosterEntry => ({ ...P(id, rarity), name, nickname: name });
+  const axel = R(10, 'Axel Blaze'), hood = R(1085, 'Axel Blaze Encapuchado', 'leyenda'), steve = R(20, 'Steve Grim'), steveD = R(21, 'Steve Grim Oscuro');
+  const arion = R(30, 'Arion Sherwind'), tez = R(31, 'Tezcat', 'mitico'), fus = R(32, 'Arion + Tezcat', 'mitico'), sister = R(33, 'Tezcat Sister');
+  const xavier = R(40, 'Xavier Foster'), xene = R(41, 'Xene'), mark = R(1, 'Mark Evans'), endou = R(42, 'Endou Mamoru', 'leyenda'), shawn = R(43, 'Shawn Froste');
+  it('versions, aliases and fusions are the same character; similar names are not', () => {
+    expect(sameCharacter(axel, hood)).toBe(true);
+    expect(sameCharacter(steve, steveD)).toBe(true);
+    expect(sameCharacter(xavier, xene)).toBe(true);
+    expect(sameCharacter(mark, endou)).toBe(true);
+    expect(charactersOf(fus)).toEqual(['Arion Sherwind', 'Tezcat']);
+    expect(sameCharacter(fus, tez) && sameCharacter(fus, arion)).toBe(true);
+    expect(sameCharacter(tez, sister)).toBe(false);
+    expect(sameCharacter(axel, shawn)).toBe(false);
+  });
+  it('the squad refuses a second Axel or Tezcat (fusion too); swapping or replacing the same one is fine', () => {
+    const roster = [axel, hood, tez, fus, shawn, mark, endou];
+    const by = new Map(roster.map((p) => [p.id, p]));
+    const s = newSave(roster.map((p) => p.id), 10); s.squad = [10, 31, 43]; s.captainId = 10;
+    expect(placeInSquad(s, by, 3, 1085)?.name).toBe('Axel Blaze');
+    expect(placeInSquad(s, by, 3, 32)?.name).toBe('Tezcat');
+    expect(placeInSquad(s, by, 1, 32)).toBeNull(); // replacing Tezcat by the fusion
+    expect(squadOf(s, by).map((p) => p.id)).toEqual([10, 32, 43]);
+    expect(placeInSquad(s, by, 0, 1085)).toBeNull(); // the hooded Axel replaces Axel as captain
+    expect(squadOf(s, by).map((p) => p.id)).toEqual([1085, 32, 43]);
+    // an old save with two of the same: the later one is left out
+    s.squad = [1, 42, 43]; s.captainId = 1;
+    expect(squadOf(s, by).map((p) => p.id)).toEqual([1, 43]);
+  });
+  it('an Aura can\'t be the same character as its carrier, anyone in the squad or another Aura', () => {
+    const roster = [axel, hood, mark, endou, shawn, xavier, xene];
+    const by = new Map(roster.map((p) => [p.id, p]));
+    const s = newSave(roster.map((p) => p.id), 10); s.squad = [10, 1, 43]; s.captainId = 10;
+    expect(equipAura(s, axel, hood, by)).toMatchObject({ ok: false });
+    expect(equipAura(s, shawn, endou, by)).toMatchObject({ ok: false }); // Mark is in the squad
+    expect(equipAura(s, shawn, xavier, by)).toMatchObject({ ok: true });
+    expect(equipAura(s, mark, xene, by)).toMatchObject({ ok: false }); // Xavier already is Shawn's Aura
+  });
+});

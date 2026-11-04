@@ -10,8 +10,10 @@ export const SCHEMA_VERSION = 9;
 export interface OwnedPlayer { stars: number; copies: number; obtainedAt: string; spent?: number; ascMitico?: boolean; ascRarity?: Rarity; hero?: boolean;
   /** Fix 1.31: hero stars (0..3) a HÉROE earns with more duplicates (ascension.ts) */
   heroStars?: number;
-  /** Fix 1.23: training points per stat (training.ts), 20 at most in total */
-  train?: Partial<Record<string, number>> }
+  /** Fix 1.23: training points per stat (training.ts), 20 at most in total (+5 per Campeón level) */
+  train?: Partial<Record<string, number>>;
+  /** 1.8: a Leyenda's Campeón level (1 Campeón, 2 Campeón+, 3 Campeón++), ascension.ts */
+  champion?: number }
 
 export interface SaveData {
   schemaVersion: number;
@@ -88,6 +90,8 @@ export interface SaveData {
    */
   squads?: SquadPreset[];
   activeSquad?: number;
+  /** 1.8: Leyenda HÉROES already turned into Campeón (ascension.ts migrateChampions18) */
+  champions18?: boolean;
   /** 1.8: GTS movements already applied to this save (gts.ts) */
   gts?: { applied: string[] };
   /** run difficulty rank chosen last */
@@ -303,10 +307,13 @@ export function validate(s: SaveData): SaveData {
     if (o.ascMitico === true && typeof o.ascRarity === 'string' && (RARITY_ORDER as string[]).includes(o.ascRarity)) owned[k].ascRarity = o.ascRarity as Rarity;
     if (o.hero === true) owned[k].hero = true;
     if (o.hero === true && num(o.heroStars, 0) > 0) owned[k].heroStars = Math.min(3, Math.max(0, Math.floor(num(o.heroStars, 0))));
-    // training: known stats, whole points, 20 at most in total (a forged save can't go beyond)
+    // 1.8: Campeón level of a Leyenda (1-3)
+    const ch = Math.min(3, Math.max(0, Math.floor(num(o.champion, 0))));
+    if (ch) owned[k].champion = ch;
+    // training: known stats, whole points, 20 at most in total (+5 per Campeón level; a forged save can't go beyond)
     const tr = obj(o.train);
     if (tr) {
-      let left = 20;
+      let left = 20 + 5 * ch;
       const train: Record<string, number> = {};
       for (const key of ['kick', 'control', 'guard', 'body', 'speed', 'guts', 'stamina']) {
         const v = Math.min(left, Math.max(0, Math.floor(num(tr[key], 0))));

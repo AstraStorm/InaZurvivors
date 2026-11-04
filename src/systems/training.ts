@@ -41,17 +41,29 @@ export const POSITION_PROFILE: Record<string, Record<StatKey, number>> = {
 };
 
 /** The stats of a footballer at a rarity, from his raw ones: band of the rarity, his position, his profile, a little of his raw level. */
-export function rebuildStats(raw: Partial<Record<string, number>> | null | undefined, rarity: Rarity, bonus = 0, position?: string): Record<StatKey, number> {
+export function rebuildStats(raw: Partial<Record<string, number>> | null | undefined, rarity: Rarity, bonus = 0, position?: string, top = STAT_MAX): Record<StatKey, number> {
   const r = raw ?? {}, m = mean(r);
   const target = RARITY_STAT_MEAN[rarity] + Math.max(-BAND, Math.min(BAND, (m - RAW_CENTER) * 0.25)) + bonus;
   const out = {} as Record<StatKey, number>;
-  const cap = rarity === 'leyenda' ? STAT_MAX : Math.min(STAT_MAX, BASE_STAT_MAX + bonus);
+  const cap = rarity === 'leyenda' ? top : Math.min(top, BASE_STAT_MAX + bonus);
   const pos = POSITION_PROFILE[position ?? ''];
   for (const k of STAT_KEYS) out[k] = Math.max(25, Math.min(cap, Math.round(target + (pos?.[k] ?? 0) + ((r[k] ?? m) - m) * 0.6)));
   return out;
 }
 
 export const trainingOf = (save: SaveData, id: number): Partial<Record<StatKey, number>> => save.owned[String(id)]?.train ?? {};
+/**
+ * 1.8 (author): Campeón, Campeón+ and Campeón++ (a Leyenda's ascension, ascension.ts). Each level raises his stat limit by
+ * 10 (99 → 109 → 119 → 129), his stats by CHAMPION_STATS and his training by 5 points.
+ */
+export const CHAMPION_CAP = 10;
+export const CHAMPION_TRAIN = 5;
+export const CHAMPION_STATS = 4;
+export const championLevel = (save: SaveData, id: number) => Math.max(0, Math.min(3, save.owned[String(id)]?.champion ?? 0));
+/** the highest a stat of this footballer can reach */
+export const statCapOf = (save: SaveData, p: Pick<RosterEntry, 'id' | 'rarity'>) => STAT_MAX + (p.rarity === 'leyenda' ? CHAMPION_CAP * championLevel(save, p.id) : 0);
+/** training points this footballer can take */
+export const trainMaxOf = (save: SaveData, id: number) => TRAIN_MAX + CHAMPION_TRAIN * championLevel(save, id);
 export const trainingUsed = (save: SaveData, id: number) => Object.values(trainingOf(save, id)).reduce((a, b) => a + (b ?? 0), 0);
 
 /**
@@ -65,13 +77,14 @@ export function baseStats(save: SaveData, p: StatEntry, effective: Rarity, hero:
   const o = save.owned[String(p.id)];
   const sameRarityAscended = !!o?.ascMitico && effective === p.rarity;
   // Fix 1.31: each hero star adds 1 to every stat
-  return rebuildStats(p.stats, effective, (sameRarityAscended ? 2 : 0) + (hero ? 3 + Math.min(3, o?.heroStars ?? 0) : 0), p.position);
+  return rebuildStats(p.stats, effective, (sameRarityAscended ? 2 : 0) + (hero ? 3 + Math.min(3, o?.heroStars ?? 0) : 0) + CHAMPION_STATS * championLevel(save, p.id), p.position, statCapOf(save, p));
 }
 
 /** Fix 1.31: how many more training points each stat can still take before reaching 99. */
 export function trainRoom(save: SaveData, p: StatEntry, effective: Rarity, hero: boolean): Record<StatKey, number> {
   const base = baseStats(save, p, effective, hero), t = trainingOf(save, p.id);
-  return Object.fromEntries(STAT_KEYS.map((k) => [k, Math.max(0, STAT_MAX - base[k] - (t[k] ?? 0))])) as Record<StatKey, number>;
+  const cap = statCapOf(save, p);
+  return Object.fromEntries(STAT_KEYS.map((k) => [k, Math.max(0, cap - base[k] - (t[k] ?? 0))])) as Record<StatKey, number>;
 }
 
 /**
@@ -85,7 +98,7 @@ export function trimTraining(save: SaveData, p: StatEntry, effective: Rarity, he
   let back = 0;
   const train: Partial<Record<StatKey, number>> = { ...o.train };
   for (const k of STAT_KEYS) {
-    const extra = (train[k] ?? 0) - Math.max(0, STAT_MAX - base[k]);
+    const extra = (train[k] ?? 0) - Math.max(0, statCapOf(save, p) - base[k]);
     if (extra > 0) { train[k] = (train[k] ?? 0) - extra; back += extra; if (!train[k]) delete train[k]; }
   }
   if (!back) return 0;
@@ -98,7 +111,8 @@ export function trimTraining(save: SaveData, p: StatEntry, effective: Rarity, he
 export function playerStats(save: SaveData, p: StatEntry, effective: Rarity, hero: boolean): Record<StatKey, number> {
   const out = baseStats(save, p, effective, hero);
   const t = trainingOf(save, p.id);
-  for (const k of STAT_KEYS) out[k] = Math.min(STAT_MAX, out[k] + (t[k] ?? 0));
+  const cap = statCapOf(save, p);
+  for (const k of STAT_KEYS) out[k] = Math.min(cap, out[k] + (t[k] ?? 0));
   return out;
 }
 
@@ -106,7 +120,7 @@ export function playerStats(save: SaveData, p: StatEntry, effective: Rarity, her
  *  that stat — Fix 1.31: a stat already at 99 takes no more points). */
 export function trainStat(save: SaveData, id: number, key: StatKey, room = Infinity): boolean {
   const o = save.owned[String(id)];
-  if (!o || room <= 0 || (save.trainTokens ?? 0) < 1 || trainingUsed(save, id) >= TRAIN_MAX || !STAT_KEYS.includes(key)) return false;
+  if (!o || room <= 0 || (save.trainTokens ?? 0) < 1 || trainingUsed(save, id) >= trainMaxOf(save, id) || !STAT_KEYS.includes(key)) return false;
   o.train = { ...(o.train ?? {}), [key]: (o.train?.[key] ?? 0) + 1 };
   save.trainTokens = (save.trainTokens ?? 0) - 1;
   return true;

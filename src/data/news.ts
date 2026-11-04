@@ -52,6 +52,11 @@ export const AUTHOR_NEWS: NewsItem[] = [
         'Puedes pedir el futbolista que quieras, pero **no puedes repetir un cambio** que ya hiciste.',
       ] },
       { callout: 'nuevo', text: 'Empiezas con **1 hueco** para dejar futbolistas. Mejora la **Ventanilla GTS** en MEJORAS (Economía) para tener hasta **5**.' },
+      { divider: true },
+      { h: 'Campeón', icon: '♛' },
+      { p: 'Los **Leyenda** ya no se hacen HÉROE: suben a **Campeón**, **Campeón+** y **Campeón++**. Cada nivel sube **10** el límite de sus estadísticas (de 99 a 109, 119 y 129), mejora sus estadísticas y le da **5 puntos más de entrenamiento**. Si ya tenías un Leyenda HÉROE, ahora es Campeón, y sus estrellas cuentan como los niveles siguientes.' },
+      { h: 'Un jugador de cada', icon: '👥' },
+      { p: 'En tu equipo no puede repetirse un personaje, ni como Aura: nada de dos Axel, dos Mark, una versión **Oscuro** junto a la normal o una **fusión Miximax** con uno de sus dos jugadores.' },
     ],
   },
   {

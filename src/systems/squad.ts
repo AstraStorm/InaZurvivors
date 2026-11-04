@@ -5,6 +5,7 @@
 import { RARITY_ORDER, type RosterEntry } from '../data/manifest';
 import { SQUAD_SLOTS, type SaveData, type SquadPreset } from './save';
 import { carrierOf, releaseAsAura, removeAura } from './auras';
+import { clashWith } from './identity';
 
 export const SQUAD_SIZE = 7;
 const rank = (p: RosterEntry) => RARITY_ORDER.indexOf(p.rarity);
@@ -19,7 +20,7 @@ export function squadOf(save: SaveData, byId: Map<number, RosterEntry>): RosterE
   const out: RosterEntry[] = [];
   for (const id of ids) {
     const p = byId.get(id);
-    if (!p || seen.has(id) || !save.owned[String(id)]) continue;
+    if (!p || seen.has(id) || !save.owned[String(id)] || clashWith(p, out)) continue; // 1.8: never two of the same character
     seen.add(id);
     out.push(p);
     if (out.length === SQUAD_SIZE) break;
@@ -34,8 +35,10 @@ export function fillSquad(save: SaveData, roster: RosterEntry[]) {
   const inSquad = new Set(squad.map((p) => p.id));
   const extra = roster.filter((p) => save.owned[String(p.id)] && !inSquad.has(p.id) && carrierOf(save, p.id) === null) // v1.5: Auras stay Auras
     .sort((a, b) => rank(b) - rank(a) || (save.owned[String(b.id)].stars - save.owned[String(a.id)].stars) || a.id - b.id);
+  const auras = Object.values(save.auras ?? {}).map((a) => byId.get(a)).filter((x): x is RosterEntry => !!x);
   for (const p of extra) {
     if (squad.length >= SQUAD_SIZE) break;
+    if (clashWith(p, [...squad, ...auras])) continue; // 1.8
     squad.push(p);
   }
   setSquad(save, squad.map((p) => p.id));
@@ -48,9 +51,26 @@ export function setSquad(save: SaveData, ids: number[]) {
   if (clean.length) save.captainId = clean[0];
 }
 
-/** Puts a player in a slot (0 = captain). If they were already in the squad, the two slots swap. */
-export function placeInSquad(save: SaveData, byId: Map<number, RosterEntry>, slot: number, id: number) {
-  if (!save.owned[String(id)]) return;
+/**
+ * 1.8: who `id` would clash with in the squad (the same character in another footballer or as an Aura), leaving out the one
+ * in `slot` (he would be replaced) and `id` himself. Null when he can come in.
+ */
+export function squadClash(save: SaveData, byId: Map<number, RosterEntry>, slot: number, id: number): RosterEntry | null {
+  const p = byId.get(id);
+  if (!p) return null;
+  const ids = squadOf(save, byId).map((x) => x.id);
+  const from = ids.indexOf(id);
+  const stay = ids.filter((x, i) => x !== id && (from >= 0 || i !== slot));
+  const occ = [...stay, ...stay.map((c) => save.auras?.[String(c)]).filter((a): a is number => a !== undefined && a !== id)];
+  return clashWith(p, occ.map((x) => byId.get(x)).filter((x): x is RosterEntry => !!x));
+}
+
+/** Puts a player in a slot (0 = captain). If they were already in the squad, the two slots swap. Returns the footballer it
+ *  clashes with (1.8: the same character), and then changes nothing. */
+export function placeInSquad(save: SaveData, byId: Map<number, RosterEntry>, slot: number, id: number): RosterEntry | null {
+  if (!save.owned[String(id)]) return null;
+  const clash = squadClash(save, byId, slot, id);
+  if (clash) return clash;
   releaseAsAura(save, id); // v1.5: one copy, one place: an Aura that goes into the squad stops being an Aura
   const ids = squadOf(save, byId).map((p) => p.id);
   const from = ids.indexOf(id);
@@ -59,6 +79,7 @@ export function placeInSquad(save: SaveData, byId: Map<number, RosterEntry>, slo
   } else if (slot < ids.length) { removeAura(save, ids[slot]); ids[slot] = id; } // 1.76: whoever leaves takes his Aura off
   else ids.push(id);
   setSquad(save, ids);
+  return null;
 }
 
 /** 1.76 (author): a footballer who leaves the squad also takes his Aura off. */

@@ -20,9 +20,14 @@ export const CHANGELOG: Release[] = [
       'GTS (migración 20261106000000_gts): private.gts_deposits / gts_done / gts_banned, RPC gts_deposit, gts_withdraw, gts_take (una sola toma gana: fila bloqueada), gts_mine, gts_search y gts_feed (anónimas). gts_spare descuenta lo que el cliente aún no ha aplicado (save.gts.applied) para que un guardado viejo no deje dos veces la misma copia. Huecos: 1 + nivel de la mejora gts (máx. 5). Sin Leyenda, HÉROE ni exclusivos; sin cambios repetidos.',
       'Cliente: systems/gts.ts (applyGtsLedger aplica cada movimiento una vez: d/w/r/t; canLeave; gtsSlots), pantalla GTS (Mis depósitos, Buscar, Historial), elegir copia y petición, animaciones de ida y vuelta (styleGts.css), casilla y feed en el menú; se sincroniza al abrir el menú. Mejora «Ventanilla GTS» (perks.ts).',
     ],
-    fixes: [],
+    fixes: [
+      'Tirón al aprender una técnica combinada: comboUnlock pintaba retratos a 96 px, que obligaban a reescalar la hoja de retratos entera en plena partida. Ahora van a 64 px ampliados por CSS, sin brillo animado, y al empezar la partida se decodifican las hojas y se pinta el aviso una vez fuera de pantalla (warmMugs). Medido en headless: peor fotograma 167 → 97 ms la primera vez, 63 ms las siguientes.',
+    ],
     visuals: [],
-    balance: [],
+    balance: [
+      'Campeón (ascension.ts): un Leyenda sube a Campeón, Campeón+ y Campeón++ (1, 2 y 3 duplicados) en vez de HÉROE; por nivel +10 al límite de estadísticas (statCapOf, 99 → 129), +4 a las estadísticas, +5 de entrenamiento (trainMaxOf) y +12% daño / +8% vida. migrateChampions18 convierte a los Leyenda HÉROE (estrellas → niveles). Mantiene el Espíritu de héroe en partida.',
+      'Un personaje solo una vez (systems/identity.ts): versiones (Oscuro, Encapuchado), alias (Xene, Kira Hiroto, Endou Mamoru) y fusiones Miximax cuentan como el mismo; Mi Equipo, Autocompletar y las Auras lo impiden, y squadOf descarta repetidos de guardados antiguos.',
+    ],
   },
   {
     version: '8.3', date: '2026-11-04', title: 'Fix 1.77',

@@ -43,16 +43,17 @@ function newsRelDate(d: string) {
 }
 import { buildMeta, CATEGORIES, SEVERITIES, SHOT_MAX_BYTES, SHOT_MAX_SIDE, SHOT_TYPES, STATUS_LABEL, TECH_FIELDS, validateBug, validateShot } from '../systems/bugReport';
 import { elementIcon } from './elements';
-import { playerStats, resetTraining, trainingOf, trainingUsed, trainRoom, trainStat, trimTraining, TRAIN_MAX, type StatKey } from '../systems/training';
+import { CHAMPION_CAP, CHAMPION_STATS, CHAMPION_TRAIN, playerStats, resetTraining, statCapOf, trainingOf, trainingUsed, trainMaxOf, trainRoom, trainStat, trimTraining, type StatKey } from '../systems/training';
 import { AURA_PCT, AURA_ELEMENT_BONUS, AURA_TECH_DAMAGE, BOND_PCT, EFFECTIVE_STAT_MAX, auraBonus, auraOf, bondOf, canBeAura, carrierForRun, carrierOf, equipAura, inheritedTechs, removeAura, sanitizeAuras, withAura, type AuraBonus } from '../systems/auras';
 import { BOND_KIND_LABEL } from '../data/auraBonds';
-import { ASC_BONUS, ASC_COSTS, HERO_AURA, HERO_STARS_MAX, compensateDrakul153, migrateHeroes131, type AscStep, ascend, ascMultipliers, effectiveRarity, isHero, isTopRarity, nextStep, rarityUp, sparesOf } from '../systems/ascension';
+import { ASC_BONUS, ASC_COSTS, CHAMPION_COSTS, CHAMPION_LABEL, CHAMPION_MAX, HERO_AURA, HERO_STARS_MAX, championOf, compensateDrakul153, migrateChampions18, migrateHeroes131, type AscStep, ascend, ascMultipliers, effectiveRarity, isHero, isTopRarity, nextStep, rarityUp, sparesOf } from '../systems/ascension';
 import { USERNAME_MAX, validateUsername } from '../systems/username';
 import { ALTAR_COLOR, ALTAR_ICON, ALTAR_INFO, ALTAR_MODE, ALTAR_REWARD } from '../systems/altars';
 import { adaptedPassive, passiveText, talentChanges, talentText } from '../systems/talents';
 import { redeemCode } from '../online/client';
 import { THANKS_EVENT, addThanksTokens, thanksActive, thanksLeftMs, thanksTokens } from '../systems/thanksEvent';
 import { gtsDeposit, gtsFeed, gtsMine, gtsSearch, gtsTake, gtsWithdraw, type GtsOffer } from '../online/client';
+import { clashWith } from '../systems/identity';
 import { applyGtsLedger, canLeave, gtsBanned, gtsError, gtsSlots, gtsSpare, type GtsRow } from '../systems/gts';
 import { accountId, adminBugReports, adminPlayerStats, adminUpdateBug, amIAdmin, consumeAuthRedirect, deleteAccount, deleteMyBugReports, deleteShot, myBugReports, notifyBug, shotUrl, submitBugReport, uploadShot, getCloudSave, leaderboard, myPosition, profileBanners, profileFrames, publicProfile, type PublicProfile, myProfile, onlineConfigured, putCloudSave, reserveUsername, resetMyProgress, signedEmail, signedIn, signInWithGoogle, signOut, submitScore, usernameAvailable, type BoardQuery, type BoardRow, type BugFilter, type BugRow, type CloudSave } from '../online/client';
 import { backup, linkPlan, progressOf, summarize, type SaveSummary } from '../online/cloudSync';
@@ -115,11 +116,12 @@ export function statRadar(stats: Record<string, number>, names: Record<string, s
   const keys = Object.keys(stats), n = keys.length, R = 62, cx = 100, cy = 84;
   // v1.5: with an Aura the scale goes to 120 (the effective maximum); the dashed ring marks 99, the normal maximum
   const hasAura = !!aura && keys.some((k) => (aura[k] ?? 0) > 0);
-  const top = hasAura ? EFFECTIVE_STAT_MAX : 100;
+  // 1.8: a Campeón's own stats go past 100 (up to 129): the scale grows with them
+  const top = Math.max(hasAura ? EFFECTIVE_STAT_MAX : 100, ...keys.map((k) => (stats[k] ?? 0) + (aura?.[k] ?? 0)));
   const at = (i: number, r: number) => { const a = -Math.PI / 2 + (i / n) * Math.PI * 2; return [cx + Math.cos(a) * r, cy + Math.sin(a) * r]; };
   const poly = (r: (i: number) => number) => keys.map((_, i) => at(i, r(i)).map((v) => v.toFixed(1)).join(',')).join(' ');
   const grid = [0.25, 0.5, 0.75, 1].map((k) => `<polygon points="${poly(() => R * k)}" class="rg"/>`).join('')
-    + (hasAura ? `<polygon points="${poly(() => R * 99 / top)}" class="rg r99"/>` : '');
+    + (top > 100 ? `<polygon points="${poly(() => R * 99 / top)}" class="rg r99"/>` : '');
   const axes = keys.map((_, i) => { const [x, y] = at(i, R); return `<line x1="${cx}" y1="${cy}" x2="${x.toFixed(1)}" y2="${y.toFixed(1)}" class="rg"/>`; }).join('');
   const eff = (k: string) => Math.min(top, stats[k] + (aura?.[k] ?? 0));
   const labels = keys.map((k, i) => {
@@ -192,6 +194,7 @@ export class App {
     if (remapIds(save, m.idAliases)) storeSave(save); // characters now on another ROM record keep their progress
     if (remapTechSlots(save, m.techRemaps) >= 0) storeSave(save); // repertoires that changed order keep their purchases
     if (migrateHeroes131(save, m.roster)) storeSave(save); // Fix 1.31: Míticos ascended the old way become HÉROE
+    if (migrateChampions18(save, m.roster)) storeSave(save); // 1.8: Leyenda HÉROES become Campeón
     if (compensateDrakul153(save)) storeSave(save); // Fix 1.53: 3 copies of Drakul for whoever ascended him
     if (save.auras && sanitizeAuras(save, new Map(m.roster.map((p) => [p.id, p])))) storeSave(save); // v1.5: Auras no longer valid are dropped
     if (this.trimAllTraining(save, m.roster)) storeSave(save); // Fix 1.31: points stuck above 99 come back
@@ -374,11 +377,27 @@ export class App {
   }
 
   /** Fix 1.12: a combined technique was learned in the run: the participants' portraits close in and its name. */
+  /** 1.8: decodes the mugshot sheets once (kept referenced), so the first portrait shown during a run doesn't stall it. */
+  private mugWarm: HTMLImageElement[] = [];
+  private warmMugs() {
+    const sheets = this.m.atlases.mugshots.images ?? [this.m.atlases.mugshots.image];
+    if (!this.mugWarm.length) for (const src of sheets) { const i = new Image(); i.src = src; void i.decode?.().catch(() => undefined); this.mugWarm.push(i); }
+    // and the notice itself painted once off screen with the squad's faces: layer, fonts and portraits are ready before it is needed
+    const box = document.createElement('div');
+    box.className = 'combo-unlock';
+    box.style.cssText = 'left:-3000px;top:-3000px;animation:none';
+    box.innerHTML = `<div class="cu-mugs">${squadOf(this.save, this.byId).slice(0, 7).map((p) => `<span>${this.mug(p.id, 64)}</span>`).join('')}</div><small>¡NUEVA TÉCNICA COMBINADA!</small><b>Fuego cruzado</b>`;
+    document.body.appendChild(box);
+    window.setTimeout(() => box.remove(), 600);
+  }
+
   private comboUnlock(c: { name: string; ids: number[] }) {
     document.querySelector('.combo-unlock')?.remove();
     const box = document.createElement('div');
     box.className = 'combo-unlock';
-    box.innerHTML = `<div class="cu-mugs">${c.ids.map((id, i) => `<span style="--i:${i}">${this.mug(id, 96)}</span>`).join('')}</div>
+    // 1.8: portraits at their native 64 px, enlarged by CSS: a 96 px portrait made the browser resample the whole mugshot
+    // sheet in the middle of the run (the hitch when a combined technique was learned)
+    box.innerHTML = `<div class="cu-mugs">${c.ids.map((id, i) => `<span style="--i:${i}">${this.mug(id, 64)}</span>`).join('')}</div>
       <small>¡NUEVA TÉCNICA COMBINADA!</small><b>${esc(c.name)}</b>`;
     document.body.appendChild(box);
     sfx('legend');
@@ -598,6 +617,9 @@ export class App {
   }
   private rar(p: RosterEntry) {
     const r = effectiveRarity(this.save, p);
+    // 1.8: a Leyenda's Campeón level
+    const ch = championOf(this.save, p.id);
+    if (ch) return `<span class="rar heroe campeon">${CHAMPION_LABEL[ch]}</span>`;
     // Fix 1.31: a HÉROE is shown as HÉROE (with its hero stars), not as the rarity it came from
     if (isHero(this.save, p.id)) { const hs = this.owned(p.id)?.heroStars ?? 0; return `<span class="rar heroe">HÉROE${hs ? ` ${'★'.repeat(hs)}` : ''}</span>`; }
     return `<span class="rar ${r}">${RARITY_LABEL[r].toUpperCase()}</span>`;
@@ -723,7 +745,7 @@ export class App {
     const spare = !locked && o ? sparesOf(this.save, p.id) : 0, step = !locked && o ? nextStep(this.save, p) : null;
     const canAsc = !!step && spare >= step.cost;
     const dup = canAsc ? `<span class="card-dup can-asc" title="¡Puedes ascender! (${spare} duplicados)">▲ ${spare}</span>`
-      : spare ? `<span class="card-dup" title="Duplicados sin usar${step ? ` (${step.step === 'heroe' ? 'HÉROE' : step.step === 'estrella' ? 'estrella de héroe' : 'ascenso'}: ${step.cost})` : ''}">+${spare}${step ? ` <i>${spare}/${step.cost}</i>` : ''}</span>` : '<span></span>';
+      : spare ? `<span class="card-dup" title="Duplicados sin usar${step ? ` (${step.step === 'heroe' ? 'HÉROE' : step.step === 'estrella' ? 'estrella de héroe' : step.step === 'campeon' ? CHAMPION_LABEL[championOf(this.save, p.id) + 1] : 'ascenso'}: ${step.cost})` : ''}">+${spare}${step ? ` <i>${spare}/${step.cost}</i>` : ''}</span>` : '<span></span>';
     const top = `${opts.badge ? `<span class="badge">${esc(opts.badge)}</span>` : ''}${opts.captain ? '<span class="captain-badge">C</span>' : ''}`;
     const st = !locked && p.stats ? this.statsOf(p) : null;
     const e = String(p.element ?? '');
@@ -1084,17 +1106,24 @@ export class App {
     const curR = effectiveRarity(this.save, p);
     const hs = this.owned(id)?.heroStars ?? 0;
     // Fix 1.51: the next rarity counts from the one he already reached (an Épico ascended to Legendario goes on to Mítico)
-    const up = rarityUp(curR), label = next?.step === 'ascenso' ? `${RARITY_LABEL[up].toUpperCase()}${up === curR ? ' +' : ''}` : next?.step === 'estrella' ? `HÉROE ${'★'.repeat(hs + 1)}` : 'HÉROE';
+    const ch = championOf(this.save, id);
+    const up = rarityUp(curR), label = next?.step === 'ascenso' ? `${RARITY_LABEL[up].toUpperCase()}${up === curR ? ' +' : ''}` : next?.step === 'estrella' ? `HÉROE ${'★'.repeat(hs + 1)}` : next?.step === 'campeon' ? CHAMPION_LABEL[ch + 1] : 'HÉROE';
     const pct = (v: number) => `+${Math.round((v - 1) * 100)}%`;
     const starUnlocks = [`Estrella de héroe ${hs + 1} de ${HERO_STARS_MAX}: +${Math.round((ASC_BONUS.estrella.damage - 1) * 100)}% daño, +${Math.round((ASC_BONUS.estrella.hp - 1) * 100)}% vida y +1 a todas sus estadísticas`];
-    const unlocks = next?.step === 'estrella' ? starUnlocks : next?.step === 'heroe' || (!next && isHero(this.save, id))
+    // 1.8: what each Campeón level brings
+    const champUnlocks = [`${CHAMPION_LABEL[ch + 1]}: el límite de sus estadísticas sube de ${statCapOf(this.save, p)} a ${statCapOf(this.save, p) + CHAMPION_CAP}`,
+      `+${CHAMPION_STATS} a todas sus estadísticas y +${CHAMPION_TRAIN} puntos de entrenamiento para repartir`,
+      `+${Math.round((ASC_BONUS.campeon.damage - 1) * 100)}% daño y +${Math.round((ASC_BONUS.campeon.hp - 1) * 100)}% vida en partida`,
+      ch + 1 < CHAMPION_MAX ? `Después: ${CHAMPION_LABEL[ch + 2]} (${CHAMPION_COSTS[ch + 1]} duplicados)` : 'Es el último nivel: Campeón++'];
+    const unlocks = next?.step === 'campeon' ? champUnlocks : !next && ch ? [`${CHAMPION_LABEL[ch]}: estadísticas hasta ${statCapOf(this.save, p)} y ${trainMaxOf(this.save, id)} puntos de entrenamiento`]
+      : next?.step === 'estrella' ? starUnlocks : next?.step === 'heroe' || (!next && isHero(this.save, id))
       ? [`Técnica de HÉROE: ${p.heroTech ? p.heroTech.name : 'ninguna documentada para este jugador'}`, `${HERO_AURA.label} (habilidad original de InaZurvivors): ${HERO_AURA.description}`, 'Marco dorado e insignia HÉROE en la colección']
       : [up === curR ? `Ascendido: sigue siendo ${RARITY_LABEL[up]}, con la bonificación de ascensión` : `Rareza ${RARITY_LABEL[up]} (sin cambiar de personaje): sus estadísticas suben a las de un ${RARITY_LABEL[up]}`,
         isTopRarity(up) ? `Después, la ascensión HÉROE (${(ASC_COSTS[p.rarity] ?? ASC_COSTS.legendario).heroe} duplicados)` : `Después, la siguiente ascensión: ${RARITY_LABEL[rarityUp(up)]} (${ASC_COSTS[up].ascenso} duplicados)`];
     const box = document.createElement('div');
     box.className = 'tut-modal asc-modal';
     box.innerHTML = `<div class="panel asc-card${isHero(this.save, id) ? ' is-hero' : ''}" style="--rc:${RARITY_COLOR[curR]}">
-      <h2>${next ? (next.step === 'estrella' ? 'Estrellas de héroe' : 'Ascensión') : `¡HÉROE ${'★'.repeat(hs)}!`}</h2>
+      <h2>${next ? (next.step === 'estrella' ? 'Estrellas de héroe' : next.step === 'campeon' ? 'Camino del Campeón' : 'Ascensión') : ch ? `¡${CHAMPION_LABEL[ch]}!` : `¡HÉROE ${'★'.repeat(hs)}!`}</h2>
       <div class="asc-row"><div class="asc-art">${this.mug(id, 128)}${charCanvas(id, 3, 12)}</div>
         <div class="asc-info"><b>${esc(p.name)}</b>
           <div class="asc-step">${this.rar(p)}${next ? ` <em>»</em> <span class="rar ${next.step === 'ascenso' ? up : 'heroe'}">${label}</span>` : ''}</div>
@@ -1117,7 +1146,7 @@ export class App {
       // Fix 1.31: training points the new stats can't use any more come back
       const returned = trimTraining(this.save, p, effectiveRarity(this.save, p), isHero(this.save, p.id));
       this.persist();
-      if (returned) window.setTimeout(() => this.toast(`Te devolvemos ${returned} ${returned === 1 ? 'punto' : 'puntos'} de entrenamiento: esas estadísticas ya llegan a 99`, 4500), 1600);
+      if (returned) window.setTimeout(() => this.toast(`Te devolvemos ${returned} ${returned === 1 ? 'punto' : 'puntos'} de entrenamiento: esas estadísticas ya llegan a su máximo`, 4500), 1600);
       box.querySelector('.asc-card')!.classList.add('transform');
       sfx('legend');
       if (this.save.settings.particles !== 'desactivado') confetti(step === 'ascenso' ? 50 : 90);
@@ -1132,14 +1161,14 @@ export class App {
   private ascensionCard(p: RosterEntry, step: AscStep) {
     return new Promise<void>((resolve) => {
       const r = effectiveRarity(this.save, p), hero = step !== 'ascenso';
-      const heroLabel = step === 'estrella' ? `HÉROE ${'★'.repeat(this.owned(p.id)?.heroStars ?? 1)}` : 'HÉROE';
+      const heroLabel = step === 'campeon' ? CHAMPION_LABEL[championOf(this.save, p.id)] : step === 'estrella' ? `HÉROE ${'★'.repeat(this.owned(p.id)?.heroStars ?? 1)}` : 'HÉROE';
       const tier = r === 'leyenda' || hero ? 3 : r === 'mitico' ? 2 : r === 'legendario' ? 1 : 0;
       const ov = document.createElement('div');
       ov.className = `reveal asc-reveal${tier >= 1 ? ' legend' : ''}${tier >= 2 ? ' myth' : ''}${hero ? ' leyenda' : ''}`;
       ov.style.setProperty('--rc', `${RARITY_COLOR[r]}55`);
       ov.innerHTML = `<div class="rays"></div><div class="flash go"></div>
         <div class="reveal-card from-scene"><div class="rarity-big t${tier}" style="color:${hero ? '#ffd21f' : RARITY_COLOR[r]}">${hero ? heroLabel : RARITY_LABEL[r].toUpperCase()}</div>
-          ${this.pcard(p, { anim: 12, big: true })}<div class="newtag">${step === 'estrella' ? '¡NUEVA ESTRELLA DE HÉROE!' : hero ? '¡HÉROE!' : '¡ASCENDIDO!'}</div><button class="btn big">Aceptar</button></div>`;
+          ${this.pcard(p, { anim: 12, big: true })}<div class="newtag">${step === 'campeon' ? `¡${CHAMPION_LABEL[championOf(this.save, p.id)]}!` : step === 'estrella' ? '¡NUEVA ESTRELLA DE HÉROE!' : hero ? '¡HÉROE!' : '¡ASCENDIDO!'}</div><button class="btn big">Aceptar</button></div>`;
       document.body.appendChild(ov);
       mountPreviews();
       sfx(hero ? 'leyenda' : tier >= 2 ? 'myth' : 'legend');
@@ -1802,6 +1831,7 @@ export class App {
     remapIds(this.save, this.m.idAliases);
     remapTechSlots(this.save, this.m.techRemaps);
     migrateHeroes131(this.save, this.m.roster);
+    migrateChampions18(this.save, this.m.roster);
     compensateDrakul153(this.save);
     if (this.save.auras) sanitizeAuras(this.save, this.byId); // v1.5
     this.trimAllTraining(this.save, this.m.roster);
@@ -2382,7 +2412,7 @@ export class App {
   private tryEquipAura(carrierId: number, auraId: number) {
     const p = this.byId.get(carrierId), ae = this.byId.get(auraId);
     if (!p || !ae) return false;
-    const r = equipAura(this.save, p, ae);
+    const r = equipAura(this.save, p, ae, this.byId); // 1.8: never the same character twice
     if (!r.ok) { this.toast(r.why, 3500); sfx('error'); return false; }
     this.persist();
     const b = auraBonus(this.save, p.id, ae);
@@ -2498,7 +2528,8 @@ export class App {
       // the best owned footballers by their real mean (ascension, HÉROE and training included) fill the free slots
       const ids = squadOf(this.save, this.byId).map((p) => p.id);
       const pool = this.unlockedRoster().filter((p) => !ids.includes(p.id)).sort((a, b) => this.meanOf(b) - this.meanOf(a));
-      for (const p of pool) { if (ids.length >= SQUAD_SIZE) break; ids.push(p.id); }
+      const taken = () => [...ids, ...ids.map((c) => this.save.auras?.[String(c)]).filter((a): a is number => a !== undefined)].map((x) => this.byId.get(x)!).filter(Boolean);
+      for (const p of pool) { if (ids.length >= SQUAD_SIZE) break; if (clashWith(p, taken()) || carrierOf(this.save, p.id) !== null) continue; ids.push(p.id); } // 1.8: one of each character
       setSquad(this.save, ids); this.persist(); sfx('powerup'); this.squadPicked = false; this.captainSelect();
     });
     document.getElementById('sqclear')?.addEventListener('click', (e) => this.armed(e.currentTarget as HTMLElement, () => {
@@ -2665,7 +2696,8 @@ export class App {
         const slot = Number(s0.over.dataset.slot);
         const target = (s0.over.querySelector('.pcard') ?? s0.over).getBoundingClientRect();
         fly(target, () => {
-          placeInSquad(this.save, this.byId, slot, s0.id);
+          const clash = placeInSquad(this.save, this.byId, slot, s0.id);
+          if (clash) { this.toast(`${this.byId.get(s0.id)?.name ?? ''} es el mismo personaje que ${clash.name}: no pueden estar los dos en tu equipo.`, 3800); sfx('error'); this.captainSelect(); return; }
           this.persist(); sfx('powerup'); this.squadPicked = false; this.squadLanded = slot;
           this.captainSelect(slot);
         });
@@ -2726,7 +2758,9 @@ export class App {
           removeFromSquad(this.save, this.byId, id); sfx('click');
         } else if (this.squadPicked || squad.length < SQUAD_SIZE) {
           const was = carrierOf(this.save, id); // v1.5: an Aura that joins the squad stops being an Aura: say so
-          placeInSquad(this.save, this.byId, this.squadPicked ? this.squadSlot : squad.length, id); sfx('powerup');
+          const clash = placeInSquad(this.save, this.byId, this.squadPicked ? this.squadSlot : squad.length, id);
+          if (clash) { this.toast(`${this.byId.get(id)?.name ?? ''} es el mismo personaje que ${clash.name}: no pueden estar los dos en tu equipo.`, 3800); sfx('error'); return; }
+          sfx('powerup');
           if (was !== null) this.toast(`${this.byId.get(id)?.name ?? ''} entra en el equipo y deja de ser el Aura de ${this.byId.get(was)?.name ?? ''}`, 3500);
         } else {
           this.toast('Equipo completo: pulsa la plaza que quieres cambiar o quita a alguien'); sfx('error');
@@ -2993,6 +3027,8 @@ export class App {
   /** 1.76: sort key of the collection: HÉROE above every rarity; an owned footballer counts with the rarity he reached. */
   private rarityRank(p: RosterEntry) {
     if (!this.owned(p.id)) return RARITY_ORDER.indexOf(p.rarity);
+    const ch = championOf(this.save, p.id); // 1.8: Campeón above HÉROE
+    if (ch) return RARITY_ORDER.length + ch;
     return isHero(this.save, p.id) ? RARITY_ORDER.length : RARITY_ORDER.indexOf(effectiveRarity(this.save, p));
   }
 
@@ -3155,13 +3191,14 @@ export class App {
   private trainingHtml(d: RosterEntry) {
     if (!this.owned(d.id)) return '';
     const used = trainingUsed(this.save, d.id), tr = trainingOf(this.save, d.id), have = this.save.trainTokens ?? 0;
-    const can = have > 0 && used < TRAIN_MAX;
+    const tmax = trainMaxOf(this.save, d.id), cap = statCapOf(this.save, d); // 1.8: a Campeón trains more and higher
+    const can = have > 0 && used < tmax;
     const room = d.stats ? trainRoom(this.save, d, effectiveRarity(this.save, d), isHero(this.save, d.id)) : null;
-    return `<div class="train-box"><div class="train-head"><b>Entrenamiento ${used}/${TRAIN_MAX}</b><span>Fichas de entrenamiento: <b>${have}</b></span>
+    return `<div class="train-box"><div class="train-head"><b>Entrenamiento ${used}/${tmax}</b><span>Fichas de entrenamiento: <b>${have}</b></span>
       ${used ? `<button class="btn small blue" data-trainreset="${d.id}">Devolver puntos</button>` : ''}</div>
       <div class="train-row">${STAT_INFO.map((s) => { const full = (room?.[s.key as StatKey] ?? 1) <= 0; // Fix 1.31: a stat at 99 takes no more points
-        return `<button class="btn small${full ? ' maxed' : ''}" data-train="${s.key}" data-pid="${d.id}" ${can && !full ? '' : 'disabled'} title="${full ? 'Al máximo (99)' : ''}">${s.short}${tr[s.key as StatKey] ? ` +${tr[s.key as StatKey]}` : ''} ${full ? 'MÁX' : '＋'}</button>`; }).join('')}</div>
-      <div class="note">Cada ficha suma 1 punto a la estadística que elijas (máximo ${TRAIN_MAX} por futbolista). Se ganan con victorias, rangos superados, supervivencia infinita, misiones semanales y logros.</div></div>`;
+        return `<button class="btn small${full ? ' maxed' : ''}" data-train="${s.key}" data-pid="${d.id}" ${can && !full ? '' : 'disabled'} title="${full ? `Al máximo (${cap})` : ''}">${s.short}${tr[s.key as StatKey] ? ` +${tr[s.key as StatKey]}` : ''} ${full ? 'MÁX' : '＋'}</button>`; }).join('')}</div>
+      <div class="note">Cada ficha suma 1 punto a la estadística que elijas (máximo ${tmax} para este futbolista). Se ganan con victorias, rangos superados, supervivencia infinita, misiones semanales y logros.</div></div>`;
   }
 
   private playerDetail(d: RosterEntry) {
@@ -3174,7 +3211,7 @@ export class App {
       <div class="note">${POS_LABEL[d.position]} · ${esc(d.teams.filter((t) => (this.m.mainTeams ?? []).includes(t)).slice(0, 5).map(teamLabel).join(', ') || 'Jugador de Fichatrón / Ojeador')}${(() => { const sg = [...new Set(d.teams.map(sagaOf).filter(Boolean))]; return sg.length ? ` · Saga: ${esc(sg.join(', '))}` : ''; })()}</div>
       ${o ? `<p><button class="btn small blue" data-compare="${d.id}">${this.compareWith === d.id ? 'Elige otro futbolista para comparar…' : '⇄ Comparar con otro'}</button></p>` : ''}
       ${o ? `<div class="note">Estrellas ${o.stars}/${MAX_STARS} · Duplicados libres ${sparesOf(this.save, d.id)} (gastados ${o.spent ?? 0}) · Potencia: daño ×${starBonus(o.stars).damage.toFixed(2)}, vida ×${starBonus(o.stars).hp.toFixed(2)}</div>` : ''}
-      ${o && (nextStep(this.save, d) || isHero(this.save, d.id)) ? `<p><button class="btn ${nextStep(this.save, d) ? 'big' : 'blue'}" data-ascend="${d.id}">${!nextStep(this.save, d) ? '★ Ver HÉROE' : nextStep(this.save, d)!.step === 'estrella' ? `★ Estrella de héroe (${sparesOf(this.save, d.id)}/${nextStep(this.save, d)!.cost})` : `▲ Ascensión (${sparesOf(this.save, d.id)}/${nextStep(this.save, d)!.cost})`}</button></p>` : ''}
+      ${o && (nextStep(this.save, d) || isHero(this.save, d.id) || championOf(this.save, d.id)) ? `<p><button class="btn ${nextStep(this.save, d) ? 'big' : 'blue'}" data-ascend="${d.id}">${!nextStep(this.save, d) ? (championOf(this.save, d.id) ? `★ Ver ${CHAMPION_LABEL[championOf(this.save, d.id)]}` : '★ Ver HÉROE') : nextStep(this.save, d)!.step === 'campeon' ? `♛ ${CHAMPION_LABEL[championOf(this.save, d.id) + 1]} (${sparesOf(this.save, d.id)}/${nextStep(this.save, d)!.cost})` : nextStep(this.save, d)!.step === 'estrella' ? `★ Estrella de héroe (${sparesOf(this.save, d.id)}/${nextStep(this.save, d)!.cost})` : `▲ Ascensión (${sparesOf(this.save, d.id)}/${nextStep(this.save, d)!.cost})`}</button></p>` : ''}
       ${d.heroTech ? `<div class="note">Técnica de HÉROE: <b>${esc(d.heroTech.name)}</b>${isHero(this.save, d.id) ? ' (desbloqueada)' : ''}</div>` : ''}
       ${(() => { const pa = adaptedPassive(d); return (pa ? `<div class="note">Pasiva: <b>${esc(pa.name)}</b> · ${esc(passiveText(pa))} <small>(adaptación de InaZurvivors)</small></div>` : '') + d.techniques.filter((t) => t.type === 'talento').map((t) => `<div class="note">Talento: <b>${esc(t.name)}</b> · ${esc(talentText(t.id, 1))} <small>(efecto adaptado; sube con el nivel de la técnica)</small></div>`).join(''); })()}
       <h3 style="margin-top:8px">Repertorio (2 técnicas activas en combate)</h3>
@@ -4117,6 +4154,7 @@ export class App {
       <div class="bossbar" id="boss" style="display:none"><div class="bn"></div><div class="bar boss"><i></i></div></div>
       <canvas class="minimap" id="minimap" width="132" height="100" aria-hidden="true"></canvas><div class="edge-marks" id="marks"></div>
       <div class="altar-hud" id="altar"></div><div class="event-card" id="eventcard"></div><div class="event-result" id="eventresult"></div><div class="buffs" id="buffs"></div><div class="combo-hud" id="combohud"></div><div class="team-hud" id="hudteam"></div><div id="bannerbox"></div><div class="joy" id="joy"><b><i></i></b></div></div>`, 'run-mode');
+    this.warmMugs(); // 1.8: the mugshot sheets decoded now, not in the middle of the run when a combined technique is learned
     bindStick(document.getElementById('joy')!);
     document.getElementById('pausebtn')!.addEventListener('click', () => this.pauseFromHud());
     this.root.querySelectorAll<HTMLElement>('#fbtns button').forEach((b) => b.addEventListener('click', () => this.arena()?.selectFormation(b.dataset.f as FormationId)));
@@ -4128,7 +4166,7 @@ export class App {
         this.persist();
         this.toast(`Nuevo: ${label}. ${info}`, 4500);
       },
-      asc: Object.fromEntries(candidates.map((p) => [String(p.id), { ...ascMultipliers(this.save, p), hero: isHero(this.save, p.id) }])),
+      asc: Object.fromEntries(candidates.map((p) => [String(p.id), { ...ascMultipliers(this.save, p), hero: isHero(this.save, p.id) || championOf(this.save, p.id) > 0 }])),
       manifest: this.m, map, team: runTeam, unlocked: runUnlocked, auras: runAuras, stars, settings: this.save.settings,
       perks: (() => { const e = applyGear(perkEffects(this.save), this.save, this.gear); kitBonus(this.save.kit, this.m.roster).apply(e); return e; })(),
       kitTeam: this.save.kit || 'Raimon', shop: this.save.shop, mastery: this.save.mastery, loadout: this.validLoadout(), training, kit: this.m.kits?.[this.save.kit] ?? null, formation: (this.save.formation as FormationId) in FORMATIONS ? this.save.formation as FormationId : 'equilibrada',

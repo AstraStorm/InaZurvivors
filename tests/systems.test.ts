@@ -1179,7 +1179,7 @@ describe('auditoría de rarezas', () => {
     const hero = saveWith({ ascMitico: true, hero: true, spent: 8 });
     expect(nextStep(hero, p(7, 'epico'))?.step).toBe('estrella'); // Fix 1.31: hero stars after HÉROE
     expect(ascMultipliers(hero, p(7, 'epico')).damage).toBeCloseTo(ascMultipliers(hero, p(7, 'mitico')).damage);
-    expect(nextStep(saveWith({}), p(7, 'leyenda'))?.step).toBe('heroe'); // Fix 1.31: a Leyenda's ascension is the HÉROE
+    expect(nextStep(saveWith({}), p(7, 'leyenda'))?.step).toBe('campeon'); // 1.8: a Leyenda climbs Campeón instead of HÉROE
     expect(nextStep(saveWith({}), p(7, 'epico'))).toEqual({ step: 'ascenso', cost: ASC_COSTS.epico.ascenso }); // Fix 1.23: Épico can ascend too
   });
   it('the welcome guarantee and team rewards never give the rarest footballers', async () => {

@@ -22,6 +22,7 @@ import { COMBOS, playsAs } from './combos';
 import { effectiveRarity, isHero } from './ascension';
 import { STAT_KEYS, playerStats, type StatKey } from './training';
 import type { SaveData } from './save';
+import { clashWith } from './identity';
 
 export const AURA_PCT = 0.15;
 export { BOND_PCT };
@@ -49,14 +50,21 @@ export function bondOf(a: number, b: number): AuraBond | null {
   return AURA_BONDS.find((x) => (x.a === a && x.b === b) || (x.a === b && x.b === a)) ?? null;
 }
 
-/** Why this Aura can't go on this carrier (null = it can). `squad`: ids of the current squad. */
-export function auraProblem(save: SaveData, carrier: Pick<RosterEntry, 'id'>, aura: Pick<RosterEntry, 'id' | 'rarity' | 'name'>, squad: number[] = []): string | null {
+/** Why this Aura can't go on this carrier (null = it can). `squad`: ids of the current squad; `byId` (1.8) checks that the
+ *  Aura is not the same character as anyone in the squad or another Aura. */
+export function auraProblem(save: SaveData, carrier: Pick<RosterEntry, 'id'>, aura: Pick<RosterEntry, 'id' | 'rarity' | 'name'>, squad: number[] = [],
+  byId?: Map<number, Pick<RosterEntry, 'id' | 'name'>>): string | null {
   if (!save.owned[String(carrier.id)] || !save.owned[String(aura.id)]) return 'Solo puedes usar futbolistas de tu colección.';
   if (carrier.id === aura.id) return 'Un futbolista no puede ser su propia Aura.';
   if (!canBeAura(save, aura)) return 'Solo los Legendarios, Míticos y Leyendas pueden ser Aura.';
   if (save.auras?.[String(aura.id)] !== undefined) return `${aura.name} ya lleva un Aura: las Auras no se encadenan.`;
   if (carrierOf(save, carrier.id) !== null) return 'Este futbolista ya es el Aura de otro: no puede llevar una.';
   if (squad.includes(aura.id) && squad[0] === aura.id) return `${aura.name} es tu capitán: elige otro capitán antes.`;
+  if (byId) { // 1.8: no two of the same character, as Auras either
+    const others = [...squad.filter((x) => x !== aura.id), ...Object.entries(save.auras ?? {}).filter(([c, a]) => Number(c) !== carrier.id && a !== aura.id).map(([, a]) => a)];
+    const clash = clashWith(aura, [carrier.id, ...others].map((x) => byId.get(x)).filter((x): x is Pick<RosterEntry, 'id' | 'name'> => !!x));
+    if (clash) return `${aura.name} es el mismo personaje que ${clash.name}: no pueden estar los dos en tu equipo.`;
+  }
   return null;
 }
 
@@ -64,8 +72,8 @@ export function auraProblem(save: SaveData, carrier: Pick<RosterEntry, 'id'>, au
  * Equips an Aura. An Aura that was on another carrier moves (one copy, one place); one that was in the squad leaves it.
  * Returns the problem instead when it isn't allowed.
  */
-export function equipAura(save: SaveData, carrier: Pick<RosterEntry, 'id'>, aura: Pick<RosterEntry, 'id' | 'rarity' | 'name'>): { ok: true; movedFrom: number | null; leftSquad: boolean } | { ok: false; why: string } {
-  const why = auraProblem(save, carrier, aura, [save.captainId ?? -1, ...save.squad]);
+export function equipAura(save: SaveData, carrier: Pick<RosterEntry, 'id'>, aura: Pick<RosterEntry, 'id' | 'rarity' | 'name'>, byId?: Map<number, Pick<RosterEntry, 'id' | 'name'>>): { ok: true; movedFrom: number | null; leftSquad: boolean } | { ok: false; why: string } {
+  const why = auraProblem(save, carrier, aura, [save.captainId ?? -1, ...save.squad], byId);
   if (why) return { ok: false, why };
   const auras = { ...(save.auras ?? {}) };
   const movedFrom = carrierOf(save, aura.id);
@@ -147,7 +155,7 @@ export function auraBonus(save: SaveData, carrierId: number, aura: Entry): AuraB
 export function withAura(base: Record<StatKey, number>, b: AuraBonus | null): Record<StatKey, number> {
   if (!b) return base;
   const out = { ...base };
-  for (const k of b.keys) out[k] = Math.min(EFFECTIVE_STAT_MAX, base[k] + (b.add[k] ?? 0));
+  for (const k of b.keys) out[k] = Math.min(Math.max(EFFECTIVE_STAT_MAX, base[k]), base[k] + (b.add[k] ?? 0)); // 1.8: a Campeón may already be above 120
   return out;
 }
 

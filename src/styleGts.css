@@ -76,3 +76,10 @@
 @keyframes gtsArrive { from { transform: translate(-50%, -40px) scale(.2); opacity: 0; filter: brightness(4); } to { transform: translate(-50%, 0) scale(1); opacity: 1; filter: none; } }
 @media (prefers-reduced-motion: reduce) { .gts-anim * { animation-duration: .01ms !important; animation-delay: 0s !important; } .gts-globe { animation: none; } }
 @media (max-width: 560px) { .gts-stage { width: 200px; height: 240px; } .gts-slots, .gts-list { grid-template-columns: 1fr 1fr; } }
+/* 1.8: Campeón badge (a Leyenda's ascension): crimson and gold */
+.rar.heroe.campeon { background: linear-gradient(90deg, #ffe08a, #ff5a3a, #b0103a, #ff5a3a, #ffe08a); color: #fff; text-shadow: 1px 1px 0 #4a0010; }
+/* 1.8: combined technique unlocked — 64 px portraits scaled up on the GPU (no resampling of the mugshot sheet), no animated glow */
+.cu-mugs { gap: 34px; padding: 18px 16px; }
+.cu-mugs span { display: inline-block; scale: 1.5; will-change: transform; }
+.cu-mugs .mug { box-shadow: none !important; outline: 2px solid #ffd23f; outline-offset: 1px; }
+.combo-unlock { will-change: transform, opacity; }

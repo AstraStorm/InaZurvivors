@@ -14,20 +14,28 @@ import type { Rarity, RosterEntry } from '../data/manifest';
 import { RARITY_ORDER } from '../data/manifest';
 import type { SaveData } from './save';
 
-export type AscStep = 'ascenso' | 'heroe' | 'estrella';
+export type AscStep = 'ascenso' | 'heroe' | 'estrella' | 'campeon';
 /** Mítico and Leyenda have no `ascenso`: their first step is the HÉROE (Fix 1.31). `estrella` = each of the 3 hero stars. */
-export const ASC_COSTS: Record<Rarity, Record<AscStep, number>> = {
+export const ASC_COSTS: Record<Rarity, Record<'ascenso' | 'heroe' | 'estrella', number>> = {
   // Fix 1.31 (author's request): a few copies for the low rarities, fewer for the high ones (were 12+20 ... 1+3)
   // Fix 1.53 (author): HÉROE costs twice as much for footballers born Común, Raro or Épico (were 10 / 8 / 6)
   comun: { ascenso: 6, heroe: 20, estrella: 10 }, raro: { ascenso: 5, heroe: 16, estrella: 8 }, epico: { ascenso: 4, heroe: 12, estrella: 6 },
   legendario: { ascenso: 2, heroe: 4, estrella: 4 }, mitico: { ascenso: 0, heroe: 2, estrella: 3 }, leyenda: { ascenso: 0, heroe: 1, estrella: 2 },
 };
 export const HERO_STARS_MAX = 3;
+/**
+ * 1.8 (author): a Leyenda doesn't become HÉROE: he climbs to Campeón, Campeón+ and Campeón++ (training.ts: +10 to his stat
+ * limit, +4 to his stats and +5 training points per level). Duplicates per level:
+ */
+export const CHAMPION_COSTS = [1, 2, 3];
+export const CHAMPION_MAX = 3;
+export const CHAMPION_LABEL = ['', 'CAMPEÓN', 'CAMPEÓN+', 'CAMPEÓN++'];
+export const championOf = (save: SaveData, id: number) => Math.max(0, Math.min(CHAMPION_MAX, save.owned[String(id)]?.champion ?? 0));
 /** rarities whose ascension is the HÉROE itself */
 export const isTopRarity = (r: Rarity) => r === 'mitico' || r === 'leyenda';
 
 /** Run bonuses per stage (InaZurvivors balance values); `estrella` applies once per hero star. */
-export const ASC_BONUS = { ascenso: { damage: 1.12, hp: 1.08 }, heroe: { damage: 1.18, hp: 1.12 }, estrella: { damage: 1.05, hp: 1.03 } } as const;
+export const ASC_BONUS = { ascenso: { damage: 1.12, hp: 1.08 }, heroe: { damage: 1.18, hp: 1.12 }, estrella: { damage: 1.05, hp: 1.03 }, campeon: { damage: 1.12, hp: 1.08 } } as const;
 /** Original InaZurvivors passive of a HÉROE on the pitch (not an official technique). */
 export const HERO_AURA = { label: 'Espíritu de héroe', teamDamage: 0.06, description: '+6% de daño a todo el equipo mientras el héroe está en el campo (máximo 2 héroes).' };
 
@@ -56,6 +64,8 @@ export const isHero = (save: SaveData, id: number) => !!save.owned[String(id)]?.
 export function nextStep(save: SaveData, p: Pick<RosterEntry, 'id' | 'rarity'>): { step: AscStep; cost: number } | null {
   const o = save.owned[String(p.id)];
   if (!o) return null;
+  // 1.8: a Leyenda climbs Campeón, Campeón+ and Campeón++ instead of HÉROE
+  if (p.rarity === 'leyenda') { const c = championOf(save, p.id); return c < CHAMPION_MAX ? { step: 'campeon', cost: CHAMPION_COSTS[c] } : null; }
   const cost = ASC_COSTS[p.rarity] ?? ASC_COSTS.legendario;
   // Fix 1.31: after HÉROE come the hero stars (3 at most)
   if (o.hero) return (o.heroStars ?? 0) < HERO_STARS_MAX ? { step: 'estrella', cost: cost.estrella } : null;
@@ -75,6 +85,7 @@ export function ascend(save: SaveData, p: Pick<RosterEntry, 'id' | 'rarity'>): A
   o.spent = (o.spent ?? 0) + next.cost;
   if (next.step === 'ascenso') { const cur = effectiveRarity(save, p); o.ascMitico = true; o.ascRarity = rarityUp(cur); }
   else if (next.step === 'heroe') o.hero = true;
+  else if (next.step === 'campeon') o.champion = championOf(save, p.id) + 1;
   else o.heroStars = Math.min(HERO_STARS_MAX, (o.heroStars ?? 0) + 1);
   return next.step;
 }
@@ -87,6 +98,8 @@ export function ascMultipliers(save: SaveData, p: Pick<RosterEntry, 'id' | 'rari
   if (o?.hero) { damage *= ASC_BONUS.heroe.damage; hp *= ASC_BONUS.heroe.hp; }
   const hs = o?.hero ? Math.min(HERO_STARS_MAX, o.heroStars ?? 0) : 0;
   damage *= ASC_BONUS.estrella.damage ** hs; hp *= ASC_BONUS.estrella.hp ** hs;
+  const ch = championOf(save, p.id); // 1.8
+  damage *= ASC_BONUS.campeon.damage ** ch; hp *= ASC_BONUS.campeon.hp ** ch;
   return { damage, hp };
 }
 
@@ -95,6 +108,23 @@ export function ascMultipliers(save: SaveData, p: Pick<RosterEntry, 'id' | 'rari
  * become HÉROE with the duplicates they already spent; those that were HÉROE too turn that second payment into their
  * first hero star. Nothing is lost: the spent copies stay spent, and the bonus is at least what they had.
  */
+/**
+ * 1.8, once per save: a Leyenda who was already HÉROE becomes Campeón, and his hero stars turn into the next levels
+ * (1 star: Campeón+, 2 or 3: Campeón++). The duplicates spent stay spent.
+ */
+export function migrateChampions18(save: SaveData, roster: Pick<RosterEntry, 'id' | 'rarity'>[]): boolean {
+  if (save.champions18) return false;
+  for (const p of roster) {
+    if (p.rarity !== 'leyenda') continue;
+    const o = save.owned[String(p.id)];
+    if (!o?.hero) continue;
+    o.champion = Math.max(o.champion ?? 0, Math.min(CHAMPION_MAX, 1 + Math.min(2, o.heroStars ?? 0)));
+    delete o.hero; delete o.heroStars;
+  }
+  save.champions18 = true;
+  return true; // the flag itself has to be saved even when nothing changed
+}
+
 /** Desmodus Drakul (Raro until Fix 1.52, now Legendario) */
 export const DRAKUL_ID = 101437;
 export const DRAKUL_COPIES = 3;
