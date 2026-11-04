@@ -43,6 +43,7 @@ export const PUBLIC_RELEASES: PublicRelease[] = [
       { icon: '♛', title: 'Campeón', text: 'Los Leyenda ya no se hacen HÉROE: suben a Campeón, Campeón+ y Campeón++ (1, 2 y 3 duplicados). Cada nivel sube 10 el límite de sus estadísticas (de 99 a 109, 119 y 129), mejora sus estadísticas y le da 5 puntos más de entrenamiento. Los Leyenda que ya eran HÉROE pasan a Campeón, y sus estrellas, a los niveles siguientes.' },
       { icon: '👥', title: 'Un solo jugador de cada', text: 'No puede haber dos veces el mismo personaje en tu equipo ni como Aura: ni dos Axel (Axel y Axel Encapuchado), ni dos Mark, ni una versión Oscuro junto a la normal, ni una fusión Miximax con uno de sus dos jugadores.' },
       { icon: '⚡', title: 'Sin tirones con las combinadas', text: 'El juego ya no se traba al conseguir una técnica combinada.' },
+      { icon: '❄', title: 'Aiden en el Alpino', text: 'Aiden Froste juega ahora en el Alpino, con su hermano Shawn: sale en la máquina de la Invasión Alius y en el banner de equipo del Alpino.' },
     ],
     start: [],
   },

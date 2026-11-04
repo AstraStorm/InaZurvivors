@@ -26,6 +26,7 @@ export const CHANGELOG: Release[] = [
     visuals: [],
     balance: [
       'Campeón (ascension.ts): un Leyenda sube a Campeón, Campeón+ y Campeón++ (1, 2 y 3 duplicados) en vez de HÉROE; por nivel +10 al límite de estadísticas (statCapOf, 99 → 129), +4 a las estadísticas, +5 de entrenamiento (trainMaxOf) y +12% daño / +8% vida. migrateChampions18 convierte a los Leyenda HÉROE (estrellas → niveles). Mantiene el Espíritu de héroe en partida.',
+      'Aiden Froste (100797) juega en Alpino (techFixes.ts TEAM_ADD, primero en su lista): máquina de la Invasión Alius y banner de equipo del Alpino; antes solo salía en la de Ares.',
       'Un personaje solo una vez (systems/identity.ts): versiones (Oscuro, Encapuchado), alias (Xene, Kira Hiroto, Endou Mamoru) y fusiones Miximax cuentan como el mismo; Mi Equipo, Autocompletar y las Auras lo impiden, y squadOf descarta repetidos de guardados antiguos.',
     ],
   },

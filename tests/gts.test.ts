@@ -47,3 +47,15 @@ describe('GTS (1.8)', () => {
     expect(back.gts).toEqual({ applied: ['d:7'] });
   });
 });
+
+import { applyTechFixes } from '../src/data/techFixes';
+import { machineOf } from '../src/systems/banners';
+describe('1.8: Aiden Froste plays for Alpino', () => {
+  it('joins the team first, so the Alpino team banner and its saga machine offer him', () => {
+    const aiden = { id: 100797, name: 'Aiden Froste', teams: ['Baseball_All_Stars', 'Punks'], era: 'vr', techniques: [] } as never as import('../src/data/manifest').RosterEntry;
+    const shawn = { id: 1513, name: 'Shawn Froste', teams: ['Alpino', 'Raimon'], era: 'original', techniques: [] } as never as import('../src/data/manifest').RosterEntry;
+    applyTechFixes({ roster: [aiden, shawn] } as never);
+    expect(aiden.teams[0]).toBe('Alpino');
+    expect(machineOf(aiden)).toBe(machineOf({ ...shawn, teams: ['Alpino'] }));
+  });
+});
