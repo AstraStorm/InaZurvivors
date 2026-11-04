@@ -9,6 +9,9 @@
  *   Ruptura relámpago (Inazuma Break, GToseb81arc) — a magenta flash, then a huge golden bolt outlined in purple strikes the
  *     ball; it flies as that bolt and bursts in golden and purple branches with a ring of dust.
  *   Súper relámpago (ZnmZGFITVtw) — yellow bolts burst up from the ball when it is kicked; it flies crackling in zigzags.
+ *   Zero Magnum (IVyOcM1cvWI, combined: Bailong and Tezcat) — spirals of white light rise round each of them in a purple
+ *     night; they kick together and the ball becomes a white and blue whirl with golden rays and a purple ring, then flies
+ *     as a white and blue beam.
  *   Ataque Omega (TssCtlpb8sM) — the three of Protocol Omega come in, each in a triangle of red, blue and green; a white
  *     crystal breaks, the ball arcs high in a streak of fire and lands in a burst of rainbow rays.
  */
@@ -272,7 +275,7 @@ export function rupturaShot(scene: S, ball: Img, lv: number) {
 
 // ------------------------------------------------------------------ Súper relámpago
 const SR_Y = 0xffe83a, SR_Y2 = 0xfff8b0, SR_EDGE = 0xd89a10;
-function superrayoCharge(scene: S, x: number, y: number, lv: number, ms: number) {
+export function superrayoCharge(scene: S, x: number, y: number, lv: number, ms: number) {
   play(scene, x, y - 14, AIR + 1, ms + 120, (g, k, t) => {
     if (k < 0.55) { g.fillStyle(SR_Y, 0.25 * k).fillCircle(0, 0, 10 + k * 10); return; }
     const seed = Math.floor(t * 14), n = 3 + Math.floor(lv / 3), a = k > 0.92 ? (1 - k) * 12 : 1;
@@ -280,7 +283,7 @@ function superrayoCharge(scene: S, x: number, y: number, lv: number, ms: number)
     g.fillStyle(SR_Y2, 0.8 * a).fillCircle(0, 0, 9);
   });
 }
-function superrayoShot(scene: S, ball: Img, lv: number) {
+export function superrayoShot(scene: S, ball: Img, lv: number) {
   ride(scene, ball, (g, bx, by, ang, t) => {
     const seed = Math.floor(t * 20);
     g.fillStyle(SR_Y, 0.3).fillCircle(bx, by, 14 + lv * 0.5);
@@ -358,4 +361,54 @@ export function movieShot(scene: S, m: MovieMove, ball: Img, lv: number) {
   else if (m === 'ruptura') rupturaShot(scene, ball, lv);
   else if (m === 'superrayo') superrayoShot(scene, ball, lv);
   else omegaShot(scene, ball, lv);
+}
+
+// ------------------------------------------------------------------ Zero Magnum (combined)
+const ZM_WHITE = 0xf4fbff, ZM_BLUE = 0x7fd8ff, ZM_GOLD = 0xffd84a, ZM_PURPLE = 0x7a2ad8, ZM_NIGHT = 0x14103a;
+/** `who` are where Bailong and Tezcat stand; `x, y` where they meet and kick. */
+export function zeroCharge(scene: S, who: { x: number; y: number }[], x: number, y: number, lv: number, ms: number) {
+  const size = 30 + lv * 2;
+  play(scene, x, y, AIR - 2, ms, (g, k) => { // the purple night round them
+    const a = Math.min(1, k * 3);
+    for (let i = 0; i < 4; i++) g.fillStyle(i % 2 ? ZM_PURPLE : ZM_NIGHT, (i % 2 ? 0.12 : 0.22) * a).fillEllipse(0, 0, size * (4.6 - i * 0.9), size * (2.6 - i * 0.5));
+  });
+  for (const p of who) play(scene, p.x, p.y, AIR + 1, ms * 0.75, (g, k, t) => { // spirals of white light rising round each one
+    const a = Math.min(1, k * 4) * (1 - Math.max(0, k - 0.8) * 5);
+    for (let i = 0; i < 5; i++) {
+      const h = -6 - i * 8 - k * 10, w = 12 + i * 2.5, ph = t * 9 + i;
+      g.lineStyle(3, ZM_WHITE, 0.85 * a).beginPath().arc(0, h, w, ph, ph + 2.6).strokePath();
+      g.lineStyle(1.5, ZM_BLUE, 0.7 * a).beginPath().arc(0, h, w + 2, ph + 0.3, ph + 2.2).strokePath();
+    }
+  }, true);
+  play(scene, x, y - 12, AIR + 2, ms, (g, k, t) => { // the whirl at the kick: white-blue core, golden rays, purple ring
+    if (k < 0.55) return;
+    const s2 = (k - 0.55) / 0.45, r = size * (0.3 + s2 * 0.45);
+    for (let i = 0; i < 6; i++) { const an = i * 1.047 + t; g.lineStyle(4, ZM_GOLD, 0.75 * s2).lineBetween(Math.cos(an) * r, Math.sin(an) * r * 0.7, Math.cos(an) * r * 2.4, Math.sin(an) * r * 1.7); }
+    g.lineStyle(5, ZM_PURPLE, 0.8 * s2).strokeCircle(0, 0, r * 1.25);
+    g.fillStyle(ZM_BLUE, 0.6).fillCircle(0, 0, r);
+    g.fillStyle(ZM_WHITE, 0.9).fillCircle(0, 0, r * 0.6);
+    for (let i = 0; i < 2; i++) g.lineStyle(2, ZM_BLUE, 0.9).beginPath().arc(0, 0, r * (0.3 + i * 0.22), t * 8 + i * 3, t * 8 + i * 3 + 3.6).strokePath();
+  }, true);
+}
+export function zeroShot(scene: S, ball: Img, lv: number) {
+  const r = 10 + lv * 0.6;
+  ride(scene, ball, (g, bx, by, ang, t) => { // a white and blue beam behind the ball
+    const len = 70 + lv * 4, c = Math.cos(ang), sn = Math.sin(ang), nx = -sn, ny = c;
+    for (const [w, col, a] of [[r * 2.2, ZM_BLUE, 0.35], [r * 1.3, ZM_WHITE, 0.7]] as const) {
+      const pts = [[bx + nx * w * 0.5, by + ny * w * 0.5], [bx - c * len + nx * w * 0.15, by - sn * len + ny * w * 0.15], [bx - c * len - nx * w * 0.15, by - sn * len - ny * w * 0.15], [bx - nx * w * 0.5, by - ny * w * 0.5]].map(([px, py]) => new Phaser.Math.Vector2(px, py));
+      g.fillStyle(col, a).fillPoints(pts, true);
+    }
+    g.lineStyle(3, ZM_PURPLE, 0.8).strokeCircle(bx, by, r * 1.3);
+    g.fillStyle(ZM_WHITE, 0.9).fillCircle(bx, by, r);
+    g.lineStyle(2, ZM_BLUE, 1).beginPath().arc(bx, by, r * 0.6, t * 12, t * 12 + 3.6).strokePath();
+  }, (x, y) => {
+    play(scene, x, y, AIR + 2, 420, (g, k) => {
+      const a = 1 - k;
+      g.fillStyle(ZM_BLUE, 0.5 * a).fillCircle(0, 0, 18 + k * 60);
+      g.fillStyle(ZM_WHITE, 0.9 * a).fillCircle(0, 0, 10 + k * 26);
+      g.lineStyle(4, ZM_PURPLE, a).strokeCircle(0, 0, 24 + k * 70);
+      for (let i = 0; i < 8; i++) { const an = i * 0.785; g.lineStyle(3, ZM_GOLD, a).lineBetween(Math.cos(an) * (16 + k * 20), Math.sin(an) * (16 + k * 20), Math.cos(an) * (30 + k * 70), Math.sin(an) * (30 + k * 70)); }
+    }, true);
+    sparks(scene, x, y, 12, 50, [ZM_WHITE, ZM_BLUE, ZM_GOLD, ZM_PURPLE]);
+  });
 }

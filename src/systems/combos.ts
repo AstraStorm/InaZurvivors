@@ -25,7 +25,7 @@ export interface ComboDef {
   needs: { player: string; tech?: string; level: number }[];
   cooldownMs: number;
   /** what the special slot does when it fires (each one has its own animation in the scene) */
-  effect: 'tiro-doble' | 'tiro-dragon' | 'tiro-rayo' | 'fenix' | 'tierra' | 'caos' | 'ventisca' | 'tierra-inf' | 'aurora' | 'bigbang' | 'fuego-total';
+  effect: 'tiro-doble' | 'tiro-dragon' | 'tiro-rayo' | 'fenix' | 'tierra' | 'caos' | 'ventisca' | 'tierra-inf' | 'aurora' | 'bigbang' | 'fuego-total' | 'zero' | 'superrayo';
   /** Fix 1.12: when several are learnable at once, the higher one is offered first */
   priority: number;
   source: string;
@@ -104,6 +104,27 @@ export const COMBOS: ComboDef[] = [
     cooldownMs: 7000, effect: 'aurora', priority: 8,
     source: 'ROM IE3 (tabla de técnicas): «The Birth» (ザ・バース), tiro, poder 110, sin elemento propio; nombre español «La Aurora» en inazumo.es. Tiro combinado de Hiroto (Xavier) y Fubuki (Shawn), añadido a petición del autor. Condición de niveles: diseño de InaZurvivors.',
   },
+  // 1.76 (author): La Aurora can also be done by Byron and Tezcat
+  {
+    id: 'la-aurora-byron', name: 'La Aurora', jp: 'ザ・バース', en: 'The Birth', element: 'Neutro', power: 110,
+    needs: [{ player: 'Byron Love', level: 3 }, { player: 'Tezcat', level: 5 }],
+    cooldownMs: 7000, effect: 'aurora', priority: 8,
+    source: 'ROM IE3 (tabla de técnicas): «The Birth» (ザ・バース), como la de Xavier y Shawn; con Byron y Tezcat, indicados por el autor. Condición de niveles: regla del Fix 1.51.',
+  },
+  // 1.76 (author): Bailong and Tezcat, from the GO movie scene the author linked (youtube IVyOcM1cvWI)
+  {
+    id: 'zero-magnum', name: 'Zero Magnum', jp: 'ゼロマグナム', en: 'Zero Magnum', element: 'Neutro', power: 140,
+    needs: [{ player: 'Bai Long', level: 3 }, { player: 'Tezcat', level: 5 }],
+    cooldownMs: 9000, effect: 'zero', priority: 9,
+    source: 'Wiki de Inazuma Eleven (fandom), «Zero Magnum», y la película de Inazuma Eleven GO (escena enlazada por el autor): Hakuryuu (Bailong) y Shuu (Tezcat). Nombre en data/extracted/es_tech_names.json; elemento Neutro: categoría «Void hissatsu» de la wiki. Potencia y condición de niveles (regla del Fix 1.51): diseño de InaZurvivors.',
+  },
+  // 1.76 (author): Súper relámpago is Mark and Axel's shot
+  {
+    id: 'super-relampago', name: 'Súper relámpago', jp: 'イナズマ1号', en: 'Inazuma 1', element: 'Aire', power: 95,
+    needs: [{ player: 'Mark Evans', level: 3 }, { player: 'Axel Blaze', level: 5 }],
+    cooldownMs: 6000, effect: 'superrayo', priority: 6,
+    source: 'Wiki de Inazuma Eleven (fandom), «Inazuma 1»; escena enlazada por el autor (youtube ZnmZGFITVtw): Endou (Mark) y Gouenji (Axel) chutan juntos. Potencia: la del Súper relámpago del plantel (79) subida como combinada; condición de niveles: regla del Fix 1.51.',
+  },
   // (author) Fuego total: the hooded Axel (data/special_players.json) also does it alone, as his own technique
   {
     id: 'fuego-total', name: 'Fuego total', jp: 'グランドファイア', en: 'Grand Fire', element: 'Fuego', power: 105,
@@ -128,6 +149,9 @@ export const COUNTERPARTS: Record<string, string[]> = {
   'Xavier Foster': ['Xene', 'Kira Hiroto', 'Jordan + Xavier'],
   // special footballer (data/special_players.json): Axel in his Okinawa hoodie
   'Axel Blaze': ['Axel Blaze Encapuchado'],
+  // 1.76: their Miximax fusions also count for Zero Magnum and La Aurora
+  'Bai Long': ['Bailong + Zhuge', 'Bailong + Victor', 'Tezcat + Bailong'],
+  'Tezcat': ['Arion + Tezcat', 'Tezcat + Bailong'],
 };
 /** True when a roster name can play the part of a participant (himself or one of his counterparts). */
 export const playsAs = (name: string | undefined, player: string) => !!name && (name === player || !!COUNTERPARTS[player]?.includes(name));

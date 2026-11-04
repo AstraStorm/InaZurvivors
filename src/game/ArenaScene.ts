@@ -34,7 +34,7 @@ import { dragon, handKind, keeperHand } from './fxTech';
 import { orphans } from '../systems/groundSweep';
 import { chaosMeteorCharge, chaosMeteorShot, fireStormCharge, fireStormShot, elementBurst, phoenix, phoenixFlight, setLowPower, teamBeams } from './fxManif';
 import { crossfireCharge, crossfireShot } from './fxCross';
-import { movieCharge, movieOf, movieShot, rupturaCharge, rupturaShot } from './fxMovie';
+import { movieCharge, movieOf, movieShot, rupturaCharge, rupturaShot, superrayoCharge, superrayoShot, zeroCharge, zeroShot } from './fxMovie';
 import { blackAshCharge, blackAshTrail, illusionBall, signatureOf, stormZone } from './fxSignature';
 import { natureArea, natureCharge, natureOf, natureShot, setNatureLowPower } from './fxNature';
 import { animeCharge, animeOf, animeShot, auroraVeil, cometTex, earthBurst, earthCharge, furyFist, breezeStep, chaosBreakCharge, chaosBreakShot, fireBlizzardCharge, fireBlizzardShot, godWindGust } from './fxAnime';
@@ -1067,7 +1067,7 @@ export class ArenaScene extends Phaser.Scene {
     const style = fxStyle(t);
     const [c1, c2] = STYLE_COLORS[style];
     // Fix 1.12: the participants send their power to the meeting point and each combination has its own manifestation
-    const wind = def.effect === 'tierra' || def.effect === 'tierra-inf' || def.effect === 'bigbang' || def.effect === 'fuego-total' ? 900 : def.effect === 'caos' || def.effect === 'fenix' || def.effect === 'aurora' || def.effect === 'tiro-doble' ? 700 : def.effect === 'tiro-rayo' ? 600 : 360;
+    const wind = def.effect === 'tierra' || def.effect === 'tierra-inf' || def.effect === 'bigbang' || def.effect === 'fuego-total' ? 900 : def.effect === 'caos' || def.effect === 'fenix' || def.effect === 'aurora' || def.effect === 'tiro-doble' || def.effect === 'zero' ? 700 : def.effect === 'tiro-rayo' || def.effect === 'superrayo' ? 600 : 360;
     // v1.5: a participant carried as Aura appears beside its carrier for the technique only, then fades away
     const ghosts: { x: number; y: number }[] = [];
     for (const c of comboCast(def, who)) {
@@ -1102,6 +1102,8 @@ export class ArenaScene extends Phaser.Scene {
     else if (def.effect === 'caos') chaosBreakCharge(this, mx, my, 34 + level * 2, wind); // v1.5: its own chaos vortex
     else if (def.effect === 'ventisca') fireBlizzardCharge(this, mx, my, 30 + level * 2, wind); // v1.5: half fire, half ice
     else if (def.effect === 'tiro-rayo') rupturaCharge(this, mx, my, 4 + level, wind); // 1.76: Ruptura relámpago as in the anime (fxMovie.ts)
+    else if (def.effect === 'zero') zeroCharge(this, who.map((m) => ({ x: m.f.x, y: m.f.y })), mx, my, 4 + level, wind); // 1.76: Zero Magnum (Bailong, Tezcat)
+    else if (def.effect === 'superrayo') superrayoCharge(this, mx, my, 4 + level, wind); // 1.76: Súper relámpago (Mark, Axel)
     else if (def.effect === 'tiro-doble') { // 1.76: Fuego cruzado as in the anime (fxCross.ts): Axel's sphere of fire, Shawn's of ice
       const fire = who.find((m) => m.entry.element === 'Fuego') ?? who[0], ice = who.find((m) => m !== fire) ?? fire;
       crossfireCharge(this, { x: fire.f.x, y: fire.f.y }, { x: ice.f.x, y: ice.f.y }, mx, my, 30 + level * 2, wind);
@@ -1148,6 +1150,8 @@ export class ArenaScene extends Phaser.Scene {
         const ball = this.add.image(mx, my, recipe.ballTexture).setScale(scale).setDepth(8901);
         if (cross) crossfireShot(this, ball, level);
         else if (def.effect === 'tiro-rayo') rupturaShot(this, ball, 4 + level);
+        else if (def.effect === 'zero') zeroShot(this, ball, 4 + level);
+        else if (def.effect === 'superrayo') superrayoShot(this, ball, 4 + level);
         else if (def.effect === 'ventisca') fireBlizzardShot(this, ball, level, off > 0 ? 'ice' : 'fire'); // v1.5
         // Remate caótico is one ball in the scene: the second one keeps its damage but is not drawn
         else if (def.effect === 'bigbang') animeShot(this, 'bigbang', ball, 4 + level); // Fix 1.51: immense ball and explosion

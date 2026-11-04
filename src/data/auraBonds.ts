@@ -30,10 +30,15 @@ export const BOND_KIND_LABEL: Record<BondKind, string> = {
 export const BOND_PCT = 0.2;
 
 export const AURA_BONDS: AuraBond[] = [
+  // 1.76 (author): combined techniques added on request
+  { a: 100944, aName: 'Bai Long', b: 100303, bName: 'Tezcat', kind: 'tecnica', reason: 'Rivales y amigos en la película de GO: juntos lanzan Zero Magnum.', combos: ['zero-magnum'],
+    source: 'Wiki de Inazuma Eleven (fandom), «Zero Magnum»; película Inazuma Eleven GO.' },
+  { a: 157, aName: 'Byron Love', b: 100303, bName: 'Tezcat', kind: 'tecnica', reason: 'Juntos lanzan La Aurora (indicado por el autor).', combos: ['la-aurora-byron'],
+    source: 'ROM IE3 (tabla de técnicas), «The Birth»; pareja indicada por el autor.' },
   // Raimon / Inazuma Japón (IE1-IE3)
   { a: 10, aName: 'Axel Blaze', b: 1513, bName: 'Shawn Froste', kind: 'tecnica', reason: 'Fuego y hielo: crean juntos Fuego cruzado y forman parte de La Tierra.', combos: ['fuego-cruzado', 'la-tierra'],
     source: 'Wiki de Inazuma Eleven (fandom), «Crossfire» y «The Earth»; anime Inazuma Eleven.' },
-  { a: 10, aName: 'Axel Blaze', b: 1, bName: 'Mark Evans', kind: 'companeros', reason: 'El delantero estrella y el capitán de Raimon: Ruptura relámpago y La Tierra.', combos: ['ruptura-relampago', 'la-tierra'],
+  { a: 10, aName: 'Axel Blaze', b: 1, bName: 'Mark Evans', kind: 'companeros', reason: 'El delantero estrella y el capitán de Raimon: Súper relámpago, Ruptura relámpago y La Tierra.', combos: ['super-relampago', 'ruptura-relampago', 'la-tierra'],
     source: 'Wiki de Inazuma Eleven (fandom), «Inazuma Break» y «The Earth».' },
   { a: 10, aName: 'Axel Blaze', b: 11, bName: 'Kevin Dragonfly', kind: 'tecnica', reason: 'Kevin pasa su Remate dragón al Tornado de fuego de Axel: Tornado dragón.', combos: ['tornado-dragon'],
     source: 'Wiki de Inazuma Eleven (fandom), «Dragon Tornado».' },
