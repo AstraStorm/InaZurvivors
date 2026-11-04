@@ -24,7 +24,9 @@ export const CHANGELOG: Release[] = [
       'Las resonancias del HUD tapaban las bajas: ahora se colocan siempre debajo del panel del capitán.',
       'Axel Encapuchado parpadeaba al correr (menús y partida): su hoja de la ROM guarda la carrera en las celdas 40-49; tools/fullBodyRun.ts la copia a las 20-39 que lee el rig (paso «especiales» de sync-assets).',
     ],
-    visuals: ['Las cartas de mejora de técnica combinada muestran qué ganan (daño, recarga, atraviesa, explosión, cometas).'],
+    visuals: [
+      'Fuego cruzado redibujado desde el anime (youtube RQPV63KFMC8, fotograma a fotograma; src/game/fxCross.ts): esferas de fuego (Axel) y hielo (Shawn), cielo estrellado con cintas de hielo en espiral, X de fuego y hielo al chutar y al impactar; un solo balón con las dos cintas trenzadas y el daño de los dos (×2), explosión ×1,25. Sustituye a fireIceTwin.',
+      'Las cartas de mejora de técnica combinada muestran qué ganan (daño, recarga, atraviesa, explosión, cometas).'],
     balance: [
       'Leyendas: sin el tope de 95 por estadística y banda centrada en 98 (training.ts): medias 94-95 (antes 90-91, casi como un Mítico). Axel Encapuchado 95.',
       'Porteros Leyenda: sus paradas hacen ×2,4 de daño y curan ×1,5, y los escudos de todas sus paradas se suman (máx. 60%); los demás porteros solo cuentan la mejor.',

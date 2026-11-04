@@ -32,7 +32,8 @@ import { teamLabel as kitTeamLabel } from '../data/sagas';
 import { HERO_AURA } from '../systems/ascension';
 import { dragon, handKind, keeperHand } from './fxTech';
 import { orphans } from '../systems/groundSweep';
-import { chaosMeteorCharge, chaosMeteorShot, fireStormCharge, fireStormShot, elementBurst, fireIceTwin, phoenix, phoenixFlight, setLowPower, teamBeams } from './fxManif';
+import { chaosMeteorCharge, chaosMeteorShot, fireStormCharge, fireStormShot, elementBurst, phoenix, phoenixFlight, setLowPower, teamBeams } from './fxManif';
+import { crossfireCharge, crossfireShot } from './fxCross';
 import { blackAshCharge, blackAshTrail, illusionBall, signatureOf, stormZone } from './fxSignature';
 import { natureArea, natureCharge, natureOf, natureShot, setNatureLowPower } from './fxNature';
 import { animeCharge, animeOf, animeShot, auroraVeil, cometTex, earthBurst, earthCharge, furyFist, breezeStep, chaosBreakCharge, chaosBreakShot, fireBlizzardCharge, fireBlizzardShot, godWindGust } from './fxAnime';
@@ -1063,7 +1064,7 @@ export class ArenaScene extends Phaser.Scene {
     const style = fxStyle(t);
     const [c1, c2] = STYLE_COLORS[style];
     // Fix 1.12: the participants send their power to the meeting point and each combination has its own manifestation
-    const wind = def.effect === 'tierra' || def.effect === 'tierra-inf' || def.effect === 'bigbang' || def.effect === 'fuego-total' ? 900 : def.effect === 'caos' || def.effect === 'fenix' || def.effect === 'aurora' ? 700 : 360;
+    const wind = def.effect === 'tierra' || def.effect === 'tierra-inf' || def.effect === 'bigbang' || def.effect === 'fuego-total' ? 900 : def.effect === 'caos' || def.effect === 'fenix' || def.effect === 'aurora' || def.effect === 'tiro-doble' ? 700 : 360;
     // v1.5: a participant carried as Aura appears beside its carrier for the technique only, then fades away
     const ghosts: { x: number; y: number }[] = [];
     for (const c of comboCast(def, who)) {
@@ -1097,7 +1098,10 @@ export class ArenaScene extends Phaser.Scene {
     if (def.effect === 'tierra' || def.effect === 'tierra-inf') earthCharge(this, mx, my - 40, 24 + level * 2, wind, def.effect === 'tierra-inf'); // Fix 1.53: the aura grows, the Earth appears
     else if (def.effect === 'caos') chaosBreakCharge(this, mx, my, 34 + level * 2, wind); // v1.5: its own chaos vortex
     else if (def.effect === 'ventisca') fireBlizzardCharge(this, mx, my, 30 + level * 2, wind); // v1.5: half fire, half ice
-    else if (def.effect === 'tiro-doble') fireIceTwin(this, mx, my, 30 + level * 2, wind);
+    else if (def.effect === 'tiro-doble') { // 1.76: Fuego cruzado as in the anime (fxCross.ts): Axel's sphere of fire, Shawn's of ice
+      const fire = who.find((m) => m.entry.element === 'Fuego') ?? who[0], ice = who.find((m) => m !== fire) ?? fire;
+      crossfireCharge(this, { x: fire.f.x, y: fire.f.y }, { x: ice.f.x, y: ice.f.y }, mx, my, 30 + level * 2, wind);
+    }
     else if (def.effect === 'fenix') phoenix(this, mx, my, 40 + level * 3, wind);
     else if (def.effect === 'aurora') auroraVeil(this, mx, my, 30 + level * 2, wind); // v1.5: La Aurora
     else if (def.effect === 'bigbang') animeCharge(this, 'bigbang', mx, my + 10, 4 + level, wind); // Fix 1.51: the atom and its sun
@@ -1109,7 +1113,9 @@ export class ArenaScene extends Phaser.Scene {
       if (this.ended) return;
       const a = Math.atan2(target.pos.y - 12 - my, target.pos.x - mx);
       const dmg = comboDamage(def, level, this.mods.damage * this.teamDamageBonus() * this.formationDamage() * this.cfg.perks.damageMult * this.cfg.perks.comboMult * FORMATIONS[this.formation].comboMult * this.formationTactic().combo);
-      const twin = def.effect === 'tiro-doble' || def.effect === 'ventisca' || def.effect === 'caos';
+      // 1.76: Fuego cruzado kicks ONE ball, as in the anime; it carries the damage the two balls had
+      const cross = def.effect === 'tiro-doble';
+      const twin = def.effect === 'ventisca' || def.effect === 'caos';
       const shots = twin ? [-0.12, 0.12] : [0];
       const flight = Math.min(900, Math.hypot(target.pos.x - mx, target.pos.y - my) / 260 * 1000);
       if (def.effect === 'fenix') phoenixFlight(this, mx, my, target.pos.x, target.pos.y - 10, 40 + level * 3, flight);
@@ -1136,14 +1142,15 @@ export class ArenaScene extends Phaser.Scene {
         const scale = 1.7 + level * 0.1;
         const aura = this.add.circle(mx, my, 8 * scale, color, 0.4).setDepth(8900).setBlendMode(Phaser.BlendModes.ADD);
         const ball = this.add.image(mx, my, recipe.ballTexture).setScale(scale).setDepth(8901);
-        if (def.effect === 'ventisca') fireBlizzardShot(this, ball, level, off > 0 ? 'ice' : 'fire'); // v1.5
+        if (cross) crossfireShot(this, ball, level);
+        else if (def.effect === 'ventisca') fireBlizzardShot(this, ball, level, off > 0 ? 'ice' : 'fire'); // v1.5
         // Remate caótico is one ball in the scene: the second one keeps its damage but is not drawn
         else if (def.effect === 'bigbang') animeShot(this, 'bigbang', ball, 4 + level); // Fix 1.51: immense ball and explosion
         else if (def.effect === 'caos') { if (off > 0) { ball.setVisible(false); aura.setVisible(false); } else chaosBreakShot(this, ball, level); }
         this.projectiles.push({ ball, aura, x: mx, y: my, vx: Math.cos(ang) * speed, vy: Math.sin(ang) * speed, t: 0,
           traj: twin ? 'espiral' : 'recta' as Trajectory, style: twin && off > 0 ? 'hielo' : style,
-          damage: dmg, pierce: 4 + level, life: 1700, hits: new Set(), knock: 120, level: 6 + level, explode: true, scale, phase: off * 10,
-          dragon: def.effect === 'tiro-dragon', recipe, blast: 40 + level * 6 });
+          damage: cross ? dmg * 2 : dmg, pierce: 4 + level, life: 1700, hits: new Set(), knock: 120, level: 6 + level, explode: true, scale, phase: off * 10,
+          dragon: def.effect === 'tiro-dragon', recipe, blast: (40 + level * 6) * (cross ? 1.25 : 1) });
       }
       this.fx.shake(0.003, 120);
       sfx('kick');
