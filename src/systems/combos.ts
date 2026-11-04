@@ -25,7 +25,7 @@ export interface ComboDef {
   needs: { player: string; tech?: string; level: number }[];
   cooldownMs: number;
   /** what the special slot does when it fires (each one has its own animation in the scene) */
-  effect: 'tiro-doble' | 'tiro-dragon' | 'tiro-rayo' | 'fenix' | 'tierra' | 'caos' | 'ventisca' | 'tierra-inf' | 'aurora' | 'bigbang';
+  effect: 'tiro-doble' | 'tiro-dragon' | 'tiro-rayo' | 'fenix' | 'tierra' | 'caos' | 'ventisca' | 'tierra-inf' | 'aurora' | 'bigbang' | 'fuego-total';
   /** Fix 1.12: when several are learnable at once, the higher one is offered first */
   priority: number;
   source: string;
@@ -83,12 +83,33 @@ export const COMBOS: ComboDef[] = [
     cooldownMs: 10000, effect: 'bigbang', priority: 9,
     source: 'ROM IE3 (tabla de técnicas): «Big Bang» (ビッグバン), tiro de Fuego, poder 120, nombre español verificado. Tiro combinado de Hiroto (Xavier), Kidou (Jude) y Fubuki (Shawn), indicado por el autor con su escena. Condición de niveles: regla del Fix 1.51.',
   },
+  // (author) collab: Eren, Mikasa and Armin (data/special_players.json)
+  {
+    id: 'big-bang-snk', name: 'Big Bang', jp: 'ビッグバン', en: 'Big Bang', element: 'Fuego', power: 120,
+    needs: [{ player: 'Mikasa Ackerman', level: 3 }, { player: 'Armin Arlert', level: 3 }, { player: 'Eren Jaeger', level: 5 }],
+    cooldownMs: 10000, effect: 'bigbang', priority: 9,
+    source: 'ROM IE3 (tabla de técnicas): «Big Bang» (ビッグバン), como la de Xavier, Jude y Shawn. Colaboración (data/special_players.json): Mikasa, Armin y Eren, indicados por el autor. Condición de niveles: regla del Fix 1.51.',
+  },
+  // (author) collab: Meliodas, Escanor and Ban (data/special_players.json)
+  {
+    id: 'la-tierra-7ds', name: 'La Tierra', jp: 'ジ・アース', en: 'The Earth', element: 'Montaña', power: 160,
+    needs: [{ player: 'Escanor', level: 3 }, { player: 'Ban', level: 3 }, { player: 'Meliodas', level: 5 }],
+    cooldownMs: 11000, effect: 'tierra', priority: 10,
+    source: 'Wiki de Inazuma Eleven (fandom), «The Earth», como la de Mark, Axel y Shawn. Colaboración (data/special_players.json): Escanor, Ban y Meliodas, indicados por el autor. Condición de niveles: regla del Fix 1.51.',
+  },
   // v1.5 (author's request)
   {
     id: 'la-aurora', name: 'La Aurora', jp: 'ザ・バース', en: 'The Birth', element: 'Neutro', power: 110,
     needs: [{ player: 'Xavier Foster', level: 3 }, { player: 'Shawn Froste', level: 5 }],
     cooldownMs: 7000, effect: 'aurora', priority: 8,
     source: 'ROM IE3 (tabla de técnicas): «The Birth» (ザ・バース), tiro, poder 110, sin elemento propio; nombre español «La Aurora» en inazumo.es. Tiro combinado de Hiroto (Xavier) y Fubuki (Shawn), añadido a petición del autor. Condición de niveles: diseño de InaZurvivors.',
+  },
+  // (author) Fuego total: the hooded Axel (data/special_players.json) also does it alone, as his own technique
+  {
+    id: 'fuego-total', name: 'Fuego total', jp: 'グランドファイア', en: 'Grand Fire', element: 'Fuego', power: 105,
+    needs: [{ player: 'Xavier Foster', level: 3 }, { player: 'Austin Hobbes', level: 3 }, { player: 'Axel Blaze', level: 5 }],
+    cooldownMs: 9000, effect: 'fuego-total', priority: 9,
+    source: 'ROM IE3 (tabla de técnicas): «Grand Fire» (グランドファイア), tiro de Fuego, poder 105; nombre español «Fuego total» (wiki en español). Tiro combinado de Hiroto (Xavier), Toramaru (Austin) y Gouenji (Axel), indicado por el autor con su escena. Condición de niveles: regla del Fix 1.51.',
   },
   {
     id: 'la-tierra-inf', name: 'La Tierra ∞', jp: 'ジ・アース∞', en: 'The Earth ∞', element: 'Montaña', power: 165,
@@ -105,6 +126,8 @@ export const COMBOS: ComboDef[] = [
 export const COUNTERPARTS: Record<string, string[]> = {
   'Shawn Froste': ['Shawn + Axel'],
   'Xavier Foster': ['Xene', 'Kira Hiroto', 'Jordan + Xavier'],
+  // special footballer (data/special_players.json): Axel in his Okinawa hoodie
+  'Axel Blaze': ['Axel Blaze Encapuchado'],
 };
 /** True when a roster name can play the part of a participant (himself or one of his counterparts). */
 export const playsAs = (name: string | undefined, player: string) => !!name && (name === player || !!COUNTERPARTS[player]?.includes(name));

@@ -65,10 +65,12 @@ function render(c: HTMLCanvasElement, t: number) {
   ctx.imageSmoothingEnabled = false;
   // body and head are drawn together or not at all: never a lone head while a texture loads or on an empty cell
   const bi = img(body.texture), hi = img(p.head.texture);
-  if (frame.b === null || frame.h === null || !bi.naturalWidth || !hi.naturalWidth) return;
+  if (frame.b === null || frame.h === null || !hi.naturalWidth || (!p.fullBody && !bi.naturalWidth)) return;
   ctx.clearRect(0, 0, c.width, c.height);
-  const source = skinDiffers(fromSkin, p.skin) ? recolor(texture, bi, fromSkin!, p.skin!) : undefined;
-  drawCell(ctx, body, frame.b, 20, 41, anim.mirror, scale, source);
+  if (!p.fullBody) { // special footballers have the body drawn in their own sheet
+    const source = skinDiffers(fromSkin, p.skin) ? recolor(texture, bi, fromSkin!, p.skin!) : undefined;
+    drawCell(ctx, body, frame.b, 20, 41, anim.mirror, scale, source);
+  }
   drawCell(ctx, p.head, frame.h, 20, 41, anim.mirror !== frame.hf, scale);
 }
 

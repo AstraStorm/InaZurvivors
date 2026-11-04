@@ -3,6 +3,7 @@ import '@fontsource/press-start-2p';
 import './style.css';
 import './style14.css';
 import './styleMapPath.css';
+import './styleThanks.css';
 import type { Manifest } from './data/manifest';
 import { applyRosterFixes } from './data/rosterFixes';
 import { ArenaScene } from './game/ArenaScene';

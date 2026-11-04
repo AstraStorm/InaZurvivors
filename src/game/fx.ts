@@ -24,7 +24,7 @@ const KW: [RegExp, FxStyle][] = [
   [/oscur|sombr|diabl|maldi|negro|tiniebl|demon|agujero|umbr|vampir|víbora|cuervo|fantasm|supermasiv|réquiem|caos|ceniza/i, 'sombra'],
   [/divin|celest|sagrad|dios|ángel|angel|luz|estrella|planet|orbe|glorios|inocente|pluma|reinos/i, 'energia'],
 ];
-const ELEMENT_STYLE: Record<string, FxStyle> = { Fuego: 'fuego', Aire: 'viento', Bosque: 'bosque', 'Montaña': 'tierra' };
+const ELEMENT_STYLE: Record<string, FxStyle> = { Fuego: 'fuego', Aire: 'viento', Bosque: 'bosque', 'Montaña': 'tierra', Neutro: 'energia' };
 
 export function fxStyle(t: Pick<Technique, 'name' | 'element'>): FxStyle {
   for (const [rx, s] of KW) if (rx.test(t.name)) return s;

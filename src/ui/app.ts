@@ -51,6 +51,7 @@ import { USERNAME_MAX, validateUsername } from '../systems/username';
 import { ALTAR_COLOR, ALTAR_ICON, ALTAR_INFO, ALTAR_MODE, ALTAR_REWARD } from '../systems/altars';
 import { adaptedPassive, passiveText, talentChanges, talentText } from '../systems/talents';
 import { redeemCode } from '../online/client';
+import { THANKS_EVENT, addThanksTokens, thanksActive, thanksLeftMs, thanksTokens } from '../systems/thanksEvent';
 import { accountId, adminBugReports, adminPlayerStats, adminUpdateBug, amIAdmin, consumeAuthRedirect, deleteAccount, deleteMyBugReports, deleteShot, myBugReports, notifyBug, shotUrl, submitBugReport, uploadShot, getCloudSave, leaderboard, myPosition, profileBanners, profileFrames, publicProfile, type PublicProfile, myProfile, onlineConfigured, putCloudSave, reserveUsername, resetMyProgress, signedEmail, signedIn, signInWithGoogle, signOut, submitScore, usernameAvailable, type BoardQuery, type BoardRow, type BugFilter, type BugRow, type CloudSave } from '../online/client';
 import { backup, linkPlan, progressOf, summarize, type SaveSummary } from '../online/cloudSync';
 import { epochOf, freshProgress, resetSummary } from '../systems/resetProgress';
@@ -77,7 +78,7 @@ const esc = (s: unknown) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&
 const fmtTime = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const RARITY_COLOR: Record<Rarity, string> = { comun: '#9fb0c8', raro: '#4fb3ff', epico: '#b36bff', legendario: '#ffb020', mitico: '#ff4f8b', leyenda: '#fff6c8' };
-const ELEMENT_COLOR: Record<string, string> = { Fuego: '#ff6a2a', Aire: '#6ad8ff', Bosque: '#5ee05a', 'Montaña': '#d9a440' };
+const ELEMENT_COLOR: Record<string, string> = { Fuego: '#ff6a2a', Aire: '#6ad8ff', Bosque: '#5ee05a', 'Montaña': '#d9a440', Neutro: '#c45aff' };
 const POS_LABEL: Record<string, string> = { GK: 'POR', DF: 'DEF', MF: 'MED', FW: 'DEL' };
 const FORMATION_ICON = (f: FormationId, size = 46) => {
   const F = FORMATIONS[f];
@@ -419,7 +420,7 @@ export class App {
       if (status === 'used') { sfx('error'); return say('Ya has canjeado este código.'); }
       if (status !== 'ok' || !reward) { sfx('error'); return say('Error de conexión. Inténtalo de nuevo.'); }
       this.persist();
-      say(`¡Código válido! Recibes ${reward.tokens} fichas, ${reward.coins} monedas${reward.player !== null ? ' y un futbolista Legendario' : ''}.`, true);
+      say(`¡Código válido! Recibes ${[reward.tokens ? `${reward.tokens} fichas` : '', reward.eventTokens ? `${reward.eventTokens} fichas de evento` : '', reward.coins ? `${reward.coins.toLocaleString('es')} monedas` : ''].filter(Boolean).join(', ')}${reward.player !== null ? ' y un futbolista Legendario' : ''}.`, true);
       sfx('legend');
       const p = reward.player !== null ? this.byId.get(reward.player) : undefined;
       if (p) {
@@ -704,7 +705,7 @@ export class App {
     const top = `${opts.badge ? `<span class="badge">${esc(opts.badge)}</span>` : ''}${opts.captain ? '<span class="captain-badge">C</span>' : ''}`;
     const st = !locked && p.stats ? this.statsOf(p) : null;
     const e = String(p.element ?? '');
-    const crest = this.emblemOf(p.teams[0]);
+    const crest = p.teams[0] ? this.emblemOf(p.teams[0]) : ''; // special footballers have no team
     const statKeys = ['kick', 'control', 'guard', 'body', 'speed', 'guts'] as const;
     const bars = st ? `<div class="cc-stats">${statKeys.map((k) => `<span><small>${STAT_SHORT[k]}</small><i style="--v:${st[k]}%"></i><b>${st[k]}</b></span>`).join('')}</div>` : '<div class="cc-stats empty"></div>';
     const tier = hero ? 'heroe' : er;
@@ -952,7 +953,7 @@ export class App {
           ${group('g-club', 'team', 'TU CLUB', tile('collection', 'cards', 'COLECCIÓN', claims ? '¡Recompensas!' : `${owned.length} de ${this.m.roster.length}`, claims, !!claims)
             + tile('perks', 'perks', 'MEJORAS', 'Potencia permanente') + tile('shop', 'bolt', 'TÉCNICAS', 'Manuales')
             + tile('training', 'target', 'ENTRENAMIENTO', 'Prueba técnicas') + tile('kits', 'shirt', 'EQUIPACIONES', 'Uniforme y escudo') + tile('gear', 'boot', 'EQUIPAMIENTO', 'Botas y accesorios') + tile('hall', 'trophy', 'SALÓN', `${(this.save.hall ?? []).length} victorias`))}
-          ${group('g-sign', 'capsule', 'FICHAJES', tile('gacha', 'capsule', 'FICHAJES', `${this.save.tokens} fichas`, 0, true) + (eventActive(serverNow()) ? tile('pnevent', 'gift', 'EVENTO', 'Banners de leyenda', 0, true) : '') + tile('daily', 'shop', 'TIENDA', 'Ofertas del día') + tile('codes', 'gift', 'CÓDIGOS', 'Canjea regalos'))}
+          ${group('g-sign', 'capsule', 'FICHAJES', tile('gacha', 'capsule', 'FICHAJES', `${this.save.tokens} fichas`, 0, true) + (thanksActive(serverNow()) ? tile('thanksev', 'gift', 'AGRADECIMIENTO', `${this.save.eventTokens ?? 0} fichas de evento`, 0, true) : '') + (eventActive(serverNow()) ? tile('pnevent', 'gift', 'EVENTO', 'Banners de leyenda', 0, true) : '') + tile('daily', 'shop', 'TIENDA', 'Ofertas del día') + tile('codes', 'gift', 'CÓDIGOS', 'Canjea regalos'))}
           ${group('g-comp', 'crown', 'COMPETICIÓN', tile('missions', 'missions', 'MISIONES', pending ? '¡Por recoger!' : 'Recompensas', pending, !!pending)
             + tile('pass', 'ticket', 'PASE', pass.available ? '¡Recompensa lista!' : 'Vuelve mañana', pass.available ? 1 : 0, pass.available) + tile('ranking', 'crown', 'RANKING', onlineConfigured() ? 'Global' : 'Tus marcas'))}
         </section>
@@ -1001,6 +1002,7 @@ export class App {
       if (go === 'squad') this.captainSelect();
       if (go === 'training') this.trainingField(); // v1.6
       if (go === 'pnevent') this.pennantEvent(); // v1.65
+      if (go === 'thanksev') { this.gachaBanner = 'evento'; this.gacha(); } // 1.75
       if (go === 'collection') this.collection();
       if (go === 'gacha') this.gacha();
       if (go === 'missions') this.missions();
@@ -1033,6 +1035,8 @@ export class App {
     if (onlineConfigured()) void this.fillMenuRank();
     document.getElementById('wpclaim')?.addEventListener('click', (e) => { (e.target as HTMLButtonElement).disabled = true; this.claimPassNow(() => this.mainMenu()); });
     if (this.save.tutorial === 'pendiente' && this.save.onboardingDone) window.setTimeout(() => { if (this.screenKey === 'menu-mode') this.tutorial(); }, 400);
+    // 1.75 (author): the thank-you notice, once, while the Banner de agradecimiento is open
+    else if (thanksActive(serverNow()) && !this.save.thanksSeen && this.save.onboardingDone) window.setTimeout(() => { if (this.screenKey === 'menu-mode') this.thanksNotice(); }, 600);
   }
 
   /** Fix 1.31: training points that no stat can use (it already reaches 99) go back to the player, on load. */
@@ -1281,6 +1285,10 @@ export class App {
       <p class="note">Tu marco rodea tu icono en el ranking y en tu perfil, también cuando otros lo abren.</p>
       <div class="pn-grid">${FRAMES.map((d) => { const own = hasPennant(this.save, d.id);
         return `<button class="pn-pick${own ? '' : ' locked'}${eq === d.id ? ' on' : ''}" data-fr="${d.id}">${this.pennantCard(d, `<span class="pn-how">${own ? (eq === d.id ? '★ Equipado' : 'Equipar') : esc(how(d))}</span>`)}</button>`; }).join('')}</div></div>`;
+  }
+  private leftText(ms: number) {
+    const d = Math.floor(ms / 86_400_000), h = Math.floor(ms / 3_600_000) % 24, m = Math.floor(ms / 60_000) % 60;
+    return d ? `${d} d ${h} h` : `${h} h ${m} min`;
   }
   private eventLeftText(now: number | Date) {
     const ms = eventLeftMs(now), d = Math.floor(ms / 86_400_000), h = Math.floor(ms / 3_600_000) % 24, m = Math.floor(ms / 60_000) % 60;
@@ -2085,6 +2093,26 @@ export class App {
     return best;
   }
 
+  /** 1.75 (author): «¡Gracias por ser más de 50 jugando!» — the Banner de agradecimiento and the code GRACIAS, shown once. */
+  private thanksNotice() {
+    if (document.querySelector('.thanks-notice')) return;
+    const stars = bannerPool(this.m.roster, 'evento').filter((p) => p.exclusive);
+    const box = document.createElement('div');
+    box.className = 'tut-modal thanks-notice';
+    box.innerHTML = `<div class="panel"><div class="th-big">♥</div><h2>¡Gracias por ser más de 50 personas jugando!</h2>
+      <p>Para celebrarlo abrimos el <b>Banner de agradecimiento</b> durante ${THANKS_EVENT.days} días: Ataque a los Titanes, Los Siete Pecados Capitales y Axel Encapuchado, solo aquí.</p>
+      <div class="th-row">${stars.map((p) => this.mug(p.id, 44)).join('')}</div>
+      <p>Se tira con <b>fichas de evento</b>: cada partida en <b>Rango S o X</b> te da tantas como fichas normales. ${THANKS_EVENT.cost} la tirada, ${THANKS_EVENT.multiCost} el ×10.</p>
+      <p>Y un regalo: canjea el código</p><div class="th-code">GRACIAS</div><p>para un <b>×10 gratis</b> del banner y <b>10.000 monedas</b>.</p>
+      <div class="tut-nav"><button class="btn small blue" id="thclose">Cerrar</button><span class="spacer"></span><button class="btn small blue" id="thcode">Canjear código</button><button class="btn" id="thgo">Ir al banner</button></div></div>`;
+    const done = () => { box.remove(); this.save.thanksSeen = true; this.persist(); };
+    box.querySelector('#thclose')!.addEventListener('click', done);
+    box.querySelector('#thcode')!.addEventListener('click', () => { done(); this.codesModal(); });
+    box.querySelector('#thgo')!.addEventListener('click', () => { done(); this.gachaBanner = 'evento'; this.gacha(); });
+    document.body.appendChild(box);
+    sfx('legend');
+  }
+
   /** v1.5 (author): the first visit to Mi Equipo explains Auras in four short pages; never again after closing it. */
   private auraIntro() {
     if (document.querySelector('.aura-intro')) return;
@@ -2206,7 +2234,7 @@ export class App {
         <div class="filters"><input id="sqq" placeholder="Buscar nombre o equipo" value="${esc(this.squadFilter.q)}">
           <select id="sqr"><option value="">Rareza</option>${RARITY_ORDER.map((r) => `<option value="${r}" ${this.squadFilter.rarity === r ? 'selected' : ''}>${RARITY_LABEL[r]}</option>`).join('')}</select>
           <select id="sqp"><option value="">Posición</option>${Object.entries(POS_LABEL).map(([k, v]) => `<option value="${k}" ${this.squadFilter.pos === k ? 'selected' : ''}>${v}</option>`).join('')}</select>
-          <select id="sqe"><option value="">Elemento</option>${['Fuego', 'Aire', 'Bosque', 'Montaña'].map((e) => `<option value="${e}" ${this.squadFilter.el === e ? 'selected' : ''}>${e}</option>`).join('')}</select>
+          <select id="sqe"><option value="">Elemento</option>${['Fuego', 'Aire', 'Bosque', 'Montaña', 'Neutro'].map((e) => `<option value="${e}" ${this.squadFilter.el === e ? 'selected' : ''}>${e}</option>`).join('')}</select>
           <select id="sqs">${[['media', 'Ordenar: media'], ['rareza', 'Ordenar: rareza'], ['nombre', 'Ordenar: nombre']].map(([v, l]) => `<option value="${v}" ${this.squadFilter.sort === v ? 'selected' : ''}>${l}</option>`).join('')}</select></div>
         <div class="grid" id="sqgrid" style="margin-top:10px"></div></div>
       ${cap ? `<div class="panel detail" style="--rc:${RARITY_COLOR[cap.rarity]}"><div class="art">${this.mug(cap.id, 128)}${charCanvas(cap.id, 3, 12)}</div><div>
@@ -2923,10 +2951,13 @@ export class App {
   private cap(name: string) { const c = this.m.capsule; return c?.pieces[name] ? `${c.base}${c.pieces[name].file}` : ''; }
   private capColor(r: Rarity) { return this.m.capsule?.rarityColor?.[r] ?? 'rojo'; }
 
-  private gachaBanner: BannerId = 'ff';
+  private gachaBanner: BannerId = 'evento'; // the special banner opens first
   private gachaTeam = '';
   gacha() {
+    const thanksOpen = thanksActive(serverNow());
+    if (this.gachaBanner === 'evento' && !thanksOpen) this.gachaBanner = 'ff'; // 1.75: only while the event is open
     const banner = BANNERS[this.gachaBanner];
+    const ev = banner.id === 'evento', wallet = ev ? this.save.eventTokens ?? 0 : this.save.tokens, unit = ev ? 'fichas de evento' : 'fichas';
     const teams = teamChoices(this.m.roster, this.m.mainTeams ?? []);
     if (banner.id === 'equipo' && !teams.some((t) => t.team === this.gachaTeam)) this.gachaTeam = (teams.find((t) => t.team === this.save.favoriteTeam) ?? teams[0])?.team ?? '';
     const pool = bannerPool(this.m.roster, banner.id, this.gachaTeam);
@@ -2934,7 +2965,7 @@ export class App {
     const each = perPlayerOdds(pool, banner.id);
     const price = bannerPrice(pool, banner.id); // Fix 1.31: by how many Míticos the machine holds
     const PULL_COST = price.cost, MULTI_COST = price.multiCost;
-    const tabs = BANNER_ORDER.map((b) => {
+    const tabs = BANNER_ORDER.filter((b) => b !== 'evento' || thanksOpen).map((b) => {
       const bp = bannerPool(this.m.roster, b, this.gachaTeam);
       const pr = b === 'equipo' ? { cost: BANNERS.equipo.cost } : bannerPrice(bp, b);
       const star = featured(bp, 1)[0]; // v1.4: each machine shows its best player
@@ -2943,7 +2974,8 @@ export class App {
         <span class="bt-tx"><b>${esc(BANNERS[b].label)}</b><small>${esc(BANNERS[b].tagline)}</small></span><em class="bt-price">${pr.cost}</em></button>`;
     }).join('');
     const teamSel = banner.id === 'equipo' ? `<label class="team-sel">Equipo: <select id="gteam">${teams.map((t) => `<option value="${esc(t.team)}" ${t.team === this.gachaTeam ? 'selected' : ''}>${esc(teamLabel(t.team))} (${t.size})</option>`).join('')}</select></label>` : '';
-    const feat = featured(pool, 5).map((p) => `<span class="feat r-${p.rarity}" style="--rc:${RARITY_COLOR[p.rarity]}" title="${esc(p.name)}">${this.mug(p.id, 48)}<small>${esc(p.name)}</small></span>`).join('');
+    // the special banner shows all its stars
+    const feat = featured(pool, banner.id === 'evento' ? pool.filter((p) => p.exclusive).length : 5).map((p) => `<span class="feat r-${p.rarity}" style="--rc:${RARITY_COLOR[p.rarity]}" title="${esc(p.name)}">${this.mug(p.id, 48)}<small>${esc(p.name)}</small></span>`).join('');
     const odds = RARITY_ORDER.map((r) => `<div class="odd"><span class="rar ${r}">${RARITY_LABEL[r].toUpperCase()}</span><i style="--w:${Math.max(1.5, real[r])}%;--c:${RARITY_COLOR[r]}"></i><b>${real[r] ? `${+real[r].toFixed(2)}% · c/u ${+each[r].toFixed(3)}%` : 'vacía'}</b></div>`).join('');
     const empty = RARITY_ORDER.filter((r) => !real[r]).map((r) => RARITY_LABEL[r]);
     const hist = (this.save.gachaHistory ?? []).slice(0, 12).map((h) => {
@@ -2954,25 +2986,26 @@ export class App {
     const has = !!this.m.capsule;
     setMusicContext('gacha');
     this.show(`<div class="screen gacha-screen">${this.titlebar('Máquina de fichajes', 'Menú')}
+      ${thanksOpen && !ev ? `<button class="pn-eventcta thanks-cta" id="thanksev"><span class="th-faces">${bannerPool(this.m.roster, 'evento').filter((p) => p.exclusive).slice(0, 5).map((p) => this.mug(p.id, 40)).join('')}</span><span><small>EVENTO · TERMINA EN ${this.leftText(thanksLeftMs(serverNow()))}</small><b>Banner de agradecimiento</b><em>Ataque a los Titanes, Los Siete Pecados Capitales y Axel Encapuchado · ${THANKS_EVENT.cost} fichas de evento la tirada</em></span></button>` : ''}
       ${eventActive(serverNow()) ? `<button class="pn-eventcta" id="pnevent"><span class="pn-cta-art">${pennantSvg('supernova', 44)}</span><span><small>EVENTO · TERMINA EN ${this.eventLeftText(serverNow())}</small><b>Banners de leyenda</b><em>Se paga con monedas · Mítico al 3%</em></span></button>` : ''}
       <div class="banner-tabs">${tabs}</div>
       <div class="banner-head bh4" style="--bc:${banner.color}"><div class="bh-tx"><small>MÁQUINA</small><b>${esc(banner.label)}</b><span>${esc(banner.tagline)} · ${pool.length} futbolistas</span> ${teamSel}
-          <div class="bh-chips"><span>${uiIcon('capsule')}×1 · <b>${PULL_COST}</b></span><span>${uiIcon('capsule')}×10 · <b>${MULTI_COST}</b></span><span class="ok">×10: Épico o mejor asegurado</span></div>
-          <details class="rk-how"><summary>${uiIcon('help')}Precio y reglas</summary><div>${banner.id === 'equipo' ? 'Solo futbolistas del equipo elegido; las rarezas altas tienen un tope por jugador.' : `Cada futbolista sale en una sola máquina: la de la primera saga en la que aparece. Precio según sus Míticos (${price.mythics}): sin estrellas 5 · sin Míticos 10 · de 1 a 5 Míticos 15 · 6 o más 20.`}</div></details></div>
+          <div class="bh-chips"><span>${uiIcon('capsule')}×1 · <b>${PULL_COST}</b>${ev ? ' de evento' : ''}</span><span>${uiIcon('capsule')}×10 · <b>${MULTI_COST}</b>${ev ? ' de evento' : ''}</span>${ev ? `<span>Termina en <b>${this.leftText(thanksLeftMs(serverNow()))}</b></span>` : ''}<span class="ok">×10: Épico o mejor asegurado</span></div>
+          <details class="rk-how"><summary>${uiIcon('help')}Precio y reglas</summary><div>${banner.id === 'evento' ? `Los futbolistas especiales solo salen aquí, con ${pool.filter((p) => !p.exclusive).length} Comunes, Raros y Épicos de relleno. Se paga con fichas de evento: cada partida en Rango S o X te da tantas como fichas normales mientras dura el evento.` : banner.id === 'equipo' ? 'Solo futbolistas del equipo elegido; las rarezas altas tienen un tope por jugador.' : `Cada futbolista sale en una sola máquina: la de la primera saga en la que aparece. Precio según sus Míticos (${price.mythics}): sin estrellas 5 · sin Míticos 10 · de 1 a 5 Míticos 15 · 6 o más 20.`}</div></details></div>
         <div class="feat-row"><small>DESTACADOS</small><div>${feat}</div></div></div>
       <div class="ie3-machine">${has ? `<div class="ds-top"><img id="globe" src="${this.cap('globe0')}" alt=""></div>
         <div class="ds-bottom" style="background-image:url(${this.cap('panel_bottom')})">
           <img class="goal" src="${this.cap('goal_slot')}" alt=""><div class="knobwrap"><img class="kbase" src="${this.cap('knob_base')}" alt="">
           <img id="knob" class="knob" src="${this.cap('knob00')}" alt=""></div>
-          <div class="coins-row"><button class="coinbtn" data-pull="1" ${this.save.tokens < PULL_COST ? 'disabled' : ''}><img src="${this.cap('coin_rojo')}" alt=""><span>×1<br>${PULL_COST}</span></button>
-          <button class="coinbtn" data-pull="10" ${this.save.tokens < MULTI_COST ? 'disabled' : ''}><img src="${this.cap('coin_oro')}" alt=""><span>×10<br>${MULTI_COST}</span></button></div>
+          <div class="coins-row"><button class="coinbtn" data-pull="1" ${wallet < PULL_COST ? 'disabled' : ''}><img src="${this.cap('coin_rojo')}" alt=""><span>×1<br>${PULL_COST}</span></button>
+          <button class="coinbtn" data-pull="10" ${wallet < MULTI_COST ? 'disabled' : ''}><img src="${this.cap('coin_oro')}" alt=""><span>×10<br>${MULTI_COST}</span></button></div>
         </div>` : `<div class="own-machine"><div class="om-dome">${Array.from({ length: 14 }, (_, i) => `<i style="--x:${(i * 37) % 80 + 6}%;--y:${(i * 53) % 60 + 25}%;--c:${['#ff4f5a', '#4fb3ff', '#ffe24a', '#5cdc6a', '#b36bff', '#ff9a3a'][i % 6]};--d:${(i % 5) * 0.3}s"></i>`).join('')}</div>
           <div class="om-body"><div class="om-knob" id="ownknob"><b></b></div><div class="om-slot"></div></div>
-          <div class="coins-row"><button class="btn" data-pull="1" ${this.save.tokens < PULL_COST ? 'disabled' : ''}>×1 · ${PULL_COST} fichas</button>
-          <button class="btn" data-pull="10" ${this.save.tokens < MULTI_COST ? 'disabled' : ''}>×10 · ${MULTI_COST} fichas</button></div></div>`}</div>
+          <div class="coins-row"><button class="btn" data-pull="1" ${wallet < PULL_COST ? 'disabled' : ''}>×1 · ${PULL_COST} ${unit}</button>
+          <button class="btn" data-pull="10" ${wallet < MULTI_COST ? 'disabled' : ''}>×10 · ${MULTI_COST} ${unit}</button></div></div>`}</div>
       <div class="gacha-info">
-        <div class="panel gi gi-wallet"><h3>${uiIcon('capsule')}Tus fichas</h3><div class="gi-big"><span class="tokens">${this.save.tokens}</span></div>
-          <div class="note">×1 cuesta <b>${PULL_COST}</b> · ×10 cuesta <b>${MULTI_COST}</b> (con un Épico o mejor asegurado). ${this.save.tokens < PULL_COST ? `Te faltan ${PULL_COST - this.save.tokens}.` : `Te llega para ${Math.floor(this.save.tokens / PULL_COST)} tirada(s).`}</div></div>
+        <div class="panel gi gi-wallet"><h3>${uiIcon('capsule')}Tus ${unit}</h3><div class="gi-big"><span class="tokens${ev ? ' ev-tok' : ''}">${wallet}</span></div>
+          <div class="note">×1 cuesta <b>${PULL_COST}</b> · ×10 cuesta <b>${MULTI_COST}</b> (con un Épico o mejor asegurado). ${wallet < PULL_COST ? `Te faltan ${PULL_COST - wallet}.` : `Te llega para ${Math.floor(wallet / PULL_COST)} tirada(s).`}${ev ? ' Las fichas de evento se ganan jugando en Rango S o X.' : ''}</div></div>
         <div class="panel gi"><h3>${uiIcon('gift')}Cómo conseguir fichas</h3><ul class="gi-list"><li>Jugar partidas (más si ganas)</li><li>Misiones diarias, semanales y logros</li><li>Altares y fichas en el campo</li><li>Primera victoria en cada arena y rango</li></ul></div>
         <details class="panel gi gi-rules"><summary><h3>${uiIcon('help')}Nuevo, duplicado y ascensión</h3></summary><ul class="gi-list"><li><b class="newtag">NUEVO</b>: se desbloquea para siempre y ya puede ir en Mi Equipo.</li>
           <li><b>Duplicado</b>: suma hacia una estrella (hasta ${MAX_STARS}), cada una +${Math.round((sb.damage - 1) * 100)}% daño y +${Math.round((sb.hp - 1) * 100)}% vida. Copias por estrella: Común ${COPIES_PER_STAR.comun}, Raro y Épico ${COPIES_PER_STAR.raro}, el resto 1.</li>
@@ -2984,6 +3017,7 @@ export class App {
         <div class="note">Fichas = máquina de cápsulas · Monedas = mejoras y tiendas. Gráficos de la máquina: Inazuma Eleven 3 (hoja de The Spriters Resource, ripeada por Avegaille), recurso local.</div></div></div>`);
     this.on('[data-back]', 'click', () => this.mainMenu());
     document.getElementById('pnevent')?.addEventListener('click', () => { if (!this.pulling) this.pennantEvent(); });
+    document.getElementById('thanksev')?.addEventListener('click', () => { if (!this.pulling) { this.gachaBanner = 'evento'; this.gacha(); } });
     this.on('[data-banner]', 'click', (_e, el) => { if (this.pulling) return; this.gachaBanner = el.dataset.banner as BannerId; this.gacha(); });
     document.getElementById('gteam')?.addEventListener('change', (e) => { this.gachaTeam = (e.target as HTMLSelectElement).value; this.gacha(); });
     this.on('[data-pull]', 'click', async (_e, el) => {
@@ -2993,7 +3027,7 @@ export class App {
       const bpool = bannerPool(this.m.roster, b.id, this.gachaTeam);
       const bp = bannerPrice(bpool, b.id);
       const claimsBefore = new Set(this.teamClaimList().map((c) => `${c.team}|${c.kind}`));
-      const res = pull(bpool, this.save, Number(el.dataset.pull) as 1 | 10, Math.random, { cost: bp.cost, multiCost: bp.multiCost, odds: rarityOdds(bpool, b.id) });
+      const res = pull(bpool, this.save, Number(el.dataset.pull) as 1 | 10, Math.random, { cost: bp.cost, multiCost: bp.multiCost, odds: rarityOdds(bpool, b.id), currency: b.id === 'evento' ? 'eventTokens' : 'tokens' });
       if (!res) { this.pulling = false; return; }
       recordHistory(this.save, res);
       addCounter(this.save, 'news', res.filter((x) => x.isNew).length);
@@ -4289,6 +4323,8 @@ export class App {
     document.getElementById('pause')?.remove();
     const effects = perkEffects(this.save);
     const { rewards, total, records, tokens, tokenTotal, training, trainTotal } = applyRun(this.save, r, effects.coinMult, effects.rewardMult, effects.extraTokens);
+    const evTokens = thanksTokens(r.rank, tokenTotal, serverNow()); // 1.75: Rango S / X while the Banner de agradecimiento is open
+    addThanksTokens(this.save, evTokens);
     const cap = this.byId.get(r.teamIds?.[0] ?? -1);
     r.captainEra = cap ? eraOf(cap) : undefined;
     r.favoriteOnPitch = (r.teamIds ?? []).filter((id) => this.save.favoriteTeam && this.byId.get(id)?.teams.includes(this.save.favoriteTeam)).length;
@@ -4336,7 +4372,8 @@ export class App {
       <div class="reward-cols"><table class="rewards">${rewards.map((x, i) => `<tr class="rrow" style="--d:${1000 + i * 110}ms"><td>${esc(x.label)}</td><td>+${x.coins}</td></tr>`).join('')}
         <tr class="rrow total" style="--d:${1000 + rewards.length * 110}ms"><td><b>Monedas</b></td><td><b id="tcoins">+0</b></td></tr></table>
       <table class="rewards tok">${tokens.map((x, i) => `<tr class="rrow" style="--d:${1000 + i * 110}ms"><td>${esc(x.label)}</td><td>+${x.coins}</td></tr>`).join('')}
-        <tr class="rrow total" style="--d:${1000 + tokens.length * 110}ms"><td><b>Fichas de Fichaje</b></td><td><b id="ttokens">+0</b></td></tr></table>
+        <tr class="rrow total" style="--d:${1000 + tokens.length * 110}ms"><td><b>Fichas de Fichaje</b></td><td><b id="ttokens">+0</b></td></tr>
+        ${evTokens ? `<tr class="rrow total ev-tok" style="--d:${1100 + tokens.length * 110}ms"><td><b>Fichas de evento</b></td><td><b>+${evTokens}</b></td></tr>` : ''}</table>
       ${trainTotal ? `<table class="rewards trn">${training.map((x, i) => `<tr class="rrow" style="--d:${1000 + i * 110}ms"><td>${esc(x.label)}</td><td>+${x.coins}</td></tr>`).join('')}
         <tr class="rrow total" style="--d:${1000 + training.length * 110}ms"><td><b>Fichas de entrenamiento</b></td><td><b>+${trainTotal}</b></td></tr></table>` : ''}</div>
       <div class="result-wallet"><span class="tokens">${this.save.tokens - tokenTotal}</span><span class="coins">${this.save.coins - total}</span></div>

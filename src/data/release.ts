@@ -6,7 +6,7 @@
  */
 import { CHANGELOG } from './changelog';
 
-export const PUBLIC_VERSION = '1.7';
+export const PUBLIC_VERSION = '1.75';
 export const BUILD = CHANGELOG[0].version;
 export const RELEASED = false;
 export const VERSION_LABEL = RELEASED ? `v${PUBLIC_VERSION}` : `v${PUBLIC_VERSION} · pre-lanzamiento`;
@@ -28,6 +28,20 @@ export interface PublicRelease {
 
 /** Public news, newest first. Starts at v1.0: the internal versions before it are not part of the public history. */
 export const PUBLIC_RELEASES: PublicRelease[] = [
+  {
+    version: '1.75', date: '2026-11-04',
+    title: 'InaZurvivors 1.75 — Banner de agradecimiento',
+    tagline: '¡Gracias por ser más de 50 personas jugando!',
+    intro: 'Para celebrarlo llega un banner especial durante una semana, con futbolistas que solo salen ahí, y un regalo para todos.',
+    features: [
+      { icon: '♥', title: 'Banner de agradecimiento', text: 'Del 4 de noviembre a las 15:00 durante 7 días. Levi, Eren, Mikasa, Armin y Erwin de Ataque a los Titanes; Meliodas, Escanor y Ban de Los Siete Pecados Capitales; y Axel Encapuchado, con su sudadera de Okinawa. Todos Legendarios (Axel, Leyenda) y solo salen aquí.' },
+      { icon: '◆', title: 'Fichas de evento', text: 'El banner se paga con fichas de evento: 15 la tirada y 150 el ×10. Cada partida en Rango S o X te da tantas fichas de evento como fichas normales mientras dura el evento.' },
+      { icon: '🎁', title: 'Código GRACIAS', text: 'Canjéalo en CÓDIGOS: un ×10 gratis del Banner de agradecimiento y 10.000 monedas.' },
+      { icon: '🔗', title: 'Técnicas combinadas nuevas', text: 'Mikasa, Armin y Eren lanzan Big Bang; Escanor, Ban y Meliodas, La Tierra. Y Fuego total (Xavier, Austin y Axel), que Axel Encapuchado también lanza en solitario.' },
+      { icon: '◈', title: 'Elemento Neutro', text: 'Llega el quinto elemento, el Neutro (el cubo morado): ni fuerte ni débil contra nadie. Meliodas es Neutro, y las técnicas que la wiki marca como Vacío también, como Ataque Omega, Regate supersónico o Salto dimensional.' },
+    ],
+    start: [],
+  },
   {
     version: '1.7', date: '2026-11-05',
     title: 'InaZurvivors 1.7 — Camino de arenas',

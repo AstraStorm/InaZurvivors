@@ -1,0 +1,13 @@
+/* (author) 1.75: Banner de agradecimiento — its call to action in the machine, the menu tile and the thank-you notice */
+.pn-eventcta.thanks-cta { background: linear-gradient(90deg, #2a0a5a, #6a1aa8 55%, #c45aff); box-shadow: 0 0 18px #c45aff55, inset 0 0 0 2px #e6b8ffaa; }
+.thanks-cta .th-faces { display: flex; flex-shrink: 0; }
+.thanks-cta .th-faces .mug { margin-left: -14px; border-radius: 50%; box-shadow: 0 0 0 2px #2a0a5a; background-color: #3a1a6a; }
+.thanks-cta .th-faces .mug:first-child { margin-left: 0; }
+.ev-tok { color: #e6b8ff; font-weight: bold; }
+.thanks-notice .panel { max-width: 520px; text-align: center; border: 2px solid #c45aff; box-shadow: 0 0 28px #c45aff66; background: linear-gradient(180deg, #2a0a5a, #0a1430 70%); }
+.thanks-notice h2 { margin: 6px 0 4px; color: #ffe08a; font-size: 18px; line-height: 1.4; }
+.thanks-notice .th-big { font-size: 34px; color: #fff; text-shadow: 0 0 12px #c45aff; }
+.thanks-notice .th-row { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px; margin: 12px 0; }
+.thanks-notice .th-row .mug { border-radius: 8px; box-shadow: 0 0 0 2px #e6b8ff88; }
+.thanks-notice p { font-size: 10px; line-height: 1.7; margin: 6px 0; }
+.thanks-notice .th-code { display: inline-block; margin: 4px 0; padding: 4px 10px; border: 2px dashed #ffe08a; border-radius: 8px; color: #ffe08a; font-size: 14px; letter-spacing: 2px; }

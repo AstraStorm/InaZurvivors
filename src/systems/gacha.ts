@@ -101,7 +101,8 @@ export function effectiveOdds(pool: RosterEntry[]): Record<Rarity, number> {
   return out;
 }
 
-export interface PullOptions { cost?: number; multiCost?: number; odds?: Record<Rarity, number> }
+/** currency: what pays the pull (the Banner de agradecimiento takes Fichas de evento) */
+export interface PullOptions { cost?: number; multiCost?: number; odds?: Record<Rarity, number>; currency?: 'tokens' | 'eventTokens' }
 
 /**
  * Charges and resolves a whole pull BEFORE any animation (the animation only shows it). With banner odds, a ×10 always
@@ -109,8 +110,9 @@ export interface PullOptions { cost?: number; multiCost?: number; odds?: Record<
  */
 export function pull(pool: RosterEntry[], save: SaveData, count: 1 | 10, rng: Rng = Math.random, opt: PullOptions = {}): PullResult[] | null {
   const cost = count === 10 ? opt.multiCost ?? MULTI_COST : opt.cost ?? PULL_COST;
-  if (save.tokens < cost || !pool.length) return null;
-  save.tokens -= cost;
+  const wallet = opt.currency ?? 'tokens';
+  if ((save[wallet] ?? 0) < cost || !pool.length) return null;
+  save[wallet] = (save[wallet] ?? 0) - cost;
   save.stats.pulls += count;
   const odds = opt.odds;
   const roll = odds ? (min?: Rarity) => () => rollWith(odds, rng, min) : () => undefined;

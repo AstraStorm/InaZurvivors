@@ -36,6 +36,7 @@ import { chaosMeteorCharge, chaosMeteorShot, fireStormCharge, fireStormShot, ele
 import { blackAshCharge, blackAshTrail, illusionBall, signatureOf, stormZone } from './fxSignature';
 import { natureArea, natureCharge, natureOf, natureShot, setNatureLowPower } from './fxNature';
 import { animeCharge, animeOf, animeShot, auroraVeil, cometTex, earthBurst, earthCharge, furyFist, breezeStep, chaosBreakCharge, chaosBreakShot, fireBlizzardCharge, fireBlizzardShot, godWindGust } from './fxAnime';
+import { fuegoOf, supremoCharge, supremoShot, totalCharge, totalWave } from './fxFuego';
 import { adaptedPassive, CAP_ELEMENTAL, CAP_LAST_STAND, emptyFx, TALENTS, talentScale, type TalentFx } from '../systems/talents';
 import { COMBOS, COMBOS_BY_PRIORITY, COMBO_MAX_LEVEL, comboCast, comboDamage, comboGoals, comboHints, comboMembers, comboReady, type ComboDef } from '../systems/combos';
 import { AURA_ELEMENT_BONUS, AURA_TECH_DAMAGE } from '../systems/auras';
@@ -839,6 +840,9 @@ export class ArenaScene extends Phaser.Scene {
           if (nat) natureCharge(this, nat, ox, oy, lv, recipe.windupSec * 1000);
           const anime = animeOf(t.name); // v1.4: techniques redrawn from their anime scenes
           if (anime) animeCharge(this, anime, ox, oy, lv, recipe.windupSec * 1000);
+          const fuego = fuegoOf(t.name); // Axel Blaze Encapuchado: Fuego supremo / Fuego total (fxFuego.ts)
+          if (fuego === 'supremo') supremoCharge(this, ox, oy, lv, recipe.windupSec * 1000);
+          else if (fuego === 'total') totalCharge(this, ox, oy, lv, recipe.windupSec * 1000);
           if (recipe.id === 'dragon') dragon(this, 'rise', ox, oy, c1, c2, lv, recipe.windupSec * 1000 + 160, ox, oy, recipe.tier >= 3);
         } else if (t.type === 'regate') {
           if (!canStartGuardedMove(this.runTime, m.guardLock)) { m.cds[i] = 120; return; }
@@ -1040,7 +1044,7 @@ export class ArenaScene extends Phaser.Scene {
     const style = fxStyle(t);
     const [c1, c2] = STYLE_COLORS[style];
     // Fix 1.12: the participants send their power to the meeting point and each combination has its own manifestation
-    const wind = def.effect === 'tierra' || def.effect === 'tierra-inf' || def.effect === 'bigbang' ? 900 : def.effect === 'caos' || def.effect === 'fenix' || def.effect === 'aurora' ? 700 : 360;
+    const wind = def.effect === 'tierra' || def.effect === 'tierra-inf' || def.effect === 'bigbang' || def.effect === 'fuego-total' ? 900 : def.effect === 'caos' || def.effect === 'fenix' || def.effect === 'aurora' ? 700 : 360;
     // v1.5: a participant carried as Aura appears beside its carrier for the technique only, then fades away
     const ghosts: { x: number; y: number }[] = [];
     for (const c of comboCast(def, who)) {
@@ -1078,6 +1082,7 @@ export class ArenaScene extends Phaser.Scene {
     else if (def.effect === 'fenix') phoenix(this, mx, my, 40 + level * 3, wind);
     else if (def.effect === 'aurora') auroraVeil(this, mx, my, 30 + level * 2, wind); // v1.5: La Aurora
     else if (def.effect === 'bigbang') animeCharge(this, 'bigbang', mx, my + 10, 4 + level, wind); // Fix 1.51: the atom and its sun
+    else if (def.effect === 'fuego-total') totalCharge(this, mx, my, 4 + level, wind); // the curtain of fire between the three
     this.fx.ring(mx, my, 34, c2, 360, 3);
     this.fx.label(mx, my - 30, def.name, '#ffe24a');
     sfx('evolve');
@@ -1089,6 +1094,15 @@ export class ArenaScene extends Phaser.Scene {
       const shots = twin ? [-0.12, 0.12] : [0];
       const flight = Math.min(900, Math.hypot(target.pos.x - mx, target.pos.y - my) / 260 * 1000);
       if (def.effect === 'fenix') phoenixFlight(this, mx, my, target.pos.x, target.pos.y - 10, 40 + level * 3, flight);
+      if (def.effect === 'fuego-total') { // Xavier, Austin and Axel: the wall of fire, wider and longer than the solo one
+        const hits = new Set<Enemy>();
+        totalWave(this, mx, my, a, 4 + level, 300 + level * 15, 1000, (cx, cy, ang, half) => {
+          if (!this.ended) this.sweepBand(mx, my, ang, cx, cy, half, hits, dmg, 140, style);
+        });
+        this.fx.shake(0.008, 400);
+        sfx('kick');
+        return;
+      }
       if (def.effect === 'tierra' || def.effect === 'tierra-inf') {
         // Fix 1.53 (author): the Earth bursts into comets in every direction, 2 more each combo level (10 to 18)
         earthBurst(this, mx, my - 40, 24 + level * 2);
@@ -1159,6 +1173,32 @@ export class ArenaScene extends Phaser.Scene {
       earthBurst(this, ox, oy - 30, 12 + lv);
       this.earthComets(ox, oy - 30, 4 + lv, s.damage, lv, s.pierce + 1, base, recipe, 1 + lv * 0.05);
       this.fx.shake(0.004, 160);
+      return;
+    }
+    const fuego = fuegoOf(t.name);
+    if (fuego === 'supremo') { // white-hot beam that pierces everything on its line, then a starburst round the end
+      const reach = Math.min(300, Math.hypot(target.pos.x - ox, target.pos.y - 12 - oy) + 24);
+      const tx = ox + Math.cos(base) * reach, ty = oy - 8 + Math.sin(base) * reach;
+      const hits = new Set<Enemy>(), dmg = s.damage * (1 + 0.5 * (count - 1));
+      supremoShot(this, ox, oy - 8, tx, ty, lv, Math.max(200, reach / (s.speed * 1.8) * 1000), (x0, y0, x1, y1) => {
+        if (!this.ended) this.hitSegment(x0, y0, x1, y1, 10 + lv, hits, dmg, base, s.knockback, style);
+      }, (x, y, r) => {
+        if (this.ended) return;
+        for (const e of this.enemies) {
+          const d = Math.hypot(e.pos.x - x, e.pos.y - 10 - y);
+          if (!e.dead && d < r + e.radius) this.hit(e, dmg * 1.2, (e.pos.x - x) / (d || 1) * s.knockback, (e.pos.y - y) / (d || 1) * s.knockback, style, true);
+        }
+        this.fx.shake(0.004, 140);
+      });
+      return;
+    }
+    if (fuego === 'total') { // a wall of fire as wide as the pitch rolls forward and hurts everything it sweeps (once each)
+      const hits = new Set<Enemy>(), dmg = s.damage * 1.8 * (1 + 0.3 * (count - 1));
+      this.fx.shake(0.005, 300);
+      totalWave(this, ox, oy - 8, base, lv, 260 + lv * 8, 900, (cx, cy, ang, half) => {
+        if (!this.ended) this.sweepBand(ox, oy - 8, ang, cx, cy, half, hits, dmg, s.knockback, style);
+      });
+      m.cds[i] = m.maxCd[i] = s.cooldownMs * 1.5; // the biggest of his shots comes a little less often
       return;
     }
     if (animeOf(t.name) === 'godwind') { // v1.5 (author): Viento celestial is a gust drawing an S, hurting along the way
@@ -1835,7 +1875,7 @@ export class ArenaScene extends Phaser.Scene {
     for (const x of this.synergyList()) {
       const before = this.synergySeen.get(x.key) ?? 0;
       if (x.bonus > before + 1e-6) {
-        const col = x.element ? ({ Fuego: '#ff7a3a', Aire: '#7ae0ff', Bosque: '#7af07a', 'Montaña': '#ffc35a' } as Record<string, string>)[x.element] ?? '#ffe27a' : '#ffe27a';
+        const col = x.element ? ({ Fuego: '#ff7a3a', Aire: '#7ae0ff', Bosque: '#7af07a', 'Montaña': '#ffc35a', Neutro: '#d08aff' } as Record<string, string>)[x.element] ?? '#ffe27a' : '#ffe27a';
         this.banner(`¡${x.label.split(' · ')[0]} +${Math.round(x.bonus * 100)}%!`, col);
         sfx('powerup');
       }
@@ -1848,6 +1888,30 @@ export class ArenaScene extends Phaser.Scene {
     const t = this.add.text(cam.width / 2, cam.height * 0.3, text, { fontFamily: '"Press Start 2P"', fontSize: '22px', color, stroke: '#000', strokeThickness: 6 })
       .setOrigin(0.5).setScrollFactor(0).setDepth(9800).setScale(0.6).setAlpha(0);
     this.tweens.add({ targets: t, scale: 1, alpha: 1, duration: 220, ease: 'Back.easeOut', yoyo: true, hold: 700, onComplete: () => t.destroy() });
+  }
+
+  /** hurts, once per `hits`, every rival within `w` of the segment (x0,y0)-(x1,y1) (Fuego supremo's beam) */
+  private hitSegment(x0: number, y0: number, x1: number, y1: number, w: number, hits: Set<Enemy>, dmg: number, ang: number, knock: number, style: FxStyle) {
+    const dx = x1 - x0, dy = y1 - y0, L2 = dx * dx + dy * dy || 1;
+    for (const e of this.enemies) {
+      if (e.dead || hits.has(e)) continue;
+      const ex = e.pos.x, ey = e.pos.y - 10, u = Math.max(0, Math.min(1, ((ex - x0) * dx + (ey - y0) * dy) / L2));
+      if (Math.hypot(ex - (x0 + dx * u), ey - (y0 + dy * u)) > w + e.radius) continue;
+      hits.add(e);
+      this.hit(e, dmg, Math.cos(ang) * knock, Math.sin(ang) * knock, style);
+    }
+  }
+
+  /** hurts, once per `hits`, every rival inside the band swept from (ox,oy) to the front (cx,cy), `half` wide each side (Fuego total) */
+  private sweepBand(ox: number, oy: number, ang: number, cx: number, cy: number, half: number, hits: Set<Enemy>, dmg: number, knock: number, style: FxStyle) {
+    const ux = Math.cos(ang), uy = Math.sin(ang), front = (cx - ox) * ux + (cy - oy) * uy;
+    for (const e of this.enemies) {
+      if (e.dead || hits.has(e)) continue;
+      const rx = e.pos.x - ox, ry = e.pos.y - 10 - oy, along = rx * ux + ry * uy, side = Math.abs(-rx * uy + ry * ux);
+      if (along < -12 || along > front + 14 || side > half + e.radius) continue;
+      hits.add(e);
+      this.hit(e, dmg, ux * knock * 1.4, uy * knock * 1.4, style, true);
+    }
   }
 
   private hit(e: Enemy, dmg: number, kx: number, ky: number, style: FxStyle, crit = false) {

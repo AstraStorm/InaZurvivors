@@ -28,6 +28,8 @@ export class Footballer {
       .setOrigin(bodyInfo.originX / bodyInfo.frameW, bodyInfo.originY / bodyInfo.frameH);
     this.head = scene.add.sprite(0, 0, headKey(entry.id), 0)
       .setOrigin(entry.head.originX / entry.head.frameW, entry.head.originY / entry.head.frameH);
+    // special footballers carry their own body inside the head sheet: the composed body stays hidden (frames still advance)
+    if (entry.fullBody) this.body.setVisible(false);
     this.container = scene.add.container(x, y, [this.body, this.head]);
     this.update(0);
   }

@@ -30,6 +30,20 @@ export const NEWS_KIND_LABEL: Record<NewsKind, string> = { novedad: 'NOVEDAD', a
 
 export const AUTHOR_NEWS: NewsItem[] = [
   {
+    id: 'banner-agradecimiento', kind: 'evento', date: '2026-11-04', icon: '♥', pinned: true,
+    title: '¡Gracias por ser más de 50 jugando!',
+    summary: 'Banner de agradecimiento durante 7 días, con futbolistas que solo salen ahí, y el código GRACIAS.',
+    blocks: [
+      { h: 'Más de 50 personas jugando', icon: '♥' },
+      { p: 'InaZurvivors ya tiene **más de 50 personas jugando**. Muchísimas gracias a todos: para celebrarlo abrimos el **Banner de agradecimiento**.' },
+      { list: ['**Ataque a los Titanes**: Levi, Eren, Mikasa, Armin y Erwin.', '**Los Siete Pecados Capitales**: Meliodas, Escanor y Ban.', '**Axel Encapuchado**, con la sudadera de Okinawa (Leyenda).', 'Todos solo salen en este banner.'] },
+      { callout: 'info', text: 'Empieza el **4 de noviembre a las 15:00** y dura **7 días**. Se tira con **fichas de evento** (15 la tirada, 150 el ×10), que ganas jugando en **Rango S o X**.' },
+      { divider: true },
+      { h: 'Código GRACIAS', icon: '🎁' },
+      { callout: 'nuevo', text: 'Canjea **GRACIAS** en CÓDIGOS: un **×10 gratis** del banner y **10.000 monedas**.' },
+    ],
+  },
+  {
     id: 'tablon-noticias', kind: 'novedad', date: '2026-11-02', icon: '📰',
     title: '¡Estrenamos tablón de noticias!',
     summary: 'Aquí irán los avisos, las novedades del desarrollo y el registro de todas las actualizaciones de InaZurvivors.',

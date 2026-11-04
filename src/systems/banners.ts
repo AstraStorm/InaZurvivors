@@ -10,11 +10,13 @@ import { sagaOf } from '../data/sagas';
 import { RARITY_WEIGHTS } from './gacha';
 
 // Fix 1.31: one machine per SAGA (author's request), priced by how likely its stars are; the eras stay for missions
-export type BannerId = 'ff' | 'alius' | 'ffi' | 'go' | 'chrono' | 'galaxy' | 'ares' | 'orion' | 'fichatron' | 'equipo';
+export type BannerId = 'evento' | 'ff' | 'alius' | 'ffi' | 'go' | 'chrono' | 'galaxy' | 'ares' | 'orion' | 'fichatron' | 'equipo';
 export interface BannerDef { id: BannerId; label: string; tagline: string; cost: number; multiCost: number; color: string }
 
 /** cost/multiCost here are the defaults; the real price of a saga machine comes from bannerPrice() */
 export const BANNERS: Record<BannerId, BannerDef> = {
+  // (author) the special banner: every exclusive footballer (data/special_players.json) plus Común/Raro/Épico filler
+  evento: { id: 'evento', label: 'Banner de agradecimiento', tagline: 'Ataque a los Titanes, Los Siete Pecados Capitales y Axel Encapuchado', cost: 15, multiCost: 150, color: '#c45aff' },
   ff: { id: 'ff', label: 'Fútbol Frontier', tagline: 'Inazuma Eleven 1', cost: 10, multiCost: 100, color: '#ff8a2a' },
   alius: { id: 'alius', label: 'Invasión Alius', tagline: 'Inazuma Eleven 2 y el viaje por Japón', cost: 10, multiCost: 100, color: '#ff4f6a' },
   ffi: { id: 'ffi', label: 'Mundial FFI', tagline: 'Inazuma Eleven 3 y las selecciones', cost: 10, multiCost: 100, color: '#4f8bff' },
@@ -26,7 +28,7 @@ export const BANNERS: Record<BannerId, BannerDef> = {
   fichatron: { id: 'fichatron', label: 'Fichatrón', tagline: 'Fichajes sueltos de toda la serie', cost: 5, multiCost: 50, color: '#9aa8c8' },
   equipo: { id: 'equipo', label: 'Por equipo', tagline: 'Elige un equipo: solo sus futbolistas', cost: 15, multiCost: 150, color: '#7dff9a' },
 };
-export const BANNER_ORDER: BannerId[] = ['ff', 'alius', 'ffi', 'go', 'chrono', 'galaxy', 'ares', 'orion', 'fichatron', 'equipo'];
+export const BANNER_ORDER: BannerId[] = ['evento', 'ff', 'alius', 'ffi', 'go', 'chrono', 'galaxy', 'ares', 'orion', 'fichatron', 'equipo'];
 
 const GO = new Set(['GO', 'Chrono Stones', 'Galaxy']);
 const VR = new Set(['Ares', 'Orion']);
@@ -48,11 +50,11 @@ const SAGA_MACHINE: [string, BannerId][] = [['Fútbol Frontier', 'ff'], ['Invasi
 const isMixi = (name: string) => /\+| MM$/.test(name);
 
 /** The one saga machine a character comes out of: his earliest story saga; scouts with no story team go to the Fichatrón. */
-export function machineOf(p: Pick<RosterEntry, 'teams' | 'name'> & { era?: RosterEntry['era'] }): Exclude<BannerId, 'equipo'> {
+export function machineOf(p: Pick<RosterEntry, 'teams' | 'name'> & { era?: RosterEntry['era'] }): Exclude<BannerId, 'equipo' | 'evento'> {
   if (isMixi(p.name)) return 'chrono';
   const sagas = new Set(p.teams.map(sagaOf));
   const hit = SAGA_MACHINE.find(([s]) => sagas.has(s as never));
-  if (hit) return hit[1] as Exclude<BannerId, 'equipo'>;
+  if (hit) return hit[1] as Exclude<BannerId, 'equipo' | 'evento'>;
   if (p.era === 'go') return 'go';
   if (p.era === 'vr') return 'ares';
   return 'fichatron';
@@ -77,7 +79,19 @@ const SMALL_CAP: Partial<Record<BannerId, Partial<Record<Rarity, number>>>> = {
   fichatron: { epico: 1, legendario: 0.3, mitico: 0.1, leyenda: 0.05 },
 };
 
+/** rarities that fill the special banner around its exclusive stars */
+export const EVENT_FILLER: Rarity[] = ['comun', 'raro', 'epico'];
+/** (author) 18 of each: Comunes, Raros and Épicos of the original saga, picked by hand (the rest of the roster stays out) */
+export const EVENT_FILLER_IDS = [
+  1454, 1472, 1467, 1453, 1459, 1495, 1606, 1470, 112, 46, 33, 130, 188, 100, 100437, 100579, 101602, 100465, // Comunes
+  1368, 1366, 1364, 45, 155, 1387, 1393, 126, 1458, 1380, 152, 1605, 1401, 1462, 1573, 1481, 1378, 36, // Raros
+  1585, 1582, 1586, 1588, 1372, 68, 1367, 148, 1025, 25, 133, 28, 1515, 6, 1399, 1501, 1490, 1373, // Épicos
+];
+
 export function bannerPool(roster: RosterEntry[], banner: BannerId, team?: string): RosterEntry[] {
+  if (banner === 'evento') return roster.filter((p) => p.exclusive || (EVENT_FILLER_IDS.includes(p.id) && EVENT_FILLER.includes(p.rarity)));
+  // special footballers (data/special_players.json) only come out of their own banner
+  roster = roster.filter((p) => !p.exclusive);
   if (banner === 'equipo') return team ? roster.filter((p) => p.teams.includes(team)) : [];
   return roster.filter((p) => machineOf(p) === banner);
 }
@@ -97,7 +111,8 @@ export const CHRONO_PRICE = 100;
 export function bannerPrice(pool: RosterEntry[], banner: BannerId): { cost: number; multiCost: number; mythics: number } {
   const n = (r: Rarity) => pool.filter((p) => p.rarity === r).length;
   const mythics = n('mitico'), stars = n('legendario') + mythics + n('leyenda');
-  const cost = banner === 'fichatron' ? 5 : banner === 'equipo' ? 15 : banner === 'chrono' ? CHRONO_PRICE
+  // (author) the Banner de agradecimiento: 15 / 150 Fichas de evento
+  const cost = banner === 'evento' ? BANNERS.evento.cost : banner === 'fichatron' ? 5 : banner === 'equipo' ? 15 : banner === 'chrono' ? CHRONO_PRICE
     : !stars ? 5 : mythics >= 6 ? 20 : mythics || n('leyenda') ? 15 : 10;
   return { cost, multiCost: cost * 10, mythics };
 }

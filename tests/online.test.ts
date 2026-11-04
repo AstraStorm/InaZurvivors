@@ -354,4 +354,10 @@ describe('promotional codes (Fix 1.12)', () => {
     const both = await Promise.all([redeem('beto', 'ASTRA17'), redeem('beto', 'ASTRA17')]);
     expect(both.filter((r) => r.status === 'ok')).toHaveLength(1);
   });
+  it('1.75 GRACIAS: 150 fichas de evento and 10.000 coins, once', async () => {
+    const r = await redeem('carla', 'gracias');
+    expect(r.status).toBe('ok');
+    expect(r.reward).toMatchObject({ tokens: 0, coins: 10000, eventTokens: 150, player: null });
+    expect((await redeem('carla', 'GRACIAS')).status).toBe('used');
+  });
 });

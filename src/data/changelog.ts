@@ -15,6 +15,19 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: '8.1', date: '2026-11-04', title: '1.75 Banner de agradecimiento',
+    features: [
+      'Futbolistas especiales (data/special_players.json): Axel Blaze Encapuchado (1085, fullBody) y la colaboración Ataque a los Titanes / Los Siete Pecados Capitales (900001-900008, torso de retrato por complexión). exclusive: fuera de las máquinas normales.',
+      'Banner de agradecimiento (systems/thanksEvent.ts, banners.ts «evento»): 2026-11-04 15:00 Madrid, 7 días; los exclusivos + EVENT_FILLER_IDS (18 Comunes, 18 Raros, 18 Épicos). Se paga con save.eventTokens (pull currency); cada partida en Rango S o X da tantas como fichas normales. CTA en Fichajes, ficha AGRADECIMIENTO en el menú y aviso al abrir (save.thanksSeen).',
+      'Código GRACIAS: 150 fichas de evento y 10.000 monedas (LOCAL_CODES y migración 20261104000000_thanks_code: redeem_code devuelve eventTokens).',
+      'Sincronías Big Bang (Mikasa, Armin, Eren), La Tierra (Escanor, Ban, Meliodas) y Fuego total (Xavier, Austin, Axel); vínculos de Aura de la colaboración.',
+      'Elemento Neutro: icono, colores, filtro; VOID_JP en sync-assets (categoría Void hissatsu de la wiki, 24 técnicas del juego).',
+    ],
+    fixes: ['Mi Equipo: la carta de un futbolista sin equipo rompía la pantalla (escudo de teams[0]).'],
+    visuals: ['Fuego supremo y Fuego total con dibujo propio (fxFuego.ts).'],
+    balance: [],
+  },
+  {
     version: '8.0', date: '2026-11-05', title: '1.7 Camino de arenas',
     features: [
       'Camino de arenas: mapSelect() dibuja las 12 arenas como paradas de un camino en serpiente (SVG + nodos), con panel lateral (jefe, duración, % extra de los rivales, rangos). styleMapPath.css.',

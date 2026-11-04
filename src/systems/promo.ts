@@ -9,11 +9,13 @@ import type { RosterEntry } from '../data/manifest';
 import { grantCopy } from './gacha';
 import type { SaveData } from './save';
 
-export interface CodeReward { tokens: number; coins: number; player: number | null }
+export interface CodeReward { tokens: number; coins: number; player: number | null; eventTokens?: number }
 export type RedeemStatus = 'ok' | 'used' | 'invalid' | 'error';
 
 /** Codes a guest can redeem without a connection (the same reward the server gives). */
-export const LOCAL_CODES: Record<string, { tokens: number; coins: number; legendary: boolean; label: string }> = {
+export const LOCAL_CODES: Record<string, { tokens: number; coins: number; legendary: boolean; label: string; eventTokens?: number }> = {
+  // (author) 1.75: thanks to the 50+ people playing: a free ×10 of the Banner de agradecimiento and 10.000 coins
+  GRACIAS: { tokens: 0, coins: 10000, eventTokens: 150, legendary: false, label: 'Gracias por jugar: un ×10 gratis del Banner de agradecimiento y 10.000 monedas' },
   ASTRA17: { tokens: 72, coins: 500, legendary: true, label: 'Regalo de bienvenida: 10 tiradas, un Legendario y 500 monedas' },
 };
 
@@ -23,6 +25,7 @@ export const hasRedeemed = (s: SaveData, code: string) => (s.redeemedCodes ?? []
 export function applyReward(s: SaveData, code: string, r: CodeReward) {
   s.tokens += r.tokens;
   s.coins += r.coins;
+  if (r.eventTokens) s.eventTokens = (s.eventTokens ?? 0) + r.eventTokens;
   if (r.player !== null) grantCopy(s, r.player);
   (s.redeemedCodes ??= []).push(normalizeCode(code));
 }
@@ -33,7 +36,7 @@ export function redeemLocal(s: SaveData, code: string, roster: RosterEntry[], rn
   if (!def) return { status: 'invalid' };
   if (hasRedeemed(s, c)) return { status: 'used' };
   const pool = roster.filter((p) => p.rarity === 'legendario');
-  const reward: CodeReward = { tokens: def.tokens, coins: def.coins, player: def.legendary && pool.length ? pool[Math.floor(rng() * pool.length)].id : null };
+  const reward: CodeReward = { tokens: def.tokens, coins: def.coins, player: def.legendary && pool.length ? pool[Math.floor(rng() * pool.length)].id : null, ...(def.eventTokens ? { eventTokens: def.eventTokens } : {}) };
   applyReward(s, c, reward);
   (s.guestCodes ??= []).push(c);
   return { status: 'ok', reward };

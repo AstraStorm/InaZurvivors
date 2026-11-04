@@ -64,6 +64,10 @@ export interface RosterEntry {
   techniques: Technique[];
   starter: boolean;
   startUnlocked: boolean;
+  /** special footballer whose sprite already has the body drawn in it (head sheet = whole figure): no Raimon body, no kit */
+  fullBody?: boolean;
+  /** only comes out of its special banner (data/special_players.json), never from the normal machines */
+  exclusive?: string;
   /** v1.5: the Aura this footballer carries in a run (auras.ts carrierForRun); never in the manifest */
   aura?: import('../systems/auras').AuraLink;
 }

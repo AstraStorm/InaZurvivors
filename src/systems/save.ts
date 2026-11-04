@@ -62,6 +62,10 @@ export interface SaveData {
   achAura?: { equipped?: boolean; bond?: boolean };
   /** v1.5: the explanation of Auras has been shown (first visit to Mi Equipo) */
   auraIntroSeen?: boolean;
+  /** (author) Fichas de evento: they only pay the Banner de agradecimiento (thanksEvent.ts) */
+  eventTokens?: number;
+  /** the thank-you notice of the Banner de agradecimiento was closed */
+  thanksSeen?: boolean;
   /** v1.5: achievements already announced with the «¡LOGRO!» banner (each one only once) */
   achShown?: string[];
   /** last manifest techRemaps step applied to this save (remapTechSlots) */
@@ -272,6 +276,7 @@ export function validate(s: SaveData): SaveData {
   s.coins = Math.max(0, Math.floor(num(s.coins, 0)));
   s.tokens = Math.max(0, Math.floor(num(s.tokens, 0)));
   s.trainTokens = Math.max(0, Math.floor(num(s.trainTokens, 0)));
+  s.eventTokens = Math.max(0, Math.floor(num(s.eventTokens, 0)));
   const owned: Record<string, OwnedPlayer> = {};
   for (const [k, v] of Object.entries(obj(s.owned) ?? {})) {
     const o = obj(v);

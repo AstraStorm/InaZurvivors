@@ -1,12 +1,14 @@
 /**
  * Element emblems drawn for InaZurvivors (inline SVG, crisp at any size): flame for Fuego, whirlwind for Aire,
- * leaf for Bosque, peaks for Montaña, in the colours the IE games use for each element.
+ * leaf for Bosque, peaks for Montaña, in the colours the IE games use for each element; the purple cube of Victory Road for
+ * Neutro (Void, 無: neither strong nor weak against any element).
  */
 const SHAPES: Record<string, { bg: string; rim: string; path: string }> = {
   Fuego: { bg: '#e8401c', rim: '#7a1600', path: '<path d="M12 3c1 4 5 5 5 10a5 5 0 0 1-10 0c0-2 1-3 2-4 0 2 1 3 2 3 0-3-1-5 1-9z" fill="#ffe24a"/><path d="M12 11c1 2 2.5 2.5 2.5 4.5a2.5 2.5 0 0 1-5 0c0-1.5 1.5-2.5 2.5-4.5z" fill="#fff6d0"/>' },
   Aire: { bg: '#1fa8e8', rim: '#06456e', path: '<path d="M4 9h10a2.5 2.5 0 1 0-2.5-2.5" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"/><path d="M4 13h13a3 3 0 1 1-3 3" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"/><path d="M6 17h5" stroke="#d8f4ff" stroke-width="2" stroke-linecap="round"/>' },
   Bosque: { bg: '#3fb83a', rim: '#14520f', path: '<path d="M12 4c5 2 7 6 6 11-1 3-4 5-6 5s-5-2-6-5c-1-5 1-9 6-11z" fill="#c8ff8a"/><path d="M12 6v14M12 11l3-2M12 15l-3-2" stroke="#1f6e1a" stroke-width="1.5" fill="none" stroke-linecap="round"/>' },
   'Montaña': { bg: '#c98a2a', rim: '#5a3504', path: '<path d="M3 19l6-10 3 4 3-6 6 12z" fill="#7a4a12"/><path d="M9 9l1.6 2.6L9 13l-1.4-1.6zM15 7l1.8 3.4-1.8 1.4-1.6-1.6z" fill="#fff"/>' },
+  Neutro: { bg: '#a23cf0', rim: '#3e0a6e', path: '<path d="M12 4l7 3.5v8L12 19l-7-3.5v-8z" fill="#ff7af6"/><path d="M12 4l7 3.5L12 11 5 7.5z" fill="#ffd2fb"/><path d="M12 11v8l7-3.5v-8z" fill="#d43ad8"/><path d="M9.5 9.6l2.5 1.3 2.5-1.3v3l-2.5 1.3-2.5-1.3z" fill="#5a0a7a"/>' },
 };
 
 export const ELEMENT_NAMES = Object.keys(SHAPES);

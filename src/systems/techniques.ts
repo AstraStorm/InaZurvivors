@@ -89,7 +89,7 @@ export function statChanges(t: Pick<Technique, 'type' | 'power'>, level: number)
 }
 
 export const ELEMENT_COLOR: Record<string, number> = {
-  Fuego: 0xff6a2a, Aire: 0x6ad8ff, Bosque: 0x5ee05a, 'Montaña': 0xd9a440,
+  Fuego: 0xff6a2a, Aire: 0x6ad8ff, Bosque: 0x5ee05a, 'Montaña': 0xd9a440, Neutro: 0xc45aff,
 };
 export const elementColor = (e: string | null | undefined) => (e && ELEMENT_COLOR[e]) || 0xf2f2f2;
 
