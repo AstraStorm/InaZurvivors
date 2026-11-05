@@ -1035,21 +1035,176 @@ export function fenrirCharge(scene: S, who: P[], x: number, y: number, lv: numbe
 }
 
 // solos added in this batch
-export type Solo189 = 'tigre' | 'fenix' | 'fenixoscuro';
+export type Solo189 = 'tigre' | 'fenix' | 'fenixoscuro' | 'rizo' | 'ciclon';
 export function solo189Of(name: string): Solo189 | null {
   const n = name.trim();
   if (/^remate del tigre$|tiger ?drive/i.test(n)) return 'tigre';
+  if (/^rizo de drag[oó]n$|dragon ?blaster/i.test(n)) return 'rizo';
+  if (/cicl[oó]n blanco|hurac[aá]n blanco|white hurricane/i.test(n)) return 'ciclon';
   if (/^f[eé]nix oscuro$|dark ?phoenix/i.test(n)) return 'fenixoscuro';
   if (/^f[eé]nix$/i.test(n)) return 'fenix';
   return null;
 }
 export function solo189Charge(scene: S, k: Solo189, x: number, y: number, lv: number, ms: number) {
   if (k === 'tigre') tigerCharge(scene, x, y, lv, ms);
+  else if (k === 'rizo') dragonBlasterCharge(scene, x, y, lv, ms);
+  else if (k === 'ciclon') whiteHurricaneCharge(scene, x, y, lv, ms);
   else phoenixCharge(scene, x, y, lv, ms, k === 'fenixoscuro');
 }
 export function solo189Shot(scene: S, k: Solo189, ball: Img, lv: number) {
   if (k === 'tigre') tigerShot(scene, ball, lv);
+  else if (k === 'rizo') dragonBlasterShot(scene, ball, lv);
+  else if (k === 'ciclon') whiteHurricaneShot(scene, ball, lv);
   else phoenixShot(scene, ball, lv, k === 'fenixoscuro');
+}
+
+// ================================================================ Rizo de dragón (Dragon Blaster, baB0uVN6pfM)
+// He jumps; a dragon of yellow lightning shoots up into the sky; a flash; the dragon curls in a spiral round the ball
+// in a vortex of speed lines; he volleys it among green speed lines inside helix rings of yellow-white wind, and the
+// ball leaves as a huge yellow beam with a spiky starburst at its head.
+/** like burst() but with normal blending: additive yellow and gold over the green pitch turn lime */
+const softBurst = (scene: S, x: number, y: number, ms: number, colors: number[], size: number) => play(scene, x, y, AIR + 2, ms, (g, k) => {
+  const a = 1 - k;
+  colors.forEach((c, i) => g.fillStyle(c, (0.75 - i * 0.15) * a).fillCircle(0, 0, size * (0.4 + k) * (1 - i * 0.22)));
+  g.lineStyle(4, colors[0], a).strokeCircle(0, 0, size * (0.6 + k * 1.4));
+});
+const RZ_YEL = 0xffe94a, RZ_PALE = 0xfff6a8, RZ_GOLD = 0xffb800, RZ_WHITE = 0xffffff, RZ_GREEN = 0x2ac86a;
+/** the lightning dragon's head looking along +x: long snout, open jaws, a spiky mane swept back */
+function boltDragonHead(g: G, s: number, open: number, a: number) {
+  for (let i = 0; i < 6; i++) { const an = Math.PI * (0.62 + i * 0.15); g.fillStyle(i % 2 ? RZ_YEL : RZ_PALE, 0.9 * a).fillTriangle(-s * 0.1, -s * 0.15, Math.cos(an) * s * 1.25, Math.sin(an) * s * 1.1 - s * 0.1, -s * 0.4, s * 0.1); }
+  g.fillStyle(RZ_YEL, a).fillEllipse(0, 0, s * 1.3, s * 0.7);
+  g.fillStyle(RZ_YEL, a).fillTriangle(s * 0.3, -s * 0.3, s * 1.15, -s * 0.12 - open * s * 0.25, s * 0.35, 0); // upper jaw
+  g.fillStyle(RZ_GOLD, a).fillTriangle(s * 0.3, s * 0.05, s * 1.0, s * 0.15 + open * s * 0.3, s * 0.3, s * 0.3); // lower jaw
+  g.fillStyle(RZ_WHITE, 0.95 * a).fillCircle(s * 0.6, s * 0.02, s * 0.12 * (0.6 + open)); // the light in its mouth
+  g.fillStyle(0xff7a1a, a).fillCircle(s * 0.2, -s * 0.2, s * 0.09); // eye
+}
+/** a jagged body of lightning through pts (thick yellow, white core, flame spikes on its sides) */
+function boltBody(g: G, pts: P[], w: number, a: number, t: number) {
+  const jag = pts.map((p, i) => ({ x: p.x + (i % 2 ? 1 : -1) * w * 0.35 * Math.sin(t * 30 + i), y: p.y + (i % 2 ? -1 : 1) * w * 0.3 }));
+  for (let i = 1; i < jag.length; i++) {
+    const p0 = jag[i - 1], p1 = jag[i], u = i / jag.length, ww = w * (0.35 + u * 0.75);
+    g.lineStyle(ww * 2.2, RZ_YEL, 0.35 * a).lineBetween(p0.x, p0.y, p1.x, p1.y);
+    g.lineStyle(ww, RZ_YEL, 0.95 * a).lineBetween(p0.x, p0.y, p1.x, p1.y);
+    g.lineStyle(Math.max(1, ww * 0.35), RZ_WHITE, a).lineBetween(p0.x, p0.y, p1.x, p1.y);
+    if (i % 2) { const an = Math.atan2(p1.y - p0.y, p1.x - p0.x) + (i % 4 === 1 ? 1.9 : -1.9); g.fillStyle(RZ_PALE, 0.8 * a).fillTriangle(p1.x, p1.y, p1.x + Math.cos(an) * ww * 1.8, p1.y + Math.sin(an) * ww * 1.8, p0.x, p0.y); }
+  }
+}
+export function dragonBlasterCharge(scene: S, x: number, y: number, lv: number, ms: number) {
+  const w = 5 + lv * 0.4, top = y - 46, R = 34 + lv * 2;
+  play(scene, x, top, AIR - 2, ms, (g, k, t) => { // the vortex of speed lines round the curl (from the flash on)
+    if (k < 0.38) return;
+    const a = Math.min(1, (k - 0.38) * 5) * (1 - Math.max(0, k - 0.9) * 10);
+    g.fillStyle(0x0d2a18, 0.32 * a).fillCircle(0, 0, R * 1.9);
+    for (let i = 0; i < 22; i++) { const an = i * 0.2856 + t * 0.6, r0 = R * (0.55 + (i % 3) * 0.12); g.lineStyle(i % 2 ? 1.5 : 2.5, i % 3 ? RZ_WHITE : RZ_GREEN, 0.55 * a).lineBetween(Math.cos(an) * r0, Math.sin(an) * r0, Math.cos(an) * R * 2, Math.sin(an) * R * 2); }
+  });
+  play(scene, 0, 0, AIR + 1, ms, (g, k, t) => {
+    if (k < 0.4) { // 1) the lightning dragon shoots up from him into the sky
+      const q = k / 0.4, n = 12, head: P = { x: x + 40 * q, y: y - 20 - 120 * q }, pts: P[] = [];
+      for (let i = 0; i < n; i++) { const u = i / (n - 1); pts.push({ x: x + (head.x - x) * u - (1 - u) * 6, y:y - 10 + (head.y - (y - 10)) * u }); }
+      boltBody(g, pts, w, Math.min(1, q * 3), t);
+      g.save(); g.translateCanvas(head.x, head.y); g.rotateCanvas(Math.atan2(head.y - (y - 10), head.x - x)); boltDragonHead(g, w * 3.4, 0.5 + Math.sin(t * 16) * 0.3, 1); g.restore();
+      return;
+    }
+    // 2) a flash, then the dragon curls round the ball in a tightening spiral: the «rizo»
+    const q = Math.min(1, (k - 0.4) / 0.5), a = 1 - Math.max(0, k - 0.92) * 12, turns = 1.35, n = 30, spin = t * 4, pts: P[] = [];
+    for (let i = 0; i < n; i++) { const u = i / (n - 1) * q, an = spin + u * turns * Math.PI * 2, r = R * (1.35 - u * 1.0); pts.push({ x: x + Math.cos(an) * r, y: top + Math.sin(an) * r * 0.8 }); }
+    for (let i = 0; i < n; i += 2) { const p = pts[i], an = Math.atan2(p.y - top, p.x - x); g.fillStyle(RZ_YEL, 0.5 * a).fillTriangle(p.x, p.y, p.x + Math.cos(an + 0.3) * (10 + lv), p.y + Math.sin(an + 0.3) * (10 + lv), p.x + Math.cos(an) * 4, p.y + Math.sin(an) * 4); } // its fiery outer edge
+    boltBody(g, pts, w * 1.5, a, t);
+    const h = pts[pts.length - 1], b = pts[pts.length - 2];
+    g.save(); g.translateCanvas(h.x, h.y); g.rotateCanvas(Math.atan2(h.y - b.y, h.x - b.x)); boltDragonHead(g, w * 3.6, 0.7, a); g.restore();
+    g.fillStyle(RZ_WHITE, 0.95 * a).fillCircle(x, top, 4 + lv * 0.3); // the ball held in the middle of the curl
+    if (k < 0.48) { const f = 1 - (k - 0.4) / 0.08; g.fillStyle(RZ_PALE, 0.85 * f).fillCircle(x, top, R * 2.2); } // the yellow flash
+    if (k > 0.78) { // 3) the volley: helix rings of yellow-white wind round him
+      const r2 = (k - 0.78) / 0.22;
+      for (let i = 0; i < 4; i++) { const ry = R * (0.55 + i * 0.12); g.lineStyle(3, i % 2 ? RZ_WHITE : RZ_YEL, 0.85 * a * r2).strokeEllipse(x - 26 + i * 16 * r2, top + 6, ry * 0.45, ry * 1.4); }
+    }
+  });
+}
+export function dragonBlasterShot(scene: S, ball: Img, lv: number) {
+  const r = 10 + lv * 0.6;
+  ride(scene, ball, (g, bx, by, ang, t) => {
+    tail(g, bx, by, ang, 150 + lv * 6, r * 2.4, RZ_YEL, 0.8); // the huge yellow beam
+    tail(g, bx, by, ang, 120 + lv * 5, r * 1.4, RZ_PALE, 0.9);
+    tail(g, bx, by, ang, 90, r * 0.6, RZ_WHITE, 0.9);
+    const c = Math.cos(ang), s = Math.sin(ang);
+    for (let i = 0; i < 3; i++) { const d = 30 + i * 34 + ((t * 120) % 34); g.lineStyle(2.5, i % 2 ? RZ_WHITE : RZ_GOLD, 0.85).strokeEllipse(bx - c * d, by - s * d, r * 0.9, r * 2.6); } // helix rings along it
+    g.save(); g.translateCanvas(bx, by); g.rotateCanvas(t * 6);
+    for (let i = 0; i < 14; i++) { const an = i * 0.4488, L = r * (1.5 + ((i * 7) % 3) * 0.45 + Math.sin(t * 20 + i) * 0.2); g.fillStyle(i % 2 ? RZ_YEL : RZ_WHITE, 0.9).fillTriangle(Math.cos(an - 0.18) * r * 0.7, Math.sin(an - 0.18) * r * 0.7, Math.cos(an) * L, Math.sin(an) * L, Math.cos(an + 0.18) * r * 0.7, Math.sin(an + 0.18) * r * 0.7); } // the spiky starburst head
+    g.restore();
+    g.fillStyle(RZ_WHITE, 1).fillCircle(bx, by, r * 0.75);
+    for (let i = 0; i < 4; i++) { const d = Math.random() * 120, o = (Math.random() - 0.5) * r * 4; g.fillStyle(RZ_PALE, 0.9).fillCircle(bx - c * d - s * o, by - s * d + c * o, 1.5); } // sparks
+  }, (x, y) => softBurst(scene, x, y, 480, [RZ_YEL, RZ_PALE, RZ_WHITE], 30 + lv * 2));
+}
+
+// ================================================================ Ciclón blanco (White Hurricane, bGPVMqY3l0U)
+// Golden rays burst out of him inside a white bubble; pale gold ribbons orbit the ball like an atom while it rises;
+// the world turns grey with speed lines and the ball swells into a great white-gold sphere; the kick bursts it into a
+// spiky star and the ball leaves golden, a cyclone turning inside it, trailing streams of pale cloud.
+const CB_GOLD = 0xffe07a, CB_PALE = 0xfff4c8, CB_WHITE = 0xffffff, CB_GREY = 0x4a4a4e, CB_CLOUD = 0xd8d8d0;
+export function whiteHurricaneCharge(scene: S, x: number, y: number, lv: number, ms: number) {
+  const R = 30 + lv * 2;
+  play(scene, x, y - 16, AIR - 2, ms, (g, k, t) => { // the grey sky of speed lines, from the middle of the charge
+    if (k < 0.45) return;
+    const a = Math.min(1, (k - 0.45) * 5) * (1 - Math.max(0, k - 0.92) * 12);
+    g.fillStyle(CB_GREY, 0.42 * a).fillEllipse(0, -30, R * 5, R * 3.6);
+    for (let i = 0; i < 26; i++) { const an = i * 0.2417 + (i % 2) * 0.1, r0 = R * (1.1 + ((i * 5) % 4) * 0.12) + Math.sin(t * 9 + i) * 3; g.lineStyle(i % 3 ? 1.2 : 2.4, CB_WHITE, 0.6 * a).lineBetween(Math.cos(an) * r0, -30 + Math.sin(an) * r0 * 0.75, Math.cos(an) * R * 2.5, -30 + Math.sin(an) * R * 1.8); }
+  });
+  play(scene, x, y, AIR + 1, ms, (g, k, t) => {
+    const by = -10 - 40 * Math.min(1, k * 1.6); // the ball rises from his feet
+    if (k < 0.3) { // 1) golden rays and the white bubble
+      const q = k / 0.3, a = 1 - Math.max(0, q - 0.7) * 2.5;
+      for (let i = 0; i < 14; i++) { const an = i * 0.4488 + 0.2, L = (R * 1.6 + ((i * 3) % 4) * 8) * Math.min(1, q * 2); g.fillStyle(i % 2 ? CB_GOLD : CB_PALE, 0.9 * a).fillTriangle(Math.cos(an - 0.12) * 8, -14 + Math.sin(an - 0.12) * 8, Math.cos(an) * L, -14 + Math.sin(an) * L, Math.cos(an + 0.12) * 8, -14 + Math.sin(an + 0.12) * 8); }
+      g.fillStyle(CB_WHITE, 0.22 * a).fillCircle(0, -14, R * 0.9 * q); g.lineStyle(2, CB_WHITE, 0.7 * a).strokeCircle(0, -14, R * 0.9 * q);
+    }
+    if (k > 0.12 && k < 0.95) { // 2) ribbons of pale gold orbit the ball like an atom
+      const a = Math.min(1, (k - 0.12) * 5) * (1 - Math.max(0, k - 0.85) * 10);
+      for (let i = 0; i < 3; i++) {
+        const tilt = i * 1.05 + t * 0.8, rx = R * (1.3 - i * 0.15), ry = R * 0.32, c = Math.cos(tilt), s = Math.sin(tilt), ph = t * (7 + i), n = 14;
+        for (let j = 0; j < n; j++) { // a ribbon running round its ellipse: bright at the head, fading behind
+          const u0 = ph - j * 0.16, u1 = u0 - 0.16, e = (u: number) => ({ x: Math.cos(u) * rx * c - Math.sin(u) * ry * s, y: by + Math.cos(u) * rx * s + Math.sin(u) * ry * c });
+          const p0 = e(u0), p1 = e(u1);
+          g.lineStyle(6.5 - j * 0.35, j < 2 ? CB_WHITE : CB_GOLD, (1 - j / n) * 0.9 * a).lineBetween(p0.x, p0.y, p1.x, p1.y);
+        }
+      }
+      for (let i = 0; i < 4; i++) g.fillStyle(CB_PALE, 0.8 * a).fillCircle(Math.sin(t * 5 + i * 2) * R, by + Math.cos(t * 4 + i) * R * 0.5, 1.4); // golden dust
+    }
+    // 3) the ball, swelling into a great white-gold sphere; the kick bursts it into a spiky star
+    const grow = k < 0.5 ? 0.35 : 0.35 + Math.min(1, (k - 0.5) / 0.35) * 0.65, br = (8 + lv * 0.5) + R * 0.55 * grow * (k > 0.5 ? 1 : 0);
+    if (k < 0.9) {
+      g.fillStyle(CB_GOLD, 0.4).fillCircle(0, by, br * 1.5);
+      g.fillStyle(CB_PALE, 0.85).fillCircle(0, by, br);
+      g.fillStyle(CB_WHITE, 0.95).fillCircle(0, by, br * 0.6);
+      g.lineStyle(2, CB_WHITE, 0.8).strokeEllipse(0, by, br * 2.6, br * 0.8); // its own ring
+    } else {
+      const q = (k - 0.9) / 0.1, L = br * (1.2 + q);
+      for (let i = 0; i < 12; i++) { const an = i * 0.5236 + 0.26, LL = L * (i % 2 ? 0.7 : 1.15); g.fillStyle(i % 2 ? CB_GOLD : CB_WHITE, 0.95 * (1 - q * 0.4)).fillTriangle(Math.cos(an - 0.22) * br * 0.5, by + Math.sin(an - 0.22) * br * 0.5, Math.cos(an) * LL, by + Math.sin(an) * LL, Math.cos(an + 0.22) * br * 0.5, by + Math.sin(an + 0.22) * br * 0.5); }
+      g.fillStyle(CB_WHITE, 1).fillCircle(0, by, br * 0.55);
+    }
+  });
+}
+export function whiteHurricaneShot(scene: S, ball: Img, lv: number) {
+  const r = 10 + lv * 0.5;
+  ride(scene, ball, (g, bx, by, ang, t) => {
+    const c = Math.cos(ang), s = Math.sin(ang), nx = -s, ny = c;
+    for (let i = 0; i < 4; i++) { // streams of pale cloud trailing behind, waving
+      const off = (i - 1.5) * r * 0.7, n = 10;
+      for (let j = 0; j < n; j++) {
+        // soft puffs of cloud, smaller and fainter further back
+        const d = j * 12, o = off * (1 + j * 0.05) + Math.sin(t * 10 + j * 0.7 + i) * 4;
+        g.fillStyle(i % 2 ? CB_CLOUD : CB_PALE, 0.6 * (1 - j / n)).fillCircle(bx - c * d + nx * o, by - s * d + ny * o, r * (0.62 - j * 0.04));
+      }
+    }
+    g.fillStyle(CB_GOLD, 0.45).fillCircle(bx, by, r * 1.7);
+    g.fillStyle(CB_GOLD, 0.95).fillCircle(bx, by, r * 1.05);
+    for (let i = 0; i < 3; i++) { const ph = t * 14 + i * 2.1; g.lineStyle(2, i ? CB_WHITE : 0xffb020, 0.95).beginPath().arc(bx, by, r * (0.35 + i * 0.22), ph, ph + 3.6).strokePath(); } // the cyclone turning inside
+    g.fillStyle(CB_WHITE, 0.9).fillCircle(bx + c * r * 0.2, by + s * r * 0.2, r * 0.28);
+  }, (x, y) => { // a great wash of golden-white wind
+    play(scene, x, y, AIR + 2, 560, (g, k) => {
+      const a = 1 - k, R = (34 + lv * 2) * (0.5 + k);
+      for (let i = 0; i < 5; i++) { const ph = i * 1.256 + k * 4; g.lineStyle(6 - i * 0.6, i % 2 ? CB_WHITE : CB_GOLD, 0.8 * a).beginPath().arc(0, 0, R * (0.6 + i * 0.12), ph, ph + 2.2).strokePath(); }
+    });
+    softBurst(scene, x, y, 420, [CB_GOLD, CB_PALE, CB_WHITE], 28 + lv * 2);
+  });
 }
 
 // combos added in this batch

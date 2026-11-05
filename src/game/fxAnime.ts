@@ -16,8 +16,7 @@
  *     bursts into comets of light in every direction (more of them each level).
  *   Puño de Furia — Fix 1.53: golden aura with red crests, a golden giant rises behind the keeper and its fist comes
  *     down on the rival: white-gold impact, a shock ring and cracks in the ground.
- *   Ciclón blanco (White Hurricane) — golden rays burst from the shooter, white wind spirals up into a vortex; the
- *     ball, golden inside a bubble of wind, is followed by a huge golden-white crescent of hurricane.
+ *   Ciclón blanco — 1.88: redone from its scene, now in fxCombo183.ts (whiteHurricaneCharge/Shot).
  */
 import Phaser from 'phaser';
 
@@ -29,7 +28,7 @@ const ADD = Phaser.BlendModes.NORMAL;
 const rnd = (a: number, b: number) => a + Math.random() * (b - a);
 const BREEZE = 0xc8ffe0, BREEZE2 = 0x7fffc0, GOLD = 0xffd23f, GOLD2 = 0xfff2a0, FIRE = 0xff7a1a, FIRE2 = 0xffd04a;
 
-export type AnimeMove = 'brisa' | 'godwind' | 'tth' | 'fuego' | 'ciclon' | 'tfuego' | 'supernova' | 'bigbang' | 'tierra';
+export type AnimeMove = 'brisa' | 'godwind' | 'tth' | 'fuego' | 'tfuego' | 'supernova' | 'bigbang' | 'tierra';
 export function animeOf(name: string): AnimeMove | null {
   if (/brisa deslizante|easy breezy|soyokaze/i.test(name)) return 'brisa';
   if (/viento celestial|god ?wind/i.test(name)) return 'godwind';
@@ -39,7 +38,6 @@ export function animeOf(name: string): AnimeMove | null {
   if (/^supernova$/i.test(name.trim())) return 'supernova';
   if (/^big ?bang$/i.test(name.trim())) return 'bigbang'; // the combined technique (Xavier, Jude, Shawn), not «Corte Big Bang»
   if (/^la tierra$|^the earth$/i.test(name.trim())) return 'tierra'; // Fix 1.53: the solo version (Mark, Nelly, Adam)
-  if (/cicl[oó]n blanco|hurac[aá]n blanco|white hurricane/i.test(name)) return 'ciclon';
   return null;
 }
 
@@ -253,19 +251,6 @@ export function animeCharge(scene: S, kind: AnimeMove, x: number, y: number, lev
         const e = scene.add.circle(x, y - rnd(0, 30), rnd(1.2, 2.6), k % 2 ? FIRE : FIRE2, 1).setDepth(AIR).setBlendMode(ADD);
         const a = rnd(0, Math.PI * 2);
         scene.tweens.add({ targets: e, x: x + Math.cos(a) * rnd(18, 34), y: e.y + Math.sin(a) * rnd(6, 14) - rnd(6, 20), alpha: 0, delay: rnd(ms * 0.2, ms * 0.8), duration: rnd(260, 420), onComplete: () => e.destroy() });
-      }
-      break;
-    }
-    case 'ciclon': { // golden rays burst out, then white wind spirals up around him into a vortex above
-      rays(scene, x, y - 10, 14, GOLD2, 60 + level * 3, ms * 0.6);
-      const vortex = scene.add.ellipse(x, y - 54, 30, 10).setStrokeStyle(3, 0xffffff, 0.8).setDepth(AIR).setBlendMode(ADD).setAlpha(0);
-      scene.tweens.add({ targets: vortex, alpha: 1, scaleX: 2.6, scaleY: 2.2, delay: ms * 0.3, duration: ms * 0.6, onComplete: () => fade(scene, vortex, 0, 200) });
-      for (let k = 0; k < 8 + level; k++) {
-        const s = scene.add.image(x, y + 4, streakTex(scene)).setDepth(AIR).setBlendMode(ADD).setTint(k % 3 ? 0xffffff : GOLD2).setAlpha(0.9).setScale(0.7);
-        const st = { t: 0 }, a0 = (k / (8 + level)) * Math.PI * 2;
-        scene.tweens.add({ targets: st, t: 1, delay: ms * 0.25 + k * 20, duration: ms * 0.7, ease: 'Sine.easeIn',
-          onUpdate: () => { const a = a0 + st.t * 7, r = 14 + st.t * 26; s.setPosition(x + Math.cos(a) * r, y + 4 - st.t * 58 + Math.sin(a) * r * 0.35).setRotation(a + Math.PI / 2).setAlpha(0.9 * (1 - st.t * 0.6)); },
-          onComplete: () => s.destroy() });
       }
       break;
     }
@@ -829,25 +814,6 @@ export function animeShot(scene: S, kind: AnimeMove, ball: Img, level: number) {
           scene.tweens.add({ targets: b, scale: 3.2, alpha: 0, delay: d, duration: 340, onComplete: () => b.destroy() });
         }
         scene.tweens.add({ targets: [core, ...tongues], alpha: 0, duration: 160, onComplete: () => { core.destroy(); tongues.forEach((x) => x.destroy()); } });
-      });
-      break;
-    }
-    case 'ciclon': { // a golden ball inside a bubble of wind, followed by a huge golden-white crescent of hurricane
-      const bubble = scene.add.circle(ball.x, ball.y, 12).setStrokeStyle(2, 0xffffff, 0.8).setDepth(AIR + 1).setBlendMode(ADD);
-      const glowC = scene.add.circle(ball.x, ball.y, 10, GOLD, 0.5).setDepth(AIR).setBlendMode(ADD);
-      const wave = scene.add.image(ball.x, ball.y, crescentTex(scene)).setDepth(AIR - 1).setBlendMode(ADD).setTint(GOLD2).setScale(1.9 + level * 0.06).setAlpha(0.85);
-      const wave2 = scene.add.image(ball.x, ball.y, crescentTex(scene)).setDepth(AIR - 1).setBlendMode(ADD).setScale(1.4 + level * 0.05).setAlpha(0.75);
-      ride(scene, ball, (bx, by, ang, t) => {
-        bubble.setPosition(bx, by).setScale(1 + Math.sin(t * 20) * 0.08);
-        glowC.setPosition(bx, by);
-        // the crescent faces forward, its horns trailing behind the ball like the hurricane wave
-        wave.setPosition(bx - Math.cos(ang) * 14, by - Math.sin(ang) * 14).setRotation(ang - Math.PI * 0.43 + Math.sin(t * 9) * 0.1);
-        wave2.setPosition(bx - Math.cos(ang) * 22, by - Math.sin(ang) * 22).setRotation(ang - Math.PI * 0.43 - Math.sin(t * 9) * 0.1);
-      }, (bx, by) => {
-        rays(scene, bx, by, 14, GOLD2, 40, 320);
-        const b = scene.add.circle(bx, by, 14, GOLD2, 0.7).setDepth(AIR).setBlendMode(ADD);
-        scene.tweens.add({ targets: b, scale: 3.4, alpha: 0, duration: 340, onComplete: () => b.destroy() });
-        scene.tweens.add({ targets: [bubble, glowC, wave, wave2], alpha: 0, scale: 2, duration: 240, onComplete: () => [bubble, glowC, wave, wave2].forEach((x) => x.destroy()) });
       });
       break;
     }

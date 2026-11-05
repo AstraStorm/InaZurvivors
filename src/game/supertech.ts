@@ -51,6 +51,9 @@ export function recipeFor(t: Pick<Technique, 'name' | 'element' | 'power'>, rari
   if (/tornado de fuego|fire ?tornado/i.test(n)) return { id: 'tornado', tier, style: 'fuego' as FxStyle, windupSec: WINDUP.tornado + tier * 0.05, ballTexture: 'fx:ball', ballScale: 1, own: true };
   if (/viento celestial|god ?wind/i.test(n)) return { id: 'tornado', tier, style: 'viento' as FxStyle, windupSec: WINDUP.tornado + tier * 0.05, ballTexture: 'fx:ball', ballScale: 1, own: true };
   // 1.76: the six shots of fxMovie.ts draw their own charge and ball (Ataque Omega is no starburst, Campo Umbrío no generic shadow)
+  // 1.88 (author): Rizo de dragón and Ciclón blanco redone from their scenes (fxCombo183.ts): no generic dragon or funnel
+  if (/^rizo de drag[oó]n$|dragon ?blaster/i.test(n.trim())) return { id: 'rayo', tier, style: 'rayo' as FxStyle, windupSec: 0.85 + tier * 0.05, ballTexture: 'fx:ball', ballScale: 1, own: true };
+  if (/cicl[oó]n blanco|hurac[aá]n blanco|white hurricane/i.test(n)) return { id: 'tornado', tier, style: 'viento' as FxStyle, windupSec: 0.85 + tier * 0.05, ballTexture: 'fx:ball', ballScale: 1, own: true };
   if (movieOf(n)) return { id, tier, style, windupSec: Math.max(0.6, WINDUP[id] + tier * 0.05), ballTexture: 'fx:ball', ballScale: 1, own: true };
   return { id, tier, style: id === 'supernova' ? 'energia' : style, windupSec: WINDUP[id] + tier * 0.05,
     ballTexture: id === 'supernova' ? 'fx:nova' : 'fx:ball', ballScale: id === 'supernova' ? 1.1 : 1 };

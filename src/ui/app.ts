@@ -172,6 +172,8 @@ export class App {
   private compareWith: number | null = null;
   private gear: GearItem[];
   private pulling = false;
+  private pullAt = 0; // 1.88: when the pull started (a pull with nothing left on screen no longer locks the machine)
+  private tapAt = 0;
   private screenKey = '';
   private perkTab: PerkCategory = 'Combate';
   private lastMusicCtx = '';
@@ -706,6 +708,25 @@ export class App {
   }
   private on(sel: string, ev: string, fn: (e: Event, el: HTMLElement) => void, scope: ParentNode = this.root) {
     scope.querySelectorAll<HTMLElement>(sel).forEach((el) => el.addEventListener(ev, (e) => fn(e, el)));
+  }
+  /**
+   * 1.88: a tap that always counts. Some Android Chrome never turned a tap on a banner or frame into a click
+   * (BUG-954A1821: only the Banner de agradecimiento could be used), so a short touch without movement also fires it,
+   * once (the click that may follow is ignored).
+   */
+  private onTap(sel: string, fn: (el: HTMLElement) => void, scope: ParentNode = this.root) {
+    scope.querySelectorAll<HTMLElement>(sel).forEach((el) => {
+      let at: { x: number; y: number; id: number } | null = null;
+      // shared: the screen is redrawn on the tap, so the click that follows lands on the new copy of the button
+      const fire = () => { if (performance.now() - this.tapAt < 600) return; this.tapAt = performance.now(); fn(el); };
+      el.addEventListener('pointerdown', (e) => { at = e.pointerType === 'mouse' ? null : { x: e.clientX, y: e.clientY, id: e.pointerId }; });
+      el.addEventListener('pointerup', (e) => {
+        const a = at; at = null;
+        if (a && a.id === e.pointerId && Math.hypot(e.clientX - a.x, e.clientY - a.y) < 12) fire();
+      });
+      el.addEventListener('pointercancel', () => { at = null; });
+      el.addEventListener('click', fire);
+    });
   }
   /** Two-step purchase button: the first click arms it, the second confirms. */
   private armed(el: HTMLElement, fn: () => void) {
@@ -3539,6 +3560,9 @@ export class App {
 
   private gachaBanner: BannerId = 'evento'; // the special banner opens first
   private gachaTeam = '';
+  private tabScroll = 0;
+  /** 1.88: a pull is only in progress while its knob turns or its capsule is on screen; a lost one frees the machine */
+  private pullBusy() { return this.pulling && (performance.now() - this.pullAt < 5000 || !!this.root.querySelector('.reveal')); }
   gacha() {
     const thanksOpen = thanksActive(serverNow());
     if (this.gachaBanner === 'evento' && !thanksOpen) this.gachaBanner = 'ff'; // 1.75: only while the event is open
@@ -3603,12 +3627,23 @@ export class App {
         <div class="note">Fichas = máquina de cápsulas · Monedas = mejoras y tiendas. Gráficos de la máquina: Inazuma Eleven 3 (hoja de The Spriters Resource, ripeada por Avegaille), recurso local.</div></div></div>`);
     this.on('[data-back]', 'click', () => this.mainMenu());
     document.getElementById('pnevent')?.addEventListener('click', () => { if (!this.pulling) this.pennantEvent(); });
-    document.getElementById('thanksev')?.addEventListener('click', () => { if (!this.pulling) { this.gachaBanner = 'evento'; this.gacha(); } });
-    this.on('[data-banner]', 'click', (_e, el) => { if (this.pulling) return; this.gachaBanner = el.dataset.banner as BannerId; this.gacha(); });
+    // 1.88: the tab row keeps its scroll when the machine changes, and the chosen one stays in sight
+    const row = this.root.querySelector<HTMLElement>('.banner-tabs');
+    if (row) {
+      row.scrollLeft = this.tabScroll;
+      const on = row.querySelector<HTMLElement>('.banner-tab.on');
+      if (on && (on.offsetLeft < row.scrollLeft || on.offsetLeft + on.offsetWidth > row.scrollLeft + row.clientWidth)) row.scrollLeft = on.offsetLeft - 8;
+      row.addEventListener('scroll', () => { this.tabScroll = row.scrollLeft; }, { passive: true });
+      this.tabScroll = row.scrollLeft;
+    }
+    const pick = (b: BannerId) => { if (this.pullBusy()) return; this.pulling = false; this.gachaBanner = b; this.gacha(); };
+    this.onTap('#thanksev', () => pick('evento'));
+    this.onTap('[data-banner]', (el) => pick(el.dataset.banner as BannerId));
     document.getElementById('gteam')?.addEventListener('change', (e) => { this.gachaTeam = (e.target as HTMLSelectElement).value; this.gacha(); });
     this.on('[data-pull]', 'click', async (_e, el) => {
-      if (this.pulling) return; // one transaction at a time: a double click can never charge twice
+      if (this.pullBusy()) return; // one transaction at a time: a double click can never charge twice
       this.pulling = true;
+      this.pullAt = performance.now();
       const b = BANNERS[this.gachaBanner];
       const bpool = bannerPool(this.m.roster, b.id, this.gachaTeam);
       const bp = bannerPrice(bpool, b.id);
@@ -3897,7 +3932,8 @@ export class App {
         mountPreviews();
         card.querySelector('.btn')!.addEventListener('click', () => finish(false));
       };
-      void seq();
+      // 1.88: a failing animation never leaves the pull hanging (the reward was already saved)
+      seq().catch((e) => { console.error('reveal', e); finish(false); });
     });
   }
 
@@ -4321,13 +4357,13 @@ export class App {
     });
     this.on('#tabs button', 'click', (_e, el) => this.profile(el.dataset.t as 'emblem' | 'player' | 'coach'));
     this.bindAccount(() => this.profile(tab));
-    this.on('[data-pn]', 'click', (_e, el) => { // v1.65: wear a banner, or take it off with a second tap
+    this.onTap('[data-pn]', (el) => { // v1.65: wear a banner, or take it off with a second tap
       const id = el.dataset.pn!;
       if (!hasPennant(this.save, id)) { sfx('error'); return; }
       equipPennant(this.save, this.save.pennants?.equipped === id ? null : id);
       this.persist(); sfx('click'); this.profile(tab);
     });
-    this.on('[data-fr]', 'click', (_e, el) => { // v1.65: wear a frame, or take it off with a second tap
+    this.onTap('[data-fr]', (el) => { // v1.65: wear a frame, or take it off with a second tap
       const id = el.dataset.fr!;
       if (!hasPennant(this.save, id)) { sfx('error'); return; }
       equipFrame(this.save, this.save.pennants?.frame === id ? null : id);
