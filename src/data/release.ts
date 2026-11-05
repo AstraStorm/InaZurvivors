@@ -40,6 +40,7 @@ export const PUBLIC_RELEASES: PublicRelease[] = [
       { icon: '🌌', title: 'Combinadas nuevas', text: 'Combo cósmico (Xavier y Kira Hiroto), Gran explosión (Bai Long y Victor), Pingüinos de luz y sombra (Haizaki y Kira Hiroto) y Campo de fuerza (Jude y Caleb), como en sus escenas.' },
       { icon: '💥', title: 'El Detonador', text: 'La técnica de Kira Hiroto, redibujada: un cometa rosa sube al cielo, se abre una nebulosa y el balón baja como un haz con bolas de fuego.' },
       { icon: '👥', title: 'Xavier y Kira Hiroto', text: 'Ahora son personajes distintos: pueden jugar juntos en el mismo equipo.' },
+      { icon: '⚔', title: 'Excalibur y Espada de Odín', text: 'Redibujadas: Excalibur sube entre anillos de runas doradas y sale como una hoja de luz; la Espada de Odín abre un círculo mágico, baja el talón entre destellos dorados y corta como un tajo de luz.' },
     ],
     start: [],
   },

@@ -304,13 +304,15 @@ export function blizzardShot(scene: S, ball: Img, lv: number) {
 }
 
 // ================================================================ solo techniques
-export type Solo183 = 'godbreak' | 'dragon' | 'oso' | 'detonador';
+export type Solo183 = 'godbreak' | 'dragon' | 'oso' | 'detonador' | 'excalibur' | 'odinsword';
 export function solo183Of(name: string): Solo183 | null {
   const n = name.trim();
   if (/^disparo sagrado$|god ?break/i.test(n)) return 'godbreak';
   if (/^tornado drag[oó]n$|dragon ?tornado/i.test(n)) return 'dragon';
   if (/^furia de oso$|kuma ?goroshi ?zan/i.test(n)) return 'oso'; // 1.87
   if (/^el detonador$|the explosion/i.test(n)) return 'detonador'; // 1.88
+  if (/^excalibur$/i.test(n)) return 'excalibur';
+  if (/^espada de od[ií]n$|odin ?sword/i.test(n)) return 'odinsword';
   return null;
 }
 
@@ -327,6 +329,8 @@ export function solo183Charge(scene: S, kind: Solo183, x: number, y: number, lv:
   if (kind === 'dragon') { dragonTornadoCharge(scene, { x: x - 30, y: y + 6 }, { x, y }, x + 10, y, lv, ms); return; }
   if (kind === 'oso') { bearCharge(scene, x, y, lv, ms); return; }
   if (kind === 'detonador') { detonadorCharge(scene, x, y, lv, ms); return; }
+  if (kind === 'excalibur') { excaliburCharge(scene, x, y, lv, ms); return; }
+  if (kind === 'odinsword') { odinSwordCharge(scene, x, y, lv, ms); return; }
   // Disparo sagrado: a patch of blue sky over him, and the sphere of white-gold light crackling above
   play(scene, x, y - 30, AIR - 3, ms, (g, k) => {
     const a = Math.min(1, k * 3) * (1 - Math.max(0, k - 0.85) * 6);
@@ -344,6 +348,8 @@ export function solo183Shot(scene: S, kind: Solo183, ball: Img, lv: number) {
   if (kind === 'dragon') { dragonTornadoShot(scene, ball, lv); return; }
   if (kind === 'oso') { bearShot(scene, ball, lv); return; }
   if (kind === 'detonador') { detonadorShot(scene, ball, lv); return; }
+  if (kind === 'excalibur') { excaliburShot(scene, ball, lv); return; }
+  if (kind === 'odinsword') { odinSwordShot(scene, ball, lv); return; }
   const r = 10 + lv * 0.6;
   ride(scene, ball, (g, bx, by, ang, t) => {
     tail(g, bx, by, ang, 80 + lv * 4, r * 1.4, GB_GOLD, 0.4);
@@ -694,4 +700,88 @@ export function detonadorShot(scene: S, ball: Img, lv: number) {
     }
     g.fillStyle(CO_WHITE, 1).fillCircle(bx, by, r * 0.75);
   }, (x, y) => burst(scene, x, y, 560, [CO_PINK, CO_FIRE, CO_WHITE], 34 + lv * 2), true);
+}
+
+// ================================================================ 1.88 (author): Excalibur (Edgar) and Espada de Odín (Paolo)
+/**
+ *   Excalibur (qAc6rNN8e2Q, aEw4UmIPOiw): a blue sky, rings of golden runes spiralling round the ball as it rises, and a
+ *     beam of cyan-white light shaped like a sword blade that carries it.
+ *   Espada de Odín (2lVyzSe9TE8, 52OhGClmcNM): a glowing magic circle of runes, green and gold, on the ground; the heel goes
+ *     up high and comes down in a golden burst, and the ball leaves as a slash of light, the edge of a great sword.
+ */
+const SW_GOLD = 0xffd23f, SW_PALE = 0xfff4b0, SW_CYAN = 0x8af0ff, SW_WHITE = 0xffffff, SW_SKY = 0x3a8ad8, SW_GREEN = 0x7affa0;
+
+/** a ring of rune marks (short ticks and dots) round 0,0 */
+function runeRing(g: G, r: number, ph: number, color: number, a: number, squash = 1) {
+  const n = Math.max(10, Math.round(r * 0.9));
+  for (let i = 0; i < n; i++) {
+    const an = ph + (i / n) * Math.PI * 2, x = Math.cos(an) * r, y = Math.sin(an) * r * squash;
+    if (i % 3 === 0) g.fillStyle(color, a).fillCircle(x, y, 1.4);
+    else g.lineStyle(1.6, color, a).lineBetween(x - Math.sin(an) * 2.4, y + Math.cos(an) * 2.4 * squash, x + Math.sin(an) * 2.4, y - Math.cos(an) * 2.4 * squash);
+  }
+}
+
+export function excaliburCharge(scene: S, x: number, y: number, lv: number, ms: number) {
+  play(scene, x, y - 30, AIR - 3, ms, (g, k) => { // a patch of blue sky over him
+    const a = Math.min(1, k * 3) * (1 - Math.max(0, k - 0.85) * 6);
+    for (let i = 0; i < 3; i++) g.fillStyle(SW_SKY, (0.18 - i * 0.04) * a).fillEllipse(0, 0, 170 - i * 30, 110 - i * 20);
+  });
+  play(scene, x, y - 20, AIR + 2, ms, (g, k, t) => { // golden rune rings spiralling up round the rising ball
+    const by = -k * 34, a = Math.min(1, k * 3);
+    for (let i = 0; i < 4; i++) {
+      const r = (12 + i * 6) * (1 + lv * 0.02), yy = by + 10 - i * 7;
+      g.save(); g.translateCanvas(0, yy); runeRing(g, r, t * (3 + i) * (i % 2 ? -1 : 1), SW_GOLD, 0.85 * a, 0.45); g.restore();
+    }
+    g.fillStyle(SW_CYAN, 0.5 * a).fillCircle(0, by, 9);
+    g.fillStyle(SW_WHITE, 0.95 * a).fillCircle(0, by, 4.5);
+  }, true);
+}
+export function excaliburShot(scene: S, ball: Img, lv: number) {
+  const r = 9 + lv * 0.4;
+  ride(scene, ball, (g, bx, by, ang, t) => { // a blade of cyan-white light: wide at the hilt, a sharp point at the ball
+    const c = Math.cos(ang), sn = Math.sin(ang), nx = -sn, ny = c, len = 110 + lv * 4, w = r * 1.4;
+    const hx = bx - c * len, hy = by - sn * len;
+    g.fillStyle(SW_CYAN, 0.45).fillPoints([new Phaser.Math.Vector2(bx + c * r, by + sn * r), new Phaser.Math.Vector2(hx + nx * w, hy + ny * w), new Phaser.Math.Vector2(hx - nx * w, hy - ny * w)], true);
+    g.fillStyle(SW_WHITE, 0.85).fillPoints([new Phaser.Math.Vector2(bx + c * r * 0.6, by + sn * r * 0.6), new Phaser.Math.Vector2(hx + nx * w * 0.35, hy + ny * w * 0.35), new Phaser.Math.Vector2(hx - nx * w * 0.35, hy - ny * w * 0.35)], true);
+    g.lineStyle(4, SW_GOLD, 0.9).lineBetween(hx + nx * w * 1.6, hy + ny * w * 1.6, hx - nx * w * 1.6, hy - ny * w * 1.6); // the crossguard
+    g.save(); g.translateCanvas(bx - c * len * 0.5, by - sn * len * 0.5); runeRing(g, r * 1.8, t * 6, SW_GOLD, 0.6, 0.5); g.restore();
+    g.fillStyle(SW_WHITE, 1).fillCircle(bx, by, r * 0.7);
+  }, (x, y) => play(scene, x, y, AIR + 2, 520, (g, k) => { // a cross of light where it lands
+    const a = 1 - k, R = 30 + lv * 2;
+    g.lineStyle(6, SW_CYAN, 0.8 * a).lineBetween(-R * (0.5 + k), 0, R * (0.5 + k), 0).lineBetween(0, -R * (0.7 + k * 1.2), 0, R * (0.5 + k));
+    g.lineStyle(2.5, SW_WHITE, a).lineBetween(-R * (0.5 + k), 0, R * (0.5 + k), 0).lineBetween(0, -R * (0.7 + k * 1.2), 0, R * (0.5 + k));
+    g.lineStyle(3, SW_GOLD, 0.8 * a).strokeCircle(0, 0, R * (0.3 + k));
+  }, true), true);
+}
+
+export function odinSwordCharge(scene: S, x: number, y: number, lv: number, ms: number) {
+  play(scene, x, y + 4, y - 2, ms, (g, k, t) => { // the magic circle of runes on the ground
+    const a = Math.min(1, k * 3) * (1 - Math.max(0, k - 0.85) * 6), R = 34 + lv;
+    g.lineStyle(2.5, SW_GREEN, 0.8 * a).strokeEllipse(0, 0, R * 2, R * 0.9);
+    g.lineStyle(1.5, SW_GOLD, 0.8 * a).strokeEllipse(0, 0, R * 1.55, R * 0.7);
+    runeRing(g, R * 0.88, t * 1.5, SW_GREEN, 0.9 * a, 0.45);
+    for (let i = 0; i < 6; i++) { const an = t + i * 1.047; g.lineStyle(1.5, SW_GOLD, 0.6 * a).lineBetween(Math.cos(an) * R * 0.78, Math.sin(an) * R * 0.35, Math.cos(an + 2.094) * R * 0.78, Math.sin(an + 2.094) * R * 0.35); } // a star
+  }, true);
+  play(scene, x, y - 10, AIR + 2, ms, (g, k) => { // the heel coming down in a golden burst
+    if (k < 0.7) { const q = k / 0.7; g.lineStyle(3, SW_PALE, 0.8 * q).beginPath().arc(0, 0, 22, -Math.PI / 2 - 0.4, -Math.PI / 2 + 0.4 + q * 0.2).strokePath(); return; }
+    const q = (k - 0.7) / 0.3, R = 30 + lv * 2;
+    for (let i = 0; i < 14; i++) { const an = i * 0.449; g.lineStyle(3, i % 2 ? SW_GOLD : SW_PALE, 1 - q).lineBetween(Math.cos(an) * R * 0.2, Math.sin(an) * R * 0.2, Math.cos(an) * R * (0.6 + q), Math.sin(an) * R * (0.6 + q)); }
+    g.fillStyle(SW_PALE, 0.9 * (1 - q)).fillCircle(0, 0, R * 0.4);
+  }, true);
+}
+export function odinSwordShot(scene: S, ball: Img, lv: number) {
+  const r = 9 + lv * 0.4;
+  ride(scene, ball, (g, bx, by, ang) => { // a slash of light: a long golden blade edge, curved, with a white core
+    const c = Math.cos(ang), sn = Math.sin(ang), nx = -sn, ny = c, len = 120 + lv * 5;
+    const pts: Phaser.Math.Vector2[] = [], inner: Phaser.Math.Vector2[] = [];
+    for (let i = 0; i <= 10; i++) {
+      const u = i / 10, d = u * len, bow = Math.sin(u * Math.PI) * r * 2.2, w = r * 1.5 * (1 - u * 0.9);
+      pts.push(new Phaser.Math.Vector2(bx - c * d + nx * (bow + w), by - sn * d + ny * (bow + w)));
+      inner.unshift(new Phaser.Math.Vector2(bx - c * d + nx * (bow - w * 0.4), by - sn * d + ny * (bow - w * 0.4)));
+    }
+    g.fillStyle(SW_GOLD, 0.55).fillPoints([...pts, ...inner], true);
+    tail(g, bx, by, ang, len * 0.7, r * 0.6, SW_WHITE, 0.85);
+    g.fillStyle(SW_PALE, 0.9).fillCircle(bx, by, r);
+    g.fillStyle(SW_WHITE, 1).fillCircle(bx, by, r * 0.55);
+  }, (x, y) => burst(scene, x, y, 500, [SW_GOLD, SW_PALE, SW_GREEN], 30 + lv * 2), true);
 }
