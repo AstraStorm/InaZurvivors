@@ -62,7 +62,7 @@ export interface HudState {
   /** special slot of the combined techniques (0 = ready) */
   combos: { name: string; level: number; cd: number }[];
   /** v1.7: combined techniques still to learn with the team on the pitch, and what each participant needs */
-  comboGoals: { id: string; name: string; complete: boolean; ready: boolean; parts: { player: string; tech?: string; need: number; have: number; memberId: number | null; viaAura: boolean }[] }[];
+  comboGoals: { id: string; name: string; complete: boolean; ready: boolean; parts: { player: string; tech?: string; anyTech?: boolean; need: number; have: number; memberId: number | null; viaAura: boolean }[] }[];
   /** v1.7: Revivir charges left, and the most a run can hold */
   revives: number; reviveMax: number;
   /** endless survival: difficulty multiplier and seconds survived after the boss */

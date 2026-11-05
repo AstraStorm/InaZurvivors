@@ -176,8 +176,19 @@ export const COMBOS_BY_PRIORITY = [...COMBOS].sort((a, b) => b.priority - a.prio
 
 export interface OnPitch { entry: RosterEntry; state: TeamMemberState }
 
+/**
+ * 1.81 (author: the hooded Axel could raise none of his techniques for the combinations): a counterpart who doesn't own
+ * the named technique at all (Axel Blaze Encapuchado has no Tornado de fuego) uses his best active one instead.
+ */
+const ownsTech = (m: OnPitch, tech: string) => m.entry.techniques.some((t) => t?.name.toLowerCase() === tech.toLowerCase());
+const neededTech = (m: OnPitch, tech: string | undefined, player: string) =>
+  (tech && (ownsTech(m, tech) || !standsIn(m, player)) ? tech : undefined);
+/** someone other than the named footballer covers the part: a counterpart, himself or carried as Aura */
+const standsIn = (m: OnPitch, player: string) => m.entry.name !== player && m.entry.aura?.name !== player;
+
 /** Run level of a named technique in a player's active slots (0 if not active); without a name, their best active one. */
-function activeLevel(m: OnPitch, tech?: string) {
+function activeLevel(m: OnPitch, wanted: string | undefined, player: string) {
+  const tech = neededTech(m, wanted, player);
   let best = 0;
   for (const idx of m.state.slots) {
     if (idx === null || idx === undefined) continue;
@@ -197,8 +208,8 @@ function activeLevel(m: OnPitch, tech?: string) {
 export function comboCast<T extends OnPitch>(c: ComboDef, team: T[]): { member: T; viaAura: boolean; player: string }[] {
   const out: { member: T; viaAura: boolean; player: string }[] = [];
   for (const n of c.needs) {
-    const self = team.find((x) => playsAs(x.entry.name, n.player) && activeLevel(x, n.tech) >= n.level);
-    const carrier = self ? undefined : team.find((x) => playsAs(x.entry.aura?.name, n.player) && activeLevel(x, n.tech) >= n.level);
+    const self = team.find((x) => playsAs(x.entry.name, n.player) && activeLevel(x, n.tech, n.player) >= n.level);
+    const carrier = self ? undefined : team.find((x) => playsAs(x.entry.aura?.name, n.player) && activeLevel(x, n.tech, n.player) >= n.level);
     const m = self ?? carrier;
     if (!m) return [];
     out.push({ member: m, viaAura: !self, player: n.player });
@@ -223,7 +234,7 @@ export function comboMembers<T extends OnPitch>(c: ComboDef, team: T[]): T[] {
 export const comboDamage = (c: ComboDef, level: number, mult = 1) => Math.round(c.power * 0.75 * (1 + 0.2 * (level - 1)) * mult);
 
 /** v1.7: one participant of a combination still to learn, with the level he has now and the one he needs. */
-export interface ComboPart { player: string; tech?: string; need: number; have: number; /** roster id of who covers him (himself or his Aura carrier); null when nobody on the pitch does */ memberId: number | null; viaAura: boolean }
+export interface ComboPart { player: string; tech?: string; need: number; have: number; /** 1.81: who covers him lacks the named technique, so any of his counts */ anyTech?: boolean; /** roster id of who covers him (himself or his Aura carrier); null when nobody on the pitch does */ memberId: number | null; viaAura: boolean }
 export interface ComboGoal { combo: ComboDef; parts: ComboPart[]; /** every participant on the pitch (or carried as Aura) */ complete: boolean; /** every level reached: the card shows up at the next level-up */ ready: boolean }
 
 /**
@@ -238,7 +249,8 @@ export function comboGoals(team: OnPitch[], learned: Iterable<string> = []): Com
     const parts = c.needs.map((n): ComboPart => {
       const self = team.find((x) => playsAs(x.entry.name, n.player));
       const m = self ?? team.find((x) => playsAs(x.entry.aura?.name, n.player));
-      return { player: n.player, tech: n.tech, need: n.level, have: m ? activeLevel(m, n.tech) : 0, memberId: m?.entry.id ?? null, viaAura: !self && !!m };
+      return { player: n.player, tech: n.tech, need: n.level, have: m ? activeLevel(m, n.tech, n.player) : 0, memberId: m?.entry.id ?? null, viaAura: !self && !!m,
+        anyTech: !!m && !!n.tech && !neededTech(m, n.tech, n.player) };
     });
     if (!parts.some((p) => p.memberId !== null)) continue;
     const complete = parts.every((p) => p.memberId !== null);
@@ -257,7 +269,7 @@ export function comboHints(goals: ComboGoal[], memberId: number, techName: strin
     if (!g.complete || g.ready) continue;
     for (const p of g.parts) {
       if (p.memberId !== memberId || p.have >= p.need || toLevel <= p.have) continue;
-      if (p.tech && p.tech.toLowerCase() !== techName.toLowerCase()) continue;
+      if (p.tech && p.tech.toLowerCase() !== techName.toLowerCase() && !p.anyTech) continue;
       out.push({ name: g.combo.name, need: p.need, reaches: toLevel >= p.need });
       break;
     }

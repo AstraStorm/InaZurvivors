@@ -66,7 +66,7 @@ import { bindStick, initGamepad } from './gamepad';
 import { confetti, countUp, flyTo } from './rewardFx';
 import { frameSvg, pennantEmblem, pennantRibbon, pennantSvg } from './pennantArt';
 import { FRAMES, isFrame, PENNANTS, PENNANT_BY_ID, PENNANT_EVENT, type PennantDef } from '../data/pennants';
-import { buyPennant, equipFrame, equippedFrame, equipPennant, equippedPennant, eventActive, eventLeftMs, eventOdds, grantAchievementPennants, hasPennant, pullEvent, type PennantPull } from '../systems/pennants';
+import { buyPennant, equipFrame, equippedFrame, equipPennant, equippedPennant, eventActive, eventLeftMs, eventOdds, grantAchievementPennants, hasPennant, pullEvent, visiblePennant, type PennantPull } from '../systems/pennants';
 import { MASTERY_BONUS, MASTERY_USES, masteryLevel, recordMastery } from '../systems/mastery';
 import { MAX_TEAM, canStartWith, startingTech, type Card } from '../systems/cards';
 import { clearSquad, renameSquad, savedSquads, setSquad, SQUAD_SIZE, fillSquad, makeCaptain, placeInSquad, removeFromSquad, squadOf, switchSquad, syncActiveSquad } from '../systems/squad';
@@ -441,14 +441,15 @@ export class App {
       if (status === 'used') { sfx('error'); return say('Ya has canjeado este código.'); }
       if (status !== 'ok' || !reward) { sfx('error'); return say('Error de conexión. Inténtalo de nuevo.'); }
       this.persist();
-      say(`¡Código válido! Recibes ${[reward.tokens ? `${reward.tokens} fichas` : '', reward.eventTokens ? `${reward.eventTokens} fichas de evento` : '', reward.coins ? `${reward.coins.toLocaleString('es')} monedas` : ''].filter(Boolean).join(', ')}${reward.player !== null ? ' y un futbolista Legendario' : ''}.`, true);
+      const gifts = (reward.pennants ?? []).map((id) => PENNANT_BY_ID.get(id)).filter((d): d is PennantDef => !!d).map((d) => `${isFrame(d) ? 'el marco' : 'el banner'} «${d.name}»`);
+      say(`¡Código válido! Recibes ${[reward.tokens ? `${reward.tokens} fichas` : '', reward.eventTokens ? `${reward.eventTokens} fichas de evento` : '', reward.coins ? `${reward.coins.toLocaleString('es')} monedas` : '', ...gifts].filter(Boolean).join(', ')}${reward.player !== null ? ` y un futbolista ${RARITY_LABEL[this.byId.get(reward.player)?.rarity ?? 'legendario']}` : ''}.`, true);
       sfx('legend');
       const p = reward.player !== null ? this.byId.get(reward.player) : undefined;
       if (p) {
         box.remove();
         const o = this.save.owned[String(p.id)];
         await this.capsuleShow([{ player: p, isNew: o?.copies === 1, stars: o?.stars ?? 0, refund: 0 }], code === 'ASTRA17' ? '¡Regalo de bienvenida ASTRA17!' : `Código ${code}`);
-        this.toast(`+${reward.tokens} fichas · +${reward.coins} monedas`, 3500);
+        this.toast(`+${reward.tokens} fichas · +${reward.coins} monedas${gifts.length ? ' · banner y marco en tu Perfil' : ''}`, 3500);
         this.mainMenu();
       }
     });
@@ -1325,20 +1326,23 @@ export class App {
   }
   /** Perfil: every banner, the owned ones to wear (tap again to take it off), the rest with how to get them */
   private pennantPanel() {
-    const eq = this.save.pennants?.equipped, owned = PENNANTS.filter((d) => hasPennant(this.save, d.id)).length;
-    const how = (d: PennantDef) => d.source === 'tienda' ? `Tienda · ${d.price?.toLocaleString('es')} ◉` : d.source === 'logro' ? `Logro: ${d.how}` : 'Evento por tiempo limitado';
-    return `<div class="panel pf-pennants"><h3>${uiIcon('crown')}Banners <small>${owned}/${PENNANTS.length}</small></h3>
+    // 1.81: a code's banner is only listed for whoever owns it
+    const list = PENNANTS.filter((d) => visiblePennant(this.save, d));
+    const eq = this.save.pennants?.equipped, owned = list.filter((d) => hasPennant(this.save, d.id)).length;
+    const how = (d: PennantDef) => d.source === 'tienda' ? `Tienda · ${d.price?.toLocaleString('es')} ◉` : d.source === 'logro' ? `Logro: ${d.how}` : d.source === 'codigo' ? (d.how ?? 'Código') : 'Evento por tiempo limitado';
+    return `<div class="panel pf-pennants"><h3>${uiIcon('crown')}Banners <small>${owned}/${list.length}</small></h3>
       <p class="note">Tu banner sale junto a tu nombre en el ranking y en tu perfil, también cuando otros lo abren.</p>
-      <div class="pn-grid">${PENNANTS.map((d) => { const own = hasPennant(this.save, d.id);
+      <div class="pn-grid">${list.map((d) => { const own = hasPennant(this.save, d.id);
         return `<button class="pn-pick${own ? '' : ' locked'}${eq === d.id ? ' on' : ''}" data-pn="${d.id}">${this.pennantCard(d, `<span class="pn-how">${own ? (eq === d.id ? '★ Equipado' : 'Equipar') : esc(how(d))}</span>`)}</button>`; }).join('')}</div></div>
       ${this.framePanel(how)}`;
   }
   /** v1.65 (author): Perfil » Marcos — like the banners: wear one around your avatar, tap again to take it off */
   private framePanel(how: (d: PennantDef) => string) {
-    const eq = this.save.pennants?.frame, owned = FRAMES.filter((d) => hasPennant(this.save, d.id)).length;
-    return `<div class="panel pf-pennants pf-frames"><h3>${uiIcon('crown')}Marcos <small>${owned}/${FRAMES.length}</small></h3>
+    const list = FRAMES.filter((d) => visiblePennant(this.save, d));
+    const eq = this.save.pennants?.frame, owned = list.filter((d) => hasPennant(this.save, d.id)).length;
+    return `<div class="panel pf-pennants pf-frames"><h3>${uiIcon('crown')}Marcos <small>${owned}/${list.length}</small></h3>
       <p class="note">Tu marco rodea tu icono en el ranking y en tu perfil, también cuando otros lo abren.</p>
-      <div class="pn-grid">${FRAMES.map((d) => { const own = hasPennant(this.save, d.id);
+      <div class="pn-grid">${list.map((d) => { const own = hasPennant(this.save, d.id);
         return `<button class="pn-pick${own ? '' : ' locked'}${eq === d.id ? ' on' : ''}" data-fr="${d.id}">${this.pennantCard(d, `<span class="pn-how">${own ? (eq === d.id ? '★ Equipado' : 'Equipar') : esc(how(d))}</span>`)}</button>`; }).join('')}</div></div>`;
   }
   private leftText(ms: number) {
@@ -4154,6 +4158,7 @@ export class App {
       <div class="bossbar" id="boss" style="display:none"><div class="bn"></div><div class="bar boss"><i></i></div></div>
       <canvas class="minimap" id="minimap" width="132" height="100" aria-hidden="true"></canvas><div class="edge-marks" id="marks"></div>
       <div class="altar-hud" id="altar"></div><div class="event-card" id="eventcard"></div><div class="event-result" id="eventresult"></div><div class="buffs" id="buffs"></div><div class="combo-hud" id="combohud"></div><div class="team-hud" id="hudteam"></div><div id="bannerbox"></div><div class="joy" id="joy"><b><i></i></b></div></div>`, 'run-mode');
+    this.keepCombosAboveTeam();
     this.warmMugs(); // 1.8: the mugshot sheets decoded now, not in the middle of the run when a combined technique is learned
     bindStick(document.getElementById('joy')!);
     document.getElementById('pausebtn')!.addEventListener('click', () => this.pauseFromHud());
@@ -4256,6 +4261,24 @@ export class App {
     }
   }
 
+  /**
+   * 1.81 (author: the combined techniques were hidden under the players): the team panel grows to two rows with 6-7
+   * players, so the combo chips can't sit at a fixed height. They follow the panel's real top edge instead.
+   */
+  private keepCombosAboveTeam() {
+    const team = document.getElementById('hudteam'), ch = document.getElementById('combohud');
+    if (!team || !ch || typeof ResizeObserver === 'undefined') return;
+    const place = () => {
+      if (!ch.isConnected) { ro.disconnect(); return; }
+      const box = ch.offsetParent?.getBoundingClientRect(), t = team.getBoundingClientRect();
+      if (!box || !t.height) return;
+      ch.style.bottom = `${Math.max(8, Math.round(box.bottom - t.top + 10))}px`;
+    };
+    const ro = new ResizeObserver(place);
+    ro.observe(team);
+    place();
+  }
+
   private lastHudHp: number | null = null;
   /** v1.7: last HUD state, for the pause screen (combined techniques still to learn) */
   private lastHud: HudState | null = null;
@@ -4266,7 +4289,7 @@ export class App {
       // v1.7: combinations within reach (everyone on the pitch) show how many participants already have their level
       const goals = s.comboGoals.filter((g) => g.complete).map((g) => {
         const ok = g.parts.filter((p) => p.have >= p.need).length;
-        return `<div class="combo-chip goal${g.ready ? ' ready' : ''}" title="${esc(g.parts.map((p) => `${p.player}: ${p.tech ?? 'su mejor técnica'} Nv ${p.have}/${p.need}`).join(' · '))}">🔗 <b>${esc(g.name)}</b> ${g.ready ? '¡lista!' : `${ok}/${g.parts.length}`}</div>`;
+        return `<div class="combo-chip goal${g.ready ? ' ready' : ''}" title="${esc(g.parts.map((p) => `${p.player}: ${(!p.anyTech && p.tech) || 'su mejor técnica'} Nv ${p.have}/${p.need}`).join(' · '))}">🔗 <b>${esc(g.name)}</b> ${g.ready ? '¡lista!' : `${ok}/${g.parts.length}`}</div>`;
       }).join('');
       const html = s.combos.map((c) => `<div class="combo-chip${c.cd <= 0.02 ? ' ready' : ''}"><b>${esc(c.name)}</b> Nv ${c.level}<i style="width:${Math.round((1 - c.cd) * 100)}%"></i></div>`).join('') + goals;
       if (ch.innerHTML !== html) ch.innerHTML = html;
@@ -4384,7 +4407,7 @@ export class App {
           c.classList.toggle('combo', !!tc?.combo); // v1.7: raise this one to unlock a combined technique
           c.title = tc?.combo ? `Súbela para desbloquear ${tc.combo}` : '';
           c.classList.toggle('aura', !!tc?.aura); // v1.5: inherited from the Aura
-          (c.querySelector('.pl-tn') as HTMLElement).textContent = tc ? `${tc.name}${tc.evolution ? ` ${tc.evolution}` : ''}` : 'Ranura libre';
+          (c.querySelector('.pl-tn') as HTMLElement).innerHTML = tc ? `<span class="tn-row"><span class="tn-txt">${esc(tc.name)}</span>${this.evoTag(tc.evolution)}</span>` : 'Ranura libre';
           (c.querySelector('.pl-pips') as HTMLElement).innerHTML = tc ? Array.from({ length: MAX_TECH_LEVEL }, (_, n) => `<i class="${n < tc.level ? 'on' : ''}"></i>`).join('') : '';
           c.querySelector('.pl-icon .icon')?.remove();
           if (tc) (c.querySelector('.pl-icon') as HTMLElement).insertAdjacentHTML('afterbegin', this.icon(ICON.manual[tc.type], 1.25));
@@ -4397,6 +4420,13 @@ export class App {
         else c.classList.remove('up');
       });
     });
+  }
+
+  /** 1.81: the logo of a technique level step (+1, N3, S, ∞, GO...), or its text when the logo is missing */
+  private evoTag(label: string, big = false) {
+    if (!label) return '';
+    const src = this.m.evoIcons?.[label];
+    return src ? `<img class="evo-ic${big ? ' big' : ''}" src="${src}" alt="${esc(label)}" title="${esc(label)}">` : `<span class="evo-tx">${esc(label)}</span>`;
   }
 
   private statDiff(t: Technique, from: number) {
@@ -4496,11 +4526,11 @@ export class App {
       const pips = Array.from({ length: MAX_TECH_LEVEL }, (_, k) => `<i class="${k < c.toLevel - 1 ? 'on' : k === c.toLevel - 1 ? 'new' : ''}"></i>`).join('');
       const evo = evolvesAt(t, c.toLevel - 1);
       const now = evolutionLabel(t, c.toLevel - 1);
-      return `<button class="lvcard upgrade${evo ? ' evolves' : ''}" data-i="${i}" style="--rc:${RARITY_COLOR[p.rarity]}">${evo ? `<div class="lv-ribbon">¡EVOLUCIÓN ${esc(evo)}!</div>` : ''}
+      return `<button class="lvcard upgrade${evo ? ' evolves' : ''}" data-i="${i}" style="--rc:${RARITY_COLOR[p.rarity]}">${evo ? `<div class="lv-ribbon">¡EVOLUCIÓN ${this.evoTag(evo)}!</div>` : ''}
         <div class="lv-type">${t.aura !== undefined ? 'AURA · ' : ''}MEJORA · ${TYPE_LABEL[t.type].toUpperCase()}</div>
         <div class="lv-art">${this.mug(p.id, 96)}${this.techBadge(t)}</div>
-        <div class="lv-name">${esc(t.name)}${now ? ` ${esc(now)}` : ''}</div><div class="lv-sub">${esc(p.name)}</div>${this.techChips(t)}
-        <div class="lv-level">${esc(evolutionLabel(t, c.toLevel - 1) || 'Base')} <span>»</span> <b>${esc(evolutionLabel(t, c.toLevel) || `Nv ${c.toLevel}`)}</b><span class="pips">${pips}</span></div>
+        <div class="lv-name">${esc(t.name)}${this.evoTag(now)}</div><div class="lv-sub">${esc(p.name)}</div>${this.techChips(t)}
+        <div class="lv-level">${this.evoTag(evolutionLabel(t, c.toLevel - 1), true) || 'Base'} <span>»</span> <b>${this.evoTag(evolutionLabel(t, c.toLevel), true) || `Nv ${c.toLevel}`}</b><span class="pips">${pips}</span></div>
         ${this.statDiff(t, c.toLevel - 1)}</button>`;
     }
     if (c.kind === 'learn') {
@@ -4601,7 +4631,7 @@ export class App {
     return `<h3 style="margin-top:12px">Técnicas combinadas</h3><div class="cg-list">${goals.map((g) => `<div class="cg${g.ready ? ' ready' : ''}${g.complete ? '' : ' partial'}">
       <div class="cg-top"><b>🔗 ${esc(g.name)}</b><span>${g.ready ? '¡Lista! Sale al subir de nivel' : g.complete ? 'Sube las técnicas marcadas con 🔗' : 'Falta gente en el campo'}</span></div>
       <div class="cg-parts">${g.parts.map((p) => `<span class="${p.memberId === null ? 'miss' : p.have >= p.need ? 'ok' : ''}">${p.memberId !== null ? this.mug(p.memberId, 26) : '<i class="cg-q">?</i>'}
-        <em><b>${esc(p.player)}</b>${p.viaAura ? ' (Aura)' : ''}<br>${esc(p.tech ?? 'su mejor técnica')} · ${p.memberId === null ? 'no está' : `Nv ${p.have}/${p.need}`}</em></span>`).join('')}</div></div>`).join('')}</div>`;
+        <em><b>${esc(p.player)}</b>${p.viaAura ? ' (Aura)' : ''}<br>${esc((!p.anyTech && p.tech) || 'su mejor técnica')} · ${p.memberId === null ? 'no está' : `Nv ${p.have}/${p.need}`}</em></span>`).join('')}</div></div>`).join('')}</div>`;
   }
 
   private pauseModal() {

@@ -360,6 +360,19 @@ describe('promotional codes (Fix 1.12)', () => {
     expect(r.reward).toMatchObject({ tokens: 0, coins: 10000, eventTokens: 150, player: null });
     expect((await redeem('carla', 'GRACIAS')).status).toBe('used');
   });
+  it('1.81 INA483: 5+5 ×10 pulls, 20.000 coins, a Legendario or higher (never event-only) and its banner and frame, once', async () => {
+    const r = await redeem('carla', 'ina483');
+    expect(r.status).toBe('ok');
+    const reward = r.reward as { tokens: number; coins: number; eventTokens: number; player: number; pennants: string[] };
+    expect(reward).toMatchObject({ tokens: 500, coins: 20000, eventTokens: 750, pennants: ['ina483', 'marco-ina483'] });
+    // the footballer comes from the code's own pools (Legendario, Mítico, Leyenda; built without event-only ones)
+    const pools = ((await db.query(`select rewards -> 'rarity_pools' as p from private.promo_codes where code = 'INA483'`)).rows[0] as { p: Record<string, number[]> }).p;
+    expect(Object.keys(pools).sort()).toEqual(['legendario', 'leyenda', 'mitico']);
+    expect(Object.values(pools).flat()).toContain(reward.player);
+    expect((await redeem('carla', 'INA483')).status).toBe('used');
+    // the old codes answer as before: no pennants key
+    expect(Object.keys((await redeem('beto', 'GRACIAS')).reward as object)).not.toContain('pennants');
+  });
 });
 describe('public profile (1.76)', () => {
   it('carries pulls, claimed achievements and the collection for the player card; nothing private', async () => {

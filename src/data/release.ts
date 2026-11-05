@@ -6,7 +6,7 @@
  */
 import { CHANGELOG } from './changelog';
 
-export const PUBLIC_VERSION = '1.8';
+export const PUBLIC_VERSION = '1.81';
 export const BUILD = CHANGELOG[0].version;
 export const RELEASED = false;
 export const VERSION_LABEL = RELEASED ? `v${PUBLIC_VERSION}` : `v${PUBLIC_VERSION} · pre-lanzamiento`;
@@ -28,6 +28,20 @@ export interface PublicRelease {
 
 /** Public news, newest first. Starts at v1.0: the internal versions before it are not part of the public history. */
 export const PUBLIC_RELEASES: PublicRelease[] = [
+  {
+    version: '1.81', date: '2026-11-05',
+    title: 'InaZurvivors Fix 1.81 — Logos de nivel',
+    tagline: 'Tus técnicas suben de categoría con su logo, y arreglos en las combinadas',
+    intro: 'Un parche sobre la 1.8.',
+    features: [
+      { icon: '⬆', title: 'Logos de nivel', text: 'Cada 2 subidas, una técnica sube de categoría y lo ves con su logo junto al nombre. Hasta 70 de poder: +1, +2, +3, +4 y +5. De 71 a 100: N2, N3, N4, S y ∞ al nivel 10. Más de 100: G2, G3, G4, G5 y GO.' },
+      { icon: '🔗', title: 'Combinadas a la vista', text: 'Las técnicas combinadas del HUD ya no quedan tapadas por el equipo cuando llevas muchos jugadores.' },
+      { icon: '🔥', title: 'Axel Encapuchado', text: 'Ya puede hacer Fuego cruzado y Tornado dragón: como no tiene Tornado de fuego, cuenta su mejor técnica.' },
+      { icon: '🔊', title: 'Música en iPhone', text: 'La música de Inazuma Eleven ya respeta el volumen y el silencio en iPhone y iPad.' },
+      { icon: '🪽', title: 'Marcos con alas', text: 'Las alas de los marcos de perfil ya no tapan la cara ni el texto de al lado.' },
+    ],
+    start: [],
+  },
   {
     version: '1.8', date: '2026-11-04',
     title: 'InaZurvivors 1.8 — La GTS',

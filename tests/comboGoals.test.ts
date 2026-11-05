@@ -1,7 +1,7 @@
 /** v1.7: marks for the combined techniques — which participant still needs which technique at which level. */
 import { describe, expect, it } from 'vitest';
 import type { RosterEntry, Technique } from '../src/data/manifest';
-import { comboGoals, comboHints } from '../src/systems/combos';
+import { comboGoals, comboHints, comboReady } from '../src/systems/combos';
 
 const tech = (id: number, name: string): Technique => ({ id, name, description: '', type: 'tiro', element: 'Fuego', power: 50, cost: 10, unlockLevel: 1, growth: null });
 const P = (id: number, name: string, techniques: Technique[]): RosterEntry => ({
@@ -36,5 +36,19 @@ describe('combined technique goals', () => {
     expect(fc.complete).toBe(false);
     expect(fc.parts.find((p) => p.player === 'Shawn Froste')!.memberId).toBeNull();
     expect(comboHints(alone, 10, 'Tornado de fuego', 2).some((h) => h.name === 'Fuego cruzado')).toBe(false);
+  });
+  it('1.81: the hooded Axel (no Tornado de fuego) raises his best technique for Fuego cruzado and Tornado dragón', () => {
+    const hooded = P(1085, 'Axel Blaze Encapuchado', [tech(5, 'Tormenta de fuego'), tech(6, 'Fuego supremo')]);
+    const kevin = P(11, 'Kevin Dragonfly', [tech(7, 'Remate dragón')]);
+    const goals = comboGoals([on(hooded, { 0: 2, 1: 1 }), on(shawn, { 0: 5 })]);
+    const fc = goals.find((g) => g.combo.id === 'fuego-cruzado')!;
+    expect(fc.parts[0]).toMatchObject({ player: 'Axel Blaze', have: 2, need: 3, anyTech: true });
+    expect(comboHints(goals, 1085, 'Tormenta de fuego', 3).find((h) => h.name === 'Fuego cruzado')).toEqual({ name: 'Fuego cruzado', need: 3, reaches: true });
+    expect(comboReady(fc.combo, [on(hooded, { 0: 3 }), on(shawn, { 0: 5 })])).toBe(true);
+    const td = comboGoals([on(hooded, { 1: 5 }), on(kevin, { 0: 3 })]).find((g) => g.combo.name === 'Tornado dragón')!;
+    expect(td.ready).toBe(true);
+  });
+  it('the real Axel still needs his Tornado de fuego', () => {
+    expect(comboReady(comboGoals([on(axel, { 1: 5 }), on(shawn, { 0: 5 })]).find((g) => g.combo.id === 'fuego-cruzado')!.combo, [on(axel, { 1: 5 }), on(shawn, { 0: 5 })])).toBe(false);
   });
 });

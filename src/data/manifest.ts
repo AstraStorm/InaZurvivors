@@ -149,6 +149,8 @@ export interface Manifest {
   profile: { emblems: ProfileIcon[]; coaches: ProfileIcon[] };
   music: { menu: string[]; battle: string[]; tracks: MusicTrack[]; contexts?: Record<string, string[]> };
   capsule: CapsuleSheet | null;
+  /** 1.81: logo of each technique level step (src/systems/evolution.ts labels → generated/mejoras/*.webp) */
+  evoIcons?: Record<string, string>;
   /** verified team kits: body sheets with the same cells and rig as the Raimon body */
   /** saga of IE3 teams, from the export's folders */
   teamSagas?: Record<string, string>;

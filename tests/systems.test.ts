@@ -128,15 +128,15 @@ describe('techniques', () => {
       for (let lv = 1; lv < MAX_TECH_LEVEL; lv++) expect(talentChanges(id, lv).length, `${TALENTS[id].name} nv ${lv}`).toBeGreaterThan(0);
     }
   });
-  it('separates evolution names from internal levels by family', () => {
-    expect(evolutionLabel({ id: 1, growth: 101 }, 1)).toBe('');
-    expect(evolutionLabel({ id: 1, growth: 101 }, 4)).toBe('+3');
-    expect(evolutionLabel({ id: 1, growth: 102 }, 5)).toBe('Lv 5');
-    expect(evolutionLabel({ id: 1, growth: null, source: 'Moveset oficial (wiki, Galaxy): X' }, 10)).toBe('G5');
-    expect(evolutionLabel({ id: 1, growth: null, source: 'Moveset oficial (wiki, GO, Chrono Stone): X' }, 2)).toBe('Lv 2');
-    expect(evolutionLabel({ id: 1, growth: null, type: 'talento' }, 10)).toBe('');
-    expect(evolvesAt({ id: 1, growth: 102 }, 6)).toBe('Lv 7');
-    expect(evolvesAt({ id: 1, growth: 102 }, 7)).toBeNull();
+  it('1.81: a logo step every 2 levels, ladder by power (+ up to 70, N to 100, G above)', () => {
+    const plus = { id: 1, power: 70 }, n = { id: 2, power: 71 }, g = { id: 3, power: 101 };
+    expect([1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((lv) => evolutionLabel(plus, lv))).toEqual(['', '+1', '+1', '+2', '+2', '+3', '+3', '+4', '+4', '+5']);
+    expect([1, 2, 4, 6, 8, 10].map((lv) => evolutionLabel(n, lv))).toEqual(['', 'N2', 'N3', 'N4', 'S', '∞']);
+    expect([1, 2, 4, 6, 8, 10].map((lv) => evolutionLabel(g, lv))).toEqual(['', 'G2', 'G3', 'G4', 'G5', 'GO']);
+    expect(evolutionLabel({ id: 4, power: 150, type: 'talento' }, 10)).toBe('');
+    expect(evolvesAt(n, 7)).toBe('S');
+    expect(evolvesAt(n, 8)).toBeNull();
+    expect(evolvesAt(n, 9)).toBe('∞');
   });
 });
 
@@ -1047,8 +1047,8 @@ describe('reiniciar progreso', () => {
 describe('versión pública y reportes de bugs', () => {
   it('the public news start at v1.0 and no internal version leaks into them', async () => {
     const { PUBLIC_RELEASES, PUBLIC_VERSION, RELEASED, VERSION_LABEL, BUILD, TIKTOK_URL } = await import('../src/data/release');
-    expect(PUBLIC_VERSION).toBe('1.8');
-    expect(PUBLIC_RELEASES.map((r) => r.version)).toEqual(['1.8', '1.77', '1.76', '1.75', '1.7', '1.66', '1.65', '1.6', '1.53', '1.52', '1.51', '1.5', '1.41', '1.4', '1.32', '1.31', '1.3', '1.22', '1.21', '1.2', '1.12', '1.11', '1.1', '1.0']); // newest first, starting at v1.0
+    expect(PUBLIC_VERSION).toBe('1.81');
+    expect(PUBLIC_RELEASES.map((r) => r.version)).toEqual(['1.81', '1.8', '1.77', '1.76', '1.75', '1.7', '1.66', '1.65', '1.6', '1.53', '1.52', '1.51', '1.5', '1.41', '1.4', '1.32', '1.31', '1.3', '1.22', '1.21', '1.2', '1.12', '1.11', '1.1', '1.0']); // newest first, starting at v1.0
     expect(PUBLIC_RELEASES.at(-1)!.title).toBe('InaZurvivors v1.0 — ¡Comienza la aventura!');
     expect(JSON.stringify(PUBLIC_RELEASES)).not.toMatch(/\bv?[234]\.\d\b/);
     expect(BUILD).not.toBe('1.0');

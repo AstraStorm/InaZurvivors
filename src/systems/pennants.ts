@@ -17,6 +17,11 @@ export const equippedFrame = (s: SaveData): PennantDef | undefined => {
   return id && hasPennant(s, id) && isFrame(PENNANT_BY_ID.get(id)) ? PENNANT_BY_ID.get(id) : undefined;
 };
 
+/** 1.81: hand an owned banner or frame (promo codes) */
+export const givePennant = (s: SaveData, id: string) => { if (PENNANT_BY_ID.has(id)) give(s, id); };
+/** 1.81: a code's banner or frame only exists for whoever owns it */
+export const visiblePennant = (s: SaveData, p: PennantDef) => p.source !== 'codigo' || hasPennant(s, p.id);
+
 function give(s: SaveData, id: string) {
   s.pennants ??= { owned: [] };
   if (!s.pennants.owned.includes(id)) s.pennants.owned.push(id);

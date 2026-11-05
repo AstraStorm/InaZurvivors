@@ -1612,3 +1612,13 @@ body.drag-aura-no .squad-row .aura-mini { opacity: .45; }
 .pf-avatar .fr-host.sq .fr-ov { inset: -17%; }
 .wr-pod .fr-host, .rk-pod .fr-host { margin: 8px 0 12px; }
 .rk-medal { z-index: 4; } .wr-medal { position: relative; z-index: 4; }
+
+/* 1.81 (author): technique level logos (+1..+5, N2..∞, G2..GO) beside the name, pixel art kept sharp */
+.evo-ic { display: inline-block; height: 1.55em; width: auto; margin-left: .3em; vertical-align: middle; image-rendering: pixelated; filter: drop-shadow(1px 1px 0 #000a); }
+.evo-ic.big { height: 26px; margin: 0 2px; }
+.evo-tx { margin-left: .3em; color: #ffe24a; }
+.lv-ribbon .evo-ic { height: 1.8em; margin: 0 .15em; }
+/* the name is cut, never the logo */
+.pl-tn .tn-row { display: flex; align-items: center; max-width: 100%; }
+.pl-tn .tn-txt { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.pl-tn .evo-ic { flex: none; height: 15px; margin-left: 3px; }

@@ -15,6 +15,21 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: '9.1', date: '2026-11-05', title: 'Fix 1.81 Logos de nivel',
+    features: [
+      'Código INA483 (autor; no sale en las notas públicas): 5 tiradas ×10 del Banner de agradecimiento (750 fichas de evento), 5 ×10 normales (500 fichas), 20.000 monedas, un Legendario o superior (80/17/3, sin exclusivos de evento: promo.codePlayer, rarity_pools/rarity_odds en el servidor) y el banner «ina483» y el marco «marco-ina483» (source «codigo»: visiblePennant los oculta a quien no los tiene). Migración 20261106000200_ina483.sql: redeem_code devuelve también reward.pennants.',
+      'Niveles de técnica con logo (systems/evolution.ts): un escalón cada 2 niveles (Nv 1 sin logo; 2-3, 4-5, 6-7, 8-9 y 10). Escalera por poder: hasta 70 «+1…+5», de 71 a 100 «N2, N3, N4, S, ∞», más de 100 «G2…G5, GO». Logos de D:/Sprites Inazuma/Mejoras copiados por sync-assets a generated/mejoras (manifest.evoIcons, grupo «iconos»); app.evoTag los pinta en el HUD y en las cartas de mejora. Sustituye las familias por saga (growth/fuente).',
+    ],
+    fixes: [
+      'Combinadas tapadas por el equipo en el HUD: .combo-hud estaba a 128 px fijos y el panel del equipo ocupa dos filas con 6-7 jugadores; keepCombosAboveTeam lo coloca sobre el borde real del panel (ResizeObserver).',
+      'Axel Blaze Encapuchado no podía hacer Fuego cruzado ni Tornado dragón: piden Tornado de fuego y él no la tiene. Un sustituto (COUNTERPARTS) sin la técnica pedida usa su mejor técnica activa (combos.ts neededTech, ComboPart.anyTech).',
+      'Música de Inazuma Eleven sin volumen ni silencio en iOS (BUG-8862C921): en Safari de iPhone el volumen de <audio> es de solo lectura; cada pista pasa por Web Audio con su propia ganancia (music.ts route/setVol).',
+      'Marcos de perfil con alas: el abanico nace bajo el anillo en las esquinas de arriba y no sale de la caja (pennantArt.ts wings).',
+    ],
+    visuals: [],
+    balance: [],
+  },
+  {
     version: '9.0', date: '2026-11-04', title: '1.8 La GTS',
     features: [
       'GTS (migración 20261106000000_gts): private.gts_deposits / gts_done / gts_banned, RPC gts_deposit, gts_withdraw, gts_take (una sola toma gana: fila bloqueada), gts_mine, gts_search y gts_feed (anónimas). gts_spare descuenta lo que el cliente aún no ha aplicado (save.gts.applied) para que un guardado viejo no deje dos veces la misma copia. Huecos: 1 + nivel de la mejora gts (máx. 5). Sin Leyenda ni exclusivos (un HÉROE ascendido sí puede dejar copias: viaja limpia, migración 20261106000100_gts_heroes); sin cambios repetidos.',

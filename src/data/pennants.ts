@@ -6,7 +6,7 @@
  */
 import type { Rarity } from './manifest';
 
-export type PennantSource = 'tienda' | 'logro' | 'evento';
+export type PennantSource = 'tienda' | 'logro' | 'evento' | 'codigo';
 export type PennantPattern = 'franjas' | 'diagonal' | 'llamas' | 'estrellas' | 'arcoiris' | 'cuadros' | 'tiza' | 'olas' | 'rayos' | 'copos' | 'espiral' | 'nebulosa';
 export type PennantEmblem = 'balon' | 'rayo' | 'llama' | 'caravana' | 'corona' | 'neumatico' | 'pizarra' | 'olas' | 'viento' | 'copo' | 'espiral' | 'mano' | 'reloj' | 'planeta' | 'ojo';
 
@@ -45,6 +45,8 @@ export const PENNANTS: PennantDef[] = [
   { id: 'hora-celestial', name: 'Hora Celestial', rarity: 'epico', source: 'evento', c1: '#c8a8ff', c2: '#2e1470', accent: '#ffffff', pattern: 'estrellas', emblem: 'reloj', tagline: 'Detén el tiempo y avanza con calma.' },
   { id: 'la-tierra', name: 'La Tierra', rarity: 'legendario', source: 'evento', c1: '#1e62e0', c2: '#04103a', accent: '#5ee07a', pattern: 'estrellas', emblem: 'planeta', tagline: 'Tres corazones, un solo planeta.' },
   { id: 'supernova', name: 'Supernova Oscura', rarity: 'mitico', source: 'evento', c1: '#2a0a4a', c2: '#050010', accent: '#ff3a1a', pattern: 'nebulosa', emblem: 'ojo', tagline: 'Materia oscura con un ojo rojo. Solo en el evento, 3%.' },
+  // ---- 1.81 (author): only through the code INA483; invisible to anyone who hasn't redeemed it
+  { id: 'ina483', name: 'Banner INA483', rarity: 'mitico', source: 'codigo', how: 'Código INA483', c1: '#0fd8c8', c2: '#02141c', accent: '#ffd23f', pattern: 'rayos', emblem: 'rayo', tagline: 'Un rayo dorado sobre el turquesa: solo para quien tiene el código.' },
 ];
 
 /**
@@ -71,6 +73,8 @@ export const FRAMES: PennantDef[] = [
   { id: 'marco-reloj', kind: 'marco', name: 'Marco del Tiempo', rarity: 'epico', source: 'evento', c1: '#c8a8ff', c2: '#2e1470', accent: '#ffffff', pattern: 'estrellas', emblem: 'reloj', tagline: 'Las horas marcadas en el borde.' },
   { id: 'marco-tierra', kind: 'marco', name: 'Marco de La Tierra', rarity: 'legendario', source: 'evento', wings: true, c1: '#1e62e0', c2: '#04103a', accent: '#5ee07a', pattern: 'estrellas', emblem: 'planeta', tagline: 'El planeta en órbita sobre tu retrato.' },
   { id: 'marco-supernova', kind: 'marco', name: 'Marco Supernova Oscura', rarity: 'mitico', source: 'evento', wings: true, c1: '#5a1a9a', c2: '#050010', accent: '#ff3a1a', pattern: 'nebulosa', emblem: 'ojo', tagline: 'Alas de materia oscura y un ojo rojo. Solo en el evento, 3%.' },
+  // ---- 1.81 (author): only through the code INA483
+  { id: 'marco-ina483', kind: 'marco', name: 'Marco INA483', rarity: 'mitico', source: 'codigo', how: 'Código INA483', wings: true, c1: '#0fd8c8', c2: '#02141c', accent: '#ffd23f', pattern: 'rayos', emblem: 'rayo', tagline: 'Alas de oro y rayos turquesa: solo para quien tiene el código.' },
 ];
 
 /** banners and frames by id (the ids never clash) */
