@@ -21,6 +21,10 @@ on:
         description: Desplegar solo las páginas informativas
         type: boolean
         default: false
+      pruebas:
+        description: Con «publicar», subir también la versión de pruebas (rama pre2-coop) en /pruebas/
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -31,6 +35,7 @@ concurrency:
 
 env:
   PUBLICAR: ${{ github.event_name == 'workflow_dispatch' && inputs.publicar }}
+  PRUEBAS: ${{ github.event_name == 'workflow_dispatch' && inputs.publicar && inputs.pruebas }}
 
 jobs:
   sitio:
@@ -62,8 +67,8 @@ jobs:
     if: (github.event_name == 'push' && contains(github.event.head_commit.message, '[prueba-recursos]')) || (github.event_name == 'workflow_dispatch' && inputs.probar_recursos)
     runs-on: ubuntu-latest
     env:
-      VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL || 'https://svtkmuxwdxdwvdvjchut.supabase.co' }}
-      VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY || 'sb_publishable_CNdrHsKes1JJV4TEsUbzXg_t7_0fnnW' }}
+      VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+      VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -132,14 +137,38 @@ jobs:
         run: node tools/integrar_recursos.mjs --recursos .recursos
       - run: npx vite build
         env:
-          # public values: the publishable key is meant for the browser; no secret ever goes here
-          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL || 'https://svtkmuxwdxdwvdvjchut.supabase.co' }}
-          VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY || 'sb_publishable_CNdrHsKes1JJV4TEsUbzXg_t7_0fnnW' }}
+          # optional online service (ONLINE.md); empty = offline build
+          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
       - name: Comprobar la build
         if: env.PUBLICAR == 'true'
         env:
           RECURSOS_TOKEN: ${{ secrets.RECURSOS_TOKEN }}
         run: node tools/comprobar_build.mjs --recursos .recursos
+      # pre-2.0: the test build (branch pre2-coop), checked the same way, goes in dist/pruebas/ next to the real game
+      - name: Descargar la versión de pruebas
+        if: env.PRUEBAS == 'true'
+        uses: actions/checkout@v4
+        with:
+          ref: pre2-coop
+          path: _pruebas
+          persist-credentials: false
+      - name: Compilar y comprobar la versión de pruebas
+        if: env.PRUEBAS == 'true'
+        working-directory: _pruebas
+        env:
+          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
+          RECURSOS_TOKEN: ${{ secrets.RECURSOS_TOKEN }}
+        run: |
+          npm ci
+          npx vitest run tests/systems.test.ts tests/online.test.ts
+          npx tsc --noEmit
+          node tools/integrar_recursos.mjs --recursos ../.recursos
+          npx vite build --base /InaZurvivors/pruebas/
+          node tools/comprobar_build.mjs --recursos ../.recursos
+          mkdir -p ../dist/pruebas
+          cp -r dist/. ../dist/pruebas/
       - if: env.PUBLICAR == 'true'
         uses: actions/upload-pages-artifact@v3
         with:
