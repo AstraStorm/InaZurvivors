@@ -42,6 +42,8 @@ export const PUBLIC_RELEASES: PublicRelease[] = [
       { icon: '👥', title: 'Xavier y Kira Hiroto', text: 'Ahora son personajes distintos: pueden jugar juntos en el mismo equipo.' },
       { icon: '⚔', title: 'Excalibur y Espada de Odín', text: 'Redibujadas como en el anime: con Excalibur sube una hélice de runas y una espada de cristal gigante cae y parte el campo; con la Espada de Odín se abre un círculo mágico bajo un cielo estrellado y una espada dorada gigante barre el campo.' },
       { icon: '💬', title: 'Respuestas a tus reportes', text: 'Cuando respondamos a un bug que hayas reportado o lo corrijamos, te llegará una notificación arriba del menú: tócala para leerla y quítala con ✕.', online: true },
+      { icon: '🔗', title: 'Combinadas más claras', text: 'Las técnicas combinadas se ven con las caras de quienes la lanzan, el nivel que necesita cada uno, su elemento, su poder y si está lista. Menos texto.' },
+      { icon: '🔎', title: 'Filtro por rareza de origen', text: 'En Mi Equipo puedes marcar varias rarezas a la vez; cuenta la rareza con la que salió cada futbolista, aunque lo hayas ascendido.' },
       { icon: '💡', title: 'Recomendaciones', text: '¿Tienes una idea para el juego? Envíala desde Ajustes » Recomendaciones y sigue si queda pendiente, aceptada o descartada en «Mis recomendaciones». Si la aceptamos, te avisamos.', online: true },
     ],
     start: [],

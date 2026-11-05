@@ -262,3 +262,31 @@
 .notibar .nb-item { display: block !important; }
 .notibar .nb-body { display: block; width: auto; } .notibar .nb-body[hidden] { display: none; }
 .notibar .nb-head em { background: none !important; box-shadow: none !important; padding: 0 !important; }
+
+/* ---------------------------------------------------------------- 1.88: combined techniques, compact cards */
+.cb2-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 8px; }
+.cb2 { position: relative; display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 12px; overflow: hidden;
+  background: linear-gradient(110deg, color-mix(in srgb, var(--ec) 22%, #0a1d48), #0a1d48 55%); box-shadow: inset 0 0 0 1px #ffffff18; opacity: .9; }
+.cb2::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--ec); }
+.cb2.ready { opacity: 1; box-shadow: inset 0 0 0 2px var(--ec), 0 0 14px color-mix(in srgb, var(--ec) 45%, transparent); }
+.cb2-team { display: flex; align-items: center; flex: none; }
+.cb2-who { position: relative; display: flex; flex-direction: column; align-items: center; }
+.cb2-who .mug { border-radius: 50%; box-shadow: 0 0 0 2px var(--ec), 0 2px 6px #0008; background-color: #06102b; }
+.cb2-who em { margin-top: -6px; z-index: 1; padding: 0 4px; border-radius: 6px; font-style: normal; font-size: 7px; color: #fff; background: #06102b; box-shadow: 0 0 0 1px var(--ec); }
+.cb2-who.ok em { color: #0a2a10; background: #7fff9a; box-shadow: none; }
+.cb2-who.miss { filter: grayscale(1) brightness(.5); }
+.cb2-who.via-aura .mug { box-shadow: 0 0 0 2px var(--aura, #7ff6ff), 0 2px 6px #0008; }
+.cb2-q { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; font-style: normal; color: #aab4cc; background: #ffffff14; }
+.cb2-link { width: 8px; height: 3px; margin: 0 -1px 10px; border-radius: 2px; background: var(--ec); flex: none; }
+.cb2-info { min-width: 0; display: flex; flex-direction: column; gap: 5px; }
+.cb2-info b { font-weight: normal; font-size: 10px; color: #fff; text-shadow: 1px 1px 0 #000; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cb2-tags { display: flex; align-items: center; gap: 6px; font-size: 8px; color: #cfd8f0; } .cb2-tags i { font-style: normal; }
+.cb2-pill { padding: 1px 6px; border-radius: 6px; font-style: normal; font-size: 7px; color: #2a1a00; background: #ffd23f; }
+.cb2-pill.ok { color: #0a2a10; background: #7fff9a; } .cb2-pill.off { color: #fff; background: #ffffff26; }
+.cb2-count { font-size: 8px; color: #7fff9a; margin-left: 6px; }
+.cb2-legend { margin: 4px 0 0; font-size: 7px; }
+/* Mi Equipo: base rarities as toggles */
+.sq-rars { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.sq-rars button.rar { font: inherit; font-size: 8px; padding: 3px 7px; border: 0; cursor: pointer; opacity: .45; filter: saturate(.5); }
+.sq-rars button.rar.on { opacity: 1; filter: none; box-shadow: 0 0 0 2px #fff; }
+.cb2-pill { white-space: nowrap; }

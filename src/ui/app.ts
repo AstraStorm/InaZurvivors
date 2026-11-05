@@ -2467,15 +2467,17 @@ export class App {
         const x = squad.find((q) => playsAs(q.name, n.player)) ?? byName.get(n.player);
         const self = squad.some((q) => playsAs(q.name, n.player)), viaKey = !self ? [...carrierOfName.keys()].find((an) => playsAs(an, n.player)) : undefined;
         const via = viaKey ? carrierOfName.get(viaKey) : undefined, here = self || !!via;
-        return `<span class="cb-who${here ? '' : ' miss'}${via ? ' via-aura' : ''}" title="${esc(n.player)}${via ? ` (Aura de ${esc(via)})` : here ? '' : ' (no está en el equipo)'}">${x ? this.mug(x.id, 40) : ''}<small>${via ? '✦ ' : ''}${esc(n.player.split(' ')[0])}</small></span>`;
-      }).join('<i class="cb-link">🔗</i>');
-      const auraNote = c.viaAura.length ? ` · ✦ ${c.viaAura.map((n) => `${n.split(' ')[0]} como Aura de ${(carrierOfName.get([...carrierOfName.keys()].find((an) => playsAs(an, n)) ?? n) ?? '').split(' ')[0]}`).join(', ')}` : '';
-      return `<div class="cb-card${c.ready ? ' ready' : ''}${c.viaAura.length ? ' with-aura' : ''}" style="--ec:${ELEMENT_COLOR[c.combo.element] ?? '#ffe27a'}"><div class="cb-team">${who}</div>
-        <div class="cb-info"><b>${esc(c.combo.name)}</b><small>${c.ready ? `¡Lista! Se aprende en la partida cuando sus técnicas llegan al nivel ${Math.max(...c.combo.needs.map((n) => n.level))}${esc(auraNote)}` : `Falta: ${esc(c.missing.join(', '))}${esc(auraNote)}`}</small></div></div>`;
+        return `<span class="cb2-who${here ? '' : ' miss'}${via ? ' via-aura' : ''}" title="${esc(n.player)}${n.tech ? ` · ${esc(n.tech)}` : ''} · Nv ${n.level}${via ? ` (Aura de ${esc(via)})` : here ? '' : ' (no está)'}">${x ? this.mug(x.id, 40) : ''}<em>Nv${n.level}</em></span>`;
+      }).join('<i class="cb2-link"></i>');
+      // 1.88 (author: less text): name, element, power and one state pill
+      return `<div class="cb2${c.ready ? ' ready' : ''}${c.viaAura.length ? ' with-aura' : ''}" style="--ec:${ELEMENT_COLOR[c.combo.element] ?? '#ffe27a'}">
+        <div class="cb2-team">${who}</div>
+        <div class="cb2-info"><b>${esc(c.combo.name)}</b><span class="cb2-tags">${elementIcon(c.combo.element, 12)}<i>⚡${c.combo.power}</i>
+          ${c.ready ? '<em class="cb2-pill ok">¡Lista!</em>' : `<em class="cb2-pill">Falta${c.missing.length > 1 ? 'n' : ''} ${c.missing.length}</em>`}</span></div></div>`;
     }).join('');
     return `<div class="panel syn-panel"><h3>Sinergias del equipo</h3>
       <div class="note">Resonancia: 3 técnicas activas del mismo elemento dan <b>+8%</b> de daño a esas técnicas, 5 dan <b>+15%</b>. Las técnicas activas se eligen al subir de nivel en la partida.</div>
-      ${combos ? `<h3 class="cb-title">🔗 Técnicas combinadas</h3><div class="cb-grid">${combos}</div><h3 class="cb-title">Elementos y química</h3>` : ''}
+      ${combos ? `<h3 class="cb-title">🔗 Técnicas combinadas <small class="cb2-count">${squadCombos(squad, [...carrierOfName.keys()]).filter((c) => c.ready).length} listas</small></h3><div class="cb2-grid">${combos}</div><p class="note cb2-legend">El nivel bajo cada cara es el que necesita su técnica en la partida.</p><h3 class="cb-title">Elementos y química</h3>` : ''}
       <div class="syn-grid">${el}
         <div class="syn-card${ch.bonus ? ' on' : ''}" style="--ec:#7dff9a"><span class="syn-ic">♜</span><div><b>Química de club</b><span class="syn-pips">${Array.from({ length: ch.goal }, (_, i) => `<i class="${i < ch.count ? 'on' : ''}"></i>`).join('')}</span><small>${esc(ch.hint)} (equipación ${esc(teamLabel(kit))})</small></div><em>${ch.bonus ? `+${Math.round(ch.bonus * 100)}%` : `${ch.count}/${ch.goal}`}</em></div>
         ${cap ? `<div class="syn-card${cap.bonus ? ' on' : ''}" style="--ec:${ELEMENT_COLOR[String(cap.element)] ?? '#ffe27a'}"><span class="syn-ic">★</span><div><b>${esc(cap.label)}</b><small>${esc(cap.hint)}</small></div><em>${cap.bonus ? `+${(cap.bonus * 100).toFixed(1).replace('.', ',')}%` : '—'}</em></div>`
@@ -2707,7 +2709,7 @@ export class App {
           <span class="note">${this.auraPick !== null ? `<span class="aura-pick-note">✦ Elige el <b>Aura de ${esc(this.byId.get(this.auraPick)?.name ?? '')}</b>: un Legendario, Mítico o Leyenda (♥ = compatible, 20%)</span> · <button class="linkbtn" id="aucancel">cancelar</button>` : this.squadPicked ? `Elige quién va a la <b>plaza ${this.squadSlot + 1}${this.squadSlot === 0 ? ' (capitán)' : ''}</b> · <button class="linkbtn" id="sqcancel">cancelar</button>` : squad.length < SQUAD_SIZE ? 'Pulsa un futbolista para añadirlo o quitarlo · o cógelo y arrástralo a una plaza' : 'Equipo completo: pulsa una plaza para cambiarla, o un futbolista del equipo para quitarlo'}</span>
           <span class="spacer"></span><button class="btn small" id="sqauto" title="Rellena las plazas libres con tus mejores futbolistas">★ Autocompletar</button><button class="btn small blue" id="sqclear" title="Deja solo al capitán">Vaciar</button></div>
         <div class="filters"><input id="sqq" placeholder="Buscar nombre o equipo" value="${esc(this.squadFilter.q)}">
-          <select id="sqr"><option value="">Rareza</option>${RARITY_ORDER.map((r) => `<option value="${r}" ${this.squadFilter.rarity === r ? 'selected' : ''}>${RARITY_LABEL[r]}</option>`).join('')}</select>
+          <div class="sq-rars" id="sqr" title="Rareza con la que salió (aunque haya ascendido)">${RARITY_ORDER.map((r) => `<button class="rar ${r}${this.squadFilter.rarity.split(',').includes(r) ? ' on' : ''}" data-rar="${r}">${RARITY_LABEL[r]}</button>`).join('')}</div>
           <select id="sqp"><option value="">Posición</option>${Object.entries(POS_LABEL).map(([k, v]) => `<option value="${k}" ${this.squadFilter.pos === k ? 'selected' : ''}>${v}</option>`).join('')}</select>
           <select id="sqe"><option value="">Elemento</option>${['Fuego', 'Aire', 'Bosque', 'Montaña', 'Neutro'].map((e) => `<option value="${e}" ${this.squadFilter.el === e ? 'selected' : ''}>${e}</option>`).join('')}</select>
           <select id="sqs">${[['media', 'Ordenar: media'], ['rareza', 'Ordenar: rareza'], ['nombre', 'Ordenar: nombre']].map(([v, l]) => `<option value="${v}" ${this.squadFilter.sort === v ? 'selected' : ''}>${l}</option>`).join('')}</select></div>
@@ -2769,12 +2771,14 @@ export class App {
     this.on('[data-start]', 'click', (e, el) => { e.stopPropagation(); this.setStart(el.dataset.start!); this.captainSelect(this.squadSlot); });
     const refilter = () => {
       const v = (id: string) => (document.getElementById(id) as HTMLInputElement | HTMLSelectElement).value;
-      this.squadFilter = { q: v('sqq'), rarity: v('sqr'), pos: v('sqp'), el: v('sqe'), sort: v('sqs') || 'media' };
+      // 1.88 (author): several base rarities at once; a footballer counts by the rarity he came out with, not the one he ascended to
+      const rars = [...document.querySelectorAll<HTMLElement>('#sqr [data-rar].on')].map((b) => b.dataset.rar).join(',');
+      this.squadFilter = { q: v('sqq'), rarity: rars, pos: v('sqp'), el: v('sqe'), sort: v('sqs') || 'media' };
       this.squadLimit = 48;
       this.squadGrid();
     };
     document.getElementById('sqq')!.addEventListener('input', refilter);
-    document.getElementById('sqr')!.addEventListener('change', refilter);
+    document.querySelectorAll<HTMLElement>('#sqr [data-rar]').forEach((b) => b.addEventListener('click', () => { b.classList.toggle('on'); refilter(); }));
     document.getElementById('sqp')!.addEventListener('change', refilter);
     document.getElementById('sqe')!.addEventListener('change', refilter);
     document.getElementById('sqs')!.addEventListener('change', refilter);
@@ -2950,7 +2954,8 @@ export class App {
     const inSquad = new Set(squadOf(this.save, this.byId).map((p) => p.id));
     const meanCache = new Map<number, number>();
     const mean = (p: RosterEntry) => { let v = meanCache.get(p.id); if (v === undefined) { v = this.meanOf(p); meanCache.set(p.id, v); } return v; };
-    const list = this.unlockedRoster().filter((p) => (!f.rarity || p.rarity === f.rarity) && (!f.pos || p.position === f.pos) && (!f.el || String(p.element) === f.el)
+    const rarSet = f.rarity ? new Set(f.rarity.split(',')) : null; // base rarity (p.rarity), never the ascended one
+    const list = this.unlockedRoster().filter((p) => (!rarSet || rarSet.has(p.rarity)) && (!f.pos || p.position === f.pos) && (!f.el || String(p.element) === f.el)
       && (!q || p.name.toLowerCase().includes(q) || p.teams.some((t) => teamLabel(t).toLowerCase().includes(q))))
       .sort((a, b) => f.sort === 'nombre' ? a.name.localeCompare(b.name)
         : f.sort === 'rareza' ? RARITY_ORDER.indexOf(effectiveRarity(this.save, b)) - RARITY_ORDER.indexOf(effectiveRarity(this.save, a)) || mean(b) - mean(a)
@@ -5024,13 +5029,17 @@ export class App {
 
   /** v1.7: pause screen: combined techniques the team can still learn, with what each participant needs */
   private pauseCombos() {
-    const goals = (this.lastHud?.comboGoals ?? []).slice().sort((a, b) => Number(b.complete) - Number(a.complete)).slice(0, 6);
+    const goals = (this.lastHud?.comboGoals ?? []).slice().sort((a, b) => Number(b.ready) - Number(a.ready) || Number(b.complete) - Number(a.complete)).slice(0, 6);
     if (!goals.length) return '';
-    return `<h3 style="margin-top:12px">Técnicas combinadas</h3><div class="cg-list">${goals.map((g) => `<div class="cg${g.ready ? ' ready' : ''}${g.complete ? '' : ' partial'}">
-      <div class="cg-top"><b>🔗 ${esc(g.name)}</b><span>${g.ready ? '¡Lista! Sale al subir de nivel' : g.complete ? 'Sube las técnicas marcadas con 🔗' : 'Falta gente en el campo'}</span></div>
-      <div class="cg-parts">${g.parts.map((p) => `<span class="${p.memberId === null ? 'miss' : p.have >= p.need ? 'ok' : ''}">${p.memberId !== null ? this.mug(p.memberId, 26) : '<i class="cg-q">?</i>'}
-        <em><b>${esc(p.player)}</b>${p.viaAura ? ' (Aura)' : ''}<br>${esc((!p.anyTech && p.tech) || p.bestTech || 'su mejor técnica')} · ${p.memberId === null ? 'no está' : `Nv ${p.have}/${p.need}`}</em></span>`).join('')}</div></div>`).join('')}</div>`;
+    // 1.88 (author: less text): each participant with his level now / needed, ✔ when reached; one state pill
+    return `<h3>Técnicas combinadas</h3><div class="cb2-grid">${goals.map((g) => {
+      const def = COMBOS.find((c) => c.id === g.id);
+      const parts = g.parts.map((p) => `<span class="cb2-who${p.memberId === null ? ' miss' : p.have >= p.need ? ' ok' : ''}" title="${esc(p.player)} · ${esc((!p.anyTech && p.tech) || p.bestTech || 'su mejor técnica')}">${p.memberId !== null ? this.mug(p.memberId, 40) : '<i class="cb2-q">?</i>'}<em>${p.memberId === null ? '—' : p.have >= p.need ? '✔' : `${p.have}/${p.need}`}</em></span>`).join('<i class="cb2-link"></i>');
+      return `<div class="cb2${g.ready ? ' ready' : ''}" style="--ec:${ELEMENT_COLOR[def?.element ?? ''] ?? '#ffe27a'}"><div class="cb2-team">${parts}</div>
+        <div class="cb2-info"><b>${esc(g.name)}</b><span class="cb2-tags">${g.ready ? '<em class="cb2-pill ok">¡Lista!</em>' : g.complete ? '<em class="cb2-pill">Sube niveles</em>' : '<em class="cb2-pill off">Falta gente</em>'}</span></div></div>`;
+    }).join('')}</div>`;
   }
+
 
   private pauseModal() {
     document.getElementById('pause')?.remove();
