@@ -309,22 +309,38 @@ describe('reportar un bug (database)', () => {
     await expect(api('beto', `select * from private.bug_rewards`)).rejects.toThrow();
     expect(all.length).toBeGreaterThan(0);
   });
-  it('1.88: a reply, or a report fixed or discarded, reaches the reporter once; the private notes never do', async () => {
+  it('1.88: a reply or a fixed report reaches the reporter once; discarded tells nothing; private notes never', async () => {
     const mine = (await api('beto', `select code from public.my_bug_reports()`)).rows as { code: string }[];
     const [a, b] = [mine[0].code, mine[1].code];
     await api('beto', `select * from public.claim_bug_notices()`); // nothing left from earlier tests
     await api('carla', `select public.admin_update_bug($1, null, 'nota privada', 'Gracias, ya lo estamos mirando')`, [a]);
     await api('carla', `select public.admin_update_bug($1, 'descartado', null, null)`, [b]);
     const got = (await api('beto', `select * from public.claim_bug_notices() order by code`)).rows as { code: string; status: string; reply: string }[];
-    expect(got.map((r) => r.code).sort()).toEqual([a, b].sort());
-    expect(got.find((r) => r.code === a)!.reply).toBe('Gracias, ya lo estamos mirando');
-    expect(got.find((r) => r.code === b)!.status).toBe('descartado');
+    expect(got.map((r) => r.code)).toEqual([a]); // (author) a discarded report tells nothing
+    expect(got[0].reply).toBe('Gracias, ya lo estamos mirando');
     expect(JSON.stringify(got)).not.toMatch(/nota privada/);
     expect((await api('beto', `select * from public.claim_bug_notices()`)).rows).toEqual([]); // once
     await api('carla', `select public.admin_update_bug($1, null, 'otra nota', null)`, [a]); // notes alone: no notice
     expect((await api('beto', `select * from public.claim_bug_notices()`)).rows).toEqual([]);
     expect((await api('beto', `select reply from public.my_bug_reports() where code = $1`, [a])).rows[0]).toEqual({ reply: 'Gracias, ya lo estamos mirando' });
     await expect(api('beto', `select public.admin_update_bug($1, null, null, 'hack')`, [a])).rejects.toThrow(/forbidden/);
+  });
+  it('1.88: recommendations — send, see own, admin marks; accepted or answered tells the player once, discarded tells nothing', async () => {
+    const code = (await api('beto', `select public.submit_suggestion('Más mapas nocturnos', 'Estaría genial jugar de noche en el Raimon.') as c`)).rows[0] as { c: string };
+    expect(code.c).toMatch(/^IDEA-/);
+    await expect(api('beto', `select public.submit_suggestion('Otra idea', 'Demasiado rápido después de la primera.')`)).rejects.toThrow(/too_fast/);
+    await db.query(`update public.suggestions set created_at = now() - interval '2 minutes'`);
+    const c2 = ((await api('beto', `select public.submit_suggestion('Modo torneo', 'Un torneo de eliminación con amigos.') as c`)).rows[0] as { c: string }).c;
+    expect((await api('beto', `select code, status from public.my_suggestions() order by code`)).rows).toHaveLength(2);
+    await expect(api('beto', `select * from public.admin_suggestions()`)).rejects.toThrow(/forbidden/);
+    expect(((await api('carla', `select count(*)::int as n from public.admin_suggestions('pendiente')`)).rows[0] as { n: number }).n).toBe(2);
+    await api('carla', `select public.admin_update_suggestion($1, 'aceptada', '¡Para la 1.9!')`, [code.c]);
+    await api('carla', `select public.admin_update_suggestion($1, 'descartada', null)`, [c2]);
+    const got = (await api('beto', `select * from public.claim_suggestion_notices()`)).rows as { code: string; reply: string }[];
+    expect(got).toEqual([expect.objectContaining({ code: code.c, status: 'aceptada', reply: '¡Para la 1.9!' })]);
+    expect((await api('beto', `select * from public.claim_suggestion_notices()`)).rows).toEqual([]);
+    await expect(api('', `select public.submit_suggestion('Hola', 'sin sesión no se puede')`)).rejects.toThrow(/permission denied/);
+    await expect(api('beto', `select * from public.suggestions`)).rejects.toThrow();
   });
   it("screenshots must be the sender's own uploaded file; the notice can be claimed once", async () => {
     await db.exec(`delete from public.bug_reports where user_id = '${ids.carla}'`);

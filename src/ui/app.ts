@@ -51,7 +51,7 @@ import { ascendAll, ascendableCount, ASC_BONUS, ASC_COSTS, CHAMPION_COSTS, CHAMP
 import { USERNAME_MAX, validateUsername } from '../systems/username';
 import { ALTAR_COLOR, ALTAR_ICON, ALTAR_INFO, ALTAR_MODE, ALTAR_REWARD } from '../systems/altars';
 import { adaptedPassive, passiveText, talentChanges, talentText } from '../systems/talents';
-import { claimBugNotices, claimBugRewards, redeemCode } from '../online/client';
+import { adminSuggestions, adminUpdateSuggestion, claimBugNotices, claimBugRewards, claimSuggestionNotices, mySuggestions, redeemCode, submitSuggestion, type SuggestionRow } from '../online/client';
 import { THANKS_EVENT, addThanksTokens, thanksActive, thanksLeftMs, thanksTokens } from '../systems/thanksEvent';
 import { gtsDeposit, gtsFeed, gtsMine, gtsSearch, gtsTake, gtsWithdraw, type GtsOffer } from '../online/client';
 import { clashWith } from '../systems/identity';
@@ -681,6 +681,7 @@ export class App {
     return `<span class="elem" style="--ec:${ELEMENT_COLOR[e] ?? '#ccc'}">${elementIcon(e, 12)}${esc(e)}</span>`;
   }
   private show(html: string, cls = '') {
+    document.getElementById('notibar')?.remove(); // 1.88: the report notifications live on the menu only
     // refreshing the same screen must not replay entrances, lose the scroll or restart CSS animations
     const key = /<h2>(.*?)<\/h2>/.exec(html)?.[1] ?? cls;
     const same = key === this.screenKey;
@@ -1130,6 +1131,7 @@ export class App {
     if (onlineConfigured()) void this.fillMenuRank();
     if (onlineConfigured()) void this.fillMenuGts(); // 1.8
     void this.claimBugBounty(); // 1.85: rewards for fixed bug reports
+    this.notiBar(); // 1.88
     if (onlineConfigured() && signedIn()) void this.gtsSync().catch(() => undefined); // 1.8: a trade that happened while away arrives here
     document.getElementById('wpclaim')?.addEventListener('click', (e) => { (e.target as HTMLButtonElement).disabled = true; this.claimPassNow(() => this.mainMenu()); });
     if (this.save.tutorial === 'pendiente' && this.save.onboardingDone) window.setTimeout(() => { if (this.screenKey === 'menu-mode') this.tutorial(); }, 400);
@@ -1668,12 +1670,19 @@ export class App {
     this.bugBountyAt = Date.now();
     let rows: { code: string; title: string; tokens: number }[] = [];
     let notes: { code: string; title: string; status: string; reply: string }[] = [];
-    try { [rows, notes] = await Promise.all([claimBugRewards().catch(() => []), claimBugNotices().catch(() => [])]); } catch { return; }
+    let ideas: { code: string; title: string; status: string; reply: string }[] = [];
+    try { [rows, notes, ideas] = await Promise.all([claimBugRewards().catch(() => []), claimBugNotices().catch(() => []), claimSuggestionNotices().catch(() => [])]); } catch { return; }
+    notes = [...(notes ?? []), ...(ideas ?? []).filter((n) => n.status !== 'descartada')];
     rows ??= []; notes ??= [];
-    // 1.88: replies and reports discarded or fixed without a reward (the reward notice already covers the fixed ones it pays)
-    const paid = new Set(rows.map((r) => r.code));
-    const extra = notes.filter((n) => n.reply || n.status === 'descartado' || !paid.has(n.code));
-    if (extra.length) this.bugNotices(extra, rows.length > 0);
+    // 1.88 (author): replies and fixed reports go to the notification bar at the top; a discarded report tells nothing
+    const keep = notes.filter((n) => n.status !== 'descartado' && (n.reply || n.status === 'corregido'));
+    if (keep.length) {
+      const inbox = (this.save.bugInbox ??= []);
+      for (const n of keep) { const k = inbox.findIndex((x) => x.code === n.code); const item = { ...n, at: Date.now() }; if (k >= 0) inbox[k] = item; else inbox.unshift(item); }
+      this.save.bugInbox = inbox.slice(0, 20);
+      this.persist();
+      this.notiBar();
+    }
     if (!rows.length) return;
     const total = rows.reduce((a, r) => a + (r.tokens ?? 0), 0);
     this.save.tokens += total;
@@ -1692,19 +1701,32 @@ export class App {
     box.querySelector('[data-close]')!.addEventListener('click', () => { box.remove(); this.mainMenu(); });
   }
 
-  /** 1.88: what the admin answered to the player's reports, and the ones fixed or discarded */
-  private bugNotices(list: { code: string; title: string; status: string; reply: string }[], under = false) {
-    document.querySelector('.bugnote-modal')?.remove();
-    const box = document.createElement('div');
-    box.className = 'tut-modal bugnote-modal';
-    const head = (s: string) => s === 'corregido' ? '<em class="bn-ok">Corregido</em>' : s === 'descartado' ? '<em class="bn-no">Descartado</em>' : s === 'revisando' ? '<em class="bn-rev">Revisando</em>' : '';
-    box.innerHTML = `<div class="panel bounty-panel"><div class="bn-ic">💬</div><h2>Respuesta a tus reportes</h2>
-      <ul class="bn-list">${list.slice(0, 8).map((n) => `<li><b>${esc(n.code)}</b> ${esc(n.title)} ${head(n.status)}${n.reply ? `<p class="bug-reply">${esc(n.reply)}</p>` : n.status === 'descartado' ? '<p class="bug-reply">No es un fallo del juego o ya estaba reportado. ¡Gracias igualmente!</p>' : ''}</li>`).join('')}</ul>
-      <div class="tut-nav"><span class="spacer"></span><button class="btn" data-close>Entendido</button></div></div>`;
-    if (under) box.style.zIndex = '59';
-    document.body.appendChild(box);
-    sfx('powerup');
-    box.querySelector('[data-close]')!.addEventListener('click', () => box.remove());
+  /**
+   * 1.88 (author): answers to the player's bug reports as a notification at the top of the menu: tap to read it, ✕ to
+   * delete it. They stay (in the save) until he deletes them.
+   */
+  private notiBar() {
+    document.getElementById('notibar')?.remove();
+    const inbox = this.save.bugInbox ?? [];
+    if (!inbox.length || !document.querySelector('.m4-stage')) return;
+    const bar = document.createElement('div');
+    bar.id = 'notibar';
+    bar.className = 'notibar';
+    bar.innerHTML = inbox.slice(0, 3).map((n, i) => `<div class="nb-item" data-i="${i}">
+      <button class="nb-head" data-open="${i}"><span class="nb-ic">${n.status === 'corregido' ? '✅' : n.code.startsWith('IDEA') ? '💡' : '💬'}</span>
+        <span class="nb-tx"><b>${n.status === 'corregido' ? 'Tu reporte se ha corregido' : n.status === 'aceptada' ? '¡Tu recomendación ha sido aceptada!' : n.code.startsWith('IDEA') ? 'Respuesta a tu recomendación' : 'Respuesta a tu reporte'}</b><small>${esc(n.code)} · ${esc(n.title)}</small></span><em>Ver</em></button>
+      <button class="nb-x" data-del="${i}" title="Borrar">✕</button>
+      <div class="nb-body" hidden>${n.reply ? `<p>${esc(n.reply)}</p>` : n.status === 'aceptada' ? '<p>¡Gracias por la idea! La tendremos en cuenta.</p>' : '<p>¡Gracias por avisar! Ya está arreglado.</p>'}</div></div>`).join('')
+      + (inbox.length > 3 ? `<div class="nb-more">+${inbox.length - 3} más</div>` : '');
+    document.body.appendChild(bar);
+    bar.querySelectorAll<HTMLElement>('[data-open]').forEach((b) => b.addEventListener('click', () => {
+      const body = b.parentElement!.querySelector('.nb-body') as HTMLElement;
+      body.hidden = !body.hidden; b.querySelector('em')!.textContent = body.hidden ? 'Ver' : 'Ocultar';
+    }));
+    bar.querySelectorAll<HTMLElement>('[data-del]').forEach((b) => b.addEventListener('click', () => {
+      (this.save.bugInbox ?? []).splice(Number(b.dataset.del), 1);
+      this.persist(); sfx('click'); this.notiBar();
+    }));
   }
 
   /** Main menu: the latest movements of the GTS, loaded after the menu is shown. */
@@ -2095,9 +2117,10 @@ export class App {
       <details class="bug-tech"><summary>Qué información técnica se envía</summary><ul>${TECH_FIELDS.map((t) => `<li>${esc(t)}</li>`).join('')}</ul>
         <p class="note">Nunca se envían tu correo, tu sesión ni tu partida guardada. Solo tú y el administrador podéis ver el reporte y su captura. <a href="privacidad.html" target="_blank" rel="noopener">Privacidad</a></p></details>
       <div id="bgerr" class="bug-err" role="alert"></div>
-      <div class="tut-nav"><button class="btn small blue" id="bgclose">Cerrar</button><button class="btn small blue" id="bgmine">Mis reportes</button><span class="spacer"></span><button class="btn" id="bgsend">Enviar reporte</button></div></div>`;
+      <div class="tut-nav"><button class="btn small blue" id="bgclose">Cerrar</button><button class="btn small blue" id="bgmine">Mis reportes</button><button class="btn small blue" id="bgidea">💡 Recomendar algo</button><span class="spacer"></span><button class="btn" id="bgsend">Enviar reporte</button></div></div>`;
     const $ = <T extends HTMLElement>(id: string) => box.querySelector(`#${id}`) as T;
     const err = (t: string) => { $('bgerr').textContent = t; };
+    $('bgidea')?.addEventListener('click', () => { close(); this.suggestionModal(); }); // 1.88
     const setShot = async (src: Blob | HTMLImageElement) => {
       try {
         shot = await shrinkShot(src);
@@ -2163,7 +2186,7 @@ export class App {
     const list = box.querySelector('#mblist') as HTMLElement;
     try {
       const rows = await myBugReports();
-      list.innerHTML = rows.map((r) => `<div class="bug-row"><code>${esc(r.code)}</code><b>${esc(r.title)}</b><span class="bug-st st-${esc(r.status)}">${esc(STATUS_LABEL[r.status] ?? r.status)}</span><small>${new Date(r.created_at).toLocaleDateString('es')}</small></div>${r.reply ? `<p class="bug-reply">💬 ${esc(r.reply)}</p>` : ''}`).join('') || 'Todavía no has enviado ningún reporte.';
+      list.innerHTML = rows.map((r) => `<div class="bug-row"><code>${esc(r.code)}</code><b>${esc(r.title)}</b><span class="bug-st st-${esc(r.status)}">${esc(STATUS_LABEL[r.status] ?? r.status)}</span><small>${new Date(r.created_at).toLocaleDateString('es')}</small></div>`).join('') || 'Todavía no has enviado ningún reporte.';
       const del = box.querySelector('#mbdel') as HTMLButtonElement;
       if (rows.length) del.hidden = false;
       del.addEventListener('click', () => this.armed(del, async () => {
@@ -2173,6 +2196,103 @@ export class App {
         this.toast('Tus reportes y sus capturas se han borrado.', 3500);
       }));
     } catch (e) { list.textContent = `No se pudieron cargar: ${(e as Error).message}`; }
+  }
+
+  /**
+   * 1.88 (author): recommendations, next to the bug reports. A signed-in player sends an idea and follows it in «Mis
+   * recomendaciones» (Pendiente / Aceptada / Descartada); the admin panel marks them and can answer.
+   */
+  private static readonly IDEA_STATUS: Record<string, string> = { pendiente: 'Pendiente', aceptada: 'Aceptada', descartada: 'Descartada' };
+  private suggestionModal() {
+    document.querySelector('.idea-modal')?.remove();
+    const box = document.createElement('div');
+    box.className = 'tut-modal bug-modal idea-modal';
+    document.body.appendChild(box);
+    const kb = this.game.input.keyboard, had = kb?.preventDefault ?? false;
+    if (kb) kb.preventDefault = false;
+    const close = () => { box.remove(); if (kb) kb.preventDefault = had; };
+    if (!onlineConfigured() || !signedIn()) {
+      box.innerHTML = `<div class="panel bug-card"><h2>💡 Recomendaciones</h2><p class="note">${onlineConfigured() ? 'Para enviar una recomendación necesitas entrar con tu cuenta.' : 'No disponible en esta versión.'}</p>
+        <div class="tut-nav"><span class="spacer"></span><button class="btn small blue" data-close>Cerrar</button></div></div>`;
+      box.querySelector('[data-close]')!.addEventListener('click', close);
+      return;
+    }
+    box.innerHTML = `<div class="panel bug-card"><h2>💡 Recomendaciones</h2>
+      <p class="note">¿Una idea para el juego? Cuéntanosla. Verás si la aceptamos en «Mis recomendaciones».</p>
+      <label>Título<input id="idtitle" maxlength="120" autocomplete="off" placeholder="Tu idea en una frase"></label>
+      <label>Cuéntanos más<textarea id="iddesc" maxlength="4000" rows="5" placeholder="Qué te gustaría ver y por qué"></textarea></label>
+      <div id="iderr" class="bug-err" role="alert"></div>
+      <div class="tut-nav"><button class="btn small blue" data-close>Cerrar</button><button class="btn small blue" id="idmine">Mis recomendaciones</button><span class="spacer"></span><button class="btn" id="idsend">Enviar</button></div></div>`;
+    box.querySelector('[data-close]')!.addEventListener('click', close);
+    box.querySelector('#idmine')!.addEventListener('click', () => { close(); void this.mySuggestionsModal(); });
+    const send = box.querySelector('#idsend') as HTMLButtonElement, err = box.querySelector('#iderr') as HTMLElement;
+    send.addEventListener('click', async () => {
+      const title = (box.querySelector('#idtitle') as HTMLInputElement).value.trim(), desc = (box.querySelector('#iddesc') as HTMLTextAreaElement).value.trim();
+      if (title.length < 4) { err.textContent = 'Ponle un título (4 letras como mínimo).'; return; }
+      if (desc.length < 10) { err.textContent = 'Cuéntanos un poco más (10 letras como mínimo).'; return; }
+      send.disabled = true; err.textContent = '';
+      try {
+        const code = await submitSuggestion(title, desc);
+        sfx('powerup');
+        box.querySelector('.bug-card')!.innerHTML = `<h2>¡Gracias!</h2><p>Hemos recibido tu recomendación.</p><p class="bug-code">${esc(code)}</p>
+          <div class="tut-nav"><button class="btn small blue" id="idmine2">Mis recomendaciones</button><span class="spacer"></span><button class="btn" data-close2>Cerrar</button></div>`;
+        box.querySelector('[data-close2]')!.addEventListener('click', close);
+        box.querySelector('#idmine2')!.addEventListener('click', () => { close(); void this.mySuggestionsModal(); });
+      } catch (e) {
+        send.disabled = false;
+        const m = (e as Error).message;
+        err.textContent = /too_fast/.test(m) ? 'Espera un minuto antes de enviar otra.' : /daily_limit/.test(m) ? 'Has enviado 5 hoy: vuelve mañana.' : `No se pudo enviar: ${m}`;
+      }
+    });
+  }
+  private async mySuggestionsModal() {
+    const box = document.createElement('div');
+    box.className = 'tut-modal bug-modal idea-modal';
+    box.innerHTML = '<div class="panel bug-card"><h2>Mis recomendaciones</h2><div id="milist" class="note">Cargando…</div><div class="tut-nav"><span class="spacer"></span><button class="btn small blue" data-close>Cerrar</button></div></div>';
+    document.body.appendChild(box);
+    box.querySelector('[data-close]')!.addEventListener('click', () => box.remove());
+    const list = box.querySelector('#milist') as HTMLElement;
+    try {
+      const rows = await mySuggestions();
+      list.className = '';
+      list.innerHTML = rows.length ? rows.map((r) => `<div class="bug-row"><code>${esc(r.code)}</code><b>${esc(r.title)}</b><span class="bug-st idea-${esc(r.status)}">${esc(App.IDEA_STATUS[r.status] ?? r.status)}</span><small>${new Date(r.created_at).toLocaleDateString('es')}</small></div>`).join('')
+        : '<p class="note">Aún no has enviado ninguna.</p>';
+    } catch (e) { list.textContent = `No se pudieron cargar: ${(e as Error).message}`; }
+  }
+  private async adminSuggestionsPanel(status: string | null = null) {
+    setMusicContext('menu');
+    this.show(`<div class="screen">${this.titlebar('Panel de recomendaciones', 'Ajustes')}<div class="panel"><div class="seg" id="idst">
+      ${[['', 'Todas'], ...Object.entries(App.IDEA_STATUS)].map(([k, t]) => `<button data-v="${k}" class="${(status ?? '') === k ? 'on' : ''}">${t}</button>`).join('')}</div>
+      <div id="idlist" class="note">Cargando…</div></div></div>`);
+    this.on('[data-back]', 'click', () => this.options());
+    this.on('#idst button', 'click', (_e, el) => { void this.adminSuggestionsPanel(el.dataset.v || null); });
+    const list = document.getElementById('idlist')!;
+    try {
+      const rows = await adminSuggestions(status);
+      if (!document.getElementById('idlist')) return;
+      list.className = '';
+      list.innerHTML = rows.length ? rows.map((r, i) => `<button class="bug-row admin" data-i="${i}"><code>${esc(r.code)}</code><b>${esc(r.title)}</b><span class="bug-st idea-${esc(r.status)}">${esc(App.IDEA_STATUS[r.status] ?? r.status)}</span><small>${esc(r.username ?? '')} · ${new Date(r.created_at).toLocaleDateString('es')}</small></button>`).join('')
+        : '<p class="note">No hay recomendaciones.</p>';
+      this.on('#idlist .bug-row.admin', 'click', (_e, el) => this.adminSuggestionDetail(rows[Number(el.dataset.i)], status));
+    } catch (e) { list.textContent = /forbidden/.test((e as Error).message) ? 'No tienes permiso para ver este panel.' : `No se pudo cargar: ${(e as Error).message}`; }
+  }
+  private adminSuggestionDetail(r: SuggestionRow, back: string | null) {
+    const box = document.createElement('div');
+    box.className = 'tut-modal bug-modal';
+    box.innerHTML = `<div class="panel bug-card wide"><h2>${esc(r.code)}</h2><h3>${esc(r.title)}</h3><p class="note">${esc(r.username ?? '(sin nombre)')} · ${new Date(r.created_at).toLocaleString('es')}</p>
+      <p class="bug-text">${esc(r.description ?? '')}</p>
+      <h4>Estado</h4><div class="seg" id="sdst">${Object.entries(App.IDEA_STATUS).map(([k, t]) => `<button data-v="${k}" class="${k === r.status ? 'on' : ''}">${t}</button>`).join('')}</div>
+      <h4>Respuesta al jugador</h4><textarea id="sdreply" rows="3" maxlength="2000" placeholder="Opcional: le saldrá como notificación">${esc(r.reply ?? '')}</textarea>
+      <p class="note">Si la aceptas o le respondes, le llega una notificación. Si la descartas, no recibe nada.</p>
+      <div class="tut-nav"><button class="btn small blue" data-close>Cerrar</button><span class="spacer"></span><button class="btn" id="sdsave">Guardar</button></div></div>`;
+    document.body.appendChild(box);
+    let st = r.status;
+    box.querySelectorAll<HTMLElement>('#sdst button').forEach((b) => b.addEventListener('click', () => { st = b.dataset.v!; box.querySelectorAll('#sdst button').forEach((x) => x.classList.toggle('on', x === b)); }));
+    box.querySelector('[data-close]')!.addEventListener('click', () => box.remove());
+    box.querySelector('#sdsave')!.addEventListener('click', () => {
+      adminUpdateSuggestion(r.code, st, (box.querySelector('#sdreply') as HTMLTextAreaElement).value)
+        .then(() => { box.remove(); this.toast('Recomendación actualizada'); void this.adminSuggestionsPanel(back); }).catch((e: Error) => this.toast(e.message, 4000));
+    });
   }
 
   /** Bug panel. The button only appears for admins, but what protects the data is the server, which refuses everyone else. */
@@ -4086,7 +4206,7 @@ export class App {
       <h3 style="margin-top:12px">Copia de seguridad</h3>
       <div class="opt-row"><span>Tu progreso</span><div><button class="btn small" id="export">Exportar</button> <button class="btn small blue" id="import">Importar</button><input type="file" id="importfile" accept=".json,application/json" hidden></div></div>
       <h3 style="margin-top:12px">Ayuda</h3>
-      <div class="opt-row"><span>¿Algo no funciona?</span><div><button class="btn small" id="optbug">Reportar un bug</button> <button class="btn small blue" id="optadmin" hidden>Panel de bugs</button> <button class="btn small blue" id="optplayers" hidden>Panel de jugadores</button></div></div>
+      <div class="opt-row"><span>¿Algo no funciona?</span><div><button class="btn small" id="optbug">Reportar un bug</button> <button class="btn small" id="optidea">Recomendaciones</button> <button class="btn small blue" id="optadmin" hidden>Panel de bugs</button> <button class="btn small blue" id="optideas" hidden>Panel de recomendaciones</button> <button class="btn small blue" id="optplayers" hidden>Panel de jugadores</button></div></div>
       <h3 style="margin-top:12px">Empezar de cero</h3>
       <div class="opt-row"><span>Reiniciar progreso</span><button class="btn small" id="resetprog">Reiniciar progreso…</button></div>
       <p class="note">Vuelves a empezar como un jugador nuevo${this.save.onlineName ? `, conservando tu cuenta de Google y tu nombre «${esc(this.save.onlineName)}»` : ''}. No es lo mismo que eliminar la cuenta.</p>
@@ -4100,8 +4220,10 @@ export class App {
     document.getElementById('resetprog')!.addEventListener('click', () => this.resetProgressModal());
     document.getElementById('optbug')!.addEventListener('click', () => this.bugReportModal());
     document.getElementById('optadmin')!.addEventListener('click', () => { void this.adminBugs(); });
+    document.getElementById('optidea')!.addEventListener('click', () => this.suggestionModal()); // 1.88
+    document.getElementById('optideas')!.addEventListener('click', () => { void this.adminSuggestionsPanel(); });
     document.getElementById('optplayers')!.addEventListener('click', () => { void this.adminPlayers(); });
-    if (onlineConfigured() && signedIn()) amIAdmin().then((yes) => { for (const id of ['optadmin', 'optplayers']) { const b = document.getElementById(id); if (b) b.hidden = !yes; } }).catch(() => undefined);
+    if (onlineConfigured() && signedIn()) amIAdmin().then((yes) => { for (const id of ['optadmin', 'optplayers', 'optideas']) { const b = document.getElementById(id); if (b) b.hidden = !yes; } }).catch(() => undefined);
     document.getElementById('fs')!.addEventListener('click', () => {
       const done = () => this.options();
       (document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen()).then(done, done);

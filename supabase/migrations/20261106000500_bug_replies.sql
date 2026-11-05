@@ -67,3 +67,27 @@ create function public.my_bug_reports() returns table (code text, category text,
 language sql stable security invoker set search_path = '' as $$ select * from private.my_bug_reports(); $$;
 revoke execute on function public.my_bug_reports() from public, anon;
 grant execute on function public.my_bug_reports() to authenticated;
+
+-- (author, same day) a discarded report tells the reporter nothing: only a new reply or «corregido» leave a notice
+create or replace function private.admin_update_bug(p_code text, p_status text, p_notes text, p_reply text) returns timestamptz
+language plpgsql security definer set search_path = public as $$
+declare t timestamptz; r record; old record;
+begin
+  if not private.is_admin() then raise exception 'forbidden' using errcode = '42501'; end if;
+  select status, reply into old from public.bug_reports where code = p_code;
+  update public.bug_reports set status = coalesce(p_status, status), admin_notes = coalesce(p_notes, admin_notes),
+    reply = coalesce(left(p_reply, 2000), reply), updated_at = now()
+  where code = p_code returning updated_at, id, user_id, code, title, status, reply into r;
+  if r.updated_at is null then raise exception 'not_found' using errcode = 'P0002'; end if;
+  t := r.updated_at;
+  if r.status = 'descartado' then
+    update public.bug_reports set notice_pending = false where id = r.id;
+  elsif (r.reply <> '' and r.reply is distinct from old.reply) or (r.status is distinct from old.status and r.status = 'corregido') then
+    update public.bug_reports set notice_pending = true where id = r.id;
+  end if;
+  if r.status = 'corregido' and not exists (select 1 from private.admins a where a.user_id = r.user_id) then
+    insert into private.bug_rewards (report_id, user_id, code, title, tokens) values (r.id, r.user_id, r.code, r.title, 100)
+    on conflict (report_id) do nothing;
+  end if;
+  return t;
+end $$;

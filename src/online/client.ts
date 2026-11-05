@@ -220,6 +220,13 @@ export const redeemCode = (code: string, alreadyApplied = false) =>
   rpc<{ status: 'ok' | 'used' | 'invalid' | 'linked'; reward?: { tokens: number; coins: number; player: number | null; eventTokens?: number; pennants?: string[] } }>('redeem_code', { p_code: code, p_already_applied: alreadyApplied });
 /** 1.85: bug bounty — rewards for the player's reports the admin marked «corregido», taken once (server marks them claimed) */
 /** 1.88: replies to the player's reports, and reports fixed or discarded, not yet shown (taken once) */
+/** 1.88: recommendations (migration 20261106000600_suggestions.sql) */
+export interface SuggestionRow { id?: string; code: string; title: string; status: string; created_at: string; description?: string; username?: string | null; reply?: string }
+export const submitSuggestion = (title: string, description: string) => rpc<string>('submit_suggestion', { p_title: title, p_description: description });
+export const mySuggestions = () => rpc<SuggestionRow[]>('my_suggestions', {});
+export const adminSuggestions = (status: string | null) => rpc<SuggestionRow[]>('admin_suggestions', { p_status: status });
+export const adminUpdateSuggestion = (code: string, status: string | null, reply: string | null) => rpc<string>('admin_update_suggestion', { p_code: code, p_status: status, p_reply: reply });
+export const claimSuggestionNotices = () => rpc<{ code: string; title: string; status: string; reply: string }[]>('claim_suggestion_notices', {});
 export const claimBugNotices = () => rpc<{ code: string; title: string; status: string; reply: string }[]>('claim_bug_notices', {});
 export const claimBugRewards = () => rpc<{ code: string; title: string; tokens: number }[]>('claim_bug_rewards', {});
 export const adminBugReports = (f: BugFilter) => rpc<BugRow[]>('admin_bug_reports', { p_category: f.category, p_severity: f.severity, p_status: f.status, p_from: f.from, p_to: f.to, p_order: f.order, p_limit: 200 });

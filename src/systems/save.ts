@@ -88,6 +88,8 @@ export interface SaveData {
   pennants?: { owned: string[]; equipped?: string; frame?: string };
   /** Fix 1.32: ids of the news items already opened (news board) */
   newsRead?: string[];
+  /** 1.88: answers to the player's bug reports, kept until he dismisses them (app.ts notiBar) */
+  bugInbox?: { code: string; title: string; status: string; reply: string; at: number }[];
   /** Fix 1.11 weekly pass: rewards claimed in the current cycle (0-6) and the last day one was claimed */
   weeklyPass?: { claimed: number; lastDay: string };
   /** "Mi Equipo": up to seven owned candidates for a run, captain first */
