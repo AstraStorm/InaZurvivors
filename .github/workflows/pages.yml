@@ -166,7 +166,7 @@ jobs:
           npx tsc --noEmit
           node tools/integrar_recursos.mjs --recursos ../.recursos
           npx vite build --base /InaZurvivors/pruebas/
-          node tools/comprobar_build.mjs --recursos ../.recursos
+          node ../tools/comprobar_build.mjs --recursos ../.recursos --base /InaZurvivors/pruebas/
           mkdir -p ../dist/pruebas
           cp -r dist/. ../dist/pruebas/
       - if: env.PUBLICAR == 'true'

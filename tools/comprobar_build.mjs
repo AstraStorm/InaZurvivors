@@ -1,12 +1,13 @@
 // Technical check of dist/: every resource the game asks for is there and intact, no credential or private file got in,
 // and every path uses the production base.
-// Usage: node tools/comprobar_build.mjs --recursos <carpeta>
+// Usage: node tools/comprobar_build.mjs --recursos <carpeta> [--base /InaZurvivors/pruebas/]
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { join, relative } from 'node:path';
 
 const args = process.argv.slice(2);
 const root = args[args.indexOf('--recursos') + 1];
+const base = args.includes('--base') ? args[args.indexOf('--base') + 1] : '/InaZurvivors/';
 const errors = [];
 const readJson = (file) => JSON.parse(readFileSync(file, 'utf8'));
 
@@ -27,7 +28,7 @@ for (const f of files) {
   }
 }
 const html = readFileSync('dist/index.html', 'utf8');
-if (!/(src|href)="\/InaZurvivors\/assets\//.test(html)) errors.push('index.html no usa la base /InaZurvivors/');
+if (!html.includes(`src="${base}assets/`) && !html.includes(`href="${base}assets/`)) errors.push(`index.html no usa la base ${base}`);
 
 const index = readJson(join(root, 'indice.json'));
 const known = new Map(index.archivos.map((f) => [f.ruta, f]));
