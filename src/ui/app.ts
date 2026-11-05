@@ -43,7 +43,7 @@ function newsRelDate(d: string) {
 }
 import { buildMeta, CATEGORIES, SEVERITIES, SHOT_MAX_BYTES, SHOT_MAX_SIDE, SHOT_TYPES, STATUS_LABEL, TECH_FIELDS, validateBug, validateShot } from '../systems/bugReport';
 import { elementIcon } from './elements';
-import { EXTRA_STARS_MAX, affordableStars, assignPick, buyStars, resetStars185, capBonusOf, extraStarsOf, hasExtraStars, nextStar, pendingPicks, STAR_CAP_STEP } from '../systems/stars';
+import { EXTRA_STARS_MAX, affordableStars, assignPick, buyStars, resetStars185, restoreHeroStars188, capBonusOf, extraStarsOf, hasExtraStars, nextStar, pendingPicks, STAR_CAP_STEP } from '../systems/stars';
 import { CHAMPION_CAP, CHAMPION_STATS, CHAMPION_TRAIN, playerStats, resetTraining, statCapOf, trainingOf, trainingUsed, trainMaxOf, trainRoom, trainStat, trimTraining, type StatKey } from '../systems/training';
 import { AURA_PCT, AURA_ELEMENT_BONUS, AURA_TECH_DAMAGE, BOND_PCT, EFFECTIVE_STAT_MAX, auraBonus, auraOf, bondOf, canBeAura, carrierForRun, carrierOf, equipAura, inheritedTechs, removeAura, sanitizeAuras, withAura, type AuraBonus } from '../systems/auras';
 import { BOND_KIND_LABEL } from '../data/auraBonds';
@@ -200,6 +200,7 @@ export class App {
     if (remapTechSlots(save, m.techRemaps) >= 0) storeSave(save); // repertoires that changed order keep their purchases
     if (migrateHeroes131(save, m.roster)) storeSave(save); // Fix 1.31: Míticos ascended the old way become HÉROE
     if (migrateChampions18(save, m.roster)) storeSave(save); // 1.8: Leyenda HÉROES become Campeón
+    if (restoreHeroStars188(save, m.roster)) storeSave(save); // 1.88: the HÉROE hero stars come back
     if (resetStars185(save, m.roster)) storeSave(save); // 1.85: everyone's stars start again under the coin rules
     if (compensateDrakul153(save)) storeSave(save); // Fix 1.53: 3 copies of Drakul for whoever ascended him
     if (save.auras && sanitizeAuras(save, new Map(m.roster.map((p) => [p.id, p])))) storeSave(save); // v1.5: Auras no longer valid are dropped
@@ -784,7 +785,10 @@ export class App {
     const starSvg = (cls: string) => starIcon(cls);
     // 1.84: the 3 extra stars of a HÉROE (crimson) or a Campeón (prismatic)
     const xs = !locked && o && hasExtraStars(this.save, p) ? extraStarsOf(this.save, p.id) : -1;
-    const heroStars = xs >= 0 ? `<span class="hero-stars${hero ? '' : ' champ'}" title="${xs} de ${EXTRA_STARS_MAX} estrellas extra">${Array.from({ length: EXTRA_STARS_MAX }, (_, i) => starSvg(`hst${i < xs ? ' on' : ''}`)).join('')}</span>` : '';
+    // 1.88: the coin extra stars (violet) and, apart, the HÉROE hero stars (crimson, paid with duplicates) as before
+    const extra = xs > 0 ? `<span class="hero-stars champ" title="${xs} de ${EXTRA_STARS_MAX} estrellas extra">${Array.from({ length: xs }, () => starSvg('hst on')).join('')}</span>` : '';
+    const hsN = hero ? Math.min(HERO_STARS_MAX, o?.heroStars ?? 0) : 0;
+    const heroStars = extra + (hero ? `<span class="hero-stars" title="${hsN} de ${HERO_STARS_MAX} estrellas de héroe">${Array.from({ length: HERO_STARS_MAX }, (_, i) => starSvg(`hst${i < hsN ? ' on' : ''}`)).join('')}</span>` : '');
     const stars = !locked && o ? `<div class="stars" title="${o.stars} de ${MAX_STARS} estrellas">${Array.from({ length: MAX_STARS }, (_, i) => starSvg(`st${i < o.stars ? ' on' : ''}`)).join('')}${heroStars}</div>` : '<div class="stars"></div>';
     const spare = !locked && o ? sparesOf(this.save, p.id) : 0, step = !locked && o ? nextStep(this.save, p) : null;
     const canAsc = !!step && spare >= step.cost;
@@ -1910,6 +1914,7 @@ export class App {
     remapTechSlots(this.save, this.m.techRemaps);
     migrateHeroes131(this.save, this.m.roster);
     migrateChampions18(this.save, this.m.roster);
+    restoreHeroStars188(this.save, this.m.roster); // 1.88
     resetStars185(this.save, this.m.roster); // 1.85
     compensateDrakul153(this.save);
     if (this.save.auras) sanitizeAuras(this.save, this.byId); // v1.5
@@ -4285,7 +4290,7 @@ export class App {
     this.runById = new Map([...runUnlocked, ...runTeam].map((p) => [p.id, p]));
     const runAuras = [...new Set([...runTeam, ...runUnlocked].map((p) => p.aura?.id).filter((x): x is number => x !== undefined))].map((id) => this.byId.get(id)!).filter(Boolean);
     const stars: Record<string, number> = {};
-    for (const [k, v] of Object.entries(this.save.owned)) stars[k] = v.stars;
+    for (const [k, v] of Object.entries(this.save.owned)) stars[k] = v.stars + (v.extraStars ?? 0); // 1.88: extra stars count
     this.hudTeamKey = '';
     this.lastBannerAt = -1;
     this.stopScenes();

@@ -6,7 +6,7 @@
  */
 import { CHANGELOG } from './changelog';
 
-export const PUBLIC_VERSION = '1.87';
+export const PUBLIC_VERSION = '1.88';
 export const BUILD = CHANGELOG[0].version;
 export const RELEASED = false;
 export const VERSION_LABEL = RELEASED ? `v${PUBLIC_VERSION}` : `v${PUBLIC_VERSION} · pre-lanzamiento`;
@@ -28,6 +28,18 @@ export interface PublicRelease {
 
 /** Public news, newest first. Starts at v1.0: the internal versions before it are not part of the public history. */
 export const PUBLIC_RELEASES: PublicRelease[] = [
+  {
+    version: '1.88', date: '2026-11-05',
+    title: 'InaZurvivors Fix 1.88 — Vuelven las estrellas de HÉROE',
+    tagline: 'Tus HÉROE ★, ★★ y ★★★ vuelven a ser como eran',
+    intro: 'Un arreglo urgente sobre la 1.87.',
+    features: [
+      { icon: '★', title: 'Estrellas de HÉROE devueltas', text: 'Por error, la 1.84 quitó las estrellas de HÉROE (★, ★★, ★★★) y el reinicio de estrellas las borró. Vuelven todas: se recuperan a partir de los duplicados que gastaste en ellas, y siguen subiéndose con duplicados en la ascensión. Solo se reiniciaron las estrellas nuevas de monedas.' },
+      { icon: '✦', title: 'Estrellas extra aparte', text: 'Las 3 estrellas extra de HÉROES y Campeones (con monedas) van aparte de las de HÉROE, y cuentan como estrellas en partida.' },
+      { icon: '🐻', title: 'Furia de Oso', text: 'El oso es más pequeño y del mismo tamaño en todos los niveles.' },
+    ],
+    start: [],
+  },
   {
     version: '1.87', date: '2026-11-05',
     title: 'InaZurvivors Fix 1.87 — Furia de Oso',

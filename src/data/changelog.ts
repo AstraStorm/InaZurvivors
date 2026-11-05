@@ -15,6 +15,16 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: '9.8', date: '2026-11-05', title: 'Fix 1.88 Vuelven las estrellas de HÉROE',
+    features: [],
+    fixes: [
+      'Las estrellas de HÉROE (★, ★★, ★★★, con duplicados) se quitaron por error en la 1.84 y el reinicio de la 1.85 las borró: vuelven. El paso «estrella» de la ascensión regresa (ascension.nextStep) y las estrellas extra de monedas pasan a su propio campo (owned.extraStars). restoreHeroStars188 (save.heroes188), una vez: lo que había en heroStars tras el reinicio se compró con monedas y pasa a extraStars; cada HÉROE recupera sus estrellas de héroe según los duplicados gastados en ellas (gastados − ascensos − HÉROE, al precio de estrella de su rareza, 3 como máximo). El reinicio de la 1.85 ya solo toca estrellas de monedas, estrellas extra y mejoras de límite.',
+      'Furia de Oso más pequeña y del mismo tamaño en todos los niveles (autor).',
+    ],
+    visuals: ['Carta: estrellas extra de monedas (violeta) y, aparte, las estrellas de HÉROE (carmesí) como antes. Las estrellas extra cuentan como estrellas en partida (daño y vida).'],
+    balance: [],
+  },
+  {
     version: '9.7', date: '2026-11-05', title: 'Fix 1.87 Furia de Oso',
     features: ['Furia de Oso (Aiden) redibujada desde su escena (youtube Ugffz5OsnEc, 1:46-1:56, fotograma a fotograma con el autor): aura roja y rosa en la mano, zarpazos de llama, tiro en llamas y, al impactar, fondo rojo, X de rayos, la silueta del oso de ojos rojos detrás y el kanji 斬 (fxCombo183.ts bearCharge/bearShot).'],
     fixes: [], visuals: [], balance: [],

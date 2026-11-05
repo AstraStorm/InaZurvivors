@@ -8,9 +8,10 @@ export const SCHEMA_VERSION = 9;
 /** copies counts every pull; `spent` = duplicates consumed by ascensions; ascMitico/hero = ascension (ascension.ts);
  *  ascRarity = rarity reached by the first ascension (Fix 1.23; older saves without it reached Mítico) */
 export interface OwnedPlayer { stars: number; copies: number; obtainedAt: string; spent?: number; ascMitico?: boolean; ascRarity?: Rarity; hero?: boolean;
-  /** Fix 1.31: hero stars (0..3) a HÉROE earns with more duplicates (ascension.ts). 1.84: the 3 extra stars of a HÉROE or a
-   *  Campeón, bought with coins once the 5 stars are full (stars.ts) */
+  /** Fix 1.31: hero stars (0..3) a HÉROE earns with more duplicates (ascension.ts) — HÉROE ★, ★★, ★★★ */
   heroStars?: number;
+  /** 1.88: the 3 extra stars of a HÉROE or a Campeón, bought with coins once the 5 stars are full (stars.ts) */
+  extraStars?: number;
   /** 1.84: +5 to the limit of a stat per star (stars.ts): how many stars went to each stat */
   starCaps?: Partial<Record<string, number>>;
   /** Fix 1.23: training points per stat (training.ts), 20 at most in total (+5 per Campeón level) */
@@ -79,6 +80,8 @@ export interface SaveData {
   heroes131?: boolean;
   /** 1.85: everyone's stars were reset once for the coin stars (stars.ts resetStars185) */
   stars185?: boolean;
+  /** 1.88: hero stars given back (stars.ts restoreHeroStars188) */
+  heroes188?: boolean;
   /** Fix 1.53: the Drakul compensation (ascension.ts compensateDrakul153) was already given */
   drakul153?: boolean;
   /** v1.65: profile banners owned and the one shown (pennants.ts) */
@@ -314,12 +317,13 @@ export function validate(s: SaveData): SaveData {
     // 1.8: Campeón level of a Leyenda (1-3)
     const ch = Math.min(3, Math.max(0, Math.floor(num(o.champion, 0))));
     if (ch) owned[k].champion = ch;
-    // 1.84: a Campeón has the 3 extra stars too
-    if ((o.hero === true || ch) && num(o.heroStars, 0) > 0) owned[k].heroStars = Math.min(3, Math.max(0, Math.floor(num(o.heroStars, 0))));
+    if (o.hero === true && num(o.heroStars, 0) > 0) owned[k].heroStars = Math.min(3, Math.max(0, Math.floor(num(o.heroStars, 0))));
+    // 1.88: the coin extra stars of a HÉROE or a Campeón
+    if ((o.hero === true || ch) && num(o.extraStars, 0) > 0) owned[k].extraStars = Math.min(3, Math.max(0, Math.floor(num(o.extraStars, 0))));
     // 1.84: stat limits raised by stars, never more picks than stars
     const sc = obj(o.starCaps);
     if (sc) {
-      let left = Math.min(5, owned[k].stars) + (owned[k].heroStars ?? 0);
+      let left = Math.min(5, owned[k].stars) + (owned[k].extraStars ?? 0);
       const caps: Record<string, number> = {};
       for (const key of ['kick', 'control', 'guard', 'body', 'speed', 'guts', 'stamina']) {
         const v = Math.min(left, Math.max(0, Math.floor(num(sc[key], 0))));

@@ -492,9 +492,9 @@ function bearSilhouette(g: G, s: number, a: number) {
   g.fillStyle(0xffd0d0, a).fillCircle(-12 * s, -20 * s, 1.4 * s).fillCircle(12 * s, -20 * s, 1.4 * s);
   g.lineStyle(2, BR_RED, 0.7 * a).strokeCircle(0, -14 * s, 34 * s);
 }
-export function bearCharge(scene: S, x: number, y: number, lv: number, ms: number) {
+export function bearCharge(scene: S, x: number, y: number, _lv: number, ms: number) {
   play(scene, x + 6, y - 22, AIR + 1, ms, (g, k, t) => { // the aura in his raised hand
-    const r = (6 + lv * 0.5) * Math.min(1, k * 2.5);
+    const r = 6 * Math.min(1, k * 2.5);
     g.fillStyle(BR_RED, 0.5).fillCircle(0, 0, r * 2.2);
     g.fillStyle(BR_PINK, 0.85).fillCircle(0, 0, r * 1.2 + Math.sin(t * 20));
     g.fillStyle(BR_WHITE, 0.9).fillCircle(0, 0, r * 0.5);
@@ -503,20 +503,20 @@ export function bearCharge(scene: S, x: number, y: number, lv: number, ms: numbe
     for (const [at, ang] of [[0.3, -0.6], [0.55, 0.5]] as const) {
       const q = (k - at) / 0.3;
       if (q < 0 || q > 1) continue;
-      flameClaw(g, (q - 0.5) * 30, 0, ang, 46 + lv * 2, 1 - Math.abs(q - 0.5) * 1.6);
+      flameClaw(g, (q - 0.5) * 20, 0, ang, 30, 1 - Math.abs(q - 0.5) * 1.6);
     }
   });
 }
-export function bearShot(scene: S, ball: Img, lv: number) {
-  const r = 10 + lv * 0.6;
+export function bearShot(scene: S, ball: Img, _lv: number) {
+  const r = 9;
   ride(scene, ball, (g, bx, by, ang, t) => { // the ball red-hot in a tongue of red and pink fire
-    const len = 90 + lv * 4;
+    const len = 70;
     tail(g, bx, by, ang, len, r * 1.8, BR_RED, 0.55);
     tail(g, bx, by, ang, len * 0.7, r * 0.9, BR_PINK, 0.8);
     g.fillStyle(BR_RED, 0.6).fillCircle(bx, by, r * 1.6 + Math.sin(t * 18) * 1.5);
     g.fillStyle(BR_WHITE, 0.95).fillCircle(bx, by, r * 0.8);
   }, (x, y) => { // the cut: red flash, the X, the bear behind, 斬
-    const R = 70 + lv * 4;
+    const R = 34; // 1.88 (author): smaller, and the same size at every level
     play(scene, x, y, AIR + 3, 900, (g, k) => {
       const a = k < 0.15 ? k / 0.15 : 1 - Math.max(0, k - 0.7) / 0.3;
       g.fillStyle(0x5a0010, 0.55 * a).fillCircle(0, 0, R * 1.9);
@@ -524,7 +524,7 @@ export function bearShot(scene: S, ball: Img, lv: number) {
       bearSilhouette(g, (R / 60) * (0.9 + k * 0.15), a);
       const w = R * 1.9 * Math.min(1, k * 4);
       for (const sg of [1, -1]) { g.lineStyle(9, BR_RED, 0.6 * a).lineBetween(-w, -w * 0.6 * sg, w, w * 0.6 * sg); g.lineStyle(3, BR_WHITE, a).lineBetween(-w, -w * 0.6 * sg, w, w * 0.6 * sg); }
-      g.fillStyle(BR_WHITE, a).fillCircle(0, 0, 9 + lv * 0.4);
+      g.fillStyle(BR_WHITE, a).fillCircle(0, 0, 6);
       for (let i = 0; i < 12; i++) { const an = i * 0.524 + k; g.lineStyle(2, BR_PINK, 0.6 * a).lineBetween(Math.cos(an) * R * 0.3, Math.sin(an) * R * 0.3, Math.cos(an) * R * (0.6 + k), Math.sin(an) * R * (0.6 + k)); }
     });
     const kanji = scene.add.text(x, y - 4, '斬', { fontFamily: 'serif', fontSize: `${Math.round(R * 0.9)}px`, color: '#ff2a5a', stroke: '#fff0f6', strokeThickness: 4 }).setOrigin(0.5).setDepth(AIR + 4).setScale(1.8).setAlpha(0);

@@ -36,7 +36,7 @@ describe('stars (1.84)', () => {
     expect(nextStar(s, leg)).toBeNull();
     s.owned['10'].hero = true;
     expect(nextStar(s, leg)).toMatchObject({ kind: 'extra', n: 1, cost: 100000 });
-    const old = fresh(1); old.owned['10'].stars = 3; old.owned['10'].hero = true; old.owned['10'].heroStars = 2; // before 1.84
+    const old = fresh(1); old.owned['10'].stars = 3; old.owned['10'].hero = true; old.owned['10'].extraStars = 2;
     expect(pendingPicks(old, 10)).toBe(5);
     expect(assignPick(old, 10, 'guts')).toBe(true);
     expect(pendingPicks(old, 10)).toBe(4);
@@ -48,25 +48,35 @@ describe('limits stack (author)', () => {
   it("a Campeón's +10 per level and the stars' +5 add up", () => {
     const ley = { id: 20, rarity: 'leyenda' } as RosterEntry;
     const s = newSave([], null); addCopy(s, ley);
-    Object.assign(s.owned['20'], { champion: 3, stars: 5, heroStars: 0, starCaps: { kick: 3 } });
+    Object.assign(s.owned['20'], { champion: 3, stars: 5, starCaps: { kick: 3 } });
     expect(statCapOf(s, ley, 'kick')).toBe(99 + 30 + 15);
     expect(statCapOf(s, ley, 'speed')).toBe(129);
   });
 });
 
-describe('star reset (1.85)', () => {
-  it('everyone starts again from 0 once, nothing given back', async () => {
+describe('star reset (1.85) and hero stars back (1.88)', () => {
+  it('the reset clears the coin stars only; the HÉROE hero stars stay', async () => {
     const { resetStars185 } = await import('../src/systems/stars');
     const s = fresh(10);
-    Object.assign(s.owned['10'], { stars: 5, hero: true, heroStars: 2, spent: 8, starCaps: { kick: 3 } });
+    Object.assign(s.owned['10'], { stars: 5, hero: true, heroStars: 2, extraStars: 1, spent: 8, starCaps: { kick: 3 } });
     expect(resetStars185(s, [leg])).toBe(true);
-    expect(s.owned['10']).toMatchObject({ stars: 0, hero: true, spent: 8 });
-    expect(s.owned['10'].heroStars).toBeUndefined();
+    expect(s.owned['10']).toMatchObject({ stars: 0, hero: true, heroStars: 2, spent: 8 });
+    expect(s.owned['10'].extraStars).toBeUndefined();
     expect(s.owned['10'].starCaps).toBeUndefined();
-    s.owned['10'].stars = 2;
     expect(resetStars185(s, [leg])).toBe(false); // only once
     expect(importSave(exportSave(s)).stars185).toBe(true);
-    expect(s.owned['10'].stars).toBe(2);
+  });
+  it('a save the faulty reset hit gets its hero stars back from the duplicates it spent; coin extras move apart', async () => {
+    const { restoreHeroStars188 } = await import('../src/systems/stars');
+    const { ASC_COSTS } = await import('../src/systems/ascension');
+    const C = ASC_COSTS.legendario;
+    const s = fresh(20); s.stars185 = true;
+    // a Legendario: ascended to Mítico, HÉROE, 2 hero stars — then the 1.85 reset deleted heroStars; later bought 1 coin extra
+    Object.assign(s.owned['10'], { hero: true, ascMitico: true, ascRarity: 'mitico', spent: C.ascenso + C.heroe + 2 * C.estrella, heroStars: 1 });
+    expect(restoreHeroStars188(s, [leg])).toBe(true);
+    expect(s.owned['10']).toMatchObject({ heroStars: 2, extraStars: 1 });
+    expect(restoreHeroStars188(s, [leg])).toBe(false);
+    expect(importSave(exportSave(s)).owned['10']).toMatchObject({ heroStars: 2, extraStars: 1 });
   });
 });
 

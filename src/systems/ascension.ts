@@ -67,8 +67,8 @@ export function nextStep(save: SaveData, p: Pick<RosterEntry, 'id' | 'rarity'>):
   // 1.8: a Leyenda climbs Campeón, Campeón+ and Campeón++ instead of HÉROE
   if (p.rarity === 'leyenda') { const c = championOf(save, p.id); return c < CHAMPION_MAX ? { step: 'campeon', cost: CHAMPION_COSTS[c] } : null; }
   const cost = ASC_COSTS[p.rarity] ?? ASC_COSTS.legendario;
-  // Fix 1.31: after HÉROE came the hero stars; 1.84: they are the extra stars, bought with coins (stars.ts)
-  if (o.hero) return null;
+  // Fix 1.31: after HÉROE come the hero stars (3 at most), paid with duplicates (1.88: back, 1.84 removed them by mistake)
+  if (o.hero) return (o.heroStars ?? 0) < HERO_STARS_MAX ? { step: 'estrella', cost: cost.estrella } : null;
   // Fix 1.51 (author): a footballer climbs one rarity per ascension (Común » Raro » Épico » Legendario » Mítico), each
   // step at the price of the rarity it climbs from, and only at Mítico (or as a Leyenda) comes the HÉROE. Before, any
   // rarity climbed once and then went straight to HÉROE (an Épico never reached Mítico)
@@ -96,7 +96,7 @@ export function ascMultipliers(save: SaveData, p: Pick<RosterEntry, 'id' | 'rari
   let damage = 1, hp = 1;
   if (o?.ascMitico) { damage *= ASC_BONUS.ascenso.damage; hp *= ASC_BONUS.ascenso.hp; }
   if (o?.hero) { damage *= ASC_BONUS.heroe.damage; hp *= ASC_BONUS.heroe.hp; }
-  const hs = o?.hero || championOf(save, p.id) ? Math.min(HERO_STARS_MAX, o?.heroStars ?? 0) : 0; // 1.84: a Campeón's extra stars too
+  const hs = o?.hero ? Math.min(HERO_STARS_MAX, o.heroStars ?? 0) : 0;
   damage *= ASC_BONUS.estrella.damage ** hs; hp *= ASC_BONUS.estrella.hp ** hs;
   const ch = championOf(save, p.id); // 1.8
   damage *= ASC_BONUS.campeon.damage ** ch; hp *= ASC_BONUS.campeon.hp ** ch;

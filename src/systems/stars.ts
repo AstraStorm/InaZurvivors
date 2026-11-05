@@ -4,12 +4,13 @@
  *     Duplicates are only for ascending (or coins when there is nothing left to ascend, gacha.ts).
  *   - Each star raises the limit of ONE stat by STAR_CAP_STEP (+5), the one the player picks; picks can repeat.
  *   - A HÉROE or a Campeón can add 3 extra stars once the 5 are full: 100.000, 110.000 and 120.000 coins, no duplicates.
- *     They are stored in `heroStars` (the old hero stars, which were bought with duplicates, count as extra stars) and
- *     keep their run bonus (ascension.ts ASC_BONUS.estrella); each one gives a limit pick too.
+ *     They are stored in `extraStars` (1.88), apart from the HÉROE ★/★★/★★★ hero stars, which are still paid with
+ *     duplicates in the ascension; each one gives a limit pick and counts as a star (damage and HP) in a run.
  * Stars earned before 1.84 keep their bonus and get their limit picks for free (pendingPicks).
  */
 import type { RosterEntry } from '../data/manifest';
-import { championOf, isHero } from './ascension';
+import { ASC_COSTS, HERO_STARS_MAX, championOf, isHero, rarityUp } from './ascension';
+import type { Rarity } from '../data/manifest';
 import { MAX_STARS } from './gacha';
 import type { SaveData } from './save';
 import { STAT_KEYS, STAR_CAP_STEP, type StatKey } from './training';
@@ -25,7 +26,7 @@ type P = Pick<RosterEntry, 'id' | 'rarity'>;
 
 /** a HÉROE or a Campeón can have the extra stars */
 export const hasExtraStars = (save: SaveData, p: P) => isHero(save, p.id) || championOf(save, p.id) > 0;
-export const extraStarsOf = (save: SaveData, id: number) => Math.min(EXTRA_STARS_MAX, save.owned[String(id)]?.heroStars ?? 0);
+export const extraStarsOf = (save: SaveData, id: number) => Math.min(EXTRA_STARS_MAX, save.owned[String(id)]?.extraStars ?? 0);
 
 export interface NextStar { kind: 'star' | 'extra'; n: number; cost: number; copiesOk: boolean; copiesNeed: number; coinsOk: boolean }
 
@@ -66,7 +67,7 @@ export function buyStar(save: SaveData, p: P, stat: StatKey): NextStar['kind'] |
   if (!next || !next.copiesOk || !next.coinsOk || !STAT_KEYS.includes(stat)) return false;
   const o = save.owned[String(p.id)];
   save.coins -= next.cost;
-  if (next.kind === 'star') o.stars = next.n; else o.heroStars = next.n;
+  if (next.kind === 'star') o.stars = next.n; else o.extraStars = next.n;
   assignPick(save, p.id, stat);
   return next.kind;
 }
@@ -76,19 +77,49 @@ export const capBonusOf = (save: SaveData, id: number): Partial<Record<StatKey, 
   Object.fromEntries(Object.entries(save.owned[String(id)]?.starCaps ?? {}).map(([k, v]) => [k, (v ?? 0) * STAR_CAP_STEP])) as Partial<Record<StatKey, number>>;
 
 /**
- * 1.85 (author: «si no, no tiene sentido»): once per save, everyone's stars start again from 0 under the new rules, so
- * nobody keeps the stars the duplicates gave for free. The 5 stars, the extra (hero) stars and their limit picks go;
- * nothing is given back (author). Returns true when it ran.
+ * 1.85 (author): once per save, the stars start again from 0 under the coin rules: the 5 stars, the coin extra stars and
+ * their limit picks. The HÉROE hero stars (★/★★/★★★, paid with duplicates) are NOT touched (1.88: the first version of this
+ * reset deleted them by mistake; restoreHeroStars188 gives them back). Returns true when it ran.
  */
 export function resetStars185(save: SaveData, roster: Pick<RosterEntry, 'id' | 'rarity'>[]): boolean {
   if (save.stars185) return false;
   void roster;
   for (const o of Object.values(save.owned)) {
     o.stars = 0;
-    delete o.heroStars;
+    delete o.extraStars;
     delete o.starCaps;
   }
   save.stars185 = true;
+  return true;
+}
+
+/** duplicates a HÉROE spent before his hero stars: the ascensions up to Mítico and the HÉROE itself */
+function spentBeforeHeroStars(rarity: Rarity): number {
+  let n = 0, r: Rarity = rarity;
+  while (r !== 'mitico' && r !== 'leyenda') { n += ASC_COSTS[r]?.ascenso ?? 0; r = rarityUp(r); }
+  return n + (ASC_COSTS[rarity]?.heroe ?? 0);
+}
+
+/**
+ * 1.88 (author: «devuelve a la gente sus HÉROES ★★»), once per save: the 1.84/1.85 change stored the coin extra stars in
+ * `heroStars` and the 1.85 reset then deleted every hero star. Here: whatever is in `heroStars` after that reset was bought
+ * with coins, so it moves to `extraStars`; then each HÉROE gets his hero stars back from the duplicates he spent on them
+ * (spent beyond the ascensions and the HÉROE, at the hero-star price of his rarity, 3 at most). A Campeón never had hero
+ * stars. Returns true when it ran.
+ */
+export function restoreHeroStars188(save: SaveData, roster: Pick<RosterEntry, 'id' | 'rarity'>[]): boolean {
+  if (save.heroes188) return false;
+  const byId = new Map(roster.map((p) => [String(p.id), p]));
+  for (const [id, o] of Object.entries(save.owned)) {
+    if (save.stars185 && o.heroStars) o.extraStars = Math.min(EXTRA_STARS_MAX, Math.max(o.extraStars ?? 0, o.heroStars));
+    delete o.heroStars;
+    const p = byId.get(id);
+    if (!o.hero || !p || p.rarity === 'leyenda') continue;
+    const per = ASC_COSTS[p.rarity]?.estrella ?? 0;
+    const hs = per ? Math.floor(((o.spent ?? 0) - spentBeforeHeroStars(p.rarity)) / per) : 0;
+    if (hs > 0) o.heroStars = Math.min(HERO_STARS_MAX, hs);
+  }
+  save.heroes188 = true;
   return true;
 }
 
