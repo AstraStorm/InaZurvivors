@@ -294,6 +294,21 @@ describe('reportar un bug (database)', () => {
     // a guest (anonymous) session of an admin account is not an admin
     expect((await as('carla', `select public.am_i_admin() as a`, [], 'authenticated', '{"is_anonymous":true}')).rows[0]).toEqual({ a: false });
   });
+  it('1.85: a report marked «corregido» pays its reporter 100 fichas once; admins and repeats pay nothing', async () => {
+    const all = (await api('carla', `select code, title from public.admin_bug_reports(null, null, null, null, null, 'fecha', 100)`)).rows as { code: string; title: string }[];
+    const mine = (await api('beto', `select code from public.my_bug_reports()`)).rows as { code: string }[];
+    const code = mine[0].code;
+    expect((await api('beto', `select * from public.claim_bug_rewards()`)).rows).toEqual([]);
+    await api('carla', `select public.admin_update_bug($1, 'corregido', null)`, [code]);
+    await api('carla', `select public.admin_update_bug($1, 'revisando', null)`, [code]);
+    await api('carla', `select public.admin_update_bug($1, 'corregido', null)`, [code]); // back and forth: still once
+    const got = (await api('beto', `select * from public.claim_bug_rewards()`)).rows as { code: string; tokens: number }[];
+    expect(got).toEqual([expect.objectContaining({ code, tokens: 100 })]);
+    expect((await api('beto', `select * from public.claim_bug_rewards()`)).rows).toEqual([]); // claimed only once
+    await expect(api('', `select * from public.claim_bug_rewards()`)).rejects.toThrow(/permission denied/);
+    await expect(api('beto', `select * from private.bug_rewards`)).rejects.toThrow();
+    expect(all.length).toBeGreaterThan(0);
+  });
   it("screenshots must be the sender's own uploaded file; the notice can be claimed once", async () => {
     await db.exec(`delete from public.bug_reports where user_id = '${ids.carla}'`);
     const mine = `${ids.carla}/31000000-0000-0000-0000-000000000001.webp`;

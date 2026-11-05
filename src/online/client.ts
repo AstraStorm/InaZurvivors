@@ -217,6 +217,8 @@ export const amIAdmin = () => rpc<boolean>('am_i_admin', {});
 /** Fix 1.12: promotional codes (one per account, decided on the server) */
 export const redeemCode = (code: string, alreadyApplied = false) =>
   rpc<{ status: 'ok' | 'used' | 'invalid' | 'linked'; reward?: { tokens: number; coins: number; player: number | null; eventTokens?: number; pennants?: string[] } }>('redeem_code', { p_code: code, p_already_applied: alreadyApplied });
+/** 1.85: bug bounty — rewards for the player's reports the admin marked «corregido», taken once (server marks them claimed) */
+export const claimBugRewards = () => rpc<{ code: string; title: string; tokens: number }[]>('claim_bug_rewards', {});
 export const adminBugReports = (f: BugFilter) => rpc<BugRow[]>('admin_bug_reports', { p_category: f.category, p_severity: f.severity, p_status: f.status, p_from: f.from, p_to: f.to, p_order: f.order, p_limit: 200 });
 /** Fix 1.41: players panel (admins only; the server refuses everyone else). Guests play locally and are not counted. */
 export interface AdminPlayerRow { username: string | null; created_at: string; last_seen: string | null; runs: number; kills: number; best_time: number; owned: number; ranked_runs: number }

@@ -74,3 +74,20 @@ export function buyStar(save: SaveData, p: P, stat: StatKey): NextStar['kind'] |
 /** +limit of each stat from the stars (for the screens) */
 export const capBonusOf = (save: SaveData, id: number): Partial<Record<StatKey, number>> =>
   Object.fromEntries(Object.entries(save.owned[String(id)]?.starCaps ?? {}).map(([k, v]) => [k, (v ?? 0) * STAR_CAP_STEP])) as Partial<Record<StatKey, number>>;
+
+/**
+ * 1.85 (author: «si no, no tiene sentido»): once per save, everyone's stars start again from 0 under the new rules, so
+ * nobody keeps the stars the duplicates gave for free. The 5 stars, the extra (hero) stars and their limit picks go;
+ * nothing is given back (author). Returns true when it ran.
+ */
+export function resetStars185(save: SaveData, roster: Pick<RosterEntry, 'id' | 'rarity'>[]): boolean {
+  if (save.stars185) return false;
+  void roster;
+  for (const o of Object.values(save.owned)) {
+    o.stars = 0;
+    delete o.heroStars;
+    delete o.starCaps;
+  }
+  save.stars185 = true;
+  return true;
+}

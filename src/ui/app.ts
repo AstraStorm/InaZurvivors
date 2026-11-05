@@ -43,7 +43,7 @@ function newsRelDate(d: string) {
 }
 import { buildMeta, CATEGORIES, SEVERITIES, SHOT_MAX_BYTES, SHOT_MAX_SIDE, SHOT_TYPES, STATUS_LABEL, TECH_FIELDS, validateBug, validateShot } from '../systems/bugReport';
 import { elementIcon } from './elements';
-import { EXTRA_STARS_MAX, assignPick, buyStar, capBonusOf, extraStarsOf, hasExtraStars, nextStar, pendingPicks, STAR_CAP_STEP } from '../systems/stars';
+import { EXTRA_STARS_MAX, assignPick, buyStar, resetStars185, capBonusOf, extraStarsOf, hasExtraStars, nextStar, pendingPicks, STAR_CAP_STEP } from '../systems/stars';
 import { CHAMPION_CAP, CHAMPION_STATS, CHAMPION_TRAIN, playerStats, resetTraining, statCapOf, trainingOf, trainingUsed, trainMaxOf, trainRoom, trainStat, trimTraining, type StatKey } from '../systems/training';
 import { AURA_PCT, AURA_ELEMENT_BONUS, AURA_TECH_DAMAGE, BOND_PCT, EFFECTIVE_STAT_MAX, auraBonus, auraOf, bondOf, canBeAura, carrierForRun, carrierOf, equipAura, inheritedTechs, removeAura, sanitizeAuras, withAura, type AuraBonus } from '../systems/auras';
 import { BOND_KIND_LABEL } from '../data/auraBonds';
@@ -51,7 +51,7 @@ import { ASC_BONUS, ASC_COSTS, CHAMPION_COSTS, CHAMPION_LABEL, CHAMPION_MAX, HER
 import { USERNAME_MAX, validateUsername } from '../systems/username';
 import { ALTAR_COLOR, ALTAR_ICON, ALTAR_INFO, ALTAR_MODE, ALTAR_REWARD } from '../systems/altars';
 import { adaptedPassive, passiveText, talentChanges, talentText } from '../systems/talents';
-import { redeemCode } from '../online/client';
+import { claimBugRewards, redeemCode } from '../online/client';
 import { THANKS_EVENT, addThanksTokens, thanksActive, thanksLeftMs, thanksTokens } from '../systems/thanksEvent';
 import { gtsDeposit, gtsFeed, gtsMine, gtsSearch, gtsTake, gtsWithdraw, type GtsOffer } from '../online/client';
 import { clashWith } from '../systems/identity';
@@ -200,6 +200,7 @@ export class App {
     if (remapTechSlots(save, m.techRemaps) >= 0) storeSave(save); // repertoires that changed order keep their purchases
     if (migrateHeroes131(save, m.roster)) storeSave(save); // Fix 1.31: Míticos ascended the old way become HÉROE
     if (migrateChampions18(save, m.roster)) storeSave(save); // 1.8: Leyenda HÉROES become Campeón
+    if (resetStars185(save, m.roster)) storeSave(save); // 1.85: everyone's stars start again under the coin rules
     if (compensateDrakul153(save)) storeSave(save); // Fix 1.53: 3 copies of Drakul for whoever ascended him
     if (save.auras && sanitizeAuras(save, new Map(m.roster.map((p) => [p.id, p])))) storeSave(save); // v1.5: Auras no longer valid are dropped
     if (this.trimAllTraining(save, m.roster)) storeSave(save); // Fix 1.31: points stuck above 99 come back
@@ -1124,6 +1125,7 @@ export class App {
     document.addEventListener('pointerdown', () => document.querySelector('.audio-hint')?.remove(), { once: true });
     if (onlineConfigured()) void this.fillMenuRank();
     if (onlineConfigured()) void this.fillMenuGts(); // 1.8
+    void this.claimBugBounty(); // 1.85: rewards for fixed bug reports
     if (onlineConfigured() && signedIn()) void this.gtsSync().catch(() => undefined); // 1.8: a trade that happened while away arrives here
     document.getElementById('wpclaim')?.addEventListener('click', (e) => { (e.target as HTMLButtonElement).disabled = true; this.claimPassNow(() => this.mainMenu()); });
     if (this.save.tutorial === 'pendiente' && this.save.onboardingDone) window.setTimeout(() => { if (this.screenKey === 'menu-mode') this.tutorial(); }, 400);
@@ -1652,6 +1654,34 @@ export class App {
     draw();
   }
 
+  /**
+   * 1.85 (author): bug bounty. Every report the admin marks «corregido» gives its reporter 100 fichas (the server keeps
+   * them until claimed). Checked when the main menu opens (at most once a minute), then a thank-you notice.
+   */
+  private bugBountyAt = 0;
+  private async claimBugBounty() {
+    if (!onlineConfigured() || !signedIn() || Date.now() - this.bugBountyAt < 60000) return;
+    this.bugBountyAt = Date.now();
+    let rows: { code: string; title: string; tokens: number }[] = [];
+    try { rows = await claimBugRewards(); } catch { return; }
+    if (!rows?.length) return;
+    const total = rows.reduce((a, r) => a + (r.tokens ?? 0), 0);
+    this.save.tokens += total;
+    this.persist();
+    document.querySelector('.bounty-modal')?.remove();
+    const box = document.createElement('div');
+    box.className = 'tut-modal bounty-modal';
+    box.innerHTML = `<div class="panel bounty-panel"><div class="bn-ic">🐞</div><h2>¡Gracias por ayudar!</h2>
+      <p>${rows.length === 1 ? 'Tu reporte se ha corregido' : `${rows.length} reportes tuyos se han corregido`}:</p>
+      <ul class="bn-list">${rows.slice(0, 6).map((r) => `<li><b>${esc(r.code)}</b> ${esc(r.title)} <em>+${r.tokens}</em></li>`).join('')}</ul>
+      <div class="bn-total">+${total} fichas</div>
+      <p class="note">Cada bug que reportes y se corrija te da ${100} fichas. Repórtalos desde el 🐞 del menú o en Ajustes.</p>
+      <div class="tut-nav"><span class="spacer"></span><button class="btn" data-close>¡Genial!</button></div></div>`;
+    document.body.appendChild(box);
+    sfx('legend');
+    box.querySelector('[data-close]')!.addEventListener('click', () => { box.remove(); this.mainMenu(); });
+  }
+
   /** Main menu: the latest movements of the GTS, loaded after the menu is shown. */
   private async fillMenuGts() {
     const box = document.getElementById('menugts');
@@ -1880,6 +1910,7 @@ export class App {
     remapTechSlots(this.save, this.m.techRemaps);
     migrateHeroes131(this.save, this.m.roster);
     migrateChampions18(this.save, this.m.roster);
+    resetStars185(this.save, this.m.roster); // 1.85
     compensateDrakul153(this.save);
     if (this.save.auras) sanitizeAuras(this.save, this.byId); // v1.5
     this.trimAllTraining(this.save, this.m.roster);

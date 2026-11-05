@@ -30,7 +30,24 @@ export const NEWS_KIND_LABEL: Record<NewsKind, string> = { novedad: 'NOVEDAD', a
 
 export const AUTHOR_NEWS: NewsItem[] = [
   {
-    id: 'gts-1-8', kind: 'novedad', date: '2026-11-04', icon: '🌐', pinned: true,
+    id: 'bugs-1-85', kind: 'novedad', date: '2026-11-05', icon: '🐞', pinned: true,
+    title: '¡Reporta bugs y gana fichas!',
+    summary: 'Cada bug que reportes y se corrija te da 100 fichas de fichaje. Y las estrellas vuelven a empezar para todos con las reglas nuevas.',
+    blocks: [
+      { h: 'Ayuda a mejorar el juego', icon: '🐞' },
+      { p: 'Si encuentras un fallo, repórtalo desde el **🐞 del menú** o en **Ajustes » Reportar un bug**. Cuéntanos qué pasó y, si puedes, cómo repetirlo y una captura.' },
+      { callout: 'nuevo', text: 'Revisamos cada reporte. Cuando se **corrige**, recibes **100 fichas** automáticamente y un aviso la próxima vez que abras el juego. Necesitas **entrar con tu cuenta**.' },
+      { list: [
+        'Un reporte por fallo: los repetidos o que no son un bug se descartan.',
+        'Cuanta más información (pasos, captura, dónde estabas), antes se corrige.',
+      ] },
+      { divider: true },
+      { h: 'Estrellas nuevas, para todos igual', icon: '★' },
+      { p: 'Las estrellas ahora se **compran con monedas** en la ficha de cada futbolista y cada una sube **+5 el límite** de la estadística que elijas. Para que nadie empiece con ventaja, **las estrellas de todos se han reiniciado**.' },
+    ],
+  },
+  {
+    id: 'gts-1-8', kind: 'novedad', date: '2026-11-04', icon: '🌐', pinned: false,
     title: '¡Llega la GTS! Cambia futbolistas con todo el mundo',
     summary: 'La 1.8 trae la Estación Global de Intercambio: deja una copia repetida, pide el futbolista que te falta y recoge tu cambio cuando vuelvas.',
     blocks: [

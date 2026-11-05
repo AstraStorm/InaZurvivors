@@ -6,7 +6,7 @@
  */
 import { CHANGELOG } from './changelog';
 
-export const PUBLIC_VERSION = '1.84';
+export const PUBLIC_VERSION = '1.85';
 export const BUILD = CHANGELOG[0].version;
 export const RELEASED = false;
 export const VERSION_LABEL = RELEASED ? `v${PUBLIC_VERSION}` : `v${PUBLIC_VERSION} · pre-lanzamiento`;
@@ -28,6 +28,17 @@ export interface PublicRelease {
 
 /** Public news, newest first. Starts at v1.0: the internal versions before it are not part of the public history. */
 export const PUBLIC_RELEASES: PublicRelease[] = [
+  {
+    version: '1.85', date: '2026-11-05',
+    title: 'InaZurvivors Fix 1.85 — Recompensa por bugs',
+    tagline: 'Reporta bugs y gana 100 fichas por cada uno que se corrija',
+    intro: 'Un parche sobre la 1.84.',
+    features: [
+      { icon: '🐞', title: 'Recompensa por bugs', text: 'Cada bug que reportes y se corrija te da 100 fichas automáticamente, con un aviso al abrir el juego. Repórtalos desde el 🐞 del menú o en Ajustes.', online: true },
+      { icon: '★', title: 'Estrellas reiniciadas', text: 'Con las estrellas nuevas (se compran con monedas y suben el límite de una estadística), las estrellas de todos vuelven a empezar desde cero.' },
+    ],
+    start: [],
+  },
   {
     version: '1.84', date: '2026-11-05',
     title: 'InaZurvivors Fix 1.84 — Estrellas',

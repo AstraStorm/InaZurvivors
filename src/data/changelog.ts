@@ -15,6 +15,15 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: '9.5', date: '2026-11-05', title: 'Fix 1.85 Recompensa por bugs',
+    features: [
+      'Recompensa por bugs (migración 20261106000300_bug_bounty.sql): al marcar un reporte «corregido» en el panel (admin_update_bug) su autor gana 100 fichas, una vez por reporte (ir y volver no paga dos veces; los reportes de administradores no pagan). Quedan en private.bug_rewards hasta que el juego las recoge (claim_bug_rewards, al abrir el menú, como mucho una vez por minuto) y se muestra un aviso de agradecimiento; economy_cap las cuenta como los códigos. Noticia fijada en el tablón (bugs-1-85).',
+    ],
+    fixes: [],
+    visuals: [],
+    balance: ['Estrellas reiniciadas para todos una vez (stars.resetStars185, save.stars185): estrellas, estrellas extra y mejoras de límite a 0, sin compensación (decisión del autor).'],
+  },
+  {
     version: '9.4', date: '2026-11-05', title: 'Fix 1.84 Estrellas',
     features: [
       'Estrellas (systems/stars.ts): se compran solo con monedas en la ficha (la n-ésima, n × 10.000) y cada una sube +5 el límite de la estadística elegida (owned.starCaps, training.statCapOf por estadística; acumulable). HÉROE y Campeón: 3 estrellas extra con las 5 completas (100.000, 110.000, 120.000), guardadas en heroStars, con su bonus de siempre. Ya no hay estrellas de héroe por duplicados (ascension.nextStep) y los duplicados solo sirven para ascender o dan monedas. Las estrellas de antes conservan su bonus y su mejora de límite se elige gratis (pendingPicks).',

@@ -225,3 +225,11 @@
 .rar.heroe.campeon.c3 { background: linear-gradient(90deg, #ff4a6a, #ffd23f, #5effa0, #4ad8ff, #b04aff, #ff4a6a); background-size: 200% 100%; color: #fff; text-shadow: 1px 1px 0 #000, 0 0 6px #fff; animation: champSheen 2.4s linear infinite; }
 @keyframes champSheen { to { background-position: -200% 0; } }
 .star-panel.champ { box-shadow: inset 0 0 0 1px #c07aff88; }
+
+/* 1.85: thank-you notice of the bug bounty */
+.bounty-panel { max-width: 460px; text-align: center; }
+.bounty-panel .bn-ic { font-size: 40px; line-height: 1; animation: cu2Mug .5s cubic-bezier(.2, 1.5, .4, 1) both; }
+.bn-list { list-style: none; margin: 8px 0; padding: 0; display: flex; flex-direction: column; gap: 4px; text-align: left; font-size: 9px; }
+.bn-list li { padding: 6px 8px; border-radius: 8px; background: #0f2552; box-shadow: inset 0 0 0 1px #ffffff18; }
+.bn-list b { color: var(--muted); font-weight: normal; margin-right: 6px; } .bn-list em { float: right; font-style: normal; color: #7fff9a; }
+.bn-total { margin: 10px auto; font-size: 22px; color: #ffe24a; text-shadow: 3px 3px 0 #a64300; }

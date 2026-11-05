@@ -77,6 +77,8 @@ export interface SaveData {
   techRev?: number;
   /** Fix 1.31: Míticos/Leyendas ascended the old way were turned into HÉROE (ascension.ts migrateHeroes131) */
   heroes131?: boolean;
+  /** 1.85: everyone's stars were reset once for the coin stars (stars.ts resetStars185) */
+  stars185?: boolean;
   /** Fix 1.53: the Drakul compensation (ascension.ts compensateDrakul153) was already given */
   drakul153?: boolean;
   /** v1.65: profile banners owned and the one shown (pennants.ts) */
