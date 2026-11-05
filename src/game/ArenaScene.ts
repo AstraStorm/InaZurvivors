@@ -25,7 +25,7 @@ import { statCooldown, statDamage, statHealth, statTaken } from '../systems/play
 import { burstSize, FINAL_STRETCH_FROM, finalStretch, xpForLevel, RANK_ORDER, rankDef, variantRamp, waveIntensity, type RankDef } from '../systems/difficulty';
 import { capArea, capCooldown, capCrit, capLuck, pickupRadius, capRegen, capSpeed, capTaken, capXp, CAPS, softCap } from '../systems/balance';
 import { endlessActive, endlessCoins, endlessPhase, endlessScale } from '../systems/endless';
-import { bossKit, bossPhase, rivalKit, type AttackId, type BossKit } from '../systems/bossKit';
+import { BOSS_WARN_SEC, bossKit, bossPhase, rivalKit, type AttackId, type BossKit } from '../systems/bossKit';
 import { chemistry } from '../systems/kitBonus';
 import { captainSynergy, chemistrySynergy, resonances, type Synergy } from '../systems/synergy';
 import { teamLabel as kitTeamLabel } from '../data/sagas';
@@ -88,6 +88,10 @@ export interface ArenaHooks {
   event?(r: { ok: boolean; title: string; detail: string }): void;
   /** Fix 1.12: a combined technique was just learned: participants' portraits and its name */
   combo?(c: { name: string; ids: number[] }): void;
+  /** 1.82 (author: the boss had to feel dangerous): the alarm a moment before the boss comes, then its entrance card */
+  bossWarn?(): void;
+  bossIntro?(b: { name: string; title: string; again: boolean }): void;
+  bossDefeated?(): void;
   /** Altar de despido: the player picks a teammate to send off (never the captain); null = nobody */
   dismiss?(ids: number[]): Promise<number | null>;
 }
@@ -205,6 +209,10 @@ export class ArenaScene extends Phaser.Scene {
   private minibossesKilled = 0;
   private boss: Enemy | null = null;
   private bossSpawned = false;
+  /** 1.82: the alarm before the boss already sounded */
+  private bossWarned = false;
+  /** 1.82: boss juice, rate limits */
+  private nextBossSpark = 0; private nextBossShake = 0; private enragedFx = new WeakMap<Enemy, number>();
   private ended = false;
   private hudAcc = 0;
   private rerolls = 2;
@@ -243,6 +251,8 @@ export class ArenaScene extends Phaser.Scene {
   private portalLeft = 0;
   private portalNext = 0;
   private freezeUntil = 0;
+  /** (author) an ultimate stops the game while its scene plays (performance.now ms) */
+  private cineUntil = 0;
   private lure: { x: number; y: number; until: number } | null = null;
   private heading = 0;
   private capVx = 0;
@@ -291,7 +301,7 @@ export class ArenaScene extends Phaser.Scene {
     this.members = []; this.enemies = []; this.projectiles = []; this.pickups = []; this.trail = [];
     this.hp = this.maxHp = 100; this.xp = 0; this.level = 1; this.kills = 0; this.runTime = 0; this.spawnAcc = 0;
     this.flowAcc = 0; this.fadeAcc = 0; this.minibossesSpawned = 0; this.minibossesKilled = 0; this.boss = null;
-    this.bossSpawned = false; this.ended = false; this.rerolls = 2 + data.perks.extraRerolls; this.levelingUp = false;
+    this.bossSpawned = false; this.bossWarned = false; this.ended = false; this.rerolls = 2 + data.perks.extraRerolls; this.levelingUp = false;
     this.formation = data.formation; this.formationChangedAt = -10; this.hurtAt = -10; this.heading = 0; this.capVx = 0; this.capVy = 0; this.invulnUntil = 0; this.hitsTaken = {}; this.lastHit = null; this.reviveCharges = 0; this.hitSrc = { by: '', attack: '' };
     this.rng = new Phaser.Math.RandomDataGenerator([String(data.seed ?? Date.now())]);
     this.mods = baseMods(); this.taken = {}; this.buffs = new Map(); this.bonusCoins = 0; this.lastUpgrade = null; this.techUses = {}; this.auraTechUses = 0; this.auraCombos = 0; this.guardBlocks = 0;
@@ -557,6 +567,7 @@ export class ArenaScene extends Phaser.Scene {
   update(_t: number, dtRaw: number) {
     if (this.ended) return;
     const nowMs = performance.now();
+    if (nowMs < this.cineUntil) return; // everyone holds still; tweens and timers (the scene itself) keep running
     // Fix 1.12: hitstop, a few frames almost frozen on the heaviest impacts (never in reduced motion)
     const dt = Math.min(dtRaw, 50) * (nowMs < this.hitstopUntil ? 0.08 : nowMs < this.slowmoUntil ? 0.2 : 1);
     this.runTime += dt / 1000;
@@ -1513,14 +1524,11 @@ export class ArenaScene extends Phaser.Scene {
         if (u) this.spawnEnemy(u, 'miniboss', 14, 1.5);
       }
     });
+    if (!this.bossWarned && map.boss !== null && this.runTime >= map.durationSec - BOSS_WARN_SEC) { this.bossWarned = true; this.bossWarning(); }
     if (frac >= 1 && !this.bossSpawned) {
       const u = map.boss !== null ? units.get(map.boss) : undefined;
       if (u) this.boss = this.spawnEnemy(u, 'boss', 32, 2.1);
-      if (this.boss) { // an entrance worthy of the last fight: a brief slow motion and its name
-        this.slowmoUntil = performance.now() + 500;
-        this.fx.pillar(this.boss.pos.x, this.boss.pos.y, this.kitOf(this.boss).color, 10);
-        this.banner(`¡${this.boss.unit.name}!`, '#ff5a5a');
-      }
+      if (this.boss) this.bossEntrance(this.boss, false);
       // no free spot this frame: try again next one instead of ending the run
       if (this.boss || !u) this.bossSpawned = true;
       if (!u) this.finish(true);
@@ -1668,9 +1676,12 @@ export class ArenaScene extends Phaser.Scene {
     const phase = Math.max(forced, main ? bossPhase(e.hp, e.maxHp) : Math.min(1, bossPhase(e.hp, e.maxHp)));
     if (main && phase > (e.phase ?? 0)) {
       e.phase = phase;
-      this.fx.ring(e.pos.x, e.pos.y - 10, 70, kit.color, 500, 4);
-      this.banner(`${e.rival ? '¡Se pone serio!' : `FASE ${phase + 1}`}`, '#ff8a5a');
-      sfx('boom');
+      this.bossRoar(e, kit, phase);
+    }
+    // 1.82: below a quarter of its health the boss is enraged: a red aura pulses around it
+    if (main && e.hp < e.maxHp * 0.25 && this.runTime >= (this.enragedFx.get(e) ?? 0)) {
+      this.enragedFx.set(e, this.runTime + 0.55);
+      this.fx.ring(e.pos.x, e.pos.y - 8, 26 * e.sprite.scale, 0xff2a2a, 520, 3);
     }
     if (!e.pattern) {
       e.patternCd! -= s;
@@ -1954,6 +1965,86 @@ export class ArenaScene extends Phaser.Scene {
     }
   }
 
+  /**
+   * 1.82 (author: the boss had to feel dangerous): BOSS_WARN_SEC before it comes, the alarm: the pitch darkens and pulses
+   * red three times while the HUD shows the warning (app.ts bossWarn).
+   */
+  private bossWarning() {
+    this.cfg.hooks.bossWarn?.();
+    const cam = this.cameras.main;
+    const veil = this.add.rectangle(0, 0, cam.width, cam.height, 0x2a0006, 0).setOrigin(0).setScrollFactor(0).setDepth(9500);
+    this.tweens.add({ targets: veil, fillAlpha: 0.32, duration: 500, ease: 'Sine.easeOut' });
+    for (let k = 0; k < 3; k++) this.time.delayedCall(k * 700, () => {
+      if (this.ended) return;
+      if (this.cfg.settings.flashes) cam.flash(260, 140, 0, 20, true);
+      this.fx.shake(0.002 + k * 0.0015, 220);
+    });
+    this.time.delayedCall(BOSS_WARN_SEC * 1000 + 600, () => this.tweens.add({ targets: veil, fillAlpha: 0, duration: 700, onComplete: () => veil.destroy() }));
+  }
+
+  /** 1.82: the boss lands: hit-stop, a heavy shake, shockwaves and dust, its column of light, then its name card */
+  private bossEntrance(b: Enemy, again: boolean) {
+    const kit = this.kitOf(b), { x, y } = b.pos;
+    this.slowmoUntil = performance.now() + 900;
+    this.fx.pillar(x, y, kit.color, 14);
+    this.fx.shake(0.012, 650);
+    for (let k = 0; k < 3; k++) this.time.delayedCall(k * 140, () => this.fx.ring(x, y, 70 + k * 55, k === 1 ? 0xffffff : 0xff3a2a, 520, 5 - k));
+    this.fx.burst('fuego', x, y, 26, 120, true);
+    if (this.cfg.settings.flashes) this.cameras.main.flash(180, 255, 60, 40, true);
+    if (this.cfg.hooks.bossIntro) this.cfg.hooks.bossIntro({ name: b.unit.name, title: kit.title, again });
+    else this.banner(again ? `¡${b.unit.name} regresa!` : `¡${b.unit.name}!`, '#ff5a5a');
+  }
+
+  /**
+   * 1.82: a new phase: everyone holds still while the boss roars (shockwaves, a camera punch, the pitch shakes), the
+   * small rivals around it are blown back, and the HUD announces the phase on its bar.
+   */
+  private bossRoar(e: Enemy, kit: BossKit, phase: number) {
+    const { x, y } = e.pos;
+    this.cineUntil = performance.now() + 650;
+    this.invulnUntil = Math.max(this.invulnUntil, this.runTime + 1);
+    for (let k = 0; k < 3; k++) this.time.delayedCall(k * 120, () => this.fx.ring(x, y - 10, 60 + k * 70, k === 1 ? 0xffffff : kit.color, 600, 5 - k));
+    this.fx.rays(x, y - 14, 14, 110, kit.color, 600);
+    this.fx.shake(0.011, 520);
+    for (const o of this.enemies) {
+      if (o === e || o.kind === 'boss' || o.rival) continue;
+      const dx = o.pos.x - x, dy = o.pos.y - y, d = Math.hypot(dx, dy);
+      if (d < 200 && d > 0) { o.knockX += dx / d * 260; o.knockY += dy / d * 260; }
+    }
+    const sp = e.sprite, sx = sp.scaleX, sy = sp.scaleY;
+    this.tweens.add({ targets: sp, scaleX: sx * 1.25, scaleY: sy * 1.25, duration: 160, yoyo: true, repeat: 1, onComplete: () => sp.active && sp.setScale(sx, sy) });
+    const cam = this.cameras.main, z = cam.zoom;
+    if (!this.cfg.settings.reducedMotion) this.tweens.add({ targets: cam, zoom: z * 1.07, duration: 170, yoyo: true, ease: 'Sine.easeOut', onComplete: () => cam.setZoom(z) });
+    if (this.cfg.settings.flashes) cam.flash(200, 255, 80, 60, true);
+    sfx('boom'); sfx('bossdrop');
+    if (!this.cfg.hooks.bossIntro) this.banner(`${e.rival ? '¡Se pone serio!' : `FASE ${phase + 1}`}`, '#ff8a5a');
+  }
+
+  /**
+   * 1.82: the boss goes down for good: time almost stops, a chain of explosions runs over where it stood, a white flash
+   * and the heaviest shake, then the choice (or the endless reward) as before.
+   */
+  private bossFinale(x: number, y: number, color: number) {
+    this.cineUntil = performance.now() + 1500;
+    this.invulnUntil = Math.max(this.invulnUntil, this.runTime + 3);
+    for (let k = 0; k < 6; k++) this.time.delayedCall(k * 160, () => {
+      const ex = x + (this.rng.frac() - 0.5) * 70, ey = y - 10 + (this.rng.frac() - 0.5) * 50;
+      this.fx.burst(k % 2 ? 'fuego' : 'energia', ex, ey, 18, 110, true);
+      this.fx.ring(ex, ey, 40 + k * 8, k % 2 ? 0xffd23f : color, 380, 4);
+      this.fx.shake(0.004 + k * 0.0015, 160);
+      sfx('boom');
+    });
+    this.time.delayedCall(1000, () => {
+      this.fx.rays(x, y - 14, 20, 160, 0xfff6c0, 800);
+      for (let k = 0; k < 3; k++) this.fx.ring(x, y - 10, 90 + k * 80, 0xffffff, 700, 6 - k * 2);
+      if (this.cfg.settings.flashes) this.cameras.main.flash(350, 255, 255, 255, true);
+      this.fx.shake(0.016, 600);
+      sfx('bossdrop'); sfx('legend');
+    });
+    this.cfg.hooks.bossDefeated?.();
+    this.time.delayedCall(1550, () => { if (!this.ended) this.onBossDown(x, y); });
+  }
+
   private banner(text: string, color: string) {
     const cam = this.cameras.main;
     const t = this.add.text(cam.width / 2, cam.height * 0.3, text, { fontFamily: '"Press Start 2P"', fontSize: '22px', color, stroke: '#000', strokeThickness: 6 })
@@ -2006,7 +2097,13 @@ export class ArenaScene extends Phaser.Scene {
       const sx = e.sprite.scaleX, sy = e.sprite.scaleY;
       this.tweens.add({ targets: e.sprite, scaleX: sx * 1.18, scaleY: sy * 0.82, duration: 50, yoyo: true, onComplete: () => e.sprite.active && e.sprite.setScale(sx, sy) });
     }
-    this.fx.damageNumber(e.pos.x, e.pos.y - 26 * (e.sprite.scale || 1), v, crit || v >= 40);
+    const bossHit = e.kind === 'boss' || !!e.rival;
+    this.fx.damageNumber(e.pos.x, e.pos.y - 26 * (e.sprite.scale || 1), v, crit || v >= 40 || bossHit);
+    if (bossHit) { // 1.82: hitting the boss has weight
+      const now = performance.now();
+      if (now >= this.nextBossSpark) { this.nextBossSpark = now + 90; this.fx.burst(style, e.pos.x + (this.rng.frac() - 0.5) * 20, e.pos.y - 14 * (e.sprite.scale || 1), 4, 55, true); }
+      if (v >= 40 && now >= this.nextBossShake) { this.nextBossShake = now + 160; this.fx.shake(0.0025, 70); }
+    }
     if (style === 'hielo') e.speed *= 0.97;
     if (crit) { // a critical reads at a glance: a burst of light and its own sound
       this.fx.ring(e.pos.x, e.pos.y - 12, 16, 0xffe24a, 200, 3);
@@ -2075,7 +2172,8 @@ export class ArenaScene extends Phaser.Scene {
     const sp = e.sprite;
     this.tweens.killTweensOf(sp);
     const away = Math.sign(e.knockX || (x - this.members[0].f.x)) || 1;
-    this.tweens.add({ targets: sp, x: sp.x + away * 14, y: sp.y - 10, angle: away * 70, alpha: 0, duration: 240, ease: 'Quad.easeOut', onComplete: () => sp.destroy() });
+    if (e.kind === 'boss') this.tweens.add({ targets: sp, x: sp.x + away * 60, y: sp.y - 46, angle: away * 520, alpha: 0, duration: 1100, ease: 'Cubic.easeOut', onComplete: () => sp.destroy() });
+    else this.tweens.add({ targets: sp, x: sp.x + away * 14, y: sp.y - 10, angle: away * 70, alpha: 0, duration: 240, ease: 'Quad.easeOut', onComplete: () => sp.destroy() });
     if (e.kind === 'miniboss') {
       this.minibossesKilled++;
       this.dropXp(x, y, XP_TIERS[2]);
@@ -2085,8 +2183,7 @@ export class ArenaScene extends Phaser.Scene {
       this.fx.shake(0.006, 200);
     } else if (e.kind === 'boss') {
       this.boss = null;
-      this.fx.shake(0.01, 400);
-      this.onBossDown(x, y);
+      this.bossFinale(x, y, this.kitOf(e).color);
     } else {
       const rand = () => this.rng.frac();
       if (e.variant === 'elite') { this.dropXp(x, y, XP_TIERS[2]); this.fx.ring(x, y - 6, 22, 0xffd27a, 300, 2); }
@@ -2279,7 +2376,7 @@ export class ArenaScene extends Phaser.Scene {
     if (this.runTime >= e.nextBoss && !this.boss) {
       e.nextBoss = this.runTime + ph.bossEvery;
       const u = this.cfg.map.boss !== null ? units.get(this.cfg.map.boss) : undefined;
-      if (u) { this.boss = this.spawnEnemy(u, 'boss', 32, 2.1); this.banner(`¡${u.name} regresa!`, '#ff5a5a'); }
+      if (u) { this.boss = this.spawnEnemy(u, 'boss', 32, 2.1); if (this.boss) this.bossEntrance(this.boss, true); }
     }
   }
 

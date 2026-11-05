@@ -15,6 +15,20 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: '9.2', date: '2026-11-05', title: 'Fix 1.82 Jefes con peligro',
+    features: [
+      'Entrada del jefe (ArenaScene bossWarning/bossEntrance, app bossWarnFx/bossIntroFx, styleBoss.css): BOSS_WARN_SEC (2,4 s, bossKit.ts) antes, alarma con sirena (sfx alarm), velo rojo y tres destellos en el campo, cintas de «⚠ PELIGRO» y «¡PELIGRO!» en el HUD; al llegar, cámara lenta, sacudida fuerte, ondas, columna de luz, sfx bossdrop y una banda roja con «JEFE FINAL · título» y el nombre. El jefe que vuelve en infinito, igual con «¡VUELVE!».',
+      'Pelea más contundente: chispas y número grande en cada golpe al jefe, sacudida en los fuertes (limitadas); cambio de fase con rugido (bossRoar: todos quietos 0,65 s, tres ondas, rayos, zoom de cámara, los rivales cercanos salen despedidos, invulnerable 1 s); furia por debajo del 25 % (aura roja); al caer, final de 1,5 s (bossFinale: seis explosiones, destello blanco, el jefe sale volando girando, «¡JEFE DERROTADO!») antes de la elección.',
+      'Barra de jefe nueva (renderBossBar): título y nombre, rombos de fase, rastro que alcanza a la vida tras cada golpe, marcas de fase, porcentaje, sacudida al golpear, «¡FASE n!» al cambiar y franjas de peligro al final; arriba en el centro en pantallas anchas, bajo el panel del capitán en las demás.',
+      'Pausa rediseñada: cabecera con tiempo, eliminaciones, nivel, monedas y jefe; acciones a la izquierda (Continuar, ajustes rápidos con interruptores, bug, abandonar) y formación, capitán y combinadas a la derecha.',
+    ],
+    fixes: [
+      'Marcos con alas en las filas del ranking: el hueco reservado para las alas salía de la columna fija del avatar y lo encogía a 22 px. Ahora solo se reserva si no encoge al avatar, y las filas tienen la columna del avatar más ancha.',
+    ],
+    visuals: [],
+    balance: [],
+  },
+  {
     version: '9.1', date: '2026-11-05', title: 'Fix 1.81 Logos de nivel',
     features: [
       'Código INA483 (autor; no sale en las notas públicas): 5 tiradas ×10 del Banner de agradecimiento (750 fichas de evento), 5 ×10 normales (500 fichas), 20.000 monedas, un Legendario o superior (80/17/3, sin exclusivos de evento: promo.codePlayer, rarity_pools/rarity_odds en el servidor) y el banner «inazuma» y el marco «marco-inazuma» (source «codigo»: visiblePennant los oculta a quien no los tiene). Migración 20261106000200_ina483.sql: redeem_code devuelve también reward.pennants.',

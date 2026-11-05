@@ -1626,3 +1626,9 @@ body.drag-aura-no .squad-row .aura-mini { opacity: .45; }
 .fr-host.wide > .fr-ov { left: -50%; right: -50%; }
 .rank-row .fr-host.wide > .fr-ov, .wr-row .fr-host.wide > .fr-ov { left: -42.9%; right: -42.9%; }
 .pf-avatar .fr-host.sq.wide > .fr-ov { left: -44.3%; right: -44.3%; }
+/* 1.82: ranking rows keep the avatar column fixed: it is wider so a winged frame fits, and the avatar sits centred */
+.rank-row > .fr-host, .wr-row > .fr-host { justify-self: center; }
+.rk-screen .rank-row { grid-template-columns: 44px 84px 1fr 40px 44px 90px 70px 100px; }
+.wr-row { grid-template-columns: 34px 62px minmax(0, 1fr) 24px 30px auto; }
+@media (max-width: 700px) { .rk-screen .rank-row { grid-template-columns: 30px 68px 1fr 40px 76px; } }
+@media (max-width: 620px) { .wr-row { grid-template-columns: 30px 62px minmax(0, 1fr) 30px auto; } }

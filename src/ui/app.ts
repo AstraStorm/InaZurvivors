@@ -71,6 +71,7 @@ import { MASTERY_BONUS, MASTERY_USES, masteryLevel, recordMastery } from '../sys
 import { MAX_TEAM, canStartWith, startingTech, type Card } from '../systems/cards';
 import { clearSquad, renameSquad, savedSquads, setSquad, SQUAD_SIZE, fillSquad, makeCaptain, placeInSquad, removeFromSquad, squadOf, switchSquad, syncActiveSquad } from '../systems/squad';
 import type { ArenaInit, ArenaScene, HudState, MarkerState, Poi, TrainingSetup } from '../game/ArenaScene';
+import { BOSS_WARN_SEC } from '../systems/bossKit';
 import { charCanvas, initPreviews, mountPreviews, setPreviewKit } from './sprites';
 import { sfx, setVolume } from '../game/sfx';
 import { currentTrack, initMusic, setMusicContext, setMusicSource, setMusicVolume, musicUnlocked } from '../game/music';
@@ -202,7 +203,13 @@ export class App {
     initPreviews(m);
     setTeamSagas(m.teamSagas);
     // 1.81: a winged frame reaches 30% of the avatar's width past each side: keep that room so it covers nothing
-    const roomForWings = (n: ParentNode) => n.querySelectorAll?.<HTMLElement>('.fr-host.wide').forEach((h) => { h.style.marginInline = `${Math.round(h.offsetWidth * 0.3)}px`; });
+    // (never where the host sits in a fixed column, as in the ranking rows: there the margin squeezed the avatar to 22 px;
+    // those rows give the avatar column room instead, style14.css)
+    const roomForWings = (n: ParentNode) => n.querySelectorAll?.<HTMLElement>('.fr-host.wide').forEach((h) => {
+      const w = h.offsetWidth;
+      h.style.marginInline = `${Math.round(w * 0.3)}px`;
+      if (h.offsetWidth < w - 1) h.style.marginInline = '';
+    });
     new MutationObserver((list) => { for (const m of list) m.addedNodes.forEach((n) => { if (n instanceof HTMLElement) { if (n.matches('.fr-host.wide')) roomForWings(n.parentElement ?? n); else roomForWings(n); } }); })
       .observe(document.body, { childList: true, subtree: true });
     // Fix 1.32: cards tilt towards the pointer and a glare follows it (CSS reads --rx --ry --gx --gy); mouse only
@@ -4160,7 +4167,7 @@ export class App {
         <div class="formation-hud" id="fbtns">${FORMATION_ORDER.map((f) => `<button data-f="${f}" title="${esc(FORMATIONS[f].description)}">${FORMATION_ICON(f, 40)}<kbd>${FORMATIONS[f].key}</kbd><span>${FORMATIONS[f].label}</span></button>`).join('')}</div>
         <div class="fdesc" id="fdesc"></div>
         <button class="btn small blue pausebtn" id="pausebtn">II Pausa</button></div>
-      <div class="bossbar" id="boss" style="display:none"><div class="bn"></div><div class="bar boss"><i></i></div></div>
+      <div class="bossbar" id="boss" style="display:none"><div class="bb-head"><span class="bb-ic">${uiIcon('crown')}</span><span class="bb-names"><small class="bb-title"></small><b class="bb-name"></b></span><span class="bb-phase"></span></div><div class="bb-bar"><i class="bb-ghost"></i><i class="bb-fill"></i><i class="bb-tick" style="left:33.333%"></i><i class="bb-tick" style="left:66.667%"></i><em class="bb-pct"></em></div><div class="bb-pop"></div></div>
       <canvas class="minimap" id="minimap" width="132" height="100" aria-hidden="true"></canvas><div class="edge-marks" id="marks"></div>
       <div class="altar-hud" id="altar"></div><div class="event-card" id="eventcard"></div><div class="event-result" id="eventresult"></div><div class="buffs" id="buffs"></div><div class="combo-hud" id="combohud"></div><div class="team-hud" id="hudteam"></div><div id="bannerbox"></div><div class="joy" id="joy"><b><i></i></b></div></div>`, 'run-mode');
     this.keepCombosAboveTeam();
@@ -4185,6 +4192,9 @@ export class App {
         markers: (m) => this.renderMarkers(m),
         event: (r) => this.eventCard(r),
         combo: (c) => this.comboUnlock(c),
+        bossWarn: () => this.bossWarnFx(),
+        bossIntro: (b) => this.bossIntroFx(b),
+        bossDefeated: () => this.bossDefeatedFx(),
         levelUp: (cards, rerolls, reroll, level) => this.levelUpModal(cards, rerolls, reroll, level),
         end: (r) => this.results(r),
         pause: () => this.pauseModal(),
@@ -4284,6 +4294,82 @@ export class App {
     place();
   }
 
+  /**
+   * 1.82 (author: the boss bars had fallen behind the new look): name plate, phase pips, a fill with a trail that
+   * catches up after each hit, the phase thresholds marked, the bar shaking on hits, «¡FASE n!» when it changes and
+   * hazard stripes once it is close to falling.
+   */
+  private bossBarState: { key: string; hp: number; phase: number; hitAt: number } | null = null;
+  private renderBossBar(s: HudState) {
+    const box = document.getElementById('boss');
+    if (!box) return;
+    const b = s.boss;
+    box.style.display = b ? '' : 'none';
+    if (!b) { this.bossBarState = null; return; }
+    const key = `${b.name}|${b.rival}`;
+    const fresh = this.bossBarState?.key !== key;
+    if (fresh) {
+      box.classList.remove('enter'); void box.offsetWidth; box.classList.add('enter');
+      box.classList.toggle('rival', b.rival);
+      box.querySelector('.bb-title')!.textContent = b.rival ? 'DESAFÍO DE RIVAL' : b.title.toUpperCase();
+      box.querySelector('.bb-name')!.textContent = b.name;
+      this.bossBarState = { key, hp: b.hp, phase: b.phase, hitAt: 0 };
+    }
+    const st = this.bossBarState!;
+    const phases = b.rival ? 2 : 3;
+    const pctv = Math.max(0, Math.min(100, (b.hp / Math.max(1, b.maxHp)) * 100));
+    (box.querySelector('.bb-fill') as HTMLElement).style.width = `${pctv}%`;
+    (box.querySelector('.bb-ghost') as HTMLElement).style.width = `${pctv}%`;
+    box.querySelector('.bb-pct')!.textContent = `${Math.ceil(pctv)}%`;
+    box.querySelectorAll<HTMLElement>('.bb-tick').forEach((t, i) => { t.style.display = b.rival && i === 1 ? 'none' : ''; if (b.rival) t.style.left = '50%'; });
+    const pipHtml = Array.from({ length: phases }, (_, i) => `<i class="${i < b.phase ? 'done' : i === b.phase ? 'now' : ''}"></i>`).join('') + `<span>FASE ${b.phase + 1}</span>`;
+    const ph = box.querySelector('.bb-phase') as HTMLElement;
+    if (ph.dataset.v !== String(b.phase)) { ph.dataset.v = String(b.phase); ph.innerHTML = pipHtml; }
+    box.classList.toggle('low', pctv <= 25);
+    const now = performance.now();
+    if (b.hp < st.hp && now - st.hitAt > 120) { st.hitAt = now; box.classList.remove('hit'); void box.offsetWidth; box.classList.add('hit'); }
+    if (b.phase > st.phase && !fresh) {
+      const pop = box.querySelector('.bb-pop') as HTMLElement;
+      pop.textContent = b.rival ? '¡SE PONE SERIO!' : `¡FASE ${b.phase + 1}!`;
+      pop.classList.remove('on'); void pop.offsetWidth; pop.classList.add('on');
+      box.classList.remove('phase-up'); void box.offsetWidth; box.classList.add('phase-up');
+    }
+    st.hp = b.hp; st.phase = b.phase;
+  }
+
+  /** 1.82: the alarm a moment before the boss enters (ArenaScene BOSS_WARN_SEC) */
+  private bossWarnFx() {
+    document.getElementById('bosswarn')?.remove();
+    const strip = Array.from({ length: 8 }, () => '<span>⚠ PELIGRO</span>').join('');
+    this.root.insertAdjacentHTML('beforeend', `<div class="boss-warn${this.save.settings.flashes ? '' : ' calm'}" id="bosswarn" aria-live="assertive">
+      <i class="bw-vig"></i><div class="bw-band top"><div>${strip}${strip}</div></div><div class="bw-band bot"><div>${strip}${strip}</div></div>
+      <div class="bw-center"><b>¡PELIGRO!</b><small>SE ACERCA EL JEFE</small></div></div>`);
+    sfx('alarm');
+    window.setTimeout(() => document.getElementById('bosswarn')?.classList.add('out'), BOSS_WARN_SEC * 1000);
+    window.setTimeout(() => document.getElementById('bosswarn')?.remove(), BOSS_WARN_SEC * 1000 + 500);
+  }
+
+  /** 1.82: the boss's entrance card: a slanted red band sweeps in with its title and name */
+  private bossIntroFx(b: { name: string; title: string; again: boolean }) {
+    document.getElementById('bosswarn')?.remove();
+    document.getElementById('bossintro')?.remove();
+    this.root.insertAdjacentHTML('beforeend', `<div class="boss-intro" id="bossintro"><div class="bi-band"><i class="bi-stripes"></i>
+      <div class="bi-tx"><small>${b.again ? '¡VUELVE!' : 'JEFE FINAL'} · ${esc(b.title.toUpperCase())}</small><b>${esc(b.name)}</b></div></div></div>`);
+    sfx('bossdrop');
+    window.setTimeout(() => document.getElementById('bossintro')?.remove(), 2700);
+  }
+
+  /** 1.82: the boss falls: a gold card while the explosions run, before the choice */
+  private bossDefeatedFx() {
+    document.getElementById('bossintro')?.remove();
+    const bar = document.getElementById('boss');
+    if (bar) bar.style.display = 'none'; // the scene holds still during the finale: the HUD would keep the last health
+    this.bossBarState = null;
+    this.root.insertAdjacentHTML('beforeend', `<div class="boss-intro boss-down" id="bossintro"><div class="bi-band"><i class="bi-stripes"></i>
+      <div class="bi-tx"><small>VICTORIA</small><b>¡JEFE DERROTADO!</b></div></div></div>`);
+    window.setTimeout(() => document.getElementById('bossintro')?.remove(), 1700);
+  }
+
   private lastHudHp: number | null = null;
   /** v1.7: last HUD state, for the pause screen (combined techniques still to learn) */
   private lastHud: HudState | null = null;
@@ -4367,12 +4453,7 @@ export class App {
     const F = FORMATIONS[s.formation];
     const dmg = Math.round((F.damageMult - 1) * 100), taken = Math.round((F.damageTakenMult - 1) * 100);
     document.getElementById('fdesc')!.textContent = dmg || taken ? `Daño ${dmg >= 0 ? '+' : ''}${dmg}% · recibido ${taken >= 0 ? '+' : ''}${taken}%` : 'Sin modificadores';
-    const boss = document.getElementById('boss')!;
-    boss.style.display = s.boss ? '' : 'none';
-    if (s.boss) {
-      boss.querySelector('.bn')!.textContent = s.boss.rival ? `RIVAL · ${s.boss.name}` : `${s.boss.title.toUpperCase()} · ${s.boss.name} · FASE ${s.boss.phase + 1}`;
-      boss.querySelector('i')!.setAttribute('style', `width:${pct(s.boss.hp, s.boss.maxHp)}`);
-    }
+    this.renderBossBar(s);
     const want = s.boss ? 'boss' : s.timeSec > s.durationSec * 0.5 ? 'run2' : 'run';
     if (want !== this.lastMusicCtx) { this.lastMusicCtx = want; setMusicContext(want); }
     const alt = document.getElementById('altar')!;
@@ -4642,23 +4723,35 @@ export class App {
   private pauseModal() {
     document.getElementById('pause')?.remove();
     const s = this.save.settings;
-    this.root.insertAdjacentHTML('beforeend', `<div class="modal" id="pause"><div class="panel" style="max-width:560px;text-align:center">
-      <div class="lvl-title">PAUSA</div>
-      <p><button class="btn big" id="resume">▶ Continuar</button></p>
-      <h3>Formación</h3><div class="formation-pick">${FORMATION_ORDER.map((f) => this.formationCard(f, false)).join('')}</div>
-      ${(() => { const b = this.arena()?.buildStats(); return b ? `<h3 style="margin-top:12px">Tu capitán ahora</h3><div class="build-stats">
-        <span>Daño recibido <b>${b.damageTakenPct}%</b></span><span>Recarga <b>${b.cooldownPct}%</b></span><span>Área <b>${b.areaPct}%</b></span>
-        <span>Suerte <b>+${b.luckPct}%</b></span><span>Recogida <b>${b.pickupPx} px</b> (máx. 130)</span><span>Revivir <b>${b.revives}</b></span></div>
-        <p class="note">Solo el capitán recibe daño: tus compañeros son invulnerables.</p>` : ''; })()}
-      ${this.pauseCombos()}
-      <h3 style="margin-top:12px">Efectos</h3><div class="seg" id="pp">${(['completo', 'reducido', 'desactivado'] as ParticleLevel[]).map((v) =>
-        `<button data-v="${v}" class="${s.particles === v ? 'on' : ''}">Partículas ${v}</button>`).join('')}</div>
-      <p><button class="btn small blue" id="toggleshake">Sacudida: ${s.shake > 0 ? 'sí' : 'no'}</button>
-        <button class="btn small blue" id="toggleflash">Destellos: ${s.flashes ? 'sí' : 'no'}</button>
-        <button class="btn small blue" id="togglemute">Sonido: ${s.muted ? 'no' : 'sí'}</button></p>
-      <p><button class="btn small blue" id="pausebug">Reportar un bug</button></p>
-      ${this.inTraining ? '<p><button class="btn blue" id="quit">Salir del entrenamiento</button></p><p class="note">Vuelves al campo de entrenamiento con la misma configuración.</p>'
-        : '<p><button class="btn blue" id="quit">Abandonar partida</button></p><p class="note">Al abandonar conservas las monedas ganadas.</p>'}</div></div>`);
+    // 1.82 (author: the pause had fallen behind the new look): a header with how the run is going, actions on the left,
+    // formation, captain and combined techniques on the right
+    const h = this.lastHud;
+    const sw = (id: string, label: string, on: boolean) => `<button class="pz-sw${on ? ' on' : ''}" id="${id}"><i></i>${label}</button>`;
+    const b = this.arena()?.buildStats();
+    const tile = (label: string, v: string) => `<span class="pz-tile"><small>${label}</small><b>${v}</b></span>`;
+    this.root.insertAdjacentHTML('beforeend', `<div class="modal pause-modal" id="pause"><div class="pz">
+      <div class="pz-head"><b class="pz-title">PAUSA</b>${h ? `<div class="pz-stats">
+        <span>${uiIcon('clock')}<b>${fmtTime(h.timeSec)}</b> / ${fmtTime(h.durationSec)}</span><span>☠ <b>${h.kills}</b></span>
+        <span>NV <b>${h.level}</b></span><span>◉ <b>${h.runCoins}</b></span>${h.boss ? `<span class="pz-boss">${uiIcon('crown')}<b>${esc(h.boss.name)}</b> ${Math.ceil(h.boss.hp / Math.max(1, h.boss.maxHp) * 100)}%</span>` : ''}</div>` : ''}</div>
+      <div class="pz-body">
+        <aside class="pz-side">
+          <button class="pz-btn primary" id="resume">▶ Continuar</button>
+          <div class="pz-box"><h4>Ajustes rápidos</h4>
+            <div class="seg pz-seg" id="pp">${(['completo', 'reducido', 'desactivado'] as ParticleLevel[]).map((v) => `<button data-v="${v}" class="${s.particles === v ? 'on' : ''}">${v === 'completo' ? 'Todas' : v === 'reducido' ? 'Pocas' : 'Sin'}</button>`).join('')}</div>
+            <small class="pz-cap">Partículas</small>
+            ${sw('toggleshake', 'Sacudida', s.shake > 0)}${sw('toggleflash', 'Destellos', s.flashes)}${sw('togglemute', 'Sonido', !s.muted)}</div>
+          <button class="pz-btn" id="pausebug">${uiIcon('bug')}Reportar un bug</button>
+          <button class="pz-btn danger" id="quit">${this.inTraining ? 'Salir del entrenamiento' : 'Abandonar partida'}</button>
+          <p class="note">${this.inTraining ? 'Vuelves al campo de entrenamiento con la misma configuración.' : 'Al abandonar conservas las monedas ganadas.'}</p>
+        </aside>
+        <div class="pz-main">
+          <section><h3>Formación</h3><div class="formation-pick pz-forms">${FORMATION_ORDER.map((f) => this.formationCard(f, false)).join('')}</div></section>
+          ${b ? `<section><h3>Tu capitán ahora</h3><div class="pz-tiles">${tile('Daño recibido', `${b.damageTakenPct}%`)}${tile('Recarga', `${b.cooldownPct}%`)}${tile('Área', `${b.areaPct}%`)}
+            ${tile('Suerte', `+${b.luckPct}%`)}${tile('Recogida', `${b.pickupPx} px`)}${tile('Revivir', String(b.revives))}</div>
+            <p class="note">Solo el capitán recibe daño: tus compañeros son invulnerables. Recogida máx. 130 px.</p></section>` : ''}
+          ${(() => { const c = this.pauseCombos(); return c ? `<section>${c.replace('<h3 style="margin-top:12px">', '<h3>')}</section>` : ''; })()}
+        </div>
+      </div></div></div>`);
     const close = () => { document.getElementById('pause')?.remove(); this.game.scene.resume('Arena'); };
     document.getElementById('resume')!.addEventListener('click', close);
     this.on('#pause .fcard', 'click', (_e, el) => { this.arena()?.selectFormation(el.dataset.f as FormationId); close(); });

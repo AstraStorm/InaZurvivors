@@ -40,6 +40,9 @@ export const bossKit = (name: string, element?: string | null): BossKit => KITS[
   ...(BY_ELEMENT[element ?? ''] ?? { color: 0xff5050, phases: [['radial'], ['radial', 'carga'], ['radial', 'carga', 'lluvia']] }),
 };
 
+/** 1.82: seconds of alarm (HUD and pitch) before the boss enters */
+export const BOSS_WARN_SEC = 2.4;
+
 /** Phase (0-2) from remaining health: above 2/3, above 1/3, below. */
 export const bossPhase = (hp: number, maxHp: number) => (hp > maxHp * 2 / 3 ? 0 : hp > maxHp / 3 ? 1 : 2);
 

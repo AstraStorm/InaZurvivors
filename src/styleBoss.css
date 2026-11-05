@@ -1,0 +1,148 @@
+/*
+ * 1.82 (author: boss bars and the pause had fallen behind the new look, and the boss had to feel dangerous).
+ * Boss bar, the alarm before it enters, its entrance card and the pause. Animations move only transform and opacity
+ * (box-shadow / filter animations repaint every frame: see the 1.32 performance notes).
+ */
+
+/* ---------------------------------------------------------------- boss bar */
+.hud .bossbar { position: absolute; left: 50%; top: 188px; transform: translateX(-50%); width: min(620px, 72vw); text-align: left; pointer-events: none; z-index: 3;
+  --bb: #ff3a3a; --bb2: #8a0a18; --bbg: #ffd23f; }
+@media (min-width: 1500px) { .hud .bossbar { top: 14px; width: min(600px, calc(100vw - 1200px)); } }
+@media (max-width: 560px) { .hud .bossbar { top: 146px; width: calc(100vw - 20px); } }
+@media (max-height: 520px) and (min-width: 561px) { .hud .bossbar { top: 6px; width: min(40vw, 380px); } .bb-names b { font-size: 10px; } .bb-bar { height: 12px; } .bb-ic { width: 22px; height: 22px; } }
+.hud .bossbar.rival { --bb: #ff9a2a; --bb2: #8a3a00; }
+.hud .bossbar.enter { animation: bbIn .5s cubic-bezier(.2, 1.3, .4, 1) both; }
+@keyframes bbIn { from { opacity: 0; transform: translateX(-50%) translateY(-18px) scaleX(.6); } }
+.bb-head { display: flex; align-items: flex-end; gap: 8px; margin-bottom: 4px; }
+.bb-ic { flex: none; display: grid; place-items: center; width: 30px; height: 30px; border-radius: 8px; color: #fff;
+  background: linear-gradient(160deg, var(--bb), var(--bb2)); box-shadow: 0 0 0 2px #0a0208, 0 0 14px color-mix(in srgb, var(--bb) 70%, transparent); }
+.bb-ic svg { width: 20px; height: 20px; }
+.bb-names { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.2; }
+.bb-names small { font-size: 7px; letter-spacing: 2px; color: color-mix(in srgb, var(--bb) 55%, #fff); text-shadow: 1px 1px 0 #000; }
+.bb-names b { font-weight: normal; font-size: 13px; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-shadow: 2px 2px 0 #000, 0 0 10px color-mix(in srgb, var(--bb) 70%, transparent); }
+.bb-phase { flex: none; display: flex; align-items: center; gap: 4px; font-size: 7px; color: #ffd0d0; text-shadow: 1px 1px 0 #000; }
+.bb-phase i { width: 9px; height: 9px; transform: rotate(45deg); background: #2a0a10; box-shadow: inset 0 0 0 1px #ff8a8a66; }
+.bb-phase i.done { background: #5a1018; box-shadow: inset 0 0 0 1px #ff8a8a; }
+.bb-phase i.now { background: var(--bb); box-shadow: 0 0 6px var(--bb), inset 0 0 0 1px #fff; }
+.bb-phase span { margin-left: 4px; }
+.bb-bar { position: relative; height: 18px; border-radius: 4px; overflow: hidden; background: linear-gradient(180deg, #1a0408, #2a0810);
+  box-shadow: 0 0 0 2px #0a0208, 0 0 0 4px color-mix(in srgb, var(--bb) 55%, #000), 0 4px 14px #000c; }
+.bb-bar > i { position: absolute; top: 0; bottom: 0; left: 0; }
+.bb-ghost { background: #fff2c8; transition: width .55s ease-in .3s; }
+.bb-fill { background: linear-gradient(180deg, color-mix(in srgb, var(--bb) 55%, #fff) 0, var(--bb) 40%, var(--bb2) 100%); transition: width .1s linear; overflow: hidden; }
+.bb-fill::after { content: ''; position: absolute; inset: 0 0 50% 0; background: linear-gradient(180deg, #ffffff40, transparent); }
+.bb-tick { width: 2px; background: #0a0208cc; box-shadow: 1px 0 0 #ffffff33; z-index: 1; }
+.bb-pct { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); z-index: 2; font-style: normal; font-size: 8px; color: #fff; text-shadow: 1px 1px 0 #000, -1px -1px 0 #000; }
+/* hit: the whole bar jolts */
+.hud .bossbar.hit .bb-bar { animation: bbHit .14s steps(2) 1; }
+@keyframes bbHit { 0% { transform: translate(2px, -1px); } 50% { transform: translate(-2px, 1px); } 100% { transform: none; } }
+/* close to falling: hazard stripes run over the fill */
+.hud .bossbar.low .bb-fill::before { content: ''; position: absolute; top: 0; bottom: 0; left: -40px; right: -40px;
+  background: repeating-linear-gradient(115deg, transparent 0 10px, #00000040 10px 20px); animation: bbStripes .6s linear infinite; }
+@keyframes bbStripes { to { transform: translateX(22px); } }
+.hud .bossbar.low .bb-ic { animation: bbBeat .5s ease-in-out infinite alternate; }
+@keyframes bbBeat { to { transform: scale(1.15); } }
+/* new phase: the bar flares and «¡FASE n!» drops onto it */
+.hud .bossbar.phase-up .bb-bar { animation: bbFlare .7s ease-out 1; }
+@keyframes bbFlare { 0%, 30% { transform: scaleY(1.5); } 100% { transform: none; } }
+.bb-pop { position: absolute; left: 50%; top: 100%; transform: translateX(-50%); margin-top: 6px; font-size: 16px; color: #fff; white-space: nowrap; opacity: 0;
+  text-shadow: 3px 3px 0 var(--bb2), 0 0 14px var(--bb); }
+.bb-pop.on { animation: bbPop 1.6s cubic-bezier(.2, 1.4, .4, 1) both; }
+@keyframes bbPop { 0% { opacity: 0; transform: translateX(-50%) scale(2.4); } 15% { opacity: 1; transform: translateX(-50%) scale(1); } 80% { opacity: 1; } 100% { opacity: 0; transform: translateX(-50%) translateY(-6px); } }
+
+/* ---------------------------------------------------------------- alarm before the boss */
+.boss-warn { position: fixed; inset: 0; z-index: 55; pointer-events: none; overflow: hidden; animation: bwIn .25s ease-out both; }
+.boss-warn.out { animation: bwOut .45s ease-in both; }
+@keyframes bwIn { from { opacity: 0; } } @keyframes bwOut { to { opacity: 0; } }
+.bw-vig { position: absolute; inset: 0; background: radial-gradient(ellipse at center, transparent 45%, #ff001a66 80%, #8a0010cc 100%); animation: bwPulse .7s ease-in-out infinite; }
+.boss-warn.calm .bw-vig { animation: none; opacity: .6; }
+@keyframes bwPulse { 0%, 100% { opacity: .35; } 50% { opacity: 1; } }
+.bw-band { position: absolute; left: 0; right: 0; height: 34px; overflow: hidden; display: flex; align-items: center;
+  background: repeating-linear-gradient(135deg, #ffd23f 0 18px, #1a1206 18px 36px); box-shadow: 0 0 0 3px #000, 0 6px 18px #000a; }
+.bw-band.top { top: 14%; transform: rotate(-3deg) scaleX(1.1); } .bw-band.bot { bottom: 18%; transform: rotate(-3deg) scaleX(1.1); }
+.bw-band > div { display: flex; white-space: nowrap; animation: bwRun 2.4s linear infinite; }
+.bw-band.bot > div { animation-direction: reverse; }
+.bw-band span { padding: 2px 14px; margin: 0 6px; font-size: 13px; color: #ff2a2a; background: #0a0004; text-shadow: 0 0 6px #ff2a2a; }
+@keyframes bwRun { to { transform: translateX(-50%); } }
+.bw-center { position: absolute; left: 50%; top: 44%; transform: translate(-50%, -50%); text-align: center; }
+.bw-center b { display: block; font-weight: normal; font-family: Impact, 'Arial Black', var(--px); font-size: clamp(40px, 9vw, 110px); line-height: 1; color: #fff;
+  -webkit-text-stroke: 3px #6a0010; text-shadow: 5px 5px 0 #2a0006, 0 0 30px #ff2a2a; animation: bwBlink .35s steps(2) infinite; }
+.boss-warn.calm .bw-center b { animation: none; }
+.bw-center small { display: block; margin-top: 10px; font-size: clamp(9px, 1.4vw, 14px); letter-spacing: 4px; color: #ffd0d0; text-shadow: 2px 2px 0 #000; }
+@keyframes bwBlink { 50% { opacity: .35; } }
+
+/* ---------------------------------------------------------------- entrance card and «defeated» card */
+.boss-intro { position: fixed; inset: 0; z-index: 56; pointer-events: none; overflow: hidden; }
+.bi-band { position: absolute; left: -10%; right: -10%; top: 34%; height: clamp(90px, 20%, 170px); transform: rotate(-4deg);
+  display: flex; align-items: center; justify-content: center; overflow: hidden;
+  background: linear-gradient(90deg, #0a0004ee, #6a0010f2 20%, #c0102a 50%, #6a0010f2 80%, #0a0004ee);
+  border-top: 4px solid #ff6a6a; border-bottom: 4px solid #ff6a6a; box-shadow: 0 0 50px #ff1a2a99, inset 0 0 40px #000b;
+  animation: biBand 2.7s cubic-bezier(.2, .9, .2, 1) both; }
+@keyframes biBand { 0% { clip-path: inset(0 100% 0 0); } 12% { clip-path: inset(0 0 0 0); } 84% { clip-path: inset(0 0 0 0); opacity: 1; } 100% { clip-path: inset(0 0 0 100%); opacity: .6; } }
+.bi-stripes { position: absolute; inset: 0 -60px; background: repeating-linear-gradient(100deg, transparent 0 28px, #ffffff12 28px 32px); animation: biRun .5s linear infinite; }
+@keyframes biRun { to { transform: translateX(60px); } }
+.bi-tx { position: relative; text-align: center; }
+.bi-tx small { display: block; font-size: clamp(8px, 1.3vw, 13px); letter-spacing: 4px; color: #ffd0d0; text-shadow: 2px 2px 0 #000; animation: biSub 2.7s ease-out both; }
+.bi-tx b { display: block; font-weight: normal; font-family: Impact, 'Arial Black', var(--px); font-style: italic; font-size: clamp(30px, 6.4vw, 78px); line-height: 1.05; color: #fff;
+  -webkit-text-stroke: 2px #5a0010; text-shadow: 5px 5px 0 #2a0006, 0 0 24px #ff4a5a; white-space: nowrap; animation: biName 2.7s cubic-bezier(.2, 1.6, .4, 1) both; }
+@keyframes biName { 0% { transform: scale(2.2); opacity: 0; } 14% { transform: scale(1); opacity: 1; } 90% { transform: scale(1.04); } }
+@keyframes biSub { 0%, 10% { opacity: 0; transform: translateY(8px); } 20% { opacity: 1; transform: none; } }
+.boss-down .bi-band { background: linear-gradient(90deg, #0a0800ee, #6a4a00f2 20%, #d8a010 50%, #6a4a00f2 80%, #0a0800ee); border-color: #fff2a0; box-shadow: 0 0 50px #ffd23f99, inset 0 0 40px #000b; animation-duration: 1.7s; }
+.boss-down .bi-tx b { -webkit-text-stroke-color: #6a4a00; text-shadow: 5px 5px 0 #2a1a00, 0 0 24px #ffe27a; animation-duration: 1.7s; }
+.boss-down .bi-tx small { color: #fff2c0; }
+@media (prefers-reduced-motion: reduce) { .boss-warn *, .boss-intro *, .bossbar * { animation-duration: .01ms !important; animation-iteration-count: 1 !important; } }
+
+/* ---------------------------------------------------------------- pause */
+.pause-modal { backdrop-filter: blur(3px) saturate(.7); background: radial-gradient(ellipse at center, #06102bb8, #000e); padding: 14px; }
+.pz { width: min(1060px, 100%); max-height: 94vh; display: flex; flex-direction: column; border-radius: 16px; overflow: hidden;
+  background: linear-gradient(180deg, #0f2a62f2, #071433f7); box-shadow: 0 0 0 2px #0a1022, 0 0 0 4px var(--frame-dim), 0 24px 60px #000c; animation: pzIn .22s ease-out both; }
+@keyframes pzIn { from { opacity: 0; transform: translateY(14px) scale(.98); } }
+.pz-head { flex: none; position: relative; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; padding: 14px 18px; 
+  background: linear-gradient(100deg, #f07a12, #ffb347 38%, #1b438f 38.2%, #132f6b); }
+.pz-title { font-weight: normal; font-size: clamp(18px, 2.6vw, 28px); color: #fff; text-shadow: 3px 3px 0 #a64300; letter-spacing: 3px; min-width: 32%; }
+.pz-stats { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 9px; color: #cfe0ff; }
+.pz-stats span { display: inline-flex; align-items: center; gap: 5px; padding: 4px 8px; border-radius: 6px; background: #06102b99; }
+.pz-stats b { font-weight: normal; color: var(--yellow); }
+.pz-stats .uic, .pz-stats svg { width: 14px; height: 14px; }
+.pz-stats .pz-boss { background: #3a0610cc; color: #ffd0d0; } .pz-stats .pz-boss b { color: #fff; }
+.pz-body { display: grid; grid-template-columns: 250px 1fr; gap: 16px; padding: 16px; min-height: 0; overflow: auto; }
+.pz-side { display: flex; flex-direction: column; gap: 10px; }
+.pz-btn { display: flex; align-items: center; justify-content: center; gap: 8px; font: inherit; font-size: 10px; color: #fff; padding: 12px; border: 0; border-radius: 10px; cursor: pointer;
+  background: linear-gradient(180deg, #2a5ab8, #163a82); box-shadow: inset 0 -4px 0 #0a1f4f, 0 0 0 2px #0a1022; transition: transform .08s; }
+.pz-btn:hover { transform: translateY(-2px); } .pz-btn:active { transform: translateY(1px); }
+.pz-btn svg { width: 14px; height: 14px; }
+.pz-btn.primary { font-size: 14px; padding: 16px 12px; background: linear-gradient(180deg, #ffb347, #f07a12); box-shadow: inset 0 -5px 0 #a64300, 0 0 0 2px #0a1022; text-shadow: 2px 2px 0 #a64300; }
+.pz-btn.danger { background: linear-gradient(180deg, #b8323a, #7a1018); box-shadow: inset 0 -4px 0 #4a0810, 0 0 0 2px #0a1022; }
+.pz-box { padding: 10px; border-radius: 10px; background: #06102b99; box-shadow: inset 0 0 0 1px #ffffff14; display: flex; flex-direction: column; gap: 6px; }
+.pz-box h4 { margin: 0 0 2px; font-weight: normal; font-size: 8px; letter-spacing: 2px; color: var(--muted); }
+.pz-seg { display: grid; grid-template-columns: repeat(3, 1fr); } .pz-seg button { font-size: 8px; padding: 6px 2px; }
+.pz-cap { font-size: 7px; color: var(--muted); text-align: center; margin-top: -2px; }
+.pz-sw { display: flex; align-items: center; gap: 8px; font: inherit; font-size: 9px; color: #cfe0ff; background: none; border: 0; padding: 4px 2px; cursor: pointer; text-align: left; }
+.pz-sw i { position: relative; flex: none; width: 30px; height: 16px; border-radius: 9px; background: #2a3550; box-shadow: inset 0 0 0 1px #ffffff22; transition: background .15s; }
+.pz-sw i::after { content: ''; position: absolute; top: 2px; left: 2px; width: 12px; height: 12px; border-radius: 50%; background: #9aa8c8; transition: transform .15s, background .15s; }
+.pz-sw.on { color: #fff; } .pz-sw.on i { background: #2f9a4a; } .pz-sw.on i::after { transform: translateX(14px); background: #fff; }
+.pz-main { min-width: 0; display: flex; flex-direction: column; gap: 14px; }
+.pz-main section, .pz-main > .cg-wrap { padding: 12px; border-radius: 12px; background: #06102b80; box-shadow: inset 0 0 0 1px #ffffff12; }
+.pz-main h3 { margin: 0 0 8px; font-size: 11px; color: var(--yellow); }
+.pz-forms { margin-top: 0; }
+.pz-forms .fcard { border-radius: 10px; font-size: 8px; line-height: 1.5; }
+.pz-tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.pz-tile { display: flex; flex-direction: column; gap: 4px; padding: 8px 10px; border-radius: 8px; background: #0f2552; box-shadow: inset 0 0 0 1px #ffffff12; }
+.pz-tile small { font-size: 7px; color: var(--muted); } .pz-tile b { font-weight: normal; font-size: 12px; color: var(--yellow); }
+@media (max-width: 760px) {
+  .pz-body { grid-template-columns: 1fr; }
+  .pz-tiles { grid-template-columns: repeat(2, 1fr); }
+  .pz-head { gap: 8px; }
+}
+/* landscape phones: compact header, two columns again */
+@media (max-height: 520px) {
+  .pause-modal { padding: 6px; }
+  .pz { max-height: 98vh; border-radius: 12px; }
+  .pz-head { padding: 6px 12px; gap: 8px; }
+  .pz-title { font-size: 15px; min-width: 0; line-height: 1.4; }
+  .pz-stats { font-size: 8px; gap: 4px 8px; } .pz-stats span { padding: 2px 6px; }
+  .pz-body { padding: 8px; gap: 10px; }
+  .pz-btn { padding: 8px; } .pz-btn.primary { font-size: 12px; padding: 10px 8px; }
+  .pz-box { padding: 6px; gap: 3px; } .pz-sw { padding: 2px; }
+}
+@media (max-height: 520px) and (min-width: 600px) { .pz-body { grid-template-columns: 190px 1fr; } }

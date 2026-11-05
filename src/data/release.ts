@@ -6,7 +6,7 @@
  */
 import { CHANGELOG } from './changelog';
 
-export const PUBLIC_VERSION = '1.81';
+export const PUBLIC_VERSION = '1.82';
 export const BUILD = CHANGELOG[0].version;
 export const RELEASED = false;
 export const VERSION_LABEL = RELEASED ? `v${PUBLIC_VERSION}` : `v${PUBLIC_VERSION} · pre-lanzamiento`;
@@ -28,6 +28,20 @@ export interface PublicRelease {
 
 /** Public news, newest first. Starts at v1.0: the internal versions before it are not part of the public history. */
 export const PUBLIC_RELEASES: PublicRelease[] = [
+  {
+    version: '1.82', date: '2026-11-05',
+    title: 'InaZurvivors Fix 1.82 — Jefes con peligro',
+    tagline: 'Los jefes llegan con alarma y pelean con todo, y una pausa nueva',
+    intro: 'Un parche sobre la 1.81.',
+    features: [
+      { icon: '⚠', title: '¡Peligro!', text: 'Antes de que salga el jefe suena la alarma, el campo se tiñe de rojo y lo anuncia el HUD. Al llegar, el campo tiembla y su nombre cruza la pantalla.' },
+      { icon: '💥', title: 'Peleas con más fuerza', text: 'Cada golpe al jefe se nota. Al cambiar de fase ruge y aparta a los rivales que tiene cerca; al final de su vida se enfurece, y cuando cae lo hace con una cadena de explosiones.' },
+      { icon: '♛', title: 'Barra de jefe nueva', text: 'Con sus fases, el daño que le vas haciendo y un aviso de cada fase nueva.' },
+      { icon: '⏸', title: 'Pausa nueva', text: 'Cómo va la partida de un vistazo, ajustes rápidos y tu formación, tu capitán y las combinadas ordenados.' },
+      { icon: '🪽', title: 'Marcos en el ranking', text: 'Los marcos con alas ya no salen pequeños en las filas del ranking.' },
+    ],
+    start: [],
+  },
   {
     version: '1.81', date: '2026-11-05',
     title: 'InaZurvivors Fix 1.81 — Logos de nivel',

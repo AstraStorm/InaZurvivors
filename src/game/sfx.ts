@@ -63,7 +63,7 @@ function noise(dur: number, gain: number, lp = 1200) {
 }
 
 /** Rate-limited so dozens of hits per frame don't stack into noise. */
-export function sfx(name: 'kick' | 'hit' | 'crit' | 'sweep' | 'boom' | 'pickup' | 'levelup' | 'hurt' | 'reveal' | 'legend' | 'myth' | 'leyenda' | 'click' | 'whoosh' | 'magnet' | 'powerup' | 'evolve' | 'hover' | 'buy' | 'error', pitch = 1) {
+export function sfx(name: 'kick' | 'hit' | 'crit' | 'sweep' | 'boom' | 'pickup' | 'levelup' | 'hurt' | 'reveal' | 'legend' | 'myth' | 'leyenda' | 'click' | 'whoosh' | 'magnet' | 'powerup' | 'evolve' | 'hover' | 'buy' | 'error' | 'alarm' | 'bossdrop', pitch = 1) {
   const now = performance.now();
   if (name === 'hover') return;
   const gap = name === 'hit' ? 110 : name === 'crit' ? 140 : name === 'sweep' ? 600 : name === 'pickup' ? 90 : name === 'boom' ? 160 : 30;
@@ -89,5 +89,8 @@ export function sfx(name: 'kick' | 'hit' | 'crit' | 'sweep' | 'boom' | 'pickup' 
     case 'evolve': [523, 784, 1046, 1568].forEach((f, i) => tone('square', f, f * 1.01, 0.2, 0.07, i * 0.09)); noise(0.3, 0.05, 5000); break;
     case 'buy': [880, 1320].forEach((f, i) => tone('square', f, f, 0.07, 0.07, i * 0.06)); break;
     case 'error': tone('square', 180, 150, 0.14, 0.07); break;
+    // 1.82: the boss alarm (a two-tone siren, three times) and its heavy landing
+    case 'alarm': for (let k = 0; k < 3; k++) { tone('sawtooth', 520, 880, 0.32, 0.07, k * 0.7); tone('sawtooth', 880, 520, 0.3, 0.06, k * 0.7 + 0.34); } break;
+    case 'bossdrop': noise(0.7, 0.45, 500); tone('sine', 90, 28, 0.9, 0.4); tone('square', 60, 40, 0.5, 0.08, 0.05); break;
   }
 }
