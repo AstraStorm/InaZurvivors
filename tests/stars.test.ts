@@ -1,0 +1,45 @@
+/** 1.84 (author): stars bought with coins, each one +5 to the limit of a chosen stat; 3 extra for HÉROE and Campeón. */
+import { describe, expect, it } from 'vitest';
+import type { RosterEntry } from '../src/data/manifest';
+import { addCopy } from '../src/systems/gacha';
+import { importSave, exportSave, newSave } from '../src/systems/save';
+import { assignPick, buyStar, extraStarCost, nextStar, pendingPicks, starCost } from '../src/systems/stars';
+import { statCapOf, trainRoom } from '../src/systems/training';
+
+const leg = { id: 10, rarity: 'legendario', stats: { kick: 80, control: 70, guard: 40, body: 60, speed: 75, guts: 65, stamina: 55 } } as unknown as RosterEntry;
+const fresh = (copies: number) => { const s = newSave([], null); for (let i = 0; i < copies; i++) addCopy(s, leg); return s; };
+
+describe('stars (1.84)', () => {
+  it('stars are bought with coins only: n × 10.000, no duplicates needed', () => {
+    const s = fresh(1); s.coins = 25000;
+    expect(nextStar(s, leg)).toMatchObject({ kind: 'star', n: 1, cost: 10000, copiesOk: true, coinsOk: true });
+    expect(buyStar(s, leg, 'kick')).toBe('star');
+    expect(nextStar(s, leg)).toMatchObject({ n: 2, cost: 20000, coinsOk: false });
+    expect(buyStar(s, leg, 'kick')).toBe(false); // 15.000 left
+    s.coins += 5000;
+    expect(buyStar(s, leg, 'kick')).toBe('star');
+    expect(s.coins).toBe(0);
+    expect([starCost(1), starCost(5), extraStarCost(1), extraStarCost(3)]).toEqual([10000, 50000, 100000, 120000]);
+  });
+  it('each star raises the limit of the chosen stat by 5, and stacks', () => {
+    const s = fresh(6); s.coins = 1e6;
+    buyStar(s, leg, 'kick'); buyStar(s, leg, 'kick'); buyStar(s, leg, 'speed');
+    expect(statCapOf(s, leg, 'kick')).toBe(109);
+    expect(statCapOf(s, leg, 'speed')).toBe(104);
+    expect(statCapOf(s, leg, 'guard')).toBe(99);
+    expect(trainRoom(s, leg, 'legendario', false).kick).toBeGreaterThan(trainRoom(fresh(1), leg, 'legendario', false).kick);
+    expect(importSave(exportSave(s)).owned['10'].starCaps).toEqual({ kick: 2, speed: 1 });
+  });
+  it('extra stars only for a HÉROE or Campeón with the 5 stars; old stars get their picks free', () => {
+    const s = fresh(6); s.coins = 1e7;
+    for (let i = 0; i < 5; i++) buyStar(s, leg, 'body');
+    expect(nextStar(s, leg)).toBeNull();
+    s.owned['10'].hero = true;
+    expect(nextStar(s, leg)).toMatchObject({ kind: 'extra', n: 1, cost: 100000 });
+    const old = fresh(1); old.owned['10'].stars = 3; old.owned['10'].hero = true; old.owned['10'].heroStars = 2; // before 1.84
+    expect(pendingPicks(old, 10)).toBe(5);
+    expect(assignPick(old, 10, 'guts')).toBe(true);
+    expect(pendingPicks(old, 10)).toBe(4);
+    expect(statCapOf(old, leg, 'guts')).toBe(104);
+  });
+});

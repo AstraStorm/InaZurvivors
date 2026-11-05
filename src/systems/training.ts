@@ -61,7 +61,11 @@ export const CHAMPION_TRAIN = 5;
 export const CHAMPION_STATS = 4;
 export const championLevel = (save: SaveData, id: number) => Math.max(0, Math.min(3, save.owned[String(id)]?.champion ?? 0));
 /** the highest a stat of this footballer can reach */
-export const statCapOf = (save: SaveData, p: Pick<RosterEntry, 'id' | 'rarity'>) => STAT_MAX + (p.rarity === 'leyenda' ? CHAMPION_CAP * championLevel(save, p.id) : 0);
+/** 1.84 (author): each star lets the player raise the limit of one stat by STAR_CAP_STEP (stars.ts) */
+export const STAR_CAP_STEP = 5;
+/** the highest a stat of this footballer can reach (`k`: that stat, with its star bonus; without it, the common limit) */
+export const statCapOf = (save: SaveData, p: Pick<RosterEntry, 'id' | 'rarity'>, k?: StatKey) => STAT_MAX + (p.rarity === 'leyenda' ? CHAMPION_CAP * championLevel(save, p.id) : 0)
+  + (k ? STAR_CAP_STEP * (save.owned[String(p.id)]?.starCaps?.[k] ?? 0) : 0);
 /** training points this footballer can take */
 export const trainMaxOf = (save: SaveData, id: number) => TRAIN_MAX + CHAMPION_TRAIN * championLevel(save, id);
 export const trainingUsed = (save: SaveData, id: number) => Object.values(trainingOf(save, id)).reduce((a, b) => a + (b ?? 0), 0);
@@ -79,15 +83,14 @@ export function baseStats(save: SaveData, p: StatEntry, effective: Rarity, hero:
   // Fix 1.31: each hero star adds 1 to every stat
   const out = rebuildStats(p.stats, effective, (sameRarityAscended ? 2 : 0) + (hero ? 3 + Math.min(3, o?.heroStars ?? 0) : 0) + CHAMPION_STATS * championLevel(save, p.id), p.position, statCapOf(save, p));
   // 1.83 (author): a stat fixed by hand (Nae's speed 95) is never below that
-  for (const k of STAT_KEYS) { const f = p.statFloor?.[k]; if (f !== undefined && out[k] < f) out[k] = Math.min(statCapOf(save, p), f); }
+  for (const k of STAT_KEYS) { const f = p.statFloor?.[k]; if (f !== undefined && out[k] < f) out[k] = Math.min(statCapOf(save, p, k), f); }
   return out;
 }
 
 /** Fix 1.31: how many more training points each stat can still take before reaching 99. */
 export function trainRoom(save: SaveData, p: StatEntry, effective: Rarity, hero: boolean): Record<StatKey, number> {
   const base = baseStats(save, p, effective, hero), t = trainingOf(save, p.id);
-  const cap = statCapOf(save, p);
-  return Object.fromEntries(STAT_KEYS.map((k) => [k, Math.max(0, cap - base[k] - (t[k] ?? 0))])) as Record<StatKey, number>;
+  return Object.fromEntries(STAT_KEYS.map((k) => [k, Math.max(0, statCapOf(save, p, k) - base[k] - (t[k] ?? 0))])) as Record<StatKey, number>;
 }
 
 /**
@@ -101,7 +104,7 @@ export function trimTraining(save: SaveData, p: StatEntry, effective: Rarity, he
   let back = 0;
   const train: Partial<Record<StatKey, number>> = { ...o.train };
   for (const k of STAT_KEYS) {
-    const extra = (train[k] ?? 0) - Math.max(0, statCapOf(save, p) - base[k]);
+    const extra = (train[k] ?? 0) - Math.max(0, statCapOf(save, p, k) - base[k]);
     if (extra > 0) { train[k] = (train[k] ?? 0) - extra; back += extra; if (!train[k]) delete train[k]; }
   }
   if (!back) return 0;
@@ -114,8 +117,7 @@ export function trimTraining(save: SaveData, p: StatEntry, effective: Rarity, he
 export function playerStats(save: SaveData, p: StatEntry, effective: Rarity, hero: boolean): Record<StatKey, number> {
   const out = baseStats(save, p, effective, hero);
   const t = trainingOf(save, p.id);
-  const cap = statCapOf(save, p);
-  for (const k of STAT_KEYS) out[k] = Math.min(cap, out[k] + (t[k] ?? 0));
+  for (const k of STAT_KEYS) out[k] = Math.min(statCapOf(save, p, k), out[k] + (t[k] ?? 0));
   return out;
 }
 

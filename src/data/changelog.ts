@@ -15,6 +15,18 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: '9.4', date: '2026-11-05', title: 'Fix 1.84 Estrellas',
+    features: [
+      'Estrellas (systems/stars.ts): se compran solo con monedas en la ficha (la n-ésima, n × 10.000) y cada una sube +5 el límite de la estadística elegida (owned.starCaps, training.statCapOf por estadística; acumulable). HÉROE y Campeón: 3 estrellas extra con las 5 completas (100.000, 110.000, 120.000), guardadas en heroStars, con su bonus de siempre. Ya no hay estrellas de héroe por duplicados (ascension.nextStep) y los duplicados solo sirven para ascender o dan monedas. Las estrellas de antes conservan su bonus y su mejora de límite se elige gratis (pendingPicks).',
+      'Panel de estrellas en la ficha (starPanel), selector de estadística (starStatPicker) y estrellas dibujadas de nuevo: facetas y brillo, doradas, carmesí las extra de HÉROE y violeta/cian las de Campeón.',
+      'Barra de jefe con su retrato vestido con la equipación de su equipo (bossMug: kit busts del equipo del jefe).',
+      'Campeón, Campeón+ y Campeón++ con carta y distintivo propios (pcard champ-N, rar campeon cN).',
+    ],
+    fixes: [],
+    visuals: [],
+    balance: ['Logos de nivel: «+» hasta 85 de poder, «N» de 86 a 105 y «G» desde 106 (evolution.ts).'],
+  },
+  {
     version: '9.3', date: '2026-11-05', title: 'Fix 1.83 Combinadas nuevas',
     features: [
       'Seis técnicas combinadas nuevas (combos.ts, vínculos en auraBonds.ts), dibujadas desde sus escenas de YouTube (fxCombo183.ts): Triángulo letal (Samford, Swing, Hatch; Bosque 96), Triángulo letal 2 (Mark, Bobby, Jude; Bosque 108), Tornado dirección doble (Arion, Victor; Fuego 110), Tornado dirección triple (Arion, Victor, Goldie; Fuego 130), Orbe de Perseo (Clario, Haizaki, Erik; Bosque 120) y Ventisca triple (Nae, Aiden, Shawn; Aire 100). Niveles: regla del Fix 1.51.',

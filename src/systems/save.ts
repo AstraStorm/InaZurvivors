@@ -8,8 +8,11 @@ export const SCHEMA_VERSION = 9;
 /** copies counts every pull; `spent` = duplicates consumed by ascensions; ascMitico/hero = ascension (ascension.ts);
  *  ascRarity = rarity reached by the first ascension (Fix 1.23; older saves without it reached Mítico) */
 export interface OwnedPlayer { stars: number; copies: number; obtainedAt: string; spent?: number; ascMitico?: boolean; ascRarity?: Rarity; hero?: boolean;
-  /** Fix 1.31: hero stars (0..3) a HÉROE earns with more duplicates (ascension.ts) */
+  /** Fix 1.31: hero stars (0..3) a HÉROE earns with more duplicates (ascension.ts). 1.84: the 3 extra stars of a HÉROE or a
+   *  Campeón, bought with coins once the 5 stars are full (stars.ts) */
   heroStars?: number;
+  /** 1.84: +5 to the limit of a stat per star (stars.ts): how many stars went to each stat */
+  starCaps?: Partial<Record<string, number>>;
   /** Fix 1.23: training points per stat (training.ts), 20 at most in total (+5 per Campeón level) */
   train?: Partial<Record<string, number>>;
   /** 1.8: a Leyenda's Campeón level (1 Campeón, 2 Campeón+, 3 Campeón++), ascension.ts */
@@ -306,10 +309,22 @@ export function validate(s: SaveData): SaveData {
     if (o.ascMitico === true) owned[k].ascMitico = true;
     if (o.ascMitico === true && typeof o.ascRarity === 'string' && (RARITY_ORDER as string[]).includes(o.ascRarity)) owned[k].ascRarity = o.ascRarity as Rarity;
     if (o.hero === true) owned[k].hero = true;
-    if (o.hero === true && num(o.heroStars, 0) > 0) owned[k].heroStars = Math.min(3, Math.max(0, Math.floor(num(o.heroStars, 0))));
     // 1.8: Campeón level of a Leyenda (1-3)
     const ch = Math.min(3, Math.max(0, Math.floor(num(o.champion, 0))));
     if (ch) owned[k].champion = ch;
+    // 1.84: a Campeón has the 3 extra stars too
+    if ((o.hero === true || ch) && num(o.heroStars, 0) > 0) owned[k].heroStars = Math.min(3, Math.max(0, Math.floor(num(o.heroStars, 0))));
+    // 1.84: stat limits raised by stars, never more picks than stars
+    const sc = obj(o.starCaps);
+    if (sc) {
+      let left = Math.min(5, owned[k].stars) + (owned[k].heroStars ?? 0);
+      const caps: Record<string, number> = {};
+      for (const key of ['kick', 'control', 'guard', 'body', 'speed', 'guts', 'stamina']) {
+        const v = Math.min(left, Math.max(0, Math.floor(num(sc[key], 0))));
+        if (v) { caps[key] = v; left -= v; }
+      }
+      if (Object.keys(caps).length) owned[k].starCaps = caps;
+    }
     // training: known stats, whole points, 20 at most in total (+5 per Campeón level; a forged save can't go beyond)
     const tr = obj(o.train);
     if (tr) {

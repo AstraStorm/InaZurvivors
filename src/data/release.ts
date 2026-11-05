@@ -6,7 +6,7 @@
  */
 import { CHANGELOG } from './changelog';
 
-export const PUBLIC_VERSION = '1.83';
+export const PUBLIC_VERSION = '1.84';
 export const BUILD = CHANGELOG[0].version;
 export const RELEASED = false;
 export const VERSION_LABEL = RELEASED ? `v${PUBLIC_VERSION}` : `v${PUBLIC_VERSION} · pre-lanzamiento`;
@@ -28,6 +28,21 @@ export interface PublicRelease {
 
 /** Public news, newest first. Starts at v1.0: the internal versions before it are not part of the public history. */
 export const PUBLIC_RELEASES: PublicRelease[] = [
+  {
+    version: '1.84', date: '2026-11-05',
+    title: 'InaZurvivors Fix 1.84 — Estrellas',
+    tagline: 'Las estrellas ahora se compran y suben el límite de la estadística que elijas',
+    intro: 'Un parche sobre la 1.83.',
+    features: [
+      { icon: '★', title: 'Estrellas con monedas', text: 'Las estrellas se suben en la ficha del futbolista con monedas: 10.000 la primera, 20.000 la segunda… hasta 50.000 la quinta. Ya no hacen falta duplicados: los duplicados sirven para ascender.' },
+      { icon: '⬆', title: 'Más límite', text: 'Cada estrella sube +5 el límite de la estadística que elijas, y puedes repetir la misma. Las estrellas que ya tenías te dejan elegir su mejora gratis.' },
+      { icon: '✦', title: 'Estrellas extra', text: 'Los HÉROES y los Campeones tienen 3 estrellas extra cuando completan las 5: 100.000, 110.000 y 120.000 monedas.' },
+      { icon: '♛', title: 'Campeón+ y Campeón++', text: 'Cada nivel de Campeón tiene su propia carta y su distintivo; el Campeón++ brilla con todos los colores.' },
+      { icon: '☠', title: 'El jefe, en persona', text: 'La barra del jefe muestra su retrato con la equipación de su equipo.' },
+      { icon: '🔢', title: 'Logos de nivel', text: 'Las técnicas usan los logos «+» hasta 85 de poder, «N» de 86 a 105 y «G» desde 106.' },
+    ],
+    start: [],
+  },
   {
     version: '1.83', date: '2026-11-05',
     title: 'InaZurvivors Fix 1.83 — Combinadas nuevas',

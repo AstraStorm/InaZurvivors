@@ -172,3 +172,56 @@
 
 /* 1.83: the level a combined technique needs, on the technique that counts */
 .pl-need { flex: none; margin-left: 4px; padding: 0 3px; border-radius: 3px; font-style: normal; font-size: 6.5px; line-height: 1.5; color: #2a1a00; background: #ffe24a; }
+
+/* ---------------------------------------------------------------- 1.84: stars (faceted, gold / crimson / prismatic) */
+.stars svg .s-f, .stars svg .s-g, .star-panel svg .s-f, .star-panel svg .s-g { fill: transparent; stroke: none; }
+.stars svg.on .s-b, .star-panel svg.on .s-b { fill: #ffc21a; }
+.stars svg.on .s-f, .star-panel svg.on .s-f { fill: #ffe98a; }
+.stars svg.on .s-g, .star-panel svg.on .s-g { fill: #fff; }
+.stars svg.hst.on .s-b, .star-panel svg.hst.on .s-b { fill: #e0283a; } .stars svg.hst.on .s-f, .star-panel svg.hst.on .s-f { fill: #ff8a6a; }
+.stars .hero-stars.champ svg.hst.on .s-b, .star-panel.champ svg.hst.on .s-b { fill: #b04aff; } .stars .hero-stars.champ svg.hst.on .s-f, .star-panel.champ svg.hst.on .s-f { fill: #7fe9ff; }
+.star-panel { margin: 8px 0; padding: 10px 12px; border-radius: 12px; background: linear-gradient(180deg, #1a2a5acc, #0a1433cc); box-shadow: inset 0 0 0 1px #ffd23f55; display: flex; flex-direction: column; gap: 6px; }
+.sp-row { display: flex; align-items: center; gap: 10px; }
+.sp-stars, .sp-x { display: inline-flex; gap: 4px; }
+.sp-x { padding-left: 10px; border-left: 1px solid #ffffff33; }
+.star-panel svg { width: 26px; height: 26px; fill: #24305a; stroke: #6a7aa8; stroke-width: 1.2; }
+.star-panel svg.on { stroke: #6a4000; filter: drop-shadow(0 0 4px #ffb02099); }
+.star-panel svg.hst.on { stroke: #4a0010; filter: drop-shadow(0 0 5px #ff3a4a99); }
+.star-panel.champ svg.hst.on { stroke: #2a0a5a; filter: drop-shadow(0 0 5px #b04aff99); }
+.sp-info { font-size: 8px; color: var(--muted); } .sp-info b { color: #ffe24a; font-weight: normal; }
+.sp-caps { display: flex; flex-wrap: wrap; gap: 4px; }
+.sp-caps span { font-size: 8px; padding: 2px 6px; border-radius: 6px; background: #ffd23f22; box-shadow: inset 0 0 0 1px #ffd23f66; color: #fff; }
+.sp-caps em { font-style: normal; color: #7fff9a; }
+.sp-next { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; } .sp-next small { font-size: 8px; color: var(--muted); }
+.sp-pick { max-width: 520px; }
+.sp-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 6px; margin: 10px 0; }
+.sp-opt { display: flex; flex-direction: column; gap: 3px; padding: 8px; font: inherit; color: #fff; text-align: left; border: 0; border-radius: 8px; cursor: pointer; background: #0f2552; box-shadow: inset 0 0 0 1px #ffffff22; }
+.sp-opt:hover { box-shadow: inset 0 0 0 2px #ffd23f; } .sp-opt b { font-size: 11px; color: #ffe24a; font-weight: normal; } .sp-opt span { font-size: 9px; } .sp-opt em { font-style: normal; color: #7fff9a; } .sp-opt small { font-size: 7px; color: var(--muted); }
+.ps-star { color: #ffe24a; }
+
+/* 1.84: the boss's portrait in its team's kit, left of its name and bar */
+.hud .bossbar { padding-left: 66px; }
+.bb-mug { position: absolute; left: 0; top: 50%; width: 58px; height: 58px; transform: translateY(-50%) scale(.6); opacity: 0; border-radius: 50%; overflow: hidden;
+  background: radial-gradient(circle at 50% 40%, color-mix(in srgb, var(--bb) 45%, #2a0810), #0a0208); box-shadow: 0 0 0 3px #0a0208, 0 0 0 5px var(--bb), 0 6px 16px #000c;
+  transition: transform .35s cubic-bezier(.2, 1.5, .4, 1), opacity .25s; }
+.bb-mug.on { transform: translateY(-50%); opacity: 1; }
+.bb-mug img, .bb-mug canvas, .bb-mug .mug { display: block; width: 100% !important; height: 100% !important; image-rendering: pixelated; }
+.hud .bossbar.low .bb-mug { animation: bbMugBeat .5s ease-in-out infinite alternate; }
+@keyframes bbMugBeat { to { scale: 1.1; } }
+.hud .bossbar.hit .bb-mug { filter: brightness(1.6); }
+@media (max-height: 520px) and (min-width: 561px) { .hud .bossbar { padding-left: 42px; } .bb-mug { width: 36px; height: 36px; } }
+@media (max-width: 560px) { .hud .bossbar { padding-left: 50px; } .bb-mug { width: 42px; height: 42px; } }
+
+/* ---------------------------------------------------------------- 1.84: Campeón, Campeón+ and Campeón++ */
+.pcard.cc.t-leyenda.champ-1 { --bw: 9px; --metal: conic-gradient(from var(--ring), #ffe08a, #ff5a3a, #b0103a, #ffd23f, #fff6c8, #ff5a3a, #ffe08a); --glow: #ff6a4acc; --orn: #ffe08a; --og: "\265B"; --sp1: #ffe08a; --sp2: #ff5a3a; }
+.pcard.cc.t-leyenda.champ-2 { --bw: 10px; --metal: conic-gradient(from var(--ring), #ffe08a, #b04aff, #4a0a8a, #ffd23f, #ffffff, #b04aff, #ffe08a); --glow: #c07affcc; --orn: #f0d8ff; --og: "\265B"; --sp1: #ffffff; --sp2: #c07aff; }
+.pcard.cc.t-leyenda.champ-3 { --bw: 11px; --metal: conic-gradient(from var(--ring), #ff4a6a, #ffd23f, #5effa0, #4ad8ff, #b04aff, #ff4a6a, #ffd23f, #ff4a6a); --glow: #ffffffcc; --orn: #ffffff; --og: "\265B"; --sp1: #ffffff; --sp2: #7fe9ff; }
+.pcard.cc.t-leyenda.champ-1 .cc-face { background: radial-gradient(120% 60% at 50% 0%, #6a1420, #2a0812 60%, #12040a); }
+.pcard.cc.t-leyenda.champ-2 .cc-face { background: radial-gradient(120% 60% at 50% 0%, #4a1a8a, #1a0a3a 60%, #08041a); }
+.pcard.cc.t-leyenda.champ-3 .cc-face { background: radial-gradient(120% 60% at 50% 0%, #2a3a8a, #12102a 60%, #06040e), linear-gradient(120deg, #ff4a6a22, #4ad8ff22); }
+.pcard.cc.t-leyenda.champ-3 .cc-frame { animation-duration: 1.4s; }
+/* the badge: one colour per level, the last one prismatic */
+.rar.heroe.campeon.c2 { background: linear-gradient(90deg, #ffe08a, #b04aff, #4a0a8a, #b04aff, #ffe08a); text-shadow: 1px 1px 0 #2a0050; }
+.rar.heroe.campeon.c3 { background: linear-gradient(90deg, #ff4a6a, #ffd23f, #5effa0, #4ad8ff, #b04aff, #ff4a6a); background-size: 200% 100%; color: #fff; text-shadow: 1px 1px 0 #000, 0 0 6px #fff; animation: champSheen 2.4s linear infinite; }
+@keyframes champSheen { to { background-position: -200% 0; } }
+.star-panel.champ { box-shadow: inset 0 0 0 1px #c07aff88; }

@@ -3,6 +3,7 @@ import type { Rarity, RosterEntry } from '../data/manifest';
 import { RARITY_ORDER } from '../data/manifest';
 import type { SaveData } from './save';
 import { rollWith } from './banners';
+import { nextStep } from './ascension';
 
 /** Prices in Fichas de Fichaje. */
 // Fix 1.23 (player feedback): round prices, easy to count; the ×10 keeps its guaranteed Épico or better
@@ -36,7 +37,8 @@ export function rollRarity(rng: Rng): Rarity {
 
 /** `toStar`: copies towards the next star when this copy didn't complete one ([have, need]); `forAscension`: five
  *  stars already, the copy waits for the ascension */
-export interface PullResult { player: RosterEntry; isNew: boolean; stars: number; refund: number; toStar?: [number, number]; forAscension?: boolean }
+export interface PullResult { player: RosterEntry; isNew: boolean; stars: number; refund: number; toStar?: [number, number]; forAscension?: boolean;
+  /** 1.84: this copy completed the duplicates of the n-th star: it can be bought now (stars.ts) */ starReady?: number }
 
 /**
  * Adds one copy of a footballer (pull, shop, pass, rewards): new, a star when its copies complete one, or coins when the
@@ -50,13 +52,8 @@ export function addCopy(save: SaveData, p: Pick<RosterEntry, 'id' | 'rarity'>): 
     return { isNew: true, stars: 0, refund: 0 };
   }
   owned.copies += 1;
-  const per = COPIES_PER_STAR[p.rarity] ?? 1, dupes = owned.copies - 1;
-  if (owned.stars < MAX_STARS) {
-    const stars = Math.min(MAX_STARS, Math.max(owned.stars, Math.floor(dupes / per)));
-    if (stars > owned.stars) { owned.stars = stars; return { isNew: false, stars, refund: 0 }; }
-    return { isNew: false, stars: owned.stars, refund: 0, toStar: [dupes - owned.stars * per, per] };
-  }
-  if (owned.hero && (owned.heroStars ?? 0) >= 3) { // Fix 1.31: hero stars take copies too
+  // 1.84 (author): stars are bought with coins only (stars.ts); a duplicate is for ascending, or coins
+  if (!nextStep(save, p)) { // nothing left to ascend: the copy turns into coins
     const refund = DUPLICATE_REFUND_BY[p.rarity] ?? DUPLICATE_REFUND;
     save.coins += refund;
     return { isNew: false, stars: owned.stars, refund };

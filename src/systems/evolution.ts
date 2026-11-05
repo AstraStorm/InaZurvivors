@@ -4,9 +4,9 @@
  * 1.81 (author): every 2 level-ups the technique climbs one step, and the step is shown with its logo
  * (D:/Sprites Inazuma/Mejoras, copied by sync-assets to generated/mejoras). Level 1 has no logo; 2-3 is the 1st step,
  * 4-5 the 2nd, 6-7 the 3rd, 8-9 the 4th and 10 the 5th. The ladder depends on the technique's power:
- *   up to 70   «+»: +1 +2 +3 +4 +5
- *   71 to 100  «N»: N2 N3 N4 S ∞
- *   above 100  «G»: G2 G3 G4 G5 GO
+ *   up to 85   «+»: +1 +2 +3 +4 +5      (1.84 author: were 70 / 100)
+ *   86 to 105  «N»: N2 N3 N4 S ∞
+ *   above 105  «G»: G2 G3 G4 G5 GO
  * Talents show nothing. Each new step is announced as an evolution.
  */
 export type EvolutionStyle = 'plus' | 'n' | 'g' | 'ninguna';
@@ -28,7 +28,7 @@ type Tech = { id: number; type?: string; power?: number | null };
 export function familyOf(t: Tech): EvolutionFamily {
   if (t.type === 'talento') return FAMILIES.ninguna;
   const p = t.power ?? 0;
-  return FAMILIES[p <= 70 ? 'plus' : p <= 100 ? 'n' : 'g'];
+  return FAMILIES[p <= 85 ? 'plus' : p <= 105 ? 'n' : 'g'];
 }
 
 /** Label shown for a level ('' for a talent, or a technique still at level 1). */

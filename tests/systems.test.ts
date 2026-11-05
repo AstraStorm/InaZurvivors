@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { exportSave, importSave, migrate, newSave, remapTechSlots, SCHEMA_VERSION } from '../src/systems/save';
 import { canStartGuardedMove, GUARD_LOCKOUT_SEC } from '../src/systems/combat';
-import { addCopy, pull, pullOne, rollRarity, starBonus, COPIES_PER_STAR, DUPLICATE_REFUND_BY, MAX_STARS, MULTI_COST, PULL_COST, RARITY_WEIGHTS } from '../src/systems/gacha';
+import { addCopy, pull, pullOne, rollRarity, starBonus, DUPLICATE_REFUND_BY, MULTI_COST, PULL_COST, RARITY_WEIGHTS } from '../src/systems/gacha';
 import { techStats, statChanges, MAX_TECH_LEVEL } from '../src/systems/techniques';
 import { evolutionLabel, evolvesAt } from '../src/systems/evolution';
 import { PASSIVES, STAT_CARDS } from '../src/systems/runmods';
@@ -65,26 +65,23 @@ describe('gacha', () => {
     s.coins = 0;
     const r1 = pullOne(pool, s, () => 0);
     expect(r1.isNew).toBe(true);
-    const per = COPIES_PER_STAR[r1.player.rarity];
     const r2 = pullOne(pool, s, () => 0);
-    if (per > 1) expect(r2.toStar).toEqual([1, per]);
-    for (let i = 1; i < MAX_STARS * per; i++) pullOne(pool, s, () => 0);
-    expect(s.owned['1'].stars).toBe(MAX_STARS);
+    expect(r2.forAscension).toBe(true); // 1.84: duplicates only go to the ascension; stars are bought with coins
+    expect(s.owned['1'].stars).toBe(0);
     const spare = pullOne(pool, s, () => 0);
     expect([spare.refund, spare.forAscension, s.coins]).toEqual([0, true, 0]); // waits for the ascension
-    s.owned['1'].hero = true;
-    expect(pullOne(pool, s, () => 0).forAscension).toBe(true); // Fix 1.31: a HÉROE still needs copies for its hero stars
-    s.owned['1'].heroStars = 3;
+    s.owned['1'].hero = true; // 1.84: a HÉROE has nothing left to spend copies on (its extra stars cost coins)
     const r = pullOne(pool, s, () => 0);
     expect(r.refund).toBe(DUPLICATE_REFUND_BY[r1.player.rarity]);
     expect(s.coins).toBe(r.refund);
   });
-  it('a Común needs more copies per star than a Legendario, and old stars are never taken away', () => {
+  it('copies never give or take away stars (1.84: stars are bought with coins)', async () => {
     const s = newSave([], null);
     const com = { id: 50, rarity: 'comun' } as RosterEntry, leg = { id: 51, rarity: 'legendario' } as RosterEntry;
     addCopy(s, com); addCopy(s, leg);
     for (let i = 0; i < 3; i++) { addCopy(s, com); addCopy(s, leg); }
-    expect([s.owned['50'].stars, s.owned['51'].stars]).toEqual([1, 3]);
+    // 1.84: copies no longer give stars (they are bought with coins, stars.ts)
+    expect([s.owned['50'].stars, s.owned['51'].stars]).toEqual([0, 0]);
     s.owned['50'].stars = 4; // an older save that gave one star per copy
     addCopy(s, com);
     expect(s.owned['50'].stars).toBe(4);
@@ -128,8 +125,8 @@ describe('techniques', () => {
       for (let lv = 1; lv < MAX_TECH_LEVEL; lv++) expect(talentChanges(id, lv).length, `${TALENTS[id].name} nv ${lv}`).toBeGreaterThan(0);
     }
   });
-  it('1.81: a logo step every 2 levels, ladder by power (+ up to 70, N to 100, G above)', () => {
-    const plus = { id: 1, power: 70 }, n = { id: 2, power: 71 }, g = { id: 3, power: 101 };
+  it('1.81/1.84: a logo step every 2 levels, ladder by power (+ up to 85, N to 105, G above)', () => {
+    const plus = { id: 1, power: 85 }, n = { id: 2, power: 86 }, g = { id: 3, power: 106 };
     expect([1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((lv) => evolutionLabel(plus, lv))).toEqual(['', '+1', '+1', '+2', '+2', '+3', '+3', '+4', '+4', '+5']);
     expect([1, 2, 4, 6, 8, 10].map((lv) => evolutionLabel(n, lv))).toEqual(['', 'N2', 'N3', 'N4', 'S', '∞']);
     expect([1, 2, 4, 6, 8, 10].map((lv) => evolutionLabel(g, lv))).toEqual(['', 'G2', 'G3', 'G4', 'G5', 'GO']);
@@ -810,16 +807,14 @@ describe('ascension to HÉROE', () => {
     expect(ascend(s, leg)).toBe('heroe');
     expect(isHero(s, 1)).toBe(true);
     expect(sparesOf(s, 1)).toBe(0);
-    expect(nextStep(s, leg)).toEqual({ step: 'estrella', cost: C.estrella }); // Fix 1.31: then the hero stars
-    expect(s.owned['1'].stars).toBe(C.ascenso); // stars already earned are kept
+    expect(nextStep(s, leg)).toBeNull(); // 1.84: after HÉROE come the extra stars, bought with coins (stars.ts)
   });
   it('every rarity can ascend (Fix 1.23), commoner footballers need more copies', () => {
     const s = withCopies({ 2: 7, 3: 20, 4: 40 });
     expect(nextStep(s, myth)).toEqual({ step: 'heroe', cost: ASC_COSTS.mitico.heroe }); // Fix 1.31: a Mítico goes straight to HÉROE
     expect(ascend(s, myth)).toBe('heroe');
     expect(effectiveRarity(s, myth)).toBe('mitico');
-    expect(ascend(s, myth)).toBe('estrella');
-    expect(s.owned['2'].heroStars).toBe(1);
+    expect(ascend(s, myth)).toBe(false); // 1.84: no more copy steps after HÉROE
     expect(ascend(s, epic)).toBe('ascenso');
     expect(effectiveRarity(s, epic)).toBe('legendario');
     // Fix 1.51 (author): one rarity per ascension up to Mítico, at the price of the rarity it climbs from; then HÉROE
@@ -835,11 +830,13 @@ describe('ascension to HÉROE', () => {
     expect(ASC_COSTS.epico.ascenso).toBeGreaterThan(ASC_COSTS.legendario.ascenso);
     expect(ascend(s, { id: 99, rarity: 'legendario' } as RosterEntry)).toBe(false);
   });
-  it('a HÉROE earns up to 3 hero stars, then has no step left', () => {
+  it('1.84: a HÉROE has no copy step left; its 3 extra stars (coins) keep the hero-star bonus', async () => {
+    const { buyStar } = await import('../src/systems/stars');
     const s = withCopies({ 2: 30 });
-    s.owned['2'].hero = true; s.owned['2'].spent = 2;
-    for (let i = 0; i < 3; i++) expect(ascend(s, myth)).toBe('estrella');
+    s.owned['2'].hero = true; s.owned['2'].spent = 2; s.owned['2'].stars = 5; s.coins = 400000;
     expect(nextStep(s, myth)).toBeNull();
+    for (let i = 0; i < 3; i++) expect(buyStar(s, myth, 'kick')).toBe('extra');
+    expect(s.coins).toBe(400000 - 100000 - 110000 - 120000);
     expect(ascMultipliers(s, myth).damage).toBeCloseTo(1.18 * 1.05 ** 3);
   });
   it('Fix 1.31: Míticos ascended the old way become HÉROE once, and an old HÉROE gets its first hero star', async () => {
@@ -1047,8 +1044,8 @@ describe('reiniciar progreso', () => {
 describe('versión pública y reportes de bugs', () => {
   it('the public news start at v1.0 and no internal version leaks into them', async () => {
     const { PUBLIC_RELEASES, PUBLIC_VERSION, RELEASED, VERSION_LABEL, BUILD, TIKTOK_URL } = await import('../src/data/release');
-    expect(PUBLIC_VERSION).toBe('1.83');
-    expect(PUBLIC_RELEASES.map((r) => r.version)).toEqual(['1.83', '1.82', '1.81', '1.8', '1.77', '1.76', '1.75', '1.7', '1.66', '1.65', '1.6', '1.53', '1.52', '1.51', '1.5', '1.41', '1.4', '1.32', '1.31', '1.3', '1.22', '1.21', '1.2', '1.12', '1.11', '1.1', '1.0']); // newest first, starting at v1.0
+    expect(PUBLIC_VERSION).toBe('1.84');
+    expect(PUBLIC_RELEASES.map((r) => r.version)).toEqual(['1.84', '1.83', '1.82', '1.81', '1.8', '1.77', '1.76', '1.75', '1.7', '1.66', '1.65', '1.6', '1.53', '1.52', '1.51', '1.5', '1.41', '1.4', '1.32', '1.31', '1.3', '1.22', '1.21', '1.2', '1.12', '1.11', '1.1', '1.0']); // newest first, starting at v1.0
     expect(PUBLIC_RELEASES.at(-1)!.title).toBe('InaZurvivors v1.0 — ¡Comienza la aventura!');
     expect(JSON.stringify(PUBLIC_RELEASES)).not.toMatch(/\bv?[234]\.\d\b/);
     expect(BUILD).not.toBe('1.0');
@@ -1177,7 +1174,7 @@ describe('auditoría de rarezas', () => {
     }
     expect(sparesOf(asc, 7)).toBe(5);
     const hero = saveWith({ ascMitico: true, hero: true, spent: 8 });
-    expect(nextStep(hero, p(7, 'epico'))?.step).toBe('estrella'); // Fix 1.31: hero stars after HÉROE
+    expect(nextStep(hero, p(7, 'epico'))).toBeNull(); // 1.84: after HÉROE, the extra stars are bought with coins
     expect(ascMultipliers(hero, p(7, 'epico')).damage).toBeCloseTo(ascMultipliers(hero, p(7, 'mitico')).damage);
     expect(nextStep(saveWith({}), p(7, 'leyenda'))?.step).toBe('campeon'); // 1.8: a Leyenda climbs Campeón instead of HÉROE
     expect(nextStep(saveWith({}), p(7, 'epico'))).toEqual({ step: 'ascenso', cost: ASC_COSTS.epico.ascenso }); // Fix 1.23: Épico can ascend too
