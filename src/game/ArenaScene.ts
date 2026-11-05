@@ -36,6 +36,7 @@ import { chaosMeteorCharge, chaosMeteorShot, fireStormCharge, fireStormShot, ele
 import { crossfireCharge, crossfireShot } from './fxCross';
 import { dribbleOf, frenteCharge, frenteShot, gungnirCharge, gungnirShot, movieCharge, movieDribble, movieOf, movieShot, rupturaCharge, rupturaShot, superrayoCharge, superrayoShot, zeroCharge, zeroShot } from './fxMovie';
 import { blackAshCharge, blackAshTrail, illusionBall, signatureOf, stormZone } from './fxSignature';
+import { COMBO183, combo183Charge, combo183Shot, combo183Wind, isMeteorShower, judgementHammer, maouHand, meteorShower, solo183Charge, solo183Of, solo183Shot, type Combo183 } from './fxCombo183';
 import { natureArea, natureCharge, natureOf, natureShot, setNatureLowPower } from './fxNature';
 import { animeCharge, animeOf, animeShot, auroraVeil, cometTex, earthBurst, earthCharge, furyFist, breezeStep, chaosBreakCharge, chaosBreakShot, fireBlizzardCharge, fireBlizzardShot, godWindGust } from './fxAnime';
 import { fuegoOf, supremoCharge, supremoShot, totalCharge, totalWave } from './fxFuego';
@@ -44,7 +45,7 @@ import { COMBOS, COMBOS_BY_PRIORITY, COMBO_MAX_LEVEL, comboCast, comboDamage, co
 import { AURA_ELEMENT_BONUS, AURA_TECH_DAMAGE } from '../systems/auras';
 import type { Rank } from '../systems/save';
 
-export interface HudTech { name: string; type: Technique['type']; level: number; evolution: string; cd: number; /** v1.5: inherited from the Aura */ aura?: boolean; /** v1.7: combined technique that needs this one higher */ combo?: string }
+export interface HudTech { name: string; type: Technique['type']; level: number; evolution: string; cd: number; /** v1.5: inherited from the Aura */ aura?: boolean; /** v1.7: combined technique that needs this one higher */ combo?: string; /** 1.83: the level it needs */ comboNeed?: number }
 export interface HudMember { id: number; techs: (HudTech | null)[]; /** v1.5 */ aura?: { id: number; name: string } | null }
 export interface HudState {
   hp: number; maxHp: number; xp: number; xpNext: number; level: number; timeSec: number; durationSec: number;
@@ -62,7 +63,7 @@ export interface HudState {
   /** special slot of the combined techniques (0 = ready) */
   combos: { name: string; level: number; cd: number }[];
   /** v1.7: combined techniques still to learn with the team on the pitch, and what each participant needs */
-  comboGoals: { id: string; name: string; complete: boolean; ready: boolean; parts: { player: string; tech?: string; anyTech?: boolean; need: number; have: number; memberId: number | null; viaAura: boolean }[] }[];
+  comboGoals: { id: string; name: string; complete: boolean; ready: boolean; parts: { player: string; tech?: string; anyTech?: boolean; bestTech?: string; need: number; have: number; memberId: number | null; viaAura: boolean }[] }[];
   /** v1.7: Revivir charges left, and the most a run can hold */
   revives: number; reviveMax: number;
   /** endless survival: difficulty multiplier and seconds survived after the boss */
@@ -874,6 +875,8 @@ export class ArenaScene extends Phaser.Scene {
           if (anime) animeCharge(this, anime, ox, oy, lv, recipe.windupSec * 1000);
           const mv = movieOf(t.name); // 1.76: six more shots redrawn from their scenes (fxMovie.ts)
           if (mv) movieCharge(this, mv, ox, oy, lv, recipe.windupSec * 1000);
+          const s183 = solo183Of(t.name); // 1.83: Disparo sagrado, Tornado dragón (fxCombo183.ts)
+          if (s183) solo183Charge(this, s183, ox, oy, lv, recipe.windupSec * 1000);
           if (mv === 'vibora') this.darkClone(m, recipe.windupSec * 1000); // Víbora de Orión: her dark clone kicks with her
           const fuego = fuegoOf(t.name); // Axel Blaze Encapuchado: Fuego supremo / Fuego total (fxFuego.ts)
           if (fuego === 'supremo') supremoCharge(this, ox, oy, lv, recipe.windupSec * 1000);
@@ -889,6 +892,7 @@ export class ArenaScene extends Phaser.Scene {
             this.fx.ring(ox, oy + 6, r, c1, 260, 2 + Math.floor(lv / 2));
             const sig = signatureOf(t.name), dr = dribbleOf(t.name); // 1.76: Espada real, El ojo del huracán, Hora celestial (fxMovie.ts)
             const near0 = dr ? this.nearestEnemy(ox, oy, 160) : null;
+            if (isMeteorShower(t.name)) { const near = this.nearestEnemy(ox, oy, 160); meteorShower(this, ox, oy, near ? near.pos.x : ox + 50, near ? near.pos.y - 10 : oy, lv); } // 1.83
             if (dr) {
               movieDribble(this, dr, ox, oy, near0 ? near0.pos.x : ox + 40, near0 ? near0.pos.y - 10 : oy, lv, 420);
               if (dr === 'hora' || dr === 'atenea') for (const e of this.enemies) if (Math.hypot(e.pos.x - ox, e.pos.y - oy) < 90) e.slowUntil = this.runTime + 1.2; // time stops / the hymn charms them
@@ -920,6 +924,7 @@ export class ArenaScene extends Phaser.Scene {
             if (animeOf(t.name) === 'brisa') breezeStep(this, m.f.x, m.f.y, m.f.x + Math.cos(ang) * reach, m.f.y + Math.sin(ang) * reach, lv, 300);
             const dr = dribbleOf(t.name); // 1.76 (fxMovie.ts)
             if (dr) movieDribble(this, dr, m.f.x, m.f.y, m.f.x + Math.cos(ang) * reach, m.f.y + Math.sin(ang) * reach, lv, 420);
+            if (isMeteorShower(t.name)) meteorShower(this, m.f.x, m.f.y, m.f.x + Math.cos(ang) * reach, m.f.y - 10 + Math.sin(ang) * reach, lv); // 1.83
             if (dr === 'hora' || dr === 'atenea') for (const e of this.enemies) if (Math.hypot(e.pos.x - m.f.x, e.pos.y - m.f.y) < 90) e.slowUntil = this.runTime + 1.2;
             if (!dr && signatureOf(t.name) === 'huracan') stormZone(this, m.f.x + Math.cos(ang) * reach * 0.5, m.f.y + Math.sin(ang) * reach * 0.5, 34, lv, 520);
             m.dash = { fromX: m.f.x, fromY: m.f.y, toX: m.f.x + Math.cos(ang) * reach, toY: m.f.y + Math.sin(ang) * reach,
@@ -936,6 +941,7 @@ export class ArenaScene extends Phaser.Scene {
             this.tweens.add({ targets: wv, scaleY: 2.2, alpha: 0, duration: 380, onComplete: () => wv.destroy() });
           }
           this.fx.burst(style, ox, oy + 8, 8 + lv * 3, 70);
+          if (/apisonadora|sabaki/i.test(t.name)) judgementHammer(this, ox, oy + 2, r, lv, () => this.fx.shake(0.006, 180)); // 1.83: the hammer of judgement
           const natD = natureOf(t.name);
           if (natD) natureArea(this, natD, ox, oy + 2, r, lv, this.enemies.filter((e) => !e.dead && Math.hypot(e.pos.x - ox, e.pos.y - 10 - oy) < r + e.radius).map((e) => ({ x: e.pos.x, y: e.pos.y - 10 })));
           else if (!wall && !web) elementBurst(this, style, ox, oy + 2, r, 420, c1); // Fix 1.11: rock, vines, wind, fire... by element
@@ -1006,6 +1012,10 @@ export class ArenaScene extends Phaser.Scene {
             cx = target.pos.x; cy = target.pos.y - 10;
             dragon(this, 'strike', ox, oy - 6, c1, c2, lv, 420, cx, cy, ['mitico', 'leyenda'].includes(m.entry.rarity));
             sfx('whoosh');
+          } else if (/mano diab[oó]lica|maou/i.test(t.name)) {
+            // 1.83: Mano Diabólica (Maou The Hand): a magenta demon with a red horned mask rises and its hand closes on the ball
+            maouHand(this, ox, oy, lv, ['mitico', 'leyenda'].includes(m.entry.rarity) || !!this.cfg.asc?.[String(m.entry.id)]?.hero);
+            this.fx.ring(ox, oy, s.radius, 0xd02ad8, 420, 2);
           } else if (/m[aá]gica|majin/i.test(t.name)) {
             // Mano mágica (Majin The Hand): the Majin rises behind the keeper and raises its arm, then the hand blocks
             const tint = handTintOf(m.entry.name); // 1.76: Mark's yellow-orange, Darren's blue
@@ -1087,7 +1097,7 @@ export class ArenaScene extends Phaser.Scene {
     const style = fxStyle(t);
     const [c1, c2] = STYLE_COLORS[style];
     // Fix 1.12: the participants send their power to the meeting point and each combination has its own manifestation
-    const wind = def.effect === 'tierra' || def.effect === 'tierra-inf' || def.effect === 'bigbang' || def.effect === 'fuego-total' ? 900 : def.effect === 'caos' || def.effect === 'fenix' || def.effect === 'aurora' || def.effect === 'tiro-doble' || def.effect === 'zero' || def.effect === 'frente' ? 700 : def.effect === 'gungnir' ? 900 : def.effect === 'tiro-rayo' || def.effect === 'superrayo' ? 600 : 360;
+    const wind = COMBO183.has(def.effect) ? combo183Wind(def.effect as Combo183) : def.effect === 'tierra' || def.effect === 'tierra-inf' || def.effect === 'bigbang' || def.effect === 'fuego-total' ? 900 : def.effect === 'caos' || def.effect === 'fenix' || def.effect === 'aurora' || def.effect === 'tiro-doble' || def.effect === 'zero' || def.effect === 'frente' ? 700 : def.effect === 'gungnir' ? 900 : def.effect === 'tiro-rayo' || def.effect === 'superrayo' ? 600 : 360;
     // v1.5: a participant carried as Aura appears beside its carrier for the technique only, then fades away
     const ghosts: { x: number; y: number }[] = [];
     for (const c of comboCast(def, who)) {
@@ -1138,6 +1148,7 @@ export class ArenaScene extends Phaser.Scene {
     else if (def.effect === 'aurora') auroraVeil(this, mx, my, 30 + level * 2, wind); // v1.5: La Aurora
     else if (def.effect === 'bigbang') animeCharge(this, 'bigbang', mx, my + 10, 4 + level, wind); // Fix 1.51: the atom and its sun
     else if (def.effect === 'fuego-total') totalCharge(this, mx, my, 4 + level, wind); // the curtain of fire between the three
+    else if (COMBO183.has(def.effect)) combo183Charge(this, def.effect as Combo183, who.map((m) => ({ x: m.f.x, y: m.f.y, name: m.entry.name })), mx, my, level, wind); // 1.83
     this.fx.ring(mx, my, 34, c2, 360, 3);
     this.fx.label(mx, my - 30, def.name, '#ffe24a');
     sfx('evolve');
@@ -1184,6 +1195,7 @@ export class ArenaScene extends Phaser.Scene {
         // Remate caótico is one ball in the scene: the second one keeps its damage but is not drawn
         else if (def.effect === 'bigbang') animeShot(this, 'bigbang', ball, 4 + level); // Fix 1.51: immense ball and explosion
         else if (def.effect === 'caos') { if (off > 0) { ball.setVisible(false); aura.setVisible(false); } else chaosBreakShot(this, ball, level); }
+        else if (COMBO183.has(def.effect)) combo183Shot(this, def.effect as Combo183, ball, level); // 1.83
         this.projectiles.push({ ball, aura, x: mx, y: my, vx: Math.cos(ang) * speed, vy: Math.sin(ang) * speed, t: 0,
           traj: twin ? 'espiral' : 'recta' as Trajectory, style: twin && off > 0 ? 'hielo' : style,
           // 1.76: Big Bang explodes on the first rival it touches, over the area its explosion is drawn on (it pierced
@@ -1318,6 +1330,8 @@ export class ArenaScene extends Phaser.Scene {
       if ((k === 0 || anime === 'supernova') && anime && anime !== 'brisa') animeShot(this, anime, ball, lv); // every Supernova sphere has its whirl and eye
       const mv = movieOf(t.name);
       if (mv && k === 0) movieShot(this, mv, ball, lv);
+      const s183 = solo183Of(t.name);
+      if (s183 && k === 0) solo183Shot(this, s183, ball, lv);
       // Fix 1.51: Big Bang always explodes, over twice the usual area (its explosion fills the screen)
       const bigBang = anime === 'bigbang';
       this.projectiles.push({ ball, aura, x, y, vx, vy, t: 0, traj, style, damage: s.damage, pierce: bigBang ? 0 : s.pierce, life: 1500,
@@ -2783,7 +2797,7 @@ export class ArenaScene extends Phaser.Scene {
         if (!t) return null;
         const level = this.techLevel(m, i);
         return { name: t.name, type: t.type, level, evolution: evolutionLabel(t, level), cd: Math.max(0, Math.min(1, m.cds[i] / Math.max(1, m.maxCd[i]))), aura: t.aura !== undefined,
-          combo: comboHints(goals, m.entry.id, t.name, level + 1)[0]?.name };
+          ...(() => { const h = comboHints(goals, m.entry.id, t.name, level + 1)[0]; return { combo: h?.name, comboNeed: h?.need }; })() };
       }), aura: m.entry.aura ? { id: m.entry.aura.id, name: m.entry.aura.name } : null })),
       boss: (() => { const b = this.boss ?? this.rival; return b ? { name: b.unit.name, hp: Math.max(0, b.hp), maxHp: b.maxHp, title: this.kitOf(b).title, phase: b.phase ?? 0, rival: !!b.rival } : null; })(),
       rerolls: this.rerolls, formation: this.formation, formationChangedAt: this.formationChangedAt,

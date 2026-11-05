@@ -402,19 +402,44 @@ export class App {
     window.setTimeout(() => box.remove(), 600);
   }
 
+  /**
+   * 1.83 (author: the notice looked odd and still lagged): a portrait drawn once on a 64 px canvas from the decoded sheet,
+   * so the browser never scales the whole mugshot sheet (the hitch); null when the sheet isn't decoded yet.
+   */
+  private mugCanvas(id: number): HTMLCanvasElement | null {
+    const entry = this.mugFrames[String(id)], f = entry?.frame;
+    const img = this.mugWarm[entry?.sheet ?? 0];
+    if (!f || !img?.complete || !img.naturalWidth) return null;
+    const c = document.createElement('canvas');
+    c.width = 64; c.height = 64;
+    c.getContext('2d')?.drawImage(img, f.x, f.y, f.w ?? 64, f.h ?? 64, 0, 0, 64, 64);
+    return c;
+  }
+
+  /**
+   * Fix 1.12 / 1.83: a combined technique was just learned. A slanted golden band sweeps across (like the boss card) with
+   * the participants' portraits and names, the name of the technique, its element and power. Only transform and opacity
+   * are animated, and the portraits are small canvases.
+   */
   private comboUnlock(c: { name: string; ids: number[] }) {
     document.querySelector('.combo-unlock')?.remove();
+    const def = COMBOS.find((d) => d.name === c.name);
     const box = document.createElement('div');
-    box.className = 'combo-unlock';
-    // 1.8: portraits at their native 64 px, enlarged by CSS: a 96 px portrait made the browser resample the whole mugshot
-    // sheet in the middle of the run (the hitch when a combined technique was learned)
-    box.innerHTML = `<div class="cu-mugs">${c.ids.map((id, i) => `<span style="--i:${i}">${this.mug(id, 64)}</span>`).join('')}</div>
-      <small>¡NUEVA TÉCNICA COMBINADA!</small><b>${esc(c.name)}</b>`;
+    box.className = 'combo-unlock cu2';
+    box.style.setProperty('--ec', ELEMENT_COLOR[def?.element ?? ''] ?? '#ffd23f');
+    box.innerHTML = `<div class="cu2-band"><i class="cu2-stripes"></i>
+      <div class="cu2-mugs">${c.ids.map((id, i) => `<span class="cu2-mug" style="--i:${i}" data-id="${id}"><i></i><small>${esc(this.byId.get(id)?.name.split(' ')[0] ?? '')}</small></span>`).join('')}</div>
+      <div class="cu2-tx"><small>¡NUEVA TÉCNICA COMBINADA!</small><b>${esc(c.name)}</b>${def ? `<span class="cu2-meta">${elementIcon(def.element, 12)} ${esc(def.element)} · Poder ${def.power}</span>` : ''}</div></div>`;
+    for (const slot of box.querySelectorAll<HTMLElement>('.cu2-mug')) {
+      const id = Number(slot.dataset.id), cv = this.mugCanvas(id);
+      if (cv) slot.querySelector('i')!.replaceWith(cv); else slot.querySelector('i')!.outerHTML = this.mug(id, 64);
+    }
     document.body.appendChild(box);
     sfx('legend');
-    setTimeout(() => box.classList.add('out'), 1700);
-    setTimeout(() => box.remove(), 2200);
+    setTimeout(() => box.classList.add('out'), 2100);
+    setTimeout(() => box.remove(), 2600);
   }
+
 
   /** Fix 1.12: promotional codes. Online the server decides (once per account); guests redeem on this device. */
   codesModal() {
@@ -4380,7 +4405,7 @@ export class App {
       // v1.7: combinations within reach (everyone on the pitch) show how many participants already have their level
       const goals = s.comboGoals.filter((g) => g.complete).map((g) => {
         const ok = g.parts.filter((p) => p.have >= p.need).length;
-        return `<div class="combo-chip goal${g.ready ? ' ready' : ''}" title="${esc(g.parts.map((p) => `${p.player}: ${(!p.anyTech && p.tech) || 'su mejor técnica'} Nv ${p.have}/${p.need}`).join(' · '))}">🔗 <b>${esc(g.name)}</b> ${g.ready ? '¡lista!' : `${ok}/${g.parts.length}`}</div>`;
+        return `<div class="combo-chip goal${g.ready ? ' ready' : ''}" title="${esc(g.parts.map((p) => `${p.player}: ${(!p.anyTech && p.tech) || p.bestTech || 'su mejor técnica'} Nv ${p.have}/${p.need}`).join(' · '))}">🔗 <b>${esc(g.name)}</b> ${g.ready ? '¡lista!' : `${ok}/${g.parts.length}`}</div>`;
       }).join('');
       const html = s.combos.map((c) => `<div class="combo-chip${c.cd <= 0.02 ? ' ready' : ''}"><b>${esc(c.name)}</b> Nv ${c.level}<i style="width:${Math.round((1 - c.cd) * 100)}%"></i></div>`).join('') + goals;
       if (ch.innerHTML !== html) ch.innerHTML = html;
@@ -4486,14 +4511,14 @@ export class App {
       el.querySelectorAll<HTMLElement>('.pl-tech').forEach((c) => {
         const k = Number(c.dataset.k);
         const tc = t.techs[k];
-        const sig = tc ? `${tc.name}|${tc.level}|${tc.evolution}|${tc.combo ?? ''}` : '';
+        const sig = tc ? `${tc.name}|${tc.level}|${tc.evolution}|${tc.combo ?? ''}|${tc.comboNeed ?? ''}` : '';
         if (c.dataset.sig !== sig) {
           c.dataset.sig = sig;
           c.classList.toggle('free', !tc);
           c.classList.toggle('combo', !!tc?.combo); // v1.7: raise this one to unlock a combined technique
-          c.title = tc?.combo ? `Súbela para desbloquear ${tc.combo}` : '';
+          c.title = tc?.combo ? `Súbela a Nv ${tc.comboNeed ?? '?'} para desbloquear ${tc.combo}` : '';
           c.classList.toggle('aura', !!tc?.aura); // v1.5: inherited from the Aura
-          (c.querySelector('.pl-tn') as HTMLElement).innerHTML = tc ? `<span class="tn-row"><span class="tn-txt">${esc(tc.name)}</span>${this.evoTag(tc.evolution)}</span>` : 'Ranura libre';
+          (c.querySelector('.pl-tn') as HTMLElement).innerHTML = tc ? `<span class="tn-row"><span class="tn-txt">${esc(tc.name)}</span>${this.evoTag(tc.evolution)}${tc.combo && tc.comboNeed ? `<em class="pl-need">🔗Nv${tc.comboNeed}</em>` : ''}</span>` : 'Ranura libre';
           (c.querySelector('.pl-pips') as HTMLElement).innerHTML = tc ? Array.from({ length: MAX_TECH_LEVEL }, (_, n) => `<i class="${n < tc.level ? 'on' : ''}"></i>`).join('') : '';
           c.querySelector('.pl-icon .icon')?.remove();
           if (tc) (c.querySelector('.pl-icon') as HTMLElement).insertAdjacentHTML('afterbegin', this.icon(ICON.manual[tc.type], 1.25));
@@ -4717,7 +4742,7 @@ export class App {
     return `<h3 style="margin-top:12px">Técnicas combinadas</h3><div class="cg-list">${goals.map((g) => `<div class="cg${g.ready ? ' ready' : ''}${g.complete ? '' : ' partial'}">
       <div class="cg-top"><b>🔗 ${esc(g.name)}</b><span>${g.ready ? '¡Lista! Sale al subir de nivel' : g.complete ? 'Sube las técnicas marcadas con 🔗' : 'Falta gente en el campo'}</span></div>
       <div class="cg-parts">${g.parts.map((p) => `<span class="${p.memberId === null ? 'miss' : p.have >= p.need ? 'ok' : ''}">${p.memberId !== null ? this.mug(p.memberId, 26) : '<i class="cg-q">?</i>'}
-        <em><b>${esc(p.player)}</b>${p.viaAura ? ' (Aura)' : ''}<br>${esc((!p.anyTech && p.tech) || 'su mejor técnica')} · ${p.memberId === null ? 'no está' : `Nv ${p.have}/${p.need}`}</em></span>`).join('')}</div></div>`).join('')}</div>`;
+        <em><b>${esc(p.player)}</b>${p.viaAura ? ' (Aura)' : ''}<br>${esc((!p.anyTech && p.tech) || p.bestTech || 'su mejor técnica')} · ${p.memberId === null ? 'no está' : `Nv ${p.have}/${p.need}`}</em></span>`).join('')}</div></div>`).join('')}</div>`;
   }
 
   private pauseModal() {

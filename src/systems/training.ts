@@ -70,14 +70,17 @@ export const trainingUsed = (save: SaveData, id: number) => Object.values(traini
  * What the game uses: rebuilt stats at the player's effective rarity (ascension included), HÉROE bonus and training.
  * `effective` and `hero` come from ascension.ts (passed in to keep this module free of cycles).
  */
-type StatEntry = Pick<RosterEntry, 'id' | 'stats' | 'rarity'> & { position?: string };
+type StatEntry = Pick<RosterEntry, 'id' | 'stats' | 'rarity'> & { position?: string; statFloor?: RosterEntry['statFloor'] };
 
 /** The stats before training: rarity band, position, ascension, HÉROE and hero stars. */
 export function baseStats(save: SaveData, p: StatEntry, effective: Rarity, hero: boolean): Record<StatKey, number> {
   const o = save.owned[String(p.id)];
   const sameRarityAscended = !!o?.ascMitico && effective === p.rarity;
   // Fix 1.31: each hero star adds 1 to every stat
-  return rebuildStats(p.stats, effective, (sameRarityAscended ? 2 : 0) + (hero ? 3 + Math.min(3, o?.heroStars ?? 0) : 0) + CHAMPION_STATS * championLevel(save, p.id), p.position, statCapOf(save, p));
+  const out = rebuildStats(p.stats, effective, (sameRarityAscended ? 2 : 0) + (hero ? 3 + Math.min(3, o?.heroStars ?? 0) : 0) + CHAMPION_STATS * championLevel(save, p.id), p.position, statCapOf(save, p));
+  // 1.83 (author): a stat fixed by hand (Nae's speed 95) is never below that
+  for (const k of STAT_KEYS) { const f = p.statFloor?.[k]; if (f !== undefined && out[k] < f) out[k] = Math.min(statCapOf(save, p), f); }
+  return out;
 }
 
 /** Fix 1.31: how many more training points each stat can still take before reaching 99. */

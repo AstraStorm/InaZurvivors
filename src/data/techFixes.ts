@@ -8,6 +8,14 @@ export const TECH_ELEMENT: Record<string, string> = {
   'Lanza de Odín': 'Bosque',
   'Espada real': 'Montaña',
   'El ojo del huracán': 'Bosque',
+  // 1.83 (author): Lluvia de meteoros is a Fire move (its scene: fireballs raining down), whatever the table said
+  'Lluvia de meteoros': 'Fuego',
+  'Lluvia de Meteoros': 'Fuego',
+};
+
+/** 1.83 (author): a technique's power fixed by its name (lower case), for everyone who has it. */
+export const TECH_POWER: Record<string, number> = {
+  'lluvia de meteoros': 80,
 };
 
 /**
@@ -19,12 +27,14 @@ export const TEAM_ADD: Record<number, { name: string; teams: string[] }> = {
 };
 
 /** Sets the fixed elements and the extra teams; returns how many techniques changed. */
-export function applyTechFixes(m: Manifest, fixes: Record<string, string> = TECH_ELEMENT, teams: typeof TEAM_ADD = TEAM_ADD) {
+export function applyTechFixes(m: Manifest, fixes: Record<string, string> = TECH_ELEMENT, teams: typeof TEAM_ADD = TEAM_ADD, powers: Record<string, number> = TECH_POWER) {
   for (const p of m.roster) { const t = teams[p.id]; if (t && t.name === p.name) p.teams = [...new Set([...t.teams, ...p.teams])]; }
   let changed = 0;
   for (const p of m.roster) for (const t of [...p.techniques, ...(p.heroTech ? [p.heroTech] : [])]) {
     const el = fixes[t.name];
     if (el && t.element !== el) { t.element = el; changed++; }
+    const pw = powers[t.name.toLowerCase()];
+    if (pw !== undefined && t.power !== pw) { t.power = pw; changed++; }
   }
   return changed;
 }

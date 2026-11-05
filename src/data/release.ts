@@ -6,7 +6,7 @@
  */
 import { CHANGELOG } from './changelog';
 
-export const PUBLIC_VERSION = '1.82';
+export const PUBLIC_VERSION = '1.83';
 export const BUILD = CHANGELOG[0].version;
 export const RELEASED = false;
 export const VERSION_LABEL = RELEASED ? `v${PUBLIC_VERSION}` : `v${PUBLIC_VERSION} · pre-lanzamiento`;
@@ -28,6 +28,21 @@ export interface PublicRelease {
 
 /** Public news, newest first. Starts at v1.0: the internal versions before it are not part of the public history. */
 export const PUBLIC_RELEASES: PublicRelease[] = [
+  {
+    version: '1.83', date: '2026-11-05',
+    title: 'InaZurvivors Fix 1.83 — Combinadas nuevas',
+    tagline: 'Seis técnicas combinadas nuevas y técnicas redibujadas como en el anime',
+    intro: 'Un parche sobre la 1.82.',
+    features: [
+      { icon: '🔺', title: 'Triángulo letal', text: 'David Samford, Derek Swing y Daniel Hatch. Y Triángulo letal 2, con Mark, Bobby y Jude.' },
+      { icon: '🔥', title: 'Tornado dirección doble y triple', text: 'Arion y Victor lanzan la doble; con Goldie, la triple.' },
+      { icon: '✨', title: 'Orbe de Perseo', text: 'Clario, Haizaki y Erik Eagle: un tiro de Bosque de 120 de poder.' },
+      { icon: '❄', title: 'Ventisca triple', text: 'Nae, Aiden y Shawn: un tiro de Aire de 100. Nae sube a Épico, con velocidad 95.' },
+      { icon: '🐉', title: 'Técnicas redibujadas', text: 'Tornado dragón, Disparo sagrado, Apisonadora, Mano Diabólica y Lluvia de meteoros, como en sus escenas. Lluvia de meteoros pasa a ser de Fuego, con 80 de poder.' },
+      { icon: '🔗', title: 'Qué técnica subir', text: 'En el HUD se marca la técnica concreta que cuenta para cada combinada y el nivel que necesita. El aviso de combinada nueva es nuevo y ya no da tirones.' },
+    ],
+    start: [],
+  },
   {
     version: '1.82', date: '2026-11-05',
     title: 'InaZurvivors Fix 1.82 — Jefes con peligro',

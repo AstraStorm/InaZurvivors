@@ -15,6 +15,21 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: '9.3', date: '2026-11-05', title: 'Fix 1.83 Combinadas nuevas',
+    features: [
+      'Seis técnicas combinadas nuevas (combos.ts, vínculos en auraBonds.ts), dibujadas desde sus escenas de YouTube (fxCombo183.ts): Triángulo letal (Samford, Swing, Hatch; Bosque 96), Triángulo letal 2 (Mark, Bobby, Jude; Bosque 108), Tornado dirección doble (Arion, Victor; Fuego 110), Tornado dirección triple (Arion, Victor, Goldie; Fuego 130), Orbe de Perseo (Clario, Haizaki, Erik; Bosque 120) y Ventisca triple (Nae, Aiden, Shawn; Aire 100). Niveles: regla del Fix 1.51.',
+      'Redibujadas: Tornado dragón (combinada y la de Kevin: el dragón azul lleva el balón en llamas en la boca), Disparo sagrado (God Break: esfera de luz con rayos y estallido dorado), Apisonadora (mazo dorado gigante que cae), Mano Diabólica (demonio magenta de máscara roja) y Lluvia de meteoros (voltereta y lluvia de bolas de fuego).',
+      'Aviso de combinada nuevo (comboUnlock): banda dorada con retratos en canvas de 64 px (mugCanvas: no se reescala la hoja de retratos, el tirón), nombres, elemento y poder; solo transform/opacity.',
+      'HUD: la combinada marca solo la técnica que cuenta (ComboPart.bestTech: la de más nivel si no pide una concreta) y muestra «🔗NvX» con el nivel que necesita.',
+    ],
+    fixes: [],
+    visuals: [],
+    balance: [
+      'Shiratoya Nae (100417) sube a Épico con velocidad 95 (rosterFixes statFloor, training.ts baseStats).',
+      'Lluvia de meteoros: elemento Fuego y potencia 80 para todos (techFixes TECH_POWER).',
+    ],
+  },
+  {
     version: '9.2', date: '2026-11-05', title: 'Fix 1.82 Jefes con peligro',
     features: [
       'Entrada del jefe (ArenaScene bossWarning/bossEntrance, app bossWarnFx/bossIntroFx, styleBoss.css): BOSS_WARN_SEC (2,4 s, bossKit.ts) antes, alarma con sirena (sfx alarm), velo rojo y tres destellos en el campo, cintas de «⚠ PELIGRO» y «¡PELIGRO!» en el HUD; al llegar, cámara lenta, sacudida fuerte, ondas, columna de luz, sfx bossdrop y una banda roja con «JEFE FINAL · título» y el nombre. El jefe que vuelve en infinito, igual con «¡VUELVE!».',

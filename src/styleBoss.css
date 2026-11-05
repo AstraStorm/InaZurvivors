@@ -146,3 +146,29 @@
   .pz-box { padding: 6px; gap: 3px; } .pz-sw { padding: 2px; }
 }
 @media (max-height: 520px) and (min-width: 600px) { .pz-body { grid-template-columns: 190px 1fr; } }
+
+/* ---------------------------------------------------------------- 1.83: «¡nueva técnica combinada!» */
+.combo-unlock.cu2 { position: fixed; inset: 0; left: 0; top: 0; transform: none; padding: 0; z-index: 57; display: block; background: none; border: 0; box-shadow: none; animation: none; pointer-events: none; overflow: hidden; }
+.combo-unlock.cu2.out { opacity: 0; transform: none; transition: opacity .45s; }
+.cu2-band { position: absolute; left: -10%; right: -10%; top: 22%; height: clamp(110px, 24%, 190px); transform: rotate(-4deg); display: flex; align-items: center; justify-content: center; gap: clamp(12px, 3vw, 40px); overflow: hidden;
+  background: linear-gradient(90deg, #0a0800e6, #5a3a00f0 18%, #c8900e 50%, #5a3a00f0 82%, #0a0800e6);
+  border-top: 4px solid #fff0a0; border-bottom: 4px solid #fff0a0; box-shadow: 0 0 40px #ffd23f88, inset 0 0 40px #000a;
+  animation: cu2Band 2.6s cubic-bezier(.2, .9, .2, 1) both; }
+@keyframes cu2Band { 0% { clip-path: inset(0 100% 0 0); } 12% { clip-path: inset(0 0 0 0); } 100% { clip-path: inset(0 0 0 0); } }
+.cu2-stripes { position: absolute; inset: 0 -60px; background: repeating-linear-gradient(100deg, transparent 0 26px, #ffffff14 26px 30px); animation: biRun .5s linear infinite; }
+.cu2-mugs { position: relative; display: flex; gap: clamp(6px, 1.4vw, 14px); }
+.cu2-mug { display: flex; flex-direction: column; align-items: center; gap: 4px; animation: cu2Mug .5s calc(180ms + var(--i) * 110ms) cubic-bezier(.2, 1.5, .4, 1) both; }
+.cu2-mug canvas, .cu2-mug .mug { display: block; width: clamp(46px, 6vw, 72px) !important; height: clamp(46px, 6vw, 72px) !important; border-radius: 50%; image-rendering: pixelated;
+  background: radial-gradient(circle, #3a2a08, #0a0800); box-shadow: 0 0 0 3px #fff0a0, 0 0 0 5px var(--ec), 0 6px 14px #000a; }
+.cu2-mug small { font-size: 8px; color: #fff8d8; text-shadow: 1px 1px 0 #000; white-space: nowrap; }
+@keyframes cu2Mug { from { opacity: 0; transform: translateY(26px) scale(.5); } }
+.cu2-tx { position: relative; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.cu2-tx small { font-size: clamp(8px, 1.2vw, 12px); letter-spacing: 3px; color: #fff8d8; text-shadow: 2px 2px 0 #000; animation: biSub 2.6s ease-out both; }
+.cu2-tx b { font-weight: normal; font-family: Impact, 'Arial Black', var(--px); font-style: italic; font-size: clamp(26px, 5.4vw, 64px); line-height: 1.05; color: #fff; white-space: nowrap;
+  -webkit-text-stroke: 2px #6a4a00; text-shadow: 4px 4px 0 #2a1a00, 0 0 20px #ffe27a; animation: biName 2.6s cubic-bezier(.2, 1.6, .4, 1) both; }
+.cu2-meta { display: inline-flex; align-items: center; gap: 6px; align-self: flex-start; padding: 3px 10px; border-radius: 6px; font-size: 9px; color: #fff; background: #0a0800aa; box-shadow: inset 0 0 0 1px var(--ec); animation: biSub 2.6s ease-out both; }
+@media (max-width: 620px) { .cu2-band { flex-direction: column; gap: 6px; height: auto; padding: 10px 0; top: 18%; } .cu2-tx { align-items: center; } .cu2-meta { align-self: center; } }
+@media (prefers-reduced-motion: reduce) { .cu2 * { animation-duration: .01ms !important; animation-iteration-count: 1 !important; } }
+
+/* 1.83: the level a combined technique needs, on the technique that counts */
+.pl-need { flex: none; margin-left: 4px; padding: 0 3px; border-radius: 3px; font-style: normal; font-size: 6.5px; line-height: 1.5; color: #2a1a00; background: #ffe24a; }

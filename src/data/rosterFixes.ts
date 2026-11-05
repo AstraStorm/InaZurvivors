@@ -19,12 +19,16 @@ export interface RosterFix {
   cambiar?: Record<string, string>;
   /** unlockLevel by technique name (the run level it appears at is unlockLevel / 6; 100 = only in the shop) */
   nivel?: Record<string, number>;
+  /** 1.83: lowest value of a stat (training.ts baseStats), whatever the rarity band gives */
+  statFloor?: Partial<Record<string, number>>;
 }
 
 export const ROSTER_FIXES: Record<number, RosterFix> = {
   // Fix 1.53 (author): La Tierra is not Mark's own technique (only the combined one with Axel and Shawn); he gets Puño de
   // Furia in its place, usable in a run from level 5
   1: { name: 'Mark Evans', cambiar: { 'La Tierra': 'Puño de Furia' }, nivel: { 'Puño de Furia': 30 } },
+  // 1.83 (author): Nae of Hakuren, the third of the Ventisca triple, goes up to Épico with speed 95
+  100417: { name: 'Shiratoya Nae', rarity: 'epico', statFloor: { speed: 95 } },
 };
 
 /** Applies ROSTER_FIXES in place; returns the problems found (unknown id, name mismatch, technique not found). */
@@ -38,6 +42,7 @@ export function applyRosterFixes(m: Manifest, fixes: Record<number, RosterFix> =
     if (fix.rarity) p.rarity = fix.rarity;
     if (fix.element) p.element = fix.element;
     if (fix.position) p.position = fix.position;
+    if (fix.statFloor) p.statFloor = { ...fix.statFloor };
     if (fix.quitar?.length) p.techniques = p.techniques.filter((t) => !fix.quitar!.includes(t.name));
     for (const [from, to] of Object.entries(fix.cambiar ?? {})) {
       const i = p.techniques.findIndex((t) => t.name === from), t = techByName(to);

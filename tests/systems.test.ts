@@ -728,7 +728,7 @@ describe('combined techniques', () => {
   const cross = COMBOS.find((c) => c.id === 'fuego-cruzado')!;
 
   it('every combo names its source and real participants, and at most a few exist', () => {
-    expect(COMBOS.length).toBeLessThanOrEqual(19); // 1.76: Zero Magnum, La Aurora (Byron) and Súper relámpago added by the author
+    expect(COMBOS.length).toBeLessThanOrEqual(25); // 1.76: Zero Magnum, La Aurora (Byron) and Súper relámpago; 1.83: six more, all added by the author
     for (const c of COMBOS) { expect(c.source).toMatch(/fandom|MyAnimeList|ROM/); expect(c.needs.length).toBeGreaterThanOrEqual(2); }
   });
   it('Fuego cruzado needs Axel (Tornado de fuego 3) and Shawn (Ventisca eterna 5) on the pitch (Fix 1.51)', () => {
@@ -1047,8 +1047,8 @@ describe('reiniciar progreso', () => {
 describe('versión pública y reportes de bugs', () => {
   it('the public news start at v1.0 and no internal version leaks into them', async () => {
     const { PUBLIC_RELEASES, PUBLIC_VERSION, RELEASED, VERSION_LABEL, BUILD, TIKTOK_URL } = await import('../src/data/release');
-    expect(PUBLIC_VERSION).toBe('1.82');
-    expect(PUBLIC_RELEASES.map((r) => r.version)).toEqual(['1.82', '1.81', '1.8', '1.77', '1.76', '1.75', '1.7', '1.66', '1.65', '1.6', '1.53', '1.52', '1.51', '1.5', '1.41', '1.4', '1.32', '1.31', '1.3', '1.22', '1.21', '1.2', '1.12', '1.11', '1.1', '1.0']); // newest first, starting at v1.0
+    expect(PUBLIC_VERSION).toBe('1.83');
+    expect(PUBLIC_RELEASES.map((r) => r.version)).toEqual(['1.83', '1.82', '1.81', '1.8', '1.77', '1.76', '1.75', '1.7', '1.66', '1.65', '1.6', '1.53', '1.52', '1.51', '1.5', '1.41', '1.4', '1.32', '1.31', '1.3', '1.22', '1.21', '1.2', '1.12', '1.11', '1.1', '1.0']); // newest first, starting at v1.0
     expect(PUBLIC_RELEASES.at(-1)!.title).toBe('InaZurvivors v1.0 — ¡Comienza la aventura!');
     expect(JSON.stringify(PUBLIC_RELEASES)).not.toMatch(/\bv?[234]\.\d\b/);
     expect(BUILD).not.toBe('1.0');

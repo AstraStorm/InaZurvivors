@@ -70,6 +70,8 @@ export interface RosterEntry {
   exclusive?: string;
   /** v1.5: the Aura this footballer carries in a run (auras.ts carrierForRun); never in the manifest */
   aura?: import('../systems/auras').AuraLink;
+  /** 1.83: lowest value of a stat whatever the rarity band gives (rosterFixes.ts statFloor) */
+  statFloor?: Partial<Record<string, number>>;
 }
 
 export interface UnitAnim { index: number; mirror: boolean; frames: { f: number; d: number }[] }

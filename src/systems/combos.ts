@@ -25,7 +25,9 @@ export interface ComboDef {
   needs: { player: string; tech?: string; level: number }[];
   cooldownMs: number;
   /** what the special slot does when it fires (each one has its own animation in the scene) */
-  effect: 'tiro-doble' | 'tiro-dragon' | 'tiro-rayo' | 'fenix' | 'tierra' | 'caos' | 'ventisca' | 'tierra-inf' | 'aurora' | 'bigbang' | 'fuego-total' | 'zero' | 'superrayo' | 'gungnir' | 'frente';
+  effect: 'tiro-doble' | 'tiro-dragon' | 'tiro-rayo' | 'fenix' | 'tierra' | 'caos' | 'ventisca' | 'tierra-inf' | 'aurora' | 'bigbang' | 'fuego-total' | 'zero' | 'superrayo' | 'gungnir' | 'frente'
+    // 1.83 (fxCombo183.ts)
+    | 'triangulo' | 'triangulo2' | 'dragon2' | 'tornado-dd' | 'tornado-tc' | 'perseo' | 'ventisca3';
   /** Fix 1.12: when several are learnable at once, the higher one is offered first */
   priority: number;
   source: string;
@@ -43,8 +45,8 @@ export const COMBOS: ComboDef[] = [
   {
     id: 'tornado-dragon', name: 'Tornado dragón', jp: 'ドラゴントルネード', en: 'Dragon Tornado', element: 'Fuego', power: 79,
     needs: [{ player: 'Kevin Dragonfly', tech: 'Remate dragón', level: 3 }, { player: 'Axel Blaze', tech: 'Tornado de fuego', level: 5 }],
-    cooldownMs: 5000, effect: 'tiro-dragon', priority: 5,
-    source: 'Wiki de Inazuma Eleven (fandom), «Dragon Tornado»: Someoka (Kevin) pasa con Dragon Crash al Fire Tornado de Gouenji (Axel). Condición de niveles: diseño de InaZurvivors.',
+    cooldownMs: 5000, effect: 'dragon2', priority: 5, // 1.83 (author): redrawn from its scene (fxCombo183.ts)
+    source: 'Wiki de Inazuma Eleven (fandom), «Dragon Tornado»: Someoka (Kevin) pasa con Dragon Crash al Fire Tornado de Gouenji (Axel). Escena: youtube qMR6_ZrmqAg. Condición de niveles: diseño de InaZurvivors.',
   },
   {
     id: 'ruptura-relampago', name: 'Ruptura relámpago', jp: 'イナズマブレイク', en: 'Inazuma Break', element: 'Aire', power: 99,
@@ -153,6 +155,43 @@ export const COMBOS: ComboDef[] = [
     cooldownMs: 11000, effect: 'tierra-inf', priority: 10,
     source: 'Wiki de Inazuma Eleven (fandom), «The Earth ∞»: Matsukaze Tenma (Arion), Shindou Takuto (Riccardo) y Tsurugi Kyousuke (Victor) en GO Galaxy, episodio 43. Condición de niveles: diseño de InaZurvivors.',
   },
+  // ---- 1.83 (author): six more, drawn from their scenes (fxCombo183.ts); levels by the rule of Fix 1.51
+  {
+    id: 'triangulo-letal', name: 'Triángulo letal', jp: 'デスゾーン', en: 'Death Zone', element: 'Bosque', power: 96,
+    needs: [{ player: 'David Samford', level: 3 }, { player: 'Derek Swing', level: 3 }, { player: 'Daniel Hatch', level: 5 }],
+    cooldownMs: 7500, effect: 'triangulo', priority: 7,
+    source: 'Wiki de Inazuma Eleven (fandom), «Death Zone»: tiro de Bosque de tres del Royal Academy, poder 96 en IE; escena: youtube IXpyALqFnUI. Jugadores indicados por el autor. Condición de niveles: regla del Fix 1.51.',
+  },
+  {
+    id: 'triangulo-letal-2', name: 'Triángulo letal 2', jp: 'デスゾーン２', en: 'Death Zone 2', element: 'Bosque', power: 108,
+    needs: [{ player: 'Mark Evans', level: 3 }, { player: 'Bobby Shearer', level: 3 }, { player: 'Jude Sharp', level: 5 }],
+    cooldownMs: 8000, effect: 'triangulo2', priority: 8,
+    source: 'Wiki de Inazuma Eleven (fandom), «Death Zone 2»: Kidou (Jude), Endou (Mark) y Domon la crean (episodios 56-58); escena: youtube 0Nlev9ss7pQ. Jugadores indicados por el autor (Bobby). Condición de niveles: regla del Fix 1.51.',
+  },
+  {
+    id: 'tornado-dd', name: 'Tornado dirección doble', jp: 'ファイアトルネードＤＤ', en: 'Fire Tornado DD', element: 'Fuego', power: 110,
+    needs: [{ player: 'Arion Sherwind', level: 3 }, { player: 'Victor Blade', level: 5 }],
+    cooldownMs: 6500, effect: 'tornado-dd', priority: 7,
+    source: 'Wiki de Inazuma Eleven (fandom), «Fire Tornado DD»: Tenma (Arion) y Tsurugi (Victor) en GO; escena: youtube l3JRQQ2Yxns. Condición de niveles: regla del Fix 1.51.',
+  },
+  {
+    id: 'tornado-tc', name: 'Tornado dirección triple', jp: 'ファイアトルネードＴＣ', en: 'Fire Tornado TC', element: 'Fuego', power: 130,
+    needs: [{ player: 'Arion Sherwind', level: 3 }, { player: 'Victor Blade', level: 3 }, { player: 'Goldie Lemmon', level: 5 }],
+    cooldownMs: 8500, effect: 'tornado-tc', priority: 9,
+    source: 'Wiki de Inazuma Eleven (fandom), «Fire Tornado TC»: Kinako (Goldie), Tsurugi (Victor) y Tenma (Arion); escena: youtube 4qac5NNVANc. Condición de niveles: regla del Fix 1.51.',
+  },
+  {
+    id: 'orbe-perseo', name: 'Orbe de Perseo', jp: 'ペルセウスオーブ', en: 'Perseus Orb', element: 'Bosque', power: 120,
+    needs: [{ player: 'Clario Orvan', level: 3 }, { player: 'Haizaki Ryouhei', level: 3 }, { player: 'Erik Eagle', level: 5 }],
+    cooldownMs: 8000, effect: 'perseo', priority: 8,
+    source: 'Wiki de Inazuma Eleven (fandom), «Perseus Orb»: tiro de Bosque de tres en Orion no Kokuin (episodio 49); escena: youtube KwXz5Q_oC7I. Potencia 120 indicada por el autor. Condición de niveles: regla del Fix 1.51.',
+  },
+  {
+    id: 'ventisca-triple', name: 'Ventisca triple', jp: 'トリプルブリザード', en: 'Triple Blizzard', element: 'Aire', power: 100,
+    needs: [{ player: 'Shiratoya Nae', level: 3 }, { player: 'Aiden Froste', level: 3 }, { player: 'Shawn Froste', level: 5 }],
+    cooldownMs: 7000, effect: 'ventisca3', priority: 8,
+    source: 'Wiki de Inazuma Eleven (fandom), «Triple Blizzard»: Nae con Atsuya (Aiden) y Shirou (Shawn) Fubuki en Ares (episodio 17); escena: youtube _pngCtDhHFY. Tiro de Aire de potencia 100 indicado por el autor. Condición de niveles: regla del Fix 1.51.',
+  },
 ];
 /**
  * Fix 1.51 (author): other versions of a footballer can stand in for him in every combined technique — his alias in
@@ -185,6 +224,19 @@ const neededTech = (m: OnPitch, tech: string | undefined, player: string) =>
   (tech && (ownsTech(m, tech) || !standsIn(m, player)) ? tech : undefined);
 /** someone other than the named footballer covers the part: a counterpart, himself or carried as Aura */
 const standsIn = (m: OnPitch, player: string) => m.entry.name !== player && m.entry.aura?.name !== player;
+
+/** 1.83: the active technique that counts for a part with no named technique: the highest level, the first slot on a tie */
+function bestActiveName(m: OnPitch): string | undefined {
+  let best: { name: string; lv: number } | undefined;
+  for (const idx of m.state.slots) {
+    if (idx === null || idx === undefined) continue;
+    const t: Technique | undefined = m.entry.techniques[idx];
+    if (!t) continue;
+    const lv = m.state.levels[idx] ?? 1;
+    if (!best || lv > best.lv) best = { name: t.name, lv };
+  }
+  return best?.name;
+}
 
 /** Run level of a named technique in a player's active slots (0 if not active); without a name, their best active one. */
 function activeLevel(m: OnPitch, wanted: string | undefined, player: string) {
@@ -234,7 +286,8 @@ export function comboMembers<T extends OnPitch>(c: ComboDef, team: T[]): T[] {
 export const comboDamage = (c: ComboDef, level: number, mult = 1) => Math.round(c.power * 0.75 * (1 + 0.2 * (level - 1)) * mult);
 
 /** v1.7: one participant of a combination still to learn, with the level he has now and the one he needs. */
-export interface ComboPart { player: string; tech?: string; need: number; have: number; /** 1.81: who covers him lacks the named technique, so any of his counts */ anyTech?: boolean; /** roster id of who covers him (himself or his Aura carrier); null when nobody on the pitch does */ memberId: number | null; viaAura: boolean }
+export interface ComboPart { player: string; tech?: string; need: number; have: number; /** 1.81: who covers him lacks the named technique, so any of his counts */ anyTech?: boolean;
+  /** 1.83: when any technique counts, the one that does now (his highest), so the HUD can point at it */ bestTech?: string; /** roster id of who covers him (himself or his Aura carrier); null when nobody on the pitch does */ memberId: number | null; viaAura: boolean }
 export interface ComboGoal { combo: ComboDef; parts: ComboPart[]; /** every participant on the pitch (or carried as Aura) */ complete: boolean; /** every level reached: the card shows up at the next level-up */ ready: boolean }
 
 /**
@@ -250,7 +303,8 @@ export function comboGoals(team: OnPitch[], learned: Iterable<string> = []): Com
       const self = team.find((x) => playsAs(x.entry.name, n.player));
       const m = self ?? team.find((x) => playsAs(x.entry.aura?.name, n.player));
       return { player: n.player, tech: n.tech, need: n.level, have: m ? activeLevel(m, n.tech, n.player) : 0, memberId: m?.entry.id ?? null, viaAura: !self && !!m,
-        anyTech: !!m && !!n.tech && !neededTech(m, n.tech, n.player) };
+        anyTech: !!m && !!n.tech && !neededTech(m, n.tech, n.player),
+        bestTech: m && (!n.tech || !neededTech(m, n.tech, n.player)) ? bestActiveName(m) : undefined };
     });
     if (!parts.some((p) => p.memberId !== null)) continue;
     const complete = parts.every((p) => p.memberId !== null);
@@ -269,7 +323,8 @@ export function comboHints(goals: ComboGoal[], memberId: number, techName: strin
     if (!g.complete || g.ready) continue;
     for (const p of g.parts) {
       if (p.memberId !== memberId || p.have >= p.need || toLevel <= p.have) continue;
-      if (p.tech && p.tech.toLowerCase() !== techName.toLowerCase() && !p.anyTech) continue;
+      const counts = p.tech && !p.anyTech ? p.tech : p.bestTech; // 1.83: only the technique that counts, not all of his
+      if (counts && counts.toLowerCase() !== techName.toLowerCase()) continue;
       out.push({ name: g.combo.name, need: p.need, reaches: toLevel >= p.need });
       break;
     }
