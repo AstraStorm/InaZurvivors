@@ -15,6 +15,13 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: '9.6', date: '2026-11-05', title: 'Fix 1.86 Más monedas',
+    features: [],
+    fixes: ['Las misiones que daban una copia de un Legendario+ subían además una estrella gratis (missions.claimMission): ya no, las estrellas se compran (1.84).'],
+    visuals: [],
+    balance: ['Monedas ×2 (autor: «más fácil la obtención de monedas»): todo lo que paga una partida (economy.COIN_BOOST, cofres e infinito incluidos), misiones y logros (missions.MISSION_COIN_BOOST) y los días de monedas del pase (1.600 y 3.000). El tope del servidor (migración 20261106000400_coin_cap.sql) deja crecer las monedas el doble: 16.000 + 16.000 por hora entre guardados, 120.000 en la primera copia.'],
+  },
+  {
     version: '9.5', date: '2026-11-05', title: 'Fix 1.85 Recompensa por bugs',
     features: [
       'Recompensa por bugs (migración 20261106000300_bug_bounty.sql): al marcar un reporte «corregido» en el panel (admin_update_bug) su autor gana 100 fichas, una vez por reporte (ir y volver no paga dos veces; los reportes de administradores no pagan). Quedan en private.bug_rewards hasta que el juego las recoge (claim_bug_rewards, al abrir el menú, como mucho una vez por minuto) y se muestra un aviso de agradecimiento; economy_cap las cuenta como los códigos. Noticia fijada en el tablón (bugs-1-85).',

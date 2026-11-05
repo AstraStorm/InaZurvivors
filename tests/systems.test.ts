@@ -399,7 +399,7 @@ describe('missions', () => {
   it('pays each mission once', () => {
     const s = newSave([], null);
     recordRun(s, run, now);
-    expect(claimMission(s, 'l_500')).toBe(120);
+    expect(claimMission(s, 'l_500')).toBe(240); // 1.86: missions pay double coins
     const coins = s.coins;
     expect(claimMission(s, 'l_500')).toBe(0);
     expect(s.coins).toBe(coins);
@@ -411,9 +411,9 @@ describe('missions', () => {
   it('resets daily counters and allows the next day claim, keeping lifetime ones', () => {
     const s = newSave([], null);
     recordRun(s, run, now);
-    expect(claimMission(s, 'd_kills')).toBe(50);
+    expect(claimMission(s, 'd_kills')).toBe(100);
     recordRun(s, run, new Date(2026, 10, 5, 9));
-    expect(claimMission(s, 'd_kills')).toBe(50);
+    expect(claimMission(s, 'd_kills')).toBe(100);
     expect(s.missions.counters.kills).toBe(1200);
   });
   it('weeks start on Monday', () => {
@@ -1044,8 +1044,8 @@ describe('reiniciar progreso', () => {
 describe('versión pública y reportes de bugs', () => {
   it('the public news start at v1.0 and no internal version leaks into them', async () => {
     const { PUBLIC_RELEASES, PUBLIC_VERSION, RELEASED, VERSION_LABEL, BUILD, TIKTOK_URL } = await import('../src/data/release');
-    expect(PUBLIC_VERSION).toBe('1.85');
-    expect(PUBLIC_RELEASES.map((r) => r.version)).toEqual(['1.85', '1.84', '1.83', '1.82', '1.81', '1.8', '1.77', '1.76', '1.75', '1.7', '1.66', '1.65', '1.6', '1.53', '1.52', '1.51', '1.5', '1.41', '1.4', '1.32', '1.31', '1.3', '1.22', '1.21', '1.2', '1.12', '1.11', '1.1', '1.0']); // newest first, starting at v1.0
+    expect(PUBLIC_VERSION).toBe('1.86');
+    expect(PUBLIC_RELEASES.map((r) => r.version)).toEqual(['1.86', '1.85', '1.84', '1.83', '1.82', '1.81', '1.8', '1.77', '1.76', '1.75', '1.7', '1.66', '1.65', '1.6', '1.53', '1.52', '1.51', '1.5', '1.41', '1.4', '1.32', '1.31', '1.3', '1.22', '1.21', '1.2', '1.12', '1.11', '1.1', '1.0']); // newest first, starting at v1.0
     expect(PUBLIC_RELEASES.at(-1)!.title).toBe('InaZurvivors v1.0 — ¡Comienza la aventura!');
     expect(JSON.stringify(PUBLIC_RELEASES)).not.toMatch(/\bv?[234]\.\d\b/);
     expect(BUILD).not.toBe('1.0');

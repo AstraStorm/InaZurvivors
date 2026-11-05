@@ -92,10 +92,10 @@ describe('items, upgrades and coins', () => {
     expect(e.bossTakenMult).toBeCloseTo(0.85);
     expect(e.startXpFrac).toBeCloseTo(0.8);
   });
-  it('a 5-minute boss win pays about half of 1.1 (400+150+60+40+150+100 = 900 then)', () => {
+  it('a 5-minute boss win: about half of 1.1 then, doubled again by 1.86 (COIN_BOOST)', () => {
     const total = computeRewards({ mapId: 'raimon', victory: true, timeSec: 300, kills: 400, minibosses: 2, bossDefeated: true, reachedBoss: true }).reduce((a, r) => a + r.coins, 0);
-    expect(total).toBeLessThan(900 * 0.6);
-    expect(total).toBeGreaterThan(250);
+    expect(total).toBeLessThan(900 * 0.6 * 2);
+    expect(total).toBeGreaterThan(500);
   });
   it('pickup bonuses add up and stop at the cap', () => {
     expect(pickupRadius(5, [5, 5])).toBeLessThanOrEqual(CAPS.pickupMaxPx);

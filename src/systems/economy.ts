@@ -48,6 +48,9 @@ export interface RunResult {
 
 export interface Reward { label: string; coins: number }
 
+/** 1.86 (author: «más fácil la obtención de monedas»): everything a run pays in coins counts double */
+export const COIN_BOOST = 2;
+
 export function computeRewards(r: RunResult, rewardMult = 1): Reward[] {
   const out: Reward[] = [
     // Fix 1.11 halved the coins and Fix 1.13 took about 20% more, so upgrades take real effort (ECONOMIA_1.11.md)
@@ -59,7 +62,7 @@ export function computeRewards(r: RunResult, rewardMult = 1): Reward[] {
   if (r.bossDefeated) out.push({ label: 'Jefe derrotado', coins: Math.round(100 * rewardMult) });
   if (r.victory) out.push({ label: 'Victoria', coins: Math.round(65 * rewardMult) });
   if (r.bonusCoins) out.push({ label: 'Cofres', coins: r.bonusCoins });
-  return out;
+  return out.map((x) => ({ ...x, coins: x.coins * COIN_BOOST }));
 }
 
 /** a run only pays in full when the player really played: an idle captain is beaten before reaching this */

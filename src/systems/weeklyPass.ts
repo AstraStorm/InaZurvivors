@@ -24,10 +24,10 @@ const TEAM_PLUS = { epico: 62, legendario: 33, mitico: 4, leyenda: 1 };
 export const PASS: PassReward[] = [
   { kind: 'fichas', amount: MULTI_COST, label: 'Tirada ×10 (fichas)' },
   { kind: 'jugador', odds: EPIC_PLUS, team: false, label: 'Futbolista Épico o superior' },
-  { kind: 'monedas', amount: 800, label: '800 monedas' },
+  { kind: 'monedas', amount: 1600, label: '1.600 monedas' }, // 1.86: coins doubled
   { kind: 'fichas', amount: MULTI_COST, label: 'Tirada ×10 (fichas)' },
   { kind: 'jugador', odds: EPIC_PLUS, team: false, label: 'Futbolista Épico o superior' },
-  { kind: 'monedas', amount: 1500, label: '1.500 monedas' },
+  { kind: 'monedas', amount: 3000, label: '3.000 monedas' },
   { kind: 'jugador', odds: TEAM_PLUS, team: true, label: 'Épico o superior del equipo que elijas' },
 ];
 

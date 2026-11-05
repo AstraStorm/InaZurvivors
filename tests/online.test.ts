@@ -330,10 +330,10 @@ describe('economy guard of the cloud save (Fix 1.23)', () => {
   it('a forged jump of fichas or coins is cut to what the elapsed time allows; honest growth and spending pass', async () => {
     await db.query(`delete from public.saves where user_id = $1`, [ids.astra]);
     await api('astra', `select public.put_save('{"tokens":999999,"coins":99999999}'::jsonb, 0)`); // first copy: fixed ceilings
-    expect(await coins('astra')).toMatchObject({ t: 5000, c: 60000 });
+    expect(await coins('astra')).toMatchObject({ t: 5000, c: 120000 }); // 1.86: coin ceiling doubled
     await back('astra', '1 minute');
-    await api('astra', `select public.put_save('{"tokens":5100,"coins":60300}'::jsonb, 1)`); // a normal run: untouched
-    expect(await coins('astra')).toMatchObject({ t: 5100, c: 60300 });
+    await api('astra', `select public.put_save('{"tokens":5100,"coins":120300}'::jsonb, 1)`); // a normal run: untouched
+    expect(await coins('astra')).toMatchObject({ t: 5100, c: 120300 });
     await back('astra', '1 minute');
     await api('astra', `select public.put_save('{"tokens":9999999,"coins":10}'::jsonb, 2)`); // console cheat; coins spent
     const cut = await coins('astra');

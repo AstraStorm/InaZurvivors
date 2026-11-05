@@ -262,6 +262,9 @@ export const pendingClaims = (s: SaveData) => MISSIONS.filter((d) => isClaimable
  * Claims every completed, unclaimed mission in one go. Each one goes through claimMission, so nothing can pay twice and
  * unfinished missions are never touched. The caller saves right after.
  */
+/** 1.86 (author): missions and achievements pay double coins */
+export const MISSION_COIN_BOOST = 2;
+
 export function claimAllMissions(s: SaveData, mult = 1, roster?: { id: number; rarity: string }[]): { count: number; coins: number; tokens: number } {
   const out = { count: 0, coins: 0, tokens: 0 };
   for (const d of MISSIONS) {
@@ -278,7 +281,7 @@ export function claimAllMissions(s: SaveData, mult = 1, roster?: { id: number; r
 export function claimMission(s: SaveData, id: string, mult = 1, roster?: { id: number; rarity: string }[]): number {
   const d = MISSIONS.find((x) => x.id === id);
   if (!d || !isClaimable(s, d)) return 0;
-  const coins = Math.round(d.coins * mult);
+  const coins = Math.round(d.coins * mult * MISSION_COIN_BOOST);
   s.missions.claimed.push(claimId(s, d));
   s.coins += coins;
   s.tokens += d.tokens;
@@ -287,7 +290,7 @@ export function claimMission(s: SaveData, id: string, mult = 1, roster?: { id: n
     // the owned Legendary/Mythic with the fewest copies: the copy helps the ascension that is furthest away
     const pick = roster.filter((p) => (p.rarity === 'legendario' || p.rarity === 'mitico' || p.rarity === 'leyenda') && s.owned[String(p.id)])
       .sort((a, b) => s.owned[String(a.id)].copies - s.owned[String(b.id)].copies)[0];
-    if (pick) { const o = s.owned[String(pick.id)]; o.copies += 1; o.stars = Math.min(5, o.stars + 1); s.missions.lastDupe = pick.id; }
+    if (pick) { const o = s.owned[String(pick.id)]; o.copies += 1; s.missions.lastDupe = pick.id; } // 1.86: no free star (stars are bought, 1.84)
   }
   return coins;
 }

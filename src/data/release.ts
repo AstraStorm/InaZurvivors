@@ -6,7 +6,7 @@
  */
 import { CHANGELOG } from './changelog';
 
-export const PUBLIC_VERSION = '1.85';
+export const PUBLIC_VERSION = '1.86';
 export const BUILD = CHANGELOG[0].version;
 export const RELEASED = false;
 export const VERSION_LABEL = RELEASED ? `v${PUBLIC_VERSION}` : `v${PUBLIC_VERSION} · pre-lanzamiento`;
@@ -28,6 +28,17 @@ export interface PublicRelease {
 
 /** Public news, newest first. Starts at v1.0: the internal versions before it are not part of the public history. */
 export const PUBLIC_RELEASES: PublicRelease[] = [
+  {
+    version: '1.86', date: '2026-11-05',
+    title: 'InaZurvivors Fix 1.86 — Más monedas',
+    tagline: 'Las partidas, las misiones y el pase dan el doble de monedas',
+    intro: 'Un parche sobre la 1.85.',
+    features: [
+      { icon: '◉', title: 'Monedas ×2', text: 'Cada partida paga el doble de monedas (eliminaciones, tiempo, minijefes, jefe, victoria, cofres y supervivencia infinita), las misiones y los logros también, y los días de monedas del pase dan 1.600 y 3.000.' },
+      { icon: '🔧', title: 'Arreglo', text: 'Las misiones que regalan una copia de un futbolista ya no suben también una estrella gratis: las estrellas se compran en su ficha.' },
+    ],
+    start: [],
+  },
   {
     version: '1.85', date: '2026-11-05',
     title: 'InaZurvivors Fix 1.85 — Recompensa por bugs',

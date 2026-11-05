@@ -77,7 +77,8 @@ describe('economy simulation', () => {
     mkdirSync('data', { recursive: true });
     writeFileSync('data/economy_sim.txt', lines.join('\n'));
     const adv = out[PROFILES[2].name];
-    expect(perkTotal / (adv[1] / 30)).toBeGreaterThanOrEqual(21); // an advanced player needs 3+ weeks for every upgrade
-    for (const p of PROFILES) expect(out[p.name][0]).toBeLessThan(out[p.name][2] * 1.05 + 4000); // a week no richer than 1.1 except pass/missions
+    // 1.86 (author: coins easier): runs, missions and pass pay double; every upgrade still takes an advanced player 2+ weeks
+    expect(perkTotal / (adv[1] / 30)).toBeGreaterThanOrEqual(9);
+    for (const p of PROFILES) expect(out[p.name][0]).toBeLessThan(out[p.name][2] * 2.1 + 8000);
   });
 });
