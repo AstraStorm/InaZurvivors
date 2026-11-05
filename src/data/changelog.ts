@@ -15,6 +15,11 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: '9.7', date: '2026-11-05', title: 'Fix 1.87 Furia de Oso',
+    features: ['Furia de Oso (Aiden) redibujada desde su escena (youtube Ugffz5OsnEc, 1:46-1:56, fotograma a fotograma con el autor): aura roja y rosa en la mano, zarpazos de llama, tiro en llamas y, al impactar, fondo rojo, X de rayos, la silueta del oso de ojos rojos detrás y el kanji 斬 (fxCombo183.ts bearCharge/bearShot).'],
+    fixes: [], visuals: [], balance: [],
+  },
+  {
     version: '9.6', date: '2026-11-05', title: 'Fix 1.86 Más monedas',
     features: [],
     fixes: ['Las misiones que daban una copia de un Legendario+ subían además una estrella gratis (missions.claimMission): ya no, las estrellas se compran (1.84).'],

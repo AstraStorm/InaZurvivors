@@ -6,7 +6,7 @@
  */
 import { CHANGELOG } from './changelog';
 
-export const PUBLIC_VERSION = '1.86';
+export const PUBLIC_VERSION = '1.87';
 export const BUILD = CHANGELOG[0].version;
 export const RELEASED = false;
 export const VERSION_LABEL = RELEASED ? `v${PUBLIC_VERSION}` : `v${PUBLIC_VERSION} · pre-lanzamiento`;
@@ -28,6 +28,16 @@ export interface PublicRelease {
 
 /** Public news, newest first. Starts at v1.0: the internal versions before it are not part of the public history. */
 export const PUBLIC_RELEASES: PublicRelease[] = [
+  {
+    version: '1.87', date: '2026-11-05',
+    title: 'InaZurvivors Fix 1.87 — Furia de Oso',
+    tagline: 'La Furia de Oso de Aiden, como en el anime',
+    intro: 'Un parche sobre la 1.86.',
+    features: [
+      { icon: '🐻', title: 'Furia de Oso', text: 'Aiden carga un aura roja en la mano y lanza zarpazos de llama; al impactar, el oso aparece detrás de una X de rayos rojos y el corte 斬 lo remata.' },
+    ],
+    start: [],
+  },
   {
     version: '1.86', date: '2026-11-05',
     title: 'InaZurvivors Fix 1.86 — Más monedas',

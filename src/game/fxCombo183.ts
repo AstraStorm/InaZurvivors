@@ -304,11 +304,12 @@ export function blizzardShot(scene: S, ball: Img, lv: number) {
 }
 
 // ================================================================ solo techniques
-export type Solo183 = 'godbreak' | 'dragon';
+export type Solo183 = 'godbreak' | 'dragon' | 'oso';
 export function solo183Of(name: string): Solo183 | null {
   const n = name.trim();
   if (/^disparo sagrado$|god ?break/i.test(n)) return 'godbreak';
   if (/^tornado drag[oó]n$|dragon ?tornado/i.test(n)) return 'dragon';
+  if (/^furia de oso$|kuma ?goroshi ?zan/i.test(n)) return 'oso'; // 1.87
   return null;
 }
 
@@ -323,6 +324,7 @@ function bolts(g: G, r: number, a: number, n: number) {
 }
 export function solo183Charge(scene: S, kind: Solo183, x: number, y: number, lv: number, ms: number) {
   if (kind === 'dragon') { dragonTornadoCharge(scene, { x: x - 30, y: y + 6 }, { x, y }, x + 10, y, lv, ms); return; }
+  if (kind === 'oso') { bearCharge(scene, x, y, lv, ms); return; }
   // Disparo sagrado: a patch of blue sky over him, and the sphere of white-gold light crackling above
   play(scene, x, y - 30, AIR - 3, ms, (g, k) => {
     const a = Math.min(1, k * 3) * (1 - Math.max(0, k - 0.85) * 6);
@@ -338,6 +340,7 @@ export function solo183Charge(scene: S, kind: Solo183, x: number, y: number, lv:
 }
 export function solo183Shot(scene: S, kind: Solo183, ball: Img, lv: number) {
   if (kind === 'dragon') { dragonTornadoShot(scene, ball, lv); return; }
+  if (kind === 'oso') { bearShot(scene, ball, lv); return; }
   const r = 10 + lv * 0.6;
   ride(scene, ball, (g, bx, by, ang, t) => {
     tail(g, bx, by, ang, 80 + lv * 4, r * 1.4, GB_GOLD, 0.4);
@@ -457,5 +460,74 @@ export function meteorShower(scene: S, x: number, y: number, tx: number, ty: num
         g.lineStyle(2, MS_GOLD, 1 - q).strokeCircle(0, 0, 8 + q * 18);
       }
     }, true);
+  });
+}
+
+// ================================================================ Furia de Oso (Aiden, Hissatsu Kuma Goroshi Zan)
+/**
+ * 1.87 (author, Ugffz5OsnEc 1:46-1:56, watched frame by frame): a red-pink aura in his raised hand, flame claws of red and
+ * pink tearing across, the kick in an arc of fire, the ball glowing red; at the impact the screen goes red with a huge X
+ * of light beams, a dark bear silhouette with burning red eyes rises behind it, and the kanji 斬 (cut) is stamped on top.
+ */
+const BR_RED = 0xe0103a, BR_PINK = 0xff7ad8, BR_WHITE = 0xfff0f6, BR_DARK = 0x1a0006;
+/** a flame claw: three curved tongues of fire */
+function flameClaw(g: G, x: number, y: number, ang: number, len: number, a: number) {
+  for (let i = -1; i <= 1; i++) {
+    const c = Math.cos(ang), s = Math.sin(ang), nx = -s, ny = c, o = i * len * 0.18;
+    const x0 = x + nx * o - c * len * 0.5, y0 = y + ny * o - s * len * 0.5, x1 = x + nx * (o + len * 0.12) + c * len * 0.5, y1 = y + ny * (o + len * 0.12) + s * len * 0.5;
+    g.lineStyle(len * 0.16, BR_RED, 0.85 * a).beginPath().moveTo(x0, y0).lineTo((x0 + x1) / 2 + nx * len * 0.12, (y0 + y1) / 2 + ny * len * 0.12).lineTo(x1, y1).strokePath();
+    g.lineStyle(len * 0.06, BR_PINK, a).beginPath().moveTo(x0, y0).lineTo((x0 + x1) / 2 + nx * len * 0.12, (y0 + y1) / 2 + ny * len * 0.12).lineTo(x1, y1).strokePath();
+  }
+}
+/** the bear: a dark silhouette (head, ears, open jaws, shoulders) with red eyes */
+function bearSilhouette(g: G, s: number, a: number) {
+  g.fillStyle(BR_DARK, 0.9 * a);
+  g.fillEllipse(0, 18 * s, 120 * s, 80 * s); // shoulders
+  g.fillCircle(0, -14 * s, 34 * s); // head
+  g.fillCircle(-26 * s, -40 * s, 11 * s).fillCircle(26 * s, -40 * s, 11 * s); // ears
+  g.fillEllipse(0, 4 * s, 40 * s, 30 * s); // snout
+  g.fillStyle(BR_RED, 0.95 * a).fillTriangle(-12 * s, 6 * s, 12 * s, 6 * s, 0, 22 * s); // open jaws
+  g.fillStyle(BR_WHITE, a).fillTriangle(-9 * s, 6 * s, -5 * s, 6 * s, -7 * s, 12 * s).fillTriangle(5 * s, 6 * s, 9 * s, 6 * s, 7 * s, 12 * s); // fangs
+  g.fillStyle(0xff2a2a, a).fillCircle(-12 * s, -20 * s, 3.4 * s).fillCircle(12 * s, -20 * s, 3.4 * s); // eyes
+  g.fillStyle(0xffd0d0, a).fillCircle(-12 * s, -20 * s, 1.4 * s).fillCircle(12 * s, -20 * s, 1.4 * s);
+  g.lineStyle(2, BR_RED, 0.7 * a).strokeCircle(0, -14 * s, 34 * s);
+}
+export function bearCharge(scene: S, x: number, y: number, lv: number, ms: number) {
+  play(scene, x + 6, y - 22, AIR + 1, ms, (g, k, t) => { // the aura in his raised hand
+    const r = (6 + lv * 0.5) * Math.min(1, k * 2.5);
+    g.fillStyle(BR_RED, 0.5).fillCircle(0, 0, r * 2.2);
+    g.fillStyle(BR_PINK, 0.85).fillCircle(0, 0, r * 1.2 + Math.sin(t * 20));
+    g.fillStyle(BR_WHITE, 0.9).fillCircle(0, 0, r * 0.5);
+  }, true);
+  play(scene, x, y - 14, AIR + 2, ms, (g, k) => { // the flame claws tearing across, twice
+    for (const [at, ang] of [[0.3, -0.6], [0.55, 0.5]] as const) {
+      const q = (k - at) / 0.3;
+      if (q < 0 || q > 1) continue;
+      flameClaw(g, (q - 0.5) * 30, 0, ang, 46 + lv * 2, 1 - Math.abs(q - 0.5) * 1.6);
+    }
+  });
+}
+export function bearShot(scene: S, ball: Img, lv: number) {
+  const r = 10 + lv * 0.6;
+  ride(scene, ball, (g, bx, by, ang, t) => { // the ball red-hot in a tongue of red and pink fire
+    const len = 90 + lv * 4;
+    tail(g, bx, by, ang, len, r * 1.8, BR_RED, 0.55);
+    tail(g, bx, by, ang, len * 0.7, r * 0.9, BR_PINK, 0.8);
+    g.fillStyle(BR_RED, 0.6).fillCircle(bx, by, r * 1.6 + Math.sin(t * 18) * 1.5);
+    g.fillStyle(BR_WHITE, 0.95).fillCircle(bx, by, r * 0.8);
+  }, (x, y) => { // the cut: red flash, the X, the bear behind, 斬
+    const R = 70 + lv * 4;
+    play(scene, x, y, AIR + 3, 900, (g, k) => {
+      const a = k < 0.15 ? k / 0.15 : 1 - Math.max(0, k - 0.7) / 0.3;
+      g.fillStyle(0x5a0010, 0.55 * a).fillCircle(0, 0, R * 1.9);
+      g.fillStyle(BR_RED, 0.5 * a).fillCircle(0, 0, R * 1.4);
+      bearSilhouette(g, (R / 60) * (0.9 + k * 0.15), a);
+      const w = R * 1.9 * Math.min(1, k * 4);
+      for (const sg of [1, -1]) { g.lineStyle(9, BR_RED, 0.6 * a).lineBetween(-w, -w * 0.6 * sg, w, w * 0.6 * sg); g.lineStyle(3, BR_WHITE, a).lineBetween(-w, -w * 0.6 * sg, w, w * 0.6 * sg); }
+      g.fillStyle(BR_WHITE, a).fillCircle(0, 0, 9 + lv * 0.4);
+      for (let i = 0; i < 12; i++) { const an = i * 0.524 + k; g.lineStyle(2, BR_PINK, 0.6 * a).lineBetween(Math.cos(an) * R * 0.3, Math.sin(an) * R * 0.3, Math.cos(an) * R * (0.6 + k), Math.sin(an) * R * (0.6 + k)); }
+    });
+    const kanji = scene.add.text(x, y - 4, '斬', { fontFamily: 'serif', fontSize: `${Math.round(R * 0.9)}px`, color: '#ff2a5a', stroke: '#fff0f6', strokeThickness: 4 }).setOrigin(0.5).setDepth(AIR + 4).setScale(1.8).setAlpha(0);
+    scene.tweens.add({ targets: kanji, scale: 1, alpha: 1, duration: 180, delay: 140, ease: 'Back.easeOut', onComplete: () => scene.tweens.add({ targets: kanji, alpha: 0, duration: 400, delay: 380, onComplete: () => kanji.destroy() }) });
   });
 }
