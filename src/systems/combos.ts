@@ -29,7 +29,8 @@ export interface ComboDef {
     // 1.83 (fxCombo183.ts)
     | 'triangulo' | 'triangulo2' | 'dragon2' | 'tornado-dd' | 'tornado-tc' | 'perseo' | 'ventisca3'
     // 1.88
-    | 'cosmico' | 'granexpl' | 'pinguinos-ls' | 'campo';
+    | 'cosmico' | 'granexpl' | 'pinguinos-ls' | 'campo'
+    | 'tormenta-tigre' | 'bestia-trueno' | 'huracan' | 'reaccion' | 'unoparatodos' | 'prime' | 'tripegaso' | 'fenix2' | 'granlobo';
   /** Fix 1.12: when several are learnable at once, the higher one is offered first */
   priority: number;
   source: string;
@@ -60,7 +61,7 @@ export const COMBOS: ComboDef[] = [
   {
     id: 'el-fenix', name: 'El Fénix', jp: 'ザ・フェニックス', en: 'The Phoenix', element: 'Fuego', power: 125,
     needs: [{ player: 'Erik Eagle', level: 3 }, { player: 'Bobby Shearer', level: 3 }, { player: 'Mark Evans', level: 5 }],
-    cooldownMs: 7500, effect: 'fenix', priority: 8,
+    cooldownMs: 7500, effect: 'fenix2', priority: 8, group: 'fenix-pegaso', // 1.88: redrawn; an alternative of Tripegaso
     source: 'MyAnimeList, Ichinose Kazuya (Erik Eagle): «The Phoenix», con Endou (Mark) y Domon (Bobby). Condición de niveles: diseño de InaZurvivors.',
   },
   {
@@ -219,6 +220,31 @@ export const COMBOS: ComboDef[] = [
     cooldownMs: 6500, effect: 'campo', priority: 6,
     source: 'Wiki de Inazuma Eleven (fandom); GO Strikers 2013, «Killer Fields»; escena: youtube Px3uzqGt2pM (desde 0:12). Jugadores, elemento y potencia indicados por el autor. Condición de niveles: regla del Fix 1.51.',
   },
+  // ---- 1.88 (author): more, drawn from their scenes watched frame by frame (fxCombo183.ts); levels by the rule of Fix 1.51
+  { id: 'tormenta-tigre', name: 'Tormenta del tigre', jp: 'タイガーストーム', en: 'Tiger Storm', element: 'Fuego', power: 100,
+    needs: [{ player: 'Axel Blaze', level: 3 }, { player: 'Austin Hobbes', level: 5 }], cooldownMs: 7000, effect: 'tormenta-tigre', priority: 7,
+    source: 'Wiki de Inazuma Eleven (fandom), «Tiger Storm»: Bakunetsu Storm de Gouenji (Axel) y Tiger Drive de Toramaru (Austin); escena youtube cAJYemRVVLs. Poder de la ROM (100).' },
+  { id: 'bestia-trueno', name: 'Bestia del trueno', jp: 'サンダービースト', en: 'Thunder Beast', element: 'Aire', power: 110,
+    needs: [{ player: 'Thor Stoutberg', level: 3 }, { player: 'Shawn Froste', level: 5 }], cooldownMs: 7000, effect: 'bestia-trueno', priority: 7,
+    source: 'Wiki de Inazuma Eleven (fandom), «Thunder Beast» (IE3, episodio 81); escena youtube Xs9O-eehI-E. Jugadores indicados por el autor.' },
+  { id: 'el-huracan', name: 'El huracán', jp: 'ザ・ハリケーン', en: 'The Hurricane', element: 'Aire', power: 100,
+    needs: [{ player: 'Nathan Swift', level: 3 }, { player: 'Shawn Froste', level: 5 }], cooldownMs: 6500, effect: 'huracan', priority: 6,
+    source: 'Wiki de Inazuma Eleven (fandom), «The Hurricane»: Kazemaru (Nathan) y Fubuki (Shawn); escena youtube af5TD_ISrSg.' },
+  { id: 'tiro-reaccion', name: 'Tiro a reacción', jp: 'ジェットストリーム', en: 'Jet Stream', element: 'Aire', power: 120,
+    needs: [{ player: 'Mark Evans', level: 3 }, { player: 'Axel Blaze', level: 3 }, { player: 'Austin Hobbes', level: 5 }], cooldownMs: 8000, effect: 'reaccion', priority: 8,
+    source: 'Wiki de Inazuma Eleven (fandom), «Jet Stream»: Endou (Mark), Gouenji (Axel) y Toramaru (Austin); escena youtube F45DrrGBqac.' },
+  { id: 'uno-para-todos', name: 'Uno para todos', jp: 'ソード・オブ・ダルタニャン', en: 'Sword of d\'Artagnan', element: 'Montaña', power: 105,
+    needs: [{ player: 'Li Hao', level: 3 }, { player: 'Malik Kuabel', level: 3 }, { player: 'Lus Kasim', level: 5 }], cooldownMs: 7500, effect: 'unoparatodos', priority: 7,
+    source: 'Wiki de Inazuma Eleven (fandom), Orion no Kokuin, «Sword of d\'Artagnan» (los mosqueteros: uno para todos); escena youtube _cjicnkWEhw (desde 0:05). Li Hao, Malik y Lus en la escena (Jimmy Wongfu, Martmeli y Oleg según el autor). Elemento y potencia indicados por el autor.' },
+  { id: 'cometa-legendario', name: 'Cometa legendario', jp: 'プライムレジェンド', en: 'Prime Legend', element: 'Aire', power: 115,
+    needs: [{ player: 'Jude Sharp', level: 3 }, { player: 'Axel Blaze', level: 5 }], cooldownMs: 7500, effect: 'prime', priority: 8,
+    source: 'Wiki de Inazuma Eleven (fandom), «Prime Legend»: Kidou (Jude) y Gouenji (Axel); escena youtube yYKkXmp5AzI.' },
+  { id: 'tripegaso', name: 'Tripegaso', jp: 'トライペガサス', en: 'Tri-Pegasus', element: 'Montaña', power: 110,
+    needs: [{ player: 'Erik Eagle', level: 3 }, { player: 'Bobby Shearer', level: 3 }, { player: 'Mark Evans', level: 5 }], cooldownMs: 7500, effect: 'tripegaso', priority: 8, group: 'fenix-pegaso',
+    source: 'Wiki de Inazuma Eleven (fandom), «Tri-Pegasus»: Ichinose (Erik), Domon (Bobby) y Endou (Mark), episodio 21; escena youtube wKoZ4gJcs9w. Alternativa de El Fénix (autor).' },
+  { id: 'gran-lobo', name: 'Gran lobo', jp: 'グランフェンリル', en: 'Gran Fenrir', element: 'Bosque', power: 115,
+    needs: [{ player: 'Dylan Keats', level: 3 }, { player: 'Erik Eagle', level: 3 }, { player: 'Mark Krueger', level: 5 }], cooldownMs: 8000, effect: 'granlobo', priority: 8,
+    source: 'Wiki de Inazuma Eleven (fandom), «Gran Fenrir»: Ichinose (Erik), Mark Kruger y Dylan; escena youtube DWnf-a6fAlM.' },
 ];
 /**
  * Fix 1.51 (author): other versions of a footballer can stand in for him in every combined technique — his alias in

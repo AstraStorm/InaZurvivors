@@ -811,3 +811,269 @@ export function odinSwordShot(scene: S, ball: Img, lv: number) {
     g.fillStyle(SW_WHITE, 1).fillCircle(bx, by, r * 0.55);
   }, (x, y) => burst(scene, x, y, 500, [SW_GOLD, SW_PALE, SW_GREEN], 30 + lv * 2), true);
 }
+
+// ================================================================ 1.88 (author): tigers, beasts, wind, phoenix, wolf…
+/**
+ * Watched frame by frame in the browser:
+ *   Remate del tigre (Tiger Drive, CLd1wejVWBs): a golden aura bursts round the kick and a yellow tiger with green eyes
+ *     leaps out roaring; the ball lands in a column of sand.
+ *   Tormenta del tigre (Tiger Storm, cAJYemRVVLs): Austin's white tiger roars in a whirlwind, the ball climbs into the sky
+ *     as a spark, a figure of fire rises behind Axel and the ball comes down as a huge orange fireball.
+ *   Bestia del trueno (Thunder Beast, Xs9O-eehI-E): a blue lightning ball, then a grey wolf-like beast running in bolts.
+ *   El huracán (The Hurricane, af5TD_ISrSg): a white-blue whirlwind round the two, a sweep of white wind.
+ *   Tiro a reacción (Jet Stream, F45DrrGBqac): a big white tornado with the three inside, a blue starburst.
+ *   Uno para todos (Sword of d'Artagnan, _cjicnkWEhw from 0:05): the three run, a blue ball of light, a blue sword
+ *     orbiting through a starry night, the shot in fire.
+ *   Cometa legendario (Prime Legend, yYKkXmp5AzI): a radiant star in a cyan sphere with pink and blue beams.
+ *   Tripegaso (Tri-Pegasus, wKoZ4gJcs9w): three beams of light meet in a star on the pitch, the ball in a blue sphere.
+ *   El Fénix / Fénix oscuro (b0Ag0WvOCz4, _BENKX6M05M): a bird of fire / of purple flame in a spiral round a light core.
+ *   Gran lobo (Gran Fenrir, DWnf-a6fAlM): a blue wolf runs with the ball, two kick it together in a purple burst.
+ */
+const T_GOLD = 0xffc81a, T_STRIPE = 0x2a1a00, T_EYE = 0x5aff6a, T_SAND = 0xd8b070, T_WHITE = 0xffffff, T_FIRE = 0xff6a1a, T_ORANGE = 0xffa21a;
+const T_BLUE = 0x4aa8ff, T_ICE = 0xcfefff, T_GREY = 0x5a6a7a, T_PINK = 0xff7ad8, T_CYAN = 0x6ae8ff, T_PURPLE = 0xb04aff, T_NIGHT = 0x0a1450;
+
+/** a tiger head facing +x: s = size, open = jaw 0..1 */
+function tigerHead(g: G, s: number, open: number, body: number, a: number) {
+  g.fillStyle(body, a).fillEllipse(0, 0, s * 1.6, s * 1.3);
+  g.fillStyle(body, a).fillTriangle(-s * 0.5, -s * 0.5, -s * 0.15, -s * 0.95, s * 0.05, -s * 0.45); // ear
+  g.fillStyle(T_WHITE, a).fillEllipse(s * 0.45, s * 0.15, s * 0.8, s * 0.6); // muzzle
+  for (let i = 0; i < 3; i++) g.lineStyle(s * 0.08, T_STRIPE, 0.9 * a).lineBetween(-s * 0.55 + i * s * 0.22, -s * 0.55, -s * 0.4 + i * s * 0.22, -s * 0.15);
+  g.fillStyle(T_EYE, a).fillCircle(s * 0.15, -s * 0.2, s * 0.1);
+  g.fillStyle(0xa01010, a).fillTriangle(s * 0.3, s * 0.2, s * 0.85, s * 0.05 + open * s * 0.1, s * 0.85, s * 0.3 + open * s * 0.35); // open jaws
+  g.fillStyle(T_WHITE, a).fillTriangle(s * 0.5, s * 0.15, s * 0.6, s * 0.15, s * 0.55, s * 0.3);
+}
+
+export function tigerCharge(scene: S, x: number, y: number, lv: number, ms: number, white = false) {
+  play(scene, x, y - 14, AIR + 1, ms, (g, k, t) => { // the golden aura bursting round him
+    const a = Math.min(1, k * 3);
+    for (let i = 0; i < 10; i++) { const an = i * 0.628 + t * 2, r = 14 + Math.sin(t * 9 + i) * 3; g.fillStyle(i % 2 ? T_GOLD : T_ORANGE, 0.55 * a).fillTriangle(Math.cos(an - 0.15) * r, Math.sin(an - 0.15) * r, Math.cos(an) * (r + 16 + lv), Math.sin(an) * (r + 16 + lv), Math.cos(an + 0.15) * r, Math.sin(an + 0.15) * r); }
+  }, true);
+  play(scene, x + 6, y - 30, AIR + 2, ms, (g, k) => { // the tiger leaping out roaring
+    if (k < 0.35) return;
+    const q = (k - 0.35) / 0.65;
+    g.save(); g.translateCanvas(q * 20, -q * 6); tigerHead(g, 18 + lv, Math.min(1, q * 2), white ? 0xeef4ff : T_GOLD, Math.min(1, q * 3)); g.restore();
+  });
+}
+export function tigerShot(scene: S, ball: Img, lv: number) {
+  const r = 11 + lv * 0.5;
+  ride(scene, ball, (g, bx, by, ang, t) => {
+    tail(g, bx, by, ang, 80 + lv * 3, r * 1.6, T_GOLD, 0.5);
+    tail(g, bx, by, ang, 60, r * 0.7, T_WHITE, 0.7);
+    g.save(); g.translateCanvas(bx, by); g.rotateCanvas(ang); tigerHead(g, r * 1.6, 0.6 + Math.sin(t * 10) * 0.3, T_GOLD, 1); g.restore();
+  }, (x, y) => play(scene, x, y, AIR + 2, 600, (g, k) => { // the column of sand
+    const a = 1 - k, w = 30 + lv * 2;
+    for (let i = 0; i < 5; i++) g.fillStyle(T_SAND, 0.5 * a).fillEllipse(Math.sin(k * 8 + i) * 5, -i * 12 * (0.4 + k), w * (1 - i * 0.12), 16);
+  }));
+}
+
+export function tigerStormCharge(scene: S, who: P[], x: number, y: number, lv: number, ms: number) {
+  const austin = who[who.length - 1] ?? { x, y }, axel = who[0] ?? { x, y };
+  tigerCharge(scene, austin.x, austin.y, lv, ms * 0.6, true);
+  play(scene, axel.x, axel.y - 20, AIR + 1, ms, (g, k, t) => { // a figure of fire behind Axel
+    if (k < 0.3) return;
+    const a = Math.min(1, (k - 0.3) * 3), h = 46 + lv * 2;
+    for (let i = 0; i < 8; i++) g.fillStyle(i % 2 ? T_FIRE : T_ORANGE, 0.6 * a).fillTriangle(-14 + i * 4, 10, -10 + i * 4 + Math.sin(t * 12 + i) * 4, -h + (i % 3) * 8, -6 + i * 4, 10);
+    g.fillStyle(0xffe08a, 0.8 * a).fillCircle(0, -h * 0.6, 7);
+  }, true);
+  play(scene, x, y - 70, AIR + 2, ms, (g, k) => { // the ball as a spark up in the sky, then the fireball
+    const q = Math.min(1, k * 1.4), r = 4 + q * (14 + lv);
+    g.fillStyle(T_FIRE, 0.6 * q).fillCircle(0, 0, r * 1.6);
+    g.fillStyle(T_ORANGE, 0.9).fillCircle(0, 0, r);
+    g.fillStyle(0xfff4c0, 1).fillCircle(0, 0, r * 0.45);
+  }, true);
+}
+export function fireballShot(scene: S, ball: Img, lv: number) {
+  const r = 12 + lv * 0.6;
+  ride(scene, ball, (g, bx, by, ang, t) => {
+    tail(g, bx, by, ang, 120 + lv * 4, r * 2, T_FIRE, 0.5);
+    tail(g, bx, by, ang, 90, r * 1.1, T_ORANGE, 0.8);
+    g.fillStyle(T_ORANGE, 0.9).fillCircle(bx, by, r * 1.3 + Math.sin(t * 16));
+    g.fillStyle(0xfff4c0, 1).fillCircle(bx, by, r * 0.6);
+  }, (x, y) => burst(scene, x, y, 560, [T_FIRE, T_ORANGE, 0xfff4c0], 36 + lv * 2));
+}
+
+/** a running beast (wolf-like) facing +x, legs moving with t */
+function beast(g: G, s: number, t: number, body: number, mane: number, a: number) {
+  g.fillStyle(body, a).fillEllipse(0, 0, s * 2.4, s);
+  g.fillStyle(body, a).fillEllipse(s * 1.2, -s * 0.35, s * 1.1, s * 0.75); // head
+  g.fillStyle(body, a).fillTriangle(s * 1.55, -s * 0.4, s * 2.05, -s * 0.2, s * 1.55, -s * 0.05); // snout
+  g.fillStyle(body, a).fillTriangle(s * 0.95, -s * 0.65, s * 1.05, -s * 1.15, s * 1.25, -s * 0.7); // ear
+  g.fillStyle(mane, a).fillTriangle(-s * 1.2, -s * 0.2, -s * 2.2, -s * 0.6 + Math.sin(t * 9) * s * 0.2, -s * 1.1, s * 0.2); // tail
+  for (let i = 0; i < 4; i++) { const lx = -s * 0.8 + i * s * 0.55, sw = Math.sin(t * 14 + i * 1.6) * s * 0.35; g.lineStyle(s * 0.22, body, a).lineBetween(lx, s * 0.3, lx + sw, s * 0.95); }
+  g.fillStyle(mane, a).fillEllipse(s * 0.6, -s * 0.3, s * 0.9, s * 0.6);
+  g.fillStyle(0xffffff, a).fillCircle(s * 1.4, -s * 0.45, s * 0.08);
+}
+export function thunderBeastCharge(scene: S, x: number, y: number, lv: number, ms: number) {
+  play(scene, x, y - 18, AIR + 2, ms, (g, k, t) => { // the blue lightning ball
+    const r = (8 + lv) * Math.min(1, k * 2);
+    g.fillStyle(T_BLUE, 0.45).fillCircle(0, 0, r * 2);
+    g.fillStyle(T_ICE, 0.95).fillCircle(0, 0, r);
+    if (((t * 18) | 0) % 2) for (let i = 0; i < 4; i++) { let px = 0, py = 0, an = i * 1.57 + t; g.lineStyle(2, T_ICE, 0.9).beginPath().moveTo(0, 0); for (let s2 = 1; s2 <= 4; s2++) { an += (Math.sin(t * 40 + s2 + i) * 0.6); px = Math.cos(an) * r * (0.8 + s2 * 0.5); py = Math.sin(an) * r * (0.8 + s2 * 0.5); g.lineTo(px, py); } g.strokePath(); }
+  }, true);
+}
+export function beastShot(scene: S, ball: Img, lv: number, body: number, mane: number, glow: number) {
+  const s = 12 + lv * 0.5;
+  ride(scene, ball, (g, bx, by, ang, t) => { // the beast runs carrying the ball in its jaws
+    tail(g, bx, by, ang, 90, s * 1.4, glow, 0.4);
+    g.save(); g.translateCanvas(bx - Math.cos(ang) * s * 1.6, by - Math.sin(ang) * s * 1.6); g.rotateCanvas(ang); beast(g, s, t, body, mane, 0.95); g.restore();
+    if (((t * 18) | 0) % 2) g.lineStyle(2, glow, 0.9).lineBetween(bx - Math.cos(ang) * s * 3, by - Math.sin(ang) * s * 3 - 8, bx - Math.cos(ang) * s * 4 + 6, by - Math.sin(ang) * s * 4 + 6);
+    g.fillStyle(0xffffff, 1).fillCircle(bx, by, s * 0.5);
+  }, (x, y) => burst(scene, x, y, 520, [glow, 0xffffff, body], 32 + lv * 2));
+}
+
+export function windCharge(scene: S, who: P[], x: number, y: number, lv: number, ms: number, big: boolean) {
+  const size = (big ? 46 : 34) + lv * 2;
+  play(scene, x, y - 10, AIR + 1, ms, (g, k, t) => { // a white-blue tornado round them
+    const a = Math.min(1, k * 2.5);
+    for (let i = 0; i < (big ? 9 : 6); i++) { const yy = 10 - i * (big ? 10 : 8), w = size * (0.45 + i * 0.09), ph = t * 7 + i * 0.7; g.lineStyle(4 - i * 0.25, i % 2 ? T_WHITE : T_ICE, 0.75 * a).beginPath().arc(0, yy, w, ph, ph + 3.6).strokePath(); }
+  });
+  if (big) play(scene, x, y - 50, AIR + 2, ms, (g, k) => { // the blue starburst on the kick
+    if (k < 0.75) return;
+    const q = (k - 0.75) / 0.25, R = 30 + lv * 2;
+    for (let i = 0; i < 12; i++) { const an = i * 0.524; g.fillStyle(i % 2 ? T_BLUE : T_CYAN, 0.8 * (1 - q)).fillTriangle(Math.cos(an - 0.1) * R * 0.3, Math.sin(an - 0.1) * R * 0.3, Math.cos(an) * R * (1 + q), Math.sin(an) * R * (1 + q), Math.cos(an + 0.1) * R * 0.3, Math.sin(an + 0.1) * R * 0.3); }
+  }, true);
+  void who;
+}
+export function windShot(scene: S, ball: Img, lv: number) {
+  const r = 10 + lv * 0.5;
+  ride(scene, ball, (g, bx, by, ang, t) => {
+    const c = Math.cos(ang), sn = Math.sin(ang), nx = -sn, ny = c;
+    tail(g, bx, by, ang, 100 + lv * 4, r * 1.8, T_ICE, 0.45);
+    for (let i = 0; i < 6; i++) { const d = i * 16, ph = t * 14 - i; g.lineStyle(2.5, T_WHITE, 0.8 - i * 0.1).beginPath().arc(bx - c * d + nx * Math.sin(ph) * 3, by - sn * d + ny * Math.sin(ph) * 3, r * (1.2 + i * 0.1), ph, ph + 2.6).strokePath(); }
+    g.fillStyle(T_WHITE, 1).fillCircle(bx, by, r * 0.7);
+  }, (x, y) => burst(scene, x, y, 500, [T_ICE, T_BLUE, T_WHITE], 30 + lv * 2), true);
+}
+
+export function swordStarsCharge(scene: S, x: number, y: number, lv: number, ms: number) {
+  play(scene, x, y - 30, AIR - 3, ms, (g, k) => { // the starry night
+    const a = Math.min(1, k * 3) * (1 - Math.max(0, k - 0.85) * 6);
+    g.fillStyle(T_NIGHT, 0.4 * a).fillEllipse(0, 0, 180, 120);
+    for (let i = 0; i < 16; i++) g.fillStyle(T_WHITE, 0.8 * a).fillCircle(Math.cos(i * 2.3) * (20 + (i * 11) % 70), Math.sin(i * 1.7) * (14 + (i * 7) % 45), i % 4 ? 0.9 : 1.6);
+  });
+  play(scene, x, y - 30, AIR + 2, ms, (g, k, t) => { // a blue sword orbiting a ball of light
+    const R = 26 + lv, an = t * 5;
+    g.lineStyle(2, T_BLUE, 0.6).strokeEllipse(0, 0, R * 2.2, R * 0.9);
+    g.save(); g.translateCanvas(Math.cos(an) * R * 1.1, Math.sin(an) * R * 0.45); g.rotateCanvas(an + Math.PI / 2);
+    g.fillStyle(T_CYAN, 0.9).fillTriangle(-3, 0, 3, 0, 0, -26); g.fillStyle(T_WHITE, 1).fillRect(-6, 0, 12, 3); g.restore();
+    g.fillStyle(T_BLUE, 0.5).fillCircle(0, 0, 10 * Math.min(1, k * 2));
+    g.fillStyle(T_WHITE, 0.95).fillCircle(0, 0, 5 * Math.min(1, k * 2));
+  }, true);
+}
+
+export function primeLegendCharge(scene: S, x: number, y: number, lv: number, ms: number) {
+  play(scene, x, y - 40, AIR + 2, ms, (g, k, t) => { // a radiant star in a cyan sphere, pink and blue beams
+    const s2 = Math.min(1, k * 1.5), R = (26 + lv * 2) * s2;
+    for (let i = 0; i < 10; i++) { const an = i * 0.628 + t * 0.4; g.fillStyle(i % 2 ? T_PINK : T_BLUE, 0.45).fillTriangle(Math.cos(an - 0.08) * R * 0.3, Math.sin(an - 0.08) * R * 0.3, Math.cos(an) * R * 3, Math.sin(an) * R * 3, Math.cos(an + 0.08) * R * 0.3, Math.sin(an + 0.08) * R * 0.3); }
+    g.fillStyle(T_CYAN, 0.25).fillCircle(0, 0, R * 1.3);
+    g.lineStyle(2, T_CYAN, 0.7).strokeCircle(0, 0, R * 1.3);
+    g.fillStyle(0xfff4d0, 1).fillCircle(0, 0, R * 0.4);
+  }, true);
+}
+export function starShot(scene: S, ball: Img, lv: number, c1: number, c2: number) {
+  const r = 10 + lv * 0.5;
+  ride(scene, ball, (g, bx, by, ang, t) => {
+    tail(g, bx, by, ang, 110 + lv * 4, r * 1.9, c1, 0.45);
+    tail(g, bx, by, ang, 90, r * 0.9, c2, 0.75);
+    for (let i = 0; i < 6; i++) { const an = i * 1.047 + t * 3; g.lineStyle(2, T_WHITE, 0.8).lineBetween(bx, by, bx + Math.cos(an) * r * 2, by + Math.sin(an) * r * 2); }
+    g.fillStyle(T_WHITE, 1).fillCircle(bx, by, r * 0.8);
+  }, (x, y) => burst(scene, x, y, 520, [c1, c2, T_WHITE], 32 + lv * 2), true);
+}
+
+export function triPegasusCharge(scene: S, who: P[], x: number, y: number, lv: number, ms: number) {
+  play(scene, 0, 0, AIR - 2, ms, (g, k) => { // three beams of light meet in a star on the pitch
+    const a = Math.min(1, k * 2.5);
+    for (const p of who) { g.lineStyle(5, T_BLUE, 0.4 * a).lineBetween(p.x, p.y, x, y); g.lineStyle(2, T_WHITE, 0.9 * a).lineBetween(p.x, p.y, x, y); }
+    g.lineStyle(2, T_WHITE, 0.7 * a).strokeEllipse(x, y, 70 + lv * 3, 30 + lv);
+  }, true);
+  play(scene, x, y - 24, AIR + 2, ms, (g, k) => {
+    if (k < 0.5) return;
+    const q = (k - 0.5) / 0.5, R = (12 + lv) * q;
+    g.fillStyle(T_BLUE, 0.5).fillCircle(0, 0, R * 1.8);
+    g.fillStyle(T_ICE, 0.95).fillCircle(0, 0, R);
+  }, true);
+}
+
+/** El Fénix (fire) and Fénix oscuro (purple): a bird of flame in a spiral round a core of light */
+export function phoenixBird(g: G, s: number, flap: number, c1: number, c2: number, core: number, a: number) {
+  for (const side of [-1, 1]) for (let i = 0; i < 5; i++) {
+    const an = -Math.PI / 2 + side * (0.75 + i * 0.3 + flap * 0.18), len = s * (1.3 + i * 0.12);
+    g.fillStyle(i % 2 ? c1 : c2, 0.85 * a).fillTriangle(side * s * 0.15, 0, Math.cos(an - 0.16) * len, Math.sin(an - 0.16) * len, Math.cos(an + 0.16) * len, Math.sin(an + 0.16) * len);
+  }
+  for (const d of [-0.35, 0, 0.35]) g.fillStyle(d ? c2 : c1, 0.9 * a).fillTriangle(-s * 0.2, s * 0.1, s * 0.2, s * 0.1, d * s * 1.6, s * 1.6); // tail
+  g.fillStyle(c1, a).fillTriangle(-s * 0.18, -s * 0.3, s * 0.18, -s * 0.3, 0, -s * 0.85); // head
+  g.fillStyle(core, a).fillCircle(0, -s * 0.15, s * 0.32); // the core of light
+}
+export function phoenixCharge(scene: S, x: number, y: number, lv: number, ms: number, dark: boolean) {
+  const c1 = dark ? 0x8a2aff : T_FIRE, c2 = dark ? 0xd060ff : T_ORANGE, core = dark ? 0xffd8ff : 0xfff4c0;
+  const size = (k: number) => (24 + lv * 1.5) * Math.min(1, 0.4 + k);
+  play(scene, x, y - 44, AIR + 1, ms, (g, k, t) => { // the spiral of flame
+    const a = Math.min(1, k * 2.5), s = size(k);
+    for (let i = 0; i < 3; i++) { const ph = t * 6 + i * 2.1; g.lineStyle(6 - i, c2, 0.7 * a).beginPath().arc(0, 0, s * (1.3 + i * 0.35), ph, ph + 2.4).strokePath(); }
+  }, true);
+  play(scene, x, y - 44, AIR + 2, ms, (g, k, t) => phoenixBird(g, size(k), Math.sin(t * 10), c1, c2, core, Math.min(1, k * 2.5))); // the bird (solid colours)
+}
+export function phoenixShot(scene: S, ball: Img, lv: number, dark: boolean) {
+  const c1 = dark ? 0x8a2aff : T_FIRE, c2 = dark ? 0xd060ff : T_ORANGE, core = dark ? 0xffd8ff : 0xfff4c0, s = 15 + lv * 0.6;
+  ride(scene, ball, (g, bx, by, ang, t) => {
+    tail(g, bx, by, ang, 100 + lv * 4, s * 1.4, c1, 0.5);
+    g.save(); g.translateCanvas(bx, by); g.rotateCanvas(ang + Math.PI / 2); phoenixBird(g, s, Math.sin(t * 14), c1, c2, core, 0.95); g.restore();
+  }, (x, y) => burst(scene, x, y, 540, [c1, c2, core], 34 + lv * 2));
+}
+
+export function fenrirCharge(scene: S, who: P[], x: number, y: number, lv: number, ms: number) {
+  play(scene, x - 40, y - 20, AIR + 1, ms * 0.6, (g, k, t) => { // the blue wolf running in with the ball
+    const q = k, s = 12 + lv * 0.4;
+    g.save(); g.translateCanvas(q * 40, 0); beast(g, s, t, 0x3a6ad8, 0xcfe0ff, Math.min(1, k * 4)); g.restore();
+  });
+  play(scene, x, y - 30, AIR + 2, ms, (g, k) => { // two kick it together: the purple burst
+    if (k < 0.6) return;
+    const q = (k - 0.6) / 0.4, R = (22 + lv * 2) * (0.5 + q);
+    for (let i = 0; i < 12; i++) { const an = i * 0.524; g.fillStyle(T_PURPLE, 0.6 * (1 - q * 0.5)).fillTriangle(Math.cos(an - 0.15) * R * 0.4, Math.sin(an - 0.15) * R * 0.4, Math.cos(an) * R, Math.sin(an) * R, Math.cos(an + 0.15) * R * 0.4, Math.sin(an + 0.15) * R * 0.4); }
+    g.fillStyle(0xffe8ff, 0.95).fillCircle(0, 0, R * 0.35);
+  }, true);
+  void who;
+}
+
+// solos added in this batch
+export type Solo189 = 'tigre' | 'fenix' | 'fenixoscuro';
+export function solo189Of(name: string): Solo189 | null {
+  const n = name.trim();
+  if (/^remate del tigre$|tiger ?drive/i.test(n)) return 'tigre';
+  if (/^f[eé]nix oscuro$|dark ?phoenix/i.test(n)) return 'fenixoscuro';
+  if (/^f[eé]nix$/i.test(n)) return 'fenix';
+  return null;
+}
+export function solo189Charge(scene: S, k: Solo189, x: number, y: number, lv: number, ms: number) {
+  if (k === 'tigre') tigerCharge(scene, x, y, lv, ms);
+  else phoenixCharge(scene, x, y, lv, ms, k === 'fenixoscuro');
+}
+export function solo189Shot(scene: S, k: Solo189, ball: Img, lv: number) {
+  if (k === 'tigre') tigerShot(scene, ball, lv);
+  else phoenixShot(scene, ball, lv, k === 'fenixoscuro');
+}
+
+// combos added in this batch
+export type Combo189 = 'tormenta-tigre' | 'bestia-trueno' | 'huracan' | 'reaccion' | 'unoparatodos' | 'prime' | 'tripegaso' | 'fenix2' | 'granlobo';
+export const COMBO189: ReadonlySet<string> = new Set(['tormenta-tigre', 'bestia-trueno', 'huracan', 'reaccion', 'unoparatodos', 'prime', 'tripegaso', 'fenix2', 'granlobo']);
+export function combo189Charge(scene: S, e: Combo189, who: P[], x: number, y: number, lv: number, ms: number) {
+  const L = 4 + lv;
+  if (e === 'tormenta-tigre') tigerStormCharge(scene, who, x, y, L, ms);
+  else if (e === 'bestia-trueno') thunderBeastCharge(scene, x, y, L, ms);
+  else if (e === 'huracan') windCharge(scene, who, x, y, L, ms, false);
+  else if (e === 'reaccion') windCharge(scene, who, x, y, L, ms, true);
+  else if (e === 'unoparatodos') swordStarsCharge(scene, x, y, L, ms);
+  else if (e === 'prime') primeLegendCharge(scene, x, y, L, ms);
+  else if (e === 'tripegaso') triPegasusCharge(scene, who, x, y, L, ms);
+  else if (e === 'fenix2') phoenixCharge(scene, x, y, L, ms, false);
+  else if (e === 'granlobo') fenrirCharge(scene, who, x, y, L, ms);
+}
+export function combo189Shot(scene: S, e: Combo189, ball: Img, lv: number) {
+  const L = 4 + lv;
+  if (e === 'tormenta-tigre' || e === 'unoparatodos') fireballShot(scene, ball, L);
+  else if (e === 'bestia-trueno') beastShot(scene, ball, L, T_GREY, 0x9aa8b8, T_BLUE);
+  else if (e === 'huracan' || e === 'reaccion') windShot(scene, ball, L);
+  else if (e === 'prime') starShot(scene, ball, L, T_PINK, T_CYAN);
+  else if (e === 'tripegaso') starShot(scene, ball, L, T_BLUE, T_ICE);
+  else if (e === 'fenix2') phoenixShot(scene, ball, L, false);
+  else if (e === 'granlobo') beastShot(scene, ball, L, 0x3a6ad8, 0xcfe0ff, T_PURPLE);
+}

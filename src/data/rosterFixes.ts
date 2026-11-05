@@ -29,6 +29,10 @@ export const ROSTER_FIXES: Record<number, RosterFix> = {
   1: { name: 'Mark Evans', cambiar: { 'La Tierra': 'Puño de Furia' }, nivel: { 'Puño de Furia': 30 } },
   // 1.83 (author): Nae of Hakuren, the third of the Ventisca triple, goes up to Épico with speed 95
   100417: { name: 'Shiratoya Nae', rarity: 'epico', statFloor: { speed: 95 } },
+  // 1.88 (author): Austin's Remate del tigre from level 1; Gran lobo is a combined technique now, its owners get a talent
+  101719: { name: 'Austin Hobbes', nivel: { 'Remate del tigre': 1 } },
+  101357: { name: 'Dilshod Sobirov', cambiar: { 'Gran lobo': 'Ataque+' } },
+  101524: { name: 'Fubuki Yukio', cambiar: { 'Gran lobo': 'Ataque+' } },
 };
 
 /** Applies ROSTER_FIXES in place; returns the problems found (unknown id, name mismatch, technique not found). */

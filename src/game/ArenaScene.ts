@@ -36,6 +36,7 @@ import { chaosMeteorCharge, chaosMeteorShot, fireStormCharge, fireStormShot, ele
 import { crossfireCharge, crossfireShot } from './fxCross';
 import { dribbleOf, frenteCharge, frenteShot, gungnirCharge, gungnirShot, movieCharge, movieDribble, movieOf, movieShot, rupturaCharge, rupturaShot, superrayoCharge, superrayoShot, zeroCharge, zeroShot } from './fxMovie';
 import { blackAshCharge, blackAshTrail, illusionBall, signatureOf, stormZone } from './fxSignature';
+import { COMBO189, combo189Charge, combo189Shot, solo189Charge, solo189Of, solo189Shot, type Combo189 } from './fxCombo183';
 import { COMBO183, combo183Charge, combo183Shot, combo183Wind, isMeteorShower, judgementHammer, maouHand, meteorShower, solo183Charge, solo183Of, solo183Shot, type Combo183 } from './fxCombo183';
 import { natureArea, natureCharge, natureOf, natureShot, setNatureLowPower } from './fxNature';
 import { animeCharge, animeOf, animeShot, auroraVeil, cometTex, earthBurst, earthCharge, furyFist, breezeStep, chaosBreakCharge, chaosBreakShot, fireBlizzardCharge, fireBlizzardShot, godWindGust } from './fxAnime';
@@ -877,6 +878,8 @@ export class ArenaScene extends Phaser.Scene {
           if (mv) movieCharge(this, mv, ox, oy, lv, recipe.windupSec * 1000);
           const s183 = solo183Of(t.name); // 1.83: Disparo sagrado, Tornado dragón (fxCombo183.ts)
           if (s183) solo183Charge(this, s183, ox, oy, lv, recipe.windupSec * 1000);
+          const s189 = solo189Of(t.name); // 1.88: Remate del tigre, Fénix, Fénix oscuro
+          if (s189) solo189Charge(this, s189, ox, oy, lv, recipe.windupSec * 1000);
           if (mv === 'vibora') this.darkClone(m, recipe.windupSec * 1000); // Víbora de Orión: her dark clone kicks with her
           const fuego = fuegoOf(t.name); // Axel Blaze Encapuchado: Fuego supremo / Fuego total (fxFuego.ts)
           if (fuego === 'supremo') supremoCharge(this, ox, oy, lv, recipe.windupSec * 1000);
@@ -1097,7 +1100,7 @@ export class ArenaScene extends Phaser.Scene {
     const style = fxStyle(t);
     const [c1, c2] = STYLE_COLORS[style];
     // Fix 1.12: the participants send their power to the meeting point and each combination has its own manifestation
-    const wind = COMBO183.has(def.effect) ? combo183Wind(def.effect as Combo183) : def.effect === 'tierra' || def.effect === 'tierra-inf' || def.effect === 'bigbang' || def.effect === 'fuego-total' ? 900 : def.effect === 'caos' || def.effect === 'fenix' || def.effect === 'aurora' || def.effect === 'tiro-doble' || def.effect === 'zero' || def.effect === 'frente' ? 700 : def.effect === 'gungnir' ? 900 : def.effect === 'tiro-rayo' || def.effect === 'superrayo' ? 600 : 360;
+    const wind = COMBO189.has(def.effect) ? 800 : COMBO183.has(def.effect) ? combo183Wind(def.effect as Combo183) : def.effect === 'tierra' || def.effect === 'tierra-inf' || def.effect === 'bigbang' || def.effect === 'fuego-total' ? 900 : def.effect === 'caos' || def.effect === 'fenix' || def.effect === 'aurora' || def.effect === 'tiro-doble' || def.effect === 'zero' || def.effect === 'frente' ? 700 : def.effect === 'gungnir' ? 900 : def.effect === 'tiro-rayo' || def.effect === 'superrayo' ? 600 : 360;
     // v1.5: a participant carried as Aura appears beside its carrier for the technique only, then fades away
     const ghosts: { x: number; y: number }[] = [];
     for (const c of comboCast(def, who)) {
@@ -1149,6 +1152,7 @@ export class ArenaScene extends Phaser.Scene {
     else if (def.effect === 'bigbang') animeCharge(this, 'bigbang', mx, my + 10, 4 + level, wind); // Fix 1.51: the atom and its sun
     else if (def.effect === 'fuego-total') totalCharge(this, mx, my, 4 + level, wind); // the curtain of fire between the three
     else if (COMBO183.has(def.effect)) combo183Charge(this, def.effect as Combo183, who.map((m) => ({ x: m.f.x, y: m.f.y, name: m.entry.name })), mx, my, level, wind); // 1.83
+    else if (COMBO189.has(def.effect)) combo189Charge(this, def.effect as Combo189, who.map((m) => ({ x: m.f.x, y: m.f.y })), mx, my, level, wind); // 1.88
     this.fx.ring(mx, my, 34, c2, 360, 3);
     this.fx.label(mx, my - 30, def.name, '#ffe24a');
     sfx('evolve');
@@ -1196,6 +1200,7 @@ export class ArenaScene extends Phaser.Scene {
         else if (def.effect === 'bigbang') animeShot(this, 'bigbang', ball, 4 + level); // Fix 1.51: immense ball and explosion
         else if (def.effect === 'caos') { if (off > 0) { ball.setVisible(false); aura.setVisible(false); } else chaosBreakShot(this, ball, level); }
         else if (COMBO183.has(def.effect)) combo183Shot(this, def.effect as Combo183, ball, level); // 1.83
+        else if (COMBO189.has(def.effect)) combo189Shot(this, def.effect as Combo189, ball, level); // 1.88
         this.projectiles.push({ ball, aura, x: mx, y: my, vx: Math.cos(ang) * speed, vy: Math.sin(ang) * speed, t: 0,
           traj: twin ? 'espiral' : 'recta' as Trajectory, style: twin && off > 0 ? 'hielo' : style,
           // 1.76: Big Bang explodes on the first rival it touches, over the area its explosion is drawn on (it pierced
@@ -1332,6 +1337,8 @@ export class ArenaScene extends Phaser.Scene {
       if (mv && k === 0) movieShot(this, mv, ball, lv);
       const s183 = solo183Of(t.name);
       if (s183 && k === 0) solo183Shot(this, s183, ball, lv);
+      const s189 = solo189Of(t.name);
+      if (s189 && k === 0) solo189Shot(this, s189, ball, lv);
       // Fix 1.51: Big Bang always explodes, over twice the usual area (its explosion fills the screen)
       const bigBang = anime === 'bigbang';
       this.projectiles.push({ ball, aura, x, y, vx, vy, t: 0, traj, style, damage: s.damage, pierce: bigBang ? 0 : s.pierce, life: 1500,
