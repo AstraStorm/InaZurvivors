@@ -290,3 +290,5 @@
 .sq-rars button.rar { font: inherit; font-size: 8px; padding: 3px 7px; border: 0; cursor: pointer; opacity: .45; filter: saturate(.5); }
 .sq-rars button.rar.on { opacity: 1; filter: none; box-shadow: 0 0 0 2px #fff; }
 .cb2-pill { white-space: nowrap; }
+/* the chain link between the faces, as before (author) */
+.cb2-link { width: auto; height: auto; margin: 0 1px 12px; background: none; border-radius: 0; font-style: normal; font-size: 14px; line-height: 1; font-family: 'Segoe UI Emoji', 'Apple Color Emoji', 'Noto Color Emoji', sans-serif; }

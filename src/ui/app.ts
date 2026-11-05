@@ -2468,7 +2468,7 @@ export class App {
         const self = squad.some((q) => playsAs(q.name, n.player)), viaKey = !self ? [...carrierOfName.keys()].find((an) => playsAs(an, n.player)) : undefined;
         const via = viaKey ? carrierOfName.get(viaKey) : undefined, here = self || !!via;
         return `<span class="cb2-who${here ? '' : ' miss'}${via ? ' via-aura' : ''}" title="${esc(n.player)}${n.tech ? ` · ${esc(n.tech)}` : ''} · Nv ${n.level}${via ? ` (Aura de ${esc(via)})` : here ? '' : ' (no está)'}">${x ? this.mug(x.id, 40) : ''}<em>Nv${n.level}</em></span>`;
-      }).join('<i class="cb2-link"></i>');
+      }).join('<i class="cb2-link">🔗</i>');
       // 1.88 (author: less text): name, element, power and one state pill
       return `<div class="cb2${c.ready ? ' ready' : ''}${c.viaAura.length ? ' with-aura' : ''}" style="--ec:${ELEMENT_COLOR[c.combo.element] ?? '#ffe27a'}">
         <div class="cb2-team">${who}</div>
@@ -5034,7 +5034,7 @@ export class App {
     // 1.88 (author: less text): each participant with his level now / needed, ✔ when reached; one state pill
     return `<h3>Técnicas combinadas</h3><div class="cb2-grid">${goals.map((g) => {
       const def = COMBOS.find((c) => c.id === g.id);
-      const parts = g.parts.map((p) => `<span class="cb2-who${p.memberId === null ? ' miss' : p.have >= p.need ? ' ok' : ''}" title="${esc(p.player)} · ${esc((!p.anyTech && p.tech) || p.bestTech || 'su mejor técnica')}">${p.memberId !== null ? this.mug(p.memberId, 40) : '<i class="cb2-q">?</i>'}<em>${p.memberId === null ? '—' : p.have >= p.need ? '✔' : `${p.have}/${p.need}`}</em></span>`).join('<i class="cb2-link"></i>');
+      const parts = g.parts.map((p) => `<span class="cb2-who${p.memberId === null ? ' miss' : p.have >= p.need ? ' ok' : ''}" title="${esc(p.player)} · ${esc((!p.anyTech && p.tech) || p.bestTech || 'su mejor técnica')}">${p.memberId !== null ? this.mug(p.memberId, 40) : '<i class="cb2-q">?</i>'}<em>${p.memberId === null ? '—' : p.have >= p.need ? '✔' : `${p.have}/${p.need}`}</em></span>`).join('<i class="cb2-link">🔗</i>');
       return `<div class="cb2${g.ready ? ' ready' : ''}" style="--ec:${ELEMENT_COLOR[def?.element ?? ''] ?? '#ffe27a'}"><div class="cb2-team">${parts}</div>
         <div class="cb2-info"><b>${esc(g.name)}</b><span class="cb2-tags">${g.ready ? '<em class="cb2-pill ok">¡Lista!</em>' : g.complete ? '<em class="cb2-pill">Sube niveles</em>' : '<em class="cb2-pill off">Falta gente</em>'}</span></div></div>`;
     }).join('')}</div>`;
