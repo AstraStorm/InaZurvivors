@@ -242,3 +242,8 @@
 .sp-opt .sp-add b { font-size: 11px; color: #ffe24a; font-weight: normal; } .sp-opt .sp-add span { font-size: 9px; } .sp-opt .sp-add em { font-style: normal; color: #7fff9a; } .sp-opt .sp-add small { font-size: 7px; color: var(--muted); }
 .sp-opt .sp-rm { position: absolute; top: 4px; right: 4px; font: inherit; font-size: 8px; padding: 2px 6px; border: 0; border-radius: 6px; cursor: pointer; color: #fff; background: #b8323a; }
 .rw-all.asc-all { background: linear-gradient(180deg, #ff9a3a, #c04a10); }
+/* 1.88: replies to bug reports */
+.bug-reply { margin: 4px 0 0; padding: 6px 8px; border-radius: 6px; background: #0f2552; box-shadow: inset 3px 0 0 #7fd3ff; font-size: 9px; line-height: 1.5; color: #e8f0ff; white-space: pre-wrap; }
+.bn-list em.bn-ok, .bn-list em.bn-no, .bn-list em.bn-rev { float: right; font-style: normal; font-size: 8px; padding: 1px 6px; border-radius: 4px; }
+.bn-list em.bn-ok { color: #0a2a10; background: #7fff9a; } .bn-list em.bn-no { color: #fff; background: #b8323a; } .bn-list em.bn-rev { color: #0a1433; background: #ffd23f; }
+#adreply { width: 100%; resize: vertical; font-family: inherit; }

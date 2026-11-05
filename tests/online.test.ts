@@ -309,6 +309,23 @@ describe('reportar un bug (database)', () => {
     await expect(api('beto', `select * from private.bug_rewards`)).rejects.toThrow();
     expect(all.length).toBeGreaterThan(0);
   });
+  it('1.88: a reply, or a report fixed or discarded, reaches the reporter once; the private notes never do', async () => {
+    const mine = (await api('beto', `select code from public.my_bug_reports()`)).rows as { code: string }[];
+    const [a, b] = [mine[0].code, mine[1].code];
+    await api('beto', `select * from public.claim_bug_notices()`); // nothing left from earlier tests
+    await api('carla', `select public.admin_update_bug($1, null, 'nota privada', 'Gracias, ya lo estamos mirando')`, [a]);
+    await api('carla', `select public.admin_update_bug($1, 'descartado', null, null)`, [b]);
+    const got = (await api('beto', `select * from public.claim_bug_notices() order by code`)).rows as { code: string; status: string; reply: string }[];
+    expect(got.map((r) => r.code).sort()).toEqual([a, b].sort());
+    expect(got.find((r) => r.code === a)!.reply).toBe('Gracias, ya lo estamos mirando');
+    expect(got.find((r) => r.code === b)!.status).toBe('descartado');
+    expect(JSON.stringify(got)).not.toMatch(/nota privada/);
+    expect((await api('beto', `select * from public.claim_bug_notices()`)).rows).toEqual([]); // once
+    await api('carla', `select public.admin_update_bug($1, null, 'otra nota', null)`, [a]); // notes alone: no notice
+    expect((await api('beto', `select * from public.claim_bug_notices()`)).rows).toEqual([]);
+    expect((await api('beto', `select reply from public.my_bug_reports() where code = $1`, [a])).rows[0]).toEqual({ reply: 'Gracias, ya lo estamos mirando' });
+    await expect(api('beto', `select public.admin_update_bug($1, null, null, 'hack')`, [a])).rejects.toThrow(/forbidden/);
+  });
   it("screenshots must be the sender's own uploaded file; the notice can be claimed once", async () => {
     await db.exec(`delete from public.bug_reports where user_id = '${ids.carla}'`);
     const mine = `${ids.carla}/31000000-0000-0000-0000-000000000001.webp`;

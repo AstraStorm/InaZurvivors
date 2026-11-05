@@ -704,83 +704,109 @@ export function detonadorShot(scene: S, ball: Img, lv: number) {
 
 // ================================================================ 1.88 (author): Excalibur (Edgar) and Espada de Odín (Paolo)
 /**
- *   Excalibur (qAc6rNN8e2Q, aEw4UmIPOiw): a blue sky, rings of golden runes spiralling round the ball as it rises, and a
- *     beam of cyan-white light shaped like a sword blade that carries it.
- *   Espada de Odín (2lVyzSe9TE8, 52OhGClmcNM): a glowing magic circle of runes, green and gold, on the ground; the heel goes
- *     up high and comes down in a golden burst, and the ball leaves as a slash of light, the edge of a great sword.
+ * Watched frame by frame in the browser with the author:
+ *   Excalibur (aEw4UmIPOiw): an overhead kick; a tall helix of golden runes rises round a beam of cyan-white light, then a
+ *     giant sword of translucent cyan crystal, its blade inscribed with golden runes, comes down and splits the pitch;
+ *     the ground tears up in spikes of earth all the way to the goal.
+ *   Espada de Odín (2lVyzSe9TE8): a starry deep-blue sky; a magic circle (a green ring, Norse runes in gold, a bright core)
+ *     opens under him as he flips; a huge golden sword sweeps across between rays of light, and the ball flies as that
+ *     golden blade.
  */
-const SW_GOLD = 0xffd23f, SW_PALE = 0xfff4b0, SW_CYAN = 0x8af0ff, SW_WHITE = 0xffffff, SW_SKY = 0x3a8ad8, SW_GREEN = 0x7affa0;
+const SW_GOLD = 0xffd23f, SW_PALE = 0xfff4b0, SW_CYAN = 0x8af0ff, SW_WHITE = 0xffffff, SW_SKY = 0x3a8ad8, SW_GREEN = 0x5aff9a;
+const SW_NIGHT = 0x0a1450, SW_EARTH = 0x8a6a3a, SW_DIRT = 0xc8a46a;
 
-/** a ring of rune marks (short ticks and dots) round 0,0 */
-function runeRing(g: G, r: number, ph: number, color: number, a: number, squash = 1) {
-  const n = Math.max(10, Math.round(r * 0.9));
+/** Norse-looking rune marks round 0,0 (a squashed ring when `squash` < 1) */
+function runeRing(g: G, r: number, ph: number, color: number, a: number, squash = 1, w = 1.8) {
+  const n = Math.max(10, Math.round(r * 0.6));
   for (let i = 0; i < n; i++) {
-    const an = ph + (i / n) * Math.PI * 2, x = Math.cos(an) * r, y = Math.sin(an) * r * squash;
-    if (i % 3 === 0) g.fillStyle(color, a).fillCircle(x, y, 1.4);
-    else g.lineStyle(1.6, color, a).lineBetween(x - Math.sin(an) * 2.4, y + Math.cos(an) * 2.4 * squash, x + Math.sin(an) * 2.4, y - Math.cos(an) * 2.4 * squash);
+    const an = ph + (i / n) * Math.PI * 2, x = Math.cos(an) * r, y = Math.sin(an) * r * squash, tx = -Math.sin(an), ty = Math.cos(an) * squash;
+    const h = 3.2, k = i % 4;
+    g.lineStyle(w, color, a).lineBetween(x - Math.cos(an) * h, y - Math.sin(an) * h * squash, x + Math.cos(an) * h, y + Math.sin(an) * h * squash); // the stave
+    if (k === 0) g.lineBetween(x + Math.cos(an) * h, y + Math.sin(an) * h * squash, x + tx * 2.4, y + ty * 2.4);
+    else if (k === 1) g.lineBetween(x - tx * 2.2, y - ty * 2.2, x + tx * 2.2 + Math.cos(an) * 2, y + ty * 2.2 + Math.sin(an) * 2 * squash);
+    else if (k === 2) g.lineBetween(x, y, x + tx * 2.6, y + ty * 2.6 - Math.sin(an) * 2);
   }
+}
+/** a sword lying from (0,0) along +x: blade length L, width W; `runes` writes gold marks along it */
+function swordShape(g: G, L: number, W: number, blade: number, edge: number, a: number, runes: boolean) {
+  const V = (x: number, y: number) => new Phaser.Math.Vector2(x, y);
+  g.fillStyle(blade, 0.55 * a).fillPoints([V(0, -W), V(L * 0.85, -W * 0.8), V(L, 0), V(L * 0.85, W * 0.8), V(0, W)], true);
+  g.fillStyle(edge, 0.8 * a).fillPoints([V(0, -W * 0.25), V(L * 0.9, -W * 0.15), V(L, 0), V(L * 0.9, W * 0.15), V(0, W * 0.25)], true);
+  g.lineStyle(1.5, SW_WHITE, 0.8 * a).strokePoints([V(0, -W), V(L * 0.85, -W * 0.8), V(L, 0), V(L * 0.85, W * 0.8), V(0, W)], true);
+  if (runes) for (let i = 1; i < 9; i++) { const x = L * 0.08 * i; g.lineStyle(1.4, SW_GOLD, 0.9 * a).lineBetween(x, -W * 0.55, x, W * 0.55).lineBetween(x, -W * 0.2, x + 3, -W * 0.5); }
+  g.fillStyle(SW_GOLD, a).fillRect(-4, -W * 2, 6, W * 4); // the crossguard
+  g.fillStyle(0x6a4a10, a).fillRect(-W * 2.4, -W * 0.35, W * 2.4, W * 0.7); // the grip
+  g.fillStyle(SW_GOLD, a).fillCircle(-W * 2.6, 0, W * 0.5); // the pommel
 }
 
 export function excaliburCharge(scene: S, x: number, y: number, lv: number, ms: number) {
   play(scene, x, y - 30, AIR - 3, ms, (g, k) => { // a patch of blue sky over him
     const a = Math.min(1, k * 3) * (1 - Math.max(0, k - 0.85) * 6);
-    for (let i = 0; i < 3; i++) g.fillStyle(SW_SKY, (0.18 - i * 0.04) * a).fillEllipse(0, 0, 170 - i * 30, 110 - i * 20);
+    for (let i = 0; i < 3; i++) g.fillStyle(SW_SKY, (0.2 - i * 0.04) * a).fillEllipse(0, 0, 170 - i * 30, 120 - i * 20);
   });
-  play(scene, x, y - 20, AIR + 2, ms, (g, k, t) => { // golden rune rings spiralling up round the rising ball
-    const by = -k * 34, a = Math.min(1, k * 3);
-    for (let i = 0; i < 4; i++) {
-      const r = (12 + i * 6) * (1 + lv * 0.02), yy = by + 10 - i * 7;
-      g.save(); g.translateCanvas(0, yy); runeRing(g, r, t * (3 + i) * (i % 2 ? -1 : 1), SW_GOLD, 0.85 * a, 0.45); g.restore();
+  play(scene, x, y - 14, AIR + 2, ms, (g, k, t) => { // a tall helix of golden runes round the cyan beam
+    const a = Math.min(1, k * 3), top = -60 * Math.min(1, k * 1.4);
+    g.fillStyle(SW_CYAN, 0.35 * a).fillRect(-5, top, 10, -top);
+    g.fillStyle(SW_WHITE, 0.8 * a).fillRect(-1.5, top, 3, -top);
+    for (let i = 0; i < 6; i++) {
+      const yy = top * (i / 5), r = 16 + Math.sin(i * 1.3 + t * 4) * 3 + lv * 0.3;
+      g.save(); g.translateCanvas(0, yy); runeRing(g, r, t * 3 * (i % 2 ? -1 : 1) + i, SW_GOLD, 0.9 * a, 0.35, 1.5); g.restore();
     }
-    g.fillStyle(SW_CYAN, 0.5 * a).fillCircle(0, by, 9);
-    g.fillStyle(SW_WHITE, 0.95 * a).fillCircle(0, by, 4.5);
+    g.fillStyle(SW_WHITE, a).fillCircle(0, top, 4.5);
   }, true);
 }
 export function excaliburShot(scene: S, ball: Img, lv: number) {
-  const r = 9 + lv * 0.4;
-  ride(scene, ball, (g, bx, by, ang, t) => { // a blade of cyan-white light: wide at the hilt, a sharp point at the ball
-    const c = Math.cos(ang), sn = Math.sin(ang), nx = -sn, ny = c, len = 110 + lv * 4, w = r * 1.4;
-    const hx = bx - c * len, hy = by - sn * len;
-    g.fillStyle(SW_CYAN, 0.45).fillPoints([new Phaser.Math.Vector2(bx + c * r, by + sn * r), new Phaser.Math.Vector2(hx + nx * w, hy + ny * w), new Phaser.Math.Vector2(hx - nx * w, hy - ny * w)], true);
-    g.fillStyle(SW_WHITE, 0.85).fillPoints([new Phaser.Math.Vector2(bx + c * r * 0.6, by + sn * r * 0.6), new Phaser.Math.Vector2(hx + nx * w * 0.35, hy + ny * w * 0.35), new Phaser.Math.Vector2(hx - nx * w * 0.35, hy - ny * w * 0.35)], true);
-    g.lineStyle(4, SW_GOLD, 0.9).lineBetween(hx + nx * w * 1.6, hy + ny * w * 1.6, hx - nx * w * 1.6, hy - ny * w * 1.6); // the crossguard
-    g.save(); g.translateCanvas(bx - c * len * 0.5, by - sn * len * 0.5); runeRing(g, r * 1.8, t * 6, SW_GOLD, 0.6, 0.5); g.restore();
+  const r = 9 + lv * 0.3;
+  let first = true;
+  ride(scene, ball, (g, bx, by, ang, t) => {
+    if (first) { // the giant crystal sword comes down in front of him and splits the pitch
+      first = false;
+      const sx = bx, sy = by;
+      play(scene, sx, sy, AIR + 1, 700, (gg, k) => {
+        const fall = Math.min(1, k / 0.35), a = 1 - Math.max(0, k - 0.6) * 2.5;
+        gg.save(); gg.translateCanvas(Math.cos(ang) * 30, Math.sin(ang) * 30 - 80 * (1 - fall)); gg.rotateCanvas(ang + (1 - fall) * -1.2);
+        swordShape(gg, 90, 9, SW_CYAN, SW_WHITE, a, true); gg.restore();
+        if (fall >= 1) { const q = (k - 0.35) / 0.65; gg.lineStyle(3, SW_CYAN, 0.8 * (1 - q)).strokeEllipse(Math.cos(ang) * 40, Math.sin(ang) * 40, 60 * (0.4 + q), 24 * (0.4 + q)); }
+      });
+    }
+    // the tear in the ground behind the ball: spikes of earth along its path
+    const c = Math.cos(ang), sn = Math.sin(ang), nx = -sn, ny = c;
+    for (let i = 0; i < 8; i++) {
+      const d = 10 + i * 12, side = i % 2 ? 1 : -1, h = 6 + ((i * 7 + Math.floor(t * 20)) % 5) * 2;
+      const px = bx - c * d + nx * side * 5, py = by - sn * d + ny * side * 5 + 8;
+      g.fillStyle(i % 3 ? SW_EARTH : SW_DIRT, 0.85 - i * 0.08).fillTriangle(px - 4, py, px + 4, py, px + side * 2, py - h);
+    }
+    tail(g, bx, by, ang, 70, r * 1.3, SW_CYAN, 0.5);
     g.fillStyle(SW_WHITE, 1).fillCircle(bx, by, r * 0.7);
-  }, (x, y) => play(scene, x, y, AIR + 2, 520, (g, k) => { // a cross of light where it lands
-    const a = 1 - k, R = 30 + lv * 2;
-    g.lineStyle(6, SW_CYAN, 0.8 * a).lineBetween(-R * (0.5 + k), 0, R * (0.5 + k), 0).lineBetween(0, -R * (0.7 + k * 1.2), 0, R * (0.5 + k));
-    g.lineStyle(2.5, SW_WHITE, a).lineBetween(-R * (0.5 + k), 0, R * (0.5 + k), 0).lineBetween(0, -R * (0.7 + k * 1.2), 0, R * (0.5 + k));
-    g.lineStyle(3, SW_GOLD, 0.8 * a).strokeCircle(0, 0, R * (0.3 + k));
-  }, true), true);
+  }, (x, y) => burst(scene, x, y, 520, [SW_CYAN, SW_DIRT, SW_WHITE], 30 + lv * 2));
 }
 
 export function odinSwordCharge(scene: S, x: number, y: number, lv: number, ms: number) {
-  play(scene, x, y + 4, y - 2, ms, (g, k, t) => { // the magic circle of runes on the ground
-    const a = Math.min(1, k * 3) * (1 - Math.max(0, k - 0.85) * 6), R = 34 + lv;
-    g.lineStyle(2.5, SW_GREEN, 0.8 * a).strokeEllipse(0, 0, R * 2, R * 0.9);
+  play(scene, x, y - 20, AIR - 3, ms, (g, k, t) => { // a starry deep-blue sky
+    const a = Math.min(1, k * 3) * (1 - Math.max(0, k - 0.85) * 6);
+    for (let i = 0; i < 3; i++) g.fillStyle(SW_NIGHT, (0.4 - i * 0.08) * a).fillEllipse(0, 0, 190 - i * 30, 130 - i * 20);
+    for (let i = 0; i < 18; i++) g.fillStyle(SW_WHITE, (0.5 + (i % 3) * 0.2) * a).fillCircle(Math.cos(i * 2.4) * (30 + (i * 13) % 60), Math.sin(i * 1.9) * (20 + (i * 7) % 40), i % 4 ? 0.9 : 1.6 + Math.sin(t * 6 + i) * 0.4);
+  });
+  play(scene, x, y + 4, AIR - 2, ms, (g, k, t) => { // the magic circle: green ring, gold runes, a bright core
+    const a = Math.min(1, k * 3) * (1 - Math.max(0, k - 0.85) * 6), R = 38 + lv;
+    g.lineStyle(3, SW_GREEN, 0.9 * a).strokeEllipse(0, 0, R * 2.2, R);
     g.lineStyle(1.5, SW_GOLD, 0.8 * a).strokeEllipse(0, 0, R * 1.55, R * 0.7);
-    runeRing(g, R * 0.88, t * 1.5, SW_GREEN, 0.9 * a, 0.45);
-    for (let i = 0; i < 6; i++) { const an = t + i * 1.047; g.lineStyle(1.5, SW_GOLD, 0.6 * a).lineBetween(Math.cos(an) * R * 0.78, Math.sin(an) * R * 0.35, Math.cos(an + 2.094) * R * 0.78, Math.sin(an + 2.094) * R * 0.35); } // a star
+    runeRing(g, R * 0.93, t * 0.8, SW_GOLD, 0.95 * a, 0.45, 2);
+    runeRing(g, R * 0.62, -t * 1.2, SW_GOLD, 0.8 * a, 0.45, 1.4);
+    g.fillStyle(SW_PALE, 0.7 * a).fillEllipse(0, 0, R * 0.6, R * 0.26);
   }, true);
-  play(scene, x, y - 10, AIR + 2, ms, (g, k) => { // the heel coming down in a golden burst
-    if (k < 0.7) { const q = k / 0.7; g.lineStyle(3, SW_PALE, 0.8 * q).beginPath().arc(0, 0, 22, -Math.PI / 2 - 0.4, -Math.PI / 2 + 0.4 + q * 0.2).strokePath(); return; }
-    const q = (k - 0.7) / 0.3, R = 30 + lv * 2;
-    for (let i = 0; i < 14; i++) { const an = i * 0.449; g.lineStyle(3, i % 2 ? SW_GOLD : SW_PALE, 1 - q).lineBetween(Math.cos(an) * R * 0.2, Math.sin(an) * R * 0.2, Math.cos(an) * R * (0.6 + q), Math.sin(an) * R * (0.6 + q)); }
-    g.fillStyle(SW_PALE, 0.9 * (1 - q)).fillCircle(0, 0, R * 0.4);
+  play(scene, x, y - 10, AIR + 2, ms, (g, k) => { // rays of light, then the golden sword sweeping across
+    const R = 70 + lv * 2;
+    for (let i = 0; i < 12; i++) { const an = i * 0.524 + k * 0.3; g.lineStyle(2, SW_PALE, 0.35 * Math.min(1, k * 3)).lineBetween(Math.cos(an) * 14, Math.sin(an) * 14, Math.cos(an) * R, Math.sin(an) * R); }
+    if (k < 0.6) return;
+    const q = (k - 0.6) / 0.4;
+    g.save(); g.rotateCanvas(-2.4 + q * 2.0); g.translateCanvas(-20, 0); swordShape(g, 110, 10, SW_GOLD, SW_PALE, 1 - Math.max(0, q - 0.8) * 5, false); g.restore();
   }, true);
 }
 export function odinSwordShot(scene: S, ball: Img, lv: number) {
-  const r = 9 + lv * 0.4;
-  ride(scene, ball, (g, bx, by, ang) => { // a slash of light: a long golden blade edge, curved, with a white core
-    const c = Math.cos(ang), sn = Math.sin(ang), nx = -sn, ny = c, len = 120 + lv * 5;
-    const pts: Phaser.Math.Vector2[] = [], inner: Phaser.Math.Vector2[] = [];
-    for (let i = 0; i <= 10; i++) {
-      const u = i / 10, d = u * len, bow = Math.sin(u * Math.PI) * r * 2.2, w = r * 1.5 * (1 - u * 0.9);
-      pts.push(new Phaser.Math.Vector2(bx - c * d + nx * (bow + w), by - sn * d + ny * (bow + w)));
-      inner.unshift(new Phaser.Math.Vector2(bx - c * d + nx * (bow - w * 0.4), by - sn * d + ny * (bow - w * 0.4)));
-    }
-    g.fillStyle(SW_GOLD, 0.55).fillPoints([...pts, ...inner], true);
-    tail(g, bx, by, ang, len * 0.7, r * 0.6, SW_WHITE, 0.85);
+  const r = 9 + lv * 0.3;
+  ride(scene, ball, (g, bx, by, ang) => { // the ball flies as the golden blade itself
+    g.save(); g.translateCanvas(bx, by); g.rotateCanvas(ang + Math.PI); swordShape(g, 90 + lv * 3, 8, SW_GOLD, SW_PALE, 1, false); g.restore();
     g.fillStyle(SW_PALE, 0.9).fillCircle(bx, by, r);
     g.fillStyle(SW_WHITE, 1).fillCircle(bx, by, r * 0.55);
   }, (x, y) => burst(scene, x, y, 500, [SW_GOLD, SW_PALE, SW_GREEN], 30 + lv * 2), true);

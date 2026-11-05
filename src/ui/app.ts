@@ -51,7 +51,7 @@ import { ascendAll, ascendableCount, ASC_BONUS, ASC_COSTS, CHAMPION_COSTS, CHAMP
 import { USERNAME_MAX, validateUsername } from '../systems/username';
 import { ALTAR_COLOR, ALTAR_ICON, ALTAR_INFO, ALTAR_MODE, ALTAR_REWARD } from '../systems/altars';
 import { adaptedPassive, passiveText, talentChanges, talentText } from '../systems/talents';
-import { claimBugRewards, redeemCode } from '../online/client';
+import { claimBugNotices, claimBugRewards, redeemCode } from '../online/client';
 import { THANKS_EVENT, addThanksTokens, thanksActive, thanksLeftMs, thanksTokens } from '../systems/thanksEvent';
 import { gtsDeposit, gtsFeed, gtsMine, gtsSearch, gtsTake, gtsWithdraw, type GtsOffer } from '../online/client';
 import { clashWith } from '../systems/identity';
@@ -1667,8 +1667,14 @@ export class App {
     if (!onlineConfigured() || !signedIn() || Date.now() - this.bugBountyAt < 60000) return;
     this.bugBountyAt = Date.now();
     let rows: { code: string; title: string; tokens: number }[] = [];
-    try { rows = await claimBugRewards(); } catch { return; }
-    if (!rows?.length) return;
+    let notes: { code: string; title: string; status: string; reply: string }[] = [];
+    try { [rows, notes] = await Promise.all([claimBugRewards().catch(() => []), claimBugNotices().catch(() => [])]); } catch { return; }
+    rows ??= []; notes ??= [];
+    // 1.88: replies and reports discarded or fixed without a reward (the reward notice already covers the fixed ones it pays)
+    const paid = new Set(rows.map((r) => r.code));
+    const extra = notes.filter((n) => n.reply || n.status === 'descartado' || !paid.has(n.code));
+    if (extra.length) this.bugNotices(extra, rows.length > 0);
+    if (!rows.length) return;
     const total = rows.reduce((a, r) => a + (r.tokens ?? 0), 0);
     this.save.tokens += total;
     this.persist();
@@ -1684,6 +1690,21 @@ export class App {
     document.body.appendChild(box);
     sfx('legend');
     box.querySelector('[data-close]')!.addEventListener('click', () => { box.remove(); this.mainMenu(); });
+  }
+
+  /** 1.88: what the admin answered to the player's reports, and the ones fixed or discarded */
+  private bugNotices(list: { code: string; title: string; status: string; reply: string }[], under = false) {
+    document.querySelector('.bugnote-modal')?.remove();
+    const box = document.createElement('div');
+    box.className = 'tut-modal bugnote-modal';
+    const head = (s: string) => s === 'corregido' ? '<em class="bn-ok">Corregido</em>' : s === 'descartado' ? '<em class="bn-no">Descartado</em>' : s === 'revisando' ? '<em class="bn-rev">Revisando</em>' : '';
+    box.innerHTML = `<div class="panel bounty-panel"><div class="bn-ic">💬</div><h2>Respuesta a tus reportes</h2>
+      <ul class="bn-list">${list.slice(0, 8).map((n) => `<li><b>${esc(n.code)}</b> ${esc(n.title)} ${head(n.status)}${n.reply ? `<p class="bug-reply">${esc(n.reply)}</p>` : n.status === 'descartado' ? '<p class="bug-reply">No es un fallo del juego o ya estaba reportado. ¡Gracias igualmente!</p>' : ''}</li>`).join('')}</ul>
+      <div class="tut-nav"><span class="spacer"></span><button class="btn" data-close>Entendido</button></div></div>`;
+    if (under) box.style.zIndex = '59';
+    document.body.appendChild(box);
+    sfx('powerup');
+    box.querySelector('[data-close]')!.addEventListener('click', () => box.remove());
   }
 
   /** Main menu: the latest movements of the GTS, loaded after the menu is shown. */
@@ -2142,7 +2163,7 @@ export class App {
     const list = box.querySelector('#mblist') as HTMLElement;
     try {
       const rows = await myBugReports();
-      list.innerHTML = rows.map((r) => `<div class="bug-row"><code>${esc(r.code)}</code><b>${esc(r.title)}</b><span class="bug-st st-${esc(r.status)}">${esc(STATUS_LABEL[r.status] ?? r.status)}</span><small>${new Date(r.created_at).toLocaleDateString('es')}</small></div>`).join('') || 'Todavía no has enviado ningún reporte.';
+      list.innerHTML = rows.map((r) => `<div class="bug-row"><code>${esc(r.code)}</code><b>${esc(r.title)}</b><span class="bug-st st-${esc(r.status)}">${esc(STATUS_LABEL[r.status] ?? r.status)}</span><small>${new Date(r.created_at).toLocaleDateString('es')}</small></div>${r.reply ? `<p class="bug-reply">💬 ${esc(r.reply)}</p>` : ''}`).join('') || 'Todavía no has enviado ningún reporte.';
       const del = box.querySelector('#mbdel') as HTMLButtonElement;
       if (rows.length) del.hidden = false;
       del.addEventListener('click', () => this.armed(del, async () => {
@@ -2211,6 +2232,8 @@ export class App {
       <div id="adshot" class="note">${r.screenshot_path ? 'Cargando captura…' : 'Sin captura.'}</div>
       <h4>Estado</h4><div class="seg" id="adstatus">${Object.entries(STATUS_LABEL).map(([k, t]) => `<button data-v="${k}" class="${k === r.status ? 'on' : ''}">${t}</button>`).join('')}</div>
       <h4>Notas privadas</h4><textarea id="adnotes" rows="3" maxlength="4000">${esc(r.admin_notes ?? '')}</textarea>
+      <h4>Respuesta al jugador</h4><textarea id="adreply" rows="3" maxlength="2000" placeholder="Le saldrá al jugador la próxima vez que abra el juego">${esc(r.reply ?? '')}</textarea>
+      <p class="note">Al responder, o al marcarlo como corregido o descartado, el jugador recibe un aviso. Las notas privadas nunca las ve.</p>
       <div class="tut-nav"><button class="btn small blue" id="adclose">Cerrar</button><span class="spacer"></span><button class="btn" id="adsave">Guardar</button></div></div>`;
     document.body.appendChild(box);
     let status = r.status, url = '';
@@ -2219,7 +2242,7 @@ export class App {
     box.querySelectorAll<HTMLElement>('#adstatus button').forEach((b) => b.addEventListener('click', () => { status = b.dataset.v!; box.querySelectorAll('#adstatus button').forEach((x) => x.classList.toggle('on', x === b)); }));
     box.querySelector('#adclose')!.addEventListener('click', shut);
     box.querySelector('#adsave')!.addEventListener('click', () => {
-      adminUpdateBug(r.code, status, (box.querySelector('#adnotes') as HTMLTextAreaElement).value)
+      adminUpdateBug(r.code, status, (box.querySelector('#adnotes') as HTMLTextAreaElement).value, (box.querySelector('#adreply') as HTMLTextAreaElement).value)
         .then(() => { shut(); this.toast('Reporte actualizado'); void this.adminBugs(filter); }).catch((e: Error) => this.toast(e.message, 4000));
     });
   }

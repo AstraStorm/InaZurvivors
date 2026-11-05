@@ -188,7 +188,8 @@ export const resetMyProgress = async (fresh: unknown) => (await rpc<{ version: n
 const BUCKET = 'bug-screenshots';
 export interface BugRow { id?: string; code: string; category: string; severity: string; title: string; status: string; created_at: string; has_screenshot?: boolean;
   description?: string; steps?: string; username?: string | null; game_version?: string; build?: string; browser?: string; os?: string; screen?: string; map?: string;
-  difficulty?: string; run_time_sec?: number | null; screenshot_path?: string | null; admin_notes?: string; updated_at?: string }
+  difficulty?: string; run_time_sec?: number | null; screenshot_path?: string | null; admin_notes?: string; updated_at?: string;
+  /** 1.88: the answer the reporter sees */ reply?: string }
 export interface BugFilter { category: string | null; severity: string | null; status: string | null; from: string | null; to: string | null; order: 'fecha' | 'prioridad' }
 
 /** The account id, read from the session token itself (it names the screenshot folder). */
@@ -218,13 +219,15 @@ export const amIAdmin = () => rpc<boolean>('am_i_admin', {});
 export const redeemCode = (code: string, alreadyApplied = false) =>
   rpc<{ status: 'ok' | 'used' | 'invalid' | 'linked'; reward?: { tokens: number; coins: number; player: number | null; eventTokens?: number; pennants?: string[] } }>('redeem_code', { p_code: code, p_already_applied: alreadyApplied });
 /** 1.85: bug bounty — rewards for the player's reports the admin marked «corregido», taken once (server marks them claimed) */
+/** 1.88: replies to the player's reports, and reports fixed or discarded, not yet shown (taken once) */
+export const claimBugNotices = () => rpc<{ code: string; title: string; status: string; reply: string }[]>('claim_bug_notices', {});
 export const claimBugRewards = () => rpc<{ code: string; title: string; tokens: number }[]>('claim_bug_rewards', {});
 export const adminBugReports = (f: BugFilter) => rpc<BugRow[]>('admin_bug_reports', { p_category: f.category, p_severity: f.severity, p_status: f.status, p_from: f.from, p_to: f.to, p_order: f.order, p_limit: 200 });
 /** Fix 1.41: players panel (admins only; the server refuses everyone else). Guests play locally and are not counted. */
 export interface AdminPlayerRow { username: string | null; created_at: string; last_seen: string | null; runs: number; kills: number; best_time: number; owned: number; ranked_runs: number }
 export interface AdminPlayerStats { accounts: number; with_name: number; played: number; runs: number; kills: number; ranked_runs: number; active_24h: number; active_7d: number; new_7d: number; players: AdminPlayerRow[] }
 export const adminPlayerStats = (limit = 200) => rpc<AdminPlayerStats>('admin_player_stats', { p_limit: limit });
-export const adminUpdateBug =(code: string, status: string | null, notes: string | null) => rpc<string>('admin_update_bug', { p_code: code, p_status: status, p_notes: notes });
+export const adminUpdateBug =(code: string, status: string | null, notes: string | null, reply: string | null = null) => rpc<string>('admin_update_bug', { p_code: code, p_status: status, p_notes: notes, p_reply: reply });
 /** Asks the server to tell the author. Best effort: the report is already saved whatever happens here. */
 export async function notifyBug(code: string) {
   try {
