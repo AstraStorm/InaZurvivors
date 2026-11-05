@@ -66,7 +66,7 @@ export const AURA_BONDS: AuraBond[] = [
     source: 'Wiki de Inazuma Eleven (fandom), «Haruna Otonashi».' },
   { a: 29, aName: 'Jude Sharp', b: 1542, bName: 'David Samford', kind: 'amistad', reason: 'Compañeros y amigos de la Royal Academy.',
     source: 'Wiki de Inazuma Eleven (fandom), «Jirou Sakuma».' },
-  { a: 29, aName: 'Jude Sharp', b: 1541, bName: 'Caleb Stonewall', kind: 'rivalidad', reason: 'Rivales desde Shin Teikoku que acaban jugando juntos en Inazuma Japón.',
+  { a: 29, aName: 'Jude Sharp', b: 1541, bName: 'Caleb Stonewall', kind: 'rivalidad', reason: 'Rivales desde Shin Teikoku que acaban jugando juntos en Inazuma Japón.', combos: ['campo-fuerza'],
     source: 'Wiki de Inazuma Eleven (fandom), «Akio Fudou».' },
   { a: 101722, aName: 'Xavier Foster', b: 1513, bName: 'Shawn Froste', kind: 'tecnica', reason: 'De rivales en Alius a compañeros en Inazuma Japón: juntos lanzan La Aurora y, con Jude, Big Bang.', combos: ['la-aurora', 'big-bang'],
     source: 'ROM IE3: «The Birth» (ザ・バース), «La Aurora» en inazumo.es; pareja indicada por el autor.' },
@@ -139,4 +139,11 @@ export const AURA_BONDS: AuraBond[] = [
     source: 'Wiki de Inazuma Eleven (fandom), «Triple Blizzard».' },
   { a: 100417, aName: 'Shiratoya Nae', b: 1513, bName: 'Shawn Froste', kind: 'tecnica', reason: 'Con Aiden lanzan Ventisca triple.', combos: ['ventisca-triple'],
     source: 'Wiki de Inazuma Eleven (fandom), «Triple Blizzard».' },
+  // 1.88 (author)
+  { a: 101722, aName: 'Xavier Foster', b: 100907, bName: 'Kira Hiroto', kind: 'tecnica', reason: 'Juntos lanzan Combo cósmico.', combos: ['combo-cosmico'],
+    source: 'Orion no Kokuin, «Cosmic Blaster»; pareja indicada por el autor.' },
+  { a: 100944, aName: 'Bai Long', b: 100562, bName: 'Victor Blade', kind: 'tecnica', reason: 'Juntos lanzan Gran explosión.', combos: ['gran-explosion'],
+    source: 'GO Chrono Stone, «Great Blaster»; pareja indicada por el autor.' },
+  { a: 100979, aName: 'Haizaki Ryouhei', b: 100907, bName: 'Kira Hiroto', kind: 'tecnica', reason: 'La luz y la sombra: Pingüinos de luz y sombra.', combos: ['pinguinos-luz-sombra'],
+    source: 'Orion no Kokuin, «Penguin the God & Devil»; pareja indicada por el autor.' },
 ];

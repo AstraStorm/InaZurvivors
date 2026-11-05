@@ -1,7 +1,8 @@
 /**
  * 1.8 (author): the same character can't be twice on the team, nor as an Aura: no two Axels, no two Marks. A character is
  * one person whatever version he comes in:
- *   - his other versions: «X Oscuro», «X Encapuchado», and aliases of another arc (Xavier = Xene = Kira Hiroto);
+ *   - his other versions: «X Oscuro», «X Encapuchado», and aliases of another arc (Xavier = Xene). 1.88 (author): Kira
+ *     Hiroto is his own character, not Xavier;
  *   - his Miximax fusions: «Arion + Tezcat» is Arion AND Tezcat, so it can't go with either of them.
  * Fusions name their parts by nickname: FUSION_PART turns each one into the footballer it is.
  */
@@ -10,7 +11,7 @@ import type { RosterEntry } from '../data/manifest';
 /** suffixes of another version of the same footballer */
 const VERSION_SUFFIX = / (Oscuro|Encapuchado)$/;
 /** other names of the same person (arc names, Japanese names) */
-const ALIASES: Record<string, string> = { 'Xene': 'Xavier Foster', 'Kira Hiroto': 'Xavier Foster', 'Endou Mamoru': 'Mark Evans' };
+const ALIASES: Record<string, string> = { 'Xene': 'Xavier Foster', 'Endou Mamoru': 'Mark Evans' };
 /** the parts of a Miximax fusion, by the nickname the fusion uses */
 const FUSION_PART: Record<string, string> = {
   Aitor: 'Aitor Cazador', Arion: 'Arion Sherwind', Axel: 'Axel Blaze', Bailong: 'Bai Long', Caleb: 'Caleb Stonewall', Canon: 'Canon Evans',

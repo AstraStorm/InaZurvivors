@@ -30,13 +30,16 @@ export interface PublicRelease {
 export const PUBLIC_RELEASES: PublicRelease[] = [
   {
     version: '1.88', date: '2026-11-05',
-    title: 'InaZurvivors Fix 1.88 — Vuelven las estrellas de HÉROE',
+    title: 'InaZurvivors Fix 1.88 — Vuelven las estrellas de HÉROE y combinadas nuevas',
     tagline: 'Tus HÉROE ★, ★★ y ★★★ vuelven a ser como eran',
     intro: 'Un arreglo urgente sobre la 1.87.',
     features: [
       { icon: '★', title: 'Estrellas de HÉROE devueltas', text: 'Por error, la 1.84 quitó las estrellas de HÉROE (★, ★★, ★★★) y el reinicio de estrellas las borró. Vuelven todas: se recuperan a partir de los duplicados que gastaste en ellas, y siguen subiéndose con duplicados en la ascensión. Solo se reiniciaron las estrellas nuevas de monedas.' },
       { icon: '✦', title: 'Estrellas extra aparte', text: 'Las 3 estrellas extra de HÉROES y Campeones (con monedas) van aparte de las de HÉROE, y cuentan como estrellas en partida.' },
       { icon: '🐻', title: 'Furia de Oso', text: 'El oso es más pequeño y del mismo tamaño en todos los niveles.' },
+      { icon: '🌌', title: 'Combinadas nuevas', text: 'Combo cósmico (Xavier y Kira Hiroto), Gran explosión (Bai Long y Victor), Pingüinos de luz y sombra (Haizaki y Kira Hiroto) y Campo de fuerza (Jude y Caleb), como en sus escenas.' },
+      { icon: '💥', title: 'El Detonador', text: 'La técnica de Kira Hiroto, redibujada: un cometa rosa sube al cielo, se abre una nebulosa y el balón baja como un haz con bolas de fuego.' },
+      { icon: '👥', title: 'Xavier y Kira Hiroto', text: 'Ahora son personajes distintos: pueden jugar juntos en el mismo equipo.' },
     ],
     start: [],
   },

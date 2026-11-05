@@ -304,12 +304,13 @@ export function blizzardShot(scene: S, ball: Img, lv: number) {
 }
 
 // ================================================================ solo techniques
-export type Solo183 = 'godbreak' | 'dragon' | 'oso';
+export type Solo183 = 'godbreak' | 'dragon' | 'oso' | 'detonador';
 export function solo183Of(name: string): Solo183 | null {
   const n = name.trim();
   if (/^disparo sagrado$|god ?break/i.test(n)) return 'godbreak';
   if (/^tornado drag[oó]n$|dragon ?tornado/i.test(n)) return 'dragon';
   if (/^furia de oso$|kuma ?goroshi ?zan/i.test(n)) return 'oso'; // 1.87
+  if (/^el detonador$|the explosion/i.test(n)) return 'detonador'; // 1.88
   return null;
 }
 
@@ -325,6 +326,7 @@ function bolts(g: G, r: number, a: number, n: number) {
 export function solo183Charge(scene: S, kind: Solo183, x: number, y: number, lv: number, ms: number) {
   if (kind === 'dragon') { dragonTornadoCharge(scene, { x: x - 30, y: y + 6 }, { x, y }, x + 10, y, lv, ms); return; }
   if (kind === 'oso') { bearCharge(scene, x, y, lv, ms); return; }
+  if (kind === 'detonador') { detonadorCharge(scene, x, y, lv, ms); return; }
   // Disparo sagrado: a patch of blue sky over him, and the sphere of white-gold light crackling above
   play(scene, x, y - 30, AIR - 3, ms, (g, k) => {
     const a = Math.min(1, k * 3) * (1 - Math.max(0, k - 0.85) * 6);
@@ -341,6 +343,7 @@ export function solo183Charge(scene: S, kind: Solo183, x: number, y: number, lv:
 export function solo183Shot(scene: S, kind: Solo183, ball: Img, lv: number) {
   if (kind === 'dragon') { dragonTornadoShot(scene, ball, lv); return; }
   if (kind === 'oso') { bearShot(scene, ball, lv); return; }
+  if (kind === 'detonador') { detonadorShot(scene, ball, lv); return; }
   const r = 10 + lv * 0.6;
   ride(scene, ball, (g, bx, by, ang, t) => {
     tail(g, bx, by, ang, 80 + lv * 4, r * 1.4, GB_GOLD, 0.4);
@@ -407,8 +410,8 @@ export function judgementHammer(scene: S, x: number, y: number, r: number, lv: n
 }
 
 // ================================================================ combo entry points (comboShot in ArenaScene)
-export type Combo183 = 'triangulo' | 'triangulo2' | 'dragon2' | 'tornado-dd' | 'tornado-tc' | 'perseo' | 'ventisca3';
-export const COMBO183: ReadonlySet<string> = new Set(['triangulo', 'triangulo2', 'dragon2', 'tornado-dd', 'tornado-tc', 'perseo', 'ventisca3']);
+export type Combo183 = 'triangulo' | 'triangulo2' | 'dragon2' | 'tornado-dd' | 'tornado-tc' | 'perseo' | 'ventisca3' | 'cosmico' | 'granexpl' | 'pinguinos-ls' | 'campo';
+export const COMBO183: ReadonlySet<string> = new Set(['triangulo', 'triangulo2', 'dragon2', 'tornado-dd', 'tornado-tc', 'perseo', 'ventisca3', 'cosmico', 'granexpl', 'pinguinos-ls', 'campo']);
 /** wind-up of each new combination (ms) */
 export const combo183Wind = (e: Combo183) => (e === 'triangulo' || e === 'triangulo2' || e === 'tornado-tc' || e === 'perseo' ? 850 : 700);
 export function combo183Charge(scene: S, e: Combo183, who: (P & { name: string })[], x: number, y: number, lv: number, ms: number) {
@@ -419,6 +422,10 @@ export function combo183Charge(scene: S, e: Combo183, who: (P & { name: string }
   } else if (e === 'tornado-dd' || e === 'tornado-tc') fireTornadoCharge(scene, who, x, y, 4 + lv, ms);
   else if (e === 'perseo') perseusCharge(scene, who, x, y, 4 + lv, ms);
   else if (e === 'ventisca3') blizzardCharge(scene, who, x, y, 4 + lv, ms);
+  else if (e === 'cosmico') cosmicCharge(scene, who, x, y, 4 + lv, ms);
+  else if (e === 'granexpl') greatBlasterCharge(scene, x, y, 4 + lv, ms);
+  else if (e === 'pinguinos-ls') penguinGDCharge(scene, x, y, 4 + lv, ms);
+  else if (e === 'campo') killerFieldsCharge(scene, who, x, y, 4 + lv, ms);
 }
 export function combo183Shot(scene: S, e: Combo183, ball: Img, lv: number) {
   if (e === 'triangulo' || e === 'triangulo2') deathZoneShot(scene, ball, 4 + lv, e === 'triangulo2');
@@ -426,6 +433,10 @@ export function combo183Shot(scene: S, e: Combo183, ball: Img, lv: number) {
   else if (e === 'tornado-dd' || e === 'tornado-tc') fireTornadoShot(scene, ball, 4 + lv, e === 'tornado-tc');
   else if (e === 'perseo') perseusShot(scene, ball, 4 + lv);
   else if (e === 'ventisca3') blizzardShot(scene, ball, 4 + lv);
+  else if (e === 'cosmico') cosmicShot(scene, ball, 4 + lv);
+  else if (e === 'granexpl') greatBlasterShot(scene, ball, 4 + lv);
+  else if (e === 'pinguinos-ls') penguinGDShot(scene, ball, 4 + lv);
+  else if (e === 'campo') killerFieldsShot(scene, ball, 4 + lv);
 }
 
 // ================================================================ Lluvia de meteoros (dribble, Fire)
@@ -530,4 +541,157 @@ export function bearShot(scene: S, ball: Img, _lv: number) {
     const kanji = scene.add.text(x, y - 4, '斬', { fontFamily: 'serif', fontSize: `${Math.round(R * 0.9)}px`, color: '#ff2a5a', stroke: '#fff0f6', strokeThickness: 4 }).setOrigin(0.5).setDepth(AIR + 4).setScale(1.8).setAlpha(0);
     scene.tweens.add({ targets: kanji, scale: 1, alpha: 1, duration: 180, delay: 140, ease: 'Back.easeOut', onComplete: () => scene.tweens.add({ targets: kanji, alpha: 0, duration: 400, delay: 380, onComplete: () => kanji.destroy() }) });
   });
+}
+
+// ================================================================ 1.88 (author): four more combined techniques and El Detonador
+/**
+ *   Combo cósmico (Cosmic Blaster, ecXGPbrqhPg): a cyan spark on the kick, pillars of yellow and cyan light, a pink-gold
+ *     streak across the sky, and a black hole ringed in orange fire and cyan swirls that the ball flies out of.
+ *   Gran explosión (Great Blaster, rDErxErUHVg): a blue and white whirl swells over the two, a white flash, and the ball
+ *     leaves as a beam of blue and yellow light.
+ *   Pingüinos de luz y sombra (Penguin the God & Devil, ir9_ksGPszw from 0:10): a purple orb, golden wings of light on one
+ *     side and red-black shadow claws on the other; they clash in a gold and crimson burst and the ball flies in both.
+ *   Campo de fuerza (Killer Fields, Px3uzqGt2pM from 0:12): the two kick the ball at the same time in the air, pinched
+ *     between their feet, and a purple and white vortex bursts out of it.
+ *   El Detonador (The Explosion, B6r5ank4JGk): a pink comet climbs into the sky, a cosmic nebula of pink and blue opens
+ *     round a white star, and the ball comes down as a pink beam with orange fireballs.
+ */
+const CO_CYAN = 0x6ae8ff, CO_GOLD = 0xffd23f, CO_PINK = 0xff6ad8, CO_FIRE = 0xff8a1a, CO_BLUE = 0x3a6aff, CO_WHITE = 0xffffff;
+const CO_PURPLE = 0xa040ff, CO_RED = 0xd01030, CO_BLACK = 0x0a0208, CO_LILAC = 0xffd8ff;
+
+function blackHole(g: G, r: number, t: number, a: number) {
+  for (let i = 0; i < 8; i++) { const ph = t * 5 + i * 0.8; g.lineStyle(4 - i * 0.3, i % 2 ? CO_FIRE : CO_GOLD, 0.8 * a).beginPath().arc(0, 0, r * (1.1 + i * 0.12), ph, ph + 2).strokePath(); }
+  for (let i = 0; i < 4; i++) { const ph = -t * 6 + i * 1.6; g.lineStyle(2.5, CO_CYAN, 0.7 * a).beginPath().arc(0, 0, r * (1.6 + i * 0.15), ph, ph + 1.4).strokePath(); }
+  g.fillStyle(CO_BLACK, a).fillCircle(0, 0, r);
+}
+export function cosmicCharge(scene: S, who: P[], x: number, y: number, lv: number, ms: number) {
+  const r = 14 + lv;
+  for (const p of who) play(scene, p.x, p.y, AIR + 1, ms * 0.7, (g, k) => { // pillars of yellow and cyan light
+    const a = Math.min(1, k * 4) * (1 - Math.max(0, k - 0.7) * 3);
+    g.fillStyle(CO_GOLD, 0.35 * a).fillRect(-9, -110, 18, 110);
+    g.fillStyle(CO_CYAN, 0.7 * a).fillRect(-3, -110, 6, 110);
+  }, true);
+  play(scene, x, y - 30, AIR + 2, ms, (g, k, t) => {
+    if (k < 0.15) { g.fillStyle(CO_CYAN, 0.8).fillCircle(0, 30, 10 * (k / 0.15)); return; } // the cyan spark on the kick
+    const s2 = Math.min(1, (k - 0.15) / 0.5);
+    g.lineStyle(5, CO_PINK, 0.7 * s2).lineBetween(-90, -40, -90 + 180 * s2, -40 + 60 * s2); // the pink-gold streak
+    g.lineStyle(2, CO_GOLD, 0.9 * s2).lineBetween(-90, -40, -90 + 180 * s2, -40 + 60 * s2);
+    blackHole(g, r * s2, t, s2);
+  });
+}
+export function cosmicShot(scene: S, ball: Img, lv: number) {
+  const r = 10 + lv * 0.5;
+  ride(scene, ball, (g, bx, by, ang, t) => {
+    tail(g, bx, by, ang, 100 + lv * 4, r * 1.8, CO_FIRE, 0.45);
+    tail(g, bx, by, ang, 80 + lv * 3, r, CO_CYAN, 0.7);
+    g.save(); g.translateCanvas(bx, by); blackHole(g, r * 0.9, t, 1); g.restore();
+    g.fillStyle(CO_WHITE, 0.95).fillCircle(bx, by, r * 0.35);
+  }, (x, y) => burst(scene, x, y, 520, [CO_FIRE, CO_CYAN, CO_GOLD], 30 + lv * 2));
+}
+
+export function greatBlasterCharge(scene: S, x: number, y: number, lv: number, ms: number) {
+  const size = 30 + lv * 2;
+  play(scene, x, y - 30, AIR + 2, ms, (g, k, t) => { // the blue and white whirl swelling over the two
+    const s2 = Math.min(1, k * 1.3);
+    for (let i = 0; i < 7; i++) { const ph = t * 9 + i; g.lineStyle(6 - i * 0.6, i % 2 ? CO_WHITE : CO_BLUE, 0.85).beginPath().arc(0, 0, size * (0.3 + i * 0.12) * s2, ph, ph + 3.6).strokePath(); }
+    g.fillStyle(CO_WHITE, 0.9).fillCircle(0, 0, size * 0.22 * s2);
+    if (k > 0.85) g.fillStyle(CO_WHITE, (k - 0.85) * 5).fillCircle(0, 0, size * 2); // the white flash
+  }, true);
+}
+export function greatBlasterShot(scene: S, ball: Img, lv: number) {
+  const r = 11 + lv * 0.5;
+  ride(scene, ball, (g, bx, by, ang) => { // a beam of blue and yellow light
+    tail(g, bx, by, ang, 120 + lv * 5, r * 2, CO_BLUE, 0.45);
+    tail(g, bx, by, ang, 100 + lv * 4, r * 1.1, CO_GOLD, 0.6);
+    tail(g, bx, by, ang, 80 + lv * 3, r * 0.5, CO_WHITE, 0.9);
+    g.fillStyle(CO_WHITE, 1).fillCircle(bx, by, r * 0.8);
+  }, (x, y) => burst(scene, x, y, 520, [CO_BLUE, CO_WHITE, CO_GOLD], 32 + lv * 2), true);
+}
+
+export function penguinGDCharge(scene: S, x: number, y: number, lv: number, ms: number) {
+  const s = 1 + lv * 0.04;
+  play(scene, x, y - 24, AIR + 1, ms, (g, k, t) => {
+    const a = Math.min(1, k * 3);
+    g.fillStyle(CO_PURPLE, 0.6 * a).fillCircle(0, 0, 10 * s + Math.sin(t * 14)); // the purple orb
+    g.fillStyle(CO_WHITE, 0.8 * a).fillCircle(0, 0, 4 * s);
+    const len = 50 * s * Math.min(1, k * 1.5);
+    for (let i = 0; i < 4; i++) { // golden wings of light, left
+      const an = Math.PI + 0.5 - i * 0.3;
+      g.lineStyle(7 - i, CO_GOLD, 0.8 * a).beginPath().arc(-20 * s, 0, len * (0.6 + i * 0.15), an - 0.6, an + 0.2).strokePath();
+    }
+    for (let i = 0; i < 4; i++) { // red-black shadow claws, right
+      const an = -0.5 + i * 0.3;
+      g.lineStyle(7 - i, i % 2 ? CO_BLACK : CO_RED, 0.85 * a).beginPath().arc(20 * s, 0, len * (0.6 + i * 0.15), an - 0.2, an + 0.6).strokePath();
+    }
+    if (k > 0.75) { const q = (k - 0.75) / 0.25; g.fillStyle(CO_GOLD, 0.7 * (1 - q)).fillCircle(0, 0, 30 * s * q); g.fillStyle(CO_RED, 0.5 * (1 - q)).fillCircle(8, 6, 24 * s * q); } // the clash
+  });
+}
+export function penguinGDShot(scene: S, ball: Img, lv: number) {
+  const r = 10 + lv * 0.5;
+  ride(scene, ball, (g, bx, by, ang, t) => { // gold and crimson twisting round each other
+    const c = Math.cos(ang), sn = Math.sin(ang), nx = -sn, ny = c, len = 90 + lv * 4;
+    for (let i = 0; i < 10; i++) {
+      const d = i * len / 10, o = Math.sin(t * 14 - i * 0.7) * r * 0.9, rr = Math.max(1, r * (0.7 - i * 0.05));
+      g.fillStyle(CO_GOLD, 0.8 - i * 0.07).fillCircle(bx - c * d + nx * o, by - sn * d + ny * o, rr);
+      g.fillStyle(i % 2 ? CO_BLACK : CO_RED, 0.8 - i * 0.07).fillCircle(bx - c * d - nx * o, by - sn * d - ny * o, rr);
+    }
+    g.fillStyle(CO_WHITE, 1).fillCircle(bx, by, r * 0.7);
+  }, (x, y) => burst(scene, x, y, 520, [CO_GOLD, CO_RED, CO_WHITE], 30 + lv * 2));
+}
+
+export function killerFieldsCharge(scene: S, who: P[], x: number, y: number, lv: number, ms: number) {
+  const size = 28 + lv * 2;
+  for (const p of who) play(scene, p.x, p.y, AIR + 1, ms * 0.6, (g, k) => { // both jump towards the ball
+    g.lineStyle(3, CO_PURPLE, 0.7 * (1 - k)).lineBetween(0, -8, (x - p.x) * k, (y - 40 - p.y) * k);
+  }, true);
+  play(scene, x, y - 40, AIR + 2, ms, (g, k, t) => {
+    if (k < 0.55) { // the ball pinched between their feet
+      const q = k / 0.55;
+      g.fillStyle(CO_WHITE, 0.9).fillEllipse(0, 0, 14 * (1 + q * 0.4), 14 * (1 - q * 0.3));
+      return;
+    }
+    const s2 = (k - 0.55) / 0.45; // the purple and white vortex bursting out
+    for (let i = 0; i < 8; i++) { const ph = t * 10 + i * 0.8; g.lineStyle(6 - i * 0.5, i % 2 ? CO_WHITE : CO_PURPLE, 0.85).beginPath().arc(0, 0, size * (0.3 + i * 0.16) * s2, ph, ph + 2.8).strokePath(); }
+    g.fillStyle(CO_LILAC, 0.9).fillCircle(0, 0, size * 0.25 * s2);
+  }, true);
+}
+export function killerFieldsShot(scene: S, ball: Img, lv: number) {
+  const r = 10 + lv * 0.5;
+  ride(scene, ball, (g, bx, by, ang, t) => {
+    tail(g, bx, by, ang, 90 + lv * 4, r * 1.7, CO_PURPLE, 0.5);
+    tail(g, bx, by, ang, 70 + lv * 3, r * 0.8, CO_LILAC, 0.8);
+    g.lineStyle(2.5, CO_WHITE, 0.8).beginPath().arc(bx, by, r * 1.3, t * 12, t * 12 + 3.6).strokePath();
+    g.fillStyle(CO_WHITE, 1).fillCircle(bx, by, r * 0.7);
+  }, (x, y) => burst(scene, x, y, 500, [CO_PURPLE, CO_LILAC, CO_WHITE], 28 + lv * 2), true);
+}
+
+export function detonadorCharge(scene: S, x: number, y: number, lv: number, ms: number) {
+  play(scene, x, y, AIR + 1, ms * 0.45, (g, k) => { // the pink comet climbing into the sky
+    const hy = -k * 110;
+    tail(g, 0, hy, -Math.PI / 2, 50, 5, CO_PINK, 0.7);
+    g.fillStyle(CO_WHITE, 1).fillCircle(0, hy, 4);
+  }, true);
+  play(scene, x, y - 110, AIR + 2, ms, (g, k, t) => { // the cosmic nebula round a white star
+    if (k < 0.4) return;
+    const s2 = Math.min(1, (k - 0.4) / 0.35), R = (34 + lv * 2) * s2;
+    g.fillStyle(CO_PINK, 0.35).fillEllipse(-R * 0.3, 0, R * 2.4, R * 1.6);
+    g.fillStyle(CO_BLUE, 0.3).fillEllipse(R * 0.4, R * 0.1, R * 2, R * 1.4);
+    for (let i = 0; i < 14; i++) g.fillStyle(CO_WHITE, 0.8).fillCircle(Math.cos(i * 2.4 + t) * R * (0.5 + (i % 4) * 0.2), Math.sin(i * 1.7) * R * 0.6, 1.3);
+    g.fillStyle(CO_LILAC, 0.9).fillCircle(0, 0, R * 0.3);
+    g.fillStyle(CO_WHITE, 1).fillCircle(0, 0, R * 0.15);
+  }, true);
+}
+export function detonadorShot(scene: S, ball: Img, lv: number) {
+  const r = 10 + lv * 0.5;
+  ride(scene, ball, (g, bx, by, ang, t) => { // a pink beam with orange fireballs round it
+    const c = Math.cos(ang), sn = Math.sin(ang), nx = -sn, ny = c, len = 100 + lv * 4;
+    tail(g, bx, by, ang, len, r * 1.8, CO_PINK, 0.5);
+    tail(g, bx, by, ang, len * 0.8, r * 0.7, CO_WHITE, 0.8);
+    for (let i = 0; i < 4; i++) {
+      const d = 20 + i * 22, o = Math.sin(t * 9 + i * 1.7) * r * 1.6;
+      g.fillStyle(CO_FIRE, 0.85).fillCircle(bx - c * d + nx * o, by - sn * d + ny * o, r * 0.45);
+      g.fillStyle(CO_GOLD, 0.95).fillCircle(bx - c * d + nx * o, by - sn * d + ny * o, r * 0.22);
+    }
+    g.fillStyle(CO_WHITE, 1).fillCircle(bx, by, r * 0.75);
+  }, (x, y) => burst(scene, x, y, 560, [CO_PINK, CO_FIRE, CO_WHITE], 34 + lv * 2), true);
 }

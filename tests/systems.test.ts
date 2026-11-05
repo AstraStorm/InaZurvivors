@@ -727,7 +727,7 @@ describe('combined techniques', () => {
   const cross = COMBOS.find((c) => c.id === 'fuego-cruzado')!;
 
   it('every combo names its source and real participants, and at most a few exist', () => {
-    expect(COMBOS.length).toBeLessThanOrEqual(25); // 1.76: Zero Magnum, La Aurora (Byron) and Súper relámpago; 1.83: six more, all added by the author
+    expect(COMBOS.length).toBeLessThanOrEqual(30); // 1.76: Zero Magnum, La Aurora (Byron) and Súper relámpago; 1.83: six more, all added by the author
     for (const c of COMBOS) { expect(c.source).toMatch(/fandom|MyAnimeList|ROM/); expect(c.needs.length).toBeGreaterThanOrEqual(2); }
   });
   it('Fuego cruzado needs Axel (Tornado de fuego 3) and Shawn (Ventisca eterna 5) on the pitch (Fix 1.51)', () => {

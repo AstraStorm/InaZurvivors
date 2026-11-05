@@ -27,7 +27,9 @@ export interface ComboDef {
   /** what the special slot does when it fires (each one has its own animation in the scene) */
   effect: 'tiro-doble' | 'tiro-dragon' | 'tiro-rayo' | 'fenix' | 'tierra' | 'caos' | 'ventisca' | 'tierra-inf' | 'aurora' | 'bigbang' | 'fuego-total' | 'zero' | 'superrayo' | 'gungnir' | 'frente'
     // 1.83 (fxCombo183.ts)
-    | 'triangulo' | 'triangulo2' | 'dragon2' | 'tornado-dd' | 'tornado-tc' | 'perseo' | 'ventisca3';
+    | 'triangulo' | 'triangulo2' | 'dragon2' | 'tornado-dd' | 'tornado-tc' | 'perseo' | 'ventisca3'
+    // 1.88
+    | 'cosmico' | 'granexpl' | 'pinguinos-ls' | 'campo';
   /** Fix 1.12: when several are learnable at once, the higher one is offered first */
   priority: number;
   source: string;
@@ -192,6 +194,31 @@ export const COMBOS: ComboDef[] = [
     cooldownMs: 7000, effect: 'ventisca3', priority: 8,
     source: 'Wiki de Inazuma Eleven (fandom), «Triple Blizzard»: Nae con Atsuya (Aiden) y Shirou (Shawn) Fubuki en Ares (episodio 17); escena: youtube _pngCtDhHFY. Tiro de Aire de potencia 100 indicado por el autor. Condición de niveles: regla del Fix 1.51.',
   },
+  // ---- 1.88 (author): four more, drawn from their scenes (fxCombo183.ts); levels by the rule of Fix 1.51
+  {
+    id: 'combo-cosmico', name: 'Combo cósmico', jp: 'コズミックブラスター', en: 'Cosmic Blaster', element: 'Bosque', power: 120,
+    needs: [{ player: 'Xavier Foster', level: 3 }, { player: 'Kira Hiroto', level: 5 }],
+    cooldownMs: 7500, effect: 'cosmico', priority: 8,
+    source: 'Wiki de Inazuma Eleven (fandom); Orion no Kokuin, «Cosmic Blaster»; escena: youtube ecXGPbrqhPg. Jugadores, elemento y potencia indicados por el autor. Condición de niveles: regla del Fix 1.51.',
+  },
+  {
+    id: 'gran-explosion', name: 'Gran explosión', jp: 'グレートブラスター', en: 'Great Blaster', element: 'Neutro', power: 100,
+    needs: [{ player: 'Bai Long', level: 3 }, { player: 'Victor Blade', level: 5 }],
+    cooldownMs: 7000, effect: 'granexpl', priority: 7,
+    source: 'Wiki de Inazuma Eleven (fandom); GO Chrono Stone, «Great Blaster»; escena: youtube rDErxErUHVg. Jugadores, elemento y potencia indicados por el autor. Condición de niveles: regla del Fix 1.51.',
+  },
+  {
+    id: 'pinguinos-luz-sombra', name: 'Pingüinos de luz y sombra', jp: 'ペンギン・ザ・ゴッド&デビル', en: 'Penguin the God & Devil', element: 'Bosque', power: 110,
+    needs: [{ player: 'Haizaki Ryouhei', level: 3 }, { player: 'Kira Hiroto', level: 5 }],
+    cooldownMs: 7500, effect: 'pinguinos-ls', priority: 8,
+    source: 'Wiki de Inazuma Eleven (fandom); Orion no Kokuin, «Penguin the God & Devil»; escena: youtube ir9_ksGPszw (desde 0:10). Jugadores, elemento y potencia indicados por el autor. Condición de niveles: regla del Fix 1.51.',
+  },
+  {
+    id: 'campo-fuerza', name: 'Campo de fuerza', jp: 'キラーフィールズ', en: 'Killer Fields', element: 'Bosque', power: 90,
+    needs: [{ player: 'Jude Sharp', level: 3 }, { player: 'Caleb Stonewall', level: 5 }],
+    cooldownMs: 6500, effect: 'campo', priority: 6,
+    source: 'Wiki de Inazuma Eleven (fandom); GO Strikers 2013, «Killer Fields»; escena: youtube Px3uzqGt2pM (desde 0:12). Jugadores, elemento y potencia indicados por el autor. Condición de niveles: regla del Fix 1.51.',
+  },
 ];
 /**
  * Fix 1.51 (author): other versions of a footballer can stand in for him in every combined technique — his alias in
@@ -200,7 +227,7 @@ export const COMBOS: ComboDef[] = [
  */
 export const COUNTERPARTS: Record<string, string[]> = {
   'Shawn Froste': ['Shawn + Axel'],
-  'Xavier Foster': ['Xene', 'Kira Hiroto', 'Jordan + Xavier'],
+  'Xavier Foster': ['Xene', 'Jordan + Xavier'], // 1.88 (author): Kira Hiroto is another character
   // special footballer (data/special_players.json): Axel in his Okinawa hoodie
   'Axel Blaze': ['Axel Blaze Encapuchado'],
   // 1.76: their Miximax fusions also count for Zero Magnum and La Aurora
