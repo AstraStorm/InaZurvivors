@@ -54,6 +54,9 @@ import { adaptedPassive, passiveText, talentChanges, talentText } from '../syste
 import { adminSuggestions, adminUpdateSuggestion, claimBugNotices, claimBugRewards, claimSuggestionNotices, mySuggestions, redeemCode, submitSuggestion, type SuggestionRow } from '../online/client';
 import { THANKS_EVENT, addThanksTokens, thanksActive, thanksLeftMs, thanksTokens } from '../systems/thanksEvent';
 import { gtsDeposit, gtsFeed, gtsMine, gtsSearch, gtsTake, gtsWithdraw, type GtsOffer } from '../online/client';
+import { CoopLink, type CoopMsg } from '../online/coop';
+import { coopInvite, coopInvitesClaim, friendHeartbeat, friendList, friendRemove, friendRequest, friendRespond, type FriendRow } from '../online/client';
+import type { CoopRun } from '../game/coopArena';
 import { clashWith } from '../systems/identity';
 import { applyGtsLedger, canLeave, gtsBanned, gtsError, gtsSlots, gtsSpare, type GtsRow } from '../systems/gts';
 import { accountId, adminBugReports, adminPlayerStats, adminUpdateBug, amIAdmin, consumeAuthRedirect, deleteAccount, deleteMyBugReports, deleteShot, myBugReports, notifyBug, shotUrl, submitBugReport, uploadShot, getCloudSave, leaderboard, myPosition, profileBanners, profileFrames, publicProfile, type PublicProfile, myProfile, onlineConfigured, putCloudSave, reserveUsername, resetMyProgress, signedEmail, signedIn, signInWithGoogle, signOut, submitScore, usernameAvailable, type BoardQuery, type BoardRow, type BugFilter, type BugRow, type CloudSave } from '../online/client';
@@ -83,6 +86,8 @@ const esc = (s: unknown) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&
 /** 1.84: a faceted star (body, a lit facet and a glint), coloured by CSS (.st / .hst, .on) */
 const starIcon = (cls: string) => `<svg class="${cls}" viewBox="0 0 24 24"><path class="s-b" d="M12 1.8l3.1 6.6 7.2.8-5.4 4.9 1.5 7.1L12 17.6l-6.4 3.6 1.5-7.1L1.7 9.2l7.2-.8z"/>`
   + `<path class="s-f" d="M12 1.8l3.1 6.6 7.2.8L12 12zM1.7 9.2l7.2-.8L12 12z"/><circle class="s-g" cx="9.4" cy="7.6" r="1.3"/></svg>`;
+/** pre-2.0: what a player shows of himself in a co-op room */
+interface CoopProfile { name: string; icon: { kind: 'emblem' | 'player' | 'coach'; id: number } | null; crest: string; kit: string; pennant: string | null; frame: string | null; wins: number; squad: { id: number; r: string; st: number; hero: boolean }[] }
 const fmtTime = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const RARITY_COLOR: Record<Rarity, string> = { comun: '#9fb0c8', raro: '#4fb3ff', epico: '#b36bff', legendario: '#ffb020', mitico: '#ff4f8b', leyenda: '#fff6c8' };
@@ -265,6 +270,7 @@ export class App {
    * guest choice when there is no session); anyone with a profile gets a title screen to continue as they are.
    */
   async start() {
+    this.startSocial(); // pre-2.0: friends online, co-op invitations
     void syncServerTime().then(() => rollPeriods(this.save)); // daily shop, pass and missions rotate on the server's clock
     let after: (() => void) | null = null;
     if (onlineConfigured()) {
@@ -1070,7 +1076,8 @@ export class App {
             + tile('training', 'target', 'ENTRENAMIENTO', 'Prueba técnicas') + tile('kits', 'shirt', 'EQUIPACIONES', 'Uniforme y escudo') + tile('gear', 'boot', 'EQUIPAMIENTO', 'Botas y accesorios') + tile('hall', 'trophy', 'SALÓN', `${(this.save.hall ?? []).length} victorias`))}
           ${group('g-sign', 'capsule', 'FICHAJES', tile('gacha', 'capsule', 'FICHAJES', `${this.save.tokens} fichas`, 0, true) + (thanksActive(serverNow()) ? tile('thanksev', 'gift', 'AGRADECIMIENTO', `${this.save.eventTokens ?? 0} fichas de evento`, 0, true) : '') + (eventActive(serverNow()) ? tile('pnevent', 'gift', 'EVENTO', 'Banners de leyenda', 0, true) : '') + tile('daily', 'shop', 'TIENDA', 'Ofertas del día') + tile('gts', 'gts', 'GTS', 'Intercambios online') + tile('codes', 'gift', 'CÓDIGOS', 'Canjea regalos'))}
           ${group('g-comp', 'crown', 'COMPETICIÓN', tile('missions', 'missions', 'MISIONES', pending ? '¡Por recoger!' : 'Recompensas', pending, !!pending)
-            + tile('pass', 'ticket', 'PASE', pass.available ? '¡Recompensa lista!' : 'Vuelve mañana', pass.available ? 1 : 0, pass.available) + tile('ranking', 'crown', 'RANKING', onlineConfigured() ? 'Global' : 'Tus marcas'))}
+            + tile('pass', 'ticket', 'PASE', pass.available ? '¡Recompensa lista!' : 'Vuelve mañana', pass.available ? 1 : 0, pass.available) + tile('ranking', 'crown', 'RANKING', onlineConfigured() ? 'Global' : 'Tus marcas')
+            + tile('coop', 'team', 'COOP', 'pre-2.0 · en pruebas', 0, true) + tile('friends', 'gift', 'AMIGOS', 'Invita al coop'))}
         </section>
         ${feat ? `<section class="m4-hero" data-go="squad" style="--rc:${RARITY_COLOR[featR]}"><div class="m4-aura"></div><div class="m4-ring"></div>
           <div class="m4-hero-art">${this.mug(feat.id, 256)}<span class="m4-hero-sprite">${charCanvas(feat.id, 3, 12)}</span></div>
@@ -1121,6 +1128,8 @@ export class App {
       if (go === 'thanksev') { this.gachaBanner = 'evento'; this.gacha(); } // 1.75
       if (go === 'collection') this.collection();
       if (go === 'gts') void this.gts(); // 1.8
+      if (go === 'coop') this.coopLobby(); // pre-2.0
+      if (go === 'friends') void this.friendsScreen();
       if (go === 'gacha') this.gacha();
       if (go === 'missions') this.missions();
       if (go === 'perks') this.perks();
@@ -1463,6 +1472,235 @@ export class App {
   }
 
   /** v1.6 (author): another player's club, opened from the ranking — icon, crest, favourite team, totals and squad */
+  // ------------------------------------------------------------- pre-2.0 co-op
+  private coop: CoopLink | null = null;
+  /** pre-2.0: the partner's card (squad, kit, name, icon, crest, banner, frame), from his «hello»; a co-op run in progress */
+  private coopPartner: CoopProfile | null = null;
+  private coopRunActive = false;
+  private coopMap = '';
+  private coopAbort: AbortController | null = null;
+
+  /** what this player shows of himself in the room */
+  private coopMe(): CoopProfile {
+    const squad = squadOf(this.save, this.byId);
+    return {
+      name: this.save.onlineName || this.save.profile.name, icon: this.save.profile.icon, crest: this.save.crest ?? '', kit: this.save.kit,
+      pennant: this.save.pennants?.equipped ?? null, frame: this.save.pennants?.frame ?? null, wins: this.save.stats.wins,
+      squad: squad.map((p) => ({ id: p.id, r: effectiveRarity(this.save, p), st: (this.save.owned[String(p.id)]?.stars ?? 0) + (this.save.owned[String(p.id)]?.extraStars ?? 0), hero: isHero(this.save, p.id) })),
+    };
+  }
+
+  /** a player's card in the room: his banner across the top, framed icon, crest, and his squad with the captain first */
+  private coopCard(p: CoopProfile, mine: boolean) {
+    const cap = this.byId.get(p.squad[0]?.id ?? -1);
+    const emblem = p.crest ? this.emblemOf(p.crest) : '';
+    const squad = p.squad.map((c, i) => {
+      if (!this.byId.has(c.id)) return '';
+      const r = (c.r in RARITY_COLOR ? c.r : 'comun') as Rarity;
+      return `<span class="cp-mug r-${r}${i === 0 ? ' cap' : ''}${c.hero ? ' hero' : ''}" style="--rc:${RARITY_COLOR[r]}" title="${esc(this.byId.get(c.id)!.name)}">${this.mug(c.id, i === 0 ? 64 : 40)}${i === 0 ? '<em class="cp-c">C</em>' : ''}${c.st ? `<small>★${c.st}</small>` : ''}</span>`;
+    }).join('');
+    return `<div class="cp-pc${mine ? ' me' : ' them'}">
+      <div class="cp-ribbon">${p.pennant ? pennantRibbon(p.pennant) : '<i class="cp-noribbon"></i>'}</div>
+      <div class="cp-id">${this.framed(this.profileIcon(72, p.icon), p.frame)}
+        <div class="cp-who"><small>${mine ? 'TÚ' : 'TU COMPAÑERO'}</small><b>${esc(p.name)}</b>
+          <span>${emblem ? `<img src="${emblem}" alt="">` : ''}${esc(p.crest ? teamLabel(p.crest) : 'Sin escudo')} · ${p.wins} victorias</span></div></div>
+      <div class="cp-capline"><span>${cap ? `Capitán: <b>${esc(cap.name)}</b>` : 'Sin capitán'}</span><span>${p.squad.length} en el equipo</span></div>
+      <div class="cp-squad">${squad || '<span class="note">Sin equipo todavía</span>'}</div></div>`;
+  }
+
+  /**
+   * pre-2.0 (author): co-op for two, by room code or a friend's invitation. Linked, the room shows both players' cards
+   * (banner, frame, crest and squad); the host picks the arena and starts. Only for signed-in players.
+   */
+  coopLobby(state: { busy?: string; code?: string; error?: string; join?: string } = {}) {
+    setMusicContext('menu');
+    const link = this.coop?.open ? this.coop : null;
+    const ok = onlineConfigured() && signedIn();
+    const hero = `<div class="cp-hero"><div class="cp-hero-tx"><small>MODO COOPERATIVO · PRE-2.0</small><b>Juega con un amigo</b>
+        <span>Cada uno con su equipo, los mismos rivales y una sola barra de experiencia. Si uno cae, el otro lo levanta.</span></div>
+      <span class="cp-test" title="Puede tener fallos: si ves alguno, repórtalo desde el 🐞">EN PRUEBAS</span></div>`;
+    let body: string;
+    if (!ok) body = `<div class="panel cp-panel"><p class="note">El cooperativo necesita una cuenta: entra con Google en Ajustes.</p></div>`;
+    else if (link) {
+      const me = this.coopMe(), pa = this.coopPartner;
+      const maps = this.m.maps.filter((mp) => isMapUnlocked(mp, this.save));
+      if (!maps.some((mp) => mp.id === this.coopMap)) this.coopMap = maps[0]?.id ?? '';
+      body = `<div class="cp-room">
+        <div class="cp-vs">${this.coopCard(me, true)}
+          <div class="cp-mid"><b class="cp-hands">${uiIcon('team')}</b><span class="cp-chip" id="cpping">Ping…</span><span class="cp-chip" id="cproute"></span><small>Sala ${esc(link.code)}</small></div>
+          ${pa ? this.coopCard(pa, false) : `<div class="cp-pc them wait"><i class="cp-dots"><b></b><b></b><b></b></i><span>Preparando a ${esc(link.partner)}…</span></div>`}</div>
+        ${link.role === 'host' ? `<div class="panel cp-panel"><h3>${uiIcon('pitch')}Elige la arena <small>con tu rango ${esc(this.save.difficulty)}</small></h3>
+            <div class="cp-maps">${maps.map((mp) => `<button class="cp-map-card${mp.id === this.coopMap ? ' on' : ''}" data-cpmap="${esc(mp.id)}"><small>${uiIcon('clock')}${fmtTime(mp.durationSec)}</small><b>${esc(mp.name)}</b>${mp.boss !== null ? `<span class="cp-boss">${this.mug(mp.boss, 40)}</span>` : ''}</button>`).join('')}</div>
+            <button class="btn big cp-go" id="cpgo" ${pa ? '' : 'disabled'}>${pa ? '¡A jugar juntos! ▶' : 'Esperando el equipo de tu compañero…'}</button></div>`
+          : `<div class="panel cp-panel cp-waitpanel"><i class="cp-dots"><b></b><b></b><b></b></i><p>${pa ? `Esperando a que <b>${esc(link.partner)}</b> elija la arena y empiece…` : 'Preparando…'}</p></div>`}
+        <div class="cp-actions"><button class="btn" id="cpleave">Salir de la sala</button></div></div>`;
+    } else if (state.code) {
+      body = `<div class="cp-two"><div class="panel cp-panel cp-codebox"><small>CÓDIGO DE LA SALA</small><b class="cp-code">${esc(state.code)}</b>
+          <button class="btn small blue" id="cpcopy">Copiar código</button><p class="note">Pásaselo a tu compañero o invita a un amigo. Esperando a que entre… (la sala dura 15 minutos)</p>
+          <i class="cp-dots"><b></b><b></b><b></b></i><button class="btn" id="cpcancel">Cancelar</button></div>
+        <div class="panel cp-panel"><h3>${uiIcon('team')}Invita a un amigo</h3><div class="cp-friends" id="cpfriends"><p class="note">Cargando amigos…</p></div></div></div>`;
+    } else if (state.busy) body = `<div class="panel cp-panel cp-waitpanel"><i class="cp-dots"><b></b><b></b><b></b></i><p>${esc(state.busy)}</p><button class="btn" id="cpcancel">Cancelar</button></div>`;
+    else body = `<div class="cp-two">
+        <div class="panel cp-panel cp-choice"><span class="cp-big-ic">${uiIcon('crown')}</span><b>Crear sala</b><p class="note">Eres el anfitrión: eliges la arena y se juega con tu rango.</p><button class="btn big" id="cpcreate">Crear sala</button></div>
+        <div class="panel cp-panel cp-choice"><span class="cp-big-ic">${uiIcon('team')}</span><b>Unirse</b><p class="note">Escribe el código que te ha pasado tu compañero.</p>
+          <div class="cp-join"><input id="cpcode" maxlength="6" placeholder="CÓDIGO" autocomplete="off" spellcheck="false" value="${esc(state.join ?? '')}"><button class="btn big blue" id="cpjoin">Unirse</button></div></div></div>
+      <div class="panel cp-panel"><h3>${uiIcon('team')}Amigos <button class="btn small blue" id="cpfriendsbtn">Gestionar amigos</button></h3><div class="cp-friends" id="cpfriends"><p class="note">Cargando amigos…</p></div></div>`;
+    this.show(`<div class="screen coop-screen">${this.titlebar('Cooperativo', 'Menú')}${hero}${state.error ? `<p class="cp-err">${esc(state.error)}</p>` : ''}${body}</div>`);
+    this.on('[data-back]', 'click', () => { this.coopAbort?.abort(); this.mainMenu(); });
+    const fail = (e: unknown) => { this.coopAbort = null; if ((e as Error).message !== 'cancelado') this.coopLobby({ error: (e as Error).message }); };
+    const adopt = (l: CoopLink) => { this.coopAbort = null; this.coop = l; this.coopPartner = null; this.coopLobby(); };
+    const host = () => {
+      this.coopAbort = new AbortController();
+      this.coopLobby({ busy: 'Creando la sala…' });
+      CoopLink.host((code) => this.coopLobby({ code }), this.coopAbort.signal).then(adopt, fail);
+    };
+    const join = (raw?: string) => {
+      const code = (raw ?? (document.getElementById('cpcode') as HTMLInputElement | null)?.value ?? '').trim().toUpperCase();
+      if (!/^[A-Z2-9]{6}$/.test(code)) { this.coopLobby({ error: 'El código tiene 6 letras y números.', join: code }); return; }
+      this.coopAbort = new AbortController();
+      this.coopLobby({ busy: `Entrando en la sala ${code}…` });
+      CoopLink.join(code, this.coopAbort.signal).then(adopt, fail);
+    };
+    document.getElementById('cpcreate')?.addEventListener('click', host);
+    document.getElementById('cpjoin')?.addEventListener('click', () => join());
+    document.getElementById('cpcode')?.addEventListener('keydown', (e) => { if ((e as KeyboardEvent).key === 'Enter') join(); });
+    document.getElementById('cpcancel')?.addEventListener('click', () => { this.coopAbort?.abort(); this.coopAbort = null; this.coopLobby(); });
+    document.getElementById('cpcopy')?.addEventListener('click', () => { void navigator.clipboard?.writeText(state.code ?? '').then(() => this.toast('Código copiado')).catch(() => undefined); });
+    document.getElementById('cpfriendsbtn')?.addEventListener('click', () => this.friendsScreen());
+    document.getElementById('cpleave')?.addEventListener('click', () => { this.coop?.close(); this.coop = null; this.coopPartner = null; this.coopLobby(); });
+    this.on('[data-cpmap]', 'click', (_e, el) => { this.coopMap = el.dataset.cpmap!; this.root.querySelectorAll('.cp-map-card').forEach((b) => b.classList.toggle('on', b === el)); });
+    document.getElementById('cpgo')?.addEventListener('click', () => {
+      if (!this.coopMap || !this.coopPartner || !this.coop?.open) return;
+      const seed = Math.floor(Math.random() * 1e9);
+      this.coop.send({ t: 'go', map: this.coopMap, rank: this.save.difficulty, seed });
+      this.coopStart(this.coopMap, this.save.difficulty);
+    });
+    if (ok && !link) void this.coopFriendsPanel(state.code ?? null);
+    if (state.join && !state.error && !state.busy) join(state.join); // from a friend's invitation
+    if (link) {
+      this.coopListen(link);
+      void link.route().then((r) => { const el = document.getElementById('cproute'); if (el) el.textContent = r === 'retransmitida' ? 'Por servidor de paso' : 'Conexión directa'; });
+      const tick = window.setInterval(() => {
+        const el = document.getElementById('cpping');
+        if (!el || !this.coop?.open) { clearInterval(tick); return; }
+        el.textContent = this.coop.rtt ? `Ping ${this.coop.rtt} ms` : 'Ping…';
+      }, 500);
+    }
+  }
+
+  /** the room's friends list: who is online, and an «Invitar» button while this player hosts an empty room */
+  private async coopFriendsPanel(code: string | null) {
+    const box = () => document.getElementById('cpfriends');
+    let rows: FriendRow[] = [];
+    try { rows = (await friendList()).filter((f) => f.status === 'amigo'); } catch (e) { const b = box(); if (b) b.innerHTML = `<p class="note">${esc((e as Error).message)}</p>`; return; }
+    const b = box();
+    if (!b) return;
+    if (!rows.length) { b.innerHTML = '<p class="note">Aún no tienes amigos añadidos. Añádelos en «Gestionar amigos» o desde su perfil en el ranking.</p>'; return; }
+    b.innerHTML = rows.map((f) => `<div class="cp-fr${f.online ? ' on' : ''}">${this.profileIcon(32, this.iconFrom(f.avatar))}<b>${esc(f.username)}</b><span class="cp-dot">${f.online ? 'En línea' : 'Desconectado'}</span>
+      ${code ? `<button class="btn small" data-invite="${esc(f.username)}">Invitar</button>` : ''}</div>`).join('');
+    this.on('[data-invite]', 'click', (_e, el) => {
+      const name = el.dataset.invite!;
+      (el as HTMLButtonElement).disabled = true;
+      coopInvite(name, code!).then(() => { el.textContent = 'Invitado ✔'; this.toast(`Invitación enviada a ${name}`); })
+        .catch((err: Error) => { (el as HTMLButtonElement).disabled = false; this.toast(err.message, 4000); });
+    }, b);
+  }
+
+  /** the avatar a friend row carries (the same text the profile keeps) */
+  private iconFrom(avatar: string): { kind: 'emblem' | 'player' | 'coach'; id: number } | null {
+    const id = Number(avatar);
+    if (!avatar || !Number.isFinite(id)) return null;
+    // the server keeps the number only: a crest when there is one with that id (the default icons), else a footballer
+    return { kind: this.m.profile?.emblems?.some((e) => e.teamId === id) || !this.byId.has(id) ? 'emblem' : 'player', id };
+  }
+
+  /** pre-2.0: friends — add by global name, answer requests, see who is online, remove */
+  async friendsScreen() {
+    setMusicContext('menu');
+    const ok = onlineConfigured() && signedIn();
+    this.show(`<div class="screen friends-screen">${this.titlebar('Amigos', 'Cooperativo')}
+      <div class="panel cp-panel"><h3>${uiIcon('team')}Añadir amigo</h3>${ok ? `<div class="cp-join"><input id="fradd" maxlength="20" placeholder="Nombre global" autocomplete="off" spellcheck="false"><button class="btn blue" id="fraddgo">Enviar solicitud</button></div>
+        <p class="note">También puedes añadir a alguien desde su perfil en el ranking.</p>` : '<p class="note">Necesitas una cuenta: entra con Google en Ajustes.</p>'}</div>
+      <div id="frlist"><p class="note">Cargando…</p></div></div>`);
+    this.on('[data-back]', 'click', () => this.coopLobby());
+    if (!ok) return;
+    const send = () => {
+      const name = (document.getElementById('fradd') as HTMLInputElement).value.trim();
+      if (!name) return;
+      friendRequest(name).then((r) => { this.toast(r === 'aceptada' ? `¡Ahora eres amigo de ${name}!` : r === 'ya_amigos' ? `Ya eres amigo de ${name}` : `Solicitud enviada a ${name}`); void this.friendsScreen(); })
+        .catch((e: Error) => this.toast(e.message, 4000));
+    };
+    document.getElementById('fraddgo')?.addEventListener('click', send);
+    document.getElementById('fradd')?.addEventListener('keydown', (e) => { if ((e as KeyboardEvent).key === 'Enter') send(); });
+    let rows: FriendRow[] = [];
+    try { rows = await friendList(); } catch (e) { const l = document.getElementById('frlist'); if (l) l.innerHTML = `<p class="note">${esc((e as Error).message)}</p>`; return; }
+    const list = document.getElementById('frlist');
+    if (!list) return;
+    const row = (f: FriendRow, actions: string) => `<div class="cp-fr${f.online ? ' on' : ''}">${this.profileIcon(36, this.iconFrom(f.avatar))}<b data-user="${esc(f.username)}">${esc(f.username)}</b>
+      ${f.status === 'amigo' ? `<span class="cp-dot">${f.online ? 'En línea' : 'Desconectado'}</span>` : ''}<span class="spacer"></span>${actions}</div>`;
+    const got = rows.filter((f) => f.status === 'recibida'), mine = rows.filter((f) => f.status === 'amigo'), sent = rows.filter((f) => f.status === 'enviada');
+    list.innerHTML = `${got.length ? `<div class="panel cp-panel"><h3>${uiIcon('gift')}Solicitudes <small>${got.length}</small></h3>${got.map((f) => row(f, `<button class="btn small" data-fra="${esc(f.username)}">Aceptar</button><button class="btn small blue" data-frx="${esc(f.username)}">Rechazar</button>`)).join('')}</div>` : ''}
+      <div class="panel cp-panel"><h3>${uiIcon('team')}Tus amigos <small>${mine.length}/100</small></h3>${mine.length ? mine.map((f) => row(f, `<button class="btn small blue" data-frrm="${esc(f.username)}">Quitar</button>`)).join('') : '<p class="note">Todavía ninguno.</p>'}</div>
+      ${sent.length ? `<div class="panel cp-panel"><h3>${uiIcon('clock')}Enviadas</h3>${sent.map((f) => row(f, `<button class="btn small blue" data-frrm="${esc(f.username)}">Cancelar</button>`)).join('')}</div>` : ''}`;
+    const act = (p: Promise<unknown>, msg: string) => p.then(() => { this.toast(msg); void this.friendsScreen(); }).catch((e: Error) => this.toast(e.message, 4000));
+    this.on('[data-fra]', 'click', (_e, el) => act(friendRespond(el.dataset.fra!, true), `¡Ahora eres amigo de ${el.dataset.fra}!`), list);
+    this.on('[data-frx]', 'click', (_e, el) => act(friendRespond(el.dataset.frx!, false), 'Solicitud rechazada'), list);
+    this.on('[data-frrm]', 'click', (_e, el) => this.armed(el, () => act(friendRemove(el.dataset.frrm!), 'Hecho')), list);
+    this.bindUsers(list);
+  }
+
+  /**
+   * pre-2.0: while the game is open with an account, it tells the server once a minute (friends see «en línea») and looks
+   * for co-op invitations every 15 seconds outside a run; an invitation asks right away whether to join.
+   */
+  private socialStarted = false;
+  private startSocial() {
+    if (this.socialStarted) return;
+    this.socialStarted = true;
+    const live = () => onlineConfigured() && signedIn() && document.visibilityState === 'visible';
+    const beat = () => { if (live()) void friendHeartbeat().catch(() => undefined); };
+    beat();
+    window.setInterval(beat, 60_000);
+    window.setInterval(() => {
+      if (!live() || this.arena()?.scene.isActive() || this.coop?.open || document.querySelector('.coop-invite')) return;
+      void coopInvitesClaim().then((rows) => { const r = rows[rows.length - 1]; if (r) this.coopInviteNotice(r.from_name, r.code); }).catch(() => undefined);
+    }, 15_000);
+  }
+
+  private coopInviteNotice(from: string, code: string) {
+    sfx('reveal');
+    const box = document.createElement('div');
+    box.className = 'modal coop-invite';
+    box.innerHTML = `<div class="panel cp-panel cp-invite"><span class="cp-big-ic">${uiIcon('team')}</span><h2>¡${esc(from)} te invita!</h2>
+      <p>Quiere jugar contigo en <b>cooperativo</b>. La invitación dura dos minutos.</p>
+      <div class="cp-actions"><button class="btn big" id="cpinvok">Unirme</button><button class="btn blue" id="cpinvno">Ahora no</button></div></div>`;
+    this.root.appendChild(box);
+    box.querySelector('#cpinvok')!.addEventListener('click', () => { box.remove(); this.coopLobby({ join: code }); });
+    box.querySelector('#cpinvno')!.addEventListener('click', () => box.remove());
+  }
+
+  /** pre-2.0: the lobby's side of the link: cards are exchanged, and the host's «go» starts the run on both screens */
+  private coopListen(link: CoopLink) {
+    link.onEvent = (m: CoopMsg) => {
+      if (m.t === 'hello') {
+        const p = m.me as CoopProfile;
+        this.coopPartner = { ...p, squad: (p.squad ?? []).filter((c) => this.byId.has(c.id)) };
+        if (this.screenKey === 'Cooperativo') this.coopLobby();
+      } else if (m.t === 'go' && link.role === 'guest') this.coopStart(String(m.map), m.rank as Rank);
+    };
+    link.onClose = (why) => { this.coop = null; this.coopPartner = null; if (this.screenKey === 'Cooperativo') this.coopLobby({ error: `Sala cerrada: ${why}` }); };
+    link.send({ t: 'hello', me: this.coopMe() });
+  }
+
+  /** both screens start the same arena; each one plays with his own squad */
+  private coopStart(mapId: string, rank: Rank) {
+    const link = this.coop, partner = this.coopPartner;
+    const squad = squadOf(this.save, this.byId);
+    if (!link?.open || !partner || !squad.length || !this.m.maps.some((mp) => mp.id === mapId)) { this.toast('No se pudo empezar la partida juntos'); return; }
+    const team = partner.squad.map((c) => this.byId.get(c.id)!).filter(Boolean);
+    this.startRun(mapId, [squad[0]], squad, undefined, { role: link.role, link, rank, partner: { name: partner.name || link.partner, team, kit: this.m.kits?.[partner.kit] ?? null } });
+  }
+
   private async otherProfile(username: string) {
     document.getElementById('opf')?.remove();
     const box = document.createElement('div');
@@ -1505,6 +1743,14 @@ export class App {
       ${p.marks.length ? `<h3>${uiIcon('crown')}Mejores marcas</h3><div class="opf-marks">${p.marks.map((m) => `<span class="opf-mark"><span class="rank-btn r-${esc(m.rank)}"><b>${esc(m.rank)}</b></span>${esc(mapName(m.map))}<b>${fmtTime(m.time_sec)}</b><small>${Number(m.damage).toLocaleString('es')} daño</small></span>`).join('')}</div>` : ''}
     </div>`;
     box.querySelector('[data-close]')!.addEventListener('click', close);
+    // pre-2.0: add as a friend (for the co-op)
+    if (onlineConfigured() && signedIn() && p.username !== this.save.onlineName) {
+      const add = document.createElement('button');
+      add.className = 'btn small opf-friend';
+      add.textContent = '+ Añadir amigo';
+      add.addEventListener('click', () => { add.disabled = true; friendRequest(p.username).then((r) => { add.textContent = r === 'enviada' ? 'Solicitud enviada ✔' : '¡Ya sois amigos! ✔'; }).catch((e: Error) => { add.disabled = false; this.toast(e.message, 4000); }); });
+      box.querySelector('.opf-panel')?.insertBefore(add, box.querySelector('.opf-panel h3'));
+    }
   }
 
   /** v1.6: every ranking name opens that player's profile */
@@ -4468,8 +4714,9 @@ export class App {
     return ae ? carrierForRun(this.save, base, base.stats as Record<StatKey, number> | null, ae) : base;
   }
 
-  startRun(mapId: string, team: RosterEntry[], candidates: RosterEntry[] = team, training?: TrainingSetup) {
+  startRun(mapId: string, team: RosterEntry[], candidates: RosterEntry[] = team, training?: TrainingSetup, coop?: CoopRun & { rank: Rank }) {
     const map = this.m.maps.find((x) => x.id === mapId)!;
+    this.coopRunActive = !!coop; // pre-2.0: co-op runs never go to the ranking
     const heroed = (p: RosterEntry) => this.runEntry(p);
     this.inTraining = !!training;
     const runTeam = team.map(heroed), runUnlocked = candidates.filter((p) => this.owned(p.id)).map(heroed);
@@ -4506,7 +4753,8 @@ export class App {
     document.getElementById('pausebtn')!.addEventListener('click', () => this.pauseFromHud());
     this.root.querySelectorAll<HTMLElement>('#fbtns button').forEach((b) => b.addEventListener('click', () => this.arena()?.selectFormation(b.dataset.f as FormationId)));
     const init: ArenaInit = {
-      rank: this.save.difficulty,
+      rank: coop?.rank ?? this.save.difficulty,
+      coop: coop ? { role: coop.role, link: coop.link, partner: coop.partner } : undefined,
       onPickup: (id, label, info) => {
         if (this.save.seenItems.includes(id)) return;
         this.save.seenItems.push(id);
@@ -4775,6 +5023,15 @@ export class App {
       el.classList.add('pop');
     };
     stat('runcoins', s.runCoins ? `◉ +${s.runCoins}` : '');
+    // pre-2.0: the partner's chip (name, health, down), and this player's own «down» state
+    const co = this.arena()?.coopHud();
+    if (co) {
+      let el = document.getElementById('coophud');
+      if (!el) { el = document.createElement('div'); el.id = 'coophud'; el.className = 'coop-hud'; (document.querySelector('#hud .cap-panel .vbars') ?? document.getElementById('hud'))?.appendChild(el); }
+      const pct = Math.round((co.hp / Math.max(1, co.max)) * 100);
+      const html = `<small>${co.connected ? 'COMPAÑERO' : 'DESCONECTADO'}</small><b>${esc(co.name)}</b><i class="ch-bar${co.down ? ' down' : ''}"><i style="width:${co.down ? 0 : pct}%"></i></i>${co.down ? '<em>¡Ha caído! Ve a su lado</em>' : ''}${co.meDown ? `<em class="me">Has caído · levantándote ${Math.round(co.revive * 100)}%</em>` : ''}`;
+      if (el.innerHTML !== html) el.innerHTML = html;
+    }
     stat('runtokens', s.runTokens ? `+${s.runTokens}` : '');
     // Fix 1.31: the synergies as big chips (icon, bonus, progress to the next step); a chip pops when it goes up
     const syn = s.synergies ?? [];
@@ -5141,12 +5398,14 @@ export class App {
     recordMastery(this.save, r.techById ?? {});
     const runId = r.runId ?? `${Date.now()}`;
     // Fix 1.51 (author): only a completed run (the arena won, endless survival after it included) counts for the ranking
-    const best = r.victory && recordBest(this.save, runId, { map: r.mapId, rank: r.rank ?? 'C', time: Math.floor(r.timeSec), damage: r.damage ?? 0, captainId: r.captainId ?? 0, at: new Date().toISOString() });
+    const coopRun = this.coopRunActive;
+    this.coopRunActive = false;
+    const best = r.victory && !coopRun && recordBest(this.save, runId, { map: r.mapId, rank: r.rank ?? 'C', time: Math.floor(r.timeSec), damage: r.damage ?? 0, captainId: r.captainId ?? 0, at: new Date().toISOString() });
     if (best) records.push('ranking');
     if (r.victory) recordTriumph(this.save, { runId, at: new Date().toISOString(), map: r.mapId, rank: r.rank ?? 'C', team: r.teamIds ?? (r.captainId ? [r.captainId] : []),
       time: Math.floor(r.timeSec), kills: r.kills, damage: r.damage ?? 0, endless: Math.floor(r.endlessSec ?? 0) });
     this.persist();
-    if (r.victory && onlineConfigured() && signedIn() && this.save.onlineName) {
+    if (r.victory && !coopRun && onlineConfigured() && signedIn() && this.save.onlineName) {
       submitScore(runId, r.mapId, r.rank ?? 'C', r.timeSec, r.damage ?? 0, r.captainId ?? 0)
         .then((res) => this.toast(res === 'duplicate' ? 'Esta partida ya estaba en el ranking' : 'Marca enviada al ranking global'))
         .catch((err: Error) => this.toast(`Ranking: ${err.message}`, 4000));

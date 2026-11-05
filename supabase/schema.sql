@@ -1208,7 +1208,7 @@ grant execute on function private.redeem_code(text, boolean) to authenticated;
 insert into private.promo_codes (code, rewards) values ('GRACIAS', jsonb_build_object('tokens', 0, 'coins', 10000, 'event_tokens', 150))
 on conflict (code) do nothing;
 
--- ==== 20261105000200_public_profile_full.sql
+-- ===== 20261105000200_public_profile_full.sql
 -- 1.76 (author): the profile opened from the ranking is the same player card as the own Perfil screen. It also needs the
 -- number of pulls, the achievements claimed (mission ids without a period stamp, i.e. the logros) and the collection
 -- (owned: copies, stars, ascension, HÉROE, training), from which the client works out the best footballer and his mean
@@ -1268,7 +1268,7 @@ alter function private.public_profile(text) set statement_timeout = '5s';
 
 notify pgrst, 'reload schema';
 
--- ==== 20261106000000_gts.sql
+-- ===== 20261106000000_gts.sql
 -- 1.8 (author): the GTS, an online bank of footballers like Pokémon's Global Trade Station. A player leaves one spare copy
 -- (never his only one) asking for another footballer in exchange; anyone who has a spare copy of the one asked for can take
 -- the deposit at once, and the depositor collects what he got the next time he looks. Until then he can withdraw it.
@@ -1429,3 +1429,734 @@ grant execute on function private.gts_deposit(integer, integer), private.gts_wit
 grant execute on function private.gts_search(integer, integer), private.gts_feed(), public.gts_search(integer, integer), public.gts_feed() to anon, authenticated;
 
 notify pgrst, 'reload schema';
+
+-- ===== 20261106000100_gts_heroes.sql
+-- 1.8 (author): a footballer the player ascended to HÉROE can leave spare copies in the GTS (the copy travels clean,
+-- the HÉROE stays). Only Leyenda and limited-event footballers stay banned (private.gts_banned). No footballer is a
+-- HÉROE by nature today; if one is added, put its id in private.gts_banned.
+
+create or replace function private.gts_deposit(p_give integer, p_want integer) returns bigint
+language plpgsql security definer set search_path = '' as $$
+declare uid uuid := private.real_user(); sv jsonb; slots integer; open_n integer; new_id bigint;
+begin
+  if p_give is null or p_want is null or p_give = p_want or p_give <= 0 or p_want <= 0 then raise exception 'gts_invalid' using errcode = 'P0001'; end if;
+  perform pg_advisory_xact_lock(hashtext('gts:' || uid::text));
+  select data into sv from public.saves where user_id = uid;
+  if sv is null then raise exception 'gts_no_save' using errcode = 'P0001'; end if;
+  if exists (select 1 from private.gts_banned where player_id in (p_give, p_want)) then raise exception 'gts_banned' using errcode = 'P0001'; end if;
+  slots := least(5, 1 + greatest(0, coalesce((sv->'upgrades'->>'gts')::integer, 0)));
+  select count(*) into open_n from private.gts_deposits where user_id = uid and status = 'open';
+  if open_n >= slots then raise exception 'gts_slots' using errcode = 'P0001'; end if;
+  if exists (select 1 from private.gts_deposits where user_id = uid and status = 'open' and give_id = p_give and want_id = p_want)
+     or exists (select 1 from private.gts_done where user_id = uid and give_id = p_give and want_id = p_want) then
+    raise exception 'gts_repeated' using errcode = 'P0001'; end if;
+  if private.gts_spare(uid, p_give) < 1 then raise exception 'gts_no_spare' using errcode = 'P0001'; end if;
+  insert into private.gts_deposits (user_id, give_id, want_id) values (uid, p_give, p_want) returning id into new_id;
+  return new_id;
+end $$;
+
+create or replace function private.gts_take(p_id bigint) returns jsonb
+language plpgsql security definer set search_path = '' as $$
+declare uid uuid := private.real_user(); d record;
+begin
+  perform pg_advisory_xact_lock(hashtext('gts:' || uid::text));
+  select * into d from private.gts_deposits where id = p_id for update;
+  if not found or d.status <> 'open' then raise exception 'gts_gone' using errcode = 'P0001'; end if;
+  if d.user_id = uid then raise exception 'gts_own' using errcode = 'P0001'; end if;
+  if exists (select 1 from private.gts_done where user_id = uid and give_id = d.want_id and want_id = d.give_id) then
+    raise exception 'gts_repeated' using errcode = 'P0001'; end if;
+  if private.gts_spare(uid, d.want_id) < 1 then raise exception 'gts_no_spare' using errcode = 'P0001'; end if;
+  update private.gts_deposits set status = 'traded', taker_id = uid, closed_at = now() where id = p_id;
+  insert into private.gts_done (user_id, give_id, want_id) values (d.user_id, d.give_id, d.want_id), (uid, d.want_id, d.give_id) on conflict do nothing;
+  return jsonb_build_object('id', d.id, 'give', d.want_id, 'get', d.give_id);
+end $$;
+
+-- ===== 20261106000200_ina483.sql
+-- 1.81 (author): code INA483. 5 ×10 of the Banner de agradecimiento (750 fichas de evento), 5 normal ×10 (500 fichas),
+-- 20.000 coins, one footballer Legendario or higher for sure (Legendario 80 / Mítico 17 / Leyenda 3, from rewards.rarity_pools,
+-- event-only footballers left out) and its own banner and frame (rewards.pennants, answered as reward.pennants; the
+-- client only lists them for whoever owns them). redeem_code learns rarity_pools/rarity_odds and pennants; codes
+-- without them (ASTRA17, GRACIAS) answer exactly as before. Same function as 20261105000100_thanks_code.sql otherwise.
+
+create or replace function private.redeem_code(p_code text, p_already_applied boolean) returns jsonb
+language plpgsql security definer set search_path = '' as $$
+declare uid uuid := private.real_user(); c record; pool jsonb; pick integer; res jsonb; inserted integer;
+  odds jsonb; total numeric; x numeric; r text;
+begin
+  select * into c from private.promo_codes where code = upper(trim(p_code)) and active;
+  if not found then return jsonb_build_object('status', 'invalid'); end if;
+  if p_already_applied then
+    insert into private.promo_redemptions (user_id, code, result) values (uid, c.code, jsonb_build_object('guest', true))
+    on conflict do nothing;
+    get diagnostics inserted = row_count;
+    return jsonb_build_object('status', case when inserted = 1 then 'linked' else 'used' end);
+  end if;
+  pool := c.rewards -> 'legendary_pool';
+  odds := c.rewards -> 'rarity_odds';
+  if odds is not null then
+    -- rarity first by its weight (only rarities with footballers), then one of that rarity
+    select sum((value)::numeric) into total from jsonb_each_text(odds) e
+      where jsonb_array_length(coalesce(c.rewards -> 'rarity_pools' -> e.key, '[]')) > 0;
+    x := random() * coalesce(total, 0);
+    for r in select e.key from jsonb_each_text(odds) e
+      where jsonb_array_length(coalesce(c.rewards -> 'rarity_pools' -> e.key, '[]')) > 0 order by (e.value)::numeric desc loop
+      pool := c.rewards -> 'rarity_pools' -> r;
+      x := x - (odds ->> r)::numeric;
+      exit when x < 0;
+    end loop;
+  end if;
+  pick := case when jsonb_array_length(coalesce(pool, '[]')) > 0 then (pool ->> floor(random() * jsonb_array_length(pool))::integer)::integer end;
+  res := jsonb_build_object('tokens', coalesce((c.rewards ->> 'tokens')::integer, 0), 'coins', coalesce((c.rewards ->> 'coins')::integer, 0), 'player', pick,
+    'eventTokens', coalesce((c.rewards ->> 'event_tokens')::integer, 0));
+  if c.rewards ? 'pennants' then res := res || jsonb_build_object('pennants', c.rewards -> 'pennants'); end if;
+  insert into private.promo_redemptions (user_id, code, result) values (uid, c.code, res) on conflict do nothing;
+  get diagnostics inserted = row_count;
+  if inserted = 0 then return jsonb_build_object('status', 'used'); end if;
+  return jsonb_build_object('status', 'ok', 'reward', res);
+end $$;
+
+revoke execute on function private.redeem_code(text, boolean) from public, anon, authenticated;
+grant execute on function private.redeem_code(text, boolean) to authenticated;
+
+insert into private.promo_codes (code, rewards) values ('INA483', jsonb_build_object(
+  'tokens', 500, 'coins', 20000, 'event_tokens', 750,
+  'rarity_odds', jsonb_build_object('legendario', 80, 'mitico', 17, 'leyenda', 3),
+  'rarity_pools', '{"legendario":[1541,1567,1532,29,10,1542,1513,1384,2,3,1589,1,1548,1024,1370,1371,1405,1382,101855,101791,101838,101871,101775,100248,100405,100468,100562,101722,101308,102015,101719,100293,100844,100538,100544,100580,100728,101504,102117,102185,101558,100494,100510,100907,102205,102307,100487,100540,100717,100382,101488,101572,101505,100438,100739,100577,101710,100797,100519,100905,102130,100979,101437],"mitico":[157,1406,101894,102014,102025,100475,100944,100303,100427,100426,100242,100635,101416,101527,101345,100602,100609,100615,100638,102346,101004,100516,101626,100805,101520,100398,102454,100335,101652,100524,100604,100568,100238,100723,100597,100288,100600,100725,100332,100598,100603,100982,101321,102050,100989,100952,100759],"leyenda":[100773,100234]}'::jsonb,
+  'pennants', jsonb_build_array('inazuma', 'marco-inazuma')))
+-- run again (an earlier draft had other amounts and banner ids): the code always ends up with these rewards
+on conflict (code) do update set rewards = excluded.rewards, active = true;
+
+-- ===== 20261106000300_bug_bounty.sql
+-- 1.85 (author): bug bounty. When the admin marks a report «corregido» (admin_update_bug), its reporter earns 100 fichas,
+-- once per report (marking it again, or going back and forth, never pays twice; admins' own reports pay nothing). The
+-- reward waits in private.bug_rewards until the reporter's game claims it (claim_bug_rewards), which adds the fichas and
+-- shows a notice. economy_cap counts the rewards claimed since the last write, like promo codes, so a save never cuts them.
+
+create table if not exists private.bug_rewards (
+  report_id uuid primary key references public.bug_reports (id) on delete cascade,
+  user_id uuid not null references auth.users (id) on delete cascade,
+  code text not null,
+  title text not null,
+  tokens integer not null default 100 check (tokens between 0 and 1000),
+  created_at timestamptz not null default now(),
+  claimed_at timestamptz
+);
+create index if not exists bug_rewards_user_pending on private.bug_rewards (user_id) where claimed_at is null;
+revoke all on private.bug_rewards from public, anon, authenticated;
+
+-- admin_update_bug as before (20261101000000_bug_reports.sql), plus the reward when the status becomes «corregido»
+create or replace function private.admin_update_bug(p_code text, p_status text, p_notes text) returns timestamptz
+language plpgsql security definer set search_path = public as $$
+declare t timestamptz; r record;
+begin
+  if not private.is_admin() then raise exception 'forbidden' using errcode = '42501'; end if;
+  update public.bug_reports set status = coalesce(p_status, status), admin_notes = coalesce(p_notes, admin_notes), updated_at = now()
+  where code = p_code returning updated_at, id, user_id, code, title, status into r;
+  if r.updated_at is null then raise exception 'not_found' using errcode = 'P0002'; end if;
+  t := r.updated_at;
+  if r.status = 'corregido' and not exists (select 1 from private.admins a where a.user_id = r.user_id) then
+    insert into private.bug_rewards (report_id, user_id, code, title, tokens) values (r.id, r.user_id, r.code, r.title, 100)
+    on conflict (report_id) do nothing;
+  end if;
+  return t;
+end $$;
+
+-- the reporter's game takes its pending rewards (once: they are marked as claimed in the same statement)
+create or replace function private.claim_bug_rewards() returns table (code text, title text, tokens integer)
+language sql security definer set search_path = '' as $$
+  update private.bug_rewards b set claimed_at = now()
+  where b.user_id = private.real_user() and b.claimed_at is null
+  returning b.code, b.title, b.tokens;
+$$;
+revoke execute on function private.claim_bug_rewards() from public, anon, authenticated;
+grant execute on function private.claim_bug_rewards() to authenticated;
+create or replace function public.claim_bug_rewards() returns table (code text, title text, tokens integer)
+language sql security invoker set search_path = '' as $$ select * from private.claim_bug_rewards(); $$;
+revoke execute on function public.claim_bug_rewards() from public, anon;
+grant execute on function public.claim_bug_rewards() to authenticated;
+
+-- economy_cap as in 20261102000200_save_economy_guard.sql, plus the bug rewards claimed since the last write
+create or replace function private.economy_cap(p_new jsonb, p_old jsonb, p_since timestamptz, p_uid uuid) returns jsonb
+language plpgsql stable security definer set search_path = '' as $$
+declare
+  hours numeric := greatest(0, extract(epoch from (now() - coalesce(p_since, now()))) / 3600);
+  promo_t numeric := 0; promo_c numeric := 0; bug_t numeric := 0;
+  old_t numeric; old_c numeric; new_t numeric; new_c numeric; max_t numeric; max_c numeric;
+  out jsonb := p_new;
+begin
+  if to_regclass('private.promo_redemptions') is not null then
+    execute 'select coalesce(sum((r.result ->> ''tokens'')::numeric), 0), coalesce(sum((r.result ->> ''coins'')::numeric), 0)
+      from private.promo_redemptions r where r.user_id = $1 and r.created_at > coalesce($2, ''-infinity''::timestamptz)'
+      into promo_t, promo_c using p_uid, p_since;
+  end if;
+  select coalesce(sum(b.tokens), 0) into bug_t from private.bug_rewards b
+    where b.user_id = p_uid and b.claimed_at is not null and b.claimed_at > coalesce(p_since, '-infinity'::timestamptz);
+  promo_t := promo_t + bug_t;
+  new_t := case when jsonb_typeof(p_new -> 'tokens') = 'number' then (p_new ->> 'tokens')::numeric else 0 end;
+  new_c := case when jsonb_typeof(p_new -> 'coins') = 'number' then (p_new ->> 'coins')::numeric else 0 end;
+  if p_old is null then
+    max_t := 5000 + promo_t; max_c := 60000 + promo_c;
+  else
+    old_t := case when jsonb_typeof(p_old -> 'tokens') = 'number' then greatest(0, (p_old ->> 'tokens')::numeric) else 0 end;
+    old_c := case when jsonb_typeof(p_old -> 'coins') = 'number' then greatest(0, (p_old ->> 'coins')::numeric) else 0 end;
+    max_t := old_t + 2000 + 1000 * hours + promo_t;
+    max_c := old_c + 8000 + 8000 * hours + promo_c;
+  end if;
+  if new_t > max_t then out := jsonb_set(out, '{tokens}', to_jsonb(floor(max_t)::bigint)); end if;
+  if new_c > max_c then out := jsonb_set(out, '{coins}', to_jsonb(floor(max_c)::bigint)); end if;
+  return out;
+end $$;
+revoke all on function private.economy_cap(jsonb, jsonb, timestamptz, uuid) from public, anon, authenticated;
+
+-- ===== 20261106000500_bug_replies.sql
+-- 1.88 (author): the bug panel can answer the reporter. A reply (bug_reports.reply, separate from the private
+-- admin_notes) or a status change to «corregido» or «descartado» leaves a notice for the reporter (notice_pending); their
+-- game takes it with claim_bug_notices when the menu opens and shows it. my_bug_reports also returns the reply.
+-- admin_update_bug gets a 4th argument (p_reply); the 3-argument version is dropped so the API call is unambiguous.
+
+alter table public.bug_reports add column if not exists reply text not null default '' check (char_length(reply) <= 2000);
+alter table public.bug_reports add column if not exists notice_pending boolean not null default false;
+
+drop function if exists public.admin_update_bug(text, text, text);
+drop function if exists private.admin_update_bug(text, text, text);
+
+create or replace function private.admin_update_bug(p_code text, p_status text, p_notes text, p_reply text) returns timestamptz
+language plpgsql security definer set search_path = public as $$
+declare t timestamptz; r record; old record;
+begin
+  if not private.is_admin() then raise exception 'forbidden' using errcode = '42501'; end if;
+  select status, reply into old from public.bug_reports where code = p_code;
+  update public.bug_reports set status = coalesce(p_status, status), admin_notes = coalesce(p_notes, admin_notes),
+    reply = coalesce(left(p_reply, 2000), reply), updated_at = now()
+  where code = p_code returning updated_at, id, user_id, code, title, status, reply into r;
+  if r.updated_at is null then raise exception 'not_found' using errcode = 'P0002'; end if;
+  t := r.updated_at;
+  -- the reporter is told when there is a new reply, or when the report is fixed or discarded
+  if (r.reply <> '' and r.reply is distinct from old.reply)
+     or (r.status is distinct from old.status and r.status in ('corregido', 'descartado')) then
+    update public.bug_reports set notice_pending = true where id = r.id;
+  end if;
+  -- 1.85: the bug bounty (100 fichas once per report, never for admins)
+  if r.status = 'corregido' and not exists (select 1 from private.admins a where a.user_id = r.user_id) then
+    insert into private.bug_rewards (report_id, user_id, code, title, tokens) values (r.id, r.user_id, r.code, r.title, 100)
+    on conflict (report_id) do nothing;
+  end if;
+  return t;
+end $$;
+create or replace function public.admin_update_bug(p_code text, p_status text default null, p_notes text default null, p_reply text default null) returns timestamptz
+language sql security invoker set search_path = '' as $$ select private.admin_update_bug(p_code, p_status, p_notes, p_reply); $$;
+revoke execute on function private.admin_update_bug(text, text, text, text) from public, anon, authenticated;
+grant execute on function private.admin_update_bug(text, text, text, text) to authenticated;
+revoke execute on function public.admin_update_bug(text, text, text, text) from public, anon;
+grant execute on function public.admin_update_bug(text, text, text, text) to authenticated;
+
+-- the reporter's notices, taken once
+create or replace function private.claim_bug_notices() returns table (code text, title text, status text, reply text)
+language sql security definer set search_path = '' as $$
+  update public.bug_reports b set notice_pending = false
+  where b.user_id = private.real_user() and b.notice_pending
+  returning b.code, b.title, b.status, b.reply;
+$$;
+revoke execute on function private.claim_bug_notices() from public, anon, authenticated;
+grant execute on function private.claim_bug_notices() to authenticated;
+create or replace function public.claim_bug_notices() returns table (code text, title text, status text, reply text)
+language sql security invoker set search_path = '' as $$ select * from private.claim_bug_notices(); $$;
+revoke execute on function public.claim_bug_notices() from public, anon;
+grant execute on function public.claim_bug_notices() to authenticated;
+
+-- my_bug_reports with the reply (its row type changes, so it is dropped first)
+drop function if exists public.my_bug_reports();
+drop function if exists private.my_bug_reports();
+create function private.my_bug_reports() returns table (code text, category text, severity text, title text, status text, created_at timestamptz, has_screenshot boolean, reply text)
+language sql stable security definer set search_path = '' as $$
+  select b.code, b.category, b.severity, b.title, b.status, b.created_at, b.screenshot_path is not null, b.reply
+  from public.bug_reports b where b.user_id = auth.uid() order by b.created_at desc limit 50;
+$$;
+revoke execute on function private.my_bug_reports() from public, anon, authenticated;
+grant execute on function private.my_bug_reports() to authenticated;
+create function public.my_bug_reports() returns table (code text, category text, severity text, title text, status text, created_at timestamptz, has_screenshot boolean, reply text)
+language sql stable security invoker set search_path = '' as $$ select * from private.my_bug_reports(); $$;
+revoke execute on function public.my_bug_reports() from public, anon;
+grant execute on function public.my_bug_reports() to authenticated;
+
+-- (author, same day) a discarded report tells the reporter nothing: only a new reply or «corregido» leave a notice
+create or replace function private.admin_update_bug(p_code text, p_status text, p_notes text, p_reply text) returns timestamptz
+language plpgsql security definer set search_path = public as $$
+declare t timestamptz; r record; old record;
+begin
+  if not private.is_admin() then raise exception 'forbidden' using errcode = '42501'; end if;
+  select status, reply into old from public.bug_reports where code = p_code;
+  update public.bug_reports set status = coalesce(p_status, status), admin_notes = coalesce(p_notes, admin_notes),
+    reply = coalesce(left(p_reply, 2000), reply), updated_at = now()
+  where code = p_code returning updated_at, id, user_id, code, title, status, reply into r;
+  if r.updated_at is null then raise exception 'not_found' using errcode = 'P0002'; end if;
+  t := r.updated_at;
+  if r.status = 'descartado' then
+    update public.bug_reports set notice_pending = false where id = r.id;
+  elsif (r.reply <> '' and r.reply is distinct from old.reply) or (r.status is distinct from old.status and r.status = 'corregido') then
+    update public.bug_reports set notice_pending = true where id = r.id;
+  end if;
+  if r.status = 'corregido' and not exists (select 1 from private.admins a where a.user_id = r.user_id) then
+    insert into private.bug_rewards (report_id, user_id, code, title, tokens) values (r.id, r.user_id, r.code, r.title, 100)
+    on conflict (report_id) do nothing;
+  end if;
+  return t;
+end $$;
+
+-- ===== 20261106000600_suggestions.sql
+-- 1.88 (author): recommendations, next to the bug reports. A signed-in player sends an idea (title + text); the admin panel
+-- lists them and marks each one pendiente / aceptada / descartada, with an optional reply. Accepting it or replying leaves a
+-- notice for the player (claimed with claim_suggestion_notices); a discarded one tells nothing. Tables closed to the API.
+
+create table if not exists public.suggestions (
+  id uuid primary key default gen_random_uuid(),
+  code text not null unique,
+  user_id uuid not null references auth.users (id) on delete cascade,
+  username text,
+  title text not null check (char_length(title) between 4 and 120),
+  description text not null check (char_length(description) between 10 and 4000),
+  status text not null default 'pendiente' check (status in ('pendiente', 'aceptada', 'descartada')),
+  reply text not null default '' check (char_length(reply) <= 2000),
+  notice_pending boolean not null default false,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+create index if not exists suggestions_user on public.suggestions (user_id, created_at desc);
+alter table public.suggestions enable row level security;
+revoke all on table public.suggestions from public, anon, authenticated;
+
+create or replace function private.submit_suggestion(p_title text, p_description text) returns text
+language plpgsql security definer set search_path = public as $$
+declare uid uuid := private.real_user(); new_code text; uname text;
+begin
+  if uid is null then raise exception 'not_signed_in' using errcode = '42501'; end if;
+  if exists (select 1 from public.suggestions where user_id = uid and created_at > now() - interval '60 seconds') then
+    raise exception 'too_fast' using errcode = '54000';
+  end if;
+  if (select count(*) from public.suggestions where user_id = uid and created_at > now() - interval '1 day') >= 5 then
+    raise exception 'daily_limit' using errcode = '54000';
+  end if;
+  select username::text into uname from public.profiles where id = uid;
+  new_code := 'IDEA-' || upper(substr(replace(gen_random_uuid()::text, '-', ''), 1, 8));
+  insert into public.suggestions (code, user_id, username, title, description) values (new_code, uid, uname, trim(p_title), trim(p_description));
+  return new_code;
+end $$;
+
+create or replace function private.my_suggestions() returns table (code text, title text, status text, created_at timestamptz)
+language sql stable security definer set search_path = '' as $$
+  select s.code, s.title, s.status, s.created_at from public.suggestions s where s.user_id = auth.uid() order by s.created_at desc limit 50;
+$$;
+
+create or replace function private.admin_suggestions(p_status text) returns setof public.suggestions
+language plpgsql stable security definer set search_path = public as $$
+begin
+  if not private.is_admin() then raise exception 'forbidden' using errcode = '42501'; end if;
+  return query select * from public.suggestions s where p_status is null or s.status = p_status order by s.created_at desc limit 300;
+end $$;
+
+create or replace function private.admin_update_suggestion(p_code text, p_status text, p_reply text) returns timestamptz
+language plpgsql security definer set search_path = public as $$
+declare old record; r record;
+begin
+  if not private.is_admin() then raise exception 'forbidden' using errcode = '42501'; end if;
+  select status, reply into old from public.suggestions where code = p_code;
+  update public.suggestions set status = coalesce(p_status, status), reply = coalesce(left(p_reply, 2000), reply), updated_at = now()
+  where code = p_code returning id, status, reply, updated_at into r;
+  if r.updated_at is null then raise exception 'not_found' using errcode = 'P0002'; end if;
+  if r.status = 'descartada' then
+    update public.suggestions set notice_pending = false where id = r.id;
+  elsif (r.reply <> '' and r.reply is distinct from old.reply) or (r.status is distinct from old.status and r.status = 'aceptada') then
+    update public.suggestions set notice_pending = true where id = r.id;
+  end if;
+  return r.updated_at;
+end $$;
+
+create or replace function private.claim_suggestion_notices() returns table (code text, title text, status text, reply text)
+language sql security definer set search_path = '' as $$
+  update public.suggestions s set notice_pending = false
+  where s.user_id = private.real_user() and s.notice_pending
+  returning s.code, s.title, s.status, s.reply;
+$$;
+
+create or replace function public.submit_suggestion(p_title text, p_description text) returns text
+language sql security invoker set search_path = '' as $$ select private.submit_suggestion(p_title, p_description); $$;
+create or replace function public.my_suggestions() returns table (code text, title text, status text, created_at timestamptz)
+language sql stable security invoker set search_path = '' as $$ select * from private.my_suggestions(); $$;
+create or replace function public.admin_suggestions(p_status text default null) returns setof public.suggestions
+language sql stable security invoker set search_path = '' as $$ select * from private.admin_suggestions(p_status); $$;
+create or replace function public.admin_update_suggestion(p_code text, p_status text default null, p_reply text default null) returns timestamptz
+language sql security invoker set search_path = '' as $$ select private.admin_update_suggestion(p_code, p_status, p_reply); $$;
+create or replace function public.claim_suggestion_notices() returns table (code text, title text, status text, reply text)
+language sql security invoker set search_path = '' as $$ select * from private.claim_suggestion_notices(); $$;
+
+revoke execute on function private.submit_suggestion(text, text), private.my_suggestions(), private.admin_suggestions(text),
+  private.admin_update_suggestion(text, text, text), private.claim_suggestion_notices() from public, anon, authenticated;
+grant execute on function private.submit_suggestion(text, text), private.my_suggestions(), private.admin_suggestions(text),
+  private.admin_update_suggestion(text, text, text), private.claim_suggestion_notices() to authenticated;
+revoke execute on function public.submit_suggestion(text, text), public.my_suggestions(), public.admin_suggestions(text),
+  public.admin_update_suggestion(text, text, text), public.claim_suggestion_notices() from public, anon;
+grant execute on function public.submit_suggestion(text, text), public.my_suggestions(), public.admin_suggestions(text),
+  public.admin_update_suggestion(text, text, text), public.claim_suggestion_notices() to authenticated;
+
+-- ===== 20261107000000_coop_rooms.sql
+-- pre-2.0 (author): co-op rooms for two. The host creates a room and shares its 6-letter code; the guest joins with it.
+-- The match itself goes peer to peer (WebRTC); this table only carries the two signalling messages (the guest's offer
+-- and the host's answer, each with its ICE candidates already gathered), so no Realtime connection is used. Rooms last
+-- 15 minutes unless they connect; rows older than a day are swept on each create. Tables closed to the API.
+
+create table if not exists public.coop_rooms (
+  code text primary key check (code ~ '^[A-Z2-9]{6}$'),
+  host uuid not null references auth.users (id) on delete cascade,
+  guest uuid references auth.users (id) on delete cascade,
+  host_name text,
+  guest_name text,
+  offer text check (char_length(offer) <= 20000),
+  answer text check (char_length(answer) <= 20000),
+  status text not null default 'abierta' check (status in ('abierta', 'emparejada', 'conectada', 'cerrada')),
+  created_at timestamptz not null default now(),
+  expires_at timestamptz not null default now() + interval '15 minutes',
+  connected_at timestamptz
+);
+create index if not exists coop_rooms_host on public.coop_rooms (host, created_at desc);
+alter table public.coop_rooms enable row level security;
+revoke all on table public.coop_rooms from public, anon, authenticated;
+
+create or replace function private.coop_create() returns text
+language plpgsql security definer set search_path = public as $$
+declare uid uuid := private.real_user(); alphabet text := 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; c text; b bytea; i int; tries int := 0;
+begin
+  if uid is null then raise exception 'not_signed_in' using errcode = '42501'; end if;
+  delete from public.coop_rooms where created_at < now() - interval '1 day';
+  if (select count(*) from public.coop_rooms where host = uid and created_at > now() - interval '1 day') >= 40 then
+    raise exception 'coop_daily_limit' using errcode = '54000';
+  end if;
+  update public.coop_rooms set status = 'cerrada' where host = uid and status in ('abierta', 'emparejada');
+  loop
+    b := decode(replace(gen_random_uuid()::text, '-', ''), 'hex'); c := '';
+    for i in 0..5 loop c := c || substr(alphabet, get_byte(b, i) % 32 + 1, 1); end loop;
+    exit when not exists (select 1 from public.coop_rooms where code = c);
+    tries := tries + 1;
+    if tries > 8 then raise exception 'no_code' using errcode = '54000'; end if;
+  end loop;
+  insert into public.coop_rooms (code, host, host_name) values (c, uid, (select username::text from public.profiles where id = uid));
+  return c;
+end $$;
+
+create or replace function private.coop_join(p_code text) returns text
+language plpgsql security definer set search_path = public as $$
+declare uid uuid := private.real_user(); r record;
+begin
+  if uid is null then raise exception 'not_signed_in' using errcode = '42501'; end if;
+  select * into r from public.coop_rooms where code = upper(trim(p_code)) for update;
+  if r.code is null or r.status = 'cerrada' or r.expires_at < now() then raise exception 'room_not_found' using errcode = 'P0002'; end if;
+  if r.host = uid then raise exception 'own_room' using errcode = '42501'; end if;
+  if r.guest is not null and r.guest <> uid then raise exception 'room_full' using errcode = '54000'; end if;
+  update public.coop_rooms set guest = uid, guest_name = (select username::text from public.profiles where id = uid), status = 'emparejada',
+    offer = case when guest = uid then offer else null end, answer = case when guest = uid then answer else null end
+  where code = r.code;
+  return r.host_name;
+end $$;
+
+-- the guest sends the offer, the host the answer
+create or replace function private.coop_signal(p_code text, p_kind text, p_sdp text) returns void
+language plpgsql security definer set search_path = public as $$
+declare uid uuid := private.real_user(); r record;
+begin
+  if uid is null then raise exception 'not_signed_in' using errcode = '42501'; end if;
+  if char_length(p_sdp) > 20000 then raise exception 'too_big' using errcode = '54000'; end if;
+  select * into r from public.coop_rooms where code = upper(trim(p_code));
+  if r.code is null or r.status = 'cerrada' or r.expires_at < now() then raise exception 'room_not_found' using errcode = 'P0002'; end if;
+  if p_kind = 'offer' and r.guest = uid then update public.coop_rooms set offer = p_sdp, answer = null where code = r.code;
+  elsif p_kind = 'answer' and r.host = uid then update public.coop_rooms set answer = p_sdp where code = r.code;
+  else raise exception 'forbidden' using errcode = '42501';
+  end if;
+end $$;
+
+create or replace function private.coop_poll(p_code text) returns table (status text, host_name text, guest_name text, offer text, answer text, role text)
+language plpgsql stable security definer set search_path = public as $$
+declare uid uuid := private.real_user();
+begin
+  return query select case when r.expires_at < now() and r.status <> 'conectada' then 'cerrada' else r.status end, r.host_name, r.guest_name,
+    case when r.host = uid then r.offer end, case when r.guest = uid then r.answer end, case when r.host = uid then 'host' else 'guest' end
+  from public.coop_rooms r where r.code = upper(trim(p_code)) and uid is not null and (r.host = uid or r.guest = uid);
+end $$;
+
+-- 'conectada' (the host, once the peers talk: kept for the admin stats) or 'cerrada' (either of the two)
+create or replace function private.coop_mark(p_code text, p_status text) returns void
+language plpgsql security definer set search_path = public as $$
+declare uid uuid := private.real_user();
+begin
+  if p_status = 'conectada' then
+    update public.coop_rooms set status = 'conectada', connected_at = now() where code = upper(trim(p_code)) and host = uid and status = 'emparejada';
+  elsif p_status = 'cerrada' then
+    update public.coop_rooms set status = 'cerrada' where code = upper(trim(p_code)) and (host = uid or guest = uid);
+  else raise exception 'bad_status' using errcode = '22023';
+  end if;
+end $$;
+
+create or replace function public.coop_create() returns text
+language sql security invoker set search_path = '' as $$ select private.coop_create(); $$;
+create or replace function public.coop_join(p_code text) returns text
+language sql security invoker set search_path = '' as $$ select private.coop_join(p_code); $$;
+create or replace function public.coop_signal(p_code text, p_kind text, p_sdp text) returns void
+language sql security invoker set search_path = '' as $$ select private.coop_signal(p_code, p_kind, p_sdp); $$;
+create or replace function public.coop_poll(p_code text) returns table (status text, host_name text, guest_name text, offer text, answer text, role text)
+language sql stable security invoker set search_path = '' as $$ select * from private.coop_poll(p_code); $$;
+create or replace function public.coop_mark(p_code text, p_status text) returns void
+language sql security invoker set search_path = '' as $$ select private.coop_mark(p_code, p_status); $$;
+
+revoke execute on function private.coop_create(), private.coop_join(text), private.coop_signal(text, text, text), private.coop_poll(text),
+  private.coop_mark(text, text) from public, anon, authenticated;
+grant execute on function private.coop_create(), private.coop_join(text), private.coop_signal(text, text, text), private.coop_poll(text),
+  private.coop_mark(text, text) to authenticated;
+revoke execute on function public.coop_create(), public.coop_join(text), public.coop_signal(text, text, text), public.coop_poll(text),
+  public.coop_mark(text, text) from public, anon;
+grant execute on function public.coop_create(), public.coop_join(text), public.coop_signal(text, text, text), public.coop_poll(text),
+  public.coop_mark(text, text) to authenticated;
+
+alter function private.coop_create() set statement_timeout = '5s';
+alter function private.coop_join(text) set statement_timeout = '5s';
+alter function private.coop_signal(text, text, text) set statement_timeout = '5s';
+alter function private.coop_poll(text) set statement_timeout = '5s';
+alter function private.coop_mark(text, text) set statement_timeout = '5s';
+
+-- ===== 20261107000100_coop_turn.sql
+-- pre-2.0 (author): budget for the TURN relay (Cloudflare Realtime, free up to its monthly allowance, billed past it).
+-- The turn-credentials Edge Function asks coop_turn_claim before generating short-lived credentials: only a player who is
+-- in a paired or connected room gets them, at most 20 a day each, and never more than the monthly cap for everyone
+-- (8000 rooms: even if every one of them were relayed at ~35 MB that is far below the free allowance; in practice only
+-- 10-20% of pairs need the relay). Over a cap the game still tries a direct connection.
+
+create table if not exists private.coop_turn_log (
+  id bigserial primary key,
+  user_id uuid not null references auth.users (id) on delete cascade,
+  code text not null,
+  at timestamptz not null default now()
+);
+create index if not exists coop_turn_log_user on private.coop_turn_log (user_id, at desc);
+create index if not exists coop_turn_log_at on private.coop_turn_log (at);
+revoke all on table private.coop_turn_log from public, anon, authenticated;
+
+create or replace function private.coop_turn_claim(p_code text) returns boolean
+language plpgsql security definer set search_path = public as $$
+declare uid uuid := private.real_user(); c text := upper(trim(p_code));
+begin
+  if uid is null then raise exception 'not_signed_in' using errcode = '42501'; end if;
+  if not exists (select 1 from public.coop_rooms r where r.code = c and r.status in ('emparejada', 'conectada') and (r.host = uid or r.guest = uid)) then
+    raise exception 'room_not_found' using errcode = 'P0002';
+  end if;
+  if (select count(*) from private.coop_turn_log where user_id = uid and at > now() - interval '1 day') >= 20 then return false; end if;
+  if (select count(distinct code) from private.coop_turn_log where at >= date_trunc('month', now())) >= 8000
+     and not exists (select 1 from private.coop_turn_log where code = c and at >= date_trunc('month', now())) then return false; end if;
+  insert into private.coop_turn_log (user_id, code) values (uid, c);
+  return true;
+end $$;
+
+-- admins: how much of the month's relay budget is used
+create or replace function private.coop_turn_usage() returns table (rooms_month bigint, claims_month bigint, cap bigint)
+language plpgsql stable security definer set search_path = public as $$
+begin
+  if not private.is_admin() then raise exception 'forbidden' using errcode = '42501'; end if;
+  return query select count(distinct l.code), count(*), 8000::bigint from private.coop_turn_log l where l.at >= date_trunc('month', now());
+end $$;
+
+create or replace function public.coop_turn_claim(p_code text) returns boolean
+language sql security invoker set search_path = '' as $$ select private.coop_turn_claim(p_code); $$;
+create or replace function public.coop_turn_usage() returns table (rooms_month bigint, claims_month bigint, cap bigint)
+language sql stable security invoker set search_path = '' as $$ select * from private.coop_turn_usage(); $$;
+
+revoke execute on function private.coop_turn_claim(text), private.coop_turn_usage() from public, anon, authenticated;
+grant execute on function private.coop_turn_claim(text), private.coop_turn_usage() to authenticated;
+revoke execute on function public.coop_turn_claim(text), public.coop_turn_usage() from public, anon;
+grant execute on function public.coop_turn_claim(text), public.coop_turn_usage() to authenticated;
+
+alter function private.coop_turn_claim(text) set statement_timeout = '5s';
+alter function private.coop_turn_usage() set statement_timeout = '5s';
+
+-- ===== 20261107000200_friends.sql
+-- pre-2.0 (author): friends, for the co-op. A request by global name; accepted, both are friends (one row per pair, the
+-- smaller id first). Being online = the game said so in the last two minutes (friend_heartbeat, once a minute while it
+-- is open). A friend can be invited to the host's open co-op room: the invitation lasts two minutes and is shown once.
+-- Limits: 30 requests a day, 100 friends, 20 invitations an hour. Tables closed to the API.
+
+create table if not exists public.friendships (
+  a uuid not null references auth.users (id) on delete cascade,
+  b uuid not null references auth.users (id) on delete cascade,
+  requester uuid not null references auth.users (id) on delete cascade,
+  status text not null default 'pendiente' check (status in ('pendiente', 'aceptada')),
+  created_at timestamptz not null default now(),
+  accepted_at timestamptz,
+  primary key (a, b),
+  check (a < b),
+  check (requester = a or requester = b)
+);
+create index if not exists friendships_b on public.friendships (b);
+create index if not exists friendships_requester on public.friendships (requester, created_at desc);
+alter table public.friendships enable row level security;
+revoke all on table public.friendships from public, anon, authenticated;
+
+create table if not exists private.presence (
+  user_id uuid primary key references auth.users (id) on delete cascade,
+  seen_at timestamptz not null default now()
+);
+revoke all on table private.presence from public, anon, authenticated;
+
+create table if not exists public.coop_invites (
+  id bigserial primary key,
+  from_user uuid not null references auth.users (id) on delete cascade,
+  to_user uuid not null references auth.users (id) on delete cascade,
+  code text not null,
+  created_at timestamptz not null default now(),
+  expires_at timestamptz not null default now() + interval '2 minutes',
+  shown boolean not null default false
+);
+create index if not exists coop_invites_to on public.coop_invites (to_user, created_at desc);
+create index if not exists coop_invites_from on public.coop_invites (from_user, created_at desc);
+alter table public.coop_invites enable row level security;
+revoke all on table public.coop_invites from public, anon, authenticated;
+
+create or replace function private.friend_uid(p_username text) returns uuid
+language sql stable security definer set search_path = public as $$
+  select id from public.profiles where username = trim(p_username)::extensions.citext;
+$$;
+
+-- a request; if the other one had already asked, it becomes a friendship
+create or replace function private.friend_request(p_username text) returns text
+language plpgsql security definer set search_path = public as $$
+declare uid uuid := private.real_user(); other uuid; lo uuid; hi uuid; r record;
+begin
+  if uid is null then raise exception 'not_signed_in' using errcode = '42501'; end if;
+  other := private.friend_uid(p_username);
+  if other is null then raise exception 'friend_not_found' using errcode = 'P0002'; end if;
+  if other = uid then raise exception 'friend_self' using errcode = '22023'; end if;
+  lo := least(uid, other); hi := greatest(uid, other);
+  select * into r from public.friendships where a = lo and b = hi for update;
+  if r.a is not null then
+    if r.status = 'aceptada' then return 'ya_amigos'; end if;
+    if r.requester = uid then return 'enviada'; end if;
+    update public.friendships set status = 'aceptada', accepted_at = now() where a = lo and b = hi;
+    return 'aceptada';
+  end if;
+  if (select count(*) from public.friendships where requester = uid and created_at > now() - interval '1 day') >= 30 then
+    raise exception 'friend_daily_limit' using errcode = '54000';
+  end if;
+  if (select count(*) from public.friendships where (a = uid or b = uid) and status = 'aceptada') >= 100 then
+    raise exception 'friend_full' using errcode = '54000';
+  end if;
+  insert into public.friendships (a, b, requester) values (lo, hi, uid);
+  return 'enviada';
+end $$;
+
+create or replace function private.friend_respond(p_username text, p_accept boolean) returns void
+language plpgsql security definer set search_path = public as $$
+declare uid uuid := private.real_user(); other uuid := private.friend_uid(p_username);
+begin
+  if uid is null then raise exception 'not_signed_in' using errcode = '42501'; end if;
+  if other is null then raise exception 'friend_not_found' using errcode = 'P0002'; end if;
+  if p_accept then
+    update public.friendships set status = 'aceptada', accepted_at = now()
+    where a = least(uid, other) and b = greatest(uid, other) and status = 'pendiente' and requester = other;
+  else
+    delete from public.friendships where a = least(uid, other) and b = greatest(uid, other) and status = 'pendiente' and requester = other;
+  end if;
+end $$;
+
+-- unfriend, or cancel a request this player sent
+create or replace function private.friend_remove(p_username text) returns void
+language plpgsql security definer set search_path = public as $$
+declare uid uuid := private.real_user(); other uuid := private.friend_uid(p_username);
+begin
+  if uid is null then raise exception 'not_signed_in' using errcode = '42501'; end if;
+  if other is null then return; end if;
+  delete from public.friendships where a = least(uid, other) and b = greatest(uid, other);
+end $$;
+
+create or replace function private.friend_list() returns table (username text, avatar text, crest text, status text, online boolean, since timestamptz)
+language plpgsql stable security definer set search_path = public as $$
+declare uid uuid := private.real_user();
+begin
+  if uid is null then raise exception 'not_signed_in' using errcode = '42501'; end if;
+  return query
+    select p.username::text, p.avatar, p.crest,
+      case when f.status = 'aceptada' then 'amigo' when f.requester = uid then 'enviada' else 'recibida' end,
+      f.status = 'aceptada' and coalesce(pr.seen_at > now() - interval '2 minutes', false),
+      coalesce(f.accepted_at, f.created_at)
+    from public.friendships f
+    join public.profiles p on p.id = case when f.a = uid then f.b else f.a end
+    left join private.presence pr on pr.user_id = p.id
+    where f.a = uid or f.b = uid
+    order by (f.status = 'aceptada' and coalesce(pr.seen_at > now() - interval '2 minutes', false)) desc, p.username;
+end $$;
+
+create or replace function private.friend_heartbeat() returns void
+language plpgsql security definer set search_path = public as $$
+declare uid uuid := private.real_user();
+begin
+  if uid is null then return; end if;
+  insert into private.presence (user_id, seen_at) values (uid, now()) on conflict (user_id) do update set seen_at = now();
+end $$;
+
+-- the host of an open room invites a friend to it
+create or replace function private.coop_invite(p_username text, p_code text) returns void
+language plpgsql security definer set search_path = public as $$
+declare uid uuid := private.real_user(); other uuid := private.friend_uid(p_username); c text := upper(trim(p_code));
+begin
+  if uid is null then raise exception 'not_signed_in' using errcode = '42501'; end if;
+  if other is null then raise exception 'friend_not_found' using errcode = 'P0002'; end if;
+  if not exists (select 1 from public.friendships where a = least(uid, other) and b = greatest(uid, other) and status = 'aceptada') then
+    raise exception 'not_friends' using errcode = '42501';
+  end if;
+  if not exists (select 1 from public.coop_rooms where code = c and host = uid and status = 'abierta' and expires_at > now()) then
+    raise exception 'room_not_found' using errcode = 'P0002';
+  end if;
+  if (select count(*) from public.coop_invites where from_user = uid and created_at > now() - interval '1 hour') >= 20 then
+    raise exception 'invite_limit' using errcode = '54000';
+  end if;
+  delete from public.coop_invites where created_at < now() - interval '1 day';
+  insert into public.coop_invites (from_user, to_user, code) values (uid, other, c);
+end $$;
+
+-- invitations for this player, each one returned once while it is still valid
+create or replace function private.coop_invites_claim() returns table (from_name text, code text, created_at timestamptz)
+language plpgsql security definer set search_path = public as $$
+declare uid uuid := private.real_user();
+begin
+  if uid is null then return; end if;
+  return query
+    update public.coop_invites i set shown = true
+    from public.profiles p
+    where i.to_user = uid and not i.shown and i.expires_at > now() and p.id = i.from_user
+    returning p.username::text, i.code, i.created_at;
+end $$;
+
+create or replace function public.friend_request(p_username text) returns text
+language sql security invoker set search_path = '' as $$ select private.friend_request(p_username); $$;
+create or replace function public.friend_respond(p_username text, p_accept boolean) returns void
+language sql security invoker set search_path = '' as $$ select private.friend_respond(p_username, p_accept); $$;
+create or replace function public.friend_remove(p_username text) returns void
+language sql security invoker set search_path = '' as $$ select private.friend_remove(p_username); $$;
+create or replace function public.friend_list() returns table (username text, avatar text, crest text, status text, online boolean, since timestamptz)
+language sql stable security invoker set search_path = '' as $$ select * from private.friend_list(); $$;
+create or replace function public.friend_heartbeat() returns void
+language sql security invoker set search_path = '' as $$ select private.friend_heartbeat(); $$;
+create or replace function public.coop_invite(p_username text, p_code text) returns void
+language sql security invoker set search_path = '' as $$ select private.coop_invite(p_username, p_code); $$;
+create or replace function public.coop_invites_claim() returns table (from_name text, code text, created_at timestamptz)
+language sql security invoker set search_path = '' as $$ select * from private.coop_invites_claim(); $$;
+
+revoke execute on function private.friend_uid(text), private.friend_request(text), private.friend_respond(text, boolean), private.friend_remove(text),
+  private.friend_list(), private.friend_heartbeat(), private.coop_invite(text, text), private.coop_invites_claim() from public, anon, authenticated;
+grant execute on function private.friend_uid(text), private.friend_request(text), private.friend_respond(text, boolean), private.friend_remove(text),
+  private.friend_list(), private.friend_heartbeat(), private.coop_invite(text, text), private.coop_invites_claim() to authenticated;
+revoke execute on function public.friend_request(text), public.friend_respond(text, boolean), public.friend_remove(text), public.friend_list(),
+  public.friend_heartbeat(), public.coop_invite(text, text), public.coop_invites_claim() from public, anon;
+grant execute on function public.friend_request(text), public.friend_respond(text, boolean), public.friend_remove(text), public.friend_list(),
+  public.friend_heartbeat(), public.coop_invite(text, text), public.coop_invites_claim() to authenticated;
+
+alter function private.friend_request(text) set statement_timeout = '5s';
+alter function private.friend_respond(text, boolean) set statement_timeout = '5s';
+alter function private.friend_remove(text) set statement_timeout = '5s';
+alter function private.friend_list() set statement_timeout = '5s';
+alter function private.friend_heartbeat() set statement_timeout = '5s';
+alter function private.coop_invite(text, text) set statement_timeout = '5s';
+alter function private.coop_invites_claim() set statement_timeout = '5s';
