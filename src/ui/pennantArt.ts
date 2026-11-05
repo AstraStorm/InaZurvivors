@@ -183,9 +183,17 @@ function ornaments(p: PennantPattern, a: string, c1: string, sq: boolean, id: st
   }
 }
 
-function wings(a: string, c1: string, c2: string): string {
-  const one = (flip: boolean) => `<g transform="${flip ? `translate(140 0) scale(-1 1)` : ''}">
-    ${[0, 1, 2, 3].map((k) => `<path d="M30,${58 + k * 9} C${16 - k * 2},${50 + k * 8} ${4 - k},${44 + k * 10} ${-2 + k * 2},${36 + k * 14} C${10},${52 + k * 9} ${20},${62 + k * 8} 30,${66 + k * 9} Z" fill="${k % 2 ? c1 : a}" stroke="${c2}" stroke-width="1"/>`).join('')}</g>`;
+/**
+ * Fix (author: the wings crossed the ring over the face and stuck out of the frame over the text next to it): each wing
+ * is a fan of feathers rooted under the ring at the upper corner and opening into that corner of the 140 box, so nothing
+ * reaches the face and nothing leaves the frame's box. Drawn before the ring, which hides the roots.
+ */
+function wings(a: string, c1: string, c2: string, square: boolean): string {
+  const root = 70 - (square ? 64 : 50) * Math.SQRT1_2; // on the ring, at 45° up-left (the square's corner sits further out)
+  const sc = square ? 0.72 : 1;
+  const feathers = [[-172, 22], [-153, 31], [-135, 36], [-117, 31], [-98, 22]] as const; // [angle°, length]
+  const one = (flip: boolean) => `<g transform="${flip ? 'translate(140 0) scale(-1 1) ' : ''}translate(${root.toFixed(1)} ${root.toFixed(1)}) scale(${sc})">
+    ${feathers.map(([ang, l], k) => `<g transform="rotate(${ang})"><path d="M0,0 C${l * 0.3},-5.5 ${l * 0.75},-4.5 ${l},0 C${l * 0.75},3 ${l * 0.3},4 0,0 Z" fill="${k % 2 ? c1 : a}" stroke="${c2}" stroke-width="1" stroke-linejoin="round"/><path d="M2,0 L${l - 3},0" stroke="${c2}" stroke-width=".7" opacity=".6"/></g>`).join('')}</g>`;
   return one(false) + one(true);
 }
 
@@ -203,7 +211,7 @@ export function frameSvg(def: PennantDef | string | null | undefined, square = f
     <defs><linearGradient id="${id}g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${p.c1}"/><stop offset=".5" stop-color="${p.accent}"/><stop offset="1" stop-color="${p.c2}"/></linearGradient>
       <linearGradient id="${id}r" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff4a4a"/><stop offset=".25" stop-color="#ffe24a"/><stop offset=".5" stop-color="#5ee05a"/><stop offset=".75" stop-color="#4fb3ff"/><stop offset="1" stop-color="#b36bff"/></linearGradient>
       <linearGradient id="${id}s" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".5" stop-color="#fff" stop-opacity=".9"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient></defs>
-    ${p.wings ? wings(p.accent, p.c1, p.c2) : ''}
+    ${p.wings ? wings(p.accent, p.c1, p.c2, square) : ''}
     ${line(53.5, 9, '#0a1022')}
     ${line(53.5, 7, ring)}
     ${line(49.5, 1.4, p.accent, 'opacity=".9"')}${line(57.5, 1.2, '#000', 'opacity=".5"')}

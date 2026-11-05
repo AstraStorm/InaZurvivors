@@ -47,7 +47,7 @@ export function setMusicVolume(v: number, mute: boolean) {
   volume = Math.max(0, Math.min(1, v));
   muted = mute;
   if (master && ctx) master.gain.setTargetAtTime(level(), ctx.currentTime, 0.05);
-  if (audioEl) audioEl.volume = level();
+  if (audioEl) { window.clearInterval(fades.get(audioEl)); setVol(audioEl, level()); audioEl.muted = muted; }
 }
 
 export function setMusicSource(s: 'original' | 'local') {
@@ -183,8 +183,10 @@ function playLocal(t: MusicTrack, c: MusicContext) {
   nowPlaying = t.id;
   const el = new Audio(t.src);
   audioEl = el;
-  el.volume = 0;
   el.preload = 'auto';
+  el.muted = muted;
+  route(el);
+  setVol(el, 0);
   // resume where this theme was left (Fix 1.32)
   const at = positions.get(t.id);
   if (at) el.addEventListener('loadedmetadata', () => { if (at < (el.duration || Infinity) - 1) el.currentTime = at; }, { once: true });
@@ -201,18 +203,47 @@ function playLocal(t: MusicTrack, c: MusicContext) {
     stop() {
       if (audioEl === el) audioEl = null;
       if (el.currentTime > 1) positions.set(t.id, el.currentTime);
-      fade(el, 0, 500, () => { el.pause(); el.removeAttribute('src'); el.load(); });
+      fade(el, 0, 500, () => { el.pause(); el.removeAttribute('src'); el.load(); unroute(el); });
     },
   };
+}
+
+/**
+ * Fix 1.8 (bug report, iOS Safari): an <audio> element's volume is read-only on iPhone/iPad, so the ROM tracks ignored the
+ * volume slider and mute. Each element now plays through Web Audio with its own gain node, which works everywhere; if
+ * that can't be set up, the element's own volume is used as before.
+ */
+const gains = new WeakMap<HTMLAudioElement, { src: MediaElementAudioSourceNode; gain: GainNode }>();
+function route(el: HTMLAudioElement) {
+  try {
+    const a = audio();
+    const src = a.createMediaElementSource(el), gain = a.createGain();
+    gain.gain.value = 0;
+    src.connect(gain).connect(a.destination);
+    gains.set(el, { src, gain });
+  } catch { /* old browser: el.volume */ }
+}
+function unroute(el: HTMLAudioElement) {
+  const r = gains.get(el);
+  if (!r) return;
+  r.src.disconnect(); r.gain.disconnect();
+  gains.delete(el);
+}
+const getVol = (el: HTMLAudioElement) => gains.get(el)?.gain.gain.value ?? el.volume;
+function setVol(el: HTMLAudioElement, v: number) {
+  v = Math.max(0, Math.min(1, v));
+  const r = gains.get(el);
+  if (r) r.gain.gain.value = v;
+  else el.volume = v;
 }
 
 /** Timer based, not requestAnimationFrame: rAF stops in background tabs and a fade-out would never finish. */
 function fade(el: HTMLAudioElement, target: number, ms: number, done?: () => void) {
   window.clearInterval(fades.get(el));
-  const from = el.volume, t0 = performance.now();
+  const from = getVol(el), t0 = performance.now();
   const id = window.setInterval(() => {
     const k = Math.min(1, (performance.now() - t0) / ms);
-    el.volume = Math.max(0, Math.min(1, from + (target - from) * k));
+    setVol(el, from + (target - from) * k);
     if (k < 1) return;
     window.clearInterval(id);
     done?.();
@@ -224,7 +255,7 @@ function fade(el: HTMLAudioElement, target: number, ms: number, done?: () => voi
 document.addEventListener('visibilitychange', () => {
   if (!audioEl) return;
   if (document.hidden) audioEl.pause();
-  else void audioEl.play().catch(() => undefined);
+  else { if (ctx && ctx.state !== 'running') void ctx.resume().catch(() => undefined); void audioEl.play().catch(() => undefined); }
 });
 
 function stopCurrent() {
