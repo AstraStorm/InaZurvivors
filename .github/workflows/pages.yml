@@ -67,8 +67,8 @@ jobs:
     if: (github.event_name == 'push' && contains(github.event.head_commit.message, '[prueba-recursos]')) || (github.event_name == 'workflow_dispatch' && inputs.probar_recursos)
     runs-on: ubuntu-latest
     env:
-      VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
-      VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
+      VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL || 'https://svtkmuxwdxdwvdvjchut.supabase.co' }}
+      VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY || 'sb_publishable_CNdrHsKes1JJV4TEsUbzXg_t7_0fnnW' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -137,9 +137,9 @@ jobs:
         run: node tools/integrar_recursos.mjs --recursos .recursos
       - run: npx vite build
         env:
-          # optional online service (ONLINE.md); empty = offline build
-          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
+          # public values: the publishable key is meant for the browser; no secret ever goes here
+          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL || 'https://svtkmuxwdxdwvdvjchut.supabase.co' }}
+          VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY || 'sb_publishable_CNdrHsKes1JJV4TEsUbzXg_t7_0fnnW' }}
       - name: Comprobar la build
         if: env.PUBLICAR == 'true'
         env:
@@ -157,8 +157,8 @@ jobs:
         if: env.PRUEBAS == 'true'
         working-directory: _pruebas
         env:
-          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
+          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL || 'https://svtkmuxwdxdwvdvjchut.supabase.co' }}
+          VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY || 'sb_publishable_CNdrHsKes1JJV4TEsUbzXg_t7_0fnnW' }}
           RECURSOS_TOKEN: ${{ secrets.RECURSOS_TOKEN }}
         run: |
           npm ci
