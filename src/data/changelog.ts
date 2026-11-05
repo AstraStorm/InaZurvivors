@@ -32,6 +32,7 @@ export const CHANGELOG: Release[] = [
     fixes: [
       'Las estrellas de HÉROE (★, ★★, ★★★, con duplicados) se quitaron por error en la 1.84 y el reinicio de la 1.85 las borró: vuelven. El paso «estrella» de la ascensión regresa (ascension.nextStep) y las estrellas extra de monedas pasan a su propio campo (owned.extraStars). restoreHeroStars188 (save.heroes188), una vez: lo que había en heroStars tras el reinicio se compró con monedas y pasa a extraStars; cada HÉROE recupera sus estrellas de héroe según los duplicados gastados en ellas (gastados − ascensos − HÉROE, al precio de estrella de su rareza, 3 como máximo). El reinicio de la 1.85 ya solo toca estrellas de monedas, estrellas extra y mejoras de límite.',
       'Furia de Oso más pequeña y del mismo tamaño en todos los niveles (autor).',
+      'Endou Mamoru cuenta como Mark Evans en las técnicas combinadas (reporte de un jugador): el Aura ya los trataba como el mismo personaje y no dejaba juntarlos, pero las combinadas no lo reconocían (combos.COUNTERPARTS).',
     ],
     visuals: ['Carta: estrellas extra de monedas (violeta) y, aparte, las estrellas de HÉROE (carmesí) como antes. Las estrellas extra cuentan como estrellas en partida (daño y vida).'],
     // (the combined techniques of 1.88, on the same version at the author's request)

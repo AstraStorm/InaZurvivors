@@ -48,6 +48,7 @@ export const PUBLIC_RELEASES: PublicRelease[] = [
       { icon: '🐯', title: 'Ocho combinadas más', text: 'Tormenta del tigre (Axel y Austin), Bestia del trueno (Thor y Shawn), El huracán (Nathan y Shawn), Tiro a reacción (Mark, Axel y Austin), Uno para todos (Li Hao, Malik y Lus), Cometa legendario (Jude y Axel), Tripegaso (Erik, Bobby y Mark) y Gran lobo (Dylan, Erik y Mark Krueger), como en sus escenas.' },
       { icon: '🔥', title: 'El Fénix o Tripegaso', text: 'Erik, Bobby y Mark solo pueden aprender una de las dos, como Lanza y Frente frío. El Fénix, redibujado: un ave de fuego de alas abiertas. Fénix oscuro, igual pero en morado.' },
       { icon: '🐅', title: 'Remate del tigre', text: 'Austin la tiene desde el nivel 1, y ahora salta el tigre dorado rugiendo. Quien tenía Gran lobo (ahora combinada) recibe el talento Ataque+.' },
+      { icon: '🧤', title: 'Endou y Mark', text: 'Endou Mamoru cuenta como Mark Evans en las técnicas combinadas, igual que con el Aura.' },
     ],
     start: [],
   },

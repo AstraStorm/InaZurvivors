@@ -18,7 +18,7 @@ import { COMPOSITIONS, PLAYLISTS, nextTrack, renderBars } from '../src/systems/c
 import { canClaim, claimTeamReward, teamProgress } from '../src/systems/teamRewards';
 import { buyOffer, dailyOffers, msToNextDay, rollDaily } from '../src/systems/dailyShop';
 import { RANKS, RANK_ORDER, waveIntensity } from '../src/systems/difficulty';
-import { COMBOS, comboDamage, comboReady } from '../src/systems/combos';
+import { COMBOS, comboDamage, comboReady, playsAs } from '../src/systems/combos';
 import { claimAllTeamRewards } from '../src/systems/teamRewards';
 import { localBoard, positionOf, recordBest } from '../src/systems/leaderboard';
 import { ASC_COSTS, ascMultipliers, ascend, effectiveRarity, isHero, nextStep, sparesOf } from '../src/systems/ascension';
@@ -729,6 +729,11 @@ describe('combined techniques', () => {
   it('every combo names its source and real participants, and at most a few exist', () => {
     expect(COMBOS.length).toBeLessThanOrEqual(40); // 1.88: eight more (author); 1.76: Zero Magnum, La Aurora (Byron) and Súper relámpago; 1.83: six more, all added by the author
     for (const c of COMBOS) { expect(c.source).toMatch(/fandom|MyAnimeList|ROM/); expect(c.needs.length).toBeGreaterThanOrEqual(2); }
+  });
+  it('Endou Mamoru plays Mark Evans in every combination (1.88 bug report: same character for the Aura, so for combos too)', () => {
+    expect(playsAs('Endou Mamoru', 'Mark Evans')).toBe(true);
+    const tri = COMBOS.find((c) => c.id === 'tripegaso')!;
+    expect(comboReady(tri, [member('Erik Eagle', ['Pegaso'], 3), member('Bobby Shearer', ['Muro'], 3), member('Endou Mamoru', ['Mano'], 5)])).toBe(true);
   });
   it('Fuego cruzado needs Axel (Tornado de fuego 3) and Shawn (Ventisca eterna 5) on the pitch (Fix 1.51)', () => {
     const axel = member('Axel Blaze', ['Tornado de fuego'], 3), shawn = member('Shawn Froste', ['Ventisca eterna'], 5);
