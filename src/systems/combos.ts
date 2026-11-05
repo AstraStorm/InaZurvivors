@@ -230,7 +230,7 @@ export const COMBOS: ComboDef[] = [
   { id: 'el-huracan', name: 'El huracán', jp: 'ザ・ハリケーン', en: 'The Hurricane', element: 'Aire', power: 100,
     needs: [{ player: 'Nathan Swift', level: 3 }, { player: 'Shawn Froste', level: 5 }], cooldownMs: 6500, effect: 'huracan', priority: 6,
     source: 'Wiki de Inazuma Eleven (fandom), «The Hurricane»: Kazemaru (Nathan) y Fubuki (Shawn); escena youtube af5TD_ISrSg.' },
-  { id: 'tiro-reaccion', name: 'Tiro a reacción', jp: 'ジェットストリーム', en: 'Jet Stream', element: 'Aire', power: 120,
+  { id: 'tiro-reaccion', name: 'Tiro a reacción', jp: 'ジェットストリーム', en: 'Jet Stream', element: 'Montaña', power: 120,
     needs: [{ player: 'Mark Evans', level: 3 }, { player: 'Axel Blaze', level: 3 }, { player: 'Austin Hobbes', level: 5 }], cooldownMs: 8000, effect: 'reaccion', priority: 8,
     source: 'Wiki de Inazuma Eleven (fandom), «Jet Stream»: Endou (Mark), Gouenji (Axel) y Toramaru (Austin); escena youtube F45DrrGBqac.' },
   { id: 'uno-para-todos', name: 'Uno para todos', jp: 'ソード・オブ・ダルタニャン', en: 'Sword of d\'Artagnan', element: 'Montaña', power: 105,
