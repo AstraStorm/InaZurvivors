@@ -233,3 +233,12 @@
 .bn-list li { padding: 6px 8px; border-radius: 8px; background: #0f2552; box-shadow: inset 0 0 0 1px #ffffff18; }
 .bn-list b { color: var(--muted); font-weight: normal; margin-right: 6px; } .bn-list em { float: right; font-style: normal; color: #7fff9a; }
 .bn-total { margin: 10px auto; font-size: 22px; color: #ffe24a; text-shadow: 3px 3px 0 #a64300; }
+
+/* 1.85: several stars at once (a counter per stat) and «ascend everyone» */
+.sp-grid .sp-opt { position: relative; padding: 0; background: none; box-shadow: none; display: block; }
+.sp-opt .sp-add { width: 100%; display: flex; flex-direction: column; gap: 3px; padding: 8px; font: inherit; color: #fff; text-align: left; border: 0; border-radius: 8px; cursor: pointer; background: #0f2552; box-shadow: inset 0 0 0 1px #ffffff22; }
+.sp-opt .sp-add:disabled { opacity: .55; cursor: default; }
+.sp-opt.on .sp-add { box-shadow: inset 0 0 0 2px #ffd23f; background: #2a2a10; }
+.sp-opt .sp-add b { font-size: 11px; color: #ffe24a; font-weight: normal; } .sp-opt .sp-add span { font-size: 9px; } .sp-opt .sp-add em { font-style: normal; color: #7fff9a; } .sp-opt .sp-add small { font-size: 7px; color: var(--muted); }
+.sp-opt .sp-rm { position: absolute; top: 4px; right: 4px; font: inherit; font-size: 8px; padding: 2px 6px; border: 0; border-radius: 6px; cursor: pointer; color: #fff; background: #b8323a; }
+.rw-all.asc-all { background: linear-gradient(180deg, #ff9a3a, #c04a10); }

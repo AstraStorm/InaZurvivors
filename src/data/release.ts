@@ -36,6 +36,7 @@ export const PUBLIC_RELEASES: PublicRelease[] = [
     features: [
       { icon: '🐞', title: 'Recompensa por bugs', text: 'Cada bug que reportes y se corrija te da 100 fichas automáticamente, con un aviso al abrir el juego. Repórtalos desde el 🐞 del menú o en Ajustes.', online: true },
       { icon: '★', title: 'Estrellas reiniciadas', text: 'Con las estrellas nuevas (se compran con monedas y suben el límite de una estadística), las estrellas de todos vuelven a empezar desde cero.' },
+      { icon: '⏩', title: 'Todo de golpe', text: 'Sube varias estrellas a la vez eligiendo la estadística de cada una, y asciende de una vez a todos los futbolistas que tengan duplicados suficientes con «ASCENDER TODOS» en la Enciclopedia.' },
     ],
     start: [],
   },

@@ -43,11 +43,11 @@ function newsRelDate(d: string) {
 }
 import { buildMeta, CATEGORIES, SEVERITIES, SHOT_MAX_BYTES, SHOT_MAX_SIDE, SHOT_TYPES, STATUS_LABEL, TECH_FIELDS, validateBug, validateShot } from '../systems/bugReport';
 import { elementIcon } from './elements';
-import { EXTRA_STARS_MAX, assignPick, buyStar, resetStars185, capBonusOf, extraStarsOf, hasExtraStars, nextStar, pendingPicks, STAR_CAP_STEP } from '../systems/stars';
+import { EXTRA_STARS_MAX, affordableStars, assignPick, buyStars, resetStars185, capBonusOf, extraStarsOf, hasExtraStars, nextStar, pendingPicks, STAR_CAP_STEP } from '../systems/stars';
 import { CHAMPION_CAP, CHAMPION_STATS, CHAMPION_TRAIN, playerStats, resetTraining, statCapOf, trainingOf, trainingUsed, trainMaxOf, trainRoom, trainStat, trimTraining, type StatKey } from '../systems/training';
 import { AURA_PCT, AURA_ELEMENT_BONUS, AURA_TECH_DAMAGE, BOND_PCT, EFFECTIVE_STAT_MAX, auraBonus, auraOf, bondOf, canBeAura, carrierForRun, carrierOf, equipAura, inheritedTechs, removeAura, sanitizeAuras, withAura, type AuraBonus } from '../systems/auras';
 import { BOND_KIND_LABEL } from '../data/auraBonds';
-import { ASC_BONUS, ASC_COSTS, CHAMPION_COSTS, CHAMPION_LABEL, CHAMPION_MAX, HERO_AURA, HERO_STARS_MAX, championOf, compensateDrakul153, migrateChampions18, migrateHeroes131, type AscStep, ascend, ascMultipliers, effectiveRarity, isHero, isTopRarity, nextStep, rarityUp, sparesOf } from '../systems/ascension';
+import { ascendAll, ascendableCount, ASC_BONUS, ASC_COSTS, CHAMPION_COSTS, CHAMPION_LABEL, CHAMPION_MAX, HERO_AURA, HERO_STARS_MAX, championOf, compensateDrakul153, migrateChampions18, migrateHeroes131, type AscStep, ascend, ascMultipliers, effectiveRarity, isHero, isTopRarity, nextStep, rarityUp, sparesOf } from '../systems/ascension';
 import { USERNAME_MAX, validateUsername } from '../systems/username';
 import { ALTAR_COLOR, ALTAR_ICON, ALTAR_INFO, ALTAR_MODE, ALTAR_REWARD } from '../systems/altars';
 import { adaptedPassive, passiveText, talentChanges, talentText } from '../systems/talents';
@@ -3029,7 +3029,8 @@ export class App {
       <div class="col-hero"><span class="col-hero-ic">${uiIcon('cards')}</span><div class="col-hero-tx"><small>TU COLECCIÓN</small><b>${ownedN} <em>de ${this.m.roster.length} futbolistas</em></b>
         <i class="col-bar"><i style="width:${ownedN / Math.max(1, this.m.roster.length) * 100}%"></i></i>
         <div class="col-rars">${RARITY_ORDER.map((r) => `<span class="rar ${r}">${RARITY_LABEL[r]} ${this.m.roster.filter((p) => p.rarity === r && this.owned(p.id)).length}/${this.m.roster.filter((p) => p.rarity === r).length}</span>`).join('')}</div></div>
-        ${teamClaims ? `<button class="rw-all" id="teamall"><i class="m4-shine"></i>RECLAMAR TODO<em>${teamClaims}</em></button>` : ''}</div>
+        ${teamClaims ? `<button class="rw-all" id="teamall"><i class="m4-shine"></i>RECLAMAR TODO<em>${teamClaims}</em></button>` : ''}
+        ${(() => { const n = ascendableCount(this.save, this.m.roster); return n ? `<button class="rw-all asc-all" id="ascall" title="Asciende a todos los que tienen duplicados suficientes"><i class="m4-shine"></i>ASCENDER TODOS<em>${n}</em></button>` : ''; })()}</div>
       ${d && this.compareWith && this.compareWith !== d.id && this.byId.get(this.compareWith) ? this.compareHtml(this.byId.get(this.compareWith)!, d) : ''}
       ${d ? this.playerDetail(d) : ''}
       <div class="mis-top"><div class="seg" id="views"><button data-v="equipos" class="${this.collectionView === 'equipos' ? 'on' : ''}">Por equipos</button><button data-v="fichatron" class="${this.collectionView === 'fichatron' ? 'on' : ''}">Fichatrón</button><button data-v="todos" class="${this.collectionView === 'todos' ? 'on' : ''}">Todos</button></div>
@@ -3050,6 +3051,14 @@ export class App {
     this.on('.pcard[data-id]', 'click', (_e, el) => { if (this.owned(Number(el.dataset.id))) { this.collection(Number(el.dataset.id)); this.root.querySelector('.screen')?.scrollTo(0, 0); } });
     this.on('[data-ascend]', 'click', (_e, el) => this.ascension(Number(el.dataset.ascend), () => this.collection(Number(el.dataset.ascend))));
     this.on('[data-starbuy]', 'click', (_e, el) => this.starStatPicker(Number(el.dataset.starbuy), 'buy')); // 1.84
+    document.getElementById('ascall')?.addEventListener('click', (e) => this.armed(e.currentTarget as HTMLElement, () => { // 1.85: everyone at once
+      const done = ascendAll(this.save, this.m.roster);
+      if (!done.length) { sfx('error'); return; }
+      this.persist(); sfx('legend');
+      const steps = done.reduce((a, d) => a + d.steps.length, 0);
+      this.toast(`${done.length} ${done.length === 1 ? 'futbolista ascendido' : 'futbolistas ascendidos'} (${steps} ${steps === 1 ? 'paso' : 'pasos'}): ${done.slice(0, 4).map((d) => this.byId.get(d.id)?.name ?? '').join(', ')}${done.length > 4 ? '…' : ''}`, 4500);
+      this.collection();
+    }));
     this.on('[data-starpick]', 'click', (_e, el) => this.starStatPicker(Number(el.dataset.starpick), 'pick'));
     this.on('[data-train]', 'click', (_e, el) => {
       const id = Number(el.dataset.pid);
@@ -3293,30 +3302,44 @@ export class App {
     </div>`;
   }
 
-  /** 1.84: pick the stat whose limit a star raises (buying one, or a pick left from the stars earned before) */
+  /**
+   * 1.84 / 1.85 (author): pick the stats whose limits the stars raise. Buying, several stars can go at once (as many as
+   * the coins pay, in order): each tap on a stat adds one star to it, − takes it back. Pending picks (stars from before)
+   * are given the same way.
+   */
   private starStatPicker(id: number, mode: 'buy' | 'pick') {
     const p = this.byId.get(id);
     if (!p) return;
     document.querySelector('.star-pick-modal')?.remove();
     const box = document.createElement('div');
     box.className = 'tut-modal star-pick-modal';
-    const next = nextStar(this.save, p);
-    const title = mode === 'buy' ? `${next?.kind === 'extra' ? 'Estrella extra' : 'Estrella'} ${next ? (next.kind === 'extra' ? MAX_STARS + next.n : next.n) : ''}` : 'Mejora de límite';
-    box.innerHTML = `<div class="panel sp-pick"><h2>${title}</h2>
-      <p class="note">Elige la estadística cuyo límite sube +${STAR_CAP_STEP}. Puedes repetir la misma.${mode === 'buy' && next ? ` Cuesta ${next.cost.toLocaleString('es')} monedas.` : ''}</p>
-      <div class="sp-grid">${STAT_INFO.map((x) => { const cap = statCapOf(this.save, p, x.key as StatKey); return `<button class="sp-opt" data-k="${x.key}"><b>${x.short}</b><span>${cap} → <em>${cap + STAR_CAP_STEP}</em></span><small>${esc(x.name)}</small></button>`; }).join('')}</div>
-      <div class="tut-nav"><span class="spacer"></span><button class="btn small blue" data-close>Cancelar</button></div></div>`;
+    const aff = affordableStars(this.save, p);
+    const max = mode === 'buy' ? aff.n : pendingPicks(this.save, id);
+    if (!max) { sfx('error'); return; }
+    const order: StatKey[] = [];
+    const draw = () => {
+      const n = order.length, cost = aff.costs.slice(0, n).reduce((a, b) => a + b, 0);
+      const count = (k: string) => order.filter((x) => x === k).length;
+      box.innerHTML = `<div class="panel sp-pick"><h2>${mode === 'buy' ? 'Subir estrellas' : 'Mejoras de límite'}</h2>
+        <p class="note">Toca una estadística por cada estrella: su límite sube +${STAR_CAP_STEP}. Puedes repetir la misma.${mode === 'buy' ? ` Te llega para <b>${max}</b> ${max === 1 ? 'estrella' : 'estrellas'}.` : ` Te quedan <b>${max}</b>.`}</p>
+        <div class="sp-grid">${STAT_INFO.map((x) => { const c = count(x.key), cap = statCapOf(this.save, p, x.key as StatKey);
+          return `<div class="sp-opt${c ? ' on' : ''}"><button class="sp-add" data-k="${x.key}" ${n >= max ? 'disabled' : ''}><b>${x.short}</b><span>${cap} → <em>${cap + STAR_CAP_STEP * c}</em></span><small>${esc(x.name)}</small></button>${c ? `<button class="sp-rm" data-rm="${x.key}">−${c > 1 ? ` ${c}` : ''}</button>` : ''}</div>`; }).join('')}</div>
+        <div class="tut-nav"><button class="btn small blue" data-close>Cancelar</button><span class="spacer"></span>
+          <button class="btn" data-ok ${n ? '' : 'disabled'}>${mode === 'buy' ? `Subir ${n} ${n === 1 ? 'estrella' : 'estrellas'}${n ? ` · ${cost.toLocaleString('es')} ◉` : ''}` : `Aplicar ${n}`}</button></div></div>`;
+      box.querySelector('[data-close]')!.addEventListener('click', () => box.remove());
+      box.querySelectorAll<HTMLElement>('.sp-add').forEach((b) => b.addEventListener('click', () => { if (order.length < max) { order.push(b.dataset.k as StatKey); sfx('click'); draw(); } }));
+      box.querySelectorAll<HTMLElement>('.sp-rm').forEach((b) => b.addEventListener('click', () => { const k = order.lastIndexOf(b.dataset.rm as StatKey); if (k >= 0) order.splice(k, 1); draw(); }));
+      box.querySelector('[data-ok]')!.addEventListener('click', () => {
+        const done = mode === 'buy' ? buyStars(this.save, p, order) : order.filter((k) => assignPick(this.save, id, k)).length;
+        box.remove();
+        if (!done) { sfx('error'); return; }
+        this.persist(); sfx(mode === 'buy' ? 'legend' : 'powerup');
+        this.toast(mode === 'buy' ? `${p.name}: +${done} ${done === 1 ? 'estrella' : 'estrellas'}` : `${p.name}: ${done} ${done === 1 ? 'mejora' : 'mejoras'} de límite`, 3000);
+        this.collection(id);
+      });
+    };
     document.body.appendChild(box);
-    box.querySelector('[data-close]')!.addEventListener('click', () => box.remove());
-    box.querySelectorAll<HTMLElement>('.sp-opt').forEach((b) => b.addEventListener('click', () => {
-      const k = b.dataset.k as StatKey;
-      const ok = mode === 'buy' ? !!buyStar(this.save, p, k) : assignPick(this.save, id, k);
-      box.remove();
-      if (!ok) { sfx('error'); return; }
-      this.persist(); sfx(mode === 'buy' ? 'legend' : 'powerup');
-      this.toast(`${p.name}: límite de ${STAT_INFO.find((x) => x.key === k)?.name ?? k} hasta ${statCapOf(this.save, p, k)}`, 3000);
-      this.collection(id);
-    }));
+    draw();
   }
 
   /** Fix 1.3: training of an owned footballer: up to 20 points, one Ficha de entrenamiento each, freely returned. */

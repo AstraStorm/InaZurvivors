@@ -91,3 +91,28 @@ export function resetStars185(save: SaveData, roster: Pick<RosterEntry, 'id' | '
   save.stars185 = true;
   return true;
 }
+
+/** 1.85 (author): several stars at once, one stat each (in order); stops at the first that can't be bought. Returns how many. */
+export function buyStars(save: SaveData, p: P, stats: StatKey[]): number {
+  let n = 0;
+  for (const k of stats) { if (!buyStar(save, p, k)) break; n++; }
+  return n;
+}
+
+/** how many of the next stars the player can pay right now, and what they cost together */
+export function affordableStars(save: SaveData, p: P): { n: number; costs: number[] } {
+  const o = save.owned[String(p.id)];
+  if (!o) return { n: 0, costs: [] };
+  const costs: number[] = [];
+  let coins = save.coins, stars = o.stars, x = extraStarsOf(save, p.id);
+  for (;;) {
+    let c: number;
+    if (stars < MAX_STARS) c = starCost(stars + 1);
+    else if (hasExtraStars(save, p) && x < EXTRA_STARS_MAX) c = extraStarCost(x + 1);
+    else break;
+    if (coins < c) break;
+    coins -= c; costs.push(c);
+    if (stars < MAX_STARS) stars++; else x++;
+  }
+  return { n: costs.length, costs };
+}

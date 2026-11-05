@@ -20,7 +20,7 @@ export const CHANGELOG: Release[] = [
       'Recompensa por bugs (migración 20261106000300_bug_bounty.sql): al marcar un reporte «corregido» en el panel (admin_update_bug) su autor gana 100 fichas, una vez por reporte (ir y volver no paga dos veces; los reportes de administradores no pagan). Quedan en private.bug_rewards hasta que el juego las recoge (claim_bug_rewards, al abrir el menú, como mucho una vez por minuto) y se muestra un aviso de agradecimiento; economy_cap las cuenta como los códigos. Noticia fijada en el tablón (bugs-1-85).',
     ],
     fixes: [],
-    visuals: [],
+    visuals: ['Varias estrellas de golpe (stars.buyStars/affordableStars; el selector suma una estrella por toque y − la quita) y «ASCENDER TODOS» en la Enciclopedia (ascension.ascendAll/ascendableCount).'],
     balance: ['Estrellas reiniciadas para todos una vez (stars.resetStars185, save.stars185): estrellas, estrellas extra y mejoras de límite a 0, sin compensación (decisión del autor).'],
   },
   {

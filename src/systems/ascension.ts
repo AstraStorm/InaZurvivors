@@ -156,3 +156,18 @@ export function migrateHeroes131(save: SaveData, roster: Pick<RosterEntry, 'id' 
   save.heroes131 = true;
   return true; // the flag itself has to be saved even when nothing changed
 }
+
+/** 1.85 (author): every owned footballer climbs as many ascension steps as his duplicates pay, in one go. */
+export function ascendAll(save: SaveData, roster: Pick<RosterEntry, 'id' | 'rarity'>[]): { id: number; steps: AscStep[] }[] {
+  const out: { id: number; steps: AscStep[] }[] = [];
+  for (const p of roster) {
+    if (!save.owned[String(p.id)]) continue;
+    const steps: AscStep[] = [];
+    for (let k = 0; k < 10; k++) { const st = ascend(save, p); if (!st) break; steps.push(st); }
+    if (steps.length) out.push({ id: p.id, steps });
+  }
+  return out;
+}
+/** how many owned footballers could ascend right now */
+export const ascendableCount = (save: SaveData, roster: Pick<RosterEntry, 'id' | 'rarity'>[]) =>
+  roster.filter((p) => { const n = save.owned[String(p.id)] && nextStep(save, p); return !!n && sparesOf(save, p.id) >= n.cost; }).length;

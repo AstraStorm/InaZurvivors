@@ -69,3 +69,26 @@ describe('star reset (1.85)', () => {
     expect(s.owned['10'].stars).toBe(2);
   });
 });
+
+describe('all at once (1.85)', () => {
+  it('several stars in one go, one stat each, as far as the coins go', async () => {
+    const { buyStars, affordableStars } = await import('../src/systems/stars');
+    const s = fresh(1); s.coins = 60000; // 10k + 20k + 30k
+    expect(affordableStars(s, leg)).toEqual({ n: 3, costs: [10000, 20000, 30000] });
+    expect(buyStars(s, leg, ['kick', 'kick', 'speed', 'guts'])).toBe(3); // the 4th is not affordable
+    expect(s.owned['10'].starCaps).toEqual({ kick: 2, speed: 1 });
+    expect(s.coins).toBe(0);
+  });
+  it('every footballer with enough duplicates ascends in one go', async () => {
+    const { ascendAll, ascendableCount, ASC_COSTS } = await import('../src/systems/ascension');
+    const epic = { id: 30, rarity: 'epico' } as RosterEntry, com = { id: 31, rarity: 'comun' } as RosterEntry;
+    const s = newSave([], null);
+    for (let i = 0; i <= ASC_COSTS.epico.ascenso * 2; i++) addCopy(s, epic);
+    addCopy(s, com);
+    expect(ascendableCount(s, [epic, com])).toBe(1);
+    const done = ascendAll(s, [epic, com]);
+    expect(done).toEqual([{ id: 30, steps: ['ascenso', 'ascenso'].slice(0, done[0].steps.length) }]);
+    expect(done[0].steps.length).toBeGreaterThanOrEqual(1);
+    expect(ascendableCount(s, [epic, com])).toBe(0);
+  });
+});
