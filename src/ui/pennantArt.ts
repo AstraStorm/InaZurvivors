@@ -184,16 +184,17 @@ function ornaments(p: PennantPattern, a: string, c1: string, sq: boolean, id: st
 }
 
 /**
- * Fix (author: the wings crossed the ring over the face and stuck out of the frame over the text next to it): each wing
- * is a fan of feathers rooted under the ring at the upper corner and opening into that corner of the 140 box, so nothing
- * reaches the face and nothing leaves the frame's box. Drawn before the ring, which hides the roots.
+ * 1.81 (author: first the wings covered the face and the text beside the frame, then they were too small to see):
+ * a winged frame is drawn on a wider canvas (viewBox -30..170, WING_PAD units each side) and its host reserves that
+ * room (.fr-host.wide, app.ts), so the wings open wide from the sides of the ring without covering anything. Each wing
+ * is a fan of feathers rooted behind the ring (which hides the roots), from slightly below the side to up and out.
  */
+export const WING_PAD = 30;
 function wings(a: string, c1: string, c2: string, square: boolean): string {
-  const root = 70 - (square ? 64 : 50) * Math.SQRT1_2; // on the ring, at 45° up-left (the square's corner sits further out)
-  const sc = square ? 0.72 : 1;
-  const feathers = [[-172, 22], [-153, 31], [-135, 36], [-117, 31], [-98, 22]] as const; // [angle°, length]
-  const one = (flip: boolean) => `<g transform="${flip ? 'translate(140 0) scale(-1 1) ' : ''}translate(${root.toFixed(1)} ${root.toFixed(1)}) scale(${sc})">
-    ${feathers.map(([ang, l], k) => `<g transform="rotate(${ang})"><path d="M0,0 C${l * 0.3},-5.5 ${l * 0.75},-4.5 ${l},0 C${l * 0.75},3 ${l * 0.3},4 0,0 Z" fill="${k % 2 ? c1 : a}" stroke="${c2}" stroke-width="1" stroke-linejoin="round"/><path d="M2,0 L${l - 3},0" stroke="${c2}" stroke-width=".7" opacity=".6"/></g>`).join('')}</g>`;
+  const rx = square ? 18 : 23, ry = square ? 54 : 53; // the root, behind the left side of the ring
+  const feathers = [[172, 40], [190, 46], [208, 50], [226, 47], [244, 38]] as const; // [angle° (180 = left, 270 = up), length]
+  const one = (flip: boolean) => `<g transform="${flip ? 'translate(140 0) scale(-1 1) ' : ''}translate(${rx} ${ry})">
+    ${feathers.map(([ang, l], k) => `<g transform="rotate(${ang})"><path d="M0,0 C${l * 0.25},-8 ${l * 0.7},-7 ${l},0 C${l * 0.7},4.5 ${l * 0.25},5.5 0,0 Z" fill="${k % 2 ? c1 : a}" stroke="#0a1022" stroke-width="1.4" stroke-linejoin="round"/><path d="M3,-1 L${l - 4},-.5" stroke="${k % 2 ? a : c2}" stroke-width="1.1" opacity=".7"/></g>`).join('')}</g>`;
   return one(false) + one(true);
 }
 
@@ -207,7 +208,7 @@ export function frameSvg(def: PennantDef | string | null | undefined, square = f
   const line = (r: number, w: number, color: string, extra = '') => square
     ? `<rect x="${FC - r}" y="${FC - r}" width="${r * 2}" height="${r * 2}" rx="${r * 0.3}" fill="none" stroke="${color}" stroke-width="${w}" ${extra}/>`
     : `<circle cx="${FC}" cy="${FC}" r="${r}" fill="none" stroke="${color}" stroke-width="${w}" ${extra}/>`;
-  return `<svg class="frame fr-${p.rarity}" viewBox="0 0 140 140" aria-hidden="true">
+  return `<svg class="frame fr-${p.rarity}" viewBox="${p.wings ? `${-WING_PAD} 0 ${140 + WING_PAD * 2} 140` : '0 0 140 140'}" aria-hidden="true">
     <defs><linearGradient id="${id}g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${p.c1}"/><stop offset=".5" stop-color="${p.accent}"/><stop offset="1" stop-color="${p.c2}"/></linearGradient>
       <linearGradient id="${id}r" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff4a4a"/><stop offset=".25" stop-color="#ffe24a"/><stop offset=".5" stop-color="#5ee05a"/><stop offset=".75" stop-color="#4fb3ff"/><stop offset="1" stop-color="#b36bff"/></linearGradient>
       <linearGradient id="${id}s" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".5" stop-color="#fff" stop-opacity=".9"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient></defs>

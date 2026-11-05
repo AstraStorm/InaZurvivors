@@ -1622,3 +1622,7 @@ body.drag-aura-no .squad-row .aura-mini { opacity: .45; }
 .pl-tn .tn-row { display: flex; align-items: center; max-width: 100%; }
 .pl-tn .tn-txt { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .pl-tn .evo-ic { flex: none; height: 15px; margin-left: 3px; }
+/* 1.81: winged frames are drawn 30/140 wider on each side (pennantArt WING_PAD) */
+.fr-host.wide > .fr-ov { left: -50%; right: -50%; }
+.rank-row .fr-host.wide > .fr-ov, .wr-row .fr-host.wide > .fr-ov { left: -42.9%; right: -42.9%; }
+.pf-avatar .fr-host.sq.wide > .fr-ov { left: -44.3%; right: -44.3%; }

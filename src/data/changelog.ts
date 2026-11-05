@@ -17,7 +17,7 @@ export const CHANGELOG: Release[] = [
   {
     version: '9.1', date: '2026-11-05', title: 'Fix 1.81 Logos de nivel',
     features: [
-      'Código INA483 (autor; no sale en las notas públicas): 5 tiradas ×10 del Banner de agradecimiento (750 fichas de evento), 5 ×10 normales (500 fichas), 20.000 monedas, un Legendario o superior (80/17/3, sin exclusivos de evento: promo.codePlayer, rarity_pools/rarity_odds en el servidor) y el banner «ina483» y el marco «marco-ina483» (source «codigo»: visiblePennant los oculta a quien no los tiene). Migración 20261106000200_ina483.sql: redeem_code devuelve también reward.pennants.',
+      'Código INA483 (autor; no sale en las notas públicas): 5 tiradas ×10 del Banner de agradecimiento (750 fichas de evento), 5 ×10 normales (500 fichas), 20.000 monedas, un Legendario o superior (80/17/3, sin exclusivos de evento: promo.codePlayer, rarity_pools/rarity_odds en el servidor) y el banner «inazuma» y el marco «marco-inazuma» (source «codigo»: visiblePennant los oculta a quien no los tiene). Migración 20261106000200_ina483.sql: redeem_code devuelve también reward.pennants.',
       'Niveles de técnica con logo (systems/evolution.ts): un escalón cada 2 niveles (Nv 1 sin logo; 2-3, 4-5, 6-7, 8-9 y 10). Escalera por poder: hasta 70 «+1…+5», de 71 a 100 «N2, N3, N4, S, ∞», más de 100 «G2…G5, GO». Logos de D:/Sprites Inazuma/Mejoras copiados por sync-assets a generated/mejoras (manifest.evoIcons, grupo «iconos»); app.evoTag los pinta en el HUD y en las cartas de mejora. Sustituye las familias por saga (growth/fuente).',
     ],
     fixes: [

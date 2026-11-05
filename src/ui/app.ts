@@ -201,6 +201,10 @@ export class App {
     if (m.profile && !iconAllowed(save, m.roster, m.profile.emblems, m.profile.coaches)) save.profile.icon = { kind: 'emblem', id: DEFAULT_EMBLEM };
     initPreviews(m);
     setTeamSagas(m.teamSagas);
+    // 1.81: a winged frame reaches 30% of the avatar's width past each side: keep that room so it covers nothing
+    const roomForWings = (n: ParentNode) => n.querySelectorAll?.<HTMLElement>('.fr-host.wide').forEach((h) => { h.style.marginInline = `${Math.round(h.offsetWidth * 0.3)}px`; });
+    new MutationObserver((list) => { for (const m of list) m.addedNodes.forEach((n) => { if (n instanceof HTMLElement) { if (n.matches('.fr-host.wide')) roomForWings(n.parentElement ?? n); else roomForWings(n); } }); })
+      .observe(document.body, { childList: true, subtree: true });
     // Fix 1.32: cards tilt towards the pointer and a glare follows it (CSS reads --rx --ry --gx --gy); mouse only
     let tiltRaf = 0;
     document.addEventListener('pointermove', (e) => {
@@ -1303,7 +1307,8 @@ export class App {
   /** an avatar inside its frame (unchanged without one); `square` for the profile icons */
   private framed(html: string, id: string | null | undefined, square = false) {
     const svg = frameSvg(id, square);
-    return svg ? `<span class="fr-host${square ? ' sq' : ''}">${html}<span class="fr-ov">${svg}</span></span>` : html;
+    const wide = !!(id && PENNANT_BY_ID.get(id)?.wings); // 1.81: winged frames are wider and keep room for their wings
+    return svg ? `<span class="fr-host${square ? ' sq' : ''}${wide ? ' wide' : ''}">${html}<span class="fr-ov">${svg}</span></span>` : html;
   }
   /** the face a frame is shown on in the cards: the captain, or the profile icon */
   private frameFace() {

@@ -19,7 +19,7 @@ describe('INA483', () => {
     expect(s.coins - before.c).toBe(20000);
     expect((s.eventTokens ?? 0) - before.e).toBe(750);
     expect([3, 4, 5]).toContain(r.reward!.player);
-    expect(hasPennant(s, 'ina483') && hasPennant(s, 'marco-ina483')).toBe(true);
+    expect(hasPennant(s, 'inazuma') && hasPennant(s, 'marco-inazuma')).toBe(true);
     expect(redeemLocal(s, 'INA483', roster).status).toBe('used');
   });
   it('the footballer follows the odds and is never event-only', () => {
@@ -31,11 +31,16 @@ describe('INA483', () => {
   });
   it('its banner and frame are hidden to anyone who has not redeemed it', () => {
     const s = newSave([10], 10);
-    const banner = PENNANT_BY_ID.get('ina483')!, frame = PENNANT_BY_ID.get('marco-ina483')!;
+    const banner = PENNANT_BY_ID.get('inazuma')!, frame = PENNANT_BY_ID.get('marco-inazuma')!;
     expect(frame.kind).toBe('marco');
     expect(visiblePennant(s, banner) || visiblePennant(s, frame)).toBe(false);
     expect(visiblePennant(s, PENNANT_BY_ID.get('raimon')!)).toBe(true);
     redeemLocal(s, 'INA483', roster);
     expect(visiblePennant(s, banner) && visiblePennant(s, frame)).toBe(true);
+  });
+  it('saves with the first names (ina483) keep their banner and frame', async () => {
+    const { validate } = await import('../src/systems/save');
+    const s = validate({ ...newSave([10], 10), pennants: { owned: ['ina483', 'marco-ina483'], equipped: 'ina483', frame: 'marco-ina483' } });
+    expect(s.pennants).toEqual({ owned: ['inazuma', 'marco-inazuma'], equipped: 'inazuma', frame: 'marco-inazuma' });
   });
 });

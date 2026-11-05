@@ -364,7 +364,7 @@ describe('promotional codes (Fix 1.12)', () => {
     const r = await redeem('carla', 'ina483');
     expect(r.status).toBe('ok');
     const reward = r.reward as { tokens: number; coins: number; eventTokens: number; player: number; pennants: string[] };
-    expect(reward).toMatchObject({ tokens: 500, coins: 20000, eventTokens: 750, pennants: ['ina483', 'marco-ina483'] });
+    expect(reward).toMatchObject({ tokens: 500, coins: 20000, eventTokens: 750, pennants: ['inazuma', 'marco-inazuma'] });
     // the footballer comes from the code's own pools (Legendario, Mítico, Leyenda; built without event-only ones)
     const pools = ((await db.query(`select rewards -> 'rarity_pools' as p from private.promo_codes where code = 'INA483'`)).rows[0] as { p: Record<string, number[]> }).p;
     expect(Object.keys(pools).sort()).toEqual(['legendario', 'leyenda', 'mitico']);

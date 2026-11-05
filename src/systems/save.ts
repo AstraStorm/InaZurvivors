@@ -335,6 +335,11 @@ export function validate(s: SaveData): SaveData {
   // v1.65: banners — known ids only, no repeats; the equipped one must be owned
   const pn = obj(s.pennants);
   if (pn) {
+    // 1.81: the code's banner and frame were first called ina483 / marco-ina483
+    const renamed: Record<string, string> = { ina483: 'inazuma', 'marco-ina483': 'marco-inazuma' };
+    const re = (x: unknown) => (typeof x === 'string' ? renamed[x] ?? x : x);
+    if (Array.isArray(pn.owned)) pn.owned = pn.owned.map(re);
+    pn.equipped = re(pn.equipped); pn.frame = re(pn.frame);
     const ownedP = Array.isArray(pn.owned) ? [...new Set(pn.owned.filter((x): x is string => typeof x === 'string' && PENNANT_BY_ID.has(x)))] : [];
     s.pennants = { owned: ownedP };
     if (typeof pn.equipped === 'string' && ownedP.includes(pn.equipped) && PENNANT_BY_ID.get(pn.equipped)!.kind !== 'marco') s.pennants.equipped = pn.equipped;

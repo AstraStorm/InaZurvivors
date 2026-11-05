@@ -25,7 +25,7 @@ export const LOCAL_CODES: Record<string, { tokens: number; coins: number; legend
   // (author) 1.81: 5 ×10 of the Banner de agradecimiento (750 fichas de evento), 20.000 coins, a Legendario or higher
   // for sure (Legendario 80 / Mítico 17 / Leyenda 3, never an event-only footballer), 5 normal ×10 (500 fichas) and its
   // own banner and frame, which nobody without the code ever sees
-  INA483: { tokens: 500, coins: 20000, eventTokens: 750, legendary: true, odds: INA483_ODDS, pennants: ['ina483', 'marco-ina483'],
+  INA483: { tokens: 500, coins: 20000, eventTokens: 750, legendary: true, odds: INA483_ODDS, pennants: ['inazuma', 'marco-inazuma'],
     label: '5 tiradas ×10 del Banner de agradecimiento, 5 tiradas ×10 normales, 20.000 monedas, un Legendario o superior y un banner y un marco exclusivos' },
   ASTRA17: { tokens: 72, coins: 500, legendary: true, label: 'Regalo de bienvenida: 10 tiradas, un Legendario y 500 monedas' },
 };
