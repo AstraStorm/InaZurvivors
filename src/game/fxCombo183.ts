@@ -671,6 +671,23 @@ export function killerFieldsShot(scene: S, ball: Img, lv: number) {
   }, (x, y) => burst(scene, x, y, 500, [CO_PURPLE, CO_LILAC, CO_WHITE], 28 + lv * 2), true);
 }
 
+/** 1.91 (author: Campo de fuerza is not a shot, it is a blow over an area): the vortex out of the ball comes down and
+ * sweeps the ground round the two in a purple and white shockwave of radius `R` */
+export function killerFieldsBlast(scene: S, x: number, y: number, lv: number, R: number) {
+  play(scene, x, y, -9700, 650, (g, k, t) => { // on the pitch: the field it clears
+    const q = Math.min(1, k * 2.5), a = 1 - Math.max(0, k - 0.6) * 2.5;
+    g.fillStyle(CO_PURPLE, 0.28 * a).fillEllipse(0, 0, R * 2 * q, R * 1.2 * q);
+    g.lineStyle(4, CO_LILAC, 0.9 * a).strokeEllipse(0, 0, R * 2 * q, R * 1.2 * q);
+    for (let i = 0; i < 6; i++) { const ph = t * 8 + i * 1.05; g.lineStyle(3, i % 2 ? CO_WHITE : CO_PURPLE, 0.8 * a).beginPath().arc(0, 0, R * q * (0.35 + i * 0.1), ph, ph + 1.6).strokePath(); }
+  });
+  play(scene, x, y - 40, AIR + 2, 520, (g, k, t) => { // the vortex dropping from the ball onto the ground
+    const a = 1 - k, size = (28 + lv * 2) * (1 + k * 0.6);
+    for (let i = 0; i < 8; i++) { const ph = t * 12 + i * 0.8; g.lineStyle(6 - i * 0.5, i % 2 ? CO_WHITE : CO_PURPLE, 0.85 * a).beginPath().arc(0, 40 * k, size * (0.3 + i * 0.16), ph, ph + 2.8).strokePath(); }
+    g.fillStyle(CO_LILAC, 0.9 * a).fillCircle(0, 40 * k, size * 0.25);
+  }, true);
+  burst(scene, x, y - 6, 500, [CO_PURPLE, CO_LILAC, CO_WHITE], R * 0.5);
+}
+
 export function detonadorCharge(scene: S, x: number, y: number, lv: number, ms: number) {
   play(scene, x, y, AIR + 1, ms * 0.45, (g, k) => { // the pink comet climbing into the sky
     const hy = -k * 110;

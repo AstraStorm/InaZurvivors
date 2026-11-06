@@ -42,6 +42,7 @@ export const PUBLIC_RELEASES: PublicRelease[] = [
       { icon: '🔥', title: 'Elementos corregidos', text: '118 técnicas tenían el elemento mal: ahora llevan el suyo.' },
       { icon: '🐉', title: 'Rizo de dragón y Ciclón blanco', text: 'Redibujadas como en sus escenas.' },
       { icon: '💥', title: 'Las técnicas de área, en área', text: 'Los tiros que explotan (Rizo de dragón, Orbe de Perseo y el resto de combinadas, entre otros) estallan donde dan al primer rival y siguen atravesando; antes solo estallaban al final de su recorrido, muchas veces fuera de la pantalla. Hora celestial daña a todos los rivales de la zona que detiene.' },
+      { icon: '🌀', title: 'Campo de fuerza', text: 'La combinada de Jude y Caleb ya no es un tiro: es un golpe en área. El remolino morado baja del balón y barre a todos los rivales de alrededor.' },
       { icon: '🎯', title: 'Tiros bien dirigidos', text: 'Las combinadas y los tiros ya no salen hacia un rival que acaba de caer: buscan al más cercano que sigue en pie.' },
     ],
     start: [],

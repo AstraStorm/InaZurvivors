@@ -41,7 +41,7 @@ import { COOP_HOST_ALTARS, CoopSession, type CoopPort, type CoopRun, type DropMs
 import { dribbleOf, frenteCharge, frenteShot, gungnirCharge, gungnirShot, movieCharge, movieDribble, movieOf, movieShot, rupturaCharge, rupturaShot, superrayoCharge, superrayoShot, zeroCharge, zeroShot } from './fxMovie';
 import { blackAshCharge, blackAshTrail, illusionBall, signatureOf, stormZone } from './fxSignature';
 import { COMBO189, combo189Charge, combo189Shot, solo189Charge, solo189Of, solo189Shot, type Combo189 } from './fxCombo183';
-import { COMBO183, combo183Charge, combo183Shot, combo183Wind, isMeteorShower, judgementHammer, maouHand, meteorShower, solo183Charge, solo183Of, solo183Shot, type Combo183 } from './fxCombo183';
+import { COMBO183, combo183Charge, combo183Shot, combo183Wind, isMeteorShower, judgementHammer, killerFieldsBlast, maouHand, meteorShower, solo183Charge, solo183Of, solo183Shot, type Combo183 } from './fxCombo183';
 import { natureArea, natureCharge, natureOf, natureShot, setNatureLowPower } from './fxNature';
 import { animeCharge, animeOf, animeShot, auroraVeil, cometTex, earthBurst, earthCharge, furyFist, breezeStep, chaosBreakCharge, chaosBreakShot, fireBlizzardCharge, fireBlizzardShot, godWindGust } from './fxAnime';
 import { fuegoOf, supremoCharge, supremoShot, totalCharge, totalWave } from './fxFuego';
@@ -1226,6 +1226,18 @@ export class ArenaScene extends Phaser.Scene {
       const shots = twin ? [-0.12, 0.12] : [0];
       const flight = Math.min(900, Math.hypot(target.pos.x - mx, target.pos.y - my) / 260 * 1000);
       if (def.effect === 'fenix') phoenixFlight(this, mx, my, target.pos.x, target.pos.y - 10, 40 + level * 3, flight);
+      if (def.effect === 'campo') { // 1.91 (author): Campo de fuerza is a blow over the area round Jude and Caleb, not a shot
+        const R = 110 + level * 8;
+        killerFieldsBlast(this, mx, my + 10, 4 + level, R);
+        for (const e of this.enemies) {
+          if (e.dead) continue;
+          const d = Math.hypot(e.pos.x - mx, (e.pos.y - 10 - my) / 0.6); // the field is drawn flattened on the pitch
+          if (d < R + e.radius) this.hit(e, dmg, (e.pos.x - mx) / (d || 1) * 140, (e.pos.y - my) / (d || 1) * 140, style, true);
+        }
+        this.fx.shake(0.007, 260);
+        sfx('boom');
+        return;
+      }
       if (def.effect === 'fuego-total') { // Xavier, Austin and Axel: the wall of fire, wider and longer than the solo one
         const hits = new Set<Enemy>();
         totalWave(this, mx, my, a, 4 + level, 300 + level * 15, 1000, (cx, cy, ang, half) => {
