@@ -129,3 +129,7 @@
   .cl-head-kit { display: none; } .cl-head-tx { padding-left: 0; }
   .cl-acts .btn { font-size: 8px; padding: 6px 8px; }
 }
+/* clan frames: falling petals */
+.frame .fr-petal { animation: frPetal 3s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+@keyframes frPetal { 0% { transform: translateY(-4px) rotate(0); opacity: 0; } 30% { opacity: .9; } 100% { transform: translateY(8px) rotate(90deg); opacity: 0; } }
+body.reduced-motion .frame .fr-petal { animation: none; }

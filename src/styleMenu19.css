@@ -144,3 +144,49 @@ body.reduced-motion .m5-promo *, body.reduced-motion .m4 .m4-play, body.reduced-
 /* a lone bust (Road: Jaden) sits whole in the slide, not cut by its bottom edge; the text gets three lines */
 .m5-who:only-child { transform: none; align-self: center; }
 .m5-who:only-child .mug { zoom: .9; }
+
+/* ---- 1.93 (author: the ranking, prettier; 2nd always above 3rd): every podium place has its own fixed height (the
+   step takes what the card leaves), so a winged frame or a banner no longer lifts the 3rd above the 2nd */
+.rk-podium { align-items: end; gap: 14px; padding-top: 10px; }
+.rk-pod { height: var(--ph); padding-top: 30px; overflow: visible; }
+.rk-pod.p1 { --ph: 470px; } .rk-pod.p2 { --ph: 425px; } .rk-pod.p3 { --ph: 390px; }
+.rk-pod::before { content: ''; position: absolute; left: 50%; top: -10px; width: 120%; height: 75%; transform: translateX(-50%); pointer-events: none; z-index: -1;
+  background: radial-gradient(ellipse 50% 60% at 50% 35%, color-mix(in srgb, var(--pc) 32%, transparent), transparent 70%); }
+.rk-pod.p1::before { animation: m5Breathe 3s ease-in-out infinite; }
+.rk-pod .rk-step { flex: 1; height: auto !important; min-height: 28px; margin-top: 4px; position: relative; display: flex; align-items: flex-start; justify-content: center; overflow: hidden;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--pc) 80%, #fff) 0, color-mix(in srgb, var(--pc) 70%, #000) 12%, color-mix(in srgb, var(--pc) 22%, #050c22) 100%);
+  box-shadow: inset 0 3px 0 #fff8, inset 0 -20px 30px #0008, 0 10px 24px #000a; border-radius: 12px 12px 0 0; }
+.rk-pod .rk-step::after { position: absolute; inset: 0; }
+.rk-pod .rk-step b { position: relative; z-index: 1; margin-top: 10px; font-weight: normal; font-size: 46px; line-height: 1; color: color-mix(in srgb, var(--pc) 35%, #fff);
+  text-shadow: 3px 3px 0 #0008, 0 0 18px color-mix(in srgb, var(--pc) 70%, transparent); opacity: .9; }
+.rk-pod.p1 .rk-step b { font-size: 62px; }
+.rk-pod.p1 .rk-step { animation: rkGlow 2.4s ease-in-out infinite; }
+@keyframes rkGlow { 50% { box-shadow: inset 0 3px 0 #fff8, inset 0 -20px 30px #0008, 0 0 34px #ffd23f88; } }
+.rk-medal { width: 34px; height: 34px; font-size: 15px; box-shadow: 0 3px 0 #0008, 0 0 14px var(--pc); }
+.rk-pod.p1 .rk-medal { width: 40px; height: 40px; font-size: 18px; top: -6px; }
+.rk-pod.p1 .rk-medal::after { content: '👑'; position: absolute; top: -20px; font-size: 18px; filter: drop-shadow(0 2px 0 #0008); animation: m5Float 2.4s ease-in-out infinite; }
+/* clan badge: next to the name everywhere on the boards */
+.rk-clan { display: inline-flex; align-items: center; gap: 4px; max-width: 100%; padding: 2px 7px 2px 3px; border-radius: 99px; font-size: 7px; color: #c8ffd8;
+  background: linear-gradient(90deg, #0f5a3acc, #08261acc); box-shadow: inset 0 0 0 1px #3fd07a99; vertical-align: middle; }
+.rk-clan img { width: 14px; height: 14px; object-fit: contain; image-rendering: pixelated; } .rk-clan svg { width: 11px; height: 11px; }
+.rk-clan em { font-style: normal; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rk-pod .rk-clan { margin: 2px 0; }
+.rank-row .rk-name { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; min-width: 0; }
+.rank-row .rk-name .rk-clan { max-width: 160px; }
+.wr-who .rk-clan { margin: 2px 0; max-width: 140px; } .wr-pod .rk-clan { margin: 2px 0; }
+/* rows: a coloured edge by place, a lift on hover */
+.rk-screen .rank-row { position: relative; overflow: hidden; transition: transform .14s cubic-bezier(.2, 1.6, .4, 1); }
+.rk-screen .rank-row::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: linear-gradient(180deg, #4fb3ff, #b36bff); }
+.rk-screen .rank-row:hover { transform: translateX(4px); }
+.rk-screen .rk-pos { min-width: 34px; text-align: center; }
+@media (max-width: 700px) {
+  .rk-pod.p1 { --ph: 360px; } .rk-pod.p2 { --ph: 325px; } .rk-pod.p3 { --ph: 300px; }
+  .rk-pod .rk-step b { font-size: 30px; } .rk-pod.p1 .rk-step b { font-size: 40px; }
+  .rk-pod .rk-clan em { max-width: 70px; }
+}
+body.reduced-motion .rk-pod::before, body.reduced-motion .rk-pod .rk-step, body.reduced-motion .rk-medal::after { animation: none !important; }
+/* the same card area for the three, a step per place: the card tops and the steps both go 1 > 2 > 3 */
+.rk-pod { --area: 380px; height: calc(var(--area) + var(--sh)); justify-content: flex-start; }
+.rk-pod.p1 { --sh: 150px; } .rk-pod.p2 { --sh: 105px; } .rk-pod.p3 { --sh: 70px; }
+.rk-pod .rk-step { flex: none; height: var(--sh) !important; margin-top: auto; }
+@media (max-width: 700px) { .rk-pod { --area: 300px; } .rk-pod.p1 { --sh: 110px; } .rk-pod.p2 { --sh: 78px; } .rk-pod.p3 { --sh: 52px; } }

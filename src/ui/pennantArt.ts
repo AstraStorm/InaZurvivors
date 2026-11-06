@@ -199,6 +199,32 @@ function wings(a: string, c1: string, c2: string, square: boolean): string {
 }
 
 /** An avatar frame as SVG; it fills its box (put it at inset -20% around the avatar). Unknown id → empty string. */
+/**
+ * 1.93 (author: the clan frames, unlike the others): the Marco del Clan wears a laurel wreath round the bottom, two
+ * crossed pennants and a shield on top; the Marco del Cerezo, cherry blossoms on the ring and petals falling.
+ */
+function clanDeco(p: PennantDef): string {
+  const at = (deg: number, r: number) => [FC + Math.cos((deg * Math.PI) / 180) * r, FC + Math.sin((deg * Math.PI) / 180) * r];
+  if (p.id === 'marco-cerezo') {
+    const flower = (x: number, y: number, k: number, rot: number) => `<g transform="translate(${x.toFixed(1)} ${y.toFixed(1)}) rotate(${rot}) scale(${k})">${[0, 72, 144, 216, 288].map((a) => `<ellipse cx="0" cy="-4.2" rx="3" ry="4.4" transform="rotate(${a})" fill="#ffd0e4" stroke="#c43a7a" stroke-width=".7"/>`).join('')}<circle r="1.8" fill="#ffe24a"/></g>`;
+    const flowers = [200, 235, 270 + 35, 340, 20, 60, 110, 150].map((d, i) => { const [x, y] = at(d, 53.5); return flower(x, y, i % 2 ? 0.95 : 1.25, d); }).join('');
+    const petals = [[22, 30], [118, 24], [12, 96], [128, 104], [40, 132], [100, 134]].map(([x, y], i) => `<ellipse class="fr-petal" style="animation-delay:${i * 0.5}s" cx="${x}" cy="${y}" rx="2.2" ry="3.4" transform="rotate(${i * 40} ${x} ${y})" fill="#ffb8d8" opacity=".85"/>`).join('');
+    return `<g class="fr-clan">${petals}${flowers}</g>`;
+  }
+  // laurel: leaves along the bottom half on both sides, tied with a ribbon at the bottom
+  const leaves = [];
+  for (let d = 100; d <= 200; d += 14) {
+    for (const side of [1, -1]) {
+      const deg = side === 1 ? 180 - d : d;
+      const [x, y] = at(deg + 90 - 90, 60);
+      leaves.push(`<ellipse cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" rx="3" ry="6.5" transform="rotate(${(deg + (side === 1 ? 20 : -20)).toFixed(0)} ${x.toFixed(1)} ${y.toFixed(1)})" fill="#4fd07a" stroke="#0a3a1c" stroke-width="1"/>`);
+    }
+  }
+  const flag = (x: number, rot: number, c: string) => `<g transform="translate(${x} 26) rotate(${rot})"><rect x="-.9" y="-16" width="1.8" height="26" fill="#d8c08a"/><path d="M1,-16 L15,-12 L1,-7 Z" fill="${c}" stroke="#0a1022" stroke-width=".8"/></g>`;
+  return `<g class="fr-clan">${leaves.join('')}<path d="M${FC - 8},${FC + 58} q8,6 16,0 l-3,7 -5,-3 -5,3 Z" fill="${p.accent}" stroke="#0a1022" stroke-width="1"/>
+    ${flag(FC - 24, -28, p.c1)}${flag(FC + 24, 28, p.accent)}</g>`;
+}
+
 export function frameSvg(def: PennantDef | string | null | undefined, square = false): string {
   const p = typeof def === 'string' ? PENNANT_BY_ID.get(def) : def;
   if (!p) return '';
@@ -217,8 +243,10 @@ export function frameSvg(def: PennantDef | string | null | undefined, square = f
     ${line(53.5, 7, ring)}
     ${line(49.5, 1.4, p.accent, 'opacity=".9"')}${line(57.5, 1.2, '#000', 'opacity=".5"')}
     ${top ? `<g class="fr-spin">${line(53.5, 3, `url(#${id}s)`, `stroke-dasharray="40 400" stroke-linecap="round"`)}</g>` : ''}
-    ${ornaments(p.pattern, p.accent, p.c1, square, id)}
-    <g transform="translate(${FC} 13)"><circle r="12.5" fill="${p.c2}" stroke="${p.rarity === 'leyenda' ? `url(#${id}r)` : p.accent}" stroke-width="2.4"/>${emblem(p.emblem, p.accent, 'scale(.36)')}</g>
+    ${ornaments(p.pattern, p.accent, p.c1, square, id)}${p.source === 'clan' ? clanDeco(p) : ''}
+    <g transform="translate(${FC} 13)">${p.source === 'clan' && p.id === 'marco-clan'
+      ? `<path d="M-13,-12 L13,-12 L13,1 Q13,11 0,16 Q-13,11 -13,1 Z" fill="${p.c2}" stroke="${p.accent}" stroke-width="2.4"/>` // 1.93: a shield for the clan
+      : `<circle r="12.5" fill="${p.c2}" stroke="${p.rarity === 'leyenda' ? `url(#${id}r)` : p.accent}" stroke-width="2.4"/>`}${emblem(p.emblem, p.accent, 'scale(.36)')}</g>
     ${top ? `<g transform="translate(${FC} 127)"><path d="M0,-7 L7,0 L0,7 L-7,0 Z" fill="${p.accent}" stroke="${p.c2}" stroke-width="1.6"/><path d="M0,-4 L3,0 L0,4 L-3,0 Z" fill="#fff" opacity=".8"/></g>` : ''}
   </svg>`;
 }

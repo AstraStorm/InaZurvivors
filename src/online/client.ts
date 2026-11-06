@@ -286,6 +286,8 @@ export const myClan = () => rpc<MyClan | null>('my_clan', {});
 export const clanSubmitRun = (runId: string, kills: number, timeSec: number, damage: number, rank: string, victory: boolean) =>
   rpc<{ points: number; left: number; weekPoints: number }>('clan_submit_run', { p_run_id: runId, p_kills: Math.floor(kills), p_time_sec: Math.floor(timeSec), p_damage: Math.floor(damage), p_rank: rank, p_victory: victory });
 export const clanClaimPrizes = () => rpc<ClanPrize[]>('clan_claim_prizes', {});
+/** the clan of each of these players (left out: those without a clan) */
+export const clanOf = (usernames: string[]) => rpc<{ username: string; clan: string; crest: string }[]>('clan_of', { p_usernames: usernames.slice(0, 60) }, false);
 export const clanClaimMission = (id: string) => rpc<{ coins: number; tokens: number }>('clan_claim_mission', { p_id: id });
 
 export const deleteAccount = async () => { await rpc('delete_my_account', {}); signOut(); };

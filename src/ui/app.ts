@@ -56,7 +56,7 @@ import { adminSuggestions, adminUpdateSuggestion, claimBugNotices, claimBugRewar
 import { THANKS_EVENT, addThanksTokens, thanksActive, thanksLeftMs, thanksTokens } from '../systems/thanksEvent';
 import { gtsDeposit, gtsFeed, gtsMine, gtsSearch, gtsTake, gtsWithdraw, type GtsOffer } from '../online/client';
 import { submitTierlist, tierlistFeed, type TierlistRow } from '../online/client';
-import { clanAnswer, clanCancelRequest, clanClaimMission, clanClaimPrizes, clanCreate, clanKick, clanLastWeek, clanLeave, clanRanking, clanRequest, clanRequests, clanSearch, clanSetRole, clanSubmitRun, clanUpdate, myClan, myClanRequests, type ClanMember, type ClanMission, type ClanPrize, type ClanRole, type MyClan } from '../online/client';
+import { clanOf, clanAnswer, clanCancelRequest, clanClaimMission, clanClaimPrizes, clanCreate, clanKick, clanLastWeek, clanLeave, clanRanking, clanRequest, clanRequests, clanSearch, clanSetRole, clanSubmitRun, clanUpdate, myClan, myClanRequests, type ClanMember, type ClanMission, type ClanPrize, type ClanRole, type MyClan } from '../online/client';
 import { addBag, boughtThisWeek, canPay, CLAN_COST, CLAN_ERRORS, CLAN_ITEMS, CLAN_MAX, CLAN_MISSION_TEXT, CLAN_PRIZES, CLAN_REWARD_MULT, CLAN_ROLE_LABEL, CLAN_RUNS_PER_DAY, clanDrops, clanError, clanNameProblem, clanPlayer, clanShop, clanWeekKey, clanWeekLeftMs, payBag, recordBuy, tierOfPos, type ClanBag, type ClanOffer, type ClanTier } from '../systems/clans';
 import { cleanTiers, placeIn, tierCount, topicLabel, TIER_COLOR, TIER_MAX, TIER_MIN, TIER_TOPICS, TIERS, type Tier, type Tiers } from '../systems/tierlist';
 import { CoopLink, type CoopMsg } from '../online/coop';
@@ -1863,7 +1863,7 @@ export class App {
       return `<div class="rank-row${pos <= 3 ? ` top${pos}` : ''}${mine ? ' mine' : ''}${rb ? ' has-pn' : ''}" style="--d:${Math.min(pos, 15) * 40}ms"${onlineConfigured() ? ` data-user="${esc(name)}" title="Ver el perfil de ${esc(name)}"` : ''}>
         ${rb}<span class="rk-pos">${pos <= 3 ? ['🥇', '🥈', '🥉'][pos - 1] : `#${pos}`}</span>
         ${this.framed(`<span class="rk-av${p ? ` r-${p.rarity}` : ''}">${p ? this.mug(p.id, 48) : ''}</span>`, this.frameOf(name))}
-        <span class="rk-name"><b>${esc(name)}</b><small>${esc(mapName(map))}</small></span>
+        <span class="rk-name"><b>${esc(name)}</b>${this.clanBadge(name)}<small>${esc(mapName(map))}</small></span>
         ${crest && this.emblemOf(crest) ? `<img class="rk-crest" src="${this.emblemOf(crest)}" alt="">` : '<span class="rk-crest"></span>'}
         <span class="rank-btn r-${rank} rk-r"><b>${rank}</b></span>
         <span class="rk-num rk-pts${q.order === 'score' || q.order === 'rank' ? ' on' : ''}"><b>${pts.toLocaleString('es')}</b><small>puntos</small></span>
@@ -1875,11 +1875,11 @@ export class App {
       const p = this.byId.get(captain), pts = score ?? scoreOf({ rank, time, damage }), [big, unit] = metric(time, damage, pts);
       return `<div class="rk-pod p${pos}" style="--d:${pos * 90}ms"${onlineConfigured() ? ` data-user="${esc(name)}" title="Ver el perfil de ${esc(name)}"` : ''}><span class="rk-medal">${pos}</span>
         ${this.framed(`<span class="rk-pmug${p ? ` r-${p.rarity}` : ''}">${p ? this.mug(p.id, pos === 1 ? 112 : 88) : ''}</span>`, this.frameOf(name))}
-        ${this.namePlate('rk-pname', name)}<small>${p ? esc(p.name) : ''} · ${esc(mapName(map))}</small>
+        ${this.namePlate('rk-pname', name)}${this.clanBadge(name)}<small>${p ? esc(p.name) : ''} · ${esc(mapName(map))}</small>
         <div class="rk-pbig"><b>${big}</b><small>${unit}</small></div>
         <div class="rk-pmeta">${crest && this.emblemOf(crest) ? `<img class="rk-crest" src="${this.emblemOf(crest)}" alt="">` : ''}<span class="rank-btn r-${rank}"><b>${rank}</b></span>
           <span><b>${fmtTime(time)}</b><small>tiempo</small></span><span><b>${damage.toLocaleString('es')}</b><small>daño</small></span></div>
-        <i class="rk-step"></i></div>`;
+        <i class="rk-step"><b>${pos}</b></i></div>`;
     }).join('')}</div>`;
     if (!onlineConfigured()) {
       const rows = localBoard(this.save, q.map, q.rank, q.order);
@@ -1914,7 +1914,15 @@ export class App {
     await Promise.all([
       profileBanners(want).then((got) => { for (const n of want) this.flagCache.delete(n.toLowerCase()); for (const r of got) if (PENNANT_BY_ID.has(r.banner)) this.flagCache.set(r.username.toLowerCase(), r.banner); }).catch(() => { /* the board shows without banners */ }),
       profileFrames(want).then((got) => { for (const n of want) this.frameCache.delete(n.toLowerCase()); for (const r of got) if (isFrame(PENNANT_BY_ID.get(r.frame))) this.frameCache.set(r.username.toLowerCase(), r.frame); }).catch(() => { /* without frames */ }),
+      clanOf(want).then((got) => { for (const n of want) this.clanCache.delete(n.toLowerCase()); for (const r of got) this.clanCache.set(r.username.toLowerCase(), { name: r.clan, crest: r.crest }); }).catch(() => { /* without clans */ }), // 1.93
     ]);
+  }
+  /** 1.93: the clan of each name on the ranking (lowercase name → clan) */
+  private clanCache = new Map<string, { name: string; crest: string }>();
+  private clanBadge(name: string) {
+    const me = (this.save.onlineName ?? this.save.profile.name).toLowerCase() === name.toLowerCase();
+    const c = me && this.save.clanSeen ? { name: this.save.clanSeen.name, crest: this.save.clanSeen.crest } : this.clanCache.get(name.toLowerCase());
+    return c ? `<span class="rk-clan" title="Clan ${esc(c.name)}">${c.crest && this.emblemOf(c.crest) ? `<img src="${this.emblemOf(c.crest)}" alt="">` : uiIcon('team')}<em>${esc(c.name)}</em></span>` : '';
   }
   /** v1.65: avatar frame of each name on the ranking (lowercase name → id) */
   private frameCache = new Map<string, string>();
@@ -2802,14 +2810,14 @@ export class App {
         const p = cap(r.captain_id), pos = Number(r.pos);
         return `<div class="wr-pod p${pos}" data-user="${esc(r.username)}" title="Ver el perfil de ${esc(r.username)}"><span class="wr-medal">${['🥇', '🥈', '🥉'][pos - 1]}</span>
           ${this.framed(`<span class="wr-mug${p ? ` r-${p.rarity}` : ''}">${p ? this.mug(p.id, pos === 1 ? 96 : 80) : ''}</span>`, this.frameOf(r.username))}
-          ${this.namePlate('wr-name', r.username)}<small class="wr-cap">${p ? esc(p.name) : ''}</small>
+          ${this.namePlate('wr-name', r.username)}${this.clanBadge(r.username)}<small class="wr-cap">${p ? esc(p.name) : ''}</small>
           <div class="wr-pts"><b>${pts(r).toLocaleString('es')}</b> <small>puntos</small></div>
           <div class="wr-stats">${crest(r.crest)}<span class="rank-btn r-${r.rank}"><b>${r.rank}</b></span><span><b>${fmtTime(r.time_sec)}</b><small>tiempo</small></span><span><b>${Number(r.damage).toLocaleString('es')}</b><small>daño</small></span></div></div>`;
       }).join('');
       const row = (r: BoardRow, me = false) => {
         const p = cap(r.captain_id), rb = this.flagMini(r.username);
         return `<div class="wr-row${me ? ' me' : ''}${rb ? ' has-pn' : ''}" data-user="${esc(r.username)}" title="Ver el perfil de ${esc(r.username)}">${rb}<span class="wr-pos">#${r.pos}</span>${this.framed(`<span class="wr-mini">${p ? this.mug(p.id, 40) : ''}</span>`, this.frameOf(r.username))}
-          <span class="wr-who"><b>${esc(r.username)}</b><small>${p ? esc(p.name) : ''}</small></span>${crest(r.crest)}
+          <span class="wr-who"><b>${esc(r.username)}</b>${this.clanBadge(r.username)}<small>${p ? esc(p.name) : ''}</small></span>${crest(r.crest)}
           <span class="rank-btn r-${r.rank}"><b>${r.rank}</b></span><span class="wr-num"><b>${pts(r).toLocaleString('es')} pts</b><small>${fmtTime(r.time_sec)} · ${Number(r.damage).toLocaleString('es')} daño</small></span></div>`;
       };
       el.innerHTML = top.length

@@ -2798,3 +2798,17 @@ grant execute on function public.clan_search(text), public.clan_ranking(), publi
 grant execute on function public.clan_create(text, text, text), public.clan_update(text, text, text, text), public.clan_request(bigint), public.clan_cancel_request(bigint), public.my_clan_requests(), public.clan_requests(), public.clan_answer(text, boolean), public.clan_set_role(text, text), public.clan_leave(),
   public.clan_kick(text), public.my_clan(), public.clan_submit_run(text, int, int, bigint, text, boolean), public.clan_claim_prizes(),
   public.clan_claim_mission(text), public.admin_clan(text, text, boolean) to authenticated;
+
+-- ===== 20261108000100_clan_of.sql
+-- 1.93 (author): the clan of each player on the ranking. Public: a name, its clan's name and crest (players without a
+-- clan are left out). At most 60 names per call.
+create or replace function private.clan_of(p_usernames text[]) returns table (username text, clan text, crest text)
+language sql stable security definer set search_path = '' as $$
+  select p.username::text, c.name::text, c.crest
+  from public.profiles p join public.clan_members m on m.user_id = p.id join public.clans c on c.id = m.clan_id
+  where lower(p.username::text) in (select lower(x) from unnest(p_usernames[1:60]) x);
+$$;
+create or replace function public.clan_of(p_usernames text[]) returns table (username text, clan text, crest text)
+language sql stable security invoker set search_path = '' as $$ select * from private.clan_of(p_usernames); $$;
+revoke execute on function private.clan_of(text[]), public.clan_of(text[]) from public, anon, authenticated;
+grant execute on function private.clan_of(text[]), public.clan_of(text[]) to anon, authenticated;

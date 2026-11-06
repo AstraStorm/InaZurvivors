@@ -758,6 +758,10 @@ describe('clans (1.93)', () => {
     expect(cap.c).toEqual({ coins: 132000, tokens: 3500 }); // 16.000 + 16.000/h and 2.000 + 1.000/h, plus the TOP 1 prize
   });
 
+  it('the ranking shows the clan of each player (anyone can read it)', async () => {
+    const r = (await api('', `select username, clan from public.clan_of(array['cira_c', 'CLEO_C', 'COCO_C', 'Nadie']) order by username`)).rows;
+    expect(r).toEqual([{ username: 'CIRA_C', clan: 'Rayos Del Sur' }, { username: 'CLEO_C', clan: 'Rayos Del Sur' }]);
+  });
   it('the admin renames or dissolves a clan', async () => {
     await expect(api('cira', `select public.admin_clan('Rayos Del Sur', 'Hackeado')`)).rejects.toThrow(/forbidden/);
     await api('carla', `select public.admin_clan('Rayos Del Sur', 'Clan Renombrado')`);
