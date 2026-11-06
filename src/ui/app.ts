@@ -8,7 +8,7 @@ import { deathCause } from '../systems/deathCause';
 import { serverNow, syncServerTime, timeSource, trustedClock } from '../online/serverTime';
 import { PASS, claimPass, passStatus } from '../systems/weeklyPass';
 import { applyReward, codePlayer, hasRedeemed, INA483_ODDS, normalizeCode, redeemLocal, type CodeReward } from '../systems/promo';
-import { clearRoad, JADEN_EVERY, JADEN_ID, ROAD_BY_ID, ROAD_DIFFS, ROAD_SQUAD, roadEligible, roadOf, type RoadDiff } from '../systems/road';
+import { clearRoad, JADEN_EVERY, JADEN_ID, ROAD_BY_ID, ROAD_DIFFS, ROAD_SQUAD, roadEligible, roadMatchSec, roadOf, type RoadDiff } from '../systems/road';
 import { BANNERS, BANNER_ORDER, bannerPool, bannerPrice, eraOf, featured, perPlayerOdds, rarityOdds, teamChoices, type BannerId } from '../systems/banners';
 import { exportSave, importSave, remapIds, remapTechSlots, storeSave, type SaveData, type ParticleLevel, type Rank } from '../systems/save';
 import { addCopy, eligibleTeams, pull, recordHistory, DUPLICATE_REFUND_BY, PULL_COST, MAX_STARS, starBonus, onboardingPull, type PullResult } from '../systems/gacha';
@@ -1524,7 +1524,7 @@ export class App {
         <div class="rd-jaden${ownsJaden ? ' own' : ''}">${this.mug(JADEN_ID, 64)}<span><small>${ownsJaden ? 'OTRA COPIA DE JADEN EN' : 'JADEN EVANS EN'}</small><b>${toJaden} ${toJaden === 1 ? 'victoria' : 'victorias'} en Máxima</b><i style="width:${((maxClears % JADEN_EVERY) / JADEN_EVERY) * 100}%"></i></span></div></div>
       ${active && act ? `<div class="panel rd-active"><h3>${uiIcon('trophy')}Camino en curso · ${act.label}</h3>
           <span class="rd-path big">${act.maps.map((m, i) => `<i class="${i < active.level ? 'done' : i === active.level ? 'now' : ''}" title="${esc(mapName(m))}">${i < active.level ? '✔' : i + 1}</i>`).join('<em></em>')}</span>
-          <p class="note">Siguiente: <b>${esc(mapName(act.maps[active.level]))}</b> (partido ${active.level + 1} de ${act.maps.length}).</p>
+          <p class="note">Siguiente: <b>${esc(mapName(act.maps[active.level]))}</b> (partido ${active.level + 1} de ${act.maps.length}, ${active.level + 1} min).</p>
           <div class="rd-squad">${active.squad.map((id, i) => `<span class="rd-slot full${i === 0 ? ' cap' : ''}">${this.mug(id, 48)}<small>${esc(this.byId.get(id)?.name ?? '?')}</small>${i === 0 ? '<em>C</em>' : ''}</span>`).join('')}</div>
           <div class="cp-actions"><button class="btn big" id="rdnext">Jugar el partido ${active.level + 1} ▶</button><button class="btn blue" id="rdquit">Abandonar el camino</button></div></div>`
         : `<div class="panel"><h3>${uiIcon('target')}Dificultad</h3><div class="rd-diffs">${diffs}</div></div>
@@ -4962,7 +4962,8 @@ export class App {
   }
 
   startRun(mapId: string, team: RosterEntry[], candidates: RosterEntry[] = team, training?: TrainingSetup, coop?: CoopRun & { rank: Rank }) {
-    const map = this.m.maps.find((x) => x.id === mapId)!;
+    const found = this.m.maps.find((x) => x.id === mapId)!;
+    const map = this.roadMatch ? { ...found, durationSec: roadMatchSec(this.roadMatch.level) } : found; // 1.91: road matches of 1 to 5 minutes
     this.coopRunActive = !!coop; // pre-2.0: co-op runs never go to the ranking
     const heroed = (p: RosterEntry) => this.runEntry(p);
     this.inTraining = !!training;

@@ -37,7 +37,7 @@ export const PUBLIC_RELEASES: PublicRelease[] = [
       { icon: '🤝', title: 'Cooperativo online (en pruebas)', text: 'Desde la casilla COOP, crea una sala y pasa su código o únete con el de otro. Cada uno lleva su equipo y su vida; los rivales y la barra de experiencia son de los dos, y si uno cae el otro lo levanta.', online: true },
       { icon: '👥', title: 'Amigos', text: 'Añade amigos desde la casilla AMIGOS o desde su perfil en el ranking, mira quién está conectado e invítale a tu sala.', online: true },
       { icon: '📱', title: 'Cooperativo en móvil', text: 'En el móvil, el panel de tu compañero ocupa una sola línea (nombre, vida, Auras ✦ y combinadas 🔗) y la sala de espera cabe en horizontal.', online: true },
-      { icon: '🏆', title: 'Road to Fútbol Frontier', text: 'Cinco jugadores del Raimon o de Inazuma Japan, sin Auras pero con tu entrenador, en 3, 4 o 5 partidos según la dificultad. En Máxima te aseguras un Legendario o más.' },
+      { icon: '🏆', title: 'Road to Fútbol Frontier', text: 'Cinco jugadores del Raimon o de Inazuma Japan, sin Auras pero con tu entrenador, en 3, 4 o 5 partidos según la dificultad: el primero dura 1 minuto, el segundo 2 y así hasta 5 en la final. En Máxima te aseguras un Legendario o más.' },
       { icon: '🌊', title: 'Jaden Evans', text: 'Mediocentro de Montaña, Leyenda: gánalo superando el Road en Máxima 10 veces (y una copia cada 10 más). Con Corriente negra y Corte volcánico redibujadas.' },
       { icon: '🔥', title: 'Elementos corregidos', text: '118 técnicas tenían el elemento mal: ahora llevan el suyo.' },
       { icon: '🐉', title: 'Rizo de dragón y Ciclón blanco', text: 'Redibujadas como en sus escenas.' },

@@ -1305,3 +1305,11 @@ describe('Fix 1.3 stats and training', () => {
     expect(Object.values(importSave(exportSave(s)).owned['5'].train ?? {}).reduce((a: number, b) => a + (b ?? 0), 0)).toBeLessThanOrEqual(20);
   });
 });
+
+describe('Road to Fútbol Frontier (1.91)', () => {
+  it('matches last 1, 2, 3, 4 and 5 minutes', async () => {
+    const { roadMatchSec, ROAD_DIFFS } = await import('../src/systems/road');
+    expect([0, 1, 2, 3, 4].map(roadMatchSec)).toEqual([60, 120, 180, 240, 300]);
+    expect(Math.max(...ROAD_DIFFS.map((d) => d.maps.length))).toBe(5);
+  });
+});

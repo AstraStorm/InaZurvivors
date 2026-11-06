@@ -17,6 +17,8 @@ export const ROAD_DIFFS: RoadDiffDef[] = [
 ];
 export const ROAD_BY_ID = new Map(ROAD_DIFFS.map((d) => [d.id, d]));
 export const ROAD_SQUAD = 5;
+/** 1.91 (author: the arena's full length was too much): match 1 lasts 1 minute, match 2 two... up to 5 in the final */
+export const roadMatchSec = (level: number) => (level + 1) * 60;
 /** the teams of the road: the original Raimon and Inazuma Japan */
 export const ROAD_TEAMS = new Set(['Raimon', 'First_Raimon', 'Raimon_Soccer_Club', 'Inazuma_Japan_A']);
 export const roadEligible = (p: RosterEntry) => p.teams.some((t) => ROAD_TEAMS.has(t)) && !p.exclusive;
