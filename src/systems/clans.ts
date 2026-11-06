@@ -85,8 +85,17 @@ export type ClanOffer =
   | { id: string; kind: 'pennant'; pennant: string; cost: ClanBag; stock: number }
   | { id: string; kind: 'jugador'; odds: Partial<Record<Rarity, number>>; label: string; rarity: Rarity; cost: ClanBag; stock: number };
 
-/** the clan-exclusive banners and frames (data/pennants.ts, source 'clan'): two of them each week */
-export const CLAN_PENNANTS = ['clan-estandarte', 'clan-cerezo', 'marco-clan', 'marco-cerezo'];
+/**
+ * 1.94 (author: «each week I'll tell you»): the clan-exclusive banners and frames (data/pennants.ts, source 'clan') on sale
+ * each week, by its Monday (clanWeekKey). A week not listed sells CLAN_SHOP_DEFAULT.
+ */
+export const CLAN_SHOP_WEEKS: Record<string, string[]> = {
+  '2026-11-02': ['marco-cerezo'],
+};
+export const CLAN_SHOP_DEFAULT: string[] = ['marco-cerezo'];
+export const clanShopPennants = (week: string) => CLAN_SHOP_WEEKS[week] ?? CLAN_SHOP_DEFAULT;
+/** what they cost: a frame a little more than a banner */
+const PENNANT_COST = { banner: { chapa: 2, nectar: 3 }, marco: { chapa: 3, nectar: 2 } };
 
 function seeded(key: string) {
   let h = 2166136261;
@@ -96,13 +105,11 @@ function seeded(key: string) {
 export function clanShop(week: string): ClanOffer[] {
   const rng = seeded(`clan-shop-${week}`);
   const pick = <T,>(a: T[]) => a[Math.floor(rng() * a.length)];
-  const p1 = Math.floor(rng() * 2), p2 = 2 + Math.floor(rng() * 2); // one banner, one frame
   return [
     { id: 'monedas-s', kind: 'monedas', coins: pick([5000, 6000, 7500]), cost: { pinchito: 6 }, stock: 3 },
     { id: 'monedas-l', kind: 'monedas', coins: pick([15000, 20000]), cost: { galletas: 6, pinchito: 4 }, stock: 2 },
     { id: 'fichas', kind: 'fichas', tokens: 100, cost: { galletas: 8, nectar: 3 }, stock: 2 },
-    { id: 'banner', kind: 'pennant', pennant: CLAN_PENNANTS[p1], cost: { chapa: 2, nectar: 3 }, stock: 1 },
-    { id: 'marco', kind: 'pennant', pennant: CLAN_PENNANTS[p2], cost: { chapa: 3, nectar: 2 }, stock: 1 },
+    ...clanShopPennants(week).map((id): ClanOffer => ({ id: `pn-${id}`, kind: 'pennant', pennant: id, cost: id.startsWith('marco-') ? PENNANT_COST.marco : PENNANT_COST.banner, stock: 1 })),
     { id: 'epico', kind: 'jugador', rarity: 'epico', label: 'Épico o más', odds: { epico: 90, legendario: 9, mitico: 1 }, cost: { pinchito: 10, galletas: 5 }, stock: 2 },
     { id: 'legendario', kind: 'jugador', rarity: 'legendario', label: 'Legendario o más', odds: { legendario: 90, mitico: 9, leyenda: 1 }, cost: { nectar: 5, chapa: 2 }, stock: 1 },
     { id: 'mitico', kind: 'jugador', rarity: 'mitico', label: 'Mítico o más', odds: { mitico: 92, leyenda: 8 }, cost: { artefacto: 2, chapa: 3 }, stock: 1 },

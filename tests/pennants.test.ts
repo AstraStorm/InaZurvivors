@@ -5,13 +5,13 @@ import { EVENT_POOL, FRAMES as ALL_FRAMES, PENNANTS as ALL_PENNANTS, PENNANT_EVE
 // 1.81: the code banners/frames (INA483) are counted apart, in tests/ina483.test.ts
 const PENNANTS = ALL_PENNANTS.filter((p) => p.source !== 'codigo'), FRAMES = ALL_FRAMES.filter((p) => p.source !== 'codigo');
 import { buyPennant, equipFrame, equippedFrame, equipPennant, equippedPennant, eventActive, eventEnd, eventOdds, eventStart, grantAchievementPennants, pullEvent } from '../src/systems/pennants';
-import { exportSave, importSave, newSave } from '../src/systems/save';
+import { exportSave, importSave, newSave, validate } from '../src/systems/save';
 
 describe('banners', () => {
   it('fifteen: 3 shop (común, raro, épico), 2 achievements (legendario, leyenda), 10 event with one Mítico only there', () => {
-    expect(PENNANTS).toHaveLength(17); // 1.93: + 2 from the clan shop
-    expect(new Set(PENNANTS.map((p) => p.id)).size).toBe(17);
-    expect(PENNANTS.filter((p) => p.source === 'clan').map((p) => p.id)).toEqual(['clan-estandarte', 'clan-cerezo']);
+    expect(PENNANTS).toHaveLength(16); // 1.93: + 1 for the clan shop
+    expect(new Set(PENNANTS.map((p) => p.id)).size).toBe(16);
+    expect(PENNANTS.filter((p) => p.source === 'clan').map((p) => p.id)).toEqual(['clan-cerezo']);
     expect(PENNANTS.filter((p) => p.source === 'tienda').map((p) => p.rarity)).toEqual(['comun', 'raro', 'epico']);
     expect(PENNANTS.filter((p) => p.source === 'logro').map((p) => p.rarity)).toEqual(['legendario', 'leyenda']);
     expect(EVENT_POOL).toHaveLength(20); // ten banners + ten frames
@@ -66,8 +66,8 @@ describe('banners', () => {
     expect(pullEvent({ ...s, coins: 1500 }, 1, mid, () => 0.48)![0].def.id).toBe('supernova');
   });
   it('frames: fifteen like the banners, worn apart from the banner, each Mítico at 3%', () => {
-    expect(FRAMES).toHaveLength(17);
-    expect(FRAMES.filter((p) => p.source === 'clan').map((p) => p.id)).toEqual(['marco-clan', 'marco-cerezo']);
+    expect(FRAMES).toHaveLength(16);
+    expect(FRAMES.filter((p) => p.source === 'clan').map((p) => p.id)).toEqual(['marco-cerezo']);
     expect(FRAMES.every((f) => f.kind === 'marco')).toBe(true);
     expect(FRAMES.filter((p) => p.source === 'tienda').map((p) => p.rarity)).toEqual(['comun', 'raro', 'epico']);
     const odds = eventOdds();
@@ -87,5 +87,14 @@ describe('banners', () => {
     s.pennants = { owned: ['raimon', 'raimon', 'falso', 'supernova'], equipped: 'la-tierra' };
     const back = importSave(exportSave(s));
     expect(back.pennants).toEqual({ owned: ['raimon', 'supernova'] });
+  });
+});
+
+describe('1.94 clan pennants', () => {
+  it('the removed clan banner and frame become the cherry ones in old saves', () => {
+    const s = newSave([], null);
+    (s as unknown as { pennants: unknown }).pennants = { owned: ['clan-estandarte', 'marco-clan', 'raimon'], equipped: 'clan-estandarte', frame: 'marco-clan' };
+    validate(s);
+    expect(s.pennants).toEqual({ owned: ['clan-cerezo', 'marco-cerezo', 'raimon'], equipped: 'clan-cerezo', frame: 'marco-cerezo' });
   });
 });

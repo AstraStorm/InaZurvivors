@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { PENNANT_BY_ID } from '../src/data/pennants';
-import { addBag, boughtThisWeek, canPay, CLAN_ITEMS, CLAN_PENNANTS, CLAN_PRIZES, clanDrops, clanNameProblem, clanShop, clanWeekKey, clanWeekLeftMs, payBag, recordBuy, tierOfPos } from '../src/systems/clans';
+import { addBag, boughtThisWeek, canPay, CLAN_ITEMS, CLAN_PRIZES, CLAN_SHOP_DEFAULT, clanShopPennants, clanDrops, clanNameProblem, clanShop, clanWeekKey, clanWeekLeftMs, payBag, recordBuy, tierOfPos } from '../src/systems/clans';
 import { newSave } from '../src/systems/save';
 
 describe('clans (1.93)', () => {
@@ -28,9 +28,11 @@ describe('clans (1.93)', () => {
     expect(clanWeekLeftMs(new Date('2026-11-15T23:00:00+01:00'))).toBe(3_600_000);
     expect(clanShop(w)).toEqual(clanShop(w));
     const offers = clanShop(w);
-    expect(offers.map((o) => o.kind)).toEqual(['monedas', 'monedas', 'fichas', 'pennant', 'pennant', 'jugador', 'jugador', 'jugador']);
-    for (const o of offers) if (o.kind === 'pennant') expect(CLAN_PENNANTS).toContain(o.pennant);
-    expect(CLAN_PENNANTS.every((id) => PENNANT_BY_ID.get(id)?.source === 'clan')).toBe(true);
+    // 1.94 (author): the banners and frames on sale are the ones the author names for each week
+    expect(offers.filter((o) => o.kind === 'pennant').map((o) => o.kind === 'pennant' && o.pennant)).toEqual(clanShopPennants(w));
+    expect(clanShopPennants('2026-11-02')).toEqual(['marco-cerezo']);
+    expect(clanShopPennants('2099-01-05')).toEqual(CLAN_SHOP_DEFAULT);
+    expect([...CLAN_SHOP_DEFAULT, ...clanShopPennants('2026-11-02')].every((id) => PENNANT_BY_ID.get(id)?.source === 'clan')).toBe(true);
     const s = newSave([], null);
     expect(canPay(s, { pinchito: 1 })).toBe(false);
     addBag(s, { pinchito: 6, chapa: 1 });

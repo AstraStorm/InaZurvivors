@@ -47,8 +47,7 @@ export const PENNANTS: PennantDef[] = [
   { id: 'supernova', name: 'Supernova Oscura', rarity: 'mitico', source: 'evento', c1: '#2a0a4a', c2: '#050010', accent: '#ff3a1a', pattern: 'nebulosa', emblem: 'ojo', tagline: 'Materia oscura con un ojo rojo. Solo en el evento, 3%.' },
   // ---- 1.81 (author): only through the code INA483; invisible to anyone who hasn't redeemed it
   { id: 'inazuma', name: 'Banner Inazuma', rarity: 'mitico', source: 'codigo', how: 'Código especial', c1: '#0fd8c8', c2: '#02141c', accent: '#ffd23f', pattern: 'rayos', emblem: 'rayo', tagline: 'Un rayo dorado sobre el turquesa: solo para quien tiene el código.' },
-  // ---- 1.93 (author): only in the clan shop
-  { id: 'clan-estandarte', name: 'Estandarte del Clan', rarity: 'legendario', source: 'clan', how: 'Tienda del clan', c1: '#1a8a5a', c2: '#03180e', accent: '#ffd23f', pattern: 'estrellas', emblem: 'corona', tagline: 'El estandarte que se alza tras una semana en lo más alto.' },
+  // ---- 1.93 (author): only in the clan shop, the weeks the author puts it there (systems/clans.ts CLAN_SHOP_WEEKS)
   { id: 'clan-cerezo', name: 'Banderín del Cerezo', rarity: 'epico', source: 'clan', how: 'Tienda del clan', c1: '#ffb8d8', c2: '#7a1a4a', accent: '#ffffff', pattern: 'copos', emblem: 'balon', tagline: 'Pétalos sobre el balón: la Colina de los Cerezos.' },
 ];
 
@@ -76,8 +75,7 @@ export const FRAMES: PennantDef[] = [
   { id: 'marco-reloj', kind: 'marco', name: 'Marco del Tiempo', rarity: 'epico', source: 'evento', c1: '#c8a8ff', c2: '#2e1470', accent: '#ffffff', pattern: 'estrellas', emblem: 'reloj', tagline: 'Las horas marcadas en el borde.' },
   { id: 'marco-tierra', kind: 'marco', name: 'Marco de La Tierra', rarity: 'legendario', source: 'evento', wings: true, c1: '#1e62e0', c2: '#04103a', accent: '#5ee07a', pattern: 'estrellas', emblem: 'planeta', tagline: 'El planeta en órbita sobre tu retrato.' },
   { id: 'marco-supernova', kind: 'marco', name: 'Marco Supernova Oscura', rarity: 'mitico', source: 'evento', wings: true, c1: '#5a1a9a', c2: '#050010', accent: '#ff3a1a', pattern: 'nebulosa', emblem: 'ojo', tagline: 'Alas de materia oscura y un ojo rojo. Solo en el evento, 3%.' },
-  // ---- 1.93 (author): only in the clan shop (systems/clans.ts CLAN_PENNANTS)
-  { id: 'marco-clan', kind: 'marco', name: 'Marco del Clan', rarity: 'legendario', source: 'clan', how: 'Tienda del clan', wings: true, c1: '#1a8a5a', c2: '#03180e', accent: '#ffd23f', pattern: 'rayos', emblem: 'corona', tagline: 'Alas verdes y una corona: para quien defiende a su clan.' },
+  // ---- 1.93 (author): only in the clan shop, the weeks the author puts it there (systems/clans.ts CLAN_SHOP_WEEKS)
   { id: 'marco-cerezo', kind: 'marco', name: 'Marco del Cerezo', rarity: 'epico', source: 'clan', how: 'Tienda del clan', c1: '#ffb8d8', c2: '#7a1a4a', accent: '#ffffff', pattern: 'copos', emblem: 'espiral', tagline: 'Pétalos de la colina donde juegan los clanes.' },
   // ---- 1.81 (author): only through the code INA483
   { id: 'marco-inazuma', kind: 'marco', name: 'Marco Inazuma', rarity: 'mitico', source: 'codigo', how: 'Código especial', wings: true, c1: '#0fd8c8', c2: '#02141c', accent: '#ffd23f', pattern: 'rayos', emblem: 'rayo', tagline: 'Alas de oro y rayos turquesa: solo para quien tiene el código.' },

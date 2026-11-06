@@ -35,7 +35,8 @@ export const PUBLIC_RELEASES: PublicRelease[] = [
     intro: 'Más espectáculo en cada partida: los golpes fuertes se ven, las ráfagas se celebran y los altares brillan.',
     features: [
       { icon: '💥', title: 'Contador de ráfagas', text: 'Cuando haces mucho más daño de golpe que tu ritmo normal (una combinada, una evolución, una técnica de área llena de rivales), aparece arriba un contador con los golpes y el daño total que sube de rango: ¡COMBO!, ¡GENIAL!, ¡BRUTAL!, ¡IMPARABLE! e ¡INAZUMA!, con destellos y chispas.' },
-      { icon: '🌸', title: 'Banners del clan', text: 'El Banderín del Cerezo lleva ramas en flor y pétalos que caen; el Estandarte del Clan, laurel alrededor de un escudo con corona y dos banderines.' },
+      { icon: '🌸', title: 'Tienda del clan', text: 'Esta semana, el Marco del Cerezo (flores en el aro y pétalos que caen). Los marcos y banners de la tienda irán cambiando cada semana.', online: true },
+      { icon: '🏅', title: 'Podio del menú', text: 'El ranking del menú ya pone siempre al 2.º más alto que al 3.º, con una base de oro, plata y bronce.' },
       { icon: '🔢', title: 'Números de daño nuevos', text: 'Los golpes saltan con fuerza y en arco: blancos los normales, dorados con «!» los grandes y críticos, y rojos y más grandes los enormes (comparados con tu golpe habitual). Las curaciones salen en verde.' },
       { icon: '✨', title: 'Altares renovados', text: 'Los altares llegan con un rayo del cielo y una onda, tienen un círculo de runas que gira, una columna de luz con chispas y orbes alrededor, y un anillo que se va llenando mientras cumples la prueba.' },
     ],

@@ -190,3 +190,14 @@ body.reduced-motion .rk-pod::before, body.reduced-motion .rk-pod .rk-step, body.
 .rk-pod.p1 { --sh: 150px; } .rk-pod.p2 { --sh: 105px; } .rk-pod.p3 { --sh: 70px; }
 .rk-pod .rk-step { flex: none; height: var(--sh) !important; margin-top: auto; }
 @media (max-width: 700px) { .rk-pod { --area: 300px; } .rk-pod.p1 { --sh: 110px; } .rk-pod.p2 { --sh: 78px; } .rk-pod.p3 { --sh: 52px; } }
+
+/* ---- 1.94 (author: the menu ranking also had the 3rd above the 2nd): same card area for the three and a step at the
+   bottom per place, so the tops always go 1 > 2 > 3 whatever frame or banner each one wears */
+.wr-podium { align-items: end; }
+.wr-pod { --wa: 300px; height: calc(var(--wa) + var(--ws)); justify-content: flex-start; padding-bottom: calc(var(--ws) + 8px) !important; overflow: hidden; }
+.wr-pod.p1 { --ws: 54px; --sc: #ffd23f; } .wr-pod.p2 { --ws: 30px; --sc: #dfe6f0; } .wr-pod.p3 { --ws: 12px; --sc: #e0905a; }
+.wr-pod::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: var(--ws);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--sc) 85%, #fff) 0, color-mix(in srgb, var(--sc) 60%, #000) 18%, color-mix(in srgb, var(--sc) 25%, #050c22) 100%);
+  box-shadow: inset 0 2px 0 #fff8; }
+.wr-pod.p1::after { animation: rkGlow 2.4s ease-in-out infinite; }
+@media (max-width: 700px) { .wr-pod { --wa: 400px; } .wr-pod.p1 { --ws: 44px; } .wr-pod.p2 { --ws: 24px; } .wr-pod.p3 { --ws: 8px; } }

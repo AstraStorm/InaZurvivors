@@ -371,8 +371,9 @@ export function validate(s: SaveData): SaveData {
   // v1.65: banners — known ids only, no repeats; the equipped one must be owned
   const pn = obj(s.pennants);
   if (pn) {
-    // 1.81: the code's banner and frame were first called ina483 / marco-ina483
-    const renamed: Record<string, string> = { ina483: 'inazuma', 'marco-ina483': 'marco-inazuma' };
+    // 1.81: the code's banner and frame were first called ina483 / marco-ina483; 1.94 (author): the clan's own banner
+    // and frame are gone, whoever had them keeps the cherry ones
+    const renamed: Record<string, string> = { ina483: 'inazuma', 'marco-ina483': 'marco-inazuma', 'clan-estandarte': 'clan-cerezo', 'marco-clan': 'marco-cerezo' };
     const re = (x: unknown) => (typeof x === 'string' ? renamed[x] ?? x : x);
     if (Array.isArray(pn.owned)) pn.owned = pn.owned.map(re);
     pn.equipped = re(pn.equipped); pn.frame = re(pn.frame);

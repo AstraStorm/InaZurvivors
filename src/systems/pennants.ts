@@ -2,6 +2,7 @@
 import type { Rarity, RosterEntry } from '../data/manifest';
 import { EVENT_POOL, isFrame, PENNANT_BY_ID, PENNANT_EVENT, type PennantDef } from '../data/pennants';
 import type { SaveData } from './save';
+import { clanShopPennants, clanWeekKey } from './clans';
 
 export const COLLECTION_PENNANT_AT = 200;
 
@@ -20,7 +21,8 @@ export const equippedFrame = (s: SaveData): PennantDef | undefined => {
 /** 1.81: hand an owned banner or frame (promo codes) */
 export const givePennant = (s: SaveData, id: string) => { if (PENNANT_BY_ID.has(id)) give(s, id); };
 /** 1.81: a code's banner or frame only exists for whoever owns it */
-export const visiblePennant = (s: SaveData, p: PennantDef) => p.source !== 'codigo' || hasPennant(s, p.id);
+export const visiblePennant = (s: SaveData, p: PennantDef) => (p.source !== 'codigo' && p.source !== 'clan') || hasPennant(s, p.id)
+  || (p.source === 'clan' && clanShopPennants(clanWeekKey(new Date())).includes(p.id)); // 1.94: a clan one, the week it is on sale
 
 function give(s: SaveData, id: string) {
   s.pennants ??= { owned: [] };
