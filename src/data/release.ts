@@ -41,6 +41,8 @@ export const PUBLIC_RELEASES: PublicRelease[] = [
       { icon: '🌊', title: 'Jaden Evans', text: 'Mediocentro de Montaña, Leyenda: gánalo superando el Road en Máxima 10 veces (y una copia cada 10 más). Con Corriente negra y Corte volcánico redibujadas.' },
       { icon: '🔥', title: 'Elementos corregidos', text: '118 técnicas tenían el elemento mal: ahora llevan el suyo.' },
       { icon: '🐉', title: 'Rizo de dragón y Ciclón blanco', text: 'Redibujadas como en sus escenas.' },
+      { icon: '💥', title: 'Las técnicas de área, en área', text: 'Los tiros que explotan (Rizo de dragón, Orbe de Perseo y el resto de combinadas, entre otros) estallan donde dan al primer rival y siguen atravesando; antes solo estallaban al final de su recorrido, muchas veces fuera de la pantalla. Hora celestial daña a todos los rivales de la zona que detiene.' },
+      { icon: '🎯', title: 'Tiros bien dirigidos', text: 'Las combinadas y los tiros ya no salen hacia un rival que acaba de caer: buscan al más cercano que sigue en pie.' },
     ],
     start: [],
   },

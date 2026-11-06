@@ -791,6 +791,7 @@ export class ArenaScene extends Phaser.Scene {
     let best: Enemy | null = null;
     let bd = range * range;
     for (const e of this.enemies) {
+      if (e.dead) continue; // 1.91: a rival knocked out this frame still flies off; never aim at it
       const d = (e.pos.x - x) ** 2 + (e.pos.y - 12 - y) ** 2;
       if (d < bd) { bd = d; best = e; }
     }
@@ -961,9 +962,10 @@ export class ArenaScene extends Phaser.Scene {
               const a = (k / (6 + lv * 2)) * Math.PI * 2;
               this.fx.burst(style, ox + Math.cos(a) * r, oy + 6 + Math.sin(a) * r * 0.6, 1, 20, k % 2 === 0);
             }
+            const hurtR = dr === 'hora' ? Math.max(r, 90) : r; // 1.91: Hora celestial hurts the whole area it stops
             for (const e of this.enemies) {
               const d = Math.hypot(e.pos.x - ox, e.pos.y - 10 - oy);
-              if (d < r + e.radius) this.hit(e, s.damage, (e.pos.x - ox) / (d || 1) * 60, (e.pos.y - oy) / (d || 1) * 60, style);
+              if (d < hurtR + e.radius) this.hit(e, s.damage, (e.pos.x - ox) / (d || 1) * 60, (e.pos.y - oy) / (d || 1) * 60, style);
             }
             sfx('whoosh');
           } else {
@@ -1214,6 +1216,8 @@ export class ArenaScene extends Phaser.Scene {
     sfx('evolve');
     this.time.delayedCall(wind, () => {
       if (this.ended) return;
+      // 1.91 (author: some shots flew the opposite way): the rival picked before the wind-up may be gone by now
+      if (target.dead) { const t2 = this.nearestEnemy(mx, my, 300); if (!t2) return; target = t2; }
       const a = Math.atan2(target.pos.y - 12 - my, target.pos.x - mx);
       const dmg = comboDamage(def, level, this.mods.damage * this.teamDamageBonus() * this.formationDamage() * this.cfg.perks.damageMult * this.cfg.perks.comboMult * FORMATIONS[this.formation].comboMult * this.formationTactic().combo);
       // 1.76: Fuego cruzado kicks ONE ball, as in the anime; it carries the damage the two balls had
@@ -1483,13 +1487,16 @@ export class ArenaScene extends Phaser.Scene {
         if (Math.hypot(e.pos.x - rx, e.pos.y - 12 - ry) < e.radius + 5 * p.scale) {
           p.hits.add(e);
           this.hit(e, p.damage, (p.vx / l) * p.knock, (p.vy / l) * p.knock, p.style, true);
+          // 1.91 (author: Rizo de dragón, Orbe de Perseo... did no area damage): an area shot bursts where it first lands,
+          // not at the end of its flight (often off screen); it keeps piercing after
+          if (p.explode && !p.exploded) this.explode(p, rx, ry, false);
           this.fx.burst(p.style, rx, ry, 4 + p.level, 70);
           if (p.style === 'rayo' && p.level >= 3) {
             const chain = this.nearestOther(e, 70);
             if (chain) { this.fx.lightning(rx, ry, chain.pos.x, chain.pos.y - 12); this.hit(chain, p.damage * 0.5, 0, 0, 'rayo'); }
           }
           if (p.hits.size > p.pierce) {
-            if (p.explode) this.explode(p, rx, ry, false);
+            if (p.explode && !p.exploded) this.explode(p, rx, ry, false);
             p.life = 0;
             break;
           }
