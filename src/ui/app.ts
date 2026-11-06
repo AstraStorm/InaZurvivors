@@ -55,6 +55,8 @@ import { adaptedPassive, passiveText, talentChanges, talentText } from '../syste
 import { adminSuggestions, adminUpdateSuggestion, claimBugNotices, claimBugRewards, claimSuggestionNotices, mySuggestions, redeemCode, submitSuggestion, type SuggestionRow } from '../online/client';
 import { THANKS_EVENT, addThanksTokens, thanksActive, thanksLeftMs, thanksTokens } from '../systems/thanksEvent';
 import { gtsDeposit, gtsFeed, gtsMine, gtsSearch, gtsTake, gtsWithdraw, type GtsOffer } from '../online/client';
+import { submitTierlist, tierlistFeed, type TierlistRow } from '../online/client';
+import { cleanTiers, placeIn, tierCount, topicLabel, TIER_COLOR, TIER_MAX, TIER_MIN, TIER_TOPICS, TIERS, type Tier, type Tiers } from '../systems/tierlist';
 import { CoopLink, type CoopMsg } from '../online/coop';
 import { coopInvite, coopInvitesClaim, friendHeartbeat, friendList, friendRemove, friendRequest, friendRespond, type FriendRow } from '../online/client';
 import type { CoopRun } from '../game/coopArena';
@@ -1051,6 +1053,7 @@ export class App {
     const news = allNews()[0];
     const featR = feat ? effectiveRarity(this.save, feat) : 'comun';
     const featStats = feat ? this.statsOf(feat) : null;
+    const promo = this.promoSlides();
     this.show(`<div class="menu-root m4"><div class="menu-lights"><i></i><i></i><i></i><b></b><b></b><b></b></div>
       <header class="m4-top">
         <button class="m4-profile" data-go="profile">${this.profileIcon(46)}${this.save.crest && this.emblemOf(this.save.crest) ? `<img class="m4-crest" src="${this.emblemOf(this.save.crest)}" alt="">` : ''}
@@ -1065,6 +1068,7 @@ export class App {
       </header>
       <div class="m4-stage">
         <section class="m4-left">
+          ${this.promoHtml(promo)}
           <div class="logo menu-logo brand"><svg class="logo-bolt" viewBox="0 0 60 100"><polygon points="38,0 6,56 26,56 16,100 56,38 34,38"/></svg>
             <h1 aria-label="InaZurvivors"><span class="b1">Ina</span><span class="bz">Z</span><span class="b2">urvivors</span></h1><div class="sub">ROGUELITE DE FÚTBOL · FANGAME <span class="ver-badge">${esc(VERSION_LABEL)}</span></div></div>
           <div class="m4-main">
@@ -1079,7 +1083,7 @@ export class App {
           ${group('g-sign', 'capsule', 'FICHAJES', tile('gacha', 'capsule', 'FICHAJES', `${this.save.tokens} fichas`, 0, true) + (thanksActive(serverNow()) ? tile('thanksev', 'gift', 'AGRADECIMIENTO', `${this.save.eventTokens ?? 0} fichas de evento`, 0, true) : '') + (eventActive(serverNow()) ? tile('pnevent', 'gift', 'EVENTO', 'Banners de leyenda', 0, true) : '') + tile('daily', 'shop', 'TIENDA', 'Ofertas del día') + tile('gts', 'gts', 'GTS', 'Intercambios online') + tile('codes', 'gift', 'CÓDIGOS', 'Canjea regalos'))}
           ${group('g-comp', 'crown', 'COMPETICIÓN', tile('missions', 'missions', 'MISIONES', pending ? '¡Por recoger!' : 'Recompensas', pending, !!pending)
             + tile('pass', 'ticket', 'PASE', pass.available ? '¡Recompensa lista!' : 'Vuelve mañana', pass.available ? 1 : 0, pass.available) + tile('ranking', 'crown', 'RANKING', onlineConfigured() ? 'Global' : 'Tus marcas')
-            + tile('road', 'trophy', 'ROAD TO FF', this.save.road?.active ? `Partido ${this.save.road.active.level + 1} en juego` : 'Nuevo modo', 0, true) + tile('coop', 'team', 'COOP', 'pre-2.0 · en pruebas', 0, true) + tile('friends', 'gift', 'AMIGOS', 'Invita al coop'))}
+            + tile('road', 'trophy', 'ROAD TO FF', this.save.road?.active ? `Partido ${this.save.road.active.level + 1} en juego` : 'Nuevo modo', 0, true) + tile('tierlist', 'cards', 'TIERLISTS', 'Crea y comparte', 0, true) + tile('coop', 'team', 'COOP', 'pre-2.0 · en pruebas', 0, true) + tile('friends', 'gift', 'AMIGOS', 'Invita al coop'))}
         </section>
         ${feat ? `<section class="m4-hero" data-go="squad" style="--rc:${RARITY_COLOR[featR]}"><div class="m4-aura"></div><div class="m4-ring"></div>
           <div class="m4-hero-art">${this.mug(feat.id, 256)}<span class="m4-hero-sprite">${charCanvas(feat.id, 3, 12)}</span></div>
@@ -1092,6 +1096,7 @@ export class App {
           <div class="m4-card"><h3>${uiIcon('target')}Desafíos</h3>${challenges.map((d) => { const pc = Math.min(100, Math.round(missionProgress(this.save, d) / d.goal * 100)); return `<div class="m4-chal"><span>${esc(d.label)}</span><em>${pc}%</em><i style="--p:${pc}%"></i></div>`; }).join('') || '<div class="note">¡Todo completado por hoy!</div>'}</div>
           <div class="m4-card"><h3>${uiIcon('pitch')}Arenas</h3>${this.m.maps.map((mp) => { const ok = this.save.clearedMaps.includes(mp.id); return `<div class="m4-arena${ok ? ' ok' : ''}"><span class="m4-chk">${ok ? '✔' : ''}</span><span>${esc(mp.name)}</span><span class="m4-ranks">${RANK_ORDER.map((r) => `<i class="${(this.save.clearedRanks[mp.id] ?? []).includes(r) ? 'on' : ''}">${r}</i>`).join('')}</span></div>`; }).join('')}
             <div class="m4-best">${uiIcon('clock')}Mejor tiempo <b>${fmtTime(this.save.stats.bestTimeSec)}</b> · <b>${this.save.stats.kills}</b> eliminaciones</div></div>
+          <div class="m4-card m4-tier" data-go="tierlist"><h3>${uiIcon('cards')}Tierlists de la comunidad</h3><div id="menutier">${onlineConfigured() ? '<div class="note">Cargando…</div>' : '<div class="note">Disponible con el servicio online.</div>'}</div></div>
           <div class="m4-card m4-gts" data-go="gts"><h3>${uiIcon('gts')}GTS · Intercambios</h3><div id="menugts">${onlineConfigured() ? '<div class="note">Cargando…</div>' : '<div class="note">Disponible con el servicio online.</div>'}</div></div>
           <button class="m4-help" data-go="tutorial">${uiIcon('help')}¿Cómo se juega?</button>
         </aside>
@@ -1128,6 +1133,7 @@ export class App {
       if (go === 'training') this.trainingField(); // v1.6
       if (go === 'coaches') this.coachesScreen(); // pre-2.0
       if (go === 'road') this.roadScreen();
+      if (go === 'tierlist') this.tierlistScreen(); // 1.9
       if (go === 'pnevent') this.pennantEvent(); // v1.65
       if (go === 'thanksev') { this.gachaBanner = 'evento'; this.gacha(); } // 1.75
       if (go === 'collection') this.collection();
@@ -1164,6 +1170,8 @@ export class App {
     document.addEventListener('pointerdown', () => document.querySelector('.audio-hint')?.remove(), { once: true });
     if (onlineConfigured()) void this.fillMenuRank();
     if (onlineConfigured()) void this.fillMenuGts(); // 1.8
+    if (onlineConfigured()) { this.tierFeedCache = null; void this.fillTierFeed('menutier', 1, 24); } // 1.9
+    this.wirePromo(promo); // 1.9
     void this.claimBugBounty(); // 1.85: rewards for fixed bug reports
     this.notiBar(); // 1.88
     if (onlineConfigured() && signedIn()) void this.gtsSync().catch(() => undefined); // 1.8: a trade that happened while away arrives here
@@ -1172,6 +1180,170 @@ export class App {
     // 1.75 (author): the thank-you notice, once, while the Banner de agradecimiento is open
     else if (thanksActive(serverNow()) && !this.save.thanksSeen && this.save.onboardingDone) window.setTimeout(() => { if (this.screenKey === 'menu-mode') this.thanksNotice(); }, 600);
     else if (!this.save.roadIntroSeen && this.save.onboardingDone) window.setTimeout(() => { if (this.screenKey === 'menu-mode') this.roadIntro(); }, 700); // pre-2.0
+  }
+
+  // ---- 1.9 (author: a juicier menu with the news and new banners in big): the promo carousel at the top of the menu
+  private promoTimer = 0;
+  private promoIndex = 0;
+  private promoSlides() {
+    const now = serverNow();
+    const art = (ids: number[], size = 128) => ids.map((id, i) => `<span class="m5-who" style="--i:${i}">${this.mug(id, size as 64)}</span>`).join('');
+    const slides: { kicker: string; title: string; text: string; cta: string; color: string; art: string; tag?: string; act: () => void }[] = [];
+    const news = allNews()[0];
+    if (thanksActive(now)) {
+      const pool = bannerPool(this.m.roster, 'evento').filter((p) => p.exclusive);
+      slides.push({ kicker: 'BANNER ESPECIAL', title: BANNERS.evento.label, text: BANNERS.evento.tagline, cta: '¡Fichar ahora!', color: BANNERS.evento.color, tag: 'LIMITADO',
+        art: art(featured(pool, 3).map((p) => p.id)), act: () => { this.gachaBanner = 'evento'; this.gacha(); } });
+    }
+    // a saga machine in the spotlight, a different one each day
+    const machines: BannerId[] = ['ff', 'alius', 'ffi', 'go', 'chrono', 'galaxy', 'ares', 'orion'];
+    const b = machines[Math.floor(now.getTime() / 86400000) % machines.length];
+    slides.push({ kicker: 'MÁQUINA DESTACADA DE HOY', title: BANNERS[b].label, text: BANNERS[b].tagline, cta: '¡A fichar!', color: BANNERS[b].color, tag: 'HOY',
+      art: art(featured(bannerPool(this.m.roster, b), 3).map((p) => p.id)), act: () => { this.gachaBanner = b; this.gacha(); } });
+    if (eventActive(now)) slides.push({ kicker: 'EVENTO', title: 'Banners de leyenda', text: 'Banners y marcos de perfil por tiempo limitado.', cta: 'Ver el evento', color: '#ffd84a', tag: 'EVENTO', art: `<span class="m5-big">${uiIcon('gift')}</span>`, act: () => this.pennantEvent() });
+    if (this.byId.has(JADEN_ID)) slides.push({ kicker: 'MODO DESAFÍO', title: 'Road to Fútbol Frontier', text: 'Gana en Máxima y llévate a Jaden Evans, exclusivo de este modo.', cta: 'Jugar el camino', color: '#ff8a2a', tag: 'EXCLUSIVO',
+      art: art([JADEN_ID], 160), act: () => this.roadScreen() });
+    slides.push({ kicker: 'NUEVO · COMUNIDAD', title: 'Crea tu tierlist', text: 'Ordena a tus futbolistas favoritos de S a D y publícala: todo el mundo la verá en el menú.', cta: 'Crear la mía', color: '#ff4f6a', tag: 'NUEVO',
+      art: `<span class="m5-tiers">${TIERS.map((k) => `<i style="--tc:${TIER_COLOR[k]}">${k}</i>`).join('')}</span>`, act: () => { this.tierTab = 'crear'; this.tierlistScreen(); } });
+    if (news) slides.push({ kicker: `NOTICIAS · ${VERSION_LABEL}`, title: news.title, text: news.summary, cta: 'Leer más', color: '#4fb3ff', tag: this.save.devlogSeen !== NEWS_KEY ? 'NUEVO' : undefined,
+      art: `<span class="m5-big">${uiIcon('news')}</span>`, act: () => this.devlog() });
+    return slides;
+  }
+  private promoHtml(slides: ReturnType<App['promoSlides']>) {
+    const i = this.promoIndex % slides.length;
+    return `<section class="m5-promo" id="m5promo" style="--pc:${slides[i].color}"><div class="m5-track">${slides.map((s, k) => `<button class="m5-slide${k === i ? ' on' : ''}" data-promo="${k}" style="--pc:${s.color}" ${k === i ? '' : 'tabindex="-1" aria-hidden="true"'}>
+        <span class="m5-bg"></span><i class="m5-shine"></i><span class="m5-art">${s.art}</span>
+        <span class="m5-txt"><small>${esc(s.kicker)}</small><b>${esc(s.title)}</b><span>${esc(s.text)}</span><em class="m5-cta">${esc(s.cta)} ›</em></span>${s.tag ? `<span class="m5-tag">${esc(s.tag)}</span>` : ''}</button>`).join('')}</div>
+      <div class="m5-dots">${slides.map((_s, k) => `<i class="${k === i ? 'on' : ''}" data-pdot="${k}"></i>`).join('')}</div>
+      <button class="m5-arrow l" data-pmove="-1" aria-label="Anterior">‹</button><button class="m5-arrow r" data-pmove="1" aria-label="Siguiente">›</button></section>`;
+  }
+  private wirePromo(slides: ReturnType<App['promoSlides']>) {
+    const box = document.getElementById('m5promo');
+    if (!box) return;
+    window.clearInterval(this.promoTimer);
+    const go = (k: number) => {
+      this.promoIndex = (k + slides.length) % slides.length;
+      box.style.setProperty('--pc', slides[this.promoIndex].color);
+      box.querySelectorAll<HTMLElement>('.m5-slide').forEach((el, j) => { const on = j === this.promoIndex; el.classList.toggle('on', on); el.tabIndex = on ? 0 : -1; el.setAttribute('aria-hidden', String(!on)); });
+      box.querySelectorAll<HTMLElement>('[data-pdot]').forEach((el, j) => el.classList.toggle('on', j === this.promoIndex));
+    };
+    const restart = () => {
+      window.clearInterval(this.promoTimer);
+      this.promoTimer = window.setInterval(() => { if (!document.body.contains(box)) { window.clearInterval(this.promoTimer); return; } if (!document.hidden) go(this.promoIndex + 1); }, 5500);
+    };
+    restart();
+    let downX: number | null = null, swiped = false;
+    box.addEventListener('pointerdown', (e) => { downX = e.clientX; swiped = false; });
+    box.addEventListener('pointerup', (e) => {
+      if (downX === null) return;
+      const dx = e.clientX - downX; downX = null;
+      if (Math.abs(dx) > 40) { swiped = true; go(this.promoIndex + (dx < 0 ? 1 : -1)); restart(); sfx('whoosh'); }
+    });
+    this.on('[data-pdot]', 'click', (e, el) => { e.stopPropagation(); go(Number(el.dataset.pdot)); restart(); }, box);
+    this.on('[data-pmove]', 'click', (e, el) => { e.stopPropagation(); go(this.promoIndex + Number(el.dataset.pmove)); restart(); sfx('click'); }, box);
+    this.on('[data-promo]', 'click', (_e, el) => { if (swiped) { swiped = false; return; } window.clearInterval(this.promoTimer); sfx('click'); slides[Number(el.dataset.promo)].act(); }, box);
+  }
+
+  // ---- 1.9 (author): tier lists — make your own, publish it, everyone sees the latest ones in the menu
+  private tierTab: 'comunidad' | 'crear' = 'comunidad';
+  private tierPick: number | null = null;
+  private tierQuery = '';
+  private tierOwnedOnly = false;
+  private tierFeedCache: TierlistRow[] | null = null;
+
+  /** A tier list drawn like a screenshot: coloured tier labels and the bodyshots in each row. */
+  private tierBoard(tiers: Tiers, size = 40, edit = false) {
+    return `<div class="tl-board${edit ? ' edit' : ''}">${TIERS.map((k) => `<div class="tl-row" data-tier="${k}" style="--tc:${TIER_COLOR[k]}"><b class="tl-lab">${k}</b>
+      <div class="tl-cells">${(tiers[k] ?? []).filter((id) => this.byId.has(id)).map((id) => `<span class="tl-p${this.tierPick === id ? ' on' : ''}" data-tp="${id}" ${edit ? 'draggable="true"' : ''} title="${esc(this.byId.get(id)!.name)}">${this.mug(id, size as 64)}</span>`).join('')
+        || (edit ? '<em class="tl-empty">Toca un futbolista y luego esta fila</em>' : '')}</div></div>`).join('')}</div>`;
+  }
+  private tierCard(r: TierlistRow, size = 32) {
+    const tiers = cleanTiers(r.tiers, (id) => this.byId.has(id));
+    return `<div class="tl-card"><div class="tl-card-head"><b>${esc(topicLabel(r.topic))}</b><small>de <b>${esc(r.username)}</b> · ${new Date(r.updated_at).toLocaleDateString('es')}</small></div>${this.tierBoard(tiers, size)}</div>`;
+  }
+
+  tierlistScreen() {
+    setMusicContext('menu');
+    const draft = this.save.tierDraft ?? { topic: 'general', tiers: {} };
+    const tiers = cleanTiers(draft.tiers, (id) => this.byId.has(id));
+    const topic = TIER_TOPICS.find((t) => t.id === draft.topic) ?? TIER_TOPICS[0];
+    const placed = new Set(TIERS.flatMap((k) => tiers[k] ?? []));
+    const q = this.tierQuery.trim().toLowerCase();
+    const owned = new Set(this.unlockedRoster().map((p) => p.id));
+    const pool = this.m.roster.filter((p) => !placed.has(p.id) && (!topic.pos || p.position === topic.pos) && (!this.tierOwnedOnly || owned.has(p.id))
+      && (!q || p.name.toLowerCase().includes(q))).sort((a, b) => Number(owned.has(b.id)) - Number(owned.has(a.id)) || this.meanOf(b) - this.meanOf(a)).slice(0, 80);
+    const n = tierCount(tiers);
+    const online = onlineConfigured() && signedIn();
+    const body = this.tierTab === 'comunidad'
+      ? `<div class="panel"><h3>${uiIcon('crown')}Tierlists de la comunidad <small>las últimas publicadas</small></h3><div id="tlfeed" class="tl-feed">${onlineConfigured() ? '<div class="note">Cargando…</div>' : '<div class="note">Disponible con el servicio online.</div>'}</div></div>`
+      : `<div class="panel tl-editor"><div class="tl-topics">${TIER_TOPICS.map((t) => `<button class="pill${t.id === topic.id ? ' on' : ''}" data-ttopic="${t.id}">${esc(t.label)}</button>`).join('')}</div>
+          <div class="tl-shot" id="tlshot"><div class="tl-card-head"><b>${esc(topic.label)}</b><small>de <b>${esc(this.save.profile.name)}</b> · ${n}/${TIER_MAX}</small></div>${this.tierBoard(tiers, 44, true)}</div>
+          <div class="cp-actions"><button class="btn big" id="tlpub" ${n >= TIER_MIN ? '' : 'disabled'}>${n >= TIER_MIN ? 'Publicar para todos ▶' : `Coloca al menos ${TIER_MIN}`}</button><button class="btn blue" id="tlclear" ${n ? '' : 'disabled'}>Vaciar</button></div>
+          ${online ? '' : '<p class="note">Para publicarla conéctate con tu cuenta (Perfil). Mientras, se guarda aquí.</p>'}</div>
+        <div class="panel"><h3>${uiIcon('team')}Futbolistas <small>${this.tierPick ? `<b>${esc(this.byId.get(this.tierPick)?.name ?? '')}</b> elegido: toca una fila` : 'toca uno y luego una fila, o arrástralo'}</small></h3>
+          <div class="filters"><input id="tlq" placeholder="Buscar futbolista" value="${esc(this.tierQuery)}"><button class="pill${this.tierOwnedOnly ? ' on' : ''}" id="tlowned">Solo los míos</button></div>
+          <div class="tl-pool">${pool.map((p) => `<span class="tl-p${this.tierPick === p.id ? ' on' : ''}${owned.has(p.id) ? '' : ' nown'}" data-tp="${p.id}" draggable="true" title="${esc(p.name)}">${this.mug(p.id, 44)}<small>${esc(p.name)}</small></span>`).join('') || '<div class="note">Nadie con ese nombre.</div>'}</div></div>`;
+    this.show(`<div class="screen tierlist-screen">${this.titlebar('Tierlists', 'Menú')}
+      <div class="tl-tabs"><button class="tab${this.tierTab === 'comunidad' ? ' on' : ''}" data-ttab="comunidad">${uiIcon('crown')}Comunidad</button><button class="tab${this.tierTab === 'crear' ? ' on' : ''}" data-ttab="crear">${uiIcon('cards')}Crear la mía</button></div>
+      ${body}</div>`);
+    this.on('[data-back]', 'click', () => this.mainMenu());
+    this.on('[data-ttab]', 'click', (_e, el) => { this.tierTab = el.dataset.ttab as 'comunidad' | 'crear'; sfx('click'); this.tierlistScreen(); });
+    if (this.tierTab === 'comunidad') { void this.fillTierFeed('tlfeed', 20, 40); return; }
+    const saveDraft = (t: Tiers, topicId: string = topic.id) => { this.save.tierDraft = { topic: topicId, tiers: t as Record<string, number[]> }; this.persist(); };
+    this.on('[data-ttopic]', 'click', (_e, el) => { saveDraft(tiers, el.dataset.ttopic!); sfx('click'); this.tierlistScreen(); });
+    const keepScroll = () => { const y = document.querySelector('.screen')?.scrollTop ?? 0; this.tierlistScreen(); const s = document.querySelector('.screen'); if (s) s.scrollTop = y; };
+    // tap: pick a footballer (from the pool or a row), then a row puts him there; a picked one tapped again leaves the list
+    this.on('[data-tp]', 'click', (e, el) => {
+      e.stopPropagation();
+      const id = Number(el.dataset.tp);
+      if (this.tierPick === id) { this.tierPick = null; if (placed.has(id)) { saveDraft(placeIn(tiers, id, null)); sfx('click'); } }
+      else this.tierPick = id;
+      keepScroll();
+    });
+    this.on('.tl-board.edit .tl-row', 'click', (_e, el) => {
+      if (this.tierPick === null) return;
+      saveDraft(placeIn(tiers, this.tierPick, el.dataset.tier as Tier)); this.tierPick = null; sfx('pickup'); keepScroll();
+    });
+    // drag and drop (desktop)
+    this.on('[data-tp]', 'dragstart', (e, el) => { (e as DragEvent).dataTransfer?.setData('text/plain', el.dataset.tp!); });
+    this.on('.tl-board.edit .tl-row', 'dragover', (e) => e.preventDefault());
+    this.on('.tl-board.edit .tl-row', 'drop', (e, el) => {
+      e.preventDefault();
+      const id = Number((e as DragEvent).dataTransfer?.getData('text/plain'));
+      if (id) { saveDraft(placeIn(tiers, id, el.dataset.tier as Tier)); this.tierPick = null; sfx('pickup'); keepScroll(); }
+    });
+    this.on('.tl-pool', 'dragover', (e) => e.preventDefault());
+    this.on('.tl-pool', 'drop', (e) => { e.preventDefault(); const id = Number((e as DragEvent).dataTransfer?.getData('text/plain')); if (placed.has(id)) { saveDraft(placeIn(tiers, id, null)); keepScroll(); } });
+    const qi = document.getElementById('tlq') as HTMLInputElement;
+    let qt = 0;
+    qi.addEventListener('input', () => { window.clearTimeout(qt); qt = window.setTimeout(() => { this.tierQuery = qi.value; this.tierlistScreen(); const n2 = document.getElementById('tlq') as HTMLInputElement; n2.focus(); n2.setSelectionRange(n2.value.length, n2.value.length); }, 250); });
+    document.getElementById('tlowned')!.addEventListener('click', () => { this.tierOwnedOnly = !this.tierOwnedOnly; this.tierlistScreen(); });
+    document.getElementById('tlclear')!.addEventListener('click', () => { saveDraft({}); this.tierPick = null; this.tierlistScreen(); });
+    document.getElementById('tlpub')!.addEventListener('click', async (e) => {
+      if (!onlineConfigured() || !signedIn()) { this.toast('Conéctate con tu cuenta en Perfil para publicarla'); return; }
+      const b = e.currentTarget as HTMLButtonElement;
+      b.disabled = true;
+      try {
+        await submitTierlist(topic.id, tiers as Record<string, number[]>);
+        sfx('evolve'); this.toast('¡Publicada! Ya sale en el menú de todos');
+        this.tierFeedCache = null; this.tierTab = 'comunidad'; this.tierlistScreen();
+      } catch (err) {
+        const m = String((err as Error)?.message ?? err);
+        this.toast(/too_fast/.test(m) ? 'Acabas de publicar: espera un minuto' : /no_username/.test(m) ? 'Reserva tu nombre en Perfil para publicar' : /invalid_tiers/.test(m) ? 'La lista no es válida' : 'No se pudo publicar ahora');
+        b.disabled = false;
+      }
+    });
+  }
+
+  private async fillTierFeed(boxId: string, limit: number, size: number) {
+    const box = document.getElementById(boxId);
+    if (!box || !onlineConfigured()) return;
+    try {
+      const rows = this.tierFeedCache ?? (this.tierFeedCache = await tierlistFeed(20));
+      if (!document.body.contains(box)) return;
+      const shown = rows.filter((r) => tierCount(cleanTiers(r.tiers, (id) => this.byId.has(id))) >= TIER_MIN).slice(0, limit);
+      box.innerHTML = shown.map((r) => this.tierCard(r, size)).join('') || '<div class="note">Aún no hay ninguna. ¡Publica la primera!</div>';
+    } catch { box.innerHTML = '<div class="note">Las tierlists no responden ahora.</div>'; }
   }
 
   /** Fix 1.31: training points that no stat can use (it already reaches 99) go back to the player, on load. */
@@ -1521,7 +1693,7 @@ export class App {
     const act = active ? ROAD_BY_ID.get(active.diff)! : null;
     this.show(`<div class="screen road-screen">${this.titlebar('Road to Fútbol Frontier', 'Menú')}
       <div class="rd-hero"><div><small>MODO DESAFÍO · PRE-2.0</small><b>Road to Fútbol Frontier</b><span>5 futbolistas del Raimon o de Inazuma Japan, sin Auras, partido tras partido hasta la final del Estadio Zeus. Si pierdes uno, se acaba el camino.</span></div>
-        <div class="rd-jaden${ownsJaden ? ' own' : ''}">${this.mug(JADEN_ID, 64)}<span><small>${ownsJaden ? 'OTRA COPIA DE JADEN EN' : 'JADEN EVANS EN'}</small><b>${toJaden} ${toJaden === 1 ? 'victoria' : 'victorias'} en Máxima</b><i style="width:${((maxClears % JADEN_EVERY) / JADEN_EVERY) * 100}%"></i></span></div></div>
+        <div class="rd-jaden${ownsJaden ? ' own' : ''}"><span class="rd-jart">${this.mug(JADEN_ID, 80)}${ownsJaden ? '' : '<i class="rd-lock">🔒</i>'}</span><span><small>${ownsJaden ? 'OTRA COPIA DE JADEN EN' : 'JADEN EVANS EN'}</small><b>${toJaden} ${toJaden === 1 ? 'victoria' : 'victorias'} en Máxima</b><i style="width:${((maxClears % JADEN_EVERY) / JADEN_EVERY) * 100}%"></i></span></div></div>
       ${active && act ? `<div class="panel rd-active"><h3>${uiIcon('trophy')}Camino en curso · ${act.label}</h3>
           <span class="rd-path big">${act.maps.map((m, i) => `<i class="${i < active.level ? 'done' : i === active.level ? 'now' : ''}" title="${esc(mapName(m))}">${i < active.level ? '✔' : i + 1}</i>`).join('<em></em>')}</span>
           <p class="note">Siguiente: <b>${esc(mapName(act.maps[active.level]))}</b> (partido ${active.level + 1} de ${act.maps.length}, ${active.level + 1} min).</p>

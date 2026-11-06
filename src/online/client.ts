@@ -253,6 +253,13 @@ export async function notifyBug(code: string) {
   } catch { return { sent: false, reason: 'sin conexión' }; }
 }
 
+/** 1.9: tier lists (migration 20261107000400_tierlists.sql): one per account, everyone reads the latest */
+export interface TierlistRow { username: string; topic: string; tiers: Record<string, number[]>; updated_at: string }
+export const submitTierlist = (topic: string, tiers: Record<string, number[]>) => rpc<string>('submit_tierlist', { p_topic: topic, p_tiers: tiers });
+export const tierlistFeed = (limit = 20) => rpc<TierlistRow[]>('tierlist_feed', { p_limit: limit }, false);
+export const myTierlist = async () => (await rpc<(TierlistRow & { hidden: boolean })[]>('my_tierlist', {}))[0] ?? null;
+export const deleteMyTierlist = () => rpc<boolean>('delete_my_tierlist', {});
+
 export const deleteAccount = async () => { await rpc('delete_my_account', {}); signOut(); };
 
 /** pre-2.0: co-op rooms (only the two signalling messages go through the server; the match is peer to peer) */

@@ -92,6 +92,8 @@ export interface SaveData {
   /** pre-2.0: Road to Fútbol Frontier — the road in progress and the clears per difficulty (road.ts) */
   road?: { active?: { diff: 'facil' | 'normal' | 'maxima'; level: number; squad: number[] }; clears: Partial<Record<'facil' | 'normal' | 'maxima', number>> };
   roadIntroSeen?: boolean;
+  /** 1.9: the tier list being made (systems/tierlist.ts); published ones live on the server */
+  tierDraft?: { topic: string; tiers: Record<string, number[]> };
   /** Fix 1.32: ids of the news items already opened (news board) */
   newsRead?: string[];
   /** 1.88: answers to the player's bug reports, kept until he dismisses them (app.ts notiBar) */

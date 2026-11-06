@@ -603,3 +603,38 @@ describe('friends and co-op invitations (pre-2.0)', () => {
     await expect(api('', 'select public.friend_request($1)', ['NORA_F'])).rejects.toThrow();
   });
 });
+
+describe('tier lists (1.9)', () => {
+  const u = async (name: string, id: string, username = true) => {
+    await db.query('insert into auth.users (id) values ($1) on conflict do nothing', [(ids[name] = id)]);
+    if (username) await api(name, `select public.reserve_username($1)`, [name.toUpperCase() + '_T']);
+  };
+  beforeAll(async () => {
+    await u('tina', '00000000-0000-0000-0000-0000000000b1');
+    await u('tomas', '00000000-0000-0000-0000-0000000000b2');
+    await u('sinnombre', '00000000-0000-0000-0000-0000000000b3', false);
+  });
+  const feed = () => api('', 'select username, topic, tiers from public.tierlist_feed(10)').then((r) => r.rows as { username: string; topic: string; tiers: Record<string, number[]> }[]);
+  it('publish, replace, read by anyone; one per account and bad lists refused', async () => {
+    await api('tina', `select public.submit_tierlist('delanteros', $1::jsonb)`, [JSON.stringify({ S: [1, 2], A: [3], D: [] })]);
+    expect((await feed()).filter((r) => r.username === 'TINA_T')).toEqual([{ username: 'TINA_T', topic: 'delanteros', tiers: { S: [1, 2], A: [3], D: [] } }]);
+    await expect(api('tina', `select public.submit_tierlist('general', $1::jsonb)`, [JSON.stringify({ S: [1, 2, 3] })])).rejects.toThrow(/too_fast/);
+    await db.query(`update public.tierlists set updated_at = now() - interval '2 minutes'`);
+    await api('tina', `select public.submit_tierlist('general', $1::jsonb)`, [JSON.stringify({ S: [4, 5, 6] })]);
+    expect((await feed()).filter((r) => r.username === 'TINA_T')).toHaveLength(1);
+    for (const bad of [{ S: [1, 1, 2] }, { X: [1, 2, 3] }, { S: [1, 2] }, { S: [1.5, 2, 3] }, { S: ['1', 2, 3] }, { S: Array.from({ length: 31 }, (_, i) => i + 1) }])
+      await expect(api('tomas', `select public.submit_tierlist('general', $1::jsonb)`, [JSON.stringify(bad)])).rejects.toThrow(/invalid_tiers/);
+    await expect(api('tomas', `select public.submit_tierlist('memes', $1::jsonb)`, [JSON.stringify({ S: [1, 2, 3] })])).rejects.toThrow();
+    await expect(api('sinnombre', `select public.submit_tierlist('general', $1::jsonb)`, [JSON.stringify({ S: [1, 2, 3] })])).rejects.toThrow(/no_username/);
+    await expect(api('', `select public.submit_tierlist('general', $1::jsonb)`, [JSON.stringify({ S: [1, 2, 3] })])).rejects.toThrow(/permission denied/);
+    await expect(api('tina', 'select * from public.tierlists')).rejects.toThrow();
+  });
+  it('the admin hides one; its owner can delete it', async () => {
+    await expect(api('tomas', `select public.admin_hide_tierlist('TINA_T')`)).rejects.toThrow(/forbidden/);
+    await api('carla', `select public.admin_hide_tierlist('TINA_T')`);
+    expect((await feed()).some((r) => r.username === 'TINA_T')).toBe(false);
+    expect((await api('tina', 'select hidden from public.my_tierlist()')).rows).toEqual([{ hidden: true }]);
+    expect((await api('tina', 'select public.delete_my_tierlist() as d')).rows).toEqual([{ d: true }]);
+    expect((await api('tina', 'select * from public.my_tierlist()')).rows).toEqual([]);
+  });
+});
