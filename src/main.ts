@@ -9,6 +9,7 @@ import './styleCoop.css';
 import './styleCoaches.css';
 import './styleRoad.css';
 import './styleBoss.css';
+import './styleCards.css';
 import type { Manifest } from './data/manifest';
 import { applyRosterFixes } from './data/rosterFixes';
 import { applyTechFixes } from './data/techFixes';
