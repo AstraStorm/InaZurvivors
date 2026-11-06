@@ -42,6 +42,7 @@ export const PUBLIC_RELEASES: PublicRelease[] = [
       { icon: '🍢', title: 'Objetos y Tienda del clan', text: 'En los Juegos del Clan las monedas y fichas son la mitad, pero caen Pinchitos supremos, Galletas de ciervo, Néctar, Chapas viejas y Artefactos raros. Se canjean en la Tienda del clan, que cambia cada semana: monedas, fichas para un ×10, futbolistas Épicos, Legendarios y Míticos, y banners y marcos exclusivos.' },
       { icon: '📋', title: 'En el menú', text: 'Tu clan sale arriba del todo, con su puesto y sus puntos de la semana, y tiene su propia casilla y su anuncio en el carrusel.' },
       { icon: '🏅', title: 'Ranking renovado', text: 'Cada jugador lleva la insignia de su clan en el ranking. El podio es nuevo: el 1.º siempre más alto que el 2.º y el 2.º que el 3.º, con focos y el número en cada escalón.', online: true },
+      { icon: '✨', title: 'Altares renovados', text: 'Los altares llegan con un rayo del cielo y una onda, tienen un círculo de runas que gira, una columna de luz con chispas y orbes alrededor, y un anillo que se va llenando mientras cumples la prueba.' },
       { icon: '🌸', title: 'Marcos del clan', text: 'El Marco del Clan lleva escudo, corona y laurel; el del Cerezo, flores y pétalos que caen.' },
     ],
     start: [],

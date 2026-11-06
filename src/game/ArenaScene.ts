@@ -12,6 +12,7 @@ import { sfx, setVolume } from './sfx';
 import { MAX_TECH_LEVEL, techStats, type TechStats } from '../systems/techniques';
 import { applyCard, drawCards, MAX_TEAM, newMemberState, type Card, type TeamMemberState } from '../systems/cards';
 import { baseMods, modDef } from '../systems/runmods';
+import { altarFx, type AltarFx } from './fxAltar';
 import { ALTAR_EVERY_SEC, ALTAR_ICON, ALTAR_INFO, ALTAR_WAIT_SEC, ALTAR_LABEL, ALTAR_MODE, ALTAR_RADIUS, ALTAR_COLOR, ALTAR_REWARD, ALTAR_TASK, ALTAR_TYPES, FIRST_ALTAR_SEC, createAltar, stepAltar, type Altar } from '../systems/altars';
 import { ALTAR_TOKENS, DUEL_TOKENS, ENDLESS_TOKENS, FICHA_DROP, BAG_COINS, CHEST_COINS, DROPS, MAGNET_GAP_SEC, MAX_PICKUPS, MAX_REVIVES, rollDrop, rollXpTier, SHIELD_REDUCTION, XP_TIERS, type BuffId, type DropDef } from '../systems/items';
 import { evolutionLabel, evolvesAt, comboLabel } from '../systems/evolution';
@@ -261,6 +262,8 @@ export class ArenaScene extends Phaser.Scene {
   private techById: Record<string, number> = {};
   private altar: Altar | null = null;
   private altarGfx: Phaser.GameObjects.GameObject[] = [];
+  /** 1.93: the altar's look (fxAltar.ts) */
+  private altarLook: AltarFx | null = null;
   private nextAltarAt = FIRST_ALTAR_SEC;
   private altarKills = 0;
   /** portal events release their rivals a few at a time */
@@ -332,7 +335,7 @@ export class ArenaScene extends Phaser.Scene {
     this.rank = rankDef(data.rank); this.shots = []; this.hazards = []; this.nextHazardAt = 20; this.wavePhase = ''; this.stretchAnnounced = false; this.combos = new Map(); this.slowmoUntil = 0; this.hitstopUntil = 0; this.nextHitstop = 0; this.recentKills = []; this.nextSweepCheer = 0; this.endless = null; this.secondWindUsed = false; this.altarsDone = 0; this.damageDealt = 0; this.dismissed = new Set();
     this.coop = null; this.down = false; this.nextEnemyId = 1; this.nextPickupId = 1; this.coopResumePending = false; this.coopPendingLevels = 0;
     this.runId = crypto.randomUUID?.() ?? `${Date.now()}-${Math.random()}`; this.spawnAcc = 1.2; // first rivals within a second or two
-    this.bonusTokens = 0; this.altar = null; this.altarGfx = []; this.altarTag = null; this.rival = null; this.altarRival = null; this.fxCache = null; this.fxAt = -1; this.reviveUsed = false; this.shocks = []; this.campSince = 0; this.campWarned = false; this.nextCampHit = 0; this.nextSurround = 60; this.lastMagnetAt = -MAGNET_GAP_SEC; this.nextAltarAt = FIRST_ALTAR_SEC; this.altarKills = 0; this.freezeUntil = 0; this.lure = null;
+    this.bonusTokens = 0; this.altar = null; this.altarGfx = []; this.altarLook = null; this.altarTag = null; this.rival = null; this.altarRival = null; this.fxCache = null; this.fxAt = -1; this.reviveUsed = false; this.shocks = []; this.campSince = 0; this.campWarned = false; this.nextCampHit = 0; this.nextSurround = 60; this.lastMagnetAt = -MAGNET_GAP_SEC; this.nextAltarAt = FIRST_ALTAR_SEC; this.altarKills = 0; this.freezeUntil = 0; this.lure = null;
     setVolume(data.settings.volume);
   }
 
@@ -2732,7 +2735,8 @@ export class ArenaScene extends Phaser.Scene {
     this.altarAccepted = false; this.altarWait = ALTAR_WAIT_SEC; this.altarRival = null;
     if (type === 'duelo') this.altarRival = this.pickRival();
     const color = ALTAR_COLOR[type];
-    const area = this.add.ellipse(at.x, at.y, ALTAR_RADIUS * 2, ALTAR_RADIUS * 1.5, color, 0.08).setStrokeStyle(2, color, 0.8).setDepth(-9900);
+    // 1.93 (author: more eye-catching): rune circle, column of light, sparks, orbs and a progress ring (fxAltar.ts)
+    this.altarLook = altarFx(this, at.x, at.y, color, this.cfg.settings.particles !== 'completo');
     // the reception robot of the match chains, front on with its coloured panel (second row of its sheet)
     const rid = this.cfg.manifest.eventRobot;
     let pillar: Phaser.GameObjects.Image | Phaser.GameObjects.Sprite;
@@ -2740,13 +2744,12 @@ export class ArenaScene extends Phaser.Scene {
       if (!this.anims.exists('event-robot')) this.anims.create({ key: 'event-robot', frames: this.anims.generateFrameNumbers(`unit:${rid}`, { start: 16, end: 19 }), frameRate: 6, repeat: -1 });
       pillar = this.add.sprite(at.x, at.y + 8, `unit:${rid}`, 16).setOrigin(0.5, 1).setScale(1.9).setDepth(at.y + 8).play('event-robot');
     } else pillar = this.add.image(at.x, at.y + 8, 'fx:altar').setOrigin(0.5, 1).setTint(color).setDepth(at.y + 8);
-    const beam = this.add.rectangle(at.x, at.y - 110, 22, 220, color, 0.16).setDepth(at.y + 7);
-    this.tweens.add({ targets: beam, alpha: 0.5, scaleX: 1.35, duration: 800, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
-    this.tweens.add({ targets: area, scaleX: 1.04, scaleY: 1.04, duration: 900, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
-    this.altarGfx = [area, pillar, beam];
+    this.altarGfx = [pillar, ...this.altarLook.objs];
     // named marker floating over the event
-    const tag = this.add.text(at.x, at.y - 56, `${ALTAR_ICON[type]} ${ALTAR_LABEL[type]}`, { fontFamily: '"Press Start 2P"', fontSize: '8px', color: '#ffffff', stroke: '#000', strokeThickness: 4, align: 'center' }).setOrigin(0.5).setDepth(9500);
-    this.tweens.add({ targets: tag, y: at.y - 60, duration: 700, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+    const tag = this.add.text(at.x, at.y - 96, `${ALTAR_ICON[type]} ${ALTAR_LABEL[type]}`, { fontFamily: '"Press Start 2P"', fontSize: '9px', color: '#ffffff', stroke: '#000', strokeThickness: 5, align: 'center',
+      backgroundColor: '#050c22aa', padding: { x: 6, y: 4 } }).setOrigin(0.5).setDepth(9500).setScale(0);
+    this.tweens.add({ targets: tag, scale: 1, duration: 420, delay: 250, ease: 'Back.easeOut' });
+    this.tweens.add({ targets: tag, y: at.y - 102, duration: 700, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
     this.altarGfx.push(tag);
     this.altarTag = tag;
     this.banner(ALTAR_LABEL[type], '#ffffff');
@@ -2770,6 +2773,7 @@ export class ArenaScene extends Phaser.Scene {
   }
 
   private clearAltar() {
+    this.altarLook?.destroy(); this.altarLook = null;
     for (const g of this.altarGfx) { this.tweens.killTweensOf(g); g.destroy(); }
     this.altarGfx = [];
     this.altarTag = null;
@@ -2797,8 +2801,10 @@ export class ArenaScene extends Phaser.Scene {
     // defending a zone only counts while few rivals are inside it
     const crowded = a.type === 'defensa' && this.enemies.filter((e) => Math.hypot(e.pos.x - a.x, (e.pos.y - a.y) * 1.3) < ALTAR_RADIUS).length >= 4;
     const state = stepAltar(a, dt / 1000, a.state === 'idle' ? this.altarAccepted : inside && !crowded, this.altarKills);
+    this.altarLook?.update(a.state, a.progress / Math.max(1e-6, a.goal), inside);
     this.altarKills = 0;
     if (was === 'idle' && state === 'active') {
+      this.altarLook?.activate();
       this.fx.ring(a.x, a.y, ALTAR_RADIUS, ALTAR_COLOR[a.type], 500, 3);
       sfx('whoosh');
       this.banner(ALTAR_TASK[a.type], '#ffe24a');
