@@ -97,6 +97,8 @@ export interface MapInfo {
   /** v1.7: one line for the map path */
   blurb?: string;
   durationSec: number;
+  /** 1.93: only for the Juegos del Clan (app keeps it out of the arena path) */
+  clanOnly?: boolean;
   provisional?: string;
   ambience: string;
   enemies: number[];

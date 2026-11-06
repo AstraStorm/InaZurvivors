@@ -9,8 +9,9 @@ import { exportSave, importSave, newSave } from '../src/systems/save';
 
 describe('banners', () => {
   it('fifteen: 3 shop (común, raro, épico), 2 achievements (legendario, leyenda), 10 event with one Mítico only there', () => {
-    expect(PENNANTS).toHaveLength(15);
-    expect(new Set(PENNANTS.map((p) => p.id)).size).toBe(15);
+    expect(PENNANTS).toHaveLength(17); // 1.93: + 2 from the clan shop
+    expect(new Set(PENNANTS.map((p) => p.id)).size).toBe(17);
+    expect(PENNANTS.filter((p) => p.source === 'clan').map((p) => p.id)).toEqual(['clan-estandarte', 'clan-cerezo']);
     expect(PENNANTS.filter((p) => p.source === 'tienda').map((p) => p.rarity)).toEqual(['comun', 'raro', 'epico']);
     expect(PENNANTS.filter((p) => p.source === 'logro').map((p) => p.rarity)).toEqual(['legendario', 'leyenda']);
     expect(EVENT_POOL).toHaveLength(20); // ten banners + ten frames
@@ -65,7 +66,8 @@ describe('banners', () => {
     expect(pullEvent({ ...s, coins: 1500 }, 1, mid, () => 0.48)![0].def.id).toBe('supernova');
   });
   it('frames: fifteen like the banners, worn apart from the banner, each Mítico at 3%', () => {
-    expect(FRAMES).toHaveLength(15);
+    expect(FRAMES).toHaveLength(17);
+    expect(FRAMES.filter((p) => p.source === 'clan').map((p) => p.id)).toEqual(['marco-clan', 'marco-cerezo']);
     expect(FRAMES.every((f) => f.kind === 'marco')).toBe(true);
     expect(FRAMES.filter((p) => p.source === 'tienda').map((p) => p.rarity)).toEqual(['comun', 'raro', 'epico']);
     const odds = eventOdds();

@@ -638,3 +638,131 @@ describe('tier lists (1.9)', () => {
     expect((await api('tina', 'select * from public.my_tierlist()')).rows).toEqual([]);
   });
 });
+
+describe('clans (1.93)', () => {
+  const u = async (name: string, id: string) => {
+    await db.query('insert into auth.users (id) values ($1) on conflict do nothing', [(ids[name] = id)]);
+    await api(name, `select public.reserve_username($1)`, [name.toUpperCase() + '_C']);
+  };
+  const people = ['cira', 'cleo', 'coco', 'cris', 'cuca', 'cata', 'celia', 'ciro', 'cami', 'cora'];
+  beforeAll(async () => { for (const [i, n] of people.entries()) await u(n, `00000000-0000-0000-0000-0000000000a${i}`); });
+  const mine = (n: string) => api(n, 'select public.my_clan() as c').then((r) => (r.rows[0] as { c: Record<string, unknown> | null }).c);
+  const run = (n: string, id: string, kills = 100, victory = true) => api(n, `select public.clan_submit_run($1, $2, 300, 250000, 'S', $3) as r`, [id, kills, victory]).then((r) => (r.rows[0] as { r: { points: number; left: number } }).r);
+
+  it('names: format, banned words (anywhere or as a whole word), taken', async () => {
+    for (const bad of ['ab', 'x'.repeat(21), '!!!', '123', 'Los Hijoputas', 'P0LL4', 'Mi culo FC', 'Admin']) {
+      await expect(api('cira', `select public.clan_create($1)`, [bad])).rejects.toThrow(/invalid_clan_name|banned_clan_name/);
+    }
+    expect(((await api('cira', `select public.clan_create('Círculo Disputa', 'Raimon', 'Raimon') as id`)).rows[0] as { id: number }).id).toBeGreaterThan(0);
+    await expect(api('cleo', `select public.clan_create('círculo disputa')`)).rejects.toThrow(/clan_name_taken/);
+    await expect(api('cira', `select public.clan_create('Otro Clan')`)).rejects.toThrow(/already_in_clan/);
+    const c = await mine('cira');
+    expect(c).toMatchObject({ name: 'Círculo Disputa', crest: 'Raimon', kit: 'Raimon', members: 1, me: 'lider', runsToday: 0 });
+    await expect(api('', `select public.clan_create('Sin Sesion')`)).rejects.toThrow(/permission denied/);
+    await expect(api('cira', 'select * from public.clans')).rejects.toThrow();
+  });
+
+  it('requests: by request until a leader or officer accepts; open clans take you at once; 20 at most', async () => {
+    const id = ((await api('cleo', `select id from public.clan_search('círculo')`)).rows[0] as { id: number }).id;
+    expect((await api('cleo', 'select public.clan_request($1) as r', [id])).rows[0]).toEqual({ r: 'requested' });
+    expect((await api('coco', 'select public.clan_request($1) as r', [id])).rows[0]).toEqual({ r: 'requested' });
+    expect((await api('cleo', 'select name from public.my_clan_requests()')).rows).toEqual([{ name: 'Círculo Disputa' }]);
+    expect(await mine('cleo')).toBeNull();
+    await expect(api('cleo', 'select * from public.clan_requests()')).rejects.toThrow(/not_leader/);
+    expect((await mine('cira'))?.requests).toBe(2);
+    expect((await api('cira', 'select username from public.clan_requests() order by username')).rows).toEqual([{ username: 'CLEO_C' }, { username: 'COCO_C' }]);
+    await api('cira', `select public.clan_answer('CLEO_C', true)`);
+    await api('cira', `select public.clan_answer('COCO_C', false)`);
+    expect(await mine('cleo')).toMatchObject({ members: 2, me: 'miembro' });
+    expect(await mine('coco')).toBeNull();
+    expect((await api('coco', 'select * from public.my_clan_requests()')).rows).toEqual([]);
+    // open: straight in
+    await api('cira', `select public.clan_update(null, null, null, 'abierto')`);
+    expect((await api('coco', 'select public.clan_request($1) as r', [id])).rows[0]).toEqual({ r: 'joined' });
+    expect((await mine('coco'))?.members).toBe(3);
+    await db.query('update public.clans set members = 20 where id = $1', [id]);
+    await expect(api('cris', 'select public.clan_request($1)', [id])).rejects.toThrow(/clan_full/);
+    await db.query('update public.clans set members = 3 where id = $1', [id]);
+    await api('cira', `select public.clan_update(null, null, null, 'solicitud')`);
+  });
+
+  it('roles: the leader edits, names officers, hands over; officers answer requests and expel plain members only', async () => {
+    await expect(api('cleo', `select public.clan_update('Nuevo Nombre')`)).rejects.toThrow(/not_leader/);
+    await api('cira', `select public.clan_update('Rayos Del Sur', null, 'Royal_Academy')`);
+    expect(await mine('coco')).toMatchObject({ name: 'Rayos Del Sur', kit: 'Royal_Academy', mode: 'solicitud' });
+    await expect(api('cleo', `select public.clan_kick('COCO_C')`)).rejects.toThrow(/not_leader/);
+    await api('cira', `select public.clan_set_role('CLEO_C', 'oficial')`);
+    expect(((await mine('cira'))?.roster as { username: string; role: string }[]).map((m) => m.role)).toEqual(['lider', 'oficial', 'miembro']);
+    await expect(api('cleo', `select public.clan_kick('CIRA_C')`)).rejects.toThrow(/not_leader/);
+    await expect(api('cleo', `select public.clan_set_role('COCO_C', 'oficial')`)).rejects.toThrow(/not_leader/);
+    expect((await api('cleo', `select public.clan_kick('COCO_C') as k`)).rows[0]).toEqual({ k: true });
+    expect(await mine('coco')).toBeNull();
+    // hand over and back
+    await api('cira', `select public.clan_set_role('CLEO_C', 'lider')`);
+    expect(await mine('cira')).toMatchObject({ me: 'oficial' });
+    expect(await mine('cleo')).toMatchObject({ me: 'lider' });
+    await api('cleo', `select public.clan_set_role('CIRA_C', 'lider')`);
+    expect(await mine('cira')).toMatchObject({ me: 'lider' });
+    // a second clan to leave and dissolve: the leader's heir is the officer
+    await api('cris', `select public.clan_create('Los Breves')`);
+    await api('cris', `select public.clan_update(null, null, null, 'abierto')`);
+    const b = ((await api('cuca', `select id from public.clan_search('Los Breves')`)).rows[0] as { id: number }).id;
+    await api('cuca', 'select public.clan_request($1)', [b]);
+    await api('cris', 'select public.clan_leave()');
+    expect(await mine('cuca')).toMatchObject({ me: 'lider', members: 1 });
+    await api('cuca', 'select public.clan_leave()');
+    expect((await db.query(`select count(*)::int as n from public.clans where name = 'Los Breves'`)).rows[0]).toEqual({ n: 0 });
+    await expect(api('cira', 'select * from public.clan_requests r join public.clans c on true')).rejects.toThrow();
+  });
+
+  it('clan games: 3 matches a day per player, points add up, duplicates refused', async () => {
+    const a = await run('cira', 'r1');
+    expect(a.points).toBeGreaterThan(0);
+    expect(a.left).toBe(2);
+    await expect(run('cira', 'r1')).rejects.toThrow(/duplicate/);
+    await run('cira', 'r2'); await run('cira', 'r3');
+    await expect(run('cira', 'r4')).rejects.toThrow(/clan_daily_limit/);
+    await run('cleo', 'c1', 50, false);
+    const c = await mine('cira');
+    expect(c?.runsToday).toBe(3);
+    expect(Number(c?.weekPoints)).toBe(a.points * 3 + (await db.query(`select points from public.clan_runs where run_id = 'c1'`)).rows.map((r) => (r as { points: number }).points)[0]);
+    expect(c?.pos).toBe(1);
+    await expect(run('coco', 'x1')).rejects.toThrow(/not_in_clan/);
+    // the ranking is public
+    expect(((await api('', 'select name from public.clan_ranking()')).rows[0] as { name: string }).name).toBe('Rayos Del Sur');
+  });
+
+  it('missions: done ones pay once, only to those who played', async () => {
+    await expect(api('cleo', `select public.clan_claim_mission('partidas')`)).rejects.toThrow(/mission_not_done/);
+    await db.query(`update public.clan_runs set kills = 8000 where run_id in ('r1', 'r2')`);
+    const got = (await api('cira', `select public.clan_claim_mission('rivales') as r`)).rows[0] as { r: { coins: number; tokens: number } };
+    expect(got.r).toEqual({ coins: 10000, tokens: 50 });
+    await expect(api('cira', `select public.clan_claim_mission('rivales')`)).rejects.toThrow(/already_claimed/);
+    await api('cata', `select public.clan_request(id) from public.clan_search('Rayos Del')`);
+    await api('cira', `select public.clan_answer('CATA_C', true)`);
+    await expect(api('cata', `select public.clan_claim_mission('rivales')`)).rejects.toThrow(/play_first/);
+  });
+
+  it('weekly prizes: the closed week ranks the clans, each player takes his tier once; the economy cap counts it', async () => {
+    // a rival clan with more points, both weeks moved to last week
+    await api('celia', `select public.clan_create('Tormenta Azul')`);
+    await api('celia', `select public.clan_submit_run('t1', 4000, 900, 20000000, 'X', true)`);
+    await db.query(`update public.clan_runs set week = week - 7, day = day - 7`);
+    const p = (await api('cleo', 'select week, clan, pos, tier, coins, tokens from public.clan_claim_prizes()')).rows as { clan: string; pos: number; tier: string; coins: number; tokens: number }[];
+    expect(p).toEqual([expect.objectContaining({ clan: 'Rayos Del Sur', pos: 2, tier: 'top3', coins: 50000, tokens: 300 })]);
+    expect((await api('cleo', 'select * from public.clan_claim_prizes()')).rows).toEqual([]);
+    expect((await api('celia', 'select tier from public.clan_claim_prizes()')).rows).toEqual([{ tier: 'top1' }]);
+    expect((await api('cata', 'select * from public.clan_claim_prizes()')).rows).toEqual([]); // did not play
+    expect(((await api('', 'select name, tier from public.clan_last_week()')).rows)).toEqual([{ name: 'Tormenta Azul', tier: 'top1' }, { name: 'Rayos Del Sur', tier: 'top3' }]);
+    const cap = (await db.query(`select private.economy_cap('{"coins": 1000000, "tokens": 100000}'::jsonb, '{"coins": 0, "tokens": 0}'::jsonb, now() - interval '1 hour', $1) as c`, [ids.celia])).rows[0] as { c: { coins: number; tokens: number } };
+    expect(cap.c).toEqual({ coins: 132000, tokens: 3500 }); // 16.000 + 16.000/h and 2.000 + 1.000/h, plus the TOP 1 prize
+  });
+
+  it('the admin renames or dissolves a clan', async () => {
+    await expect(api('cira', `select public.admin_clan('Rayos Del Sur', 'Hackeado')`)).rejects.toThrow(/forbidden/);
+    await api('carla', `select public.admin_clan('Rayos Del Sur', 'Clan Renombrado')`);
+    expect(await mine('cira')).toMatchObject({ name: 'Clan Renombrado' });
+    await api('carla', `select public.admin_clan('Clan Renombrado', null, true)`);
+    expect(await mine('cira')).toBeNull();
+  });
+});

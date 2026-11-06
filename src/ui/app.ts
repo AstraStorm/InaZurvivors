@@ -1,7 +1,7 @@
 /** HTML/CSS front-end: onboarding, main menu, captain/map select, collection, gacha (IE3 capsule machine), upgrades,
  *  options, profile, HUD, level-up, pause and results. */
 import type Phaser from 'phaser';
-import type { Manifest, Rarity, RosterEntry, Technique } from '../data/manifest';
+import type { Manifest, MapInfo, Rarity, RosterEntry, Technique } from '../data/manifest';
 import { ICON, RARITY_LABEL, RARITY_ORDER } from '../data/manifest';
 import { uiIcon, type UiIconName } from './uiIcons';
 import { deathCause } from '../systems/deathCause';
@@ -56,6 +56,8 @@ import { adminSuggestions, adminUpdateSuggestion, claimBugNotices, claimBugRewar
 import { THANKS_EVENT, addThanksTokens, thanksActive, thanksLeftMs, thanksTokens } from '../systems/thanksEvent';
 import { gtsDeposit, gtsFeed, gtsMine, gtsSearch, gtsTake, gtsWithdraw, type GtsOffer } from '../online/client';
 import { submitTierlist, tierlistFeed, type TierlistRow } from '../online/client';
+import { clanAnswer, clanCancelRequest, clanClaimMission, clanClaimPrizes, clanCreate, clanKick, clanLastWeek, clanLeave, clanRanking, clanRequest, clanRequests, clanSearch, clanSetRole, clanSubmitRun, clanUpdate, myClan, myClanRequests, type ClanMember, type ClanMission, type ClanPrize, type ClanRole, type MyClan } from '../online/client';
+import { addBag, boughtThisWeek, canPay, CLAN_COST, CLAN_ERRORS, CLAN_ITEMS, CLAN_MAX, CLAN_MISSION_TEXT, CLAN_PRIZES, CLAN_REWARD_MULT, CLAN_ROLE_LABEL, CLAN_RUNS_PER_DAY, clanDrops, clanError, clanNameProblem, clanPlayer, clanShop, clanWeekKey, clanWeekLeftMs, payBag, recordBuy, tierOfPos, type ClanBag, type ClanOffer, type ClanTier } from '../systems/clans';
 import { cleanTiers, placeIn, tierCount, topicLabel, TIER_COLOR, TIER_MAX, TIER_MIN, TIER_TOPICS, TIERS, type Tier, type Tiers } from '../systems/tierlist';
 import { CoopLink, type CoopMsg } from '../online/coop';
 import { coopInvite, coopInvitesClaim, friendHeartbeat, friendList, friendRemove, friendRequest, friendRespond, type FriendRow } from '../online/client';
@@ -74,7 +76,7 @@ import { bindStick, initGamepad } from './gamepad';
 import { confetti, countUp, flyTo } from './rewardFx';
 import { frameSvg, pennantEmblem, pennantRibbon, pennantSvg } from './pennantArt';
 import { FRAMES, isFrame, PENNANTS, PENNANT_BY_ID, PENNANT_EVENT, type PennantDef } from '../data/pennants';
-import { buyPennant, equipFrame, equippedFrame, equipPennant, equippedPennant, eventActive, eventLeftMs, eventOdds, grantAchievementPennants, hasPennant, pullEvent, visiblePennant, type PennantPull } from '../systems/pennants';
+import { buyPennant, equipFrame, equippedFrame, equipPennant, equippedPennant, eventActive, eventLeftMs, eventOdds, givePennant, grantAchievementPennants, hasPennant, pullEvent, visiblePennant, type PennantPull } from '../systems/pennants';
 import { MASTERY_BONUS, MASTERY_USES, masteryLevel, recordMastery } from '../systems/mastery';
 import { MAX_TEAM, canStartWith, startingTech, type Card } from '../systems/cards';
 import { clearSquad, renameSquad, savedSquads, setSquad, SQUAD_SIZE, fillSquad, makeCaptain, placeInSquad, removeFromSquad, squadOf, switchSquad, syncActiveSquad } from '../systems/squad';
@@ -201,6 +203,9 @@ export class App {
   constructor(private game: Phaser.Game, private m: Manifest, private save: SaveData,
     private mugFrames: Frames, private iconFrames: Frames) {
     this.byId = new Map(m.roster.map((p) => [p.id, p]));
+    // 1.93: the clan arena is only for the Juegos del Clan: out of the arena path, the training field and the lists
+    this.clanMap = m.maps.find((x) => x.clanOnly) ?? null;
+    m.maps = m.maps.filter((x) => !x.clanOnly);
     for (const f of Object.values(mugFrames)) { const s = f.sheet ?? 0; this.mugW[s] = Math.max(this.mugW[s] ?? 0, f.frame.x + f.frame.w); }
     this.iconW = Math.max(...Object.values(iconFrames).map((f) => f.frame.x + f.frame.w));
     this.captainId = save.captainId;
@@ -1058,6 +1063,7 @@ export class App {
       <header class="m4-top">
         <button class="m4-profile" data-go="profile">${this.profileIcon(46)}${this.save.crest && this.emblemOf(this.save.crest) ? `<img class="m4-crest" src="${this.emblemOf(this.save.crest)}" alt="">` : ''}
           <span><b>${esc(this.save.profile.name)}</b><small>${owned.length}/${this.m.roster.length} futbolistas · ${this.save.stats.wins} victorias</small></span></button>
+        <button class="m4-clanchip" id="m4clan" data-go="clan">${this.clanChipHtml()}</button>
         <span class="spacer"></span>
         <div class="m4-wallet"><span class="tokens" title="Fichas de Fichaje">${this.save.tokens}</span><span class="coins" title="Monedas">${this.save.coins}</span></div>
         <nav class="m4-tools">${this.tiktokLink()}
@@ -1083,7 +1089,7 @@ export class App {
           ${group('g-sign', 'capsule', 'FICHAJES', tile('gacha', 'capsule', 'FICHAJES', `${this.save.tokens} fichas`, 0, true) + (thanksActive(serverNow()) ? tile('thanksev', 'gift', 'AGRADECIMIENTO', `${this.save.eventTokens ?? 0} fichas de evento`, 0, true) : '') + (eventActive(serverNow()) ? tile('pnevent', 'gift', 'EVENTO', 'Banners de leyenda', 0, true) : '') + tile('daily', 'shop', 'TIENDA', 'Ofertas del día') + tile('gts', 'gts', 'GTS', 'Intercambios online') + tile('codes', 'gift', 'CÓDIGOS', 'Canjea regalos'))}
           ${group('g-comp', 'crown', 'COMPETICIÓN', tile('missions', 'missions', 'MISIONES', pending ? '¡Por recoger!' : 'Recompensas', pending, !!pending)
             + tile('pass', 'ticket', 'PASE', pass.available ? '¡Recompensa lista!' : 'Vuelve mañana', pass.available ? 1 : 0, pass.available) + tile('ranking', 'crown', 'RANKING', onlineConfigured() ? 'Global' : 'Tus marcas')
-            + tile('road', 'trophy', 'ROAD TO FF', this.save.road?.active ? `Partido ${this.save.road.active.level + 1} en juego` : 'Nuevo modo', 0, true) + tile('tierlist', 'cards', 'TIERLISTS', 'Crea y comparte', 0, true) + tile('coop', 'team', 'COOP', 'pre-2.0 · en pruebas', 0, true) + tile('friends', 'gift', 'AMIGOS', 'Invita al coop'))}
+            + tile('road', 'trophy', 'ROAD TO FF', this.save.road?.active ? `Partido ${this.save.road.active.level + 1} en juego` : 'Nuevo modo', 0, true) + tile('clan', 'team', 'CLANES', this.save.clanSeen ? esc(this.save.clanSeen.name) : 'Juegos del Clan', 0, true) + tile('tierlist', 'cards', 'TIERLISTS', 'Crea y comparte', 0, true) + tile('coop', 'team', 'COOP', 'pre-2.0 · en pruebas', 0, true) + tile('friends', 'gift', 'AMIGOS', 'Invita al coop'))}
         </section>
         ${feat ? `<section class="m4-hero" data-go="squad" style="--rc:${RARITY_COLOR[featR]}"><div class="m4-aura"></div><div class="m4-ring"></div>
           <div class="m4-hero-art">${this.mug(feat.id, 256)}<span class="m4-hero-sprite">${charCanvas(feat.id, 3, 12)}</span></div>
@@ -1134,6 +1140,7 @@ export class App {
       if (go === 'coaches') this.coachesScreen(); // pre-2.0
       if (go === 'road') this.roadScreen();
       if (go === 'tierlist') this.tierlistScreen(); // 1.9
+      if (go === 'clan') void this.clanScreen(); // 1.93
       if (go === 'pnevent') this.pennantEvent(); // v1.65
       if (go === 'thanksev') { this.gachaBanner = 'evento'; this.gacha(); } // 1.75
       if (go === 'collection') this.collection();
@@ -1172,6 +1179,7 @@ export class App {
     if (onlineConfigured()) void this.fillMenuGts(); // 1.8
     if (onlineConfigured()) { this.tierFeedCache = null; void this.fillTierFeed('menutier', 1, 24); } // 1.9
     this.wirePromo(promo); // 1.9
+    void this.fillMenuClan(); // 1.93: the clan chip and the weekly clan prizes
     void this.claimBugBounty(); // 1.85: rewards for fixed bug reports
     this.notiBar(); // 1.88
     if (onlineConfigured() && signedIn()) void this.gtsSync().catch(() => undefined); // 1.8: a trade that happened while away arrives here
@@ -1203,6 +1211,8 @@ export class App {
     if (eventActive(now)) slides.push({ kicker: 'EVENTO', title: 'Banners de leyenda', text: 'Banners y marcos de perfil por tiempo limitado.', cta: 'Ver el evento', color: '#ffd84a', tag: 'EVENTO', art: `<span class="m5-big">${uiIcon('gift')}</span>`, act: () => this.pennantEvent() });
     if (this.byId.has(JADEN_ID)) slides.push({ kicker: 'MODO DESAFÍO', title: 'Road to Fútbol Frontier', text: 'Gana en Máxima y llévate a Jaden Evans.', cta: 'Jugar el camino', color: '#ff8a2a', tag: 'EXCLUSIVO',
       art: art([JADEN_ID], 160), act: () => this.roadScreen() });
+    slides.push({ kicker: 'NUEVO · CLANES', title: 'Juegos del Clan', text: this.save.clanSeen ? `${this.save.clanSeen.name}: 3 partidas al día en la Colina de los Cerezos. Premios cada lunes.` : 'Funda o únete a un clan, jugad 3 partidas al día cada uno y ganad premios cada semana.',
+      cta: this.save.clanSeen ? 'Jugar por el clan' : 'Ver los clanes', color: '#3fd07a', tag: 'NUEVO', art: `<span class="m5-big">${uiIcon('team')}</span>`, act: () => void this.clanScreen(this.save.clanSeen ? 'juegos' : undefined) });
     slides.push({ kicker: 'NUEVO · COMUNIDAD', title: 'Crea tu tierlist', text: 'Ordena a tus futbolistas favoritos de S a D y publícala: todo el mundo la verá en el menú.', cta: 'Crear la mía', color: '#ff4f6a', tag: 'NUEVO',
       art: `<span class="m5-tiers">${TIERS.map((k) => `<i style="--tc:${TIER_COLOR[k]}">${k}</i>`).join('')}</span>`, act: () => { this.tierTab = 'crear'; this.tierlistScreen(); } });
     if (news) slides.push({ kicker: `NOTICIAS · ${VERSION_LABEL}`, title: news.title, text: news.summary, cta: 'Leer más', color: '#4fb3ff', tag: this.save.devlogSeen !== NEWS_KEY ? 'NUEVO' : undefined,
@@ -1242,6 +1252,360 @@ export class App {
     this.on('[data-pdot]', 'click', (e, el) => { e.stopPropagation(); go(Number(el.dataset.pdot)); restart(); }, box);
     this.on('[data-pmove]', 'click', (e, el) => { e.stopPropagation(); go(this.promoIndex + Number(el.dataset.pmove)); restart(); sfx('click'); }, box);
     this.on('[data-promo]', 'click', (_e, el) => { if (swiped) { swiped = false; return; } window.clearInterval(this.promoTimer); sfx('click'); slides[Number(el.dataset.promo)].act(); }, box);
+  }
+
+  // ---- 1.93 (author): clans — create or join (by request or open), the clan's screen and its management, the
+  // Juegos del Clan (3 a day on the clan arena, in the clan's kit), weekly prizes and missions, the clan shop
+  private clanMap: MapInfo | null = null;
+  private clanMatch = false;
+  private clanData: MyClan | null | undefined;
+  private clanTab: 'clan' | 'juegos' | 'ranking' | 'tienda' | 'admin' = 'clan';
+  private clanQuery = '';
+
+  private clanCrest(crest: string, size = 40) {
+    const src = crest ? this.emblemOf(crest) : '';
+    return `<span class="cl-crest" style="width:${size}px;height:${size}px">${src ? `<img src="${src}" alt="">` : uiIcon('team')}</span>`;
+  }
+  private clanTag(role: ClanRole) { return `<em class="cl-tag r-${role}">${CLAN_ROLE_LABEL[role]}</em>`; }
+  private clanBagHtml(bag: ClanBag, empty = '') {
+    const parts = CLAN_ITEMS.filter((it) => (bag[it.id] ?? 0) > 0).map((it) => `<span class="cl-item r-${it.rarity}" title="${esc(it.name)}">${this.icon(it.icon, 1.5)}<b>${bag[it.id]}</b></span>`);
+    return parts.join('') || empty;
+  }
+  private clanChipHtml() {
+    const c = this.save.clanSeen;
+    return c ? `${this.clanCrest(c.crest, 26)}<span><small>MI CLAN</small><b>${esc(c.name)}</b><em>${c.pos ? `#${c.pos} · ` : ''}${c.points.toLocaleString('es')} pts</em></span>`
+      : `<span class="cl-crest" style="width:26px;height:26px">${uiIcon('team')}</span><span><small>CLANES</small><b>Únete a un clan</b><em>Juegos del Clan</em></span>`;
+  }
+  private clanCrestChoices() { return [...new Set(this.m.mainTeams ?? [])].filter((t) => this.emblemOf(t)); }
+  private clanKitChoices() { return ['', ...Object.keys(this.m.kits ?? {})]; }
+
+  /** the clan screen: loads the player's clan from the server first */
+  async clanScreen(tab?: App['clanTab']) {
+    if (tab) this.clanTab = tab;
+    setMusicContext('menu');
+    if (!onlineConfigured() || !signedIn()) {
+      this.show(`<div class="screen clan-screen">${this.titlebar('Clanes', 'Menú')}<div class="panel cl-intro"><h3>${uiIcon('team')}Clanes</h3>
+        <p>Crea un clan o únete a uno, jugad los <b>Juegos del Clan</b> en la Colina de los Cerezos y competid cada semana por premios: fichas para varios ×10, monedas y futbolistas Míticos, Legendarios y Épicos.</p>
+        <p class="note">Para entrar en un clan conéctate con tu cuenta y reserva tu nombre en Perfil.</p><button class="btn big" id="clprof">Ir a Perfil</button></div></div>`);
+      this.on('[data-back]', 'click', () => this.mainMenu());
+      document.getElementById('clprof')!.addEventListener('click', () => this.profile());
+      return;
+    }
+    if (this.clanData === undefined) this.show(`<div class="screen clan-screen">${this.titlebar('Clanes', 'Menú')}<div class="panel"><div class="note">Cargando tu clan…</div></div></div>`);
+    try { this.clanData = await myClan(); } catch { if (this.clanData === undefined) { this.toast('Los clanes no responden ahora'); this.mainMenu(); return; } }
+    this.rememberClan();
+    if (this.clanData) this.clanHome(); else void this.clanJoinScreen();
+  }
+  private rememberClan() {
+    const c = this.clanData;
+    this.save.clanSeen = c ? { name: c.name, crest: c.crest, pos: c.pos ?? null, points: Number(c.weekPoints) || 0 } : null;
+    this.persist();
+  }
+
+  /** no clan yet: found one (15.000 coins) or look for one and ask to join */
+  private async clanJoinScreen() {
+    const crests = this.clanCrestChoices(), kits = this.clanKitChoices();
+    const sample = this.unlockedRoster()[0];
+    this.show(`<div class="screen clan-screen">${this.titlebar('Clanes', 'Menú')}
+      <div class="cl-grid">
+        <div class="panel cl-create"><h3>${uiIcon('crown')}Fundar un clan <small>${CLAN_COST.toLocaleString('es')} ◉</small></h3>
+          <label class="cl-field">Nombre<input id="clname" maxlength="20" placeholder="De 3 a 20 caracteres"></label><small class="cl-err" id="clnameerr"></small>
+          <div class="cl-field">Escudo<div class="cl-crests" id="clcrests">${crests.map((t, i) => `<button class="iconpick${i === 0 ? ' on' : ''}" data-ccrest="${esc(t)}" title="${esc(teamLabel(t))}"><img src="${this.emblemOf(t)}" alt=""></button>`).join('')}</div></div>
+          <label class="cl-field">Equipación<select id="clkit">${kits.map((k) => `<option value="${esc(k)}">${esc(k ? teamLabel(k) : 'Raimon')}</option>`).join('')}</select></label>
+          <div class="cl-kitprev" id="clkitprev">${sample ? charCanvas(sample.id, 3, 12, '', '') : ''}</div>
+          <button class="btn big" id="clcreate" ${this.save.coins >= CLAN_COST ? '' : 'disabled'}>${this.save.coins >= CLAN_COST ? `Fundar por ${CLAN_COST.toLocaleString('es')} ◉` : `Necesitas ${CLAN_COST.toLocaleString('es')} ◉`}</button>
+          <p class="note">Tus compañeros jugarán los Juegos del Clan con esta equipación. El nombre pasa un filtro de palabras prohibidas.</p></div>
+        <div class="panel cl-find"><h3>${uiIcon('target')}Buscar clan</h3>
+          <div class="filters"><input id="clq" placeholder="Nombre del clan" value="${esc(this.clanQuery)}"><button class="btn small blue" id="clqgo">Buscar</button></div>
+          <div id="clmyreq"></div><div class="cl-list" id="cllist"><div class="note">Cargando…</div></div></div>
+      </div></div>`);
+    mountPreviews();
+    this.on('[data-back]', 'click', () => this.mainMenu());
+    let crest = crests[0] ?? '';
+    this.on('[data-ccrest]', 'click', (_e, el) => { crest = el.dataset.ccrest!; document.querySelectorAll('[data-ccrest]').forEach((b) => b.classList.toggle('on', b === el)); sfx('click'); });
+    const kitSel = document.getElementById('clkit') as HTMLSelectElement;
+    kitSel.addEventListener('change', () => { if (sample) { document.getElementById('clkitprev')!.innerHTML = charCanvas(sample.id, 3, 12, '', kitSel.value); mountPreviews(); } });
+    const nameIn = document.getElementById('clname') as HTMLInputElement;
+    nameIn.addEventListener('input', () => { document.getElementById('clnameerr')!.textContent = nameIn.value ? clanNameProblem(nameIn.value) ?? '' : ''; });
+    document.getElementById('clcreate')!.addEventListener('click', async (e) => {
+      const b = e.currentTarget as HTMLButtonElement;
+      const bad = clanNameProblem(nameIn.value);
+      if (bad) { document.getElementById('clnameerr')!.textContent = bad; return; }
+      if (this.save.coins < CLAN_COST) return;
+      b.disabled = true;
+      try {
+        await clanCreate(nameIn.value.trim().replace(/\s+/g, ' '), crest, kitSel.value);
+        this.save.coins -= CLAN_COST; this.persist();
+        sfx('legend'); if (this.save.settings.particles !== 'desactivado') confetti(80);
+        this.toast(`¡Clan ${nameIn.value.trim()} fundado!`);
+        this.clanTab = 'clan'; void this.clanScreen();
+      } catch (err) { document.getElementById('clnameerr')!.textContent = clanError(String((err as Error)?.message ?? err)); b.disabled = false; }
+    });
+    const search = async () => {
+      const box = document.getElementById('cllist');
+      if (!box) return;
+      try {
+        const [rows, mine] = await Promise.all([clanSearch(this.clanQuery), myClanRequests().catch(() => [])]);
+        if (!document.body.contains(box)) return;
+        const asked = new Set(mine.map((r) => r.id));
+        document.getElementById('clmyreq')!.innerHTML = mine.length ? `<div class="cl-myreq"><small>TUS SOLICITUDES</small>${mine.map((r) => `<span>${this.clanCrest(r.crest, 20)}${esc(r.name)}<button class="btn small blue" data-clcancel="${r.id}">Cancelar</button></span>`).join('')}</div>` : '';
+        box.innerHTML = rows.map((c) => `<div class="cl-row">${this.clanCrest(c.crest, 36)}<span class="cl-row-tx"><b>${esc(c.name)}</b><small>${c.members}/${CLAN_MAX} miembros · ${Number(c.week_points ?? 0).toLocaleString('es')} pts esta semana · ${c.mode === 'abierto' ? 'Abierto' : 'Con solicitud'}</small></span>
+          ${asked.has(c.id) ? '<em class="cl-pend">Solicitud enviada</em>' : c.members >= CLAN_MAX ? '<em class="cl-pend">Lleno</em>' : `<button class="btn small" data-cljoin="${c.id}">${c.mode === 'abierto' ? 'Unirse' : 'Solicitar'}</button>`}</div>`).join('')
+          || '<div class="note">No hay clanes con ese nombre. ¡Funda el tuyo!</div>';
+        this.on('[data-cljoin]', 'click', async (_e, el) => {
+          (el as HTMLButtonElement).disabled = true;
+          try {
+            const r = await clanRequest(Number(el.dataset.cljoin));
+            if (r === 'joined') { sfx('evolve'); this.toast('¡Ya eres del clan!'); void this.clanScreen('clan'); }
+            else { sfx('click'); this.toast('Solicitud enviada: el líder o un oficial la aceptará'); void search(); }
+          } catch (err) { this.toast(clanError(String((err as Error)?.message ?? err))); (el as HTMLButtonElement).disabled = false; }
+        }, box);
+        this.on('[data-clcancel]', 'click', async (_e, el) => { await clanCancelRequest(Number(el.dataset.clcancel)).catch(() => undefined); void search(); });
+      } catch { box.innerHTML = '<div class="note">La búsqueda no responde ahora.</div>'; }
+    };
+    const q = document.getElementById('clq') as HTMLInputElement;
+    document.getElementById('clqgo')!.addEventListener('click', () => { this.clanQuery = q.value; void search(); });
+    q.addEventListener('keydown', (e) => { if (e.key === 'Enter') { this.clanQuery = q.value; void search(); } });
+    void search();
+  }
+
+  /** the player's clan: a header, then Clan · Juegos · Ranking · Tienda (· Administrar for leaders and officers) */
+  private clanHome() {
+    const c = this.clanData!;
+    const manager = c.me === 'lider' || c.me === 'oficial';
+    if (this.clanTab === 'admin' && !manager) this.clanTab = 'clan';
+    const left = Math.max(0, CLAN_RUNS_PER_DAY - c.runsToday);
+    const tabs: [App['clanTab'], string, number][] = [['clan', 'Clan', 0], ['juegos', 'Juegos del Clan', left], ['ranking', 'Ranking', 0], ['tienda', 'Tienda', 0], ...(manager ? [['admin', 'Administrar', c.requests] as [App['clanTab'], string, number]] : [])];
+    const sample = this.unlockedRoster()[0];
+    this.show(`<div class="screen clan-screen">${this.titlebar('Mi clan', 'Menú')}
+      <div class="cl-head"><div class="cl-head-art">${this.clanCrest(c.crest, 84)}${sample ? `<span class="cl-head-kit">${charCanvas(sample.id, 3, 12, '', c.kit)}</span>` : ''}</div>
+        <div class="cl-head-tx"><small>CLAN · ${c.mode === 'abierto' ? 'ABIERTO' : 'CON SOLICITUD'}</small><b>${esc(c.name)}</b>
+          <span class="cl-head-tags">${this.clanTag(c.me)}<span>${uiIcon('team')}${c.members}/${CLAN_MAX}</span><span>${uiIcon('shirt')}${esc(c.kit ? teamLabel(c.kit) : 'Raimon')}</span></span></div>
+        <div class="cl-head-score"><small>ESTA SEMANA</small><b>${Number(c.weekPoints).toLocaleString('es')}</b><em>${c.pos ? `Puesto ${c.pos} de ${c.clans}` : 'Sin puntos aún'}</em><i>Cierra en ${this.leftText(clanWeekLeftMs(serverNow()))}</i></div></div>
+      <div class="tl-tabs cl-tabs">${tabs.map(([id, label, n]) => `<button class="tab${this.clanTab === id ? ' on' : ''}" data-cltab="${id}">${label}${n ? `<span class="m4-badge">${n}</span>` : ''}</button>`).join('')}</div>
+      <div id="clbody"></div></div>`);
+    mountPreviews();
+    this.on('[data-back]', 'click', () => this.mainMenu());
+    this.on('[data-cltab]', 'click', (_e, el) => { this.clanTab = el.dataset.cltab as App['clanTab']; sfx('click'); this.clanHome(); });
+    const body = document.getElementById('clbody')!;
+    if (this.clanTab === 'clan') this.clanTabClan(body);
+    else if (this.clanTab === 'juegos') this.clanTabGames(body);
+    else if (this.clanTab === 'ranking') void this.clanTabRanking(body);
+    else if (this.clanTab === 'tienda') this.clanTabShop(body);
+    else void this.clanTabAdmin(body);
+  }
+
+  private clanTabClan(body: HTMLElement) {
+    const c = this.clanData!;
+    const done = (m: ClanMission) => Number(m.progress) >= Number(m.goal);
+    const played = c.roster.some((m) => m.username === this.save.onlineName && m.week > 0);
+    body.innerHTML = `<div class="cl-grid">
+      <div class="panel"><h3>${uiIcon('team')}Miembros <small>${c.members}/${CLAN_MAX}</small></h3><div class="cl-members">${c.roster.map((m) => `<div class="cl-mem${m.username === this.save.onlineName ? ' me' : ''}">
+          ${this.clanTag(m.role)}<b>${esc(m.username)}</b><span class="cl-dots" title="Partidas de hoy">${Array.from({ length: CLAN_RUNS_PER_DAY }, (_x, i) => `<i class="${i < m.today ? 'on' : ''}"></i>`).join('')}</span><em>${Number(m.week).toLocaleString('es')} pts</em></div>`).join('')}</div>
+        <button class="btn small blue cl-leave" id="clleave">Salir del clan</button></div>
+      <div class="panel"><h3>${uiIcon('missions')}Misiones del clan <small>semanales</small></h3><div class="cl-missions">${c.missions.map((m) => { const pc = Math.min(100, Math.round(Number(m.progress) / Math.max(1, Number(m.goal)) * 100));
+          return `<div class="cl-mis${done(m) ? ' done' : ''}${m.claimed ? ' claimed' : ''}"><span class="cl-mis-tx"><b>${esc(CLAN_MISSION_TEXT[m.id] ?? m.id)}</b><small>${Number(m.progress).toLocaleString('es')} / ${Number(m.goal).toLocaleString('es')}</small><i class="cl-bar"><i style="width:${pc}%"></i></i></span>
+          <span class="cl-mis-rw">${m.coins ? `${m.coins.toLocaleString('es')} ◉` : ''}${m.tokens ? ` · ${m.tokens} fichas` : ''}</span>
+          ${m.claimed ? '<em class="cl-pend">Cobrada</em>' : `<button class="btn small" data-clmis="${m.id}" ${done(m) && played ? '' : 'disabled'}>Cobrar</button>`}</div>`; }).join('')}</div>
+        <p class="note">Cobra cada miembro que haya jugado al menos una partida del clan esta semana. Se reinician los lunes.</p></div></div>`;
+    this.on('[data-clmis]', 'click', async (_e, el) => {
+      (el as HTMLButtonElement).disabled = true;
+      try {
+        const r = await clanClaimMission(el.dataset.clmis!);
+        this.save.coins += r.coins; this.save.tokens += r.tokens; this.persist();
+        sfx('powerup'); this.toast(`+${r.coins.toLocaleString('es')} ◉ · +${r.tokens} fichas`);
+        void this.clanScreen();
+      } catch (err) { this.toast(clanError(String((err as Error)?.message ?? err))); }
+    }, body);
+    document.getElementById('clleave')!.addEventListener('click', (e) => this.armed(e.currentTarget as HTMLElement, async () => {
+      try { await clanLeave(); this.clanData = null; this.rememberClan(); this.toast('Has salido del clan'); void this.clanScreen(); } catch (err) { this.toast(clanError(String((err as Error)?.message ?? err))); }
+    }));
+  }
+
+  private clanTabGames(body: HTMLElement) {
+    const c = this.clanData!;
+    const left = Math.max(0, CLAN_RUNS_PER_DAY - c.runsToday);
+    const squad = squadOf(this.save, this.byId);
+    const mp = this.clanMap;
+    body.innerHTML = `<div class="cl-grid">
+      <div class="panel cl-games"><div class="cl-games-art">${mp?.minimapTexture ? `<img src="${mp.minimapTexture}" alt="">` : ''}<span><small>ARENA EXCLUSIVA DE CLANES</small><b>${esc(mp?.name ?? 'Juegos del Clan')}</b></span></div>
+        <p>${esc(mp?.blurb ?? '')} Juegas con <b>la equipación del clan</b> (${esc(c.kit ? teamLabel(c.kit) : 'Raimon')}) y tu Rango actual (<b>${this.save.difficulty}</b>): cuanto más alto, más puntos.</p>
+        <div class="cl-left"><span class="cl-dots big">${Array.from({ length: CLAN_RUNS_PER_DAY }, (_x, i) => `<i class="${i < c.runsToday ? 'on' : ''}"></i>`).join('')}</span><b>${left ? `Te quedan ${left} de ${CLAN_RUNS_PER_DAY} partidas hoy` : 'Ya has jugado las 3 de hoy: vuelve mañana'}</b></div>
+        <button class="btn big cl-play" id="clplay" ${left && squad.length && mp ? '' : 'disabled'}>${uiIcon('play')}¡Jugar por el clan!</button>
+        <p class="note">Puntos: rivales derrotados, tiempo aguantado, daño y +300 por ganar, por el Rango (C ×1 · B ×1,25 · A ×1,5 · S ×1,8 · X ×2,2). Las monedas y fichas de la partida son la mitad de lo normal, pero caen objetos del clan.</p></div>
+      <div class="panel"><h3>${uiIcon('gift')}Objetos del clan</h3><div class="cl-bag">${CLAN_ITEMS.map((it) => `<span class="cl-item big r-${it.rarity}" title="${esc(it.name)}">${this.icon(it.icon, 2.5)}<b>${this.save.clanItems?.[it.id] ?? 0}</b><small>${esc(it.name)}</small></span>`).join('')}</div>
+        <p class="note">Caen en los Juegos del Clan: uno cada 60 rivales, 3 más si ganas y más cuanto más alto el Rango. Se gastan en la Tienda del clan.</p>
+        <button class="btn blue" id="clshop">Ir a la tienda</button></div></div>`;
+    document.getElementById('clplay')?.addEventListener('click', () => this.clanPlay());
+    document.getElementById('clshop')!.addEventListener('click', () => { this.clanTab = 'tienda'; this.clanHome(); });
+  }
+
+  private async clanTabRanking(body: HTMLElement) {
+    const c = this.clanData!;
+    const prizes = (Object.entries(CLAN_PRIZES) as [ClanTier, (typeof CLAN_PRIZES)[ClanTier]][]).map(([t, p]) => `<div class="cl-prize t-${t}"><b>${p.label}</b><span>${p.tokens} fichas · ${p.coins.toLocaleString('es')} ◉</span><small>${p.players.map((x) => `${x.n} ${x.label}`).join(' · ')}</small></div>`).join('');
+    body.innerHTML = `<div class="cl-grid"><div class="panel"><h3>${uiIcon('crown')}Ranking de la semana</h3><div id="clrank" class="cl-list"><div class="note">Cargando…</div></div></div>
+      <div class="panel"><h3>${uiIcon('trophy')}Premios del lunes</h3><div class="cl-prizes">${prizes}</div><p class="note">Los recibe cada miembro que jugó al menos una partida por el clan esa semana (TOP 1 el primero, TOP 3 hasta el 3.º, TOP 8 hasta el 8.º, el resto si sumó puntos). Se cobran al entrar al menú.</p>
+        <h3>${uiIcon('clock')}La semana pasada</h3><div id="cllast" class="cl-list"><div class="note">Cargando…</div></div></div></div>`;
+    try {
+      const [rows, last] = await Promise.all([clanRanking(), clanLastWeek()]);
+      const box = document.getElementById('clrank'), lb = document.getElementById('cllast');
+      if (!box || !lb) return;
+      box.innerHTML = rows.map((r) => `<div class="cl-row${r.id === c.id ? ' me' : ''}"><span class="cl-pos t-${tierOfPos(Number(r.pos))}">${r.pos}</span>${this.clanCrest(r.crest, 30)}<span class="cl-row-tx"><b>${esc(r.name)}</b><small>${r.members} miembros</small></span><em>${Number(r.points).toLocaleString('es')} pts</em></div>`).join('') || '<div class="note">Nadie ha jugado aún esta semana.</div>';
+      lb.innerHTML = last.map((r) => `<div class="cl-row"><span class="cl-pos t-${r.tier}">${r.pos}</span><span class="cl-row-tx"><b>${esc(r.name)}</b></span><em>${Number(r.points).toLocaleString('es')} pts</em></div>`).join('') || '<div class="note">Aún no hay semanas cerradas.</div>';
+    } catch { const box = document.getElementById('clrank'); if (box) box.innerHTML = '<div class="note">El ranking no responde ahora.</div>'; }
+  }
+
+  private clanTabShop(body: HTMLElement) {
+    const week = clanWeekKey(serverNow());
+    const offers = clanShop(week);
+    const bag = this.save.clanItems ?? {};
+    const costHtml = (cost: ClanBag) => CLAN_ITEMS.filter((it) => cost[it.id]).map((it) => `<span class="cl-item${(bag[it.id] ?? 0) >= (cost[it.id] ?? 0) ? '' : ' short'}" title="${esc(it.name)}">${this.icon(it.icon, 1.25)}<b>${cost[it.id]}</b></span>`).join('');
+    const art = (o: ClanOffer) => o.kind === 'monedas' ? `<span class="cl-off-ic coins">◉</span><b>${o.coins.toLocaleString('es')} monedas</b>`
+      : o.kind === 'fichas' ? `<span class="cl-off-ic tokens">${uiIcon('capsule')}</span><b>${o.tokens} fichas</b><small>un ×10</small>`
+      : o.kind === 'pennant' ? (() => { const d = PENNANT_BY_ID.get(o.pennant)!; return `${isFrame(d) ? `<span class="fr-prev">${this.framed(this.frameFace(), d.id)}</span>` : `<span class="pn-prev">${pennantRibbon(d)}</span>`}<b>${esc(d.name)}</b><small>${isFrame(d) ? 'Marco' : 'Banner'} exclusivo</small>`; })()
+      : `<span class="cl-off-ic r-${o.rarity}" style="--rc:${RARITY_COLOR[o.rarity]}">${uiIcon('cards')}</span><b>Futbolista</b><small>${esc(o.label)}</small>`;
+    body.innerHTML = `<div class="panel cl-shop"><h3>${uiIcon('shop')}Tienda del clan <small>se renueva en ${this.leftText(clanWeekLeftMs(serverNow()))}</small></h3>
+      <div class="cl-bag small">${this.clanBagHtml(bag, '<span class="note">Aún no tienes objetos: juega los Juegos del Clan.</span>')}</div>
+      <div class="cl-offers">${offers.map((o) => { const left = o.stock - boughtThisWeek(this.save, week, o.id); const owned = o.kind === 'pennant' && hasPennant(this.save, o.pennant);
+        return `<div class="cl-off${left <= 0 || owned ? ' out' : ''}">${art(o)}<div class="cl-off-cost">${costHtml(o.cost)}</div><small class="cl-stock">${owned ? 'Ya lo tienes' : `Quedan ${left}/${o.stock}`}</small>
+          <button class="btn small" data-cloff="${o.id}" ${left > 0 && !owned && canPay(this.save, o.cost) ? '' : 'disabled'}>Canjear</button></div>`; }).join('')}</div></div>`;
+    this.on('[data-cloff]', 'click', (_e, el) => {
+      const o = offers.find((x) => x.id === el.dataset.cloff);
+      if (!o || !canPay(this.save, o.cost) || boughtThisWeek(this.save, week, o.id) >= o.stock) return;
+      payBag(this.save, o.cost); recordBuy(this.save, week, o.id);
+      if (o.kind === 'monedas') { this.save.coins += o.coins; this.toast(`+${o.coins.toLocaleString('es')} ◉`); }
+      else if (o.kind === 'fichas') { this.save.tokens += o.tokens; this.toast(`+${o.tokens} fichas`); }
+      else if (o.kind === 'pennant') { givePennant(this.save, o.pennant); this.toast(`¡${PENNANT_BY_ID.get(o.pennant)?.name}! Póntelo en tu Perfil.`); }
+      this.persist(); sfx('powerup');
+      if (o.kind === 'jugador') {
+        const p = clanPlayer(this.m.roster, o.odds, Math.random);
+        if (p) { const res = addCopy(this.save, p); this.persist(); void this.capsuleShow([{ player: p, ...res }], 'Tienda del clan').then(() => void this.clanScreen('tienda')); return; }
+      }
+      this.clanHome();
+    }, body);
+  }
+
+  private async clanTabAdmin(body: HTMLElement) {
+    const c = this.clanData!;
+    const lead = c.me === 'lider';
+    const crests = this.clanCrestChoices(), kits = this.clanKitChoices();
+    const act = (m: ClanMember) => {
+      if (m.username === this.save.onlineName) return '<em class="cl-pend">Tú</em>';
+      const b: string[] = [];
+      if (lead && m.role === 'miembro') b.push(`<button class="btn small" data-clrole="${esc(m.username)}" data-r="oficial">Ascender a oficial</button>`);
+      if (lead && m.role === 'oficial') b.push(`<button class="btn small blue" data-clrole="${esc(m.username)}" data-r="miembro">Quitar oficial</button>`);
+      if (lead) b.push(`<button class="btn small blue" data-clrole="${esc(m.username)}" data-r="lider">Ceder liderazgo</button>`);
+      if (lead || m.role === 'miembro') b.push(`<button class="btn small danger" data-clkick="${esc(m.username)}">Expulsar</button>`);
+      return b.join('');
+    };
+    body.innerHTML = `<div class="cl-grid">
+      <div class="panel"><h3>${uiIcon('gift')}Solicitudes <small>${c.requests}</small></h3><div id="clreqs" class="cl-list"><div class="note">Cargando…</div></div></div>
+      <div class="panel"><h3>${uiIcon('team')}Miembros y rangos</h3><div class="cl-members admin">${c.roster.map((m) => `<div class="cl-mem${m.username === this.save.onlineName ? ' me' : ''}">${this.clanTag(m.role)}<b>${esc(m.username)}</b><span class="cl-acts">${act(m)}</span></div>`).join('')}</div>
+        <p class="note">El líder lo gestiona todo. Los oficiales aceptan solicitudes y pueden expulsar a miembros.</p></div>
+      ${lead ? `<div class="panel cl-edit"><h3>${uiIcon('cog')}Ajustes del clan</h3>
+        <label class="cl-field">Nombre<input id="clename" maxlength="20" value="${esc(c.name)}"></label><small class="cl-err" id="cleerr"></small>
+        <div class="cl-field">Escudo<div class="cl-crests">${crests.map((t) => `<button class="iconpick${c.crest === t ? ' on' : ''}" data-ecrest="${esc(t)}" title="${esc(teamLabel(t))}"><img src="${this.emblemOf(t)}" alt=""></button>`).join('')}</div></div>
+        <label class="cl-field">Equipación<select id="clekit">${kits.map((k) => `<option value="${esc(k)}" ${k === c.kit ? 'selected' : ''}>${esc(k ? teamLabel(k) : 'Raimon')}</option>`).join('')}</select></label>
+        <label class="cl-field">Entrada<select id="clemode"><option value="solicitud" ${c.mode === 'solicitud' ? 'selected' : ''}>Con solicitud (aceptáis vosotros)</option><option value="abierto" ${c.mode === 'abierto' ? 'selected' : ''}>Abierto (entra cualquiera)</option></select></label>
+        <button class="btn big" id="clesave">Guardar cambios</button></div>` : ''}</div>`;
+    const err = (e: unknown) => this.toast(clanError(String((e as Error)?.message ?? e)));
+    this.on('[data-clrole]', 'click', (_e, el) => this.armed(el, async () => { try { await clanSetRole(el.dataset.clrole!, el.dataset.r as ClanRole); sfx('click'); void this.clanScreen('admin'); } catch (e) { err(e); } }), body);
+    this.on('[data-clkick]', 'click', (_e, el) => this.armed(el, async () => { try { await clanKick(el.dataset.clkick!); void this.clanScreen('admin'); } catch (e) { err(e); } }), body);
+    let crest = c.crest;
+    this.on('[data-ecrest]', 'click', (_e, el) => { crest = el.dataset.ecrest!; body.querySelectorAll('[data-ecrest]').forEach((b) => b.classList.toggle('on', b === el)); }, body);
+    document.getElementById('clesave')?.addEventListener('click', async (e) => {
+      const name = (document.getElementById('clename') as HTMLInputElement).value.trim().replace(/\s+/g, ' ');
+      const bad = name !== c.name ? clanNameProblem(name) : null;
+      if (bad) { document.getElementById('cleerr')!.textContent = bad; return; }
+      (e.currentTarget as HTMLButtonElement).disabled = true;
+      try {
+        await clanUpdate(name !== c.name ? name : null, crest, (document.getElementById('clekit') as HTMLSelectElement).value, (document.getElementById('clemode') as HTMLSelectElement).value as 'abierto' | 'solicitud');
+        sfx('powerup'); this.toast('Clan actualizado'); void this.clanScreen('admin');
+      } catch (x) { document.getElementById('cleerr')!.textContent = clanError(String((x as Error)?.message ?? x)); (e.currentTarget as HTMLButtonElement).disabled = false; }
+    });
+    try {
+      const reqs = await clanRequests();
+      const box = document.getElementById('clreqs');
+      if (!box) return;
+      box.innerHTML = reqs.map((r) => `<div class="cl-row"><span class="cl-row-tx"><b>${esc(r.username)}</b><small>${new Date(r.created_at).toLocaleString('es')}</small></span>
+        <button class="btn small" data-clans="${esc(r.username)}" data-ok="1">Aceptar</button><button class="btn small blue" data-clans="${esc(r.username)}" data-ok="">Rechazar</button></div>`).join('') || '<div class="note">No hay solicitudes pendientes.</div>';
+      this.on('[data-clans]', 'click', async (_e, el) => {
+        (el as HTMLButtonElement).disabled = true;
+        try { await clanAnswer(el.dataset.clans!, !!el.dataset.ok); sfx(el.dataset.ok ? 'evolve' : 'click'); void this.clanScreen('admin'); } catch (e) { err(e); void this.clanScreen('admin'); }
+      }, box);
+    } catch (e) { const box = document.getElementById('clreqs'); if (box) box.innerHTML = `<div class="note">${esc(clanError(String((e as Error)?.message ?? e)))}</div>`; }
+  }
+
+  /** a Juegos del Clan match: the squad, on the clan arena, in the clan's kit */
+  private clanPlay() {
+    const c = this.clanData;
+    const squad = squadOf(this.save, this.byId);
+    if (!c || !this.clanMap) return;
+    if (c.runsToday >= CLAN_RUNS_PER_DAY) { this.toast(CLAN_ERRORS.clan_daily_limit); return; }
+    if (!squad.length) { this.captainSelect(); return; }
+    this.clanMatch = true;
+    this.startRun(this.clanMap.id, [squad[0]], squad);
+  }
+
+  /** end of a clan match: the normal results (half coins and fichas), then the points sent and the items found */
+  private clanEnd(r: RunResult & { level: number }) {
+    r.runId ??= `${Date.now()}`;
+    this.results(r);
+    this.clanMatch = false;
+    const bag = clanDrops({ kills: r.kills, victory: r.victory, rank: r.rank }, Math.random);
+    addBag(this.save, bag);
+    this.persist();
+    const box = document.createElement('div');
+    box.className = 'modal clan-end';
+    const draw = (score: string) => {
+      box.innerHTML = `<div class="panel cl-end-card"><small>JUEGOS DEL CLAN · ${esc(this.clanData?.name ?? '')}</small><h2>${r.victory ? '¡Victoria para el clan!' : 'Partida del clan'}</h2>
+        <div class="cl-end-score">${score}</div><h3>Objetos encontrados</h3><div class="cl-bag">${this.clanBagHtml(bag, '<span class="note">Esta vez no ha caído nada.</span>')}</div>
+        <div class="cp-actions"><button class="btn big" id="clendok">Ver el clan</button><button class="btn blue" id="clendx">Cerrar</button></div></div>`;
+      box.querySelector('#clendok')!.addEventListener('click', () => { box.remove(); void this.clanScreen('juegos'); });
+      box.querySelector('#clendx')!.addEventListener('click', () => box.remove());
+    };
+    draw('<div class="note">Enviando los puntos…</div>');
+    (document.body.querySelector('#ui') ?? this.root).appendChild(box);
+    clanSubmitRun(r.runId, r.kills, r.timeSec, r.damage ?? 0, r.rank ?? 'C', r.victory)
+      .then((res) => {
+        if (this.clanData) { this.clanData.runsToday += 1; this.clanData.weekPoints = Number(res.weekPoints); }
+        this.save.clanSeen = this.save.clanSeen ? { ...this.save.clanSeen, points: Number(res.weekPoints) } : this.save.clanSeen; this.persist();
+        sfx('powerup');
+        draw(`<b class="cl-pts">+${res.points.toLocaleString('es')} pts</b><span>El clan suma <b>${Number(res.weekPoints).toLocaleString('es')}</b> esta semana · te quedan <b>${res.left}</b> partidas hoy</span>`);
+      })
+      .catch((err) => draw(`<div class="note">${esc(clanError(String((err as Error)?.message ?? err)))}</div>`));
+  }
+
+  /** menu: the clan chip and, once a week, the clan prizes */
+  private async fillMenuClan() {
+    if (!onlineConfigured() || !signedIn()) return;
+    try {
+      this.clanData = await myClan();
+      this.rememberClan();
+      const chip = document.getElementById('m4clan');
+      if (chip) chip.innerHTML = this.clanChipHtml();
+      const prizes = await clanClaimPrizes();
+      if (prizes.length) void this.clanPrizeShow(prizes);
+    } catch { /* the chip keeps the last known clan */ }
+  }
+  private async clanPrizeShow(prizes: ClanPrize[]) {
+    const won: PullResult[] = [];
+    for (const z of prizes) {
+      this.save.coins += z.coins; this.save.tokens += z.tokens;
+      for (const g of CLAN_PRIZES[z.tier]?.players ?? []) for (let i = 0; i < g.n; i++) {
+        const p = clanPlayer(this.m.roster, g.odds, Math.random);
+        if (p) won.push({ player: p, ...addCopy(this.save, p) });
+      }
+    }
+    this.persist();
+    const box = document.createElement('div');
+    box.className = 'modal clan-end';
+    box.innerHTML = `<div class="panel cl-end-card"><small>PREMIOS DE CLAN</small><h2>¡Cierre de la semana!</h2>${prizes.map((z) => `<div class="cl-prize t-${z.tier}"><b>${CLAN_PRIZES[z.tier]?.label ?? z.tier} · puesto ${z.pos}</b><span>${esc(z.clan)}</span><small>+${z.tokens} fichas · +${z.coins.toLocaleString('es')} ◉ · ${(CLAN_PRIZES[z.tier]?.players ?? []).map((g) => `${g.n} ${g.label}`).join(' · ')}</small></div>`).join('')}
+      <div class="cp-actions"><button class="btn big" id="clprok">${won.length ? '¡Abrir los fichajes!' : 'Genial'}</button></div></div>`;
+    (document.body.querySelector('#ui') ?? this.root).appendChild(box);
+    if (this.save.settings.particles !== 'desactivado') confetti(120);
+    sfx('legend');
+    box.querySelector('#clprok')!.addEventListener('click', () => { box.remove(); if (won.length) void this.capsuleShow(won, 'Premios de clan').then(() => this.mainMenu()); });
   }
 
   // ---- 1.9 (author): tier lists — make your own, publish it, everyone sees the latest ones in the menu
@@ -1588,7 +1952,7 @@ export class App {
     // 1.81: a code's banner is only listed for whoever owns it
     const list = PENNANTS.filter((d) => visiblePennant(this.save, d));
     const eq = this.save.pennants?.equipped, owned = list.filter((d) => hasPennant(this.save, d.id)).length;
-    const how = (d: PennantDef) => d.source === 'tienda' ? `Tienda · ${d.price?.toLocaleString('es')} ◉` : d.source === 'logro' ? `Logro: ${d.how}` : d.source === 'codigo' ? (d.how ?? 'Código') : 'Evento por tiempo limitado';
+    const how = (d: PennantDef) => d.source === 'tienda' ? `Tienda · ${d.price?.toLocaleString('es')} ◉` : d.source === 'logro' ? `Logro: ${d.how}` : d.source === 'codigo' ? (d.how ?? 'Código') : d.source === 'clan' ? 'Tienda del clan' : 'Evento por tiempo limitado';
     return `<div class="panel pf-pennants"><h3>${uiIcon('crown')}Banners <small>${owned}/${list.length}</small></h3>
       <p class="note">Tu banner sale junto a tu nombre en el ranking y en tu perfil, también cuando otros lo abren.</p>
       <div class="pn-grid">${list.map((d) => { const own = hasPennant(this.save, d.id);
@@ -5134,7 +5498,8 @@ export class App {
   }
 
   startRun(mapId: string, team: RosterEntry[], candidates: RosterEntry[] = team, training?: TrainingSetup, coop?: CoopRun & { rank: Rank }) {
-    const found = this.m.maps.find((x) => x.id === mapId)!;
+    const found = this.m.maps.find((x) => x.id === mapId) ?? (this.clanMap?.id === mapId ? this.clanMap : undefined)!;
+    const kitKey = this.clanMatch ? (this.clanData?.kit ?? '') : this.save.kit; // 1.93: the Juegos del Clan are played in the clan's kit
     const map = this.roadMatch ? { ...found, durationSec: roadMatchSec(this.roadMatch.level) } : found; // 1.91: road matches of 1 to 5 minutes
     this.coopRunActive = !!coop; // pre-2.0: co-op runs never go to the ranking
     const heroed = (p: RosterEntry) => this.runEntry(p);
@@ -5186,7 +5551,7 @@ export class App {
       manifest: this.m, map, team: runTeam, unlocked: runUnlocked, auras: runAuras, stars, settings: this.save.settings,
       perks: (() => { const e = applyGear(perkEffects(this.save), this.save, this.gear); kitBonus(this.save.kit, this.m.roster).apply(e); applyCoachPerks(this.benchCoach(), e); return e; })(),
       coach: coachRun(this.benchCoach()), // pre-2.0: his formation and element
-      kitTeam: this.save.kit || 'Raimon', shop: this.save.shop, mastery: this.save.mastery, loadout: this.validLoadout(), training, kit: this.m.kits?.[this.save.kit] ?? null, formation: (this.save.formation as FormationId) in FORMATIONS ? this.save.formation as FormationId : 'equilibrada',
+      kitTeam: kitKey || 'Raimon', shop: this.save.shop, mastery: this.save.mastery, loadout: this.validLoadout(), training, kit: this.m.kits?.[kitKey] ?? null, formation: (this.save.formation as FormationId) in FORMATIONS ? this.save.formation as FormationId : 'equilibrada',
       hooks: {
         hud: (s) => this.renderHud(s),
         markers: (m) => this.renderMarkers(m),
@@ -5197,7 +5562,7 @@ export class App {
         bossIntro: (b) => this.bossIntroFx(b),
         bossDefeated: () => this.bossDefeatedFx(),
         levelUp: (cards, rerolls, reroll, level) => this.levelUpModal(cards, rerolls, reroll, level),
-        end: (r) => { if (this.roadMatch) this.roadEnd(r); else this.results(r); },
+        end: (r) => { if (this.roadMatch) this.roadEnd(r); else if (this.clanMatch) this.clanEnd(r); else this.results(r); },
         pause: () => this.pauseModal(),
         bossDown: () => this.bossDownModal(),
         dismiss: (ids) => this.dismissModal(ids),
@@ -5845,7 +6210,15 @@ export class App {
     document.getElementById('lvl')?.remove();
     document.getElementById('pause')?.remove();
     const effects = perkEffects(this.save);
-    const { rewards, total, records, tokens, tokenTotal, training, trainTotal } = applyRun(this.save, r, effects.coinMult, effects.rewardMult, effects.extraTokens);
+    const clanMul = this.clanMatch ? CLAN_REWARD_MULT : 1; // 1.93: the Juegos del Clan pay half
+    const { rewards, total, records, tokens, tokenTotal: tokens0, training, trainTotal } = applyRun(this.save, r, effects.coinMult, effects.rewardMult * clanMul, effects.extraTokens);
+    let tokenTotal = tokens0;
+    if (this.clanMatch) {
+      // every line of fichas at half (the coins were already halved through rewardMult)
+      for (const t of tokens) { const half = Math.floor(t.coins * CLAN_REWARD_MULT); this.save.tokens -= t.coins - half; tokenTotal -= t.coins - half; t.coins = half; t.label += ' · clan ½'; }
+      this.save.clearedMaps = this.save.clearedMaps.filter((x) => x !== r.mapId);
+      if (this.save.clearedRanks) delete this.save.clearedRanks[r.mapId];
+    }
     const evTokens = thanksTokens(r.rank, tokenTotal, serverNow()); // 1.75: Rango S / X while the Banner de agradecimiento is open
     addThanksTokens(this.save, evTokens);
     const cap = this.byId.get(r.teamIds?.[0] ?? -1);
@@ -5855,7 +6228,7 @@ export class App {
     recordMastery(this.save, r.techById ?? {});
     const runId = r.runId ?? `${Date.now()}`;
     // Fix 1.51 (author): only a completed run (the arena won, endless survival after it included) counts for the ranking
-    const coopRun = this.coopRunActive || !!this.roadMatch;
+    const coopRun = this.coopRunActive || !!this.roadMatch || this.clanMatch;
     this.coopRunActive = false;
     const best = r.victory && !coopRun && recordBest(this.save, runId, { map: r.mapId, rank: r.rank ?? 'C', time: Math.floor(r.timeSec), damage: r.damage ?? 0, captainId: r.captainId ?? 0, at: new Date().toISOString() });
     if (best) records.push('ranking');
@@ -5869,7 +6242,7 @@ export class App {
     }
     this.persist();
     const pending = pendingClaims(this.save);
-    const map = this.m.maps.find((x) => x.id === r.mapId)!;
+    const map = this.m.maps.find((x) => x.id === r.mapId) ?? this.clanMap!;
     window.setTimeout(() => this.game.scene.stop('Arena'), 0);
     setMusicContext('menu');
     // what the run was: everything here comes from the result already saved above, the animation only shows it

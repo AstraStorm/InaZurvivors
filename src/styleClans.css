@@ -1,0 +1,131 @@
+/* 1.93 (author): clans — menu chip, clan screen (header, tabs, members with rank tags, missions, Juegos del Clan, ranking,
+   shop, management) and the end-of-match card. */
+
+/* ---- menu chip */
+.m4-clanchip { font: inherit; color: #fff; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px 6px 6px; margin-left: 8px; border: 0; border-radius: 12px;
+  background: linear-gradient(135deg, #0f5a3a, #08261a); box-shadow: inset 0 0 0 2px #3fd07a, 0 0 14px #3fd07a55; transition: transform .14s cubic-bezier(.2, 1.6, .4, 1); text-align: left; }
+.m4-clanchip:hover { transform: translateY(-2px) scale(1.03); }
+.m4-clanchip span:last-child { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.m4-clanchip small { font-size: 6px; letter-spacing: 1px; color: #9dffc0; } .m4-clanchip b { font-weight: normal; font-size: 10px; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.m4-clanchip em { font-style: normal; font-size: 7px; color: #ffd23f; }
+.cl-crest { flex: none; display: grid; place-items: center; border-radius: 10px; overflow: hidden; background: radial-gradient(circle at 50% 35%, #2a6a4a, #08261a); box-shadow: inset 0 0 0 2px #3fd07a88; color: #9dffc0; }
+.cl-crest img { width: 86%; height: 86%; object-fit: contain; image-rendering: pixelated; }
+.cl-crest svg { width: 60%; height: 60%; }
+
+/* ---- screen */
+.clan-screen .cl-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 380px), 1fr)); gap: 12px; align-items: start; }
+.cl-head { position: relative; display: flex; align-items: center; gap: 16px; padding: 14px 18px; margin-bottom: 10px; border-radius: 16px; overflow: hidden;
+  background: radial-gradient(ellipse 50% 120% at 12% 50%, #3fd07a55, transparent 70%), repeating-conic-gradient(from 0deg at 12% 50%, #3fd07a14 0 6deg, transparent 6deg 15deg), linear-gradient(115deg, #0a2a1c, #0d2260);
+  box-shadow: inset 0 0 0 2px #3fd07a, 0 10px 24px #000a; }
+.cl-head-art { position: relative; flex: none; }
+.cl-head-art .cl-crest { animation: m5Float 3s ease-in-out infinite; box-shadow: inset 0 0 0 3px #ffd23f, 0 0 20px #3fd07a; }
+.cl-head-kit { position: absolute; right: -22px; bottom: -10px; line-height: 0; filter: drop-shadow(0 3px 0 #0008); }
+.cl-head-tx { display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 0; padding-left: 16px; }
+.cl-head-tx small { font-size: 7px; letter-spacing: 2px; color: #9dffc0; }
+.cl-head-tx b { font-weight: normal; font-size: 22px; color: #fff; text-shadow: 3px 3px 0 #000, 0 0 16px #3fd07a99; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cl-head-tags { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 8px; color: #dfeaff; }
+.cl-head-tags > span { display: inline-flex; align-items: center; gap: 4px; } .cl-head-tags svg { width: 12px; height: 12px; }
+.cl-head-score { flex: none; display: flex; flex-direction: column; align-items: flex-end; gap: 3px; text-align: right; }
+.cl-head-score small { font-size: 7px; color: #9dffc0; letter-spacing: 1px; } .cl-head-score b { font-weight: normal; font-size: 22px; color: #ffd23f; text-shadow: 2px 2px 0 #000; }
+.cl-head-score em { font-style: normal; font-size: 9px; color: #fff; } .cl-head-score i { font-style: normal; font-size: 7px; color: #9fb3d8; }
+.cl-tabs .tab { position: relative; } .cl-tabs .m4-badge { position: static; margin-left: 6px; }
+.cl-tag { font-style: normal; flex: none; display: inline-block; padding: 3px 7px; border-radius: 6px; font-size: 7px; letter-spacing: 1px; color: #0a1022; text-transform: uppercase; }
+.cl-tag.r-lider { background: linear-gradient(180deg, #fff6c8, #ffd23f); box-shadow: 0 0 10px #ffd23f88; }
+.cl-tag.r-oficial { background: linear-gradient(180deg, #d8c8ff, #b36bff); }
+.cl-tag.r-miembro { background: #9fb3d8; }
+.cl-members { display: flex; flex-direction: column; gap: 5px; }
+.cl-mem { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-radius: 10px; background: #0a1d48; box-shadow: inset 0 0 0 1px #2a4a8a; font-size: 9px; flex-wrap: wrap; }
+.cl-mem.me { box-shadow: inset 0 0 0 2px #3fd07a; }
+.cl-mem b { font-weight: normal; flex: 1; min-width: 80px; color: #fff; }
+.cl-mem em { font-style: normal; color: #ffd23f; font-size: 8px; }
+.cl-acts { display: flex; flex-wrap: wrap; gap: 4px; justify-content: flex-end; }
+.cl-dots { display: inline-flex; gap: 3px; } .cl-dots i { width: 9px; height: 9px; border-radius: 50%; background: #1a2f66; box-shadow: inset 0 0 0 1px #3a5a9a; }
+.cl-dots i.on { background: #3fd07a; box-shadow: 0 0 6px #3fd07a; }
+.cl-dots.big i { width: 18px; height: 18px; }
+.cl-leave { margin-top: 10px; }
+.btn.danger { background: linear-gradient(180deg, #ff6a7a, #c4203a); }
+.cl-missions { display: flex; flex-direction: column; gap: 6px; }
+.cl-mis { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 10px; background: #0a1d48; box-shadow: inset 0 0 0 1px #2a4a8a; }
+.cl-mis.done:not(.claimed) { box-shadow: inset 0 0 0 2px #3fd07a, 0 0 12px #3fd07a44; }
+.cl-mis.claimed { opacity: .6; }
+.cl-mis-tx { flex: 1; display: flex; flex-direction: column; gap: 4px; min-width: 0; } .cl-mis-tx b { font-weight: normal; font-size: 9px; color: #fff; line-height: 1.4; } .cl-mis-tx small { font-size: 7px; color: #9fb3d8; }
+.cl-mis-rw { font-size: 7px; color: #ffd23f; text-align: right; max-width: 90px; }
+.cl-bar { display: block; height: 6px; border-radius: 99px; background: #050c22; overflow: hidden; } .cl-bar i { display: block; height: 100%; background: linear-gradient(90deg, #3fd07a, #ffd23f); }
+.cl-pend { font-style: normal; font-size: 7px; color: #9fb3d8; }
+.cl-list { display: flex; flex-direction: column; gap: 5px; }
+.cl-row { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-radius: 10px; background: #0a1d48; box-shadow: inset 0 0 0 1px #2a4a8a; }
+.cl-row.me { box-shadow: inset 0 0 0 2px #3fd07a; }
+.cl-row-tx { flex: 1; display: flex; flex-direction: column; gap: 3px; min-width: 0; } .cl-row-tx b { font-weight: normal; font-size: 10px; color: #fff; } .cl-row-tx small { font-size: 7px; color: #9fb3d8; line-height: 1.4; }
+.cl-row em { font-style: normal; font-size: 9px; color: #ffd23f; }
+.cl-pos { flex: none; width: 26px; height: 26px; display: grid; place-items: center; border-radius: 50%; font-size: 10px; color: #0a1022; background: #9fb3d8; }
+.cl-pos.t-top1 { background: linear-gradient(180deg, #fff6c8, #ffd23f); box-shadow: 0 0 10px #ffd23f; } .cl-pos.t-top3 { background: #d8e4f0; } .cl-pos.t-top8 { background: #ff9a3a; }
+.cl-prizes { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 6px; margin-bottom: 10px; }
+.cl-prize { display: flex; flex-direction: column; gap: 4px; padding: 8px 10px; border-radius: 10px; background: #0a1d48; box-shadow: inset 0 0 0 2px #2a4a8a; }
+.cl-prize b { font-weight: normal; font-size: 11px; color: #fff; } .cl-prize span { font-size: 8px; color: #ffd23f; } .cl-prize small { font-size: 7px; color: #cfe3ff; line-height: 1.4; }
+.cl-prize.t-top1 { box-shadow: inset 0 0 0 2px #ffd23f, 0 0 14px #ffd23f55; } .cl-prize.t-top3 { box-shadow: inset 0 0 0 2px #d8e4f0; } .cl-prize.t-top8 { box-shadow: inset 0 0 0 2px #ff9a3a; }
+.cl-field { display: flex; flex-direction: column; gap: 5px; font-size: 8px; color: #9dffc0; margin: 8px 0 2px; }
+.cl-field input, .cl-field select { font: inherit; font-size: 10px; padding: 8px 10px; border-radius: 8px; border: 0; color: #fff; background: #050c22; box-shadow: inset 0 0 0 2px #2a4a8a; }
+.cl-err { display: block; min-height: 10px; font-size: 7px; color: #ff8a9a; }
+.cl-crests { display: grid; grid-template-columns: repeat(auto-fill, minmax(40px, 1fr)); gap: 4px; max-height: 150px; overflow: auto; padding: 2px; }
+.cl-crests .iconpick { padding: 3px; } .cl-crests img { width: 32px; height: 32px; object-fit: contain; image-rendering: pixelated; }
+.cl-kitprev { display: grid; place-items: center; min-height: 80px; margin: 6px 0; border-radius: 10px; background: radial-gradient(circle, #3fd07a33, transparent 70%); }
+.cl-create .btn.big { width: 100%; margin-top: 8px; }
+.cl-myreq { display: flex; flex-direction: column; gap: 5px; margin-bottom: 8px; } .cl-myreq small { font-size: 7px; color: #9dffc0; }
+.cl-myreq span { display: flex; align-items: center; gap: 6px; font-size: 9px; }
+.cl-myreq span .btn { margin-left: auto; }
+/* Juegos del Clan */
+.cl-games-art { position: relative; height: 120px; border-radius: 12px; overflow: hidden; margin-bottom: 10px; box-shadow: inset 0 0 0 2px #3fd07a; }
+.cl-games-art img { width: 100%; height: 100%; object-fit: cover; filter: saturate(1.2); }
+.cl-games-art span { position: absolute; left: 0; right: 0; bottom: 0; display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; background: linear-gradient(0deg, #050c22ee, transparent); }
+.cl-games-art small { font-size: 7px; letter-spacing: 2px; color: #ffb8d8; } .cl-games-art b { font-weight: normal; font-size: 15px; color: #fff; text-shadow: 2px 2px 0 #000; }
+.cl-games p { font-size: 9px; line-height: 1.6; color: #dfeaff; }
+.cl-left { display: flex; align-items: center; gap: 10px; margin: 10px 0; font-size: 10px; } .cl-left b { font-weight: normal; }
+.cl-play { width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; background: linear-gradient(180deg, #7dffaa, #1f9a52) !important; }
+.cl-play:not(:disabled) { animation: m5Play 2.2s ease-in-out infinite; }
+.cl-bag { display: flex; flex-wrap: wrap; gap: 8px; margin: 6px 0 10px; }
+.cl-item { position: relative; display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px 4px 4px; border-radius: 8px; background: #050c22; box-shadow: inset 0 0 0 1px #2a4a8a; font-size: 9px; }
+.cl-item b { font-weight: normal; color: #fff; }
+.cl-item.big { flex-direction: column; padding: 8px; min-width: 76px; gap: 4px; } .cl-item.big b { font-size: 14px; color: #ffd23f; } .cl-item.big small { font-size: 6px; color: #cfe3ff; text-align: center; }
+.cl-item.r-raro { box-shadow: inset 0 0 0 1px #4fb3ff; } .cl-item.r-epico { box-shadow: inset 0 0 0 1px #b36bff; } .cl-item.r-legendario { box-shadow: inset 0 0 0 2px #ffd23f; } .cl-item.r-mitico { box-shadow: inset 0 0 0 2px #ff4f6a, 0 0 10px #ff4f6a66; }
+.cl-item.short b { color: #ff8a9a; }
+.cl-bag.small { margin-bottom: 12px; }
+/* shop */
+.cl-offers { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+.cl-off { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 12px 8px; border-radius: 14px; text-align: center;
+  background: linear-gradient(180deg, #17377d, #071233); box-shadow: inset 0 0 0 2px #3fd07a88, 0 8px 16px #0008; transition: transform .14s; }
+.cl-off:hover { transform: translateY(-3px); }
+.cl-off.out { opacity: .55; }
+.cl-off > b { font-weight: normal; font-size: 10px; color: #fff; } .cl-off > small { font-size: 7px; color: #cfe3ff; }
+.cl-off-ic { width: 56px; height: 56px; display: grid; place-items: center; border-radius: 50%; font-size: 26px; color: #0a1022; background: radial-gradient(circle at 35% 30%, #fff6c8, #ffd23f 60%, #c98a00); box-shadow: 0 0 14px #ffd23f88; }
+.cl-off-ic.tokens { background: radial-gradient(circle at 35% 30%, #c8f0ff, #4fb3ff 60%, #1a5aa8); box-shadow: 0 0 14px #4fb3ff88; color: #fff; }
+.cl-off-ic[class*='r-'] { background: radial-gradient(circle at 35% 30%, #fff, var(--rc) 60%, #050c22); box-shadow: 0 0 16px var(--rc); color: #fff; }
+.cl-off-ic svg { width: 28px; height: 28px; }
+.cl-off .pn-prev, .cl-off .fr-prev { display: block; height: 56px; }
+.cl-off-cost { display: flex; flex-wrap: wrap; gap: 4px; justify-content: center; }
+.cl-stock { font-size: 7px; color: #9fb3d8; }
+/* end of a clan match */
+.cl-end-card { max-width: 460px; margin: auto; text-align: center; display: flex; flex-direction: column; gap: 8px; box-shadow: inset 0 0 0 2px #3fd07a, 0 0 30px #3fd07a55; }
+.cl-end-card > small { font-size: 8px; letter-spacing: 2px; color: #9dffc0; }
+.cl-end-card .cl-bag { justify-content: center; }
+.cl-end-score { display: flex; flex-direction: column; gap: 6px; font-size: 9px; color: #dfeaff; }
+.cl-pts { font-weight: normal; font-size: 26px; color: #ffd23f; text-shadow: 3px 3px 0 #000, 0 0 18px #ffd23f99; animation: m5Pop .6s cubic-bezier(.2, 1.6, .4, 1) both; }
+.cl-intro p { font-size: 10px; line-height: 1.7; }
+
+@media (max-width: 760px) {
+  .m4-clanchip b { max-width: 90px; }
+  .cl-head { flex-wrap: wrap; gap: 10px; padding: 12px; }
+  .cl-head-art .cl-crest { width: 60px !important; height: 60px !important; }
+  .cl-head-tx b { font-size: 16px; }
+  .cl-head-score { width: 100%; flex-direction: row; align-items: baseline; gap: 8px; justify-content: flex-start; }
+  .cl-head-score b { font-size: 16px; }
+}
+.cl-mem em.cl-tag, .cl-row em.cl-tag { color: #0a1022; font-size: 7px; }
+.cl-head-kit { right: -50px; } .cl-head-tx { padding-left: 46px; }
+.cl-crests { overflow-x: hidden; } .cl-crests .iconpick { width: 100%; height: 42px; min-width: 0; display: grid; place-items: center; }
+.cl-end-card h3 { text-align: center; justify-content: center; }
+.cl-tabs { flex-wrap: wrap; }
+@media (max-width: 760px) {
+  .cl-tabs { gap: 6px; } .cl-tabs .tab { padding: 7px 10px; font-size: 8px; }
+  .cl-head-kit { display: none; } .cl-head-tx { padding-left: 0; }
+  .cl-acts .btn { font-size: 8px; padding: 6px 8px; }
+}

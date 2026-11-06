@@ -6,7 +6,7 @@
  */
 import { CHANGELOG } from './changelog';
 
-export const PUBLIC_VERSION = '1.92-pre2.0';
+export const PUBLIC_VERSION = '1.93-pre2.0';
 export const BUILD = CHANGELOG[0].version;
 export const RELEASED = false;
 export const VERSION_LABEL = RELEASED ? `v${PUBLIC_VERSION}` : `v${PUBLIC_VERSION} · pre-lanzamiento`;
@@ -28,6 +28,22 @@ export interface PublicRelease {
 
 /** Public news, newest first. Starts at v1.0: the internal versions before it are not part of the public history. */
 export const PUBLIC_RELEASES: PublicRelease[] = [
+  {
+    version: '1.93-pre2.0', date: '2026-11-06',
+    title: 'InaZurvivors 1.93-pre2.0 — Clanes y Juegos del Clan',
+    tagline: 'Funda tu clan, jugad juntos cada día y ganad premios cada semana',
+    intro: 'Llegan los clanes: un nombre, un escudo y una equipación propios, y una arena nueva solo para ellos.',
+    features: [
+      { icon: '🛡️', title: 'Clanes', text: 'Funda un clan por 15.000 monedas con su nombre, escudo y equipación, o únete a uno (hasta 20 miembros). Los nombres pasan un filtro de palabras prohibidas.', online: true },
+      { icon: '📨', title: 'Solicitudes y rangos', text: 'Un clan puede ser abierto o con solicitud. Cada miembro lleva su rango: Líder, Oficial o Miembro. En Administrar, el líder acepta solicitudes, asciende oficiales, expulsa, cede el liderazgo y cambia nombre, escudo, equipación y entrada; los oficiales aceptan solicitudes y expulsan a miembros.', online: true },
+      { icon: '🌸', title: 'Juegos del Clan', text: 'Una arena nueva, la Colina de los Cerezos, solo para clanes. Cada miembro juega 3 partidas al día con la equipación del clan y sus puntos se suman al total del clan.', online: true },
+      { icon: '🏆', title: 'Premios de cada lunes', text: 'TOP 1: fichas para 5 ×10, 100.000 monedas y 2 Míticos o más. TOP 3: 3 ×10, 50.000 y 2 Legendarios o más. TOP 8: 3 ×10, 25.000, un Legendario o más y 2 Épicos o más. El resto: un ×10, 10.000 y un Épico o más.', online: true },
+      { icon: '🎯', title: 'Misiones del clan', text: 'Cinco misiones semanales para todo el clan (partidas, victorias, rivales, puntos y que juegue todo el mundo) con monedas y fichas para cada miembro que haya jugado.', online: true },
+      { icon: '🍢', title: 'Objetos y Tienda del clan', text: 'En los Juegos del Clan las monedas y fichas son la mitad, pero caen Pinchitos supremos, Galletas de ciervo, Néctar, Chapas viejas y Artefactos raros. Se canjean en la Tienda del clan, que cambia cada semana: monedas, fichas para un ×10, futbolistas Épicos, Legendarios y Míticos, y banners y marcos exclusivos.' },
+      { icon: '📋', title: 'En el menú', text: 'Tu clan sale arriba del todo, con su puesto y sus puntos de la semana, y tiene su propia casilla y su anuncio en el carrusel.' },
+    ],
+    start: [],
+  },
   {
     version: '1.92-pre2.0', date: '2026-11-06',
     title: 'InaZurvivors 1.92-pre2.0 — Menú nuevo y tierlists',

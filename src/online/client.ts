@@ -260,6 +260,34 @@ export const tierlistFeed = (limit = 20) => rpc<TierlistRow[]>('tierlist_feed', 
 export const myTierlist = async () => (await rpc<(TierlistRow & { hidden: boolean })[]>('my_tierlist', {}))[0] ?? null;
 export const deleteMyTierlist = () => rpc<boolean>('delete_my_tierlist', {});
 
+/** 1.93: clans (migration 20261108000000_clans.sql) */
+export interface ClanRow { id: number; name: string; crest: string; kit: string; members: number; week_points?: number; points?: number; pos?: number; mode?: 'abierto' | 'solicitud' }
+export type ClanRole = 'lider' | 'oficial' | 'miembro';
+export interface ClanMember { username: string; avatar: string; role: ClanRole; today: number; week: number }
+export interface ClanMission { id: string; goal: number; coins: number; tokens: number; progress: number; claimed: boolean }
+export interface MyClan { id: number; name: string; crest: string; kit: string; members: number; me: ClanRole; mode: 'abierto' | 'solicitud'; requests: number; runsToday: number; weekPoints: number;
+  pos: number | null; clans: number; roster: ClanMember[]; missions: ClanMission[] }
+export interface ClanPrize { week: string; clan: string; pos: number; tier: 'top1' | 'top3' | 'top8' | 'resto'; coins: number; tokens: number }
+export const clanCreate = (name: string, crest: string, kit: string) => rpc<number>('clan_create', { p_name: name, p_crest: crest, p_kit: kit });
+export const clanUpdate = (name: string | null, crest: string | null, kit: string | null, mode: 'abierto' | 'solicitud' | null = null) => rpc<boolean>('clan_update', { p_name: name, p_crest: crest, p_kit: kit, p_mode: mode });
+/** joins an open clan at once ('joined') or leaves a request ('requested') */
+export const clanRequest = (id: number) => rpc<'joined' | 'requested'>('clan_request', { p_clan: id });
+export const clanCancelRequest = (id: number) => rpc<boolean>('clan_cancel_request', { p_clan: id });
+export const myClanRequests = () => rpc<{ id: number; name: string; crest: string; created_at: string }[]>('my_clan_requests', {});
+export const clanRequests = () => rpc<{ username: string; avatar: string; created_at: string }[]>('clan_requests', {});
+export const clanAnswer = (username: string, accept: boolean) => rpc<boolean>('clan_answer', { p_username: username, p_accept: accept });
+export const clanSetRole = (username: string, role: ClanRole) => rpc<boolean>('clan_set_role', { p_username: username, p_role: role });
+export const clanLeave = () => rpc<boolean>('clan_leave', {});
+export const clanKick = (username: string) => rpc<boolean>('clan_kick', { p_username: username });
+export const clanSearch = (q: string) => rpc<ClanRow[]>('clan_search', { p_query: q }, false);
+export const clanRanking = () => rpc<ClanRow[]>('clan_ranking', {}, false);
+export const clanLastWeek = () => rpc<{ pos: number; name: string; points: number; tier: string }[]>('clan_last_week', {}, false);
+export const myClan = () => rpc<MyClan | null>('my_clan', {});
+export const clanSubmitRun = (runId: string, kills: number, timeSec: number, damage: number, rank: string, victory: boolean) =>
+  rpc<{ points: number; left: number; weekPoints: number }>('clan_submit_run', { p_run_id: runId, p_kills: Math.floor(kills), p_time_sec: Math.floor(timeSec), p_damage: Math.floor(damage), p_rank: rank, p_victory: victory });
+export const clanClaimPrizes = () => rpc<ClanPrize[]>('clan_claim_prizes', {});
+export const clanClaimMission = (id: string) => rpc<{ coins: number; tokens: number }>('clan_claim_mission', { p_id: id });
+
 export const deleteAccount = async () => { await rpc('delete_my_account', {}); signOut(); };
 
 /** pre-2.0: co-op rooms (only the two signalling messages go through the server; the match is peer to peer) */

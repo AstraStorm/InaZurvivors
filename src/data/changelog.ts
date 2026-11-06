@@ -15,6 +15,18 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: '10.1', date: '2026-11-06', title: '1.93-pre2.0 Clanes y Juegos del Clan',
+    features: [
+      'Clanes (migración 20261108000000_clans): fundar (15.000 monedas en el guardado), nombre con filtro de palabras (enteras o en cualquier parte), escudo y equipación; abierto o con solicitud; rangos líder/oficial/miembro; 20 como máximo.',
+      'Juegos del Clan: arena clan (mr09b01, Colina de los Cerezos, clanOnly fuera del camino de arenas), 3 partidas al día por jugador en el servidor, equipación del clan, puntos por rivales/tiempo/daño/victoria × Rango; monedas y fichas a la mitad; objetos del clan (systems/clans.ts).',
+      'Cierre semanal (lunes, Madrid) con TOP 1/3/8/resto, premios cobrados al entrar al menú (clan_claim_prizes) y misiones semanales; ambos cuentan para el tope de economía del guardado.',
+      'Tienda del clan semanal (semilla por semana): monedas, fichas de un ×10, futbolistas Épico/Legendario/Mítico o más, 2 banners y 2 marcos exclusivos (source clan).',
+    ],
+    fixes: [],
+    visuals: ['Chip del clan en la cabecera del menú, casilla CLANES y anuncio en el carrusel (styleClans.css).'],
+    balance: [],
+  },
+  {
     version: '10.0', date: '2026-11-06', title: '1.92-pre2.0 Menú con carrusel y tierlists de la comunidad',
     features: [
       'Carrusel de promociones en el menú (app.promoSlides/promoHtml/wirePromo, styleMenu19.css): banner especial, máquina de saga destacada del día, evento, Road/Jaden, tierlists y noticia; 5,5 s, deslizar, puntos y flechas.',

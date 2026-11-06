@@ -11,6 +11,7 @@ import './styleRoad.css';
 import './styleBoss.css';
 import './styleCards.css';
 import './styleMenu19.css';
+import './styleClans.css';
 import type { Manifest } from './data/manifest';
 import { applyRosterFixes } from './data/rosterFixes';
 import { applyTechFixes } from './data/techFixes';

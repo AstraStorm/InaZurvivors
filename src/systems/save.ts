@@ -94,6 +94,11 @@ export interface SaveData {
   roadIntroSeen?: boolean;
   /** 1.9: the tier list being made (systems/tierlist.ts); published ones live on the server */
   tierDraft?: { topic: string; tiers: Record<string, number[]> };
+  /** 1.93: clan items from the Juegos del Clan and this week's clan shop purchases (systems/clans.ts) */
+  clanItems?: Partial<Record<'pinchito' | 'galletas' | 'nectar' | 'chapa' | 'artefacto', number>>;
+  clanShop?: { week: string; bought: Record<string, number> };
+  /** 1.93: the player's clan as last seen (menu chip while the server answers) */
+  clanSeen?: { name: string; crest: string; pos: number | null; points: number } | null;
   /** Fix 1.32: ids of the news items already opened (news board) */
   newsRead?: string[];
   /** 1.88: answers to the player's bug reports, kept until he dismisses them (app.ts notiBar) */
