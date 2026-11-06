@@ -15,6 +15,16 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: '9.9', date: '2026-11-06', title: '1.91-pre2.0 Cooperativo online, amigos, entrenadores y Road to Fútbol Frontier',
+    features: [
+      'pre-2.0 en la rama principal: cooperativo P2P (WebRTC, salas coop_*, TURN de Cloudflare), amigos e invitaciones, entrenadores IE3 con pasivas, Road to Fútbol Frontier y Jaden Evans (exclusivo, fuera de la GTS).',
+      'Móvil (autor): el chip del compañero en la partida es una sola línea (nombre, barra, cuentas ✦/🔗; las filas de Auras y combinadas solo en pantallas grandes) y la sala de espera se compacta en horizontal (styleCoop.css).',
+    ],
+    fixes: ['El sello de versión de la intro ignora el sufijo «-pre2.0» (muestra 1.91).'],
+    visuals: [],
+    balance: [],
+  },
+  {
     version: '9.8', date: '2026-11-05', title: 'Fix 1.88 Vuelven las estrellas de HÉROE y combinadas nuevas',
     features: [
       'Combinadas nuevas, dibujadas desde sus escenas (fxCombo183.ts): Combo cósmico (Xavier Foster y Kira Hiroto, Bosque 120, ecXGPbrqhPg), Gran explosión (Bai Long y Victor Blade, Neutro 100, rDErxErUHVg), Pingüinos de luz y sombra (Haizaki y Kira Hiroto, Bosque 110, ir9_ksGPszw) y Campo de fuerza (Jude y Caleb, Bosque 90, Px3uzqGt2pM). Vínculos de Aura (auraBonds).',

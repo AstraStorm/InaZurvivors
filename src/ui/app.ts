@@ -311,7 +311,7 @@ export class App {
   private versionStamp() {
     let fresh = false;
     try { fresh = localStorage.getItem('iz-intro-version') !== PUBLIC_VERSION; localStorage.setItem('iz-intro-version', PUBLIC_VERSION); } catch { /* private window: just the stamp */ }
-    const [major, minor = '0'] = PUBLIC_VERSION.split('.');
+    const [major, minor = '0'] = PUBLIC_VERSION.split('-')[0].split('.'); // 1.91-pre2.0: the stamp shows 1.91
     return `<div class="vs4${fresh ? ' fresh' : ''}"><i class="vs4-ring"></i><small>VERSIÓN</small><b><span class="vs4-maj">${esc(major)}</span><em>.</em><span class="vs4-min">${esc(minor)}</span></b>${fresh ? '<span class="vs4-new">¡NUEVA VERSIÓN!</span>' : ''}</div>`;
   }
 
@@ -5281,7 +5281,10 @@ export class App {
       const pct = Math.round((co.hp / Math.max(1, co.max)) * 100);
       // IDEA-45F61B95: seconds left of a revive, «seleccionando», and the partner's Auras and combined techniques in small
       const left = (k: number) => `${(3 * (1 - Math.min(1, k))).toFixed(1)} s`;
-      const html = `<small>${co.connected ? 'COMPAÑERO' : 'DESCONECTADO'}</small><b>${esc(co.name)}${co.picking ? ' <span class="ch-pick">✋ seleccionando…</span>' : ''}</b><i class="ch-bar${co.down ? ' down' : ''}"><i style="width:${co.down ? 0 : pct}%"></i></i>`
+      // 1.91: on phones the chip folds into one line (name, bar, ✦/🔗 counts); the Aura and combo rows only on big screens
+      el.classList.toggle('off', !co.connected);
+      const counts = (co.meta.auras.length ? `✦${co.meta.auras.length}` : '') + (co.meta.combos.length ? ` 🔗${co.meta.combos.length}` : '');
+      const html = `<small>${co.connected ? 'COMPAÑERO' : 'DESCONECTADO'}</small><b>${co.connected ? '' : '<span class="ch-ic">⚠</span>'}${esc(co.name)}${co.picking ? ' <span class="ch-pick">✋<span class="ch-pt"> seleccionando…</span></span>' : ''}</b><i class="ch-bar${co.down ? ' down' : ''}"><i style="width:${co.down ? 0 : pct}%"></i></i>${counts ? `<span class="ch-n">${counts.trim()}</span>` : ''}`
         + (co.down ? `<em>${co.partnerRevive > 0 ? `Levantándolo · ${left(co.partnerRevive)}` : '¡Ha caído! Ve a su lado (3 s)'}</em>` : '')
         + (co.meDown ? `<em class="me">Has caído · ${co.revive > 0 ? `te levantan · ${left(co.revive)}` : 'espera a tu compañero'}</em>` : '')
         + (co.meta.auras.length ? `<span class="ch-row">${co.meta.auras.map((a) => `<i class="ch-aura" style="--ec:${a.element ? ELEMENT_COLOR[a.element] ?? '#c9a0ff' : '#c9a0ff'}" title="${esc(a.carrier)}">✦ ${esc(a.name)}</i>`).join('')}</span>` : '')

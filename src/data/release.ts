@@ -6,7 +6,7 @@
  */
 import { CHANGELOG } from './changelog';
 
-export const PUBLIC_VERSION = '1.88';
+export const PUBLIC_VERSION = '1.91-pre2.0';
 export const BUILD = CHANGELOG[0].version;
 export const RELEASED = false;
 export const VERSION_LABEL = RELEASED ? `v${PUBLIC_VERSION}` : `v${PUBLIC_VERSION} · pre-lanzamiento`;
@@ -28,6 +28,23 @@ export interface PublicRelease {
 
 /** Public news, newest first. Starts at v1.0: the internal versions before it are not part of the public history. */
 export const PUBLIC_RELEASES: PublicRelease[] = [
+  {
+    version: '1.91-pre2.0', date: '2026-11-06',
+    title: 'InaZurvivors 1.91-pre2.0 — Cooperativo online, entrenadores y Road to Fútbol Frontier',
+    tagline: 'Juega con un amigo, ficha entrenadores y recorre el camino al Fútbol Frontier',
+    intro: 'La antesala de la próxima gran versión. El cooperativo está en pruebas: si veis fallos, reportadlos desde el 🐞.',
+    features: [
+      { icon: '🤝', title: 'Cooperativo online (en pruebas)', text: 'Desde la casilla COOP, crea una sala y pasa su código o únete con el de otro. Cada uno lleva su equipo y su vida; los rivales y la barra de experiencia son de los dos, y si uno cae el otro lo levanta.', online: true },
+      { icon: '👥', title: 'Amigos', text: 'Añade amigos desde la casilla AMIGOS o desde su perfil en el ranking, mira quién está conectado e invítale a tu sala.', online: true },
+      { icon: '📱', title: 'Cooperativo en móvil', text: 'En el móvil, el panel de tu compañero ocupa una sola línea (nombre, vida, Auras ✦ y combinadas 🔗) y la sala de espera cabe en horizontal.', online: true },
+      { icon: '📋', title: 'Entrenadores', text: 'Los entrenadores de Inazuma Eleven 3, con pasivas que potencian formaciones, objetos raros, afinidades, daño, defensa y combinadas. Salen en las máquinas de su saga y se ponen en el banquillo de Mi Equipo.' },
+      { icon: '🏆', title: 'Road to Fútbol Frontier', text: 'Cinco jugadores del Raimon o de Inazuma Japan, sin Auras pero con tu entrenador, en 3, 4 o 5 partidos según la dificultad. En Máxima te aseguras un Legendario o más.' },
+      { icon: '🌊', title: 'Jaden Evans', text: 'Mediocentro de Montaña, Leyenda: gánalo superando el Road en Máxima 10 veces (y una copia cada 10 más). Con Corriente negra y Corte volcánico redibujadas.' },
+      { icon: '🔥', title: 'Elementos corregidos', text: '118 técnicas tenían el elemento mal: ahora llevan el suyo.' },
+      { icon: '🐉', title: 'Rizo de dragón y Ciclón blanco', text: 'Redibujadas como en sus escenas.' },
+    ],
+    start: [],
+  },
   {
     version: '1.88', date: '2026-11-05',
     title: 'InaZurvivors Fix 1.88 — Vuelven las estrellas de HÉROE y combinadas nuevas',
