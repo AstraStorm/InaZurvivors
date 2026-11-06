@@ -45,6 +45,10 @@ export const PERKS: PerkDef[] = [
   P('botiquin', 'Supervivencia', 'Botiquín', '+12% curación de bolas de arroz y chocolate por nivel (máx. +48%)', 4, 200, 130),
   P('inicio', 'Progresión', 'Ventaja inicial', 'Empiezas la partida con un 20% de la experiencia del primer nivel por nivel (máx. 80%)', 4, 240, 160),
   P('raros', 'Progresión', 'Ojo para lo raro', '+4% probabilidad de objetos especiales (Revivir, Barrera, cofres...) por nivel (máx. +16%)', 4, 260, 170),
+  // IDEA-C16CF5D6 (Lancelot): upgrades for the power-ups found in a run
+  P('imanbotin', 'Progresión', 'Imán de botín', 'El Imán también atrae las bolsas de monedas, las fichas y los cofres del campo', 1, 2500, 0),
+  P('potenciador', 'Combate', 'Potenciador de daño', 'El objeto «Daño» da un +5% más por nivel (de +50% a +75%)', 5, 220, 150),
+  P('turbo', 'Combate', 'Recarga turbo', 'El objeto «Recarga» recarga un 4% más por nivel (de -40% a -60%)', 5, 220, 150),
   P('tactica', 'Equipo', 'Pizarra avanzada', 'Potencia la formación activa por nivel: ofensiva +1% daño, equilibrada +2% combinadas, defensiva -1% daño recibido (máx. 5)', 5, 280, 180),
 ];
 /** Fix 1.11: every upgrade costs half as much again, so coins keep their value over many runs */
@@ -110,6 +114,8 @@ export interface PerkEffects {
   /** Fix 1.11: boss/miniboss attacks taken, share of the first level's experience at the start, healing of food items,
    * «Pizarra avanzada» level, extra chance of special items */
   bossTakenMult: number; startXpFrac: number; healMult: number; tactic: number; specialLuck: number;
+  /** IDEA-C16CF5D6: the Imán pulls loot too; extra of the «Daño» and «Recarga» power-ups (0.5 / 0.4 base) */
+  lootMagnet: boolean; damageBuff: number; cooldownBuff: number;
 }
 
 export function perkEffects(s: SaveData): PerkEffects {
@@ -148,5 +154,8 @@ export function perkEffects(s: SaveData): PerkEffects {
     healMult: 1 + 0.12 * l('botiquin'),
     tactic: l('tactica'),
     specialLuck: 0.04 * l('raros'),
+    lootMagnet: l('imanbotin') > 0,
+    damageBuff: 0.5 + 0.05 * l('potenciador'),
+    cooldownBuff: 0.4 + 0.04 * l('turbo'),
   };
 }

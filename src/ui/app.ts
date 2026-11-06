@@ -15,7 +15,7 @@ import { applyRun, isMapUnlocked, mapTierScale, type RunResult } from '../system
 import { DROPS } from '../systems/items';
 import { STAT_INFO } from '../systems/playerStats';
 import { statChanges, TYPE_LABEL, MAX_TECH_LEVEL } from '../systems/techniques';
-import { evolutionLabel, evolvesAt } from '../systems/evolution';
+import { evolutionLabel, evolvesAt, comboLabel } from '../systems/evolution';
 import { modDef } from '../systems/runmods';
 import { FORMATIONS, FORMATION_ORDER, type FormationId } from '../systems/formations';
 import { CATEGORY_BONUS, MILESTONES, PERKS, PERK_CATEGORIES, buyPerk, categoryLevels, perkCost, perkLevel, perkEffects, perkValue, refundPerks, spentOn, type PerkCategory } from '../systems/perks';
@@ -322,7 +322,7 @@ export class App {
   private titleScreen(next: () => void) {
     const name = this.save.onlineName ?? this.save.profile.name;
     const guest = onlineConfigured() && !signedIn();
-    this.show(`<div class="cine cine4 title-screen">${this.cineStage()}<div class="cine-shot in"><div class="logo cine-logo ib-logo4 idle"><h1><span class="p1">INA</span><span class="bolt p2">Z</span><span class="p3">URVIVORS</span><i class="ib-shine"></i></h1>
+    this.show(`<div class="cine cine4 title-screen">${this.cineStage()}<div class="cine-shot in"><div class="logo cine-logo ib-logo4 idle"><h1><span class="p1">INA</span><span class="bolt p2">Z</span><span class="p3">URVIVORS</span><i class="ib-shine"></i><span class="ib-pre">PRE-2.0</span></h1>
       <div class="sub">ROGUELITE DE FÚTBOL · FANGAME</div></div>
       <p class="cine-text">¡Hola de nuevo, ${esc(name)}!</p>
       <p class="wiz-next"><button class="btn big" id="tscont">Continuar ▶</button></p>
@@ -880,7 +880,7 @@ export class App {
           const balls = Array.from({ length: 6 }, (_, k) => `<i class="ib-ball" style="--y:${15 + k * 13}%;--d:${0.4 + k * 0.18}s">⚽</i>`).join('');
           const sparks = Array.from({ length: 18 }, (_, k) => `<i class="ib-spark" style="--a:${k * 20}deg;--r:${120 + (k % 3) * 60}px;--d:${0.95 + (k % 4) * 0.03}s"></i>`).join('');
           box.innerHTML = `<div class="intro-burst">${bolts}${balls}<div class="ib-orbit">${orbs}</div><i class="ib-flash"></i><i class="ib-ring"></i><i class="ib-ring r2"></i>${sparks}
-            <div class="logo cine-logo ib-logo4"><h1><span class="p1">INA</span><span class="bolt p2">Z</span><span class="p3">URVIVORS</span><i class="ib-shine"></i></h1><div class="sub">${words('ROGUELITE DE FÚTBOL · FANGAME', 1300)}</div><span class="ver-badge ib-ver">${esc(VERSION_LABEL)}</span></div>${this.versionStamp()}</div>`;
+            <div class="logo cine-logo ib-logo4"><h1><span class="p1">INA</span><span class="bolt p2">Z</span><span class="p3">URVIVORS</span><i class="ib-shine"></i><span class="ib-pre">PRE-2.0</span></h1><div class="sub">${words('ROGUELITE DE FÚTBOL · FANGAME', 1300)}</div><span class="ver-badge ib-ver">${esc(VERSION_LABEL)}</span></div>${this.versionStamp()}</div>`;
           if (!this.save.settings.reducedMotion) window.setTimeout(() => { sfx('boom'); if (this.save.settings.shake <= 0) return; document.querySelector('.cine4')?.classList.add('shake'); window.setTimeout(() => document.querySelector('.cine4')?.classList.remove('shake'), 420); }, 950);
           if (!this.save.settings.reducedMotion) sfx('legend');
         }
@@ -4783,6 +4783,7 @@ export class App {
       hooks: {
         hud: (s) => this.renderHud(s),
         markers: (m) => this.renderMarkers(m),
+        coopPicking: (name) => this.coopPickingPill(name),
         event: (r) => this.eventCard(r),
         combo: (c) => this.comboUnlock(c),
         bossWarn: () => this.bossWarnFx(),
@@ -4998,7 +4999,7 @@ export class App {
         const ok = g.parts.filter((p) => p.have >= p.need).length;
         return `<div class="combo-chip goal${g.ready ? ' ready' : ''}" title="${esc(g.parts.map((p) => `${p.player}: ${(!p.anyTech && p.tech) || p.bestTech || 'su mejor técnica'} Nv ${p.have}/${p.need}`).join(' · '))}">🔗 <b>${esc(g.name)}</b> ${g.ready ? '¡lista!' : `${ok}/${g.parts.length}`}</div>`;
       }).join('');
-      const html = s.combos.map((c) => `<div class="combo-chip${c.cd <= 0.02 ? ' ready' : ''}"><b>${esc(c.name)}</b> Nv ${c.level}<i style="width:${Math.round((1 - c.cd) * 100)}%"></i></div>`).join('') + goals;
+      const html = s.combos.map((c) => `<div class="combo-chip${c.cd <= 0.02 ? ' ready' : ''}"><b>${esc(c.name)}</b>${this.comboTag(c.name, c.level)}<i style="width:${Math.round((1 - c.cd) * 100)}%"></i></div>`).join('') + goals;
       if (ch.innerHTML !== html) ch.innerHTML = html;
     }
     const rev = document.getElementById('revchip');
@@ -5044,7 +5045,13 @@ export class App {
       let el = document.getElementById('coophud');
       if (!el) { el = document.createElement('div'); el.id = 'coophud'; el.className = 'coop-hud'; (document.querySelector('#hud .cap-panel .vbars') ?? document.getElementById('hud'))?.appendChild(el); }
       const pct = Math.round((co.hp / Math.max(1, co.max)) * 100);
-      const html = `<small>${co.connected ? 'COMPAÑERO' : 'DESCONECTADO'}</small><b>${esc(co.name)}</b><i class="ch-bar${co.down ? ' down' : ''}"><i style="width:${co.down ? 0 : pct}%"></i></i>${co.down ? '<em>¡Ha caído! Ve a su lado</em>' : ''}${co.meDown ? `<em class="me">Has caído · levantándote ${Math.round(co.revive * 100)}%</em>` : ''}`;
+      // IDEA-45F61B95: seconds left of a revive, «seleccionando», and the partner's Auras and combined techniques in small
+      const left = (k: number) => `${(3 * (1 - Math.min(1, k))).toFixed(1)} s`;
+      const html = `<small>${co.connected ? 'COMPAÑERO' : 'DESCONECTADO'}</small><b>${esc(co.name)}${co.picking ? ' <span class="ch-pick">✋ seleccionando…</span>' : ''}</b><i class="ch-bar${co.down ? ' down' : ''}"><i style="width:${co.down ? 0 : pct}%"></i></i>`
+        + (co.down ? `<em>${co.partnerRevive > 0 ? `Levantándolo · ${left(co.partnerRevive)}` : '¡Ha caído! Ve a su lado (3 s)'}</em>` : '')
+        + (co.meDown ? `<em class="me">Has caído · ${co.revive > 0 ? `te levantan · ${left(co.revive)}` : 'espera a tu compañero'}</em>` : '')
+        + (co.meta.auras.length ? `<span class="ch-row">${co.meta.auras.map((a) => `<i class="ch-aura" style="--ec:${a.element ? ELEMENT_COLOR[a.element] ?? '#c9a0ff' : '#c9a0ff'}" title="${esc(a.carrier)}">✦ ${esc(a.name)}</i>`).join('')}</span>` : '')
+        + (co.meta.combos.length ? `<span class="ch-row">${co.meta.combos.map((c) => `<i class="ch-combo">🔗 ${esc(c.name)}${this.comboTag(c.name, c.level)}</i>`).join('')}</span>` : '');
       if (el.innerHTML !== html) el.innerHTML = html;
     }
     stat('runtokens', s.runTokens ? `+${s.runTokens}` : '');
@@ -5068,6 +5075,13 @@ export class App {
     if (capPanel && resEl.offsetParent) {
       const top = Math.round(capPanel.getBoundingClientRect().bottom - resEl.offsetParent.getBoundingClientRect().top + 6);
       if (resEl.dataset.top !== String(top)) { resEl.dataset.top = String(top); resEl.style.setProperty('top', `${top}px`, 'important'); }
+    }
+    // pre-2.0: the partner's chip makes the captain panel taller; the event box goes under the panel and the chips
+    const altEl = document.getElementById('altar');
+    if (co && capPanel && altEl?.offsetParent) {
+      const low = Math.max(capPanel.getBoundingClientRect().bottom, resEl.childElementCount ? resEl.getBoundingClientRect().bottom : 0);
+      const top = Math.round(low - altEl.offsetParent.getBoundingClientRect().top + 6);
+      if (altEl.dataset.top !== String(top)) { altEl.dataset.top = String(top); altEl.style.setProperty('top', `${top}px`, 'important'); }
     }
     document.getElementById('clocktxt')!.textContent = s.endless ? `∞ ${fmtTime(s.endless.sec)} · ${s.endless.phase}` : `${fmtTime(s.timeSec)} / ${fmtTime(s.durationSec)}`;
     // v1.4: the clock fills up towards the boss and warms up in the last minute
@@ -5134,6 +5148,11 @@ export class App {
   }
 
   /** 1.81: the logo of a technique level step (+1, N3, S, ∞, GO...), or its text when the logo is missing */
+  /** IDEA-B1D93E8F: a combined technique's level as its logo (level 1 has none) */
+  private comboTag(name: string, level: number) {
+    const d = COMBOS.find((x) => x.name === name);
+    return d ? this.evoTag(comboLabel(d.power, level)) : level > 1 ? ` Nv ${level}` : '';
+  }
   private evoTag(label: string, big = false) {
     if (!label) return '';
     const src = this.m.evoIcons?.[label];
@@ -5183,6 +5202,14 @@ export class App {
     this.eventTimer = window.setTimeout(() => { box.className = 'event-result'; }, 3200);
   }
 
+  /** pre-2.0 (IDEA-45F61B95): a pill on top of everything (the cards too) while the partner chooses his card */
+  private coopPickingPill(name: string | null) {
+    let el = document.getElementById('coop-pick');
+    if (!name) { el?.remove(); return; }
+    if (!el) { el = document.createElement('div'); el.id = 'coop-pick'; el.className = 'coop-pick'; document.body.appendChild(el); }
+    el.innerHTML = `<i class="cp-dots"><b></b><b></b><b></b></i><span><b>${esc(name)}</b> está seleccionando…</span>`;
+  }
+
   /** Minimap and, for what is off screen, up to three arrows: the most important first, the nearest of each kind. */
   private renderMarkers(m: MarkerState) {
     const cv = document.getElementById('minimap') as HTMLCanvasElement | null, marks = document.getElementById('marks');
@@ -5199,6 +5226,10 @@ export class App {
       if (p.priority >= 3) { ctx.strokeStyle = hex(p.color); ctx.strokeRect(p.x * sx - 5, p.y * sy - 5, 10, 10); } // events stand out
     }
     ctx.fillStyle = '#fff'; ctx.fillRect(m.player.x * sx - 2, m.player.y * sy - 2, 4, 4);
+    for (const p of m.pois) if (p.kind === 'companero') { // pre-2.0: the partner, a ringed dot above the rest
+      ctx.fillStyle = hex(p.color); ctx.beginPath(); ctx.arc(p.x * sx, p.y * sy, 3, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = '#fff'; ctx.lineWidth = 1; ctx.stroke();
+    }
     const off = m.pois.filter((p) => p.x < m.view.x || p.x > m.view.x + m.view.w || p.y < m.view.y || p.y > m.view.y + m.view.h);
     const dist = (p: Poi) => Math.hypot(p.x - m.player.x, p.y - m.player.y);
     const bestOfKind = [...new Map(off.sort((a, b) => dist(a) - dist(b)).reverse().map((p) => [p.kind, p])).values()].sort((a, b) => b.priority - a.priority).slice(0, 3);
@@ -5260,7 +5291,8 @@ export class App {
       return `<button class="lvcard combo" data-i="${i}" style="--rc:#ffe24a"><div class="lv-ribbon">${c.toLevel === 1 ? '¡TÉCNICA COMBINADA!' : 'MEJORA COMBINADA'}</div>
         <div class="lv-type">COMBINADA · RANURA ESPECIAL</div>
         <div class="lv-art combo-art">${ids.map((id) => this.mug(id, 64)).join('')}${this.techBadge(t, 2)}</div>
-        <div class="lv-name">${esc(d.name)}${c.toLevel > 1 ? ` Nv ${c.toLevel}` : ''}</div><div class="lv-sub">${esc(d.needs.map((n) => n.player).join(' + '))}</div>${this.techChips(t)}
+        <div class="lv-name">${esc(d.name)}${this.evoTag(comboLabel(d.power, c.toLevel))}</div><div class="lv-sub">${esc(d.needs.map((n) => n.player).join(' + '))}</div>${this.techChips(t)}
+        ${c.toLevel > 1 ? `<div class="lv-level">${this.evoTag(comboLabel(d.power, c.toLevel - 1), true) || 'Base'} <span>»</span> <b>${this.evoTag(comboLabel(d.power, c.toLevel), true)}</b></div>` : ''}
         ${c.toLevel > 1 ? this.comboGains(d, c.toLevel) : '<div class="lv-desc">Se lanza sola mientras estén todos en el campo. No ocupa ninguna ranura de técnica.</div>'}</button>`;
     }
     if (c.kind === 'stat' || c.kind === 'passive') {

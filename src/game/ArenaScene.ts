@@ -14,7 +14,7 @@ import { applyCard, drawCards, MAX_TEAM, newMemberState, type Card, type TeamMem
 import { baseMods, modDef } from '../systems/runmods';
 import { ALTAR_EVERY_SEC, ALTAR_ICON, ALTAR_INFO, ALTAR_WAIT_SEC, ALTAR_LABEL, ALTAR_MODE, ALTAR_RADIUS, ALTAR_COLOR, ALTAR_REWARD, ALTAR_TASK, ALTAR_TYPES, FIRST_ALTAR_SEC, createAltar, stepAltar, type Altar } from '../systems/altars';
 import { ALTAR_TOKENS, DUEL_TOKENS, ENDLESS_TOKENS, FICHA_DROP, BAG_COINS, CHEST_COINS, DROPS, MAGNET_GAP_SEC, MAX_PICKUPS, MAX_REVIVES, rollDrop, rollXpTier, SHIELD_REDUCTION, XP_TIERS, type BuffId, type DropDef } from '../systems/items';
-import { evolutionLabel, evolvesAt } from '../systems/evolution';
+import { evolutionLabel, evolvesAt, comboLabel } from '../systems/evolution';
 import { starBonus } from '../systems/gacha';
 import { canStartGuardedMove, GUARD_LOCKOUT_SEC } from '../systems/combat';
 import { FORMATIONS, FORMATION_ORDER, headingFromVector, slotPositions, type FormationId } from '../systems/formations';
@@ -74,7 +74,7 @@ export interface HudState {
 }
 
 /** Point of interest on the pitch, for the minimap and the arrows at the edge of the screen. */
-export interface Poi { kind: 'evento' | 'jefe' | 'minijefe' | 'objeto'; icon: string; color: number; x: number; y: number; label: string; priority: number }
+export interface Poi { kind: 'evento' | 'jefe' | 'minijefe' | 'objeto' | 'companero'; icon: string; color: number; x: number; y: number; label: string; priority: number }
 export interface MarkerState {
   pois: Poi[]; player: { x: number; y: number }; world: { w: number; h: number };
   view: { x: number; y: number; w: number; h: number; zoom: number; screenW: number; screenH: number };
@@ -88,6 +88,8 @@ export interface ArenaHooks {
   /** boss beaten for the first time: the player picks finishing now or endless survival */
   bossDown(): Promise<'end' | 'continue'>;
   markers?(m: MarkerState): void;
+  /** pre-2.0 (IDEA-45F61B95): the co-op partner is choosing his level-up card (null: he is not) */
+  coopPicking?(name: string | null): void;
   /** an event just ended: what happened, shown as a card */
   event?(r: { ok: boolean; title: string; detail: string }): void;
   /** Fix 1.12: a combined technique was just learned: participants' portraits and its name */
@@ -582,10 +584,10 @@ export class ArenaScene extends Phaser.Scene {
     const affinity = (m.entry.aura && t.element && t.element === m.entry.aura.element ? 1 + AURA_ELEMENT_BONUS : 1) * (t.aura !== undefined ? AURA_TECH_DAMAGE : 1);
     const build = softCap(m.damageMult * boost * talent * affinity * this.mods.damage * (1 + this.cfg.perks.synergy * allies) * this.teamDamageBonus() * this.heroAura()
       * chemistry(this.cfg.kitTeam ?? '', this.members.map((x) => x.entry)));
-    const s = techStats(t, this.techLevel(m, i), build * statDamage(m.entry, t.type) * (this.buffOn('dano') ? 1.5 : 1) * this.formationDamage() * (t.type === 'parada' ? 1 + fx.keeper : 1));
+    const s = techStats(t, this.techLevel(m, i), build * statDamage(m.entry, t.type) * (this.buffOn('dano') ? 1 + (this.cfg.perks.damageBuff ?? 0.5) : 1) * this.formationDamage() * (t.type === 'parada' ? 1 + fx.keeper : 1));
     if (t.type === 'parada' && fx.keeper) { s.heal *= 1 + fx.keeper; s.shield = Math.min(0.6, s.shield * (1 + fx.keeper)); } // Portero+
     if (t.type === 'parada' && m.entry.rarity === 'leyenda') { s.damage = Math.round(s.damage * LEGEND_SAVE_DAMAGE); s.heal *= LEGEND_SAVE_HEAL; } // 1.76
-    s.cooldownMs = Math.round(s.cooldownMs * capCooldown(this.mods.cooldown * this.cfg.perks.cooldownMult * (1 - fx.cooldown) * statCooldown(m.entry)) * (this.buffOn('recarga') ? 0.6 : 1) * FORMATIONS[this.formation].cooldownMult);
+    s.cooldownMs = Math.round(s.cooldownMs * capCooldown(this.mods.cooldown * this.cfg.perks.cooldownMult * (1 - fx.cooldown) * statCooldown(m.entry)) * (this.buffOn('recarga') ? 1 - (this.cfg.perks.cooldownBuff ?? 0.4) : 1) * FORMATIONS[this.formation].cooldownMult);
     s.radius = Math.round(s.radius * capArea(this.mods.area * this.cfg.perks.areaMult * (this.buffOn('amplio') ? 1.2 : 1)));
     return s;
   }
@@ -1524,12 +1526,12 @@ export class ArenaScene extends Phaser.Scene {
   // ------------------------------------------------------------- enemies
   private units() { return new Map(this.cfg.manifest.units.map((u) => [u.id, u])); }
 
-  private spawnEnemy(unit: UnitInfo, kind: UnitInfo['kind'], hpMult = 1, scale = 1) {
+  private spawnEnemy(unit: UnitInfo, kind: UnitInfo['kind'], hpMult = 1, scale = 1, place?: { x: number; y: number }) {
     const cam = this.cameras.main;
     const cap = this.members[0].f;
     // just outside the view, never so close that a spawn lands on top of the squad
     const r = Math.max(190, Math.hypot(cam.width, cam.height) / cam.zoom / 2 + 20);
-    const at = this.arena.randomCellAround(cap.x, cap.y, r, r + 140, this.rng);
+    const at = place ?? this.arena.randomCellAround(cap.x, cap.y, r, r + 140, this.rng);
     if (!at) return null;
     const sprite = this.add.sprite(at.x, at.y, `unit:${unit.id}`, 0)
       .setOrigin(unit.originX / unit.frameW, unit.originY / unit.frameH).setScale(scale);
@@ -1932,22 +1934,33 @@ export class ArenaScene extends Phaser.Scene {
     if (this.runTime - this.campSince > 6 && this.runTime >= this.nextCampHit && !this.ended) {
       this.nextCampHit = this.runTime + (this.rank.id === 'C' ? 4 : 2.6);
       if (!this.campWarned) { this.campWarned = true; this.banner('¡No te quedes quieto!', '#ffb050'); }
-      for (let k = 0; k < 2; k++) this.dropHazard(c.x + this.rng.between(-14, 14), c.y + this.rng.between(-10, 10), undefined, { by: '', attack: 'lluvia de balones', still: true });
+      for (let k = 0; k < 2; k++) {
+        const x = c.x + this.rng.between(-14, 14), y = c.y + this.rng.between(-10, 10);
+        // pre-2.0: the guest asks the host, who drops it for both screens
+        if (this.coop?.role === 'guest') this.coop.askHazard(x, y); else this.dropHazard(x, y, undefined, { by: '', attack: 'lluvia de balones', still: true });
+      }
     }
     const every = this.endless ? endlessPhase(this.endlessMin()).surroundEvery : this.rank.surroundEvery;
-    if (!this.boss && every && this.runTime >= this.nextSurround && this.runTime > 55) {
+    // pre-2.0 (BUG-F44BE9B4): rivals are the host's, so the guest never surrounds himself — his rivals were his alone
+    // and the host never saw them; the host closes the circle round each captain still standing instead
+    if (!this.boss && every && this.runTime >= this.nextSurround && this.runTime > 55 && this.coop?.role !== 'guest') {
       this.nextSurround = this.runTime + every;
-      const units = this.cfg.map.enemies.map((id) => this.units().get(id)).filter((u): u is UnitInfo => !!u);
-      const n = Math.min(10 + RANK_ORDER.indexOf(this.rank.id) * 3 + Math.floor(this.runTime / 60), MAX_ENEMIES - this.enemies.length);
-      const cam = this.cameras.main, r = Math.min(cam.width, cam.height) / cam.zoom / 2 + 30, gap = this.rng.frac() * Math.PI * 2;
-      for (let k = 0; k < n && units.length; k++) {
-        const a = gap + 0.7 + (k / n) * (Math.PI * 2 - 1.4); // an opening of about 80 degrees to escape through
-        const x = c.x + Math.cos(a) * r, y = c.y + Math.sin(a) * r;
-        if (!this.arena.walkableAt(x, y, 6)) continue;
-        const m = this.spawnEnemy(units[this.rng.between(0, units.length - 1)], 'enemy');
-        m?.sprite.setPosition(x, y);
-      }
-      this.banner('¡Te rodean!', '#ff8a5a');
+      if (!this.down) { this.surround(c); this.banner('¡Te rodean!', '#ff8a5a'); }
+      const pc = this.coop?.partnerCaptain();
+      if (pc && (this.down || Math.hypot(pc.x - c.x, pc.y - c.y) > 160)) { this.surround(pc); this.coop?.say('¡Te rodean!', '#ff8a5a'); }
+    }
+  }
+
+  /** A ring of rivals round a captain, with an opening of about 80 degrees to escape through. */
+  private surround(c: { x: number; y: number }) {
+    const units = this.cfg.map.enemies.map((id) => this.units().get(id)).filter((u): u is UnitInfo => !!u);
+    const n = Math.min(10 + RANK_ORDER.indexOf(this.rank.id) * 3 + Math.floor(this.runTime / 60), MAX_ENEMIES - this.enemies.length);
+    const cam = this.cameras.main, r = Math.min(cam.width, cam.height) / cam.zoom / 2 + 30, gap = this.rng.frac() * Math.PI * 2;
+    for (let k = 0; k < n && units.length; k++) {
+      const a = gap + 0.7 + (k / n) * (Math.PI * 2 - 1.4);
+      const x = c.x + Math.cos(a) * r, y = c.y + Math.sin(a) * r;
+      if (!this.arena.walkableAt(x, y, 6)) continue;
+      this.spawnEnemy(units[this.rng.between(0, units.length - 1)], 'enemy', 1, 1, { x, y });
     }
   }
 
@@ -1986,13 +1999,18 @@ export class ArenaScene extends Phaser.Scene {
   private updateHazards(dt: number) {
     const s = dt / 1000;
     const every = this.endless ? Math.min(this.rank.hazardEvery || 99, endlessPhase(this.endlessMin()).hazardEvery) : this.rank.hazardEvery;
-    if (every && !this.ended && this.runTime >= this.nextHazardAt) {
+    // pre-2.0 (BUG-F44BE9B4): the falling balls are the host's too (the guest's own ones never showed on the host's
+    // screen); he drops them round each captain standing and they reach the guest through dropHazard
+    if (every && !this.ended && this.runTime >= this.nextHazardAt && this.coop?.role !== 'guest') {
       this.nextHazardAt = this.runTime + every * (0.8 + this.rng.frac() * 0.4);
-      const c = this.members[0].f;
       const n = Math.min(10, 2 + Math.floor(this.runTime / 120));
-      for (let k = 0; k < n; k++) {
-        const a = this.rng.frac() * Math.PI * 2, d = k === 0 ? this.rng.between(0, 40) : this.rng.between(40, 130);
-        this.dropHazard(c.x + Math.cos(a) * d, c.y + Math.sin(a) * d * 0.8);
+      const pc = this.coop?.partnerCaptain();
+      for (const c of [this.down ? null : this.members[0].f, pc]) {
+        if (!c) continue;
+        for (let k = 0; k < n; k++) {
+          const a = this.rng.frac() * Math.PI * 2, d = k === 0 ? this.rng.between(0, 40) : this.rng.between(40, 130);
+          this.dropHazard(c.x + Math.cos(a) * d, c.y + Math.sin(a) * d * 0.8);
+        }
       }
     }
     for (const h of this.hazards) {
@@ -2317,14 +2335,20 @@ export class ArenaScene extends Phaser.Scene {
       return;
     }
     const d = p.drop!;
-    if (d.info) this.cfg.onPickup?.(d.id, d.label, d.info);
+    // IDEA-C16CF5D6: the power-up says what it really gives with the upgrades bought
+    const boost = d.id === 'dano' ? Math.round((this.cfg.perks.damageBuff ?? 0.5) * 100) : d.id === 'recarga' ? Math.round((this.cfg.perks.cooldownBuff ?? 0.4) * 100) : 0;
+    const label = boost ? (d.id === 'dano' ? `Daño +${boost}%` : `Recarga -${boost}%`) : d.label;
+    const info = boost && d.id === 'dano' ? `El equipo hace un ${boost}% más de daño durante 10 s.` : d.info;
+    if (info) this.cfg.onPickup?.(d.id, label, info);
     this.fx.ring(c.x, c.y - 10, 24, 0xffffff, 260, 2);
     this.fx.burst('energia', c.x, c.y - 10, 8, 60, true);
     if (d.id === 'arroz' || d.id === 'chocolate') {
       this.hp = Math.min(this.maxHp, this.hp + Math.round(this.maxHp * (d.id === 'arroz' ? 0.15 : 0.4) * this.cfg.perks.healMult));
       sfx('pickup');
     } else if (d.id === 'iman') {
-      for (const o of this.pickups) if (o.kind === 'xp') { o.pulled = true; o.speed = Math.max(o.speed, 300); }
+      // IDEA-C16CF5D6: with «Imán de botín» the coin bags, fichas and chests come too
+      const loot = (o: Pickup) => this.cfg.perks.lootMagnet && o.kind === 'item' && (o.drop?.id === 'bolsa' || o.drop?.id === 'ficha' || o.drop?.id === 'cofre');
+      for (const o of this.pickups) if (o.kind === 'xp' || loot(o)) { o.pulled = true; o.speed = Math.max(o.speed, 300); }
       this.fx.ring(c.x, c.y - 10, 90, 0xe23a3a, 500, 3);
       this.fx.ring(c.x, c.y - 10, 160, 0xffffff, 700, 2);
       this.fx.rays(c.x, c.y - 10, 12, 110, 0xe23a3a, 420);
@@ -2566,6 +2590,7 @@ export class ArenaScene extends Phaser.Scene {
       sfx('pickup');
       return;
     }
+    this.coop?.picking(true);
     this.cfg.hooks.levelUp(cards, this.rerolls, reroll, level).then((card) => {
       this.levelingUp = false;
       if (this.ended) return;
@@ -2576,6 +2601,7 @@ export class ArenaScene extends Phaser.Scene {
 
   /** After a card: alone, the run goes on; in co-op the host waits for the partner's card, the guest for the host. */
   private afterCards(level: number, quick = false) {
+    if (!quick) this.coop?.picking(false);
     const go = () => {
       this.scene.resume();
       if (this.coop?.role === 'guest') { if (this.coopPendingLevels > 0) { this.coopPendingLevels--; this.offerCards(false, this.level); } return; }
@@ -2593,7 +2619,7 @@ export class ArenaScene extends Phaser.Scene {
       if (!def) return;
       const had = this.combos.get(def.id);
       this.combos.set(def.id, { level: card.toLevel, cd: had?.cd ?? 800 });
-      this.banner(had ? `${def.name} Nv ${card.toLevel}` : `¡${def.name.toUpperCase()}!`, '#ffe24a');
+      this.banner(had ? `${def.name} ${comboLabel(def.power, card.toLevel) || `Nv ${card.toLevel}`}` : `¡${def.name.toUpperCase()}!`, '#ffe24a');
       sfx('evolve');
       if (!had) { // a brief freeze, the participants' portraits and the name (app.ts)
         this.slowmoUntil = performance.now() + 700;
@@ -2869,6 +2895,9 @@ export class ArenaScene extends Phaser.Scene {
       if (e.kind === 'boss') pois.push({ kind: 'jefe', icon: '☠', color: 0xff3030, x: e.pos.x, y: e.pos.y, label: e.unit.name, priority: 4 });
       else if (e.kind === 'miniboss') pois.push({ kind: 'minijefe', icon: '♛', color: 0xff8a3a, x: e.pos.x, y: e.pos.y, label: e.unit.name, priority: 2 });
     }
+    // pre-2.0 (IDEA-45F61B95): the partner on the minimap, and an arrow to him when he is off screen
+    const pp = this.coop?.partnerPos();
+    if (pp && this.coop) pois.push({ kind: 'companero', icon: this.coop.partnerDown ? '✚' : '👥', color: this.coop.partnerDown ? 0xff6a5a : 0x4fd8ff, x: pp.x, y: pp.y, label: this.coop.partnerName, priority: this.coop.partnerDown ? 5 : 3 });
     for (const p of this.pickups) if (p.kind === 'item' && (p.drop?.id === 'cofre' || p.drop?.id === 'cofretec' || p.drop?.id === 'iman')) pois.push({ kind: 'objeto', icon: p.drop.id === 'iman' ? '∩' : '✪', color: 0xffc83a, x: p.x, y: p.y, label: p.drop.label, priority: 1 });
     hook({ pois, player: { x: c.x, y: c.y }, world: { w: this.arena.widthPx, h: this.arena.heightPx }, view: { x: cam.worldView.x, y: cam.worldView.y, w: cam.worldView.width, h: cam.worldView.height, zoom: cam.zoom, screenW: cam.width, screenH: cam.height } });
   }
@@ -2993,13 +3022,14 @@ export class ArenaScene extends Phaser.Scene {
         if (this.coopPendingLevels > 0) { this.coopPendingLevels--; this.offerCards(false, this.level); }
       },
       enemyShot: (x, y, vx, vy, dmg, by) => { this.hitSrc = { by, attack: 'disparo' }; this.enemyShot(x, y, vx, vy, dmg); },
-      hazard: (x, y, dmg, by) => this.dropHazard(x, y, dmg, { by, attack: 'lluvia de balones' }),
+      hazard: (x, y, dmg, by) => this.dropHazard(x, y, dmg < 0 ? undefined : dmg, { by, attack: 'lluvia de balones' }), // < 0: the guest's ask
       shock: (x, y, dmg, c, by) => { this.hitSrc = { by, attack: 'onda de choque' }; this.addShock(x, y, dmg, c); },
       makeGhost: (entry, x, y) => this.makeGhost(entry, x, y),
       replayShot: (m) => this.replayShot(m),
       end: (v) => this.finish(v),
       banner: (t, c) => this.banner(t, c),
       telegraph: (m) => this.telegraphMirror(m),
+      partnerPicking: (on) => this.cfg.hooks.coopPicking?.(on && this.coop ? this.coop.partnerName : null),
     };
   }
 
@@ -3120,7 +3150,11 @@ export class ArenaScene extends Phaser.Scene {
   coopHud() {
     const c = this.coop;
     if (!c) return null;
-    return { name: c.partnerName, hp: Math.max(0, c.partnerHp.hp), max: c.partnerHp.max, down: c.partnerDown, connected: c.connected, meDown: this.down, revive: c.reviveProgress };
+    // IDEA-45F61B95: own Auras and combos go to the partner (only sent when they change)
+    c.meta({ auras: this.members.filter((m) => m.entry.aura).map((m) => ({ carrier: m.entry.name, name: m.entry.aura!.name, element: m.entry.aura!.element ?? null })),
+      combos: [...this.combos].map(([id, st]) => ({ name: COMBOS.find((x) => x.id === id)?.name ?? id, level: st.level })) });
+    return { name: c.partnerName, hp: Math.max(0, c.partnerHp.hp), max: c.partnerHp.max, down: c.partnerDown, connected: c.connected, meDown: this.down, revive: c.reviveProgress,
+      partnerRevive: c.partnerRevive, picking: c.partnerPicking, meta: c.partnerMeta };
   }
 
   /** Public for the pause menu / HUD buttons. */

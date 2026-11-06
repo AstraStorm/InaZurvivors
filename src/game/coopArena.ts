@@ -52,6 +52,8 @@ export interface CoopPort {
   end(victory: boolean): void;
   banner(text: string, color: string): void;
   telegraph(m: TeleMsg): void;
+  /** IDEA-45F61B95: the partner opened (true) or closed (false) his level-up cards */
+  partnerPicking(on: boolean): void;
 }
 
 export interface SpawnMsg { id: number; u: number; k: string; s: number; v?: string; x: number; y: number; hp: number; dmg: number }
@@ -66,6 +68,8 @@ const REVIVE_RADIUS = 36;
 const REVIVE_SEC = 3;
 
 interface Ghost { f: Footballer; tx: number; ty: number; vx: number; vy: number; seen: number }
+/** what the partner shows of his run (IDEA-45F61B95): his Auras and his combined techniques */
+export interface PartnerMeta { auras: { carrier: string; name: string; element: string | null }[]; combos: { name: string; level: number }[] }
 
 export class CoopSession {
   readonly role: CoopRole;
@@ -77,6 +81,15 @@ export class CoopSession {
   partnerDown = false;
   partnerHp = { hp: 1, max: 1 };
   private reviveT = 0;
+  /** how far the partner's own revive has got (0..1), from his snapshots */
+  partnerRevive = 0;
+  /** the partner is choosing his level-up card */
+  partnerPicking = false;
+  partnerMeta: PartnerMeta = { auras: [], combos: [] };
+  private metaKey = '';
+  /** the revive rings over a downed captain, drawn in the world */
+  private reviveGfx: Phaser.GameObjects.Graphics | null = null;
+  private reviveTxt: Phaser.GameObjects.Text | null = null;
   /** host: the partner has picked his level-up card */
   private partnerPicked = true;
   private resumeWait: (() => void) | null = null;
@@ -106,7 +119,11 @@ export class CoopSession {
 
   /** the partner's captain, for the rivals to chase (null when down or gone) */
   partnerCaptain(): { x: number; y: number } | null {
-    if (this.lost || this.partnerDown) return null;
+    return this.partnerDown ? null : this.partnerPos();
+  }
+  /** where the partner's captain is, down or not (minimap, revive ring) */
+  partnerPos(): { x: number; y: number } | null {
+    if (this.lost) return null;
     const g = this.ghosts.get(this.run.partner.team[0]?.id ?? -1) ?? [...this.ghosts.values()][0];
     return g ? { x: g.f.x, y: g.f.y } : null;
   }
@@ -118,7 +135,7 @@ export class CoopSession {
     if (this.teamAcc >= TEAM_MS) {
       this.teamAcc = 0;
       const { hp, max } = this.port.hp();
-      const body = this.enc.encode(JSON.stringify({ m: this.port.team().map((t) => [t.id, Math.round(t.x), Math.round(t.y), Math.round(t.vx), Math.round(t.vy), t.dir]), hp: Math.round(hp), max: Math.round(max), down: this.port.isDown() ? 1 : 0 }));
+      const body = this.enc.encode(JSON.stringify({ m: this.port.team().map((t) => [t.id, Math.round(t.x), Math.round(t.y), Math.round(t.vx), Math.round(t.vy), t.dir]), hp: Math.round(hp), max: Math.round(max), down: this.port.isDown() ? 1 : 0, rv: +this.reviveProgress.toFixed(2) }));
       const buf = new Uint8Array(body.length + 1); buf[0] = 1; buf.set(body, 1);
       this.run.link.sendState(buf.buffer);
     }
@@ -145,7 +162,33 @@ export class CoopSession {
         if (this.reviveT >= REVIVE_SEC) { this.reviveT = 0; this.port.setDown(false); this.send({ t: 'up' }); this.port.banner('¡Tu compañero te ha levantado!', '#8fffa0'); }
       } else this.reviveT = Math.max(0, this.reviveT - dt / 2000);
     } else this.reviveT = 0;
+    this.drawRevive();
   }
+
+  /** IDEA-45F61B95: a ring over a downed captain that fills while he is being lifted, with the seconds left */
+  private drawRevive() {
+    const sc = this.port.scene;
+    const at = this.port.isDown() ? { ...this.port.captain(), k: this.reviveProgress } : this.partnerDown ? (() => { const p = this.partnerPos(); return p ? { ...p, k: this.partnerRevive } : null; })() : null;
+    if (!at) { this.reviveGfx?.setVisible(false); this.reviveTxt?.setVisible(false); return; }
+    this.reviveGfx ??= sc.add.graphics().setDepth(9500);
+    this.reviveTxt ??= sc.add.text(0, 0, '', { fontFamily: '"Press Start 2P", monospace', fontSize: '8px', color: '#ffffff', stroke: '#000000', strokeThickness: 3 }).setOrigin(0.5).setDepth(9501);
+    const g = this.reviveGfx.setVisible(true).clear(), y = at.y - 44;
+    g.lineStyle(2, 0x8fffa0, 0.35).strokeEllipse(at.x, at.y, REVIVE_RADIUS * 2, REVIVE_RADIUS * 1.5); // where to stand
+    g.fillStyle(0x000000, 0.55).fillCircle(at.x, y, 13);
+    g.lineStyle(4, 0x3a3a3a, 1).strokeCircle(at.x, y, 11);
+    if (at.k > 0) { g.lineStyle(4, 0x8fffa0, 1).beginPath(); g.arc(at.x, y, 11, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * Math.min(1, at.k)); g.strokePath(); }
+    this.reviveTxt.setVisible(true).setPosition(at.x, y).setText(at.k > 0 ? (REVIVE_SEC * (1 - Math.min(1, at.k))).toFixed(1) : '✚');
+  }
+
+  /** IDEA-45F61B95: own Auras and combined techniques, sent again only when they change */
+  meta(m: PartnerMeta) {
+    const key = JSON.stringify(m);
+    if (key === this.metaKey) return;
+    this.metaKey = key;
+    this.send({ t: 'meta', au: m.auras, cb: m.combos });
+  }
+  /** IDEA-45F61B95: this player opened (true) or closed (false) his level-up cards */
+  picking(on: boolean) { this.send({ t: 'pick', on: on ? 1 : 0 }); }
 
   /** seconds of revive progress (HUD) */
   get reviveProgress() { return this.reviveT / REVIVE_SEC; }
@@ -166,8 +209,9 @@ export class CoopSession {
   private onState(d: ArrayBuffer) {
     const b = new Uint8Array(d);
     if (b[0] === 1) {
-      const s = JSON.parse(this.dec.decode(b.subarray(1))) as { m: number[][]; hp: number; max: number; down: number };
+      const s = JSON.parse(this.dec.decode(b.subarray(1))) as { m: number[][]; hp: number; max: number; down: number; rv?: number };
       this.partnerHp = { hp: s.hp, max: s.max };
+      this.partnerRevive = Number(s.rv ?? 0);
       const wasDown = this.partnerDown;
       this.partnerDown = !!s.down;
       if (this.partnerDown && !wasDown) this.port.banner(`¡${this.partnerName} ha caído! Ponte a su lado para levantarlo`, '#ff9a8a');
@@ -211,6 +255,8 @@ export class CoopSession {
       case 'shock': p.shock(Number(m.x), Number(m.y), Number(m.dmg), Number(m.c), String(m.by ?? '')); break;
       case 'end': p.end(!!m.win); break;
       case 'tele': p.telegraph(m as unknown as TeleMsg); break;
+      case 'say': p.banner(String(m.tx ?? ''), String(m.c ?? '#ffffff')); break;
+      case 'askhz': if (this.role === 'host') p.hazard(Number(m.x), Number(m.y), -1, ''); break;
       // guest -> host
       case 'hit': p.hitFromPartner(Number(m.id), Number(m.v), Number(m.kx), Number(m.ky), m.st as FxStyle); break;
       case 'take': {
@@ -225,6 +271,8 @@ export class CoopSession {
       // both
       case 'fx': p.replayShot(m as unknown as FxMsg); break;
       case 'up': this.partnerDown = false; break;
+      case 'pick': this.partnerPicking = !!m.on; p.partnerPicking(this.partnerPicking); break;
+      case 'meta': this.partnerMeta = { auras: Array.isArray(m.au) ? (m.au as PartnerMeta['auras']).slice(0, 6) : [], combos: Array.isArray(m.cb) ? (m.cb as PartnerMeta['combos']).slice(0, 20) : [] }; break;
       default: break;
     }
   }
@@ -242,6 +290,10 @@ export class CoopSession {
   /** guest: his hit on a mirrored rival */
   hit(id: number | undefined, v: number, kx: number, ky: number, style: FxStyle) { if (id !== undefined) this.send({ t: 'hit', id, v: Math.round(v), kx: Math.round(kx), ky: Math.round(ky), st: style }); }
   shot(m: FxMsg) { this.send({ ...m, t: 'fx' }); }
+  /** guest: a ball for standing still, dropped by the host so both screens have it */
+  askHazard(x: number, y: number) { if (this.role === 'guest') this.send({ t: 'askhz', x: Math.round(x), y: Math.round(y) }); }
+  /** host: a banner meant for the partner (something the host started round him) */
+  say(text: string, color: string) { if (this.role === 'host') this.send({ t: 'say', tx: text, c: color }); }
   /** host: a boss attack starts (the guest draws its warning) */
   telegraph(m: TeleMsg) { if (this.role === 'host') this.send({ ...m, t: 'tele' }); }
   /** guest: XP earned on his side (his own altars) goes to the shared bar */
@@ -279,6 +331,8 @@ export class CoopSession {
   bothDown() { return this.port.isDown() && (this.partnerDown || this.lost); }
 
   destroy() {
+    this.reviveGfx?.destroy(); this.reviveTxt?.destroy(); this.reviveGfx = null; this.reviveTxt = null;
+    if (this.partnerPicking) { this.partnerPicking = false; this.port.partnerPicking(false); }
     for (const g of this.ghosts.values()) g.f.destroy();
     this.ghosts.clear();
     // the run is over: the link goes back to the lobby (which sets its own handlers when it opens)
