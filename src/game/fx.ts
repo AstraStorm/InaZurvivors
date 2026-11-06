@@ -5,6 +5,7 @@
 import Phaser from 'phaser';
 import type { Technique } from '../data/manifest';
 import type { Settings } from '../systems/save';
+import { ComboMeter } from './fxCombo';
 
 export type FxStyle = 'fuego' | 'hielo' | 'viento' | 'rayo' | 'bosque' | 'tierra' | 'sombra' | 'energia';
 export type Trajectory = 'recta' | 'espiral' | 'onda' | 'meteoro' | 'multiple';
@@ -203,6 +204,10 @@ export interface HandTint { main: number; light: number; dark: number }
 export class Fx {
   private emitters = new Map<string, Phaser.GameObjects.Particles.ParticleEmitter>();
   private numbers: Phaser.GameObjects.Text[] = [];
+  /** 1.93: the combo meter at the top of the screen (fxCombo.ts) */
+  private combo: ComboMeter;
+  /** 1.93: the usual size of a hit (slow average), so «big» and «huge» stay special as the run grows */
+  private avgHit = 0;
   private numberIdx = 0;
 
   private rawShake: Phaser.Cameras.Scene2D.Camera['shake'];
@@ -231,6 +236,7 @@ export class Fx {
         fontFamily: '"Press Start 2P"', fontSize: '8px', color: '#ffffff', stroke: '#000000', strokeThickness: 3,
       }).setDepth(9500).setVisible(false).setOrigin(0.5));
     }
+    this.combo = new ComboMeter(scene, () => this.settings);
   }
 
   /** the scene, for the drawn manifestations (fxManif.ts, fxTech.ts) */
@@ -679,12 +685,27 @@ export class Fx {
     this.scene.tweens.add({ targets: c, radius: size * 0.2, alpha: 0, duration: 260, onComplete: () => c.destroy() });
   }
 
-  damageNumber(x: number, y: number, value: number, big = false) {
+  /**
+   * 1.93 (author: juiced): three sizes — normal (white), big or critical (gold or orange, «!»), huge (red, bigger, a little
+   * shake) — each popping in and arcing up; every hit also feeds the combo meter. Heals are green and don't count.
+   */
+  damageNumber(x: number, y: number, value: number, big = false, heal = false) {
+    if (!heal) this.combo.add(value, big);
     if (!this.settings.damageNumbers) return;
     const t = this.numbers[this.numberIdx++ % this.numbers.length];
     this.scene.tweens.killTweensOf(t);
-    t.setText(String(Math.round(value))).setPosition(x + Phaser.Math.Between(-4, 4), y).setVisible(true).setAlpha(1)
-      .setColor(big ? '#ffe24a' : '#ffffff').setScale(big ? 1.4 : 1);
-    this.scene.tweens.add({ targets: t, y: y - 16, alpha: 0, duration: 650, ease: 'Cubic.easeOut', onComplete: () => t.setVisible(false) });
+    const v = Math.round(value);
+    if (!heal) this.avgHit = this.avgHit ? this.avgHit + (v - this.avgHit) * 0.02 : v;
+    const tier = heal ? 0 : v >= Math.max(300, this.avgHit * 6) ? 2 : big || v >= Math.max(40, this.avgHit * 2.5) ? 1 : 0;
+    const color = heal ? '#7dff9a' : tier === 2 ? '#ff4f6a' : tier === 1 ? (v >= 40 ? '#ffe24a' : '#ff9a3a') : '#ffffff';
+    const size = [1, 1.35, 1.8][tier];
+    const dx = Phaser.Math.Between(-4, 4) + (tier ? Phaser.Math.Between(-10, 10) : 0);
+    t.setText(heal ? `+${v}` : tier ? `${v}!` : String(v)).setPosition(x + Phaser.Math.Between(-4, 4), y).setVisible(true).setAlpha(1)
+      .setColor(color).setScale(size * (tier ? 1.5 : 1.25)).setAngle(tier ? Phaser.Math.Between(-10, 10) : 0).setDepth(9500 + tier);
+    if (tier === 2 && this.settings.shake) this.scene.cameras.main.shake(70, 0.0015);
+    this.scene.tweens.add({ targets: t, scale: size, angle: 0, duration: tier ? 180 : 110, ease: 'Back.easeOut' });
+    this.scene.tweens.add({ targets: t, x: t.x + dx, y: y - [16, 26, 34][tier], duration: [520, 700, 820][tier], ease: 'Cubic.easeOut' });
+    this.scene.tweens.add({ targets: t, alpha: 0, delay: [300, 460, 560][tier], duration: 260, onComplete: () => t.setVisible(false) });
   }
+
 }

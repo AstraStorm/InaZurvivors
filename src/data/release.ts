@@ -6,7 +6,7 @@
  */
 import { CHANGELOG } from './changelog';
 
-export const PUBLIC_VERSION = '1.93-pre2.0';
+export const PUBLIC_VERSION = '1.94-pre2.0';
 export const BUILD = CHANGELOG[0].version;
 export const RELEASED = false;
 export const VERSION_LABEL = RELEASED ? `v${PUBLIC_VERSION}` : `v${PUBLIC_VERSION} · pre-lanzamiento`;
@@ -29,6 +29,18 @@ export interface PublicRelease {
 /** Public news, newest first. Starts at v1.0: the internal versions before it are not part of the public history. */
 export const PUBLIC_RELEASES: PublicRelease[] = [
   {
+    version: '1.94-pre2.0', date: '2026-11-06',
+    title: 'InaZurvivors 1.94-pre2.0 — Ráfagas de daño y altares nuevos',
+    tagline: 'Cuando el daño se dispara, se nota',
+    intro: 'Más espectáculo en cada partida: los golpes fuertes se ven, las ráfagas se celebran y los altares brillan.',
+    features: [
+      { icon: '💥', title: 'Contador de ráfagas', text: 'Cuando haces mucho más daño de golpe que tu ritmo normal (una combinada, una evolución, una técnica de área llena de rivales), aparece arriba un contador con los golpes y el daño total que sube de rango: ¡COMBO!, ¡GENIAL!, ¡BRUTAL!, ¡IMPARABLE! e ¡INAZUMA!, con destellos y chispas.' },
+      { icon: '🔢', title: 'Números de daño nuevos', text: 'Los golpes saltan con fuerza y en arco: blancos los normales, dorados con «!» los grandes y críticos, y rojos y más grandes los enormes (comparados con tu golpe habitual). Las curaciones salen en verde.' },
+      { icon: '✨', title: 'Altares renovados', text: 'Los altares llegan con un rayo del cielo y una onda, tienen un círculo de runas que gira, una columna de luz con chispas y orbes alrededor, y un anillo que se va llenando mientras cumples la prueba.' },
+    ],
+    start: [],
+  },
+  {
     version: '1.93-pre2.0', date: '2026-11-06',
     title: 'InaZurvivors 1.93-pre2.0 — Clanes y Juegos del Clan',
     tagline: 'Funda tu clan, jugad juntos cada día y ganad premios cada semana',
@@ -42,7 +54,6 @@ export const PUBLIC_RELEASES: PublicRelease[] = [
       { icon: '🍢', title: 'Objetos y Tienda del clan', text: 'En los Juegos del Clan las monedas y fichas son la mitad, pero caen Pinchitos supremos, Galletas de ciervo, Néctar, Chapas viejas y Artefactos raros. Se canjean en la Tienda del clan, que cambia cada semana: monedas, fichas para un ×10, futbolistas Épicos, Legendarios y Míticos, y banners y marcos exclusivos.' },
       { icon: '📋', title: 'En el menú', text: 'Tu clan sale arriba del todo, con su puesto y sus puntos de la semana, y tiene su propia casilla y su anuncio en el carrusel.' },
       { icon: '🏅', title: 'Ranking renovado', text: 'Cada jugador lleva la insignia de su clan en el ranking. El podio es nuevo: el 1.º siempre más alto que el 2.º y el 2.º que el 3.º, con focos y el número en cada escalón.', online: true },
-      { icon: '✨', title: 'Altares renovados', text: 'Los altares llegan con un rayo del cielo y una onda, tienen un círculo de runas que gira, una columna de luz con chispas y orbes alrededor, y un anillo que se va llenando mientras cumples la prueba.' },
       { icon: '🌸', title: 'Marcos del clan', text: 'El Marco del Clan lleva escudo, corona y laurel; el del Cerezo, flores y pétalos que caen.' },
     ],
     start: [],

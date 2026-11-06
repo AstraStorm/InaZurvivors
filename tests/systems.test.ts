@@ -1054,8 +1054,8 @@ describe('reiniciar progreso', () => {
 describe('versión pública y reportes de bugs', () => {
   it('the public news start at v1.0 and no internal version leaks into them', async () => {
     const { PUBLIC_RELEASES, PUBLIC_VERSION, RELEASED, VERSION_LABEL, BUILD, TIKTOK_URL } = await import('../src/data/release');
-    expect(PUBLIC_VERSION).toBe('1.93-pre2.0');
-    expect(PUBLIC_RELEASES.map((r) => r.version)).toEqual(['1.93-pre2.0', '1.92-pre2.0', '1.91-pre2.0', '1.9', '1.88', '1.87', '1.86', '1.85', '1.84', '1.83', '1.82', '1.81', '1.8', '1.77', '1.76', '1.75', '1.7', '1.66', '1.65', '1.6', '1.53', '1.52', '1.51', '1.5', '1.41', '1.4', '1.32', '1.31', '1.3', '1.22', '1.21', '1.2', '1.12', '1.11', '1.1', '1.0']); // newest first, starting at v1.0
+    expect(PUBLIC_VERSION).toBe('1.94-pre2.0');
+    expect(PUBLIC_RELEASES.map((r) => r.version)).toEqual(['1.94-pre2.0', '1.93-pre2.0', '1.92-pre2.0', '1.91-pre2.0', '1.9', '1.88', '1.87', '1.86', '1.85', '1.84', '1.83', '1.82', '1.81', '1.8', '1.77', '1.76', '1.75', '1.7', '1.66', '1.65', '1.6', '1.53', '1.52', '1.51', '1.5', '1.41', '1.4', '1.32', '1.31', '1.3', '1.22', '1.21', '1.2', '1.12', '1.11', '1.1', '1.0']); // newest first, starting at v1.0
     expect(PUBLIC_RELEASES.at(-1)!.title).toBe('InaZurvivors v1.0 — ¡Comienza la aventura!');
     expect(JSON.stringify(PUBLIC_RELEASES)).not.toMatch(/\bv?[234]\.\d\b/);
     expect(BUILD).not.toBe('1.0');

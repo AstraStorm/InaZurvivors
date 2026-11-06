@@ -15,6 +15,13 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: '10.2', date: '2026-11-06', title: '1.94-pre2.0 Ráfagas de daño y altares nuevos',
+    features: ['Contador de ráfagas (fxCombo.ts): compara el daño de los últimos 0,8 s con el ritmo habitual de la partida (media lenta, aprendida en los primeros 6 s); sale a ×4, dura mientras supera ×1,6 y sube de rango por segundos de daño habitual (0/6/12/22/40).'],
+    fixes: ['Las curaciones de técnica ya no cuentan como golpes (damageNumber heal).'],
+    visuals: ['Números de daño en tres tamaños relativos al golpe medio, con golpe de escala y arco (fx.damageNumber).', 'Altares (fxAltar.ts): llegada con rayo y onda, runas que giran, columna de luz con chispas, orbes y anillo de progreso.'],
+    balance: [],
+  },
+  {
     version: '10.1', date: '2026-11-06', title: '1.93-pre2.0 Clanes y Juegos del Clan',
     features: [
       'Clanes (migración 20261108000000_clans): fundar (15.000 monedas en el guardado), nombre con filtro de palabras (enteras o en cualquier parte), escudo y equipación; abierto o con solicitud; rangos líder/oficial/miembro; 20 como máximo.',

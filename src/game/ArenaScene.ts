@@ -1129,7 +1129,7 @@ export class ArenaScene extends Phaser.Scene {
             const d = Math.hypot(e.pos.x - cx, e.pos.y - cy);
             if (d < s.radius) this.hit(e, s.damage, (e.pos.x - cx) / (d || 1) * s.knockback * pull, (e.pos.y - cy) / (d || 1) * s.knockback * pull, style);
           }
-          if (heal > 0) this.fx.damageNumber(ox, oy - 26, heal, false);
+          if (heal > 0) this.fx.damageNumber(ox, oy - 26, heal, false, true); // 1.93: a heal, not a hit (combo meter)
         }
         used();
         m.cds[i] = s.cooldownMs;
