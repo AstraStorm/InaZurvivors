@@ -1688,16 +1688,19 @@ export class App {
 
   /**
    * pre-2.0: the lobby's side of the link, hooked once per link: cards are exchanged, and the host's «go» starts the run
-   * on both screens. A «hello» is answered once (marked as a reply), never from a render: answering on every repaint made
-   * the two lobbies repaint each other without end, so the ping blinked and «¡A jugar juntos!» could not be clicked.
+   * on both screens. A «hello» is answered once per link (marked as a reply), never from a render, and the room repaints
+   * only when the partner's card changed: answering on every repaint made the two lobbies repaint each other without end
+   * (the ping blinked, «¡A jugar juntos!» could not be clicked), and a partner still on that build must not restart it.
    */
   private coopListen(link: CoopLink) {
+    let answered = false;
     link.onEvent = this.coopOnEvent = (m: CoopMsg) => {
       if (m.t === 'hello') {
         const p = m.me as CoopProfile;
+        const before = JSON.stringify(this.coopPartner);
         this.coopPartner = { ...p, squad: (p.squad ?? []).filter((c) => this.byId.has(c.id)) };
-        if (!m.reply) link.send({ t: 'hello', me: this.coopMe(), reply: true });
-        if (this.screenKey === 'Cooperativo' && this.coop === link) this.coopLobby();
+        if (!m.reply && !answered) { answered = true; link.send({ t: 'hello', me: this.coopMe(), reply: true }); }
+        if (this.screenKey === 'Cooperativo' && this.coop === link && JSON.stringify(this.coopPartner) !== before) this.coopLobby();
       } else if (m.t === 'go' && link.role === 'guest') this.coopStart(String(m.map), m.rank as Rank);
     };
     link.onClose = (why) => { this.coop = null; this.coopPartner = null; if (this.screenKey === 'Cooperativo') this.coopLobby({ error: `Sala cerrada: ${why}` }); };
