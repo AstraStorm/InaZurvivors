@@ -15,6 +15,16 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: '10.0', date: '2026-11-06', title: '1.92-pre2.0 Menú con carrusel y tierlists de la comunidad',
+    features: [
+      'Carrusel de promociones en el menú (app.promoSlides/promoHtml/wirePromo, styleMenu19.css): banner especial, máquina de saga destacada del día, evento, Road/Jaden, tierlists y noticia; 5,5 s, deslizar, puntos y flechas.',
+      'Tierlists (systems/tierlist.ts, app.tierlistScreen, save.tierDraft): temas fijos, filas S-D, tocar o arrastrar; publicar una por cuenta (migración 20261107000400_tierlists, aplicada) y feed público en Comunidad y en el menú.',
+    ],
+    fixes: ['Jaden Evans: bodyshot recompuesto (cabeza al 86% sobre el torso azul del Raimon); en Road en color con candado en vez de oscurecido.', 'Ribera del río: río con la textura de agua del mapa bajo el vacío, bordes suaves mezclados y sin los dos quads de agua de otro mapa (bake_arena blend/void_tex/skip_tex).'],
+    visuals: ['Cartas de mejora con aspecto de carta coleccionable (styleCards.css).', 'Menú: JUGAR late, insignias rebotan, casillas responden.'],
+    balance: [],
+  },
+  {
     version: '9.9', date: '2026-11-06', title: '1.91-pre2.0 Cooperativo online, amigos, entrenadores y Road to Fútbol Frontier',
     features: [
       'pre-2.0 en la rama principal: cooperativo P2P (WebRTC, salas coop_*, TURN de Cloudflare), amigos e invitaciones, entrenadores IE3 con pasivas, Road to Fútbol Frontier y Jaden Evans (exclusivo, fuera de la GTS).',

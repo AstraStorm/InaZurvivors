@@ -6,7 +6,7 @@
  */
 import { CHANGELOG } from './changelog';
 
-export const PUBLIC_VERSION = '1.91-pre2.0';
+export const PUBLIC_VERSION = '1.92-pre2.0';
 export const BUILD = CHANGELOG[0].version;
 export const RELEASED = false;
 export const VERSION_LABEL = RELEASED ? `v${PUBLIC_VERSION}` : `v${PUBLIC_VERSION} · pre-lanzamiento`;
@@ -28,6 +28,22 @@ export interface PublicRelease {
 
 /** Public news, newest first. Starts at v1.0: the internal versions before it are not part of the public history. */
 export const PUBLIC_RELEASES: PublicRelease[] = [
+  {
+    version: '1.92-pre2.0', date: '2026-11-06',
+    title: 'InaZurvivors 1.92-pre2.0 — Menú nuevo y tierlists',
+    tagline: 'Un menú con más vida y tus tierlists a la vista de todos',
+    intro: 'El menú se renueva con un carrusel de novedades y llegan las tierlists de la comunidad.',
+    features: [
+      { icon: '🎠', title: 'Carrusel de novedades', text: 'Arriba del menú, en grande: el banner especial, la máquina destacada del día (cambia cada día), los eventos, Road to Fútbol Frontier y las últimas noticias. Pasa solo, y puedes deslizarlo o tocar los puntos.' },
+      { icon: '📊', title: 'Tierlists', text: 'Desde la casilla TIERLISTS ordena a tus futbolistas de S a D (los mejores, por posición o tus favoritos): toca un futbolista y luego una fila, o arrástralo.' },
+      { icon: '🌍', title: 'Para que todos las vean', text: 'Publica la tuya y aparecerá en la pestaña Comunidad y en el menú de todos los jugadores. Una por cuenta: si publicas otra, sustituye a la anterior.', online: true },
+      { icon: '✨', title: 'Menú con más vida', text: 'JUGAR late, los avisos rebotan y los botones responden al pasar y al pulsar.' },
+      { icon: '🃏', title: 'Cartas de mejora nuevas', text: 'Las cartas al subir de nivel parecen cartas coleccionables: marco del color de la carta, ilustración con rayos y un halo en fichajes, combinadas y evoluciones.' },
+      { icon: '🌊', title: 'Ribera del río', text: 'El río ya tiene agua y desaparece la franja rayada que cruzaba el parque.' },
+      { icon: '🧣', title: 'Jaden Evans', text: 'Su retrato ya lleva cuerpo y en Road to Fútbol Frontier se ve en color, con un candado mientras no lo tengas.' },
+    ],
+    start: [],
+  },
   {
     version: '1.91-pre2.0', date: '2026-11-06',
     title: 'InaZurvivors 1.91-pre2.0 — Cooperativo online y Road to Fútbol Frontier',

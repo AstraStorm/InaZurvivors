@@ -1201,7 +1201,7 @@ export class App {
     slides.push({ kicker: 'MÁQUINA DESTACADA DE HOY', title: BANNERS[b].label, text: BANNERS[b].tagline, cta: '¡A fichar!', color: BANNERS[b].color, tag: 'HOY',
       art: art(featured(bannerPool(this.m.roster, b), 3).map((p) => p.id)), act: () => { this.gachaBanner = b; this.gacha(); } });
     if (eventActive(now)) slides.push({ kicker: 'EVENTO', title: 'Banners de leyenda', text: 'Banners y marcos de perfil por tiempo limitado.', cta: 'Ver el evento', color: '#ffd84a', tag: 'EVENTO', art: `<span class="m5-big">${uiIcon('gift')}</span>`, act: () => this.pennantEvent() });
-    if (this.byId.has(JADEN_ID)) slides.push({ kicker: 'MODO DESAFÍO', title: 'Road to Fútbol Frontier', text: 'Gana en Máxima y llévate a Jaden Evans, exclusivo de este modo.', cta: 'Jugar el camino', color: '#ff8a2a', tag: 'EXCLUSIVO',
+    if (this.byId.has(JADEN_ID)) slides.push({ kicker: 'MODO DESAFÍO', title: 'Road to Fútbol Frontier', text: 'Gana en Máxima y llévate a Jaden Evans.', cta: 'Jugar el camino', color: '#ff8a2a', tag: 'EXCLUSIVO',
       art: art([JADEN_ID], 160), act: () => this.roadScreen() });
     slides.push({ kicker: 'NUEVO · COMUNIDAD', title: 'Crea tu tierlist', text: 'Ordena a tus futbolistas favoritos de S a D y publícala: todo el mundo la verá en el menú.', cta: 'Crear la mía', color: '#ff4f6a', tag: 'NUEVO',
       art: `<span class="m5-tiers">${TIERS.map((k) => `<i style="--tc:${TIER_COLOR[k]}">${k}</i>`).join('')}</span>`, act: () => { this.tierTab = 'crear'; this.tierlistScreen(); } });

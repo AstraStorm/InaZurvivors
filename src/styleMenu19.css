@@ -141,3 +141,6 @@ body.reduced-motion .m5-promo *, body.reduced-motion .m4 .m4-play, body.reduced-
 .rd-jaden .rd-jart { display: block; min-width: 0; gap: 0; }
 .rd-jaden .rd-jart .mug { display: block; min-width: 0; }
 .rd-lock { font-family: 'Segoe UI Emoji', 'Apple Color Emoji', 'Noto Color Emoji', sans-serif; font-size: 15px; right: 2px; bottom: 2px; width: 24px; height: 24px; display: grid; place-items: center; border-radius: 50%; background: #050c22cc; box-shadow: 0 0 0 2px #ffe08a; }
+/* a lone bust (Road: Jaden) sits whole in the slide, not cut by its bottom edge; the text gets three lines */
+.m5-who:only-child { transform: none; align-self: center; }
+.m5-who:only-child .mug { zoom: .9; }
