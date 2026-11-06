@@ -65,11 +65,39 @@ export function pennantSvg(def: PennantDef | string | undefined, size = 48): str
     <rect x="2" y="4" width="96" height="8" rx="4" fill="#ffd23f" stroke="#7a4a00" stroke-width="2"/><circle cx="4" cy="8" r="5" fill="#ffe08a" stroke="#7a4a00" stroke-width="1.5"/><circle cx="96" cy="8" r="5" fill="#ffe08a" stroke="#7a4a00" stroke-width="1.5"/>
     <path d="${CLOTH}" fill="url(#${id}g)"/>
     <g clip-path="url(#${id}k)">${pattern(p.pattern, p.accent, id)}${shine ? `<rect class="pn-shine" x="-60" y="0" width="40" height="${H}" fill="url(#${id}s)" transform="skewX(-20)"/>` : ''}</g>
-    ${emblem(p.emblem, p.accent)}
+    ${isClan(p) ? `<g clip-path="url(#${id}k)">${p.id === 'clan-cerezo' ? [[18, 30, 1.3], [80, 26, 1.1], [24, 72, 1], [76, 70, 1.2]].map(([x, y, k], i) => blossom(x, y, k, i * 50)).join('') : `<g transform="translate(50 50)">${laurel(0, 6, 34, 1, 0.8)}${laurel(0, 6, 34, -1, 0.8)}</g>`}</g>${clanEmblem(p, 50, 50, 0.75)}` : emblem(p.emblem, p.accent)}
     <path d="${CLOTH}" fill="none" stroke="${frame}" stroke-width="${p.rarity === 'comun' ? 4 : 5}" stroke-linejoin="round" class="pn-frame"/>
     <path d="M14,100 L50,86 L86,100" fill="none" stroke="#fff" stroke-width="1.5" opacity=".35"/>
   </svg>`;
 }
+
+// ------------------------------------------------------------------ 1.93: the clan banners (author: their own look)
+/** a five-petal cherry blossom */
+const blossom = (x: number, y: number, k: number, rot = 0) => `<g transform="translate(${x.toFixed(1)} ${y.toFixed(1)}) rotate(${rot}) scale(${k})">${[0, 72, 144, 216, 288].map((a) => `<ellipse cx="0" cy="-4.2" rx="3" ry="4.4" transform="rotate(${a})" fill="#ffd0e4" stroke="#c43a7a" stroke-width=".7"/>`).join('')}<circle r="1.8" fill="#ffe24a"/></g>`;
+/** a shield with a crown, the Estandarte's emblem */
+const crestShield = (x: number, y: number, k: number, c2: string, a: string) => `<g transform="translate(${x} ${y}) scale(${k})"><path d="M-13,-12 L13,-12 L13,1 Q13,11 0,16 Q-13,11 -13,1 Z" fill="${c2}" stroke="${a}" stroke-width="2.4"/>
+  <path d="M-7,-3 L-7,-9 L-3.5,-5 L0,-10 L3.5,-5 L7,-9 L7,-3 Z" fill="${a}"/><path d="M-8,2 H8 M0,-1 V12" stroke="${a}" stroke-width="1.6" opacity=".8"/></g>`;
+/** laurel: leaves along an arc on one side (dir 1 right, -1 left) */
+const laurel = (cx: number, cy: number, r: number, dir: 1 | -1, k = 1) => Array.from({ length: 7 }, (_, i) => {
+  const t = 0.45 + i * 0.32, x = cx + dir * Math.sin(t) * r, y = cy + Math.cos(t) * r * 0.55; // from the bottom up the side
+  return `<ellipse cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" rx="${3 * k}" ry="${7 * k}" transform="rotate(${(dir * (t * 57 - 20)).toFixed(0)} ${x.toFixed(1)} ${y.toFixed(1)})" fill="#4fd07a" stroke="#0a3a1c" stroke-width="1"/>`;
+}).join('');
+const isClan = (p: PennantDef) => p.source === 'clan' && !p.kind;
+/** the wide ribbon of a clan banner: cherry branches and petals, or laurel round a shield */
+function clanRibbonDeco(p: PennantDef): string {
+  if (p.id === 'clan-cerezo') {
+    const branch = (x0: number, dir: 1 | -1) => { const d = `M${x0},${dir > 0 ? 20 : 104} C${x0 + dir * 120},${dir > 0 ? 40 : 84} ${x0 + dir * 200},${dir > 0 ? 10 : 110} ${x0 + dir * 330},${dir > 0 ? 46 : 70}`;
+      const flowers = [0.15, 0.35, 0.55, 0.75, 0.95].map((t, i) => blossom(x0 + dir * 330 * t, (dir > 0 ? 24 : 100) + Math.sin(t * 6) * 14 * dir, i % 2 ? 1.6 : 2.3, i * 40)).join('');
+      return `<path d="${d}" stroke="#5a2a1a" stroke-width="6" fill="none" stroke-linecap="round"/><path d="${d}" stroke="#8a4a2a" stroke-width="2" fill="none" opacity=".7"/>${flowers}`; };
+    const petals = Array.from({ length: 22 }, (_, k) => { const x = 40 + rnd(k * 7 + 3, RW - 80), y = 8 + rnd(k * 13 + 5, RH - 16);
+      return `<ellipse class="fr-petal" style="animation-delay:${(k % 6) * 0.45}s" cx="${x.toFixed(0)}" cy="${y.toFixed(0)}" rx="3.2" ry="5" transform="rotate(${k * 37} ${x.toFixed(0)} ${y.toFixed(0)})" fill="#ffb8d8" opacity=".8"/>`; }).join('');
+    return `${branch(0, 1)}${branch(RW, -1)}${petals}`;
+  }
+  return `<g transform="translate(${EX} ${EY})">${laurel(0, 10, 110, 1, 2.2)}${laurel(0, 10, 110, -1, 2.2)}</g>`
+    + [140, 1060].map((x, i) => `<g transform="translate(${x} 96) rotate(${i ? 18 : -18})"><rect x="-2" y="-80" width="4" height="84" fill="#d8c08a"/><path d="M2,-80 L60,-68 L2,-52 Z" fill="${i ? p.accent : p.c1}" stroke="#0a1022" stroke-width="2"/></g>`).join('');
+}
+/** its big emblem: a blossom or the crowned shield */
+const clanEmblem = (p: PennantDef, x: number, y: number, k: number) => p.id === 'clan-cerezo' ? blossom(x, y, k * 3.2) : crestShield(x, y, k * 1.9, p.c2, p.accent);
 
 // ------------------------------------------------------------------ the wide ribbon (author: "que ocupen todo en horizontal")
 /*
@@ -124,10 +152,10 @@ export function pennantRibbon(def: PennantDef | string | null | undefined, withE
         <radialGradient id="${id}o" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="${p.accent}" stop-opacity=".6"/><stop offset="1" stop-color="${p.accent}" stop-opacity="0"/></radialGradient>
         ${shine ? `<linearGradient id="${id}s" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".5" stop-color="#fff" stop-opacity=".45"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>` : ''}</defs>
       <rect width="${RW}" height="${RH}" fill="url(#${id}g)"/>
-      ${widePattern(p.pattern, p.accent, id)}
-      <g opacity=".2">${echo(300, 1.1)}${echo(1040, 1.1)}</g>
+      ${widePattern(p.pattern, p.accent, id)}${isClan(p) ? clanRibbonDeco(p) : ''}
+      ${isClan(p) ? '' : `<g opacity=".2">${echo(300, 1.1)}${echo(1040, 1.1)}</g>`}
       ${withEmblem ? `<ellipse cx="${EX}" cy="${EY}" rx="120" ry="70" fill="url(#${id}o)"/>
-      <g class="pnr-emb">${emblem(p.emblem, p.accent, `translate(${EX} ${EY}) scale(1.75)`)}</g>` : ''}
+      <g class="pnr-emb">${isClan(p) ? clanEmblem(p, EX, EY, 1) : emblem(p.emblem, p.accent, `translate(${EX} ${EY}) scale(1.75)`)}</g>` : ''}
       <rect width="${RW}" height="${RH}" fill="url(#${id}v)"/>
       <path d="M0,7 H${RW} M0,${RH - 7} H${RW}" stroke="${p.accent}" stroke-width="2" opacity=".55"/>
       ${shine ? `<rect class="pnr-shine" x="-200" y="0" width="140" height="${RH}" fill="url(#${id}s)" transform="skewX(-20)"/>` : ''}
@@ -141,7 +169,7 @@ export function pennantEmblem(def: PennantDef | string | null | undefined, size 
   const id = `pe${++uid}`;
   return `<svg class="pn-emblem" viewBox="0 0 100 100" width="${size}" height="${size}" aria-hidden="true">
     <defs><radialGradient id="${id}o" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="${p.accent}" stop-opacity=".65"/><stop offset="1" stop-color="${p.accent}" stop-opacity="0"/></radialGradient></defs>
-    <circle cx="50" cy="50" r="50" fill="url(#${id}o)"/>${emblem(p.emblem, p.accent, 'translate(50 50) scale(1.5)')}</svg>`;
+    <circle cx="50" cy="50" r="50" fill="url(#${id}o)"/>${isClan(p) ? clanEmblem(p, 50, 50, 1) : emblem(p.emblem, p.accent, 'translate(50 50) scale(1.5)')}</svg>`;
 }
 
 // ------------------------------------------------------------------ avatar frames (author: "marcos súper guays")
