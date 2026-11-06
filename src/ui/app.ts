@@ -1476,6 +1476,8 @@ export class App {
   private coop: CoopLink | null = null;
   /** pre-2.0: the partner's card (squad, kit, name, icon, crest, banner, frame), from his «hello»; a co-op run in progress */
   private coopPartner: CoopProfile | null = null;
+  private coopTick = 0;
+  private coopOnEvent: ((m: CoopMsg) => void) | null = null;
   private coopRunActive = false;
   private coopMap = '';
   private coopAbort: AbortController | null = null;
@@ -1577,14 +1579,19 @@ export class App {
     });
     if (ok && !link) void this.coopFriendsPanel(state.code ?? null);
     if (state.join && !state.error && !state.busy) join(state.join); // from a friend's invitation
+    clearInterval(this.coopTick);
     if (link) {
-      this.coopListen(link);
+      if (link.onEvent !== this.coopOnEvent) this.coopListen(link); // a new link, or back from a run (it cleared them)
       void link.route().then((r) => { const el = document.getElementById('cproute'); if (el) el.textContent = r === 'retransmitida' ? 'Por servidor de paso' : 'Conexión directa'; });
-      const tick = window.setInterval(() => {
+      // one timer per render (cleared above), and the chip only changes when the reading does: no flicker
+      const ping = () => {
         const el = document.getElementById('cpping');
-        if (!el || !this.coop?.open) { clearInterval(tick); return; }
-        el.textContent = this.coop.rtt ? `Ping ${this.coop.rtt} ms` : 'Ping…';
-      }, 500);
+        if (!el || !this.coop?.open) { clearInterval(this.coopTick); return; }
+        const tx = this.coop.rtt ? `Ping ${this.coop.rtt} ms` : 'Ping…';
+        if (el.textContent !== tx) el.textContent = tx;
+      };
+      ping();
+      this.coopTick = window.setInterval(ping, 500);
     }
   }
 
@@ -1679,13 +1686,18 @@ export class App {
     box.querySelector('#cpinvno')!.addEventListener('click', () => box.remove());
   }
 
-  /** pre-2.0: the lobby's side of the link: cards are exchanged, and the host's «go» starts the run on both screens */
+  /**
+   * pre-2.0: the lobby's side of the link, hooked once per link: cards are exchanged, and the host's «go» starts the run
+   * on both screens. A «hello» is answered once (marked as a reply), never from a render: answering on every repaint made
+   * the two lobbies repaint each other without end, so the ping blinked and «¡A jugar juntos!» could not be clicked.
+   */
   private coopListen(link: CoopLink) {
-    link.onEvent = (m: CoopMsg) => {
+    link.onEvent = this.coopOnEvent = (m: CoopMsg) => {
       if (m.t === 'hello') {
         const p = m.me as CoopProfile;
         this.coopPartner = { ...p, squad: (p.squad ?? []).filter((c) => this.byId.has(c.id)) };
-        if (this.screenKey === 'Cooperativo') this.coopLobby();
+        if (!m.reply) link.send({ t: 'hello', me: this.coopMe(), reply: true });
+        if (this.screenKey === 'Cooperativo' && this.coop === link) this.coopLobby();
       } else if (m.t === 'go' && link.role === 'guest') this.coopStart(String(m.map), m.rank as Rank);
     };
     link.onClose = (why) => { this.coop = null; this.coopPartner = null; if (this.screenKey === 'Cooperativo') this.coopLobby({ error: `Sala cerrada: ${why}` }); };
