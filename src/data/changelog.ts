@@ -20,7 +20,7 @@ export const CHANGELOG: Release[] = [
       'pre-2.0 en la rama principal: cooperativo P2P (WebRTC, salas coop_*, TURN de Cloudflare), amigos e invitaciones, entrenadores IE3 con pasivas, Road to Fútbol Frontier y Jaden Evans (exclusivo, fuera de la GTS).',
       'Móvil (autor): el chip del compañero en la partida es una sola línea (nombre, barra, cuentas ✦/🔗; las filas de Auras y combinadas solo en pantallas grandes) y la sala de espera se compacta en horizontal (styleCoop.css).',
     ],
-    fixes: ['El sello de versión de la intro ignora el sufijo «-pre2.0» (muestra 1.91).'],
+    fixes: ['El sello de versión de la intro ignora el sufijo «-pre2.0» (muestra 1.91).', 'Tablón: entrada propia de la 1.9 (Entrenadores) antes de la 1.91-pre2.0 (autor).'],
     visuals: [],
     balance: [],
   },

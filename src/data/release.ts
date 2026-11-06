@@ -30,18 +30,30 @@ export interface PublicRelease {
 export const PUBLIC_RELEASES: PublicRelease[] = [
   {
     version: '1.91-pre2.0', date: '2026-11-06',
-    title: 'InaZurvivors 1.91-pre2.0 — Cooperativo online, entrenadores y Road to Fútbol Frontier',
-    tagline: 'Juega con un amigo, ficha entrenadores y recorre el camino al Fútbol Frontier',
+    title: 'InaZurvivors 1.91-pre2.0 — Cooperativo online y Road to Fútbol Frontier',
+    tagline: 'Juega con un amigo y recorre el camino al Fútbol Frontier',
     intro: 'La antesala de la próxima gran versión. El cooperativo está en pruebas: si veis fallos, reportadlos desde el 🐞.',
     features: [
       { icon: '🤝', title: 'Cooperativo online (en pruebas)', text: 'Desde la casilla COOP, crea una sala y pasa su código o únete con el de otro. Cada uno lleva su equipo y su vida; los rivales y la barra de experiencia son de los dos, y si uno cae el otro lo levanta.', online: true },
       { icon: '👥', title: 'Amigos', text: 'Añade amigos desde la casilla AMIGOS o desde su perfil en el ranking, mira quién está conectado e invítale a tu sala.', online: true },
       { icon: '📱', title: 'Cooperativo en móvil', text: 'En el móvil, el panel de tu compañero ocupa una sola línea (nombre, vida, Auras ✦ y combinadas 🔗) y la sala de espera cabe en horizontal.', online: true },
-      { icon: '📋', title: 'Entrenadores', text: 'Los entrenadores de Inazuma Eleven 3, con pasivas que potencian formaciones, objetos raros, afinidades, daño, defensa y combinadas. Salen en las máquinas de su saga y se ponen en el banquillo de Mi Equipo.' },
       { icon: '🏆', title: 'Road to Fútbol Frontier', text: 'Cinco jugadores del Raimon o de Inazuma Japan, sin Auras pero con tu entrenador, en 3, 4 o 5 partidos según la dificultad. En Máxima te aseguras un Legendario o más.' },
       { icon: '🌊', title: 'Jaden Evans', text: 'Mediocentro de Montaña, Leyenda: gánalo superando el Road en Máxima 10 veces (y una copia cada 10 más). Con Corriente negra y Corte volcánico redibujadas.' },
       { icon: '🔥', title: 'Elementos corregidos', text: '118 técnicas tenían el elemento mal: ahora llevan el suyo.' },
       { icon: '🐉', title: 'Rizo de dragón y Ciclón blanco', text: 'Redibujadas como en sus escenas.' },
+    ],
+    start: [],
+  },
+  {
+    version: '1.9', date: '2026-11-06',
+    title: 'InaZurvivors 1.9 — Entrenadores',
+    tagline: 'Los entrenadores de Inazuma Eleven 3 llegan al banquillo',
+    intro: 'Un entrenador en el banquillo de Mi Equipo potencia a todo tu equipo durante la partida.',
+    features: [
+      { icon: '📋', title: 'Entrenadores', text: 'Once entrenadores de Inazuma Eleven 3, con su retrato: Seymour Hillman, Percy Travis, Ray Dark, David Evans, Mister D, Zoolan Rice, Mr Veteran y los de Alpino, Claustro Sagrado, Fauxshore y Mary Times.' },
+      { icon: '✨', title: 'Pasivas', text: 'Cada uno tiene una o dos: potenciar una formación (más daño o menos daño recibido), más suerte con los objetos raros, afinidad con un elemento, más daño, más defensa o técnicas combinadas más fuertes.' },
+      { icon: '🎰', title: 'En las máquinas', text: 'Salen en la máquina de su saga (Fútbol Frontier, Alius o FFI), con un 2% en cada cápsula mientras te falte alguno de esa máquina, y con su propia presentación al salir.' },
+      { icon: '🪑', title: 'El banquillo', text: 'En Mi Equipo hay un hueco especial para tu entrenador: pulsa «Cambiar» para elegir otro. La sección Entrenadores muestra todos, los que tienes y lo que hace cada uno.' },
     ],
     start: [],
   },
