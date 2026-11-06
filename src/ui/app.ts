@@ -7,15 +7,16 @@ import { uiIcon, type UiIconName } from './uiIcons';
 import { deathCause } from '../systems/deathCause';
 import { serverNow, syncServerTime, timeSource, trustedClock } from '../online/serverTime';
 import { PASS, claimPass, passStatus } from '../systems/weeklyPass';
-import { applyReward, hasRedeemed, normalizeCode, redeemLocal, type CodeReward } from '../systems/promo';
+import { applyReward, codePlayer, hasRedeemed, INA483_ODDS, normalizeCode, redeemLocal, type CodeReward } from '../systems/promo';
+import { clearRoad, JADEN_EVERY, JADEN_ID, ROAD_BY_ID, ROAD_DIFFS, ROAD_SQUAD, roadEligible, roadOf, type RoadDiff } from '../systems/road';
 import { BANNERS, BANNER_ORDER, bannerPool, bannerPrice, eraOf, featured, perPlayerOdds, rarityOdds, teamChoices, type BannerId } from '../systems/banners';
 import { exportSave, importSave, remapIds, remapTechSlots, storeSave, type SaveData, type ParticleLevel, type Rank } from '../systems/save';
-import { eligibleTeams, pull, recordHistory, DUPLICATE_REFUND_BY, PULL_COST, MAX_STARS, starBonus, onboardingPull, type PullResult } from '../systems/gacha';
+import { addCopy, eligibleTeams, pull, recordHistory, DUPLICATE_REFUND_BY, PULL_COST, MAX_STARS, starBonus, onboardingPull, type PullResult } from '../systems/gacha';
 import { applyRun, isMapUnlocked, mapTierScale, type RunResult } from '../systems/economy';
 import { DROPS } from '../systems/items';
 import { STAT_INFO } from '../systems/playerStats';
 import { statChanges, TYPE_LABEL, MAX_TECH_LEVEL } from '../systems/techniques';
-import { evolutionLabel, evolvesAt } from '../systems/evolution';
+import { evolutionLabel, evolvesAt, comboLabel } from '../systems/evolution';
 import { modDef } from '../systems/runmods';
 import { FORMATIONS, FORMATION_ORDER, type FormationId } from '../systems/formations';
 import { CATEGORY_BONUS, MILESTONES, PERKS, PERK_CATEGORIES, buyPerk, categoryLevels, perkCost, perkLevel, perkEffects, perkValue, refundPerks, spentOn, type PerkCategory } from '../systems/perks';
@@ -54,6 +55,10 @@ import { adaptedPassive, passiveText, talentChanges, talentText } from '../syste
 import { adminSuggestions, adminUpdateSuggestion, claimBugNotices, claimBugRewards, claimSuggestionNotices, mySuggestions, redeemCode, submitSuggestion, type SuggestionRow } from '../online/client';
 import { THANKS_EVENT, addThanksTokens, thanksActive, thanksLeftMs, thanksTokens } from '../systems/thanksEvent';
 import { gtsDeposit, gtsFeed, gtsMine, gtsSearch, gtsTake, gtsWithdraw, type GtsOffer } from '../online/client';
+import { CoopLink, type CoopMsg } from '../online/coop';
+import { coopInvite, coopInvitesClaim, friendHeartbeat, friendList, friendRemove, friendRequest, friendRespond, type FriendRow } from '../online/client';
+import type { CoopRun } from '../game/coopArena';
+import { applyCoachPerks, COACH_BY_ID, COACH_PULL_CHANCE, COACHES, coachesOfMachine, coachRun, PASSIVE_ICON, passiveText as coachPassiveText, type CoachDef } from '../data/coaches';
 import { clashWith } from '../systems/identity';
 import { applyGtsLedger, canLeave, gtsBanned, gtsError, gtsSlots, gtsSpare, type GtsRow } from '../systems/gts';
 import { accountId, adminBugReports, adminPlayerStats, adminUpdateBug, amIAdmin, consumeAuthRedirect, deleteAccount, deleteMyBugReports, deleteShot, myBugReports, notifyBug, shotUrl, submitBugReport, uploadShot, getCloudSave, leaderboard, myPosition, profileBanners, profileFrames, publicProfile, type PublicProfile, myProfile, onlineConfigured, putCloudSave, reserveUsername, resetMyProgress, signedEmail, signedIn, signInWithGoogle, signOut, submitScore, usernameAvailable, type BoardQuery, type BoardRow, type BugFilter, type BugRow, type CloudSave } from '../online/client';
@@ -83,6 +88,8 @@ const esc = (s: unknown) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&
 /** 1.84: a faceted star (body, a lit facet and a glint), coloured by CSS (.st / .hst, .on) */
 const starIcon = (cls: string) => `<svg class="${cls}" viewBox="0 0 24 24"><path class="s-b" d="M12 1.8l3.1 6.6 7.2.8-5.4 4.9 1.5 7.1L12 17.6l-6.4 3.6 1.5-7.1L1.7 9.2l7.2-.8z"/>`
   + `<path class="s-f" d="M12 1.8l3.1 6.6 7.2.8L12 12zM1.7 9.2l7.2-.8L12 12z"/><circle class="s-g" cx="9.4" cy="7.6" r="1.3"/></svg>`;
+/** pre-2.0: what a player shows of himself in a co-op room */
+interface CoopProfile { coach?: string | null; name: string; icon: { kind: 'emblem' | 'player' | 'coach'; id: number } | null; crest: string; kit: string; pennant: string | null; frame: string | null; wins: number; squad: { id: number; r: string; st: number; hero: boolean }[] }
 const fmtTime = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const RARITY_COLOR: Record<Rarity, string> = { comun: '#9fb0c8', raro: '#4fb3ff', epico: '#b36bff', legendario: '#ffb020', mitico: '#ff4f8b', leyenda: '#fff6c8' };
@@ -265,6 +272,7 @@ export class App {
    * guest choice when there is no session); anyone with a profile gets a title screen to continue as they are.
    */
   async start() {
+    this.startSocial(); // pre-2.0: friends online, co-op invitations
     void syncServerTime().then(() => rollPeriods(this.save)); // daily shop, pass and missions rotate on the server's clock
     let after: (() => void) | null = null;
     if (onlineConfigured()) {
@@ -316,7 +324,7 @@ export class App {
   private titleScreen(next: () => void) {
     const name = this.save.onlineName ?? this.save.profile.name;
     const guest = onlineConfigured() && !signedIn();
-    this.show(`<div class="cine cine4 title-screen">${this.cineStage()}<div class="cine-shot in"><div class="logo cine-logo ib-logo4 idle"><h1><span class="p1">INA</span><span class="bolt p2">Z</span><span class="p3">URVIVORS</span><i class="ib-shine"></i></h1>
+    this.show(`<div class="cine cine4 title-screen">${this.cineStage()}<div class="cine-shot in"><div class="logo cine-logo ib-logo4 idle"><h1><span class="p1">INA</span><span class="bolt p2">Z</span><span class="p3">URVIVORS</span><i class="ib-shine"></i><span class="ib-pre">PRE-2.0</span></h1>
       <div class="sub">ROGUELITE DE FÚTBOL · FANGAME</div></div>
       <p class="cine-text">¡Hola de nuevo, ${esc(name)}!</p>
       <p class="wiz-next"><button class="btn big" id="tscont">Continuar ▶</button></p>
@@ -874,7 +882,7 @@ export class App {
           const balls = Array.from({ length: 6 }, (_, k) => `<i class="ib-ball" style="--y:${15 + k * 13}%;--d:${0.4 + k * 0.18}s">⚽</i>`).join('');
           const sparks = Array.from({ length: 18 }, (_, k) => `<i class="ib-spark" style="--a:${k * 20}deg;--r:${120 + (k % 3) * 60}px;--d:${0.95 + (k % 4) * 0.03}s"></i>`).join('');
           box.innerHTML = `<div class="intro-burst">${bolts}${balls}<div class="ib-orbit">${orbs}</div><i class="ib-flash"></i><i class="ib-ring"></i><i class="ib-ring r2"></i>${sparks}
-            <div class="logo cine-logo ib-logo4"><h1><span class="p1">INA</span><span class="bolt p2">Z</span><span class="p3">URVIVORS</span><i class="ib-shine"></i></h1><div class="sub">${words('ROGUELITE DE FÚTBOL · FANGAME', 1300)}</div><span class="ver-badge ib-ver">${esc(VERSION_LABEL)}</span></div>${this.versionStamp()}</div>`;
+            <div class="logo cine-logo ib-logo4"><h1><span class="p1">INA</span><span class="bolt p2">Z</span><span class="p3">URVIVORS</span><i class="ib-shine"></i><span class="ib-pre">PRE-2.0</span></h1><div class="sub">${words('ROGUELITE DE FÚTBOL · FANGAME', 1300)}</div><span class="ver-badge ib-ver">${esc(VERSION_LABEL)}</span></div>${this.versionStamp()}</div>`;
           if (!this.save.settings.reducedMotion) window.setTimeout(() => { sfx('boom'); if (this.save.settings.shake <= 0) return; document.querySelector('.cine4')?.classList.add('shake'); window.setTimeout(() => document.querySelector('.cine4')?.classList.remove('shake'), 420); }, 950);
           if (!this.save.settings.reducedMotion) sfx('legend');
         }
@@ -1067,10 +1075,11 @@ export class App {
           </div>
           ${group('g-club', 'team', 'TU CLUB', tile('collection', 'cards', 'COLECCIÓN', claims ? '¡Recompensas!' : `${owned.length} de ${this.m.roster.length}`, claims, !!claims)
             + tile('perks', 'perks', 'MEJORAS', 'Potencia permanente') + tile('shop', 'bolt', 'TÉCNICAS', 'Manuales')
-            + tile('training', 'target', 'ENTRENAMIENTO', 'Prueba técnicas') + tile('kits', 'shirt', 'EQUIPACIONES', 'Uniforme y escudo') + tile('gear', 'boot', 'EQUIPAMIENTO', 'Botas y accesorios') + tile('hall', 'trophy', 'SALÓN', `${(this.save.hall ?? []).length} victorias`))}
+            + tile('training', 'target', 'ENTRENAMIENTO', 'Prueba técnicas') + tile('coaches', 'crown', 'ENTRENADORES', `${this.save.coaches?.owned.length ?? 0} de ${COACHES.length}`) + tile('kits', 'shirt', 'EQUIPACIONES', 'Uniforme y escudo') + tile('gear', 'boot', 'EQUIPAMIENTO', 'Botas y accesorios') + tile('hall', 'trophy', 'SALÓN', `${(this.save.hall ?? []).length} victorias`))}
           ${group('g-sign', 'capsule', 'FICHAJES', tile('gacha', 'capsule', 'FICHAJES', `${this.save.tokens} fichas`, 0, true) + (thanksActive(serverNow()) ? tile('thanksev', 'gift', 'AGRADECIMIENTO', `${this.save.eventTokens ?? 0} fichas de evento`, 0, true) : '') + (eventActive(serverNow()) ? tile('pnevent', 'gift', 'EVENTO', 'Banners de leyenda', 0, true) : '') + tile('daily', 'shop', 'TIENDA', 'Ofertas del día') + tile('gts', 'gts', 'GTS', 'Intercambios online') + tile('codes', 'gift', 'CÓDIGOS', 'Canjea regalos'))}
           ${group('g-comp', 'crown', 'COMPETICIÓN', tile('missions', 'missions', 'MISIONES', pending ? '¡Por recoger!' : 'Recompensas', pending, !!pending)
-            + tile('pass', 'ticket', 'PASE', pass.available ? '¡Recompensa lista!' : 'Vuelve mañana', pass.available ? 1 : 0, pass.available) + tile('ranking', 'crown', 'RANKING', onlineConfigured() ? 'Global' : 'Tus marcas'))}
+            + tile('pass', 'ticket', 'PASE', pass.available ? '¡Recompensa lista!' : 'Vuelve mañana', pass.available ? 1 : 0, pass.available) + tile('ranking', 'crown', 'RANKING', onlineConfigured() ? 'Global' : 'Tus marcas')
+            + tile('road', 'trophy', 'ROAD TO FF', this.save.road?.active ? `Partido ${this.save.road.active.level + 1} en juego` : 'Nuevo modo', 0, true) + tile('coop', 'team', 'COOP', 'pre-2.0 · en pruebas', 0, true) + tile('friends', 'gift', 'AMIGOS', 'Invita al coop'))}
         </section>
         ${feat ? `<section class="m4-hero" data-go="squad" style="--rc:${RARITY_COLOR[featR]}"><div class="m4-aura"></div><div class="m4-ring"></div>
           <div class="m4-hero-art">${this.mug(feat.id, 256)}<span class="m4-hero-sprite">${charCanvas(feat.id, 3, 12)}</span></div>
@@ -1117,10 +1126,14 @@ export class App {
       }
       if (go === 'squad') this.captainSelect();
       if (go === 'training') this.trainingField(); // v1.6
+      if (go === 'coaches') this.coachesScreen(); // pre-2.0
+      if (go === 'road') this.roadScreen();
       if (go === 'pnevent') this.pennantEvent(); // v1.65
       if (go === 'thanksev') { this.gachaBanner = 'evento'; this.gacha(); } // 1.75
       if (go === 'collection') this.collection();
       if (go === 'gts') void this.gts(); // 1.8
+      if (go === 'coop') this.coopLobby(); // pre-2.0
+      if (go === 'friends') void this.friendsScreen();
       if (go === 'gacha') this.gacha();
       if (go === 'missions') this.missions();
       if (go === 'perks') this.perks();
@@ -1158,6 +1171,7 @@ export class App {
     if (this.save.tutorial === 'pendiente' && this.save.onboardingDone) window.setTimeout(() => { if (this.screenKey === 'menu-mode') this.tutorial(); }, 400);
     // 1.75 (author): the thank-you notice, once, while the Banner de agradecimiento is open
     else if (thanksActive(serverNow()) && !this.save.thanksSeen && this.save.onboardingDone) window.setTimeout(() => { if (this.screenKey === 'menu-mode') this.thanksNotice(); }, 600);
+    else if (!this.save.roadIntroSeen && this.save.onboardingDone) window.setTimeout(() => { if (this.screenKey === 'menu-mode') this.roadIntro(); }, 700); // pre-2.0
   }
 
   /** Fix 1.31: training points that no stat can use (it already reaches 99) go back to the player, on load. */
@@ -1463,6 +1477,472 @@ export class App {
   }
 
   /** v1.6 (author): another player's club, opened from the ranking — icon, crest, favourite team, totals and squad */
+  // ------------------------------------------------------------- pre-2.0 Road to Fútbol Frontier
+  /** the road match being played (diff, level), so the end of the run goes to the road */
+  private roadMatch: { diff: RoadDiff; level: number } | null = null;
+  private roadPick: number[] = [];
+  private roadDiff: RoadDiff = 'facil';
+
+  /** the notice of the new mode, once */
+  private roadIntro() {
+    if (document.querySelector('.road-intro')) return;
+    sfx('reveal');
+    const jaden = this.byId.get(JADEN_ID);
+    const box = document.createElement('div');
+    box.className = 'modal road-intro';
+    box.innerHTML = `<div class="panel road-intro-card"><small>¡NUEVO MODO!</small><h2>Road to Fútbol Frontier</h2>
+      <p>Elige a <b>5 futbolistas del Raimon o de Inazuma Japan</b> (sin Auras; tu entrenador sí cuenta) y supera <b>3, 4 o 5 partidos seguidos</b> hasta la final del Estadio Zeus. Si pierdes uno, se acaba el camino.</p>
+      <ul><li>En <b>Máxima</b>, un <b>Legendario o mejor</b> asegurado al completarlo.</li><li>Complétalo en Máxima <b>10 veces</b> y ficharás a la Leyenda <b>Jaden Evans</b>${jaden ? ` <span class="road-jmug">${this.mug(JADEN_ID, 40)}</span>` : ''}; cada 10 más, otra copia suya.</li><li>Nuevos logros en Misiones.</li></ul>
+      <div class="cp-actions"><button class="btn big" id="rdgo">¡Vamos!</button><button class="btn blue" id="rdlater">Más tarde</button></div></div>`;
+    this.root.appendChild(box);
+    const done = () => { box.remove(); this.save.roadIntroSeen = true; this.persist(); };
+    box.querySelector('#rdgo')!.addEventListener('click', () => { done(); this.roadScreen(); });
+    box.querySelector('#rdlater')!.addEventListener('click', done);
+  }
+
+  /** pre-2.0: the mode's screen — difficulty, the five, the coach, the road in progress and the way to Jaden */
+  roadScreen() {
+    setMusicContext('menu');
+    const road = roadOf(this.save), active = road.active;
+    const pool = this.unlockedRoster().filter(roadEligible).sort((a, b2) => this.meanOf(b2) - this.meanOf(a));
+    this.roadPick = this.roadPick.filter((id) => pool.some((p) => p.id === id)).slice(0, ROAD_SQUAD);
+    const coach = this.benchCoach();
+    const maxClears = road.clears.maxima ?? 0, toJaden = JADEN_EVERY - (maxClears % JADEN_EVERY);
+    const ownsJaden = !!this.save.owned[String(JADEN_ID)];
+    const mapName = (id: string) => this.m.maps.find((m) => m.id === id)?.name ?? id;
+    const diffs = ROAD_DIFFS.map((d) => `<button class="rd-diff${d.id === this.roadDiff ? ' on' : ''} d-${d.id}" data-rdiff="${d.id}" ${active ? 'disabled' : ''}>
+        <small>${d.maps.length} PARTIDOS · RANGO ${d.rank}</small><b>${d.label}</b>
+        <span class="rd-path">${d.maps.map((m, i) => `<i title="${esc(mapName(m))}">${i + 1}</i>`).join('<em></em>')}</span>
+        <span class="rd-prize">${d.coins.toLocaleString('es')} ◉ · ${d.tokens} fichas${d.legendary ? ' · <b>Legendario+ asegurado</b>' : ''}</span>
+        <span class="rd-clears">Completado ${road.clears[d.id] ?? 0} ${(road.clears[d.id] ?? 0) === 1 ? 'vez' : 'veces'}</span></button>`).join('');
+    const slots = Array.from({ length: ROAD_SQUAD }, (_, i) => { const p = this.byId.get(this.roadPick[i]); return `<span class="rd-slot${p ? ' full' : ''}${i === 0 ? ' cap' : ''}">${p ? `${this.mug(p.id, 48)}<small>${esc(p.name)}</small>` : `<b>${i + 1}</b>`}${i === 0 ? '<em>C</em>' : ''}</span>`; }).join('');
+    const grid = pool.map((p) => { const r = effectiveRarity(this.save, p), on = this.roadPick.includes(p.id);
+      return `<button class="rd-pick r-${r}${on ? ' on' : ''}" data-rpick="${p.id}" style="--rc:${RARITY_COLOR[r]}">${this.mug(p.id, 40)}<span><b>${esc(p.name)}</b><small>${esc(teamLabel(p.teams.find((t) => t.includes('Inazuma') || t.includes('Raimon')) ?? ''))}</small></span></button>`; }).join('');
+    const act = active ? ROAD_BY_ID.get(active.diff)! : null;
+    this.show(`<div class="screen road-screen">${this.titlebar('Road to Fútbol Frontier', 'Menú')}
+      <div class="rd-hero"><div><small>MODO DESAFÍO · PRE-2.0</small><b>Road to Fútbol Frontier</b><span>5 futbolistas del Raimon o de Inazuma Japan, sin Auras, partido tras partido hasta la final del Estadio Zeus. Si pierdes uno, se acaba el camino.</span></div>
+        <div class="rd-jaden${ownsJaden ? ' own' : ''}">${this.mug(JADEN_ID, 64)}<span><small>${ownsJaden ? 'OTRA COPIA DE JADEN EN' : 'JADEN EVANS EN'}</small><b>${toJaden} ${toJaden === 1 ? 'victoria' : 'victorias'} en Máxima</b><i style="width:${((maxClears % JADEN_EVERY) / JADEN_EVERY) * 100}%"></i></span></div></div>
+      ${active && act ? `<div class="panel rd-active"><h3>${uiIcon('trophy')}Camino en curso · ${act.label}</h3>
+          <span class="rd-path big">${act.maps.map((m, i) => `<i class="${i < active.level ? 'done' : i === active.level ? 'now' : ''}" title="${esc(mapName(m))}">${i < active.level ? '✔' : i + 1}</i>`).join('<em></em>')}</span>
+          <p class="note">Siguiente: <b>${esc(mapName(act.maps[active.level]))}</b> (partido ${active.level + 1} de ${act.maps.length}).</p>
+          <div class="rd-squad">${active.squad.map((id, i) => `<span class="rd-slot full${i === 0 ? ' cap' : ''}">${this.mug(id, 48)}<small>${esc(this.byId.get(id)?.name ?? '?')}</small>${i === 0 ? '<em>C</em>' : ''}</span>`).join('')}</div>
+          <div class="cp-actions"><button class="btn big" id="rdnext">Jugar el partido ${active.level + 1} ▶</button><button class="btn blue" id="rdquit">Abandonar el camino</button></div></div>`
+        : `<div class="panel"><h3>${uiIcon('target')}Dificultad</h3><div class="rd-diffs">${diffs}</div></div>
+      <div class="panel"><h3>${uiIcon('team')}Tus 5 <small>${this.roadPick.length}/${ROAD_SQUAD} · el primero es el capitán · sin Auras</small></h3><div class="rd-squad">${slots}</div>
+        <div class="rd-coach">${coach ? `${this.coachArt(coach, 40)}<span><small>ENTRENADOR</small><b>${esc(coach.name)}</b></span>` : '<span class="note">Sin entrenador en el banquillo.</span>'}<button class="btn small blue" id="rdcoach">${coach ? 'Cambiar' : 'Elegir entrenador'}</button></div>
+        <button class="btn big rd-start" id="rdstart" ${this.roadPick.length === ROAD_SQUAD ? '' : 'disabled'}>${this.roadPick.length === ROAD_SQUAD ? `¡Empezar en ${ROAD_BY_ID.get(this.roadDiff)!.label}! ▶` : `Elige ${ROAD_SQUAD - this.roadPick.length} más`}</button></div>
+      <div class="panel"><h3>${uiIcon('cards')}Raimon e Inazuma Japan <small>${pool.length} en tu colección</small></h3>${pool.length ? `<div class="rd-grid">${grid}</div>` : '<p class="note">Aún no tienes futbolistas del Raimon o de Inazuma Japan: consíguelos en la máquina Fútbol Frontier o Mundial FFI.</p>'}</div>`}
+    </div>`);
+    this.on('[data-back]', 'click', () => this.mainMenu());
+    this.on('[data-rdiff]', 'click', (_e, el) => { this.roadDiff = el.dataset.rdiff as RoadDiff; this.roadScreen(); });
+    this.on('[data-rpick]', 'click', (_e, el) => {
+      const id = Number(el.dataset.rpick);
+      if (this.roadPick.includes(id)) this.roadPick = this.roadPick.filter((x) => x !== id);
+      else if (this.roadPick.length < ROAD_SQUAD) this.roadPick.push(id);
+      else { sfx('error'); this.toast('Ya tienes 5: quita uno para cambiarlo'); return; }
+      sfx('click'); this.roadScreen();
+    });
+    document.getElementById('rdcoach')?.addEventListener('click', () => this.coachesScreen('road'));
+    document.getElementById('rdstart')?.addEventListener('click', () => {
+      if (this.roadPick.length !== ROAD_SQUAD) return;
+      roadOf(this.save).active = { diff: this.roadDiff, level: 0, squad: [...this.roadPick] };
+      this.persist();
+      this.roadPlay();
+    });
+    document.getElementById('rdnext')?.addEventListener('click', () => this.roadPlay());
+    document.getElementById('rdquit')?.addEventListener('click', (e) => this.armed(e.currentTarget as HTMLElement, () => { delete roadOf(this.save).active; this.persist(); this.roadScreen(); }));
+  }
+
+  /** the next match of the road in progress */
+  private roadPlay() {
+    const a = this.save.road?.active, d = a ? ROAD_BY_ID.get(a.diff) : undefined;
+    const squad = (a?.squad ?? []).map((id) => this.byId.get(id)!).filter((p) => p && this.owned(p.id));
+    if (!a || !d || squad.length !== ROAD_SQUAD) { this.toast('No se pudo empezar el partido'); return; }
+    this.roadMatch = { diff: a.diff, level: a.level };
+    this.startRun(d.maps[a.level], [squad[0]], squad);
+  }
+
+  /** the end of a road match: the normal results, and on top of them where the road goes */
+  private roadEnd(r: RunResult & { level: number }) {
+    const m = this.roadMatch!;
+    this.results(r);
+    this.roadMatch = null;
+    const road = roadOf(this.save), d = ROAD_BY_ID.get(m.diff)!;
+    const box = document.createElement('div');
+    box.className = 'modal road-end';
+    const mapName = (id: string) => this.m.maps.find((x) => x.id === id)?.name ?? id;
+    const finish = (html: string, onOk: () => void, okLabel: string, extra = '') => {
+      box.innerHTML = `<div class="panel road-end-card">${html}<div class="cp-actions"><button class="btn big" id="rdok">${okLabel}</button>${extra}</div></div>`;
+      document.body.querySelector('#ui')?.appendChild(box) ?? this.root.appendChild(box);
+      box.querySelector('#rdok')!.addEventListener('click', () => { box.remove(); onOk(); });
+      box.querySelector('#rdlater')?.addEventListener('click', () => box.remove());
+    };
+    if (!r.victory) {
+      delete road.active; this.persist();
+      finish(`<small>ROAD TO FÚTBOL FRONTIER · ${d.label.toUpperCase()}</small><h2>Eliminados</h2><p>Caísteis en el partido <b>${m.level + 1} de ${d.maps.length}</b> (${esc(mapName(d.maps[m.level]))}). El camino vuelve a empezar.</p>`,
+        () => this.roadScreen(), 'Volver a intentarlo', '<button class="btn blue" id="rdlater">Cerrar</button>');
+      return;
+    }
+    const level = m.level + 1;
+    if (level < d.maps.length) {
+      road.active = { ...road.active!, level }; this.persist();
+      finish(`<small>ROAD TO FÚTBOL FRONTIER · ${d.label.toUpperCase()}</small><h2>¡Partido ${level} superado!</h2>
+        <span class="rd-path big">${d.maps.map((_x, i) => `<i class="${i < level ? 'done' : i === level ? 'now' : ''}">${i < level ? '✔' : i + 1}</i>`).join('<em></em>')}</span>
+        <p>Siguiente: <b>${esc(mapName(d.maps[level]))}</b>.</p>`, () => this.roadPlay(), `Jugar el partido ${level + 1} ▶`, '<button class="btn blue" id="rdlater">Más tarde</button>');
+      return;
+    }
+    // the road is cleared
+    const { jaden, clears } = clearRoad(this.save, m.diff);
+    this.save.coins += d.coins; this.save.tokens += d.tokens;
+    addCounter(this.save, `road_${m.diff}`, 1);
+    const prizes: PullResult[] = [];
+    if (d.legendary) {
+      const id = codePlayer(this.m.roster, INA483_ODDS, Math.random), p = id === null ? undefined : this.byId.get(id);
+      if (p) prizes.push({ player: p, ...addCopy(this.save, p) });
+    }
+    const j = jaden ? this.byId.get(JADEN_ID) : undefined;
+    if (j) prizes.push({ player: j, ...addCopy(this.save, j) });
+    this.persist();
+    if (this.save.settings.particles !== 'desactivado') confetti(120);
+    sfx('legend');
+    finish(`<small>ROAD TO FÚTBOL FRONTIER · ${d.label.toUpperCase()}</small><h2>¡Camino completado!</h2>
+      <p>Habéis ganado los ${d.maps.length} partidos hasta la final del Estadio Zeus. Completado <b>${clears} ${clears === 1 ? 'vez' : 'veces'}</b> en ${d.label}.</p>
+      <p class="rd-prize big">+${d.coins.toLocaleString('es')} ◉ · +${d.tokens} fichas${d.legendary ? ' · un Legendario o mejor' : ''}${jaden ? ` · ${jaden === 'new' ? '¡JADEN EVANS!' : 'otra copia de Jaden Evans'}` : ''}</p>
+      ${m.diff === 'maxima' && !jaden ? `<p class="note">Jaden Evans en ${JADEN_EVERY - (clears % JADEN_EVERY)} victorias más en Máxima.</p>` : ''}`,
+      () => { if (prizes.length) void this.capsuleShow(prizes, 'Road to Fútbol Frontier').then(() => this.roadScreen()); else this.roadScreen(); }, prizes.length ? '¡Abrir premios!' : 'Genial');
+  }
+
+  // ------------------------------------------------------------- pre-2.0 coaches
+  /** the coach on the bench (owned), if any */
+  private benchCoach(): CoachDef | undefined {
+    const id = this.save.coaches?.bench;
+    return id && this.save.coaches?.owned.includes(id) ? COACH_BY_ID.get(id) : undefined;
+  }
+  private coachTex(id: string) { return this.m.coaches?.find((c) => c.id === id)?.texture ?? ''; }
+  /** a coach's portrait in a frame of his rarity; locked = a silhouette */
+  private coachArt(c: CoachDef, size: number, locked = false) {
+    const tex = this.coachTex(c.id);
+    return `<span class="co-art r-${c.rarity}${locked ? ' locked' : ''}" style="--rc:${RARITY_COLOR[c.rarity]};width:${size}px;height:${size}px">${tex ? `<img src="${tex}" alt="">` : ''}${locked ? '<b>?</b>' : ''}</span>`;
+  }
+  private coachPassives(c: CoachDef) {
+    return `<ul class="co-passives">${c.passives.map((p) => `<li><i>${PASSIVE_ICON[p.kind]}</i>${esc(coachPassiveText(p))}</li>`).join('')}</ul>`;
+  }
+  private machineLabel(id: string) { return (BANNERS as Record<string, { label: string }>)[id]?.label ?? id; }
+
+  /** a pull of `n` capsules at machine `m`: 2% each for a coach of that machine not owned yet */
+  private rollCoach(m: string, n: number): CoachDef | null {
+    const owned = new Set(this.save.coaches?.owned ?? []);
+    const pool = coachesOfMachine(m as never).filter((c) => !owned.has(c.id));
+    if (!pool.length) return null;
+    for (let k = 0; k < n; k++) {
+      if (Math.random() >= COACH_PULL_CHANCE) continue;
+      const c = pool[Math.floor(Math.random() * pool.length)];
+      this.save.coaches = { owned: [...owned, c.id], bench: this.save.coaches?.bench ?? c.id }; // the first one goes straight to the bench
+      return c;
+    }
+    return null;
+  }
+
+  /** the row of a machine's coaches, under its featured players */
+  private machineCoaches(m: string) {
+    const list = coachesOfMachine(m as never);
+    if (!list.length) return '';
+    const owned = new Set(this.save.coaches?.owned ?? []);
+    return `<div class="feat-row co-row"><small>ENTRENADORES · ${Math.round(COACH_PULL_CHANCE * 100)}% por cápsula</small><div>${list.map((c) => `<span class="co-feat${owned.has(c.id) ? ' own' : ''}" title="${esc(c.name)}${owned.has(c.id) ? ' (ya lo tienes)' : ''}">${this.coachArt(c, 44, !owned.has(c.id))}<small>${esc(c.name)}</small></span>`).join('')}</div></div>`;
+  }
+
+  /** a new coach: his card, big, with his passives */
+  private coachReveal(c: CoachDef) {
+    sfx('legend');
+    if (this.save.settings.particles !== 'desactivado') confetti(60);
+    const box = document.createElement('div');
+    box.className = 'modal co-reveal';
+    box.innerHTML = `<div class="panel co-reveal-card r-${c.rarity}" style="--rc:${RARITY_COLOR[c.rarity]}"><small>¡NUEVO ENTRENADOR!</small>${this.coachArt(c, 160)}
+      <h2>${esc(c.name)}</h2><span class="rar ${c.rarity}">${RARITY_LABEL[c.rarity].toUpperCase()}</span><em>${esc(c.team)}</em><p class="co-quote">«${esc(c.quote)}»</p>${this.coachPassives(c)}
+      <p class="note">${this.save.coaches?.bench === c.id ? 'Ya está en tu banquillo.' : 'Ponlo en el banquillo en Mi Equipo o en Entrenadores.'}</p><button class="btn big">¡Genial!</button></div>`;
+    this.root.appendChild(box);
+    box.querySelector('.btn')!.addEventListener('click', () => box.remove());
+  }
+
+  /** Mi Equipo: the bench, with the coach and what he gives */
+  private benchPanel() {
+    const c = this.benchCoach(), n = this.save.coaches?.owned.length ?? 0;
+    return `<div class="panel bench-panel${c ? ` r-${c.rarity}` : ' empty'}" ${c ? `style="--rc:${RARITY_COLOR[c.rarity]}"` : ''}>
+      <div class="bench-tag">BANQUILLO</div>
+      ${c ? `${this.coachArt(c, 96)}<div class="bench-tx"><small>ENTRENADOR · ${esc(c.team)}</small><b>${esc(c.name)}</b><span class="rar ${c.rarity}">${RARITY_LABEL[c.rarity].toUpperCase()}</span>${this.coachPassives(c)}</div>`
+        : `<span class="co-art empty-art"><b>?</b></span><div class="bench-tx"><small>ENTRENADOR</small><b>Banquillo vacío</b><p class="note">${n ? 'Elige a uno de tus entrenadores.' : `Los entrenadores salen en las máquinas de fichajes de su saga (${Math.round(COACH_PULL_CHANCE * 100)}% por cápsula). Cada uno da pasivas a todo el equipo.`}</p></div>`}
+      <button class="btn small blue" data-go-coaches>${c ? 'Cambiar' : 'Ver entrenadores'}</button></div>`;
+  }
+
+  /** pre-2.0: every coach — owned ones can go on the bench, the rest say where they come from */
+  coachesScreen(back: 'menu' | 'squad' | 'road' = 'menu') {
+    setMusicContext('menu');
+    const owned = new Set(this.save.coaches?.owned ?? []), bench = this.save.coaches?.bench;
+    const order = (c: CoachDef) => (owned.has(c.id) ? 0 : 100) - RARITY_ORDER.indexOf(c.rarity);
+    const cards = [...COACHES].sort((a, b2) => order(a) - order(b2)).map((c) => {
+      const own = owned.has(c.id);
+      return `<div class="co-card r-${c.rarity}${own ? '' : ' locked'}${bench === c.id ? ' on' : ''}" style="--rc:${RARITY_COLOR[c.rarity]}">
+        ${this.coachArt(c, 112, !own)}<div class="co-card-tx"><small>${esc(c.team)}</small><b>${own ? esc(c.name) : '???'}</b><span class="rar ${c.rarity}">${RARITY_LABEL[c.rarity].toUpperCase()}</span>
+        ${own ? `<p class="co-quote">«${esc(c.quote)}»</p>` : ''}${this.coachPassives(c)}
+        ${own ? `<button class="btn small${bench === c.id ? ' blue' : ''}" data-bench="${c.id}">${bench === c.id ? '✔ En el banquillo' : 'Al banquillo'}</button>`
+          : `<p class="co-where">🔒 Sale en la máquina <b>${esc(this.machineLabel(c.machine))}</b> (${Math.round(COACH_PULL_CHANCE * 100)}% por cápsula)</p>`}</div></div>`;
+    }).join('');
+    this.show(`<div class="screen coaches-screen">${this.titlebar('Entrenadores', back === 'squad' ? 'Mi Equipo' : back === 'road' ? 'Road to FF' : 'Menú')}
+      <div class="panel co-head"><b>${owned.size} de ${COACHES.length} entrenadores</b><p class="note">Uno se sienta en el <b>banquillo</b> y da sus pasivas a todo el equipo durante la partida: su formación, objetos raros, afinidad con un elemento, daño, defensa o técnicas combinadas.</p></div>
+      <div class="co-grid">${cards}</div></div>`);
+    this.on('[data-back]', 'click', () => (back === 'squad' ? this.captainSelect() : back === 'road' ? this.roadScreen() : this.mainMenu()));
+    this.on('[data-bench]', 'click', (_e, el) => {
+      const id = el.dataset.bench!;
+      this.save.coaches = { owned: [...owned], ...(bench === id ? {} : { bench: id }) };
+      this.persist(); sfx('click'); this.coachesScreen(back);
+    });
+  }
+
+  // ------------------------------------------------------------- pre-2.0 co-op
+  private coop: CoopLink | null = null;
+  /** pre-2.0: the partner's card (squad, kit, name, icon, crest, banner, frame), from his «hello»; a co-op run in progress */
+  private coopPartner: CoopProfile | null = null;
+  private coopTick = 0;
+  private coopOnEvent: ((m: CoopMsg) => void) | null = null;
+  private coopRunActive = false;
+  private coopMap = '';
+  private coopAbort: AbortController | null = null;
+
+  /** what this player shows of himself in the room */
+  private coopMe(): CoopProfile {
+    const squad = squadOf(this.save, this.byId);
+    return {
+      name: this.save.onlineName || this.save.profile.name, icon: this.save.profile.icon, crest: this.save.crest ?? '', kit: this.save.kit,
+      pennant: this.save.pennants?.equipped ?? null, frame: this.save.pennants?.frame ?? null, wins: this.save.stats.wins, coach: this.benchCoach()?.id ?? null,
+      squad: squad.map((p) => ({ id: p.id, r: effectiveRarity(this.save, p), st: (this.save.owned[String(p.id)]?.stars ?? 0) + (this.save.owned[String(p.id)]?.extraStars ?? 0), hero: isHero(this.save, p.id) })),
+    };
+  }
+
+  /** a player's card in the room: his banner across the top, framed icon, crest, and his squad with the captain first */
+  private coopCard(p: CoopProfile, mine: boolean) {
+    const cap = this.byId.get(p.squad[0]?.id ?? -1);
+    const emblem = p.crest ? this.emblemOf(p.crest) : '';
+    const squad = p.squad.map((c, i) => {
+      if (!this.byId.has(c.id)) return '';
+      const r = (c.r in RARITY_COLOR ? c.r : 'comun') as Rarity;
+      return `<span class="cp-mug r-${r}${i === 0 ? ' cap' : ''}${c.hero ? ' hero' : ''}" style="--rc:${RARITY_COLOR[r]}" title="${esc(this.byId.get(c.id)!.name)}">${this.mug(c.id, i === 0 ? 64 : 40)}${i === 0 ? '<em class="cp-c">C</em>' : ''}${c.st ? `<small>★${c.st}</small>` : ''}</span>`;
+    }).join('');
+    return `<div class="cp-pc${mine ? ' me' : ' them'}">
+      <div class="cp-ribbon">${p.pennant ? pennantRibbon(p.pennant) : '<i class="cp-noribbon"></i>'}</div>
+      <div class="cp-id">${this.framed(this.profileIcon(72, p.icon), p.frame)}
+        <div class="cp-who"><small>${mine ? 'TÚ' : 'TU COMPAÑERO'}</small><b>${esc(p.name)}</b>
+          <span>${emblem ? `<img src="${emblem}" alt="">` : ''}${esc(p.crest ? teamLabel(p.crest) : 'Sin escudo')} · ${p.wins} victorias</span></div></div>
+      <div class="cp-capline"><span>${cap ? `Capitán: <b>${esc(cap.name)}</b>` : 'Sin capitán'}</span><span>${p.squad.length} en el equipo</span></div>
+      <div class="cp-squad">${squad || '<span class="note">Sin equipo todavía</span>'}</div>
+      ${(() => { const co = p.coach ? COACH_BY_ID.get(p.coach) : undefined; return co ? `<div class="cp-coach">${this.coachArt(co, 34)}<span><small>ENTRENADOR</small><b>${esc(co.name)}</b></span></div>` : ''; })()}</div>`;
+  }
+
+  /**
+   * pre-2.0 (author): co-op for two, by room code or a friend's invitation. Linked, the room shows both players' cards
+   * (banner, frame, crest and squad); the host picks the arena and starts. Only for signed-in players.
+   */
+  coopLobby(state: { busy?: string; code?: string; error?: string; join?: string } = {}) {
+    setMusicContext('menu');
+    const link = this.coop?.open ? this.coop : null;
+    const ok = onlineConfigured() && signedIn();
+    const hero = `<div class="cp-hero"><div class="cp-hero-tx"><small>MODO COOPERATIVO · PRE-2.0</small><b>Juega con un amigo</b>
+        <span>Cada uno con su equipo, los mismos rivales y una sola barra de experiencia. Si uno cae, el otro lo levanta.</span></div>
+      <span class="cp-test" title="Puede tener fallos: si ves alguno, repórtalo desde el 🐞">EN PRUEBAS</span></div>`;
+    let body: string;
+    if (!ok) body = `<div class="panel cp-panel"><p class="note">El cooperativo necesita una cuenta: entra con Google en Ajustes.</p></div>`;
+    else if (link) {
+      const me = this.coopMe(), pa = this.coopPartner;
+      const maps = this.m.maps.filter((mp) => isMapUnlocked(mp, this.save));
+      if (!maps.some((mp) => mp.id === this.coopMap)) this.coopMap = maps[0]?.id ?? '';
+      body = `<div class="cp-room">
+        <div class="cp-vs">${this.coopCard(me, true)}
+          <div class="cp-mid"><b class="cp-hands">${uiIcon('team')}</b><span class="cp-chip" id="cpping">Ping…</span><span class="cp-chip" id="cproute"></span><small>Sala ${esc(link.code)}</small></div>
+          ${pa ? this.coopCard(pa, false) : `<div class="cp-pc them wait"><i class="cp-dots"><b></b><b></b><b></b></i><span>Preparando a ${esc(link.partner)}…</span></div>`}</div>
+        ${link.role === 'host' ? `<div class="panel cp-panel"><h3>${uiIcon('pitch')}Elige la arena <small>con tu rango ${esc(this.save.difficulty)}</small></h3>
+            <div class="cp-maps">${maps.map((mp) => `<button class="cp-map-card${mp.id === this.coopMap ? ' on' : ''}" data-cpmap="${esc(mp.id)}"><small>${uiIcon('clock')}${fmtTime(mp.durationSec)}</small><b>${esc(mp.name)}</b>${mp.boss !== null ? `<span class="cp-boss">${this.mug(mp.boss, 40)}</span>` : ''}</button>`).join('')}</div>
+            <button class="btn big cp-go" id="cpgo" ${pa ? '' : 'disabled'}>${pa ? '¡A jugar juntos! ▶' : 'Esperando el equipo de tu compañero…'}</button></div>`
+          : `<div class="panel cp-panel cp-waitpanel"><i class="cp-dots"><b></b><b></b><b></b></i><p>${pa ? `Esperando a que <b>${esc(link.partner)}</b> elija la arena y empiece…` : 'Preparando…'}</p></div>`}
+        <div class="cp-actions"><button class="btn" id="cpleave">Salir de la sala</button></div></div>`;
+    } else if (state.code) {
+      body = `<div class="cp-two"><div class="panel cp-panel cp-codebox"><small>CÓDIGO DE LA SALA</small><b class="cp-code">${esc(state.code)}</b>
+          <button class="btn small blue" id="cpcopy">Copiar código</button><p class="note">Pásaselo a tu compañero o invita a un amigo. Esperando a que entre… (la sala dura 15 minutos)</p>
+          <i class="cp-dots"><b></b><b></b><b></b></i><button class="btn" id="cpcancel">Cancelar</button></div>
+        <div class="panel cp-panel"><h3>${uiIcon('team')}Invita a un amigo</h3><div class="cp-friends" id="cpfriends"><p class="note">Cargando amigos…</p></div></div></div>`;
+    } else if (state.busy) body = `<div class="panel cp-panel cp-waitpanel"><i class="cp-dots"><b></b><b></b><b></b></i><p>${esc(state.busy)}</p><button class="btn" id="cpcancel">Cancelar</button></div>`;
+    else body = `<div class="cp-two">
+        <div class="panel cp-panel cp-choice"><span class="cp-big-ic">${uiIcon('crown')}</span><b>Crear sala</b><p class="note">Eres el anfitrión: eliges la arena y se juega con tu rango.</p><button class="btn big" id="cpcreate">Crear sala</button></div>
+        <div class="panel cp-panel cp-choice"><span class="cp-big-ic">${uiIcon('team')}</span><b>Unirse</b><p class="note">Escribe el código que te ha pasado tu compañero.</p>
+          <div class="cp-join"><input id="cpcode" maxlength="6" placeholder="CÓDIGO" autocomplete="off" spellcheck="false" value="${esc(state.join ?? '')}"><button class="btn big blue" id="cpjoin">Unirse</button></div></div></div>
+      <div class="panel cp-panel"><h3>${uiIcon('team')}Amigos <button class="btn small blue" id="cpfriendsbtn">Gestionar amigos</button></h3><div class="cp-friends" id="cpfriends"><p class="note">Cargando amigos…</p></div></div>`;
+    this.show(`<div class="screen coop-screen">${this.titlebar('Cooperativo', 'Menú')}${hero}${state.error ? `<p class="cp-err">${esc(state.error)}</p>` : ''}${body}</div>`);
+    this.on('[data-back]', 'click', () => { this.coopAbort?.abort(); this.mainMenu(); });
+    const fail = (e: unknown) => { this.coopAbort = null; if ((e as Error).message !== 'cancelado') this.coopLobby({ error: (e as Error).message }); };
+    const adopt = (l: CoopLink) => { this.coopAbort = null; this.coop = l; this.coopPartner = null; this.coopLobby(); };
+    const host = () => {
+      this.coopAbort = new AbortController();
+      this.coopLobby({ busy: 'Creando la sala…' });
+      CoopLink.host((code) => this.coopLobby({ code }), this.coopAbort.signal).then(adopt, fail);
+    };
+    const join = (raw?: string) => {
+      const code = (raw ?? (document.getElementById('cpcode') as HTMLInputElement | null)?.value ?? '').trim().toUpperCase();
+      if (!/^[A-Z2-9]{6}$/.test(code)) { this.coopLobby({ error: 'El código tiene 6 letras y números.', join: code }); return; }
+      this.coopAbort = new AbortController();
+      this.coopLobby({ busy: `Entrando en la sala ${code}…` });
+      CoopLink.join(code, this.coopAbort.signal).then(adopt, fail);
+    };
+    document.getElementById('cpcreate')?.addEventListener('click', host);
+    document.getElementById('cpjoin')?.addEventListener('click', () => join());
+    document.getElementById('cpcode')?.addEventListener('keydown', (e) => { if ((e as KeyboardEvent).key === 'Enter') join(); });
+    document.getElementById('cpcancel')?.addEventListener('click', () => { this.coopAbort?.abort(); this.coopAbort = null; this.coopLobby(); });
+    document.getElementById('cpcopy')?.addEventListener('click', () => { void navigator.clipboard?.writeText(state.code ?? '').then(() => this.toast('Código copiado')).catch(() => undefined); });
+    document.getElementById('cpfriendsbtn')?.addEventListener('click', () => this.friendsScreen());
+    document.getElementById('cpleave')?.addEventListener('click', () => { this.coop?.close(); this.coop = null; this.coopPartner = null; this.coopLobby(); });
+    this.on('[data-cpmap]', 'click', (_e, el) => { this.coopMap = el.dataset.cpmap!; this.root.querySelectorAll('.cp-map-card').forEach((b) => b.classList.toggle('on', b === el)); });
+    document.getElementById('cpgo')?.addEventListener('click', () => {
+      if (!this.coopMap || !this.coopPartner || !this.coop?.open) return;
+      const seed = Math.floor(Math.random() * 1e9);
+      this.coop.send({ t: 'go', map: this.coopMap, rank: this.save.difficulty, seed });
+      this.coopStart(this.coopMap, this.save.difficulty);
+    });
+    if (ok && !link) void this.coopFriendsPanel(state.code ?? null);
+    if (state.join && !state.error && !state.busy) join(state.join); // from a friend's invitation
+    clearInterval(this.coopTick);
+    if (link) {
+      if (link.onEvent !== this.coopOnEvent) this.coopListen(link); // a new link, or back from a run (it cleared them)
+      void link.route().then((r) => { const el = document.getElementById('cproute'); if (el) el.textContent = r === 'retransmitida' ? 'Por servidor de paso' : 'Conexión directa'; });
+      // one timer per render (cleared above), and the chip only changes when the reading does: no flicker
+      const ping = () => {
+        const el = document.getElementById('cpping');
+        if (!el || !this.coop?.open) { clearInterval(this.coopTick); return; }
+        const tx = this.coop.rtt ? `Ping ${this.coop.rtt} ms` : 'Ping…';
+        if (el.textContent !== tx) el.textContent = tx;
+      };
+      ping();
+      this.coopTick = window.setInterval(ping, 500);
+    }
+  }
+
+  /** the room's friends list: who is online, and an «Invitar» button while this player hosts an empty room */
+  private async coopFriendsPanel(code: string | null) {
+    const box = () => document.getElementById('cpfriends');
+    let rows: FriendRow[] = [];
+    try { rows = (await friendList()).filter((f) => f.status === 'amigo'); } catch (e) { const b = box(); if (b) b.innerHTML = `<p class="note">${esc((e as Error).message)}</p>`; return; }
+    const b = box();
+    if (!b) return;
+    if (!rows.length) { b.innerHTML = '<p class="note">Aún no tienes amigos añadidos. Añádelos en «Gestionar amigos» o desde su perfil en el ranking.</p>'; return; }
+    b.innerHTML = rows.map((f) => `<div class="cp-fr${f.online ? ' on' : ''}">${this.profileIcon(32, this.iconFrom(f.avatar))}<b>${esc(f.username)}</b><span class="cp-dot">${f.online ? 'En línea' : 'Desconectado'}</span>
+      ${code ? `<button class="btn small" data-invite="${esc(f.username)}">Invitar</button>` : ''}</div>`).join('');
+    this.on('[data-invite]', 'click', (_e, el) => {
+      const name = el.dataset.invite!;
+      (el as HTMLButtonElement).disabled = true;
+      coopInvite(name, code!).then(() => { el.textContent = 'Invitado ✔'; this.toast(`Invitación enviada a ${name}`); })
+        .catch((err: Error) => { (el as HTMLButtonElement).disabled = false; this.toast(err.message, 4000); });
+    }, b);
+  }
+
+  /** the avatar a friend row carries (the same text the profile keeps) */
+  private iconFrom(avatar: string): { kind: 'emblem' | 'player' | 'coach'; id: number } | null {
+    const id = Number(avatar);
+    if (!avatar || !Number.isFinite(id)) return null;
+    // the server keeps the number only: a crest when there is one with that id (the default icons), else a footballer
+    return { kind: this.m.profile?.emblems?.some((e) => e.teamId === id) || !this.byId.has(id) ? 'emblem' : 'player', id };
+  }
+
+  /** pre-2.0: friends — add by global name, answer requests, see who is online, remove */
+  async friendsScreen() {
+    setMusicContext('menu');
+    const ok = onlineConfigured() && signedIn();
+    this.show(`<div class="screen friends-screen">${this.titlebar('Amigos', 'Cooperativo')}
+      <div class="panel cp-panel"><h3>${uiIcon('team')}Añadir amigo</h3>${ok ? `<div class="cp-join"><input id="fradd" maxlength="20" placeholder="Nombre global" autocomplete="off" spellcheck="false"><button class="btn blue" id="fraddgo">Enviar solicitud</button></div>
+        <p class="note">También puedes añadir a alguien desde su perfil en el ranking.</p>` : '<p class="note">Necesitas una cuenta: entra con Google en Ajustes.</p>'}</div>
+      <div id="frlist"><p class="note">Cargando…</p></div></div>`);
+    this.on('[data-back]', 'click', () => this.coopLobby());
+    if (!ok) return;
+    const send = () => {
+      const name = (document.getElementById('fradd') as HTMLInputElement).value.trim();
+      if (!name) return;
+      friendRequest(name).then((r) => { this.toast(r === 'aceptada' ? `¡Ahora eres amigo de ${name}!` : r === 'ya_amigos' ? `Ya eres amigo de ${name}` : `Solicitud enviada a ${name}`); void this.friendsScreen(); })
+        .catch((e: Error) => this.toast(e.message, 4000));
+    };
+    document.getElementById('fraddgo')?.addEventListener('click', send);
+    document.getElementById('fradd')?.addEventListener('keydown', (e) => { if ((e as KeyboardEvent).key === 'Enter') send(); });
+    let rows: FriendRow[] = [];
+    try { rows = await friendList(); } catch (e) { const l = document.getElementById('frlist'); if (l) l.innerHTML = `<p class="note">${esc((e as Error).message)}</p>`; return; }
+    const list = document.getElementById('frlist');
+    if (!list) return;
+    const row = (f: FriendRow, actions: string) => `<div class="cp-fr${f.online ? ' on' : ''}">${this.profileIcon(36, this.iconFrom(f.avatar))}<b data-user="${esc(f.username)}">${esc(f.username)}</b>
+      ${f.status === 'amigo' ? `<span class="cp-dot">${f.online ? 'En línea' : 'Desconectado'}</span>` : ''}<span class="spacer"></span>${actions}</div>`;
+    const got = rows.filter((f) => f.status === 'recibida'), mine = rows.filter((f) => f.status === 'amigo'), sent = rows.filter((f) => f.status === 'enviada');
+    list.innerHTML = `${got.length ? `<div class="panel cp-panel"><h3>${uiIcon('gift')}Solicitudes <small>${got.length}</small></h3>${got.map((f) => row(f, `<button class="btn small" data-fra="${esc(f.username)}">Aceptar</button><button class="btn small blue" data-frx="${esc(f.username)}">Rechazar</button>`)).join('')}</div>` : ''}
+      <div class="panel cp-panel"><h3>${uiIcon('team')}Tus amigos <small>${mine.length}/100</small></h3>${mine.length ? mine.map((f) => row(f, `<button class="btn small blue" data-frrm="${esc(f.username)}">Quitar</button>`)).join('') : '<p class="note">Todavía ninguno.</p>'}</div>
+      ${sent.length ? `<div class="panel cp-panel"><h3>${uiIcon('clock')}Enviadas</h3>${sent.map((f) => row(f, `<button class="btn small blue" data-frrm="${esc(f.username)}">Cancelar</button>`)).join('')}</div>` : ''}`;
+    const act = (p: Promise<unknown>, msg: string) => p.then(() => { this.toast(msg); void this.friendsScreen(); }).catch((e: Error) => this.toast(e.message, 4000));
+    this.on('[data-fra]', 'click', (_e, el) => act(friendRespond(el.dataset.fra!, true), `¡Ahora eres amigo de ${el.dataset.fra}!`), list);
+    this.on('[data-frx]', 'click', (_e, el) => act(friendRespond(el.dataset.frx!, false), 'Solicitud rechazada'), list);
+    this.on('[data-frrm]', 'click', (_e, el) => this.armed(el, () => act(friendRemove(el.dataset.frrm!), 'Hecho')), list);
+    this.bindUsers(list);
+  }
+
+  /**
+   * pre-2.0: while the game is open with an account, it tells the server once a minute (friends see «en línea») and looks
+   * for co-op invitations every 15 seconds outside a run; an invitation asks right away whether to join.
+   */
+  private socialStarted = false;
+  private startSocial() {
+    if (this.socialStarted) return;
+    this.socialStarted = true;
+    const live = () => onlineConfigured() && signedIn() && document.visibilityState === 'visible';
+    const beat = () => { if (live()) void friendHeartbeat().catch(() => undefined); };
+    beat();
+    window.setInterval(beat, 60_000);
+    window.setInterval(() => {
+      if (!live() || this.arena()?.scene.isActive() || this.coop?.open || document.querySelector('.coop-invite')) return;
+      void coopInvitesClaim().then((rows) => { const r = rows[rows.length - 1]; if (r) this.coopInviteNotice(r.from_name, r.code); }).catch(() => undefined);
+    }, 15_000);
+  }
+
+  private coopInviteNotice(from: string, code: string) {
+    sfx('reveal');
+    const box = document.createElement('div');
+    box.className = 'modal coop-invite';
+    box.innerHTML = `<div class="panel cp-panel cp-invite"><span class="cp-big-ic">${uiIcon('team')}</span><h2>¡${esc(from)} te invita!</h2>
+      <p>Quiere jugar contigo en <b>cooperativo</b>. La invitación dura dos minutos.</p>
+      <div class="cp-actions"><button class="btn big" id="cpinvok">Unirme</button><button class="btn blue" id="cpinvno">Ahora no</button></div></div>`;
+    this.root.appendChild(box);
+    box.querySelector('#cpinvok')!.addEventListener('click', () => { box.remove(); this.coopLobby({ join: code }); });
+    box.querySelector('#cpinvno')!.addEventListener('click', () => box.remove());
+  }
+
+  /**
+   * pre-2.0: the lobby's side of the link, hooked once per link: cards are exchanged, and the host's «go» starts the run
+   * on both screens. A «hello» is answered once per link (marked as a reply), never from a render, and the room repaints
+   * only when the partner's card changed: answering on every repaint made the two lobbies repaint each other without end
+   * (the ping blinked, «¡A jugar juntos!» could not be clicked), and a partner still on that build must not restart it.
+   */
+  private coopListen(link: CoopLink) {
+    let answered = false;
+    link.onEvent = this.coopOnEvent = (m: CoopMsg) => {
+      if (m.t === 'hello') {
+        const p = m.me as CoopProfile;
+        const before = JSON.stringify(this.coopPartner);
+        this.coopPartner = { ...p, squad: (p.squad ?? []).filter((c) => this.byId.has(c.id)) };
+        if (!m.reply && !answered) { answered = true; link.send({ t: 'hello', me: this.coopMe(), reply: true }); }
+        if (this.screenKey === 'Cooperativo' && this.coop === link && JSON.stringify(this.coopPartner) !== before) this.coopLobby();
+      } else if (m.t === 'go' && link.role === 'guest') this.coopStart(String(m.map), m.rank as Rank);
+    };
+    link.onClose = (why) => { this.coop = null; this.coopPartner = null; if (this.screenKey === 'Cooperativo') this.coopLobby({ error: `Sala cerrada: ${why}` }); };
+    link.send({ t: 'hello', me: this.coopMe() });
+  }
+
+  /** both screens start the same arena; each one plays with his own squad */
+  private coopStart(mapId: string, rank: Rank) {
+    const link = this.coop, partner = this.coopPartner;
+    const squad = squadOf(this.save, this.byId);
+    if (!link?.open || !partner || !squad.length || !this.m.maps.some((mp) => mp.id === mapId)) { this.toast('No se pudo empezar la partida juntos'); return; }
+    const team = partner.squad.map((c) => this.byId.get(c.id)!).filter(Boolean);
+    this.startRun(mapId, [squad[0]], squad, undefined, { role: link.role, link, rank, partner: { name: partner.name || link.partner, team, kit: this.m.kits?.[partner.kit] ?? null } });
+  }
+
   private async otherProfile(username: string) {
     document.getElementById('opf')?.remove();
     const box = document.createElement('div');
@@ -1505,6 +1985,14 @@ export class App {
       ${p.marks.length ? `<h3>${uiIcon('crown')}Mejores marcas</h3><div class="opf-marks">${p.marks.map((m) => `<span class="opf-mark"><span class="rank-btn r-${esc(m.rank)}"><b>${esc(m.rank)}</b></span>${esc(mapName(m.map))}<b>${fmtTime(m.time_sec)}</b><small>${Number(m.damage).toLocaleString('es')} daño</small></span>`).join('')}</div>` : ''}
     </div>`;
     box.querySelector('[data-close]')!.addEventListener('click', close);
+    // pre-2.0: add as a friend (for the co-op)
+    if (onlineConfigured() && signedIn() && p.username !== this.save.onlineName) {
+      const add = document.createElement('button');
+      add.className = 'btn small opf-friend';
+      add.textContent = '+ Añadir amigo';
+      add.addEventListener('click', () => { add.disabled = true; friendRequest(p.username).then((r) => { add.textContent = r === 'enviada' ? 'Solicitud enviada ✔' : '¡Ya sois amigos! ✔'; }).catch((e: Error) => { add.disabled = false; this.toast(e.message, 4000); }); });
+      box.querySelector('.opf-panel')?.insertBefore(add, box.querySelector('.opf-panel h3'));
+    }
   }
 
   /** v1.6: every ranking name opens that player's profile */
@@ -2722,6 +3210,7 @@ export class App {
     }).join('');
     this.show(`<div class="screen">${this.titlebar('Mi Equipo', 'Menú')}
       ${this.squadSynergyPanel(squad)}
+      ${this.benchPanel()}
       <div class="panel"><div class="note">Tienes <b>5 equipos</b>: cambia entre ellos arriba. Elige <b>7 candidatos</b>. Empiezas solo con el <b>capitán</b>; al subir de nivel podrás fichar a los otros seis (máximo ${MAX_TEAM} en el campo).
         Pulsa un futbolista de tu colección para añadirlo o quitarlo, pulsa una plaza para cambiarla, o arrastra para colocar e intercambiar. Se guarda solo.</div>
         ${this.teamBar()}
@@ -2772,6 +3261,7 @@ export class App {
       this.startAuraPick(id);
     });
     document.getElementById('aucancel')?.addEventListener('click', () => { this.auraPick = null; this.captainSelect(); });
+    this.on('[data-go-coaches]', 'click', () => this.coachesScreen('squad')); // pre-2.0: the bench
     if (!this.save.auraIntroSeen && squad.length) this.auraIntro(); // v1.5 (author): how Auras work, the first time
     document.getElementById('sqcancel')?.addEventListener('click', () => { this.squadPicked = false; this.captainSelect(); });
     document.getElementById('sqauto')?.addEventListener('click', () => {
@@ -3602,7 +4092,7 @@ export class App {
       <div class="banner-head bh4" style="--bc:${banner.color}"><div class="bh-tx"><small>MÁQUINA</small><b>${esc(banner.label)}</b><span>${esc(banner.tagline)} · ${pool.length} futbolistas</span> ${teamSel}
           <div class="bh-chips"><span>${uiIcon('capsule')}×1 · <b>${PULL_COST}</b>${ev ? ' de evento' : ''}</span><span>${uiIcon('capsule')}×10 · <b>${MULTI_COST}</b>${ev ? ' de evento' : ''}</span>${ev ? `<span>Termina en <b>${this.leftText(thanksLeftMs(serverNow()))}</b></span>` : ''}<span class="ok">×10: Épico o mejor asegurado</span></div>
           <details class="rk-how"><summary>${uiIcon('help')}Precio y reglas</summary><div>${banner.id === 'evento' ? `Los futbolistas especiales solo salen aquí, con ${pool.filter((p) => !p.exclusive).length} Comunes, Raros y Épicos de relleno. Se paga con fichas de evento: cada partida en Rango S o X te da tantas como fichas normales mientras dura el evento.` : banner.id === 'equipo' ? 'Solo futbolistas del equipo elegido; las rarezas altas tienen un tope por jugador.' : `Cada futbolista sale en una sola máquina: la de la primera saga en la que aparece. Precio según sus Míticos (${price.mythics}): sin estrellas 5 · sin Míticos 10 · de 1 a 5 Míticos 15 · 6 o más 20.`}</div></details></div>
-        <div class="feat-row"><small>DESTACADOS</small><div>${feat}</div></div></div>
+        <div class="feat-row"><small>DESTACADOS</small><div>${feat}</div></div>${this.machineCoaches(banner.id)}</div>
       <div class="ie3-machine">${has ? `<div class="ds-top"><img id="globe" src="${this.cap('globe0')}" alt=""></div>
         <div class="ds-bottom" style="background-image:url(${this.cap('panel_bottom')})">
           <img class="goal" src="${this.cap('goal_slot')}" alt=""><div class="knobwrap"><img class="kbase" src="${this.cap('knob_base')}" alt="">
@@ -3652,6 +4142,7 @@ export class App {
       if (!res) { this.pulling = false; return; }
       recordHistory(this.save, res);
       addCounter(this.save, 'news', res.filter((x) => x.isNew).length);
+      const coachGot = this.rollCoach(b.id, res.length); // pre-2.0
       this.persist();
       this.root.querySelectorAll<HTMLButtonElement>('[data-pull], [data-back]').forEach((b) => (b.disabled = true));
       try {
@@ -3661,6 +4152,7 @@ export class App {
         this.pulling = false;
       }
       this.gachaSummary(res);
+      if (coachGot) window.setTimeout(() => this.coachReveal(coachGot), 350);
       // v1.4: a pull that completes a team reward (crest, kit, captain) says which team, right away
       const fresh = this.teamClaimList().filter((c) => !claimsBefore.has(`${c.team}|${c.kind}`));
       if (fresh.length) window.setTimeout(() => this.claimNotice(fresh, '¡Nueva recompensa de equipo!'), 300);
@@ -4464,12 +4956,14 @@ export class App {
    */
   private runEntry(p: RosterEntry): RosterEntry {
     const base: RosterEntry = { ...(isHero(this.save, p.id) && p.heroTech ? { ...p, techniques: [...p.techniques, p.heroTech] } : p), stats: this.statsOf(p) ?? p.stats };
+    if (this.roadMatch) return base; // pre-2.0: Road to Fútbol Frontier is played without Auras
     const a = auraOf(this.save, p.id), ae = a === null ? undefined : this.byId.get(a);
     return ae ? carrierForRun(this.save, base, base.stats as Record<StatKey, number> | null, ae) : base;
   }
 
-  startRun(mapId: string, team: RosterEntry[], candidates: RosterEntry[] = team, training?: TrainingSetup) {
+  startRun(mapId: string, team: RosterEntry[], candidates: RosterEntry[] = team, training?: TrainingSetup, coop?: CoopRun & { rank: Rank }) {
     const map = this.m.maps.find((x) => x.id === mapId)!;
+    this.coopRunActive = !!coop; // pre-2.0: co-op runs never go to the ranking
     const heroed = (p: RosterEntry) => this.runEntry(p);
     this.inTraining = !!training;
     const runTeam = team.map(heroed), runUnlocked = candidates.filter((p) => this.owned(p.id)).map(heroed);
@@ -4506,7 +5000,9 @@ export class App {
     document.getElementById('pausebtn')!.addEventListener('click', () => this.pauseFromHud());
     this.root.querySelectorAll<HTMLElement>('#fbtns button').forEach((b) => b.addEventListener('click', () => this.arena()?.selectFormation(b.dataset.f as FormationId)));
     const init: ArenaInit = {
-      rank: this.save.difficulty,
+      rank: coop?.rank ?? (this.roadMatch ? ROAD_BY_ID.get(this.roadMatch.diff)!.rank : this.save.difficulty),
+      road: !!this.roadMatch,
+      coop: coop ? { role: coop.role, link: coop.link, partner: coop.partner } : undefined,
       onPickup: (id, label, info) => {
         if (this.save.seenItems.includes(id)) return;
         this.save.seenItems.push(id);
@@ -4515,18 +5011,20 @@ export class App {
       },
       asc: Object.fromEntries(candidates.map((p) => [String(p.id), { ...ascMultipliers(this.save, p), hero: isHero(this.save, p.id) || championOf(this.save, p.id) > 0 }])),
       manifest: this.m, map, team: runTeam, unlocked: runUnlocked, auras: runAuras, stars, settings: this.save.settings,
-      perks: (() => { const e = applyGear(perkEffects(this.save), this.save, this.gear); kitBonus(this.save.kit, this.m.roster).apply(e); return e; })(),
+      perks: (() => { const e = applyGear(perkEffects(this.save), this.save, this.gear); kitBonus(this.save.kit, this.m.roster).apply(e); applyCoachPerks(this.benchCoach(), e); return e; })(),
+      coach: coachRun(this.benchCoach()), // pre-2.0: his formation and element
       kitTeam: this.save.kit || 'Raimon', shop: this.save.shop, mastery: this.save.mastery, loadout: this.validLoadout(), training, kit: this.m.kits?.[this.save.kit] ?? null, formation: (this.save.formation as FormationId) in FORMATIONS ? this.save.formation as FormationId : 'equilibrada',
       hooks: {
         hud: (s) => this.renderHud(s),
         markers: (m) => this.renderMarkers(m),
+        coopPicking: (name) => this.coopPickingPill(name),
         event: (r) => this.eventCard(r),
         combo: (c) => this.comboUnlock(c),
         bossWarn: () => this.bossWarnFx(),
         bossIntro: (b) => this.bossIntroFx(b),
         bossDefeated: () => this.bossDefeatedFx(),
         levelUp: (cards, rerolls, reroll, level) => this.levelUpModal(cards, rerolls, reroll, level),
-        end: (r) => this.results(r),
+        end: (r) => { if (this.roadMatch) this.roadEnd(r); else this.results(r); },
         pause: () => this.pauseModal(),
         bossDown: () => this.bossDownModal(),
         dismiss: (ids) => this.dismissModal(ids),
@@ -4735,7 +5233,7 @@ export class App {
         const ok = g.parts.filter((p) => p.have >= p.need).length;
         return `<div class="combo-chip goal${g.ready ? ' ready' : ''}" title="${esc(g.parts.map((p) => `${p.player}: ${(!p.anyTech && p.tech) || p.bestTech || 'su mejor técnica'} Nv ${p.have}/${p.need}`).join(' · '))}">🔗 <b>${esc(g.name)}</b> ${g.ready ? '¡lista!' : `${ok}/${g.parts.length}`}</div>`;
       }).join('');
-      const html = s.combos.map((c) => `<div class="combo-chip${c.cd <= 0.02 ? ' ready' : ''}"><b>${esc(c.name)}</b> Nv ${c.level}<i style="width:${Math.round((1 - c.cd) * 100)}%"></i></div>`).join('') + goals;
+      const html = s.combos.map((c) => `<div class="combo-chip${c.cd <= 0.02 ? ' ready' : ''}"><b>${esc(c.name)}</b>${this.comboTag(c.name, c.level)}<i style="width:${Math.round((1 - c.cd) * 100)}%"></i></div>`).join('') + goals;
       if (ch.innerHTML !== html) ch.innerHTML = html;
     }
     const rev = document.getElementById('revchip');
@@ -4775,6 +5273,21 @@ export class App {
       el.classList.add('pop');
     };
     stat('runcoins', s.runCoins ? `◉ +${s.runCoins}` : '');
+    // pre-2.0: the partner's chip (name, health, down), and this player's own «down» state
+    const co = this.arena()?.coopHud();
+    if (co) {
+      let el = document.getElementById('coophud');
+      if (!el) { el = document.createElement('div'); el.id = 'coophud'; el.className = 'coop-hud'; (document.querySelector('#hud .cap-panel .vbars') ?? document.getElementById('hud'))?.appendChild(el); }
+      const pct = Math.round((co.hp / Math.max(1, co.max)) * 100);
+      // IDEA-45F61B95: seconds left of a revive, «seleccionando», and the partner's Auras and combined techniques in small
+      const left = (k: number) => `${(3 * (1 - Math.min(1, k))).toFixed(1)} s`;
+      const html = `<small>${co.connected ? 'COMPAÑERO' : 'DESCONECTADO'}</small><b>${esc(co.name)}${co.picking ? ' <span class="ch-pick">✋ seleccionando…</span>' : ''}</b><i class="ch-bar${co.down ? ' down' : ''}"><i style="width:${co.down ? 0 : pct}%"></i></i>`
+        + (co.down ? `<em>${co.partnerRevive > 0 ? `Levantándolo · ${left(co.partnerRevive)}` : '¡Ha caído! Ve a su lado (3 s)'}</em>` : '')
+        + (co.meDown ? `<em class="me">Has caído · ${co.revive > 0 ? `te levantan · ${left(co.revive)}` : 'espera a tu compañero'}</em>` : '')
+        + (co.meta.auras.length ? `<span class="ch-row">${co.meta.auras.map((a) => `<i class="ch-aura" style="--ec:${a.element ? ELEMENT_COLOR[a.element] ?? '#c9a0ff' : '#c9a0ff'}" title="${esc(a.carrier)}">✦ ${esc(a.name)}</i>`).join('')}</span>` : '')
+        + (co.meta.combos.length ? `<span class="ch-row">${co.meta.combos.map((c) => `<i class="ch-combo">🔗 ${esc(c.name)}${this.comboTag(c.name, c.level)}</i>`).join('')}</span>` : '');
+      if (el.innerHTML !== html) el.innerHTML = html;
+    }
     stat('runtokens', s.runTokens ? `+${s.runTokens}` : '');
     // Fix 1.31: the synergies as big chips (icon, bonus, progress to the next step); a chip pops when it goes up
     const syn = s.synergies ?? [];
@@ -4796,6 +5309,13 @@ export class App {
     if (capPanel && resEl.offsetParent) {
       const top = Math.round(capPanel.getBoundingClientRect().bottom - resEl.offsetParent.getBoundingClientRect().top + 6);
       if (resEl.dataset.top !== String(top)) { resEl.dataset.top = String(top); resEl.style.setProperty('top', `${top}px`, 'important'); }
+    }
+    // pre-2.0: the partner's chip makes the captain panel taller; the event box goes under the panel and the chips
+    const altEl = document.getElementById('altar');
+    if (co && capPanel && altEl?.offsetParent) {
+      const low = Math.max(capPanel.getBoundingClientRect().bottom, resEl.childElementCount ? resEl.getBoundingClientRect().bottom : 0);
+      const top = Math.round(low - altEl.offsetParent.getBoundingClientRect().top + 6);
+      if (altEl.dataset.top !== String(top)) { altEl.dataset.top = String(top); altEl.style.setProperty('top', `${top}px`, 'important'); }
     }
     document.getElementById('clocktxt')!.textContent = s.endless ? `∞ ${fmtTime(s.endless.sec)} · ${s.endless.phase}` : `${fmtTime(s.timeSec)} / ${fmtTime(s.durationSec)}`;
     // v1.4: the clock fills up towards the boss and warms up in the last minute
@@ -4862,6 +5382,11 @@ export class App {
   }
 
   /** 1.81: the logo of a technique level step (+1, N3, S, ∞, GO...), or its text when the logo is missing */
+  /** IDEA-B1D93E8F: a combined technique's level as its logo (level 1 has none) */
+  private comboTag(name: string, level: number) {
+    const d = COMBOS.find((x) => x.name === name);
+    return d ? this.evoTag(comboLabel(d.power, level)) : level > 1 ? ` Nv ${level}` : '';
+  }
   private evoTag(label: string, big = false) {
     if (!label) return '';
     const src = this.m.evoIcons?.[label];
@@ -4911,6 +5436,14 @@ export class App {
     this.eventTimer = window.setTimeout(() => { box.className = 'event-result'; }, 3200);
   }
 
+  /** pre-2.0 (IDEA-45F61B95): a pill on top of everything (the cards too) while the partner chooses his card */
+  private coopPickingPill(name: string | null) {
+    let el = document.getElementById('coop-pick');
+    if (!name) { el?.remove(); return; }
+    if (!el) { el = document.createElement('div'); el.id = 'coop-pick'; el.className = 'coop-pick'; document.body.appendChild(el); }
+    el.innerHTML = `<i class="cp-dots"><b></b><b></b><b></b></i><span><b>${esc(name)}</b> está seleccionando…</span>`;
+  }
+
   /** Minimap and, for what is off screen, up to three arrows: the most important first, the nearest of each kind. */
   private renderMarkers(m: MarkerState) {
     const cv = document.getElementById('minimap') as HTMLCanvasElement | null, marks = document.getElementById('marks');
@@ -4927,6 +5460,10 @@ export class App {
       if (p.priority >= 3) { ctx.strokeStyle = hex(p.color); ctx.strokeRect(p.x * sx - 5, p.y * sy - 5, 10, 10); } // events stand out
     }
     ctx.fillStyle = '#fff'; ctx.fillRect(m.player.x * sx - 2, m.player.y * sy - 2, 4, 4);
+    for (const p of m.pois) if (p.kind === 'companero') { // pre-2.0: the partner, a ringed dot above the rest
+      ctx.fillStyle = hex(p.color); ctx.beginPath(); ctx.arc(p.x * sx, p.y * sy, 3, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = '#fff'; ctx.lineWidth = 1; ctx.stroke();
+    }
     const off = m.pois.filter((p) => p.x < m.view.x || p.x > m.view.x + m.view.w || p.y < m.view.y || p.y > m.view.y + m.view.h);
     const dist = (p: Poi) => Math.hypot(p.x - m.player.x, p.y - m.player.y);
     const bestOfKind = [...new Map(off.sort((a, b) => dist(a) - dist(b)).reverse().map((p) => [p.kind, p])).values()].sort((a, b) => b.priority - a.priority).slice(0, 3);
@@ -4988,7 +5525,8 @@ export class App {
       return `<button class="lvcard combo" data-i="${i}" style="--rc:#ffe24a"><div class="lv-ribbon">${c.toLevel === 1 ? '¡TÉCNICA COMBINADA!' : 'MEJORA COMBINADA'}</div>
         <div class="lv-type">COMBINADA · RANURA ESPECIAL</div>
         <div class="lv-art combo-art">${ids.map((id) => this.mug(id, 64)).join('')}${this.techBadge(t, 2)}</div>
-        <div class="lv-name">${esc(d.name)}${c.toLevel > 1 ? ` Nv ${c.toLevel}` : ''}</div><div class="lv-sub">${esc(d.needs.map((n) => n.player).join(' + '))}</div>${this.techChips(t)}
+        <div class="lv-name">${esc(d.name)}${this.evoTag(comboLabel(d.power, c.toLevel))}</div><div class="lv-sub">${esc(d.needs.map((n) => n.player).join(' + '))}</div>${this.techChips(t)}
+        ${c.toLevel > 1 ? `<div class="lv-level">${this.evoTag(comboLabel(d.power, c.toLevel - 1), true) || 'Base'} <span>»</span> <b>${this.evoTag(comboLabel(d.power, c.toLevel), true)}</b></div>` : ''}
         ${c.toLevel > 1 ? this.comboGains(d, c.toLevel) : '<div class="lv-desc">Se lanza sola mientras estén todos en el campo. No ocupa ninguna ranura de técnica.</div>'}</button>`;
     }
     if (c.kind === 'stat' || c.kind === 'passive') {
@@ -5141,12 +5679,14 @@ export class App {
     recordMastery(this.save, r.techById ?? {});
     const runId = r.runId ?? `${Date.now()}`;
     // Fix 1.51 (author): only a completed run (the arena won, endless survival after it included) counts for the ranking
-    const best = r.victory && recordBest(this.save, runId, { map: r.mapId, rank: r.rank ?? 'C', time: Math.floor(r.timeSec), damage: r.damage ?? 0, captainId: r.captainId ?? 0, at: new Date().toISOString() });
+    const coopRun = this.coopRunActive || !!this.roadMatch;
+    this.coopRunActive = false;
+    const best = r.victory && !coopRun && recordBest(this.save, runId, { map: r.mapId, rank: r.rank ?? 'C', time: Math.floor(r.timeSec), damage: r.damage ?? 0, captainId: r.captainId ?? 0, at: new Date().toISOString() });
     if (best) records.push('ranking');
     if (r.victory) recordTriumph(this.save, { runId, at: new Date().toISOString(), map: r.mapId, rank: r.rank ?? 'C', team: r.teamIds ?? (r.captainId ? [r.captainId] : []),
       time: Math.floor(r.timeSec), kills: r.kills, damage: r.damage ?? 0, endless: Math.floor(r.endlessSec ?? 0) });
     this.persist();
-    if (r.victory && onlineConfigured() && signedIn() && this.save.onlineName) {
+    if (r.victory && !coopRun && onlineConfigured() && signedIn() && this.save.onlineName) {
       submitScore(runId, r.mapId, r.rank ?? 'C', r.timeSec, r.damage ?? 0, r.captainId ?? 0)
         .then((res) => this.toast(res === 'duplicate' ? 'Esta partida ya estaba en el ranking' : 'Marca enviada al ranking global'))
         .catch((err: Error) => this.toast(`Ranking: ${err.message}`, 4000));

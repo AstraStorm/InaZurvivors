@@ -4,7 +4,10 @@
  */
 import type { Manifest } from './manifest';
 
+import { TECH_ELEMENT_WIKI } from './techElementsWiki';
+
 export const TECH_ELEMENT: Record<string, string> = {
+  ...TECH_ELEMENT_WIKI, // pre-2.0: the wiki's elements first; the author's own below win
   'Lanza de Odín': 'Bosque',
   'Espada real': 'Montaña',
   'El ojo del huracán': 'Bosque',

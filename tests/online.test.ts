@@ -498,3 +498,108 @@ describe('GTS (1.8)', () => {
     await expect(api('hugo', 'select private.gts_spare($1, 20)', [ids.hugo])).rejects.toThrow();
   });
 });
+
+describe('co-op rooms (pre-2.0)', () => {
+  const u = async (name: string, id: string) => {
+    await db.query('insert into auth.users (id) values ($1) on conflict do nothing', [(ids[name] = id)]);
+    await api(name, `select public.reserve_username($1, '7', 'Raimon')`, [name.toUpperCase() + '_C']);
+  };
+  const poll = (name: string, code: string) => api(name, 'select * from public.coop_poll($1)', [code]).then((r) => r.rows[0] as Record<string, string | null> | undefined);
+  beforeAll(async () => {
+    await u('kike', '00000000-0000-0000-0000-0000000000e1');
+    await u('lola', '00000000-0000-0000-0000-0000000000e2');
+    await u('mario', '00000000-0000-0000-0000-0000000000e3');
+  });
+
+  it('host creates, guest joins with the code; offer only from the guest, answer only from the host; each sees only the other side', async () => {
+    const code = ((await api('kike', 'select public.coop_create() as c')).rows[0] as { c: string }).c;
+    expect(code).toMatch(/^[A-Z2-9]{6}$/);
+    await expect(api('kike', 'select public.coop_join($1)', [code])).rejects.toThrow(/own_room/);
+    expect((await api('lola', 'select public.coop_join($1) as h', [code.toLowerCase()])).rows[0]).toEqual({ h: 'KIKE_C' });
+    await expect(api('mario', 'select public.coop_join($1)', [code])).rejects.toThrow(/room_full/);
+    await expect(api('kike', `select public.coop_signal($1, 'offer', 'x')`, [code])).rejects.toThrow(/forbidden/);
+    await api('lola', `select public.coop_signal($1, 'offer', 'OFFER-SDP')`, [code]);
+    expect(await poll('kike', code)).toMatchObject({ status: 'emparejada', guest_name: 'LOLA_C', offer: 'OFFER-SDP', answer: null, role: 'host' });
+    await expect(api('lola', `select public.coop_signal($1, 'answer', 'x')`, [code])).rejects.toThrow(/forbidden/);
+    await api('kike', `select public.coop_signal($1, 'answer', 'ANSWER-SDP')`, [code]);
+    expect(await poll('lola', code)).toMatchObject({ host_name: 'KIKE_C', offer: null, answer: 'ANSWER-SDP', role: 'guest' });
+    expect(await poll('mario', code)).toBeUndefined(); // not in the room: sees nothing
+    await api('kike', `select public.coop_mark($1, 'conectada')`, [code]);
+    expect(await poll('lola', code)).toMatchObject({ status: 'conectada' });
+    await api('lola', `select public.coop_mark($1, 'cerrada')`, [code]);
+    await expect(api('mario', 'select public.coop_join($1)', [code])).rejects.toThrow(/room_not_found/);
+  });
+  it('a new room closes the host\'s previous open one; rooms expire; 40 a day; signed-in only; table closed', async () => {
+    const a = ((await api('mario', 'select public.coop_create() as c')).rows[0] as { c: string }).c;
+    const b = ((await api('mario', 'select public.coop_create() as c')).rows[0] as { c: string }).c;
+    await expect(api('kike', 'select public.coop_join($1)', [a])).rejects.toThrow(/room_not_found/);
+    await db.query(`update public.coop_rooms set expires_at = now() - interval '1 minute' where code = $1`, [b]);
+    await expect(api('kike', 'select public.coop_join($1)', [b])).rejects.toThrow(/room_not_found/);
+    await db.query(`insert into public.coop_rooms (code, host) select 'ZZ' || substr('ABCDEFGHJKLMNPQRSTUVWXYZ23456789', g % 32 + 1, 1) || substr('ABCDEFGHJKLMNPQRSTUVWXYZ23456789', g / 32 + 1, 1) || 'AA', $1 from generate_series(1, 38) g`, [ids.mario]);
+    await expect(api('mario', 'select public.coop_create()')).rejects.toThrow(/coop_daily_limit/);
+    await expect(api('lola', `select public.coop_signal('AAAAAA', 'offer', $1)`, ['x'.repeat(20001)])).rejects.toThrow(/too_big/);
+    await expect(api('', 'select public.coop_create()')).rejects.toThrow();
+    await expect(api('kike', 'select * from public.coop_rooms')).rejects.toThrow();
+  });
+  it('TURN credentials only for a player in a paired room, 20 a day each; the log is closed; usage is admin-only', async () => {
+    const code = ((await api('kike', 'select public.coop_create() as c')).rows[0] as { c: string }).c;
+    await expect(api('kike', 'select public.coop_turn_claim($1)', [code])).rejects.toThrow(/room_not_found/); // nobody joined yet
+    await api('lola', 'select public.coop_join($1)', [code]);
+    expect((await api('kike', 'select public.coop_turn_claim($1) as ok', [code])).rows[0]).toEqual({ ok: true });
+    expect((await api('lola', 'select public.coop_turn_claim($1) as ok', [code])).rows[0]).toEqual({ ok: true });
+    await expect(api('mario', 'select public.coop_turn_claim($1)', [code])).rejects.toThrow(/room_not_found/);
+    await db.query(`insert into private.coop_turn_log (user_id, code) select $1, 'X' from generate_series(1, 19)`, [ids.kike]);
+    expect((await api('kike', 'select public.coop_turn_claim($1) as ok', [code])).rows[0]).toEqual({ ok: false });
+    await expect(api('kike', 'select * from private.coop_turn_log')).rejects.toThrow();
+    await expect(api('kike', 'select * from public.coop_turn_usage()')).rejects.toThrow(/forbidden/);
+  });
+});
+
+describe('friends and co-op invitations (pre-2.0)', () => {
+  const u = async (name: string, id: string) => {
+    await db.query('insert into auth.users (id) values ($1) on conflict do nothing', [(ids[name] = id)]);
+    await api(name, `select public.reserve_username($1, '7', 'Raimon')`, [name.toUpperCase() + '_F']);
+  };
+  const list = (name: string) => api(name, 'select username, status, online from public.friend_list()').then((r) => r.rows as { username: string; status: string; online: boolean }[]);
+  beforeAll(async () => {
+    await u('nora', '00000000-0000-0000-0000-0000000000f1');
+    await u('oscar', '00000000-0000-0000-0000-0000000000f2');
+    await u('pepa', '00000000-0000-0000-0000-0000000000f3');
+  });
+
+  it('a request, accepted by the other one (or by asking back); unknown names and oneself are refused', async () => {
+    expect((await api('nora', 'select public.friend_request($1) as r', ['OSCAR_F'])).rows[0]).toEqual({ r: 'enviada' });
+    expect((await api('nora', 'select public.friend_request($1) as r', ['OSCAR_F'])).rows[0]).toEqual({ r: 'enviada' }); // twice: still one
+    expect(await list('nora')).toEqual([{ username: 'OSCAR_F', status: 'enviada', online: false }]);
+    expect(await list('oscar')).toEqual([{ username: 'NORA_F', status: 'recibida', online: false }]);
+    await api('oscar', 'select public.friend_respond($1, true)', ['NORA_F']);
+    expect((await list('nora'))[0]).toMatchObject({ status: 'amigo' });
+    // asking back turns a pending request into a friendship
+    await api('pepa', 'select public.friend_request($1)', ['NORA_F']);
+    expect((await api('nora', 'select public.friend_request($1) as r', ['PEPA_F'])).rows[0]).toEqual({ r: 'aceptada' });
+    await expect(api('nora', 'select public.friend_request($1)', ['NADIE_F'])).rejects.toThrow(/friend_not_found/);
+    await expect(api('nora', 'select public.friend_request($1)', ['NORA_F'])).rejects.toThrow(/friend_self/);
+  });
+  it('online from the heartbeat; removing ends it; a declined request leaves nothing', async () => {
+    await api('oscar', 'select public.friend_heartbeat()');
+    expect((await list('nora')).find((f) => f.username === 'OSCAR_F')).toMatchObject({ online: true });
+    await db.query(`update private.presence set seen_at = now() - interval '5 minutes' where user_id = $1`, [ids.oscar]);
+    expect((await list('nora')).find((f) => f.username === 'OSCAR_F')).toMatchObject({ online: false });
+    await api('pepa', 'select public.friend_remove($1)', ['NORA_F']);
+    expect((await list('nora')).map((f) => f.username)).toEqual(['OSCAR_F']);
+    await api('pepa', 'select public.friend_request($1)', ['OSCAR_F']);
+    await api('oscar', 'select public.friend_respond($1, false)', ['PEPA_F']);
+    expect(await list('pepa')).toEqual([]);
+  });
+  it('only a friend can be invited, only to the host\'s own open room; each invitation is shown once', async () => {
+    const code = ((await api('nora', 'select public.coop_create() as c')).rows[0] as { c: string }).c;
+    await expect(api('nora', 'select public.coop_invite($1, $2)', ['PEPA_F', code])).rejects.toThrow(/not_friends/);
+    await expect(api('oscar', 'select public.coop_invite($1, $2)', ['NORA_F', code])).rejects.toThrow(/room_not_found/); // not his room
+    await api('nora', 'select public.coop_invite($1, $2)', ['OSCAR_F', code]);
+    expect((await api('oscar', 'select from_name, code from public.coop_invites_claim()')).rows).toEqual([{ from_name: 'NORA_F', code }]);
+    expect((await api('oscar', 'select * from public.coop_invites_claim()')).rows).toEqual([]);
+    await expect(api('oscar', 'select * from public.friendships')).rejects.toThrow();
+    await expect(api('oscar', 'select * from public.coop_invites')).rejects.toThrow();
+    await expect(api('', 'select public.friend_request($1)', ['NORA_F'])).rejects.toThrow();
+  });
+});

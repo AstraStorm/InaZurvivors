@@ -36,6 +36,11 @@ export const MISSIONS: MissionDef[] = [
   M('l_fuego', 'logro', 'Usa 500 técnicas de Fuego', 'uses_Fuego', 500, 250),
   M('l_aire', 'logro', 'Usa 500 técnicas de Aire', 'uses_Aire', 500, 250),
   M('l_todas', 'logro', 'Completa las seis arenas', 'arenas', 6, 1200, 50),
+  // pre-2.0: Road to Fútbol Frontier (counters added when a road is cleared, app.ts)
+  L('l_road_facil', 'Completa Road to Fútbol Frontier en Fácil', 'road_facil', 1, 300, 1),
+  L('l_road_normal', 'Completa Road to Fútbol Frontier en Normal', 'road_normal', 1, 600, 2),
+  L('l_road_maxima', 'Completa Road to Fútbol Frontier en Máxima', 'road_maxima', 1, 1000, 3),
+  L('l_road_jaden', 'Completa Road to Fútbol Frontier en Máxima 10 veces: ¡ficha a Jaden Evans!', 'road_maxima', 10, 3000, 3),
   // 4.0
   M('d_nivel', 'diaria', 'Sube 25 niveles (sumando partidas)', 'levels', 25, 60),
   M('d_aire', 'diaria', 'Usa 30 técnicas de Aire', 'uses_Aire', 30, 60),

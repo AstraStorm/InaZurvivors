@@ -149,6 +149,8 @@ export interface Manifest {
   /** mugshots are split over several sheets (images); each frame says which one holds it */
   atlases: { portraits?: { image: string; images: string[]; json: string }; mugshots: { image: string; images?: string[]; json: string }; items: { image: string; json: string } };
   profile: { emblems: ProfileIcon[]; coaches: ProfileIcon[] };
+  /** pre-2.0: the coaches of Mi Equipo (portraits from IE3, ids of data/coaches.ts) */
+  coaches?: { id: string; name: string; texture: string; source?: string }[];
   music: { menu: string[]; battle: string[]; tracks: MusicTrack[]; contexts?: Record<string, string[]> };
   capsule: CapsuleSheet | null;
   /** 1.81: logo of each technique level step (src/systems/evolution.ts labels → generated/mejoras/*.webp) */

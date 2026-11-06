@@ -1,0 +1,50 @@
+/* pre-2.0: Road to Fútbol Frontier — its screen, the notice, and the card between matches */
+.road-screen { max-width: 1060px; margin: 0 auto; display: flex; flex-direction: column; gap: 12px; }
+.road-screen > * { flex-shrink: 0; }
+.rd-hero { position: relative; display: flex; align-items: center; gap: 16px; padding: 16px 18px; border-radius: 16px; overflow: hidden;
+  background: linear-gradient(115deg, #6a0a0a, #c4301a 40%, #ffb020); border: 2px solid #ffe08a99; box-shadow: inset 0 0 0 2px #ffffff18; }
+.rd-hero::after { content: '⚡'; position: absolute; right: 230px; top: -30px; font-size: 140px; opacity: .1; pointer-events: none; }
+.rd-hero > div:first-child { display: flex; flex-direction: column; gap: 5px; flex: 1; min-width: 0; }
+.rd-hero small { font-size: 8px; color: #ffe08a; letter-spacing: 1px; } .rd-hero > div > b { font-size: 20px; color: #fff; text-shadow: 3px 3px 0 #000; }
+.rd-hero > div > span { font-size: 9px; line-height: 1.6; color: #fff3d8; }
+.rd-jaden { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 12px; background: #1a0a04cc; border: 2px solid #ffe08a; flex-shrink: 0; }
+.rd-jaden .mug { border-radius: 10px; box-shadow: 0 0 0 2px #fff6c8, 0 0 14px #ffe08a; filter: brightness(.25); }
+.rd-jaden.own .mug { filter: none; }
+.rd-jaden span { display: flex; flex-direction: column; gap: 4px; min-width: 150px; } .rd-jaden small { font-size: 7px; color: #ffe08a; } .rd-jaden b { font-size: 10px; color: #fff; }
+.rd-jaden i { display: block; height: 6px; border-radius: 99px; background: linear-gradient(90deg, #ffe08a, #ff8a1a); box-shadow: 0 0 0 1px #000; }
+.rd-diffs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.rd-diff { font: inherit; color: #fff; text-align: left; cursor: pointer; display: flex; flex-direction: column; gap: 6px; padding: 12px; border-radius: 14px;
+  background: linear-gradient(160deg, #12306e, #06102b); border: 2px solid #2a4a8a; transition: transform .12s; }
+.rd-diff:hover:not(:disabled) { transform: translateY(-2px); }
+.rd-diff.on { border-color: #ffe08a; box-shadow: 0 0 0 2px #ffe08a55, 0 0 16px #ffe08a44; }
+.rd-diff.d-maxima { background: linear-gradient(160deg, #4a0a0a, #12306e 60%, #06102b); }
+.rd-diff small { font-size: 7px; color: #8fe8ff; } .rd-diff > b { font-size: 14px; } .rd-diff.d-maxima > b { color: #ffb0a0; }
+.rd-path { display: inline-flex; align-items: center; gap: 0; }
+.rd-path i { width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; font-style: normal; font-size: 7px; color: #fff; background: #0a1a44; border: 2px solid #4fb3ff; }
+.rd-path i:last-child { border-color: #ffe08a; background: #3a2a0a; }
+.rd-path em { width: 12px; height: 2px; background: #4fb3ff88; }
+.rd-path.big i { width: 28px; height: 28px; font-size: 9px; } .rd-path.big em { width: 22px; }
+.rd-path i.done { background: #1a6a2a; border-color: #7dff9a; } .rd-path i.now { border-color: #ffe08a; box-shadow: 0 0 10px #ffe08a; }
+.rd-prize { font-size: 8px; line-height: 1.5; color: #ffe08a; } .rd-prize b { color: #ff8a8a; } .rd-prize.big { font-size: 10px; }
+.rd-clears { font-size: 7px; color: #8a96aa; }
+.rd-squad { display: flex; gap: 10px; flex-wrap: wrap; margin: 6px 0 10px; }
+.rd-slot { position: relative; width: 74px; min-height: 74px; border-radius: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; padding: 4px;
+  background: #06102b; border: 2px dashed #4a5a7a; } .rd-slot b { font-size: 14px; color: #4a5a7a; }
+.rd-slot.full { border: 2px solid #4fb3ff; } .rd-slot.cap { border-color: #ffe08a; }
+.rd-slot small { font-size: 6px; text-align: center; line-height: 1.3; color: #d8ecff; }
+.rd-slot em { position: absolute; left: -5px; top: -5px; width: 16px; height: 16px; border-radius: 50%; display: grid; place-items: center; font-style: normal; font-size: 8px; color: #2a1400; background: #ffe08a; }
+.rd-coach { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; } .rd-coach span small { display: block; font-size: 7px; color: #ffe08a; } .rd-coach b { font-size: 10px; }
+.rd-start { width: 100%; }
+.rd-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 6px; }
+.rd-pick { font: inherit; color: #fff; text-align: left; cursor: pointer; display: flex; align-items: center; gap: 8px; padding: 5px; border-radius: 10px; background: #06102b; border: 2px solid color-mix(in srgb, var(--rc) 55%, #1a2a4a); }
+.rd-pick.on { background: color-mix(in srgb, var(--rc) 30%, #06102b); box-shadow: 0 0 0 2px var(--rc); }
+.rd-pick span { display: flex; flex-direction: column; min-width: 0; } .rd-pick b { font-size: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .rd-pick small { font-size: 6px; color: #8fe8ff; }
+.rd-active .cp-actions { margin-top: 8px; }
+.road-intro-card, .road-end-card { width: min(520px, 92vw); text-align: center; display: flex; flex-direction: column; align-items: center; gap: 8px;
+  border: 3px solid #ffb020; box-shadow: 0 0 30px #ff8a1a66; background: linear-gradient(180deg, #3a0a0a, #0a1430 70%); }
+.road-intro-card small, .road-end-card small { font-size: 8px; color: #ffe08a; letter-spacing: 1px; }
+.road-intro-card h2, .road-end-card h2 { margin: 0; font-size: 18px; color: #fff; text-shadow: 3px 3px 0 #000; }
+.road-intro-card p, .road-end-card p { font-size: 10px; line-height: 1.7; margin: 0; }
+.road-intro-card ul { text-align: left; font-size: 9px; line-height: 1.7; margin: 0; padding-left: 18px; }
+.road-jmug .mug { vertical-align: middle; border-radius: 8px; box-shadow: 0 0 0 2px #ffe08a; }
+@media (max-width: 760px) { .rd-diffs { grid-template-columns: 1fr; } .rd-hero { flex-direction: column; align-items: stretch; } .rd-hero::after { display: none; } }

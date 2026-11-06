@@ -30,6 +30,34 @@ export const NEWS_KIND_LABEL: Record<NewsKind, string> = { novedad: 'NOVEDAD', a
 
 export const AUTHOR_NEWS: NewsItem[] = [
   {
+    id: 'online-pre2', kind: 'novedad', date: '2026-11-06', icon: '🤝', pinned: true,
+    title: 'Pre-2.0: llega el cooperativo online (en pruebas)',
+    summary: 'Ya puedes jugar con un amigo: cada uno con su equipo, los mismos rivales y una barra de experiencia para los dos. Está en pruebas: si veis fallos, reportadlos.',
+    blocks: [
+      { h: 'Juega con un amigo', icon: '🤝' },
+      { p: 'Desde la casilla **COOP** del menú puedes **crear una sala** y pasar su código, o **unirte** con el código de otro. También puedes añadir **amigos** (casilla **AMIGOS**, o desde su perfil en el ranking) e **invitarles** directamente a tu sala.' },
+      { list: [
+        'Cada uno juega con **su propio equipo**, sus mejoras y su vida.',
+        'Los rivales, los objetos y la **barra de experiencia son de los dos**: al subir de nivel se pausa la partida y cada uno elige sus cartas.',
+        'Si tu capitán cae, tu compañero puede **levantarte** quedándose a tu lado unos segundos. Si caéis los dos, se acaba la partida.',
+        'Los **altares** son de cada uno: lo que dan solo le sirve a quien los activa.',
+        'El jefe va a por el capitán que tenga **más cerca**.',
+        'Las partidas en cooperativo **no cuentan para el ranking**.',
+      ] },
+      { callout: 'aviso', text: 'El online está **en pruebas**: es la parte más nueva y difícil del juego y seguro que tiene fallos (desconexiones, cosas que no se ven igual en las dos pantallas...). Se necesita **entrar con tu cuenta**.' },
+      { h: 'Límite de partidas', icon: '⏱' },
+      { p: 'El cooperativo es **gratis**, y para que lo siga siendo tiene unos límites:' },
+      { list: [
+        'Cada jugador puede crear hasta **40 salas al día**.',
+        'Si vuestras redes no se ven directamente, la partida pasa por un **servidor de paso**. Cada jugador puede usarlo hasta **20 veces al día**, y entre todos hay un tope de **8000 salas al mes**.',
+        'Si se llega al tope del mes, se puede seguir jugando cuando las dos redes se conectan directamente (lo más habitual en casa). El cupo vuelve a empezar **el día 1 de cada mes**.',
+      ] },
+      { divider: true },
+      { h: 'Ayúdanos a que funcione', icon: '🐞' },
+      { p: 'Si encontráis cualquier fallo jugando juntos, **reportadlo desde el 🐞 del menú** y contad qué estabais haciendo, en qué arena y si erais el anfitrión o el invitado. Cada reporte nos ayuda a que el cooperativo funcione bien en el futuro, y si se corrige os llevaréis vuestras **100 fichas**.' },
+    ],
+  },
+  {
     id: 'bugs-1-85', kind: 'novedad', date: '2026-11-05', icon: '🐞', pinned: true,
     title: '¡Reporta bugs y gana fichas!',
     summary: 'Cada bug que reportes y se corrija te da 100 fichas de fichaje. Y las estrellas vuelven a empezar para todos con las reglas nuevas.',

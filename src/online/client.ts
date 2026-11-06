@@ -32,6 +32,16 @@ const ERRORS: Record<string, string> = {
   session_not_found: 'Tu sesión ha caducado. Vuelve a entrar con Google.',
   invalid_username: 'Nombre no válido: 3-20 letras, números o _.',
   already_has_username: 'Tu cuenta ya tiene un nombre global.',
+  room_not_found: 'No hay ninguna sala abierta con ese código (o ya caducó).',
+  room_full: 'Esa sala ya tiene dos jugadores.',
+  own_room: 'Esa sala es tuya: pásale el código a tu compañero.',
+  coop_daily_limit: 'Has creado demasiadas salas hoy. Vuelve mañana.',
+  friend_not_found: 'No hay ningún jugador con ese nombre global.',
+  friend_self: 'Ese eres tú.',
+  friend_daily_limit: 'Has enviado muchas solicitudes hoy. Vuelve mañana.',
+  friend_full: 'Tienes 100 amigos: quita alguno para añadir otro.',
+  not_friends: 'Solo puedes invitar a tus amigos.',
+  invite_limit: 'Has enviado muchas invitaciones esta hora.',
 };
 
 /** Fix 1.32: no call may hang the game: after this many ms it fails with a clear message (the server was saturated) */
@@ -244,3 +254,31 @@ export async function notifyBug(code: string) {
 }
 
 export const deleteAccount = async () => { await rpc('delete_my_account', {}); signOut(); };
+
+/** pre-2.0: co-op rooms (only the two signalling messages go through the server; the match is peer to peer) */
+export interface CoopPoll { status: 'abierta' | 'emparejada' | 'conectada' | 'cerrada'; host_name: string | null; guest_name: string | null; offer: string | null; answer: string | null; role: 'host' | 'guest' }
+export const coopCreate = () => rpc<string>('coop_create', {});
+export const coopJoin = (code: string) => rpc<string>('coop_join', { p_code: code });
+export const coopSignal = (code: string, kind: 'offer' | 'answer', sdp: string) => rpc<null>('coop_signal', { p_code: code, p_kind: kind, p_sdp: sdp });
+export const coopPoll = async (code: string) => (await rpc<CoopPoll[]>('coop_poll', { p_code: code }))[0] ?? null;
+export const coopMark = (code: string, status: 'conectada' | 'cerrada') => rpc<null>('coop_mark', { p_code: code, p_status: status });
+/** pre-2.0: TURN relay servers for a room (turn-credentials Edge Function); [] when unavailable: the game then tries direct */
+export async function coopIceServers(code: string): Promise<RTCIceServer[]> {
+  const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), 4000);
+  try {
+    const r = await fetch(`${URL_}/functions/v1/turn-credentials`, { method: 'POST', signal: ctl.signal,
+      headers: { apikey: KEY, Authorization: `Bearer ${await token()}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ code }) });
+    const j = await r.json() as { iceServers?: RTCIceServer[] };
+    return Array.isArray(j.iceServers) ? j.iceServers : [];
+  } catch { return []; } finally { clearTimeout(timer); }
+}
+
+/** pre-2.0: friends (for the co-op) and invitations to a room */
+export interface FriendRow { username: string; avatar: string; crest: string; status: 'amigo' | 'enviada' | 'recibida'; online: boolean; since: string }
+export const friendList = () => rpc<FriendRow[]>('friend_list', {});
+export const friendRequest = (username: string) => rpc<'enviada' | 'aceptada' | 'ya_amigos'>('friend_request', { p_username: username });
+export const friendRespond = (username: string, accept: boolean) => rpc<null>('friend_respond', { p_username: username, p_accept: accept });
+export const friendRemove = (username: string) => rpc<null>('friend_remove', { p_username: username });
+export const friendHeartbeat = () => rpc<null>('friend_heartbeat', {});
+export const coopInvite = (username: string, code: string) => rpc<null>('coop_invite', { p_username: username, p_code: code });
+export const coopInvitesClaim = () => rpc<{ from_name: string; code: string; created_at: string }[]>('coop_invites_claim', {});

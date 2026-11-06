@@ -89,7 +89,8 @@ export const EVENT_FILLER_IDS = [
 ];
 
 export function bannerPool(roster: RosterEntry[], banner: BannerId, team?: string): RosterEntry[] {
-  if (banner === 'evento') return roster.filter((p) => p.exclusive || (EVENT_FILLER_IDS.includes(p.id) && EVENT_FILLER.includes(p.rarity)));
+  // pre-2.0: «road» exclusives (Jaden Evans) come only from Road to Fútbol Frontier, never from a machine
+  if (banner === 'evento') return roster.filter((p) => (p.exclusive && p.exclusive !== 'road') || (EVENT_FILLER_IDS.includes(p.id) && EVENT_FILLER.includes(p.rarity)));
   // special footballers (data/special_players.json) only come out of their own banner
   roster = roster.filter((p) => !p.exclusive);
   if (banner === 'equipo') return team ? roster.filter((p) => p.teams.includes(team)) : [];

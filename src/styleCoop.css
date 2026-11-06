@@ -1,0 +1,132 @@
+/* pre-2.0: co-op lobby, friends and the partner's chip in the run HUD */
+.coop-screen, .friends-screen { max-width: 1060px; margin: 0 auto; display: flex; flex-direction: column; gap: 12px; }
+.coop-screen .cp-panel, .friends-screen .cp-panel { margin: 0; }
+.coop-screen > *, .friends-screen > *, .cp-room > *, .cp-vs > * { flex-shrink: 0; }
+.cp-panel h3 { display: flex; align-items: center; gap: 8px; } .cp-panel h3 small { font-size: 8px; color: #8fe8ff; } .cp-panel h3 .btn { margin-left: auto; }
+
+/* header */
+.cp-hero { position: relative; display: flex; align-items: center; gap: 14px; padding: 14px 18px; border-radius: 16px; overflow: hidden;
+  background: linear-gradient(120deg, #0b2a6a, #1a4fb0 45%, #2a8ad8); border: 2px solid #8fd8ff88; box-shadow: inset 0 0 0 2px #ffffff14; }
+.cp-hero::after { content: ''; position: absolute; right: -40px; top: -60px; width: 220px; height: 220px; border-radius: 50%; background: repeating-conic-gradient(#ffffff10 0 10deg, transparent 10deg 20deg); pointer-events: none; }
+.cp-hero-tx { display: flex; flex-direction: column; gap: 5px; position: relative; z-index: 1; }
+.cp-hero-tx small { font-size: 8px; color: #ffe08a; letter-spacing: 1px; } .cp-hero-tx b { font-size: 18px; color: #fff; text-shadow: 2px 2px 0 #000; } .cp-hero-tx span { font-size: 9px; line-height: 1.6; color: #d8ecff; }
+.cp-test { position: relative; z-index: 1; margin-left: auto; flex-shrink: 0; padding: 6px 10px; border-radius: 999px; font-size: 8px; color: #2a1400; background: linear-gradient(180deg, #ffe08a, #ffb020); box-shadow: 0 2px 0 #7a4a00; transform: rotate(-4deg); }
+.cp-err { margin: 0; padding: 8px 12px; border-radius: 10px; background: #3a0a12cc; border: 2px solid #ff6a6a88; color: #ffb0b0; font-size: 10px; line-height: 1.6; }
+
+/* not linked: create / join */
+.cp-two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.cp-choice { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 8px; }
+.cp-choice > b { font-size: 14px; color: #fff; }
+.cp-big-ic { width: 46px; height: 46px; display: grid; place-items: center; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #4fb3ff, #0a2a6a); box-shadow: 0 0 0 3px #8fd8ff55; color: #fff; }
+.cp-big-ic .uic { width: 26px; height: 26px; }
+.cp-join { display: flex; gap: 8px; align-items: stretch; justify-content: center; flex-wrap: wrap; }
+.cp-join input { width: 9em; font: inherit; font-size: 15px; letter-spacing: 4px; text-align: center; text-transform: uppercase; padding: 8px; color: #fff; background: #06102b; border: 2px solid #2a4a8a; border-radius: 8px; }
+.friends-screen .cp-join input { text-transform: none; letter-spacing: 1px; width: 14em; font-size: 11px; }
+.cp-codebox { display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center; }
+.cp-codebox small { font-size: 8px; color: var(--muted, #9ab); }
+.cp-code { font-size: 36px; letter-spacing: 9px; color: #ffe08a; text-shadow: 3px 3px 0 #000; user-select: all; }
+.cp-waitpanel { display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center; font-size: 10px; }
+.cp-dots { display: inline-flex; gap: 6px; } .cp-dots b { width: 9px; height: 9px; border-radius: 50%; background: #8fe8ff; animation: cpDot 1s infinite ease-in-out; }
+.cp-dots b:nth-child(2) { animation-delay: .15s; } .cp-dots b:nth-child(3) { animation-delay: .3s; }
+@keyframes cpDot { 0%, 100% { transform: translateY(0); opacity: .4; } 50% { transform: translateY(-6px); opacity: 1; } }
+
+/* friends rows */
+.cp-friends { display: flex; flex-direction: column; gap: 6px; }
+.cp-fr { display: flex; align-items: center; gap: 10px; padding: 6px 10px; border-radius: 10px; background: #06102b99; border: 2px solid #2a4a8a66; font-size: 10px; }
+.cp-fr .avatar { flex-shrink: 0; border-radius: 8px; overflow: hidden; } .cp-fr > b { color: #fff; cursor: pointer; }
+.cp-fr .cp-dot { font-size: 8px; color: #8a96aa; display: inline-flex; align-items: center; gap: 5px; } .cp-fr .cp-dot::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: #5a6478; }
+.cp-fr.on { border-color: #3ad15a88; } .cp-fr.on .cp-dot { color: #8fffa0; } .cp-fr.on .cp-dot::before { background: #3ad15a; box-shadow: 0 0 6px #3ad15a; }
+.cp-fr .spacer { flex: 1; } .cp-fr > .btn:first-of-type { margin-left: auto; } .cp-fr .spacer ~ .btn { margin-left: 0; }
+
+/* linked: the two player cards face to face */
+.cp-room { display: flex; flex-direction: column; gap: 12px; }
+.cp-vs { display: grid; grid-template-columns: 1fr auto 1fr; gap: 12px; align-items: stretch; }
+.cp-pc { position: relative; display: flex; flex-direction: column; border-radius: 16px; overflow: hidden; background: linear-gradient(180deg, #0d2a6a, #06102b 70%);
+  border: 3px solid #4fb3ff; box-shadow: 0 0 18px #4fb3ff44, inset 0 0 0 2px #ffffff12; animation: cpIn .45s ease-out both; }
+.cp-pc.them { border-color: #ffb020; box-shadow: 0 0 18px #ffb02044, inset 0 0 0 2px #ffffff12; animation-delay: .1s; }
+@keyframes cpIn { from { opacity: 0; transform: translateY(12px) scale(.97); } to { opacity: 1; transform: none; } }
+ /* the banner is the card's background (as in the profile card), darkened below so the squad reads */
+.cp-ribbon { position: absolute; inset: 0; z-index: 0; overflow: hidden; }
+.cp-ribbon::after { content: ''; position: absolute; inset: 0; z-index: 1; background: linear-gradient(180deg, #04102a10 0%, #04102a55 45%, #04102af0 78%); pointer-events: none; }
+.cp-pc > :not(.cp-ribbon) { position: relative; z-index: 2; }
+.cp-noribbon { position: absolute; inset: 0; background: repeating-linear-gradient(115deg, #ffffff0c 0 10px, transparent 10px 22px), linear-gradient(90deg, #12306e, #0a1a44); }
+.cp-id { display: flex; align-items: center; gap: 12px; padding: 16px 14px 0; }
+.cp-id .fr-host, .cp-id > .avatar { flex-shrink: 0; filter: drop-shadow(0 3px 0 #000a); }
+.cp-who { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.cp-who small { font-size: 7px; color: #8fe8ff; } .cp-pc.them .cp-who small { color: #ffe08a; }
+.cp-who b { font-size: 14px; color: #fff; text-shadow: 2px 2px 0 #000; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cp-who span { display: inline-flex; align-items: center; gap: 5px; font-size: 8px; color: #b8c8e8; } .cp-who img { width: 18px; height: 18px; object-fit: contain; }
+.cp-capline { display: flex; justify-content: space-between; gap: 8px; padding: 10px 14px 4px; font-size: 8px; color: #b8c8e8; } .cp-capline b { color: #fff; }
+.cp-squad { display: flex; flex-wrap: wrap; gap: 6px; align-items: flex-end; padding: 6px 14px 14px; }
+.cp-mug { position: relative; display: inline-flex; border-radius: 10px; padding: 2px; background: color-mix(in srgb, var(--rc) 35%, #06102b); box-shadow: 0 0 0 2px var(--rc); }
+.cp-mug .mug { border-radius: 8px; }
+.cp-mug.cap { box-shadow: 0 0 0 3px var(--rc), 0 0 14px var(--rc); }
+.cp-mug.hero { box-shadow: 0 0 0 2px #ff3a3a, 0 0 10px #ff6a2a; }
+.cp-mug .cp-c { position: absolute; left: -5px; top: -5px; width: 16px; height: 16px; border-radius: 50%; display: grid; place-items: center; font-style: normal; font-size: 8px; color: #2a1400; background: #ffe08a; box-shadow: 0 1px 0 #7a4a00; }
+.cp-mug small { position: absolute; right: -4px; bottom: -5px; padding: 1px 4px; border-radius: 6px; font-size: 7px; color: #ffe08a; background: #000c; }
+.cp-pc.wait { align-items: center; justify-content: center; gap: 12px; min-height: 220px; font-size: 10px; color: #b8c8e8; border-style: dashed; }
+.cp-mid { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; width: 120px; }
+#cpping { min-width: 74px; text-align: center; font-variant-numeric: tabular-nums; } /* a changing reading must not resize the room */
+.cp-hands { width: 54px; height: 54px; display: grid; place-items: center; border-radius: 50%; color: #fff; background: radial-gradient(circle at 35% 30%, #ffe08a, #ff8a1a 60%, #7a3a00); box-shadow: 0 0 0 3px #ffe08a66, 0 0 18px #ffb02066; animation: cpBeat 1.6s ease-in-out infinite; }
+.cp-hands .uic { width: 30px; height: 30px; }
+@keyframes cpBeat { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.12); } }
+.cp-chip { padding: 3px 8px; border-radius: 999px; font-size: 7px; color: #d8ecff; background: #06102bcc; border: 1px solid #4fb3ff66; white-space: nowrap; } .cp-chip:empty { display: none; }
+.cp-mid small { font-size: 7px; color: #8a96aa; }
+
+/* arena picker */
+.cp-maps { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; margin: 8px 0 12px; }
+.cp-map-card { font: inherit; position: relative; display: flex; flex-direction: column; gap: 6px; align-items: flex-start; text-align: left; padding: 10px; min-height: 64px; cursor: pointer; color: #fff;
+  border-radius: 12px; background: linear-gradient(160deg, #12306e, #06102b); border: 2px solid #2a4a8a; transition: transform .12s, border-color .12s; }
+.cp-map-card:hover { transform: translateY(-2px); border-color: #4fb3ff; }
+.cp-map-card.on { border-color: #ffe08a; box-shadow: 0 0 0 2px #ffe08a55, 0 0 14px #ffe08a44; background: linear-gradient(160deg, #3a2a0a, #12306e 60%, #06102b); }
+.cp-map-card b { font-size: 10px; line-height: 1.4; padding-right: 40px; } .cp-map-card small { display: inline-flex; align-items: center; gap: 4px; font-size: 7px; color: #8fe8ff; } .cp-map-card small .uic { width: 10px; height: 10px; }
+.cp-boss { position: absolute; right: 6px; bottom: 6px; border-radius: 8px; overflow: hidden; box-shadow: 0 0 0 2px #ff4f4f99; }
+.cp-go { width: 100%; }
+.cp-actions { display: flex; justify-content: center; gap: 10px; }
+
+/* invitation */
+.coop-invite .cp-invite { width: min(420px, 92vw); }
+.cp-invite { max-width: 420px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 10px; border: 2px solid #3ad15a; box-shadow: 0 0 24px #3ad15a55; }
+.cp-invite h2 { margin: 0; font-size: 16px; color: #ffe08a; } .cp-invite p { font-size: 10px; line-height: 1.6; margin: 0; }
+
+/* another player's profile: add as a friend */
+.opf-friend { align-self: flex-start; margin: 6px 0; }
+
+/* run HUD: the partner's chip inside the captain panel */
+.coop-hud { margin-top: 4px; padding: 4px 8px; border-radius: 8px; background: #061430d9; border: 2px solid #4fb3ff88; pointer-events: none; display: flex; flex-direction: column; gap: 2px; }
+.coop-hud small { font-size: 7px; color: #8fe8ff; } .coop-hud b { font-size: 10px; color: #fff; }
+.coop-hud .ch-bar { display: block; height: 7px; border-radius: 99px; background: #0008; overflow: hidden; } .coop-hud .ch-bar > i { display: block; height: 100%; background: linear-gradient(90deg, #3ad15a, #9fff7a); }
+.coop-hud .ch-bar.down { background: #6a1010; } .coop-hud em { font-style: normal; font-size: 8px; color: #ff9a8a; } .coop-hud em.me { color: #ffe08a; }
+
+@media (max-width: 760px) {
+  .cp-two { grid-template-columns: 1fr; }
+  .cp-vs { grid-template-columns: 1fr; }
+  .cp-mid { flex-direction: row; width: auto; }
+  .cp-hands { width: 40px; height: 40px; } .cp-hands .uic { width: 22px; height: 22px; }
+  .cp-hero-tx b { font-size: 14px; }
+}
+
+/* the test build's permanent tag */
+.test-build { position: fixed; left: 50%; bottom: 6px; transform: translateX(-50%); z-index: 99999; pointer-events: none; padding: 4px 12px; border-radius: 999px;
+  font: 8px 'Press Start 2P', monospace; color: #2a1400; background: linear-gradient(180deg, #ffe08a, #ffb020); box-shadow: 0 2px 0 #7a4a00, 0 0 0 2px #00000055; opacity: .92; }
+
+/* pre-2.0: a stamp on the logo — it slams in right after the Z lands, and on the title screen it is already there */
+.ib-logo4 h1 .ib-pre { position: absolute; right: -4px; top: -2px; transform: translate(30%, -55%) rotate(8deg); padding: .22em .55em; border-radius: 6px;
+  font: clamp(8px, 1.6vw, 16px)/1 'Press Start 2P', monospace; letter-spacing: 1px; color: #fff; -webkit-text-fill-color: #fff; background: linear-gradient(180deg, #ff5a5a, #c4141e);
+  box-shadow: 0 3px 0 #5a0008, 0 0 0 2px #fff; white-space: nowrap; animation: ibPre .38s 1.25s cubic-bezier(.3,1.6,.5,1) both; }
+@keyframes ibPre { from { opacity: 0; transform: translate(30%, -55%) rotate(-20deg) scale(3.2); } }
+.title-screen .ib-logo4.idle h1 .ib-pre { animation: none; }
+
+/* IDEA-45F61B95: what the partner is doing — choosing his card, his Auras and combined techniques */
+.coop-hud .ch-pick { font-size: 7px; color: #ffe08a; animation: chPick 1s ease-in-out infinite; }
+@keyframes chPick { 50% { opacity: .45; } }
+.coop-hud .ch-row { display: flex; flex-wrap: wrap; gap: 3px; max-width: 220px; }
+.coop-hud .ch-aura, .coop-hud .ch-combo { font-style: normal; font-size: 7px; padding: 2px 5px; border-radius: 99px; white-space: nowrap; }
+.coop-hud .ch-aura { color: #fff; background: color-mix(in srgb, var(--ec) 35%, #0008); border: 1px solid var(--ec); }
+.coop-hud .ch-combo { color: #ffe27a; background: #3a2a0099; border: 1px solid #ffc83a88; }
+.coop-hud .ch-combo b { font-size: 7px; color: #fff; }
+.coop-pick { position: fixed; left: 50%; top: 10px; transform: translateX(-50%); z-index: 99990; pointer-events: none; display: flex; align-items: center; gap: 8px;
+  padding: 6px 14px; border-radius: 999px; font: 9px 'Press Start 2P', monospace; color: #dff6ff; background: #061430e6; border: 2px solid #4fd8ff; box-shadow: 0 3px 0 #0008; }
+.coop-pick b { color: #4fd8ff; }
+.cp-coach { display: flex; align-items: center; gap: 8px; margin: -4px 14px 12px; padding: 5px 8px; border-radius: 10px; background: #04102acc; border: 1px solid #ffe08a55; }
+.cp-coach small { display: block; font-size: 6px; color: #ffe08a; } .cp-coach b { font-size: 9px; color: #fff; }

@@ -1,5 +1,6 @@
 import { RARITY_ORDER, type Rarity } from '../data/manifest';
 import { PENNANT_BY_ID } from '../data/pennants';
+import { COACH_BY_ID } from '../data/coaches';
 /** Local save with schema version + migrations + validation. Pure logic + a thin localStorage adapter.
  *  Never destroys data: an unreadable save is set aside under a recovery key and the last good copy is tried first. */
 
@@ -86,6 +87,11 @@ export interface SaveData {
   drakul153?: boolean;
   /** v1.65: profile banners owned and the one shown (pennants.ts) */
   pennants?: { owned: string[]; equipped?: string; frame?: string };
+  /** pre-2.0: coaches owned and the one on the bench (coaches.ts) */
+  coaches?: { owned: string[]; bench?: string };
+  /** pre-2.0: Road to Fútbol Frontier — the road in progress and the clears per difficulty (road.ts) */
+  road?: { active?: { diff: 'facil' | 'normal' | 'maxima'; level: number; squad: number[] }; clears: Partial<Record<'facil' | 'normal' | 'maxima', number>> };
+  roadIntroSeen?: boolean;
   /** Fix 1.32: ids of the news items already opened (news board) */
   newsRead?: string[];
   /** 1.88: answers to the player's bug reports, kept until he dismisses them (app.ts notiBar) */
@@ -368,6 +374,19 @@ export function validate(s: SaveData): SaveData {
     if (typeof pn.equipped === 'string' && ownedP.includes(pn.equipped) && PENNANT_BY_ID.get(pn.equipped)!.kind !== 'marco') s.pennants.equipped = pn.equipped;
     if (typeof pn.frame === 'string' && ownedP.includes(pn.frame) && PENNANT_BY_ID.get(pn.frame)!.kind === 'marco') s.pennants.frame = pn.frame;
   } else delete s.pennants;
+  const co = obj(s.coaches); // pre-2.0
+  if (co && Array.isArray(co.owned)) {
+    const ownedC = [...new Set((co.owned as unknown[]).filter((x): x is string => typeof x === 'string' && COACH_BY_ID.has(x)))];
+    s.coaches = { owned: ownedC };
+    if (typeof co.bench === 'string' && ownedC.includes(co.bench)) s.coaches.bench = co.bench;
+  } else delete s.coaches;
+  const rd = obj(s.road); // pre-2.0
+  if (rd) {
+    const DIFFS = ['facil', 'normal', 'maxima'] as const, cl = obj(rd.clears) ?? {};
+    s.road = { clears: Object.fromEntries(DIFFS.filter((d) => num(cl[d], 0) > 0).map((d) => [d, Math.floor(num(cl[d], 0))])) };
+    const ac = obj(rd.active);
+    if (ac && DIFFS.includes(ac.diff as never) && Array.isArray(ac.squad)) s.road.active = { diff: ac.diff as never, level: Math.max(0, Math.floor(num(ac.level, 0))), squad: (ac.squad as unknown[]).filter((id): id is number => Number.isInteger(id) && !!owned[String(id)]).slice(0, 5) };
+  } else delete s.road;
   // v1.5: Auras — owned on both sides, never oneself, one carrier per Aura, no chains (a carrier is nobody's Aura)
   const cleanAuras = (au: Record<string, unknown>) => {
     // read in numeric key order: the first legal link stays, a later one that would repeat an Aura or chain is dropped

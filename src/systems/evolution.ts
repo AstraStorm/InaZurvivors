@@ -37,6 +37,16 @@ export function evolutionLabel(t: Tech, level: number): string {
   return s ? familyOf(t).steps[s - 1] ?? '' : '';
 }
 
+/**
+ * IDEA-B1D93E8F (Lancelot): combined techniques show the same logos as the others, by their power. They have 5 levels:
+ * level 1 none, then one step per level and the last level jumps to the top logo (+5 / ∞ / GO).
+ */
+const COMBO_STEP = [0, 1, 2, 3, 5];
+export function comboLabel(power: number, level: number): string {
+  const s = COMBO_STEP[Math.max(1, Math.min(COMBO_STEP.length, level)) - 1];
+  return s ? familyOf({ id: 0, power }).steps[s - 1] ?? '' : '';
+}
+
 /** The label reached by going from `level` to `level + 1` when that climbs a step, else null. */
 export function evolvesAt(t: Tech, level: number): string | null {
   if (stepOf(level + 1) === stepOf(level)) return null;

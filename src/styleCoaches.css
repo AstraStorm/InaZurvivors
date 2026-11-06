@@ -1,0 +1,50 @@
+/* pre-2.0: coaches — portrait frames, the Entrenadores screen, the bench of Mi Equipo, the reveal and the machine row */
+.co-art { position: relative; flex-shrink: 0; display: inline-grid; place-items: center; border-radius: 14px; overflow: hidden;
+  background: radial-gradient(circle at 50% 35%, color-mix(in srgb, var(--rc, #4fb3ff) 45%, #0a1a44), #06102b 75%);
+  box-shadow: 0 0 0 3px var(--rc, #4fb3ff), 0 0 14px color-mix(in srgb, var(--rc, #4fb3ff) 55%, transparent); }
+.co-art img { width: 100%; height: 100%; object-fit: contain; image-rendering: pixelated; }
+.co-art.locked img { filter: brightness(0) opacity(.55); }
+.co-art.locked b, .co-art.empty-art b { position: absolute; font-size: 22px; color: #ffe08a; text-shadow: 2px 2px 0 #000; }
+.co-art.empty-art { width: 96px; height: 96px; --rc: #4a5a7a; border: 2px dashed #6a7a9a; box-shadow: none; }
+.co-art.r-mitico, .co-art.r-leyenda { box-shadow: 0 0 0 3px var(--rc), 0 0 22px var(--rc); }
+.co-passives { list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.co-passives li { display: flex; gap: 6px; align-items: baseline; font-size: 8px; line-height: 1.5; color: #d8ecff; }
+.co-passives li i { font-style: normal; color: #ffe08a; width: 12px; text-align: center; flex-shrink: 0; }
+.co-quote { margin: 4px 0 0; font-size: 8px; line-height: 1.6; color: #b8c8e8; font-style: italic; }
+
+/* Entrenadores */
+.coaches-screen { max-width: 1060px; margin: 0 auto; display: flex; flex-direction: column; gap: 12px; }
+.coaches-screen > * { flex-shrink: 0; }
+.co-head b { font-size: 12px; color: #ffe08a; }
+.co-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; }
+.co-card { display: flex; gap: 12px; padding: 12px; border-radius: 16px; background: linear-gradient(160deg, color-mix(in srgb, var(--rc) 22%, #0d2a6a), #06102b 70%);
+  border: 2px solid color-mix(in srgb, var(--rc) 70%, #2a4a8a); }
+.co-card.on { box-shadow: 0 0 0 2px #ffe08a, 0 0 18px #ffe08a55; }
+.co-card.locked { opacity: .82; } .co-card.locked .co-passives { opacity: .8; }
+.co-card-tx { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.co-card-tx small { font-size: 7px; color: #8fe8ff; } .co-card-tx > b { font-size: 12px; color: #fff; }
+.co-card-tx .rar { align-self: flex-start; }
+.co-card-tx .btn { align-self: flex-start; margin-top: 6px; }
+.co-where { margin: 6px 0 0; font-size: 8px; line-height: 1.6; color: #ffd27a; }
+
+/* Mi Equipo: the bench */
+.bench-panel { position: relative; display: flex; align-items: center; gap: 14px; overflow: hidden;
+  background: linear-gradient(110deg, color-mix(in srgb, var(--rc, #4a5a7a) 28%, #0d2a6a), #06102b 65%); border: 2px solid color-mix(in srgb, var(--rc, #4a5a7a) 70%, #2a4a8a); }
+.bench-panel::before { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 18px; background: repeating-linear-gradient(90deg, #6a4a2a 0 28px, #5a3a1a 28px 30px); opacity: .55; pointer-events: none; }
+.bench-tag { position: absolute; top: 8px; right: 10px; font-size: 7px; letter-spacing: 1px; color: #2a1400; background: #ffe08a; padding: 3px 8px; border-radius: 999px; }
+.bench-tx { display: flex; flex-direction: column; gap: 3px; min-width: 0; flex: 1; z-index: 1; }
+.bench-tx small { font-size: 7px; color: #8fe8ff; } .bench-tx > b { font-size: 13px; color: #fff; } .bench-tx .rar { align-self: flex-start; }
+.bench-panel > .co-art { z-index: 1; } .bench-panel > .btn { align-self: flex-end; z-index: 1; }
+
+/* the machine's coaches */
+.co-row > div { display: flex; flex-wrap: wrap; gap: 8px; }
+.co-feat { display: inline-flex; flex-direction: column; align-items: center; gap: 3px; width: 60px; text-align: center; }
+.co-feat small { font-size: 6px; line-height: 1.3; color: #b8c8e8; } .co-feat.own small { color: #8fffa0; }
+
+/* reveal */
+.co-reveal .co-reveal-card { width: min(420px, 92vw); display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center;
+  border: 3px solid var(--rc); box-shadow: 0 0 30px color-mix(in srgb, var(--rc) 60%, transparent); animation: coIn .5s ease-out both; }
+.co-reveal-card > small { font-size: 9px; color: #ffe08a; letter-spacing: 1px; } .co-reveal-card h2 { margin: 4px 0 0; font-size: 16px; color: #fff; }
+.co-reveal-card em { font-style: normal; font-size: 9px; color: #8fe8ff; } .co-reveal-card .co-passives { align-self: stretch; text-align: left; }
+@keyframes coIn { from { opacity: 0; transform: scale(.8) rotate(-3deg); } to { opacity: 1; transform: none; } }
+@media (max-width: 560px) { .co-grid { grid-template-columns: 1fr; } .bench-panel { flex-wrap: wrap; } }

@@ -5,6 +5,9 @@ import './style14.css';
 import './styleMapPath.css';
 import './styleThanks.css';
 import './styleGts.css';
+import './styleCoop.css';
+import './styleCoaches.css';
+import './styleRoad.css';
 import './styleBoss.css';
 import type { Manifest } from './data/manifest';
 import { applyRosterFixes } from './data/rosterFixes';
@@ -49,6 +52,11 @@ async function fetchJson<T>(url: string, onProgress: (k: number) => void, guessB
 
 // hashed resources never change, so the worker can keep them; music stays out because Audio asks for byte ranges
 if (import.meta.env.PROD && 'serviceWorker' in navigator) void navigator.serviceWorker.register('sw.js').catch(() => undefined);
+// pre-2.0: the test build (served from /pruebas/) says so at all times, so nobody mistakes it for the real game
+if (import.meta.env.BASE_URL.includes('/pruebas/')) {
+  document.title = `[PRUEBAS] ${document.title}`;
+  document.body.insertAdjacentHTML('beforeend', '<div class="test-build" title="Versión de pruebas del cooperativo: puede fallar. Tu partida es la misma que en la web normal.">PRUEBAS · pre-2.0</div>');
+}
 
 async function boot() {
   let manifest: Manifest;
