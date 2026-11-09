@@ -3,6 +3,7 @@
  * stubbed: auth.uid() reads a session setting, so each "request" acts as one account.
  */
 import fs from 'node:fs';
+import { scoreOf } from '../src/systems/leaderboard';
 import path from 'node:path';
 import { PGlite } from '@electric-sql/pglite';
 import { citext } from '@electric-sql/pglite/contrib/citext';
@@ -102,8 +103,17 @@ describe('ranking (database)', () => {
     await age();
     expect((await db.query(`select time_sec, damage::int from public.scores where user_id = $1`, [ids.astra])).rows).toEqual([{ time_sec: 300, damage: 9000 }]);
     await expect(as('astra', `select public.submit_score($1, 'raimon', 'C', 30, 99999999)`, [run(3)])).rejects.toThrow(/implausible_damage/);
-    await expect(as('astra', `select public.submit_score($1, 'raimon', 'Z', 30, 10)`, [run(4)])).rejects.toThrow(/invalid_board/);
+    await expect(as('astra', `select public.submit_score($1, 'raimon', 'Q', 30, 10)`, [run(4)])).rejects.toThrow(/invalid_board/);
+    // Rango Z: refused until the Tuesday update (2026-11-10 12:00 Madrid), then a board like the rest
+    if (Date.now() < Date.parse('2026-11-10T12:00:00+01:00')) await expect(as('astra', `select public.submit_score($1, 'raimon', 'Z', 30, 10)`, [run(4)])).rejects.toThrow(/rank_locked/);
     await expect(db.query(`insert into public.scores values ($1, 'raimon', 'C', 9999, 1, 0, $2)`, [ids.beto, run(5)])).resolves.toBeTruthy(); // superuser in tests; RLS blocks clients
+  });
+  it('points: rank Z above X and the arena multiplies them (same as scoreOf in the client)', async () => {
+    const pts = async (map: string, rank: string, t: number, d: number) => Number((await db.query<{ p: string }>(`select private.score_of($1, $2, $3, $4) as p`, [map, rank, t, d])).rows[0].p);
+    for (const [map, rank, t, d] of [['raimon', 'C', 300, 9000], ['ruinas', 'X', 560, 123456], ['torre', 'X', 630, 5555], ['fuji', 'Z', 510, 98765], ['clan', 'S', 300, 10], ['nueva', 'Z', 1, 1]] as const)
+      expect(await pts(map, rank, t, d)).toBe(scoreOf({ map, rank, time: t, damage: d }));
+    expect(await pts('raimon', 'Z', 300, 0)).toBeGreaterThan(await pts('raimon', 'X', 300, 0));
+    expect(await pts('ruinas', 'X', 300, 0)).toBeGreaterThan(await pts('raimon', 'X', 300, 0));
   });
   it('top 15 by time then damage, filters, and my position far below the top', async () => {
     await db.exec('delete from public.scores; delete from public.submitted_runs;');
@@ -278,6 +288,8 @@ describe('reportar un bug (database)', () => {
     await expect(api('carla', `select public.admin_update_bug('BUG-00000000', 'corregido', 'x')`)).rejects.toThrow(/forbidden/);
     await expect(api('beto', `select public.admin_player_stats()`)).rejects.toThrow(/forbidden/);
     await expect(api('', `select public.admin_player_stats()`)).rejects.toThrow(/permission denied/);
+    await expect(api('beto', `select public.admin_metrics()`)).rejects.toThrow(/forbidden/);
+    await expect(api('', `select public.admin_metrics()`)).rejects.toThrow(/permission denied/);
     await db.query('insert into private.admins (user_id) values ($1)', [ids.carla]);
     expect((await api('carla', `select public.am_i_admin() as a`)).rows[0]).toEqual({ a: true });
     // Fix 1.41: the players panel counts every account, and lists names without e-mails
@@ -285,6 +297,9 @@ describe('reportar un bug (database)', () => {
     expect(st.s.accounts).toBe(((await db.query(`select count(*)::int as n from auth.users`)).rows[0] as { n: number }).n);
     expect(st.s.players.length).toBeGreaterThan(0);
     expect(JSON.stringify(st.s)).not.toMatch(/@example\.test/);
+    const mt = (await api('carla', `select public.admin_metrics(7) as m`)).rows[0] as { m: { daily: unknown[]; hours: number[] } };
+    expect(mt.m.daily.length).toBe(7);
+    expect(mt.m.hours.length).toBe(24);
     const all = (await api('carla', `select code, severity from public.admin_bug_reports(null, null, null, null, null, 'prioridad', 100)`)).rows as { code: string }[];
     expect(all.length).toBeGreaterThanOrEqual(10);
     await api('carla', `select public.admin_update_bug($1, 'revisando', 'Reproducido en Chrome')`, [all[0].code]);
@@ -715,16 +730,18 @@ describe('clans (1.93)', () => {
     await expect(api('cira', 'select * from public.clan_requests r join public.clans c on true')).rejects.toThrow();
   });
 
-  it('clan games: 3 matches a day per player, points add up, duplicates refused', async () => {
+  it('clan games: 1 match a day per player, points add up, duplicates refused', async () => {
     const a = await run('cira', 'r1');
     expect(a.points).toBeGreaterThan(0);
-    expect(a.left).toBe(2);
+    expect(a.left).toBe(0);
     await expect(run('cira', 'r1')).rejects.toThrow(/duplicate/);
-    await run('cira', 'r2'); await run('cira', 'r3');
-    await expect(run('cira', 'r4')).rejects.toThrow(/clan_daily_limit/);
+    await expect(run('cira', 'r2')).rejects.toThrow(/clan_daily_limit/);
+    expect((await mine('cira'))?.runsToday).toBe(1);
+    // two more of Cira's matches from earlier days of this week (the mission test below counts them)
+    await db.query(`insert into public.clan_runs (clan_id, user_id, run_id, day, week, points, kills, victory) select clan_id, user_id, x.id, day - 1, week, points, kills, victory from public.clan_runs, (values ('r2'), ('r3')) x(id) where run_id = 'r1'`);
     await run('cleo', 'c1', 50, false);
     const c = await mine('cira');
-    expect(c?.runsToday).toBe(3);
+    expect(c?.runsToday).toBe(1);
     expect(Number(c?.weekPoints)).toBe(a.points * 3 + (await db.query(`select points from public.clan_runs where run_id = 'c1'`)).rows.map((r) => (r as { points: number }).points)[0]);
     expect(c?.pos).toBe(1);
     await expect(run('coco', 'x1')).rejects.toThrow(/not_in_clan/);
@@ -734,9 +751,13 @@ describe('clans (1.93)', () => {
 
   it('missions: done ones pay once, only to those who played', async () => {
     await expect(api('cleo', `select public.clan_claim_mission('partidas')`)).rejects.toThrow(/mission_not_done/);
-    await db.query(`update public.clan_runs set kills = 8000 where run_id in ('r1', 'r2')`);
+    await db.query(`update public.clan_runs set kills = 12000 where run_id in ('r1', 'r2', 'r3')`);
     const got = (await api('cira', `select public.clan_claim_mission('rivales') as r`)).rows[0] as { r: { coins: number; tokens: number } };
-    expect(got.r).toEqual({ coins: 10000, tokens: 50 });
+    expect(got.r).toEqual({ coins: 12000, tokens: 60 });
+    // 1-a-day missions: days played this week and members who won (Cira today and yesterday; Cleo lost)
+    const ms = (await mine('cira'))?.missions as { id: string; progress: number }[];
+    expect(Number(ms.find((x) => x.id === 'constancia')?.progress)).toBe(2);
+    expect(Number(ms.find((x) => x.id === 'ganadores')?.progress)).toBe(1);
     await expect(api('cira', `select public.clan_claim_mission('rivales')`)).rejects.toThrow(/already_claimed/);
     await api('cata', `select public.clan_request(id) from public.clan_search('Rayos Del')`);
     await api('cira', `select public.clan_answer('CATA_C', true)`);

@@ -6,9 +6,9 @@
  */
 import type { Rarity } from './manifest';
 
-export type PennantSource = 'tienda' | 'logro' | 'evento' | 'codigo' | 'clan';
-export type PennantPattern = 'franjas' | 'diagonal' | 'llamas' | 'estrellas' | 'arcoiris' | 'cuadros' | 'tiza' | 'olas' | 'rayos' | 'copos' | 'espiral' | 'nebulosa';
-export type PennantEmblem = 'balon' | 'rayo' | 'llama' | 'caravana' | 'corona' | 'neumatico' | 'pizarra' | 'olas' | 'viento' | 'copo' | 'espiral' | 'mano' | 'reloj' | 'planeta' | 'ojo';
+export type PennantSource = 'tienda' | 'logro' | 'evento' | 'codigo' | 'clan' | 'colab';
+export type PennantPattern = 'franjas' | 'diagonal' | 'llamas' | 'estrellas' | 'arcoiris' | 'cuadros' | 'tiza' | 'olas' | 'rayos' | 'copos' | 'espiral' | 'nebulosa' | 'rejilla';
+export type PennantEmblem = 'balon' | 'rayo' | 'llama' | 'caravana' | 'corona' | 'neumatico' | 'pizarra' | 'olas' | 'viento' | 'copo' | 'espiral' | 'mano' | 'reloj' | 'planeta' | 'ojo' | 'bluelock';
 
 export interface PennantDef {
   id: string; name: string; rarity: Rarity; source: PennantSource;
@@ -48,6 +48,9 @@ export const PENNANTS: PennantDef[] = [
   // ---- 1.81 (author): only through the code INA483; invisible to anyone who hasn't redeemed it
   { id: 'inazuma', name: 'Banner Inazuma', rarity: 'mitico', source: 'codigo', how: 'Código especial', c1: '#0fd8c8', c2: '#02141c', accent: '#ffd23f', pattern: 'rayos', emblem: 'rayo', tagline: 'Un rayo dorado sobre el turquesa: solo para quien tiene el código.' },
   // ---- 1.93 (author): only in the clan shop, the weeks the author puts it there (systems/clans.ts CLAN_SHOP_WEEKS)
+  // ---- (author) the InaZurvivors x BlueLock celebration: earned while the collab is open (systems/collabEvent.ts),
+  //      with the BlueLock logo; hidden until it opens, kept for good by whoever earns it
+  { id: 'colab-bluelock', name: 'InaZurvivors x BlueLock', rarity: 'mitico', source: 'colab', how: 'gana 3 partidas mientras esté abierta', c1: '#1f5bff', c2: '#02061a', accent: '#5fd8ff', pattern: 'rejilla', emblem: 'bluelock', tagline: 'Ego, fútbol y un candado azul: la colaboración, en tu perfil.' },
   { id: 'clan-cerezo', name: 'Banderín del Cerezo', rarity: 'epico', source: 'clan', how: 'Tienda del clan', c1: '#ffb8d8', c2: '#7a1a4a', accent: '#ffffff', pattern: 'copos', emblem: 'balon', tagline: 'Pétalos sobre el balón: la Colina de los Cerezos.' },
 ];
 
@@ -77,6 +80,8 @@ export const FRAMES: PennantDef[] = [
   { id: 'marco-supernova', kind: 'marco', name: 'Marco Supernova Oscura', rarity: 'mitico', source: 'evento', wings: true, c1: '#5a1a9a', c2: '#050010', accent: '#ff3a1a', pattern: 'nebulosa', emblem: 'ojo', tagline: 'Alas de materia oscura y un ojo rojo. Solo en el evento, 3%.' },
   // ---- 1.93 (author): only in the clan shop, the weeks the author puts it there (systems/clans.ts CLAN_SHOP_WEEKS)
   { id: 'marco-cerezo', kind: 'marco', name: 'Marco del Cerezo', rarity: 'epico', source: 'clan', how: 'Tienda del clan', c1: '#ffb8d8', c2: '#7a1a4a', accent: '#ffffff', pattern: 'copos', emblem: 'espiral', tagline: 'Pétalos de la colina donde juegan los clanes.' },
+  // ---- (author) InaZurvivors x BlueLock: for whoever has both its footballers
+  { id: 'marco-bluelock', kind: 'marco', name: 'Marco BlueLock', rarity: 'mitico', source: 'colab', how: 'ficha a Nagi y a Isagi', wings: true, c1: '#1f5bff', c2: '#02061a', accent: '#5fd8ff', pattern: 'rejilla', emblem: 'bluelock', tagline: 'Cadenas azules y alas: Nagi e Isagi ya juegan en tu club.' },
   // ---- 1.81 (author): only through the code INA483
   { id: 'marco-inazuma', kind: 'marco', name: 'Marco Inazuma', rarity: 'mitico', source: 'codigo', how: 'Código especial', wings: true, c1: '#0fd8c8', c2: '#02141c', accent: '#ffd23f', pattern: 'rayos', emblem: 'rayo', tagline: 'Alas de oro y rayos turquesa: solo para quien tiene el código.' },
 ];

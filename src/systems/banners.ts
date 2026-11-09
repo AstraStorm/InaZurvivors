@@ -10,12 +10,14 @@ import { sagaOf } from '../data/sagas';
 import { RARITY_WEIGHTS } from './gacha';
 
 // Fix 1.31: one machine per SAGA (author's request), priced by how likely its stars are; the eras stay for missions
-export type BannerId = 'evento' | 'ff' | 'alius' | 'ffi' | 'go' | 'chrono' | 'galaxy' | 'ares' | 'orion' | 'fichatron' | 'equipo';
+export type BannerId = 'evento' | 'bluelock' | 'ff' | 'alius' | 'ffi' | 'go' | 'chrono' | 'galaxy' | 'ares' | 'orion' | 'fichatron' | 'equipo';
 export interface BannerDef { id: BannerId; label: string; tagline: string; cost: number; multiCost: number; color: string }
 
 /** cost/multiCost here are the defaults; the real price of a saga machine comes from bannerPrice() */
 export const BANNERS: Record<BannerId, BannerDef> = {
   // (author) the special banner: every exclusive footballer (data/special_players.json) plus Común/Raro/Épico filler
+  // (author) InaZurvivors x BlueLock: Nagi and Isagi, the same Fichas de evento (systems/collabEvent.ts)
+  bluelock: { id: 'bluelock', label: 'InaZurvivors x BlueLock', tagline: 'Seishiro Nagi y Yoichi Isagi, solo aquí y por tiempo limitado', cost: 15, multiCost: 150, color: '#2a5ad8' },
   evento: { id: 'evento', label: 'Banner de agradecimiento', tagline: 'Ataque a los Titanes, Los Siete Pecados Capitales y Axel Encapuchado', cost: 15, multiCost: 150, color: '#c45aff' },
   ff: { id: 'ff', label: 'Fútbol Frontier', tagline: 'Inazuma Eleven 1', cost: 10, multiCost: 100, color: '#ff8a2a' },
   alius: { id: 'alius', label: 'Invasión Alius', tagline: 'Inazuma Eleven 2 y el viaje por Japón', cost: 10, multiCost: 100, color: '#ff4f6a' },
@@ -28,7 +30,7 @@ export const BANNERS: Record<BannerId, BannerDef> = {
   fichatron: { id: 'fichatron', label: 'Fichatrón', tagline: 'Fichajes sueltos de toda la serie', cost: 5, multiCost: 50, color: '#9aa8c8' },
   equipo: { id: 'equipo', label: 'Por equipo', tagline: 'Elige un equipo: solo sus futbolistas', cost: 15, multiCost: 150, color: '#7dff9a' },
 };
-export const BANNER_ORDER: BannerId[] = ['evento', 'ff', 'alius', 'ffi', 'go', 'chrono', 'galaxy', 'ares', 'orion', 'fichatron', 'equipo'];
+export const BANNER_ORDER: BannerId[] = ['bluelock', 'evento', 'ff', 'alius', 'ffi', 'go', 'chrono', 'galaxy', 'ares', 'orion', 'fichatron', 'equipo'];
 
 const GO = new Set(['GO', 'Chrono Stones', 'Galaxy']);
 const VR = new Set(['Ares', 'Orion']);
@@ -50,11 +52,11 @@ const SAGA_MACHINE: [string, BannerId][] = [['Fútbol Frontier', 'ff'], ['Invasi
 const isMixi = (name: string) => /\+| MM$/.test(name);
 
 /** The one saga machine a character comes out of: his earliest story saga; scouts with no story team go to the Fichatrón. */
-export function machineOf(p: Pick<RosterEntry, 'teams' | 'name'> & { era?: RosterEntry['era'] }): Exclude<BannerId, 'equipo' | 'evento'> {
+export function machineOf(p: Pick<RosterEntry, 'teams' | 'name'> & { era?: RosterEntry['era'] }): Exclude<BannerId, 'equipo' | 'evento' | 'bluelock'> {
   if (isMixi(p.name)) return 'chrono';
   const sagas = new Set(p.teams.map(sagaOf));
   const hit = SAGA_MACHINE.find(([s]) => sagas.has(s as never));
-  if (hit) return hit[1] as Exclude<BannerId, 'equipo' | 'evento'>;
+  if (hit) return hit[1] as Exclude<BannerId, 'equipo' | 'evento' | 'bluelock'>;
   if (p.era === 'go') return 'go';
   if (p.era === 'vr') return 'ares';
   return 'fichatron';
@@ -88,9 +90,25 @@ export const EVENT_FILLER_IDS = [
   1585, 1582, 1586, 1588, 1372, 68, 1367, 148, 1025, 25, 133, 28, 1515, 6, 1399, 1501, 1490, 1373, // Épicos
 ];
 
+/** (author: «rellénalo con morralla») InaZurvivors x BlueLock's filler: the weakest footballers of the game by stat
+ *  average — a few Épicos stay so the ×10's guaranteed Épico never turns into a guaranteed Nagi or Isagi */
+export const BLUELOCK_FILLER: Partial<Record<Rarity, number>> = { comun: 30, raro: 20, epico: 8 };
+const statAvg = (p: RosterEntry) => (p.stats ? Object.values(p.stats).reduce((a, b) => a + b, 0) / Object.values(p.stats).length : Infinity);
+const morrallaCache = new WeakMap<RosterEntry[], RosterEntry[]>();
+export function bluelockFiller(roster: RosterEntry[]): RosterEntry[] {
+  const hit = morrallaCache.get(roster);
+  if (hit) return hit;
+  const out = Object.entries(BLUELOCK_FILLER).flatMap(([r, n]) => roster.filter((p) => !p.exclusive && p.rarity === r && p.stats)
+    .sort((a, b) => statAvg(a) - statAvg(b) || a.id - b.id).slice(0, n));
+  morrallaCache.set(roster, out);
+  return out;
+}
+
 export function bannerPool(roster: RosterEntry[], banner: BannerId, team?: string): RosterEntry[] {
   // pre-2.0: «road» exclusives (Jaden Evans) come only from Road to Fútbol Frontier, never from a machine
-  if (banner === 'evento') return roster.filter((p) => (p.exclusive && p.exclusive !== 'road') || (EVENT_FILLER_IDS.includes(p.id) && EVENT_FILLER.includes(p.rarity)));
+  if (banner === 'evento') return roster.filter((p) => (p.exclusive && p.exclusive !== 'road' && p.exclusive !== 'bluelock') || (EVENT_FILLER_IDS.includes(p.id) && EVENT_FILLER.includes(p.rarity)));
+  // (author) InaZurvivors x BlueLock: its two footballers and the morralla
+  if (banner === 'bluelock') return [...roster.filter((p) => p.exclusive === 'bluelock'), ...bluelockFiller(roster)];
   // special footballers (data/special_players.json) only come out of their own banner
   roster = roster.filter((p) => !p.exclusive);
   if (banner === 'equipo') return team ? roster.filter((p) => p.teams.includes(team)) : [];
@@ -113,7 +131,7 @@ export function bannerPrice(pool: RosterEntry[], banner: BannerId): { cost: numb
   const n = (r: Rarity) => pool.filter((p) => p.rarity === r).length;
   const mythics = n('mitico'), stars = n('legendario') + mythics + n('leyenda');
   // (author) the Banner de agradecimiento: 15 / 150 Fichas de evento
-  const cost = banner === 'evento' ? BANNERS.evento.cost : banner === 'fichatron' ? 5 : banner === 'equipo' ? 15 : banner === 'chrono' ? CHRONO_PRICE
+  const cost = banner === 'evento' || banner === 'bluelock' ? BANNERS[banner].cost : banner === 'fichatron' ? 5 : banner === 'equipo' ? 15 : banner === 'chrono' ? CHRONO_PRICE
     : !stars ? 5 : mythics >= 6 ? 20 : mythics || n('leyenda') ? 15 : 10;
   return { cost, multiCost: cost * 10, mythics };
 }
@@ -123,7 +141,25 @@ export function bannerPrice(pool: RosterEntry[], banner: BannerId): { cost: numb
  * rarity is trimmed so its per-player chance is at most half the per-player chance of the rarity below; on the team
  * machine the top rarities are also capped per player. Everything trimmed goes to Común (or the lowest non-empty rarity).
  */
-export function rarityOdds(pool: RosterEntry[], banner: BannerId = 'ff'): Record<Rarity, number> {
+/**
+ * (author: «que los banners destacados den más probabilidad de mejores jugadores») the saga machine in the spotlight
+ * changes every day (UTC day, by the server's clock); that day its good rarities are likelier: Épico ×1.25, Legendario,
+ * Mítico and Leyenda ×1.6. What they gain comes out of Común (then Raro), so the odds still add up to 100%.
+ */
+export const FEATURED_MACHINES: BannerId[] = ['ff', 'alius', 'ffi', 'go', 'chrono', 'galaxy', 'ares', 'orion'];
+export const FEATURED_BOOST: Partial<Record<Rarity, number>> = { epico: 1.25, legendario: 1.6, mitico: 1.6, leyenda: 1.6 };
+export const featuredMachine = (now: number | Date): BannerId => FEATURED_MACHINES[Math.floor(+now / 86_400_000) % FEATURED_MACHINES.length];
+function boostOdds(out: Record<Rarity, number>): Record<Rarity, number> {
+  const res = { ...out };
+  let extra = 0;
+  for (const [r, m] of Object.entries(FEATURED_BOOST) as [Rarity, number][]) { const add = res[r] * (m - 1); res[r] += add; extra += add; }
+  for (const r of ['comun', 'raro'] as Rarity[]) { const take = Math.min(res[r], extra); res[r] -= take; extra -= take; }
+  if (extra > 0) { const tot = RARITY_ORDER.reduce((a, r) => a + res[r], 0); for (const r of RARITY_ORDER) res[r] *= 100 / tot; } // a machine with almost no Comunes/Raros
+  return res;
+}
+
+export function rarityOdds(pool: RosterEntry[], banner: BannerId = 'ff', featuredToday = false): Record<Rarity, number> {
+  if (featuredToday) return boostOdds(rarityOdds(pool, banner));
   const count = Object.fromEntries(RARITY_ORDER.map((r) => [r, pool.filter((p) => p.rarity === r).length])) as Record<Rarity, number>;
   const out = Object.fromEntries(RARITY_ORDER.map((r) => [r, 0])) as Record<Rarity, number>;
   const at = (i: number) => RARITY_ORDER[i];
@@ -163,8 +199,8 @@ export function rarityOdds(pool: RosterEntry[], banner: BannerId = 'ff'): Record
 }
 
 /** Percent chance of one specific player of each rarity on this pool. */
-export function perPlayerOdds(pool: RosterEntry[], banner: BannerId = 'ff'): Record<Rarity, number> {
-  const odds = rarityOdds(pool, banner);
+export function perPlayerOdds(pool: RosterEntry[], banner: BannerId = 'ff', featuredToday = false): Record<Rarity, number> {
+  const odds = rarityOdds(pool, banner, featuredToday);
   return Object.fromEntries(RARITY_ORDER.map((r) => {
     const n = pool.filter((p) => p.rarity === r).length;
     return [r, n ? odds[r] / n : 0];

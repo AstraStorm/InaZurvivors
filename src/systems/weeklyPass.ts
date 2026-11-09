@@ -3,8 +3,9 @@
  * players (serverTime.ts) or of the device for guests. Skipping days never loses anything: the pass just waits on the
  * next unclaimed reward; after the seventh, a new cycle starts on the following day. Everything lives in the save, so it
  * travels with the cloud copy and can't be claimed twice on the same day.
- * Amounts were set against the 1.11 economy (ECONOMIA_1.11.md): the two ×10 pulls add about 140 fichas a week on top of
- * ~100 from play, the coins about a third of a week's income.
+ * 2.0 (author: «mejores recompensas»): a day can give several things at once. A week now gives 450 fichas, 17.000 coins
+ * and three footballers (Épico+, Legendario+ and a Legendario+ of the team you pick), against 200 fichas, 4.600 coins and
+ * three Épico+ before. Day 5 is a «plus» day and day 7 the grand prize.
  */
 import type { Rarity, RosterEntry } from '../data/manifest';
 import { RARITY_ORDER } from '../data/manifest';
@@ -12,24 +13,32 @@ import { MULTI_COST, grantCopy } from './gacha';
 import { dayKey } from './missions';
 import type { SaveData } from './save';
 
-export type PassReward =
-  | { kind: 'fichas'; amount: number; label: string }
-  | { kind: 'monedas'; amount: number; label: string }
-  | { kind: 'jugador'; odds: Partial<Record<Rarity, number>>; team: boolean; label: string };
+/** what a day gives: fichas, coins and/or a footballer; `kind` is the main one (its art), `tier` marks the big days */
+export interface PassReward {
+  kind: 'fichas' | 'monedas' | 'jugador';
+  label: string;
+  fichas: number;
+  monedas: number;
+  jugador?: { odds: Partial<Record<Rarity, number>>; team: boolean; label: string };
+  tier?: 'plus' | 'grand';
+}
 
-/** Épico or better: 80% Épico, 18% Legendario, 2% Mítico. Day 7: from a team you pick, with better odds. */
-const EPIC_PLUS = { epico: 80, legendario: 18, mitico: 2 };
-const TEAM_PLUS = { epico: 62, legendario: 33, mitico: 4, leyenda: 1 };
+/** Épico or better (day 2), Legendario or better (day 5), and day 7's Legendario+ from the team you pick */
+export const PASS_EPIC = { epico: 70, legendario: 25, mitico: 5 };
+export const PASS_LEGEND = { legendario: 85, mitico: 13, leyenda: 2 };
+export const PASS_TEAM = { legendario: 70, mitico: 25, leyenda: 5 };
 
 export const PASS: PassReward[] = [
-  { kind: 'fichas', amount: MULTI_COST, label: 'Tirada ×10 (fichas)' },
-  { kind: 'jugador', odds: EPIC_PLUS, team: false, label: 'Futbolista Épico o superior' },
-  { kind: 'monedas', amount: 1600, label: '1.600 monedas' }, // 1.86: coins doubled
-  { kind: 'fichas', amount: MULTI_COST, label: 'Tirada ×10 (fichas)' },
-  { kind: 'jugador', odds: EPIC_PLUS, team: false, label: 'Futbolista Épico o superior' },
-  { kind: 'monedas', amount: 3000, label: '3.000 monedas' },
-  { kind: 'jugador', odds: TEAM_PLUS, team: true, label: 'Épico o superior del equipo que elijas' },
+  { kind: 'fichas', fichas: MULTI_COST, monedas: 1000, label: 'Tirada ×10 y 1.000 monedas' },
+  { kind: 'jugador', fichas: 0, monedas: 1000, jugador: { odds: PASS_EPIC, team: false, label: 'Épico o superior' }, label: 'Futbolista Épico o superior y 1.000 monedas' },
+  { kind: 'monedas', fichas: 50, monedas: 4000, label: '4.000 monedas y 50 fichas' },
+  { kind: 'fichas', fichas: MULTI_COST * 2, monedas: 0, label: 'Dos tiradas ×10' },
+  { kind: 'jugador', fichas: 0, monedas: 0, jugador: { odds: PASS_LEGEND, team: false, label: 'Legendario o superior' }, label: 'Futbolista Legendario o superior', tier: 'plus' },
+  { kind: 'monedas', fichas: 0, monedas: 6000, label: '6.000 monedas' },
+  { kind: 'jugador', fichas: MULTI_COST, monedas: 5000, jugador: { odds: PASS_TEAM, team: true, label: 'Legendario o superior de tu equipo' }, label: 'Legendario o superior del equipo que elijas, tirada ×10 y 5.000 monedas', tier: 'grand' },
 ];
+/** what a whole cycle gives */
+export const PASS_TOTAL = { fichas: PASS.reduce((a, r) => a + r.fichas, 0), monedas: PASS.reduce((a, r) => a + r.monedas, 0), jugadores: PASS.filter((r) => r.jugador).length };
 
 export interface PassState { claimed: number; lastDay: string }
 export const passState = (s: SaveData): PassState => (s.weeklyPass ??= { claimed: 0, lastDay: '' });
@@ -63,11 +72,13 @@ export function claimPass(s: SaveData, roster: RosterEntry[], now: Date, rng: ()
   if (!available) return null;
   const reward = PASS[index];
   let player: RosterEntry | undefined;
-  if (reward.kind === 'fichas') s.tokens += reward.amount;
-  else if (reward.kind === 'monedas') s.coins += reward.amount;
-  else {
-    const pool = reward.team && teamPool?.some((p) => RARITY_ORDER.indexOf(p.rarity) >= RARITY_ORDER.indexOf('epico')) ? teamPool : roster;
-    player = rollPassPlayer(pool, reward.odds, rng) ?? undefined;
+  s.tokens += reward.fichas;
+  s.coins += reward.monedas;
+  if (reward.jugador) {
+    // the team pool counts only if it holds a footballer of the rarities the reward can give
+    const ok = (pool: RosterEntry[]) => pool.some((p) => (reward.jugador!.odds[p.rarity] ?? 0) > 0);
+    const pool = reward.jugador.team && teamPool && ok(teamPool) ? teamPool : roster;
+    player = rollPassPlayer(pool, reward.jugador.odds, rng) ?? undefined;
     if (player) grantCopy(s, player.id, player.rarity);
   }
   st.claimed = (st.claimed + 1) % PASS.length;

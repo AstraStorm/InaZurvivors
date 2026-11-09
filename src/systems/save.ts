@@ -69,8 +69,14 @@ export interface SaveData {
   achAura?: { equipped?: boolean; bond?: boolean };
   /** v1.5: the explanation of Auras has been shown (first visit to Mi Equipo) */
   auraIntroSeen?: boolean;
+  /** 2.0: Fichas EG (they unlock and level warrior spirits, keshin.ts), each footballer's spirit level (1-6) and the launch gift */
+  egTokens?: number;
+  keshin?: Record<string, number>;
+  egGift20?: boolean;
   /** (author) Fichas de evento: they only pay the Banner de agradecimiento (thanksEvent.ts) */
   eventTokens?: number;
+  /** (author) runs won while InaZurvivors x BlueLock is open: 3 give its banner (collabEvent.ts) */
+  blWins?: number;
   /** the thank-you notice of the Banner de agradecimiento was closed */
   thanksSeen?: boolean;
   /** v1.5: achievements already announced with the «¡LOGRO!» banner (each one only once) */
@@ -145,7 +151,7 @@ export interface SaveData {
   progressEpoch?: number;
 }
 
-export type Rank = 'C' | 'B' | 'A' | 'S' | 'X';
+export type Rank = 'C' | 'B' | 'A' | 'S' | 'X' | 'Z';
 
 export interface MissionState {
   counters: Record<string, number>; // lifetime
@@ -317,6 +323,14 @@ export function validate(s: SaveData): SaveData {
   s.tokens = Math.max(0, Math.floor(num(s.tokens, 0)));
   s.trainTokens = Math.max(0, Math.floor(num(s.trainTokens, 0)));
   s.eventTokens = Math.max(0, Math.floor(num(s.eventTokens, 0)));
+  s.egTokens = Math.max(0, Math.floor(num(s.egTokens, 0)));
+  s.blWins = Math.max(0, Math.floor(num(s.blWins, 0)));
+  if (!s.blWins) delete s.blWins;
+  // 2.0: spirit levels 1-6 by footballer id (which footballers really have one is checked where it is used, keshin.ts)
+  const ks: Record<string, number> = {};
+  for (const [k, v] of Object.entries(obj(s.keshin) ?? {})) { const lv = Math.min(6, Math.max(0, Math.floor(num(v, 0)))); if (/^\d+$/.test(k) && lv) ks[k] = lv; }
+  s.keshin = ks;
+  if (s.egGift20 !== true) delete s.egGift20;
   const owned: Record<string, OwnedPlayer> = {};
   for (const [k, v] of Object.entries(obj(s.owned) ?? {})) {
     const o = obj(v);
@@ -363,7 +377,7 @@ export function validate(s: SaveData): SaveData {
   if (!obj(s.upgrades)) s.upgrades = {};
   if (!Array.isArray(s.missions?.claimed)) s.missions = emptyMissions();
   s.squad = Array.isArray(s.squad) ? [...new Set(s.squad.filter((id) => Number.isInteger(id) && owned[String(id)]))].slice(0, 7) : [];
-  if (!['C', 'B', 'A', 'S', 'X'].includes(s.difficulty)) s.difficulty = 'C';
+  if (!['C', 'B', 'A', 'S', 'X', 'Z'].includes(s.difficulty)) s.difficulty = 'C';
   if (!Array.isArray(s.seenItems)) s.seenItems = [];
   if (!Array.isArray(s.gachaHistory)) s.gachaHistory = [];
   if (!obj(s.clearedRanks)) s.clearedRanks = {};

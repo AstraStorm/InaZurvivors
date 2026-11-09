@@ -447,7 +447,8 @@ h3.saga { color: var(--orange-2); font-size: 11px; margin: 14px 0 6px; font-weig
 
 /* v2.5 */
 #ui { zoom: var(--ui-scale, 1); }
-#ui.run-mode, #ui.menu-mode { zoom: var(--ui-scale, 1); }
+#ui.menu-mode { zoom: var(--ui-scale, 1); }
+#ui.run-mode { zoom: calc(var(--ui-scale, 1) * var(--hud-scale, 1)); } /* 2.0: bigger on big screens (app.applyMotion) */
 /* Fix 1.22: never inside the gacha reveal, which is an overlay with its own timeline */
 .still > :not(.reveal), .still > :not(.reveal) *, .still > :not(.reveal) *::before, .still > :not(.reveal) *::after { animation-name: none !important; }
 .still .pcard.r-legendario, .still .pcard.r-mitico, .still .pcard.r-leyenda { animation-name: inherit; }
@@ -635,7 +636,7 @@ h3.saga { color: var(--orange-2); font-size: 11px; margin: 14px 0 6px; font-weig
 .rank-btn span { font-size: 8px; color: var(--muted); line-height: 1.5; }
 .rank-btn small { font-size: 8px; color: var(--yellow); }
 .rank-btn.on { border-color: var(--rk); box-shadow: 0 0 14px color-mix(in srgb, var(--rk) 60%, transparent); background: var(--panel-2); }
-.r-C { --rk: #8fd8ff; } .r-B { --rk: #5cdc6a; } .r-A { --rk: #ffe24a; } .r-S { --rk: #ff8a3a; } .r-X { --rk: #ff4f8b; }
+.r-C { --rk: #8fd8ff; } .r-B { --rk: #5cdc6a; } .r-A { --rk: #ffe24a; } .r-S { --rk: #ff8a3a; } .r-X { --rk: #ff4f8b; } .r-Z { --rk: #ff2a45; }
 .rank-done { display: flex; gap: 4px; margin: 4px 0; } .rank-done span { font-size: 8px; padding: 1px 5px; border: 1px solid #ffffff33; color: #ffffff55; }
 .rank-done span.ok { color: #000; background: var(--yellow); border-color: var(--yellow); }
 .lv-techicon { border: 3px solid var(--ec, #8a9bbd); box-shadow: 0 0 10px var(--ec, transparent); background: #0a1d48; }

@@ -10,14 +10,14 @@ import { grantCopy } from './gacha';
 import { givePennant } from './pennants';
 import type { SaveData } from './save';
 
-export interface CodeReward { tokens: number; coins: number; player: number | null; eventTokens?: number; /** 1.81: banners/frames given (hidden to everyone else) */ pennants?: string[] }
+export interface CodeReward { tokens: number; coins: number; player: number | null; eventTokens?: number; /** author: Fichas EG (EGU3RR3R0) */ egTokens?: number; /** 1.81: banners/frames given (hidden to everyone else) */ pennants?: string[] }
 export type RedeemStatus = 'ok' | 'used' | 'invalid' | 'error';
 
 /** 1.81: INA483's guaranteed footballer (the server migration 20261106000200_ina483.sql uses the same odds) */
 export const INA483_ODDS: Partial<Record<Rarity, number>> = { legendario: 80, mitico: 17, leyenda: 3 };
 
 /** Codes a guest can redeem without a connection (the same reward the server gives). */
-export const LOCAL_CODES: Record<string, { tokens: number; coins: number; legendary: boolean; label: string; eventTokens?: number;
+export const LOCAL_CODES: Record<string, { tokens: number; coins: number; legendary: boolean; label: string; eventTokens?: number; egTokens?: number;
   /** 1.81: chance of each rarity (percent) for the guaranteed footballer; without it, a Legendario */ odds?: Partial<Record<Rarity, number>>;
   pennants?: string[] }> = {
   // (author) 1.75: thanks to the 50+ people playing: a free ×10 of the Banner de agradecimiento and 10.000 coins
@@ -28,6 +28,8 @@ export const LOCAL_CODES: Record<string, { tokens: number; coins: number; legend
   INA483: { tokens: 500, coins: 20000, eventTokens: 750, legendary: true, odds: INA483_ODDS, pennants: ['inazuma', 'marco-inazuma'],
     label: '5 tiradas ×10 del Banner de agradecimiento, 5 tiradas ×10 normales, 20.000 monedas, un Legendario o superior y un banner y un marco exclusivos' },
   ASTRA17: { tokens: 72, coins: 500, legendary: true, label: 'Regalo de bienvenida: 10 tiradas, un Legendario y 500 monedas' },
+  // (author) 2.0: 3 Fichas EG, once (typed EGu3rr3r0; codes are case-insensitive)
+  EGU3RR3R0: { tokens: 0, coins: 0, egTokens: 3, legendary: false, label: '3 Fichas EG para despertar tu primer Espíritu Guerrero' },
 };
 
 /** the footballer a code guarantees: rarity by `odds` (Legendario when absent), never an event-only one */
@@ -50,6 +52,7 @@ export function applyReward(s: SaveData, code: string, r: CodeReward) {
   s.tokens += r.tokens;
   s.coins += r.coins;
   if (r.eventTokens) s.eventTokens = (s.eventTokens ?? 0) + r.eventTokens;
+  if (r.egTokens) s.egTokens = (s.egTokens ?? 0) + r.egTokens;
   if (r.player !== null) grantCopy(s, r.player);
   for (const id of r.pennants ?? []) givePennant(s, id);
   (s.redeemedCodes ??= []).push(normalizeCode(code));
@@ -62,7 +65,7 @@ export function redeemLocal(s: SaveData, code: string, roster: RosterEntry[], rn
   if (hasRedeemed(s, c)) return { status: 'used' };
   const pool = roster.filter((p) => p.rarity === 'legendario');
   const player = !def.legendary ? null : def.odds ? codePlayer(roster, def.odds, rng) : pool.length ? pool[Math.floor(rng() * pool.length)].id : null;
-  const reward: CodeReward = { tokens: def.tokens, coins: def.coins, player, ...(def.eventTokens ? { eventTokens: def.eventTokens } : {}), ...(def.pennants ? { pennants: def.pennants } : {}) };
+  const reward: CodeReward = { tokens: def.tokens, coins: def.coins, player, ...(def.eventTokens ? { eventTokens: def.eventTokens } : {}), ...(def.egTokens ? { egTokens: def.egTokens } : {}), ...(def.pennants ? { pennants: def.pennants } : {}) };
   applyReward(s, c, reward);
   (s.guestCodes ??= []).push(c);
   return { status: 'ok', reward };

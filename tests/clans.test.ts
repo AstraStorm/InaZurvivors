@@ -17,8 +17,8 @@ describe('clans (1.93)', () => {
     expect(CLAN_ITEMS.map((x) => x.icon)).toEqual([305, 1110, 1217, 1121, 1213]);
     const n = (b: Record<string, number | undefined>) => Object.values(b).reduce((a: number, x) => a + (x ?? 0), 0);
     expect(n(clanDrops({ kills: 0, victory: false, rank: 'C' }, Math.random))).toBe(0);
-    expect(n(clanDrops({ kills: 600, victory: true, rank: 'S' }, Math.random))).toBe(16);
-    expect(n(clanDrops({ kills: 99999, victory: true, rank: 'X' }, Math.random))).toBe(20);
+    expect(n(clanDrops({ kills: 600, victory: true, rank: 'S' }, Math.random))).toBe(48);
+    expect(n(clanDrops({ kills: 99999, victory: true, rank: 'X' }, Math.random))).toBe(60);
   });
   it('the shop: same offers all week, new ones the next; stock per week; items paid', () => {
     const w = clanWeekKey(new Date('2026-11-11T12:00:00+01:00'));

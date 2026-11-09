@@ -5,6 +5,10 @@
  * counts hits and adds up the damage, big at the top of the screen, and climbs through ranks by how many times the usual
  * damage it made (¡COMBO! · ¡GENIAL! · ¡BRUTAL! · ¡IMPARABLE! · ¡INAZUMA!) with a punch, a flash and sparks on each.
  * When it calms down it shows the total and flies away. Fixed to the camera, whatever its zoom.
+ *
+ * 2.0 (author: «más juiced en lo de combos, una mini funcionalidad pero no muy rota»): each rank past ¡COMBO! charges
+ * the active warrior spirit's ultimate a little (onRank, ArenaScene: 4 % per rank step, at most 40 % in one burst) and
+ * says so under the meter; every rank also throws a shock ring and shakes the count.
  */
 import Phaser from 'phaser';
 import type { Settings } from '../systems/save';
@@ -44,6 +48,10 @@ export class ComboMeter {
   private bar: Phaser.GameObjects.Rectangle;
   private halo: Phaser.GameObjects.Ellipse;
   private shownDmg = 0;
+  private gift: Phaser.GameObjects.Text;
+  private ring: Phaser.GameObjects.Ellipse;
+  /** 2.0: a rank past ¡COMBO! was reached; returns what it gave (shown under the meter), or null */
+  onRank: ((rank: number) => { text: string; color: string } | null) | null = null;
 
   constructor(private scene: Phaser.Scene, private settings: () => Settings) {
     const font = { fontFamily: '"Press Start 2P"', stroke: '#000000', align: 'center' };
@@ -52,7 +60,9 @@ export class ComboMeter {
     this.dmg = scene.add.text(0, 6, '', { ...font, fontSize: '26px', color: '#ffe24a', strokeThickness: 7 }).setOrigin(0.5);
     this.word = scene.add.text(0, 40, '', { ...font, fontSize: '13px', color: '#ffffff', strokeThickness: 5 }).setOrigin(0.5);
     this.bar = scene.add.rectangle(0, 58, 180, 5, 0xffffff, 0.9);
-    this.box = scene.add.container(0, 0, [this.halo, this.count, this.dmg, this.word, this.bar]).setScrollFactor(0).setDepth(99990).setAlpha(0).setVisible(false);
+    this.gift = scene.add.text(0, 80, '', { ...font, fontSize: '11px', color: '#ffffff', strokeThickness: 5 }).setOrigin(0.5).setAlpha(0);
+    this.ring = scene.add.ellipse(0, 6, 120, 60).setStrokeStyle(4, 0xffffff, 1).setAlpha(0);
+    this.box = scene.add.container(0, 0, [this.halo, this.ring, this.count, this.dmg, this.word, this.bar, this.gift]).setScrollFactor(0).setDepth(99990).setAlpha(0).setVisible(false);
     scene.events.on('update', this.tick, this);
     scene.events.once('shutdown', () => scene.events.off('update', this.tick, this));
   }
@@ -97,6 +107,17 @@ export class ComboMeter {
       if (this.settings().shake) cam.shake(120, 0.002 + r * 0.0012);
       this.sparks(def.glow, 10 + r * 4);
       sfx(r >= 3 ? 'legend' : 'powerup', 1 + r * 0.06);
+      // a shock ring out of the meter, and the whole meter kicks
+      this.ring.setStrokeStyle(4 + r, def.glow, 1).setScale(0.4).setAlpha(1);
+      this.scene.tweens.add({ targets: this.ring, scaleX: 2.6 + r * 0.3, scaleY: 2.6 + r * 0.3, alpha: 0, duration: 520, ease: 'Cubic.easeOut' });
+      this.scene.tweens.add({ targets: this.dmg, angle: { from: -6, to: 0 }, scale: { from: 1.5, to: 1 }, duration: 300, ease: 'Back.easeOut' });
+      const got = this.onRank?.(r);
+      if (got) {
+        this.gift.setText(got.text).setColor(got.color).setScale(1.8).setAlpha(1).setY(80);
+        this.scene.tweens.killTweensOf(this.gift);
+        this.scene.tweens.add({ targets: this.gift, scale: 1, duration: 260, ease: 'Back.easeOut' });
+        this.scene.tweens.add({ targets: this.gift, y: 72, alpha: 0, delay: 1200, duration: 400 });
+      }
     }
   }
 

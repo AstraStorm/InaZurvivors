@@ -37,7 +37,15 @@ export interface RankDef {
   firstClearTokens: number;
 }
 
-export const RANK_ORDER: Rank[] = ['C', 'B', 'A', 'S', 'X'];
+export const RANK_ORDER: Rank[] = ['C', 'B', 'A', 'S', 'X', 'Z'];
+
+/** (author) Rango Z opens with the Tuesday update, at 12:00 Madrid (the server's clock decides; submit_score checks it too) */
+export const RANK_Z_OPENS = '2026-11-10T12:00:00+01:00';
+const DAY_MS = 86_400_000;
+export const rankZOpen = (now: number | Date) => +now >= Date.parse(RANK_Z_OPENS);
+export const rankZLeftMs = (now: number | Date) => Math.max(0, Date.parse(RANK_Z_OPENS) - +now);
+/** whole days until it opens (1 on its eve, 0 once open) */
+export const rankZDaysLeft = (now: number | Date) => Math.max(0, Math.ceil(rankZLeftMs(now) / DAY_MS));
 
 export const RANKS: Record<Rank, RankDef> = {
   C: { id: 'C', label: 'Rango C', blurb: 'Para aprender: accesible, pero hay que moverse.', hp: 0.9, damage: 0.85, speed: 0.96, spawnInterval: 1.05, burst: 0,
@@ -50,6 +58,9 @@ export const RANKS: Record<Rank, RankDef> = {
     elite: 0.14, runner: 0.18, shooter: 0.12, flanker: 0.12, bomber: 0.07, tank: 0.07, surroundEvery: 65, hazardEvery: 8, bossTempo: 0.68, extraMinibosses: 1, reward: 1.75, firstClearTokens: 18 },
   X: { id: 'X', label: 'Rango X', blurb: 'Extremo: para equipos al máximo. Todo avisa antes de golpear.', hp: 2.4, damage: 1.9, speed: 1.22, spawnInterval: 0.58, burst: 3,
     elite: 0.2, runner: 0.22, shooter: 0.15, flanker: 0.15, bomber: 0.09, tank: 0.09, surroundEvery: 50, hazardEvery: 5.5, bossTempo: 0.52, extraMinibosses: 2, reward: 2.2, firstClearTokens: 30 },
+  // (author) Rango Z: far beyond X, for the very best teams; it pays the most and counts the most on the ranking
+  Z: { id: 'Z', label: 'Rango Z', blurb: 'Imposible: más allá del X. Solo para los mejores equipos del mundo.', hp: 3.3, damage: 2.4, speed: 1.3, spawnInterval: 0.48, burst: 4,
+    elite: 0.3, runner: 0.26, shooter: 0.19, flanker: 0.19, bomber: 0.12, tank: 0.12, surroundEvery: 38, hazardEvery: 3.8, bossTempo: 0.4, extraMinibosses: 3, reward: 3.2, firstClearTokens: 60 },
 };
 
 /**

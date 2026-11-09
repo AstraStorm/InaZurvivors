@@ -1,0 +1,380 @@
+/* 2.0: the run HUD redone on top of the older layers (loaded last): team plates with the warrior spirits, a small empty
+   slot, the captain's spirit chip, and phone layouts where nothing covers anything else */
+
+/* ---------- team plates */
+.hud .team-hud { display: flex !important; align-items: flex-end; justify-content: center; gap: 8px !important; grid-template-columns: none !important; }
+.hud .team-hud .plate { flex: 0 1 184px; min-width: 0; padding: 7px 8px 7px 7px !important; border-radius: 16px !important;
+  background: linear-gradient(165deg, color-mix(in srgb, var(--rc) 22%, #0d1f4a) 0%, #081638f2 45%, #050c24f2 100%) !important;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--rc) 55%, #ffffff22), 0 6px 16px #000a !important; backdrop-filter: blur(2px); }
+.hud .team-hud .plate.cap { box-shadow: inset 0 0 0 2px var(--yellow), 0 0 18px #ffd23f40, 0 6px 16px #000a !important; }
+.hud .team-hud .plate .pl-head { gap: 7px; }
+.hud .team-hud .pl-mug { flex: none; }
+.hud .team-hud .pl-name { font-size: 8.5px; line-height: 1.25; white-space: nowrap; text-overflow: ellipsis; }
+
+/* the spirit: its colour round the face, its portrait as a medallion on the face's corner, its level under it */
+.hud .team-hud .plate.has-eg { box-shadow: inset 0 0 0 1px var(--kc), 0 0 16px color-mix(in srgb, var(--kc) 45%, transparent), 0 6px 16px #000a !important;
+  background: linear-gradient(165deg, color-mix(in srgb, var(--kc) 26%, #0d1f4a) 0%, #081638f2 50%, #050c24f2 100%) !important; }
+.hud .team-hud .plate.cap.has-eg { box-shadow: inset 0 0 0 2px var(--yellow), 0 0 18px color-mix(in srgb, var(--kc) 55%, transparent), 0 6px 16px #000a !important; }
+.hud .team-hud .plate.has-eg .pl-mug { box-shadow: 0 0 0 2px var(--kc), 0 0 12px var(--kc) !important; animation: plEg 2.4s ease-in-out infinite; }
+@keyframes plEg { 50% { box-shadow: 0 0 0 2px var(--kc), 0 0 20px var(--kc); } }
+.pl-eg { position: absolute; z-index: 3; left: 26px; top: -6px; width: 22px; height: 22px; border-radius: 50%; overflow: visible; }
+.pl-eg .eg-art-img { width: 22px; height: 22px; border-radius: 50%; box-shadow: 0 0 0 2px #04061a, 0 0 0 3px var(--kc), 0 0 8px var(--kc); }
+.pl-eg .eg-lvsym { position: absolute; left: 50%; bottom: -9px; transform: translateX(-50%); }
+.hud .team-hud .plate .pl-elem { z-index: 2; }
+
+/* empty slot: a small ring, not a whole card */
+.hud .team-hud .plate.empty { flex: 0 0 auto; width: 46px; height: 46px; min-height: 0 !important; padding: 0 !important; border-radius: 50% !important; align-self: center;
+  background: #06102b66 !important; box-shadow: inset 0 0 0 2px #7fd3ff33 !important; }
+.hud .team-hud .plate.empty span { display: none !important; }
+.hud .team-hud .plate.empty b { font-size: 18px; color: #7fd3ffaa; animation: plWait 2.6s ease-in-out infinite; }
+@keyframes plWait { 50% { opacity: .45; } }
+
+/* the captain's spirit, as a tab on the panel's top corner (it used to push his name out) */
+.hud .cap-panel .cap-eg { position: absolute; z-index: 3; top: 7px; right: 16px; }
+.hud .team-hud .plate.has-eg .pl-name { margin-left: 9px; }
+.cap-eg { display: inline-flex; align-items: center; gap: 4px; padding: 1px 7px 1px 1px; border-radius: 999px; vertical-align: middle;
+  background: color-mix(in srgb, var(--kc) 30%, #0a0820); box-shadow: inset 0 0 0 1px var(--kc), 0 0 8px color-mix(in srgb, var(--kc) 50%, transparent); }
+.cap-eg .eg-art-img { width: 16px; height: 16px; border-radius: 50%; }
+.cap-eg em { font-style: normal; font-size: 7px; color: #fff; text-shadow: 1px 1px 0 #000; }
+
+/* ---------- phones (landscape and portrait): round portraits with their technique rings */
+@media (max-width: 900px), (max-height: 520px) {
+  .hud .team-hud { gap: 5px !important; }
+  .hud .team-hud .plate { flex: 0 1 60px; width: auto !important; padding: 4px 4px 5px !important; border-radius: 14px !important; display: flex; flex-direction: column; align-items: center; }
+  .hud .team-hud .plate .pl-head { justify-content: center; margin: 0 0 3px; }
+  .hud .team-hud .pl-name, .hud .team-hud .pl-tn, .hud .team-hud .pl-pips { display: none !important; }
+  .hud .team-hud .plate .pl-mug .mug { width: 44px !important; height: 44px !important; }
+  .hud .team-hud .plate .pl-elem { left: auto !important; right: -3px; top: auto !important; bottom: -2px; transform: scale(.8); }
+  .hud .team-hud .pl-c { left: -2px !important; top: -2px !important; }
+  .hud .team-hud .pl-tech { display: inline-flex !important; margin: 0 1px !important; padding: 0 !important; background: none !important; }
+  .hud .team-hud .plate > .pl-tech { vertical-align: top; }
+  .hud .team-hud .pl-icon { width: 20px !important; height: 20px !important; }
+  .hud .team-hud .plate { flex-wrap: wrap; flex-direction: row; justify-content: center; }
+  .hud .team-hud .plate .pl-head { flex: 1 0 100%; }
+  .pl-eg { left: auto; right: -5px; top: -5px; width: 20px; height: 20px; }
+  .pl-eg .eg-art-img { width: 20px; height: 20px; }
+  .hud .team-hud .plate.empty { width: 34px; height: 34px; }
+  .hud .team-hud .plate.empty b { font-size: 14px; }
+  .cap-eg em { display: none; }
+}
+
+/* ---------- heals: the HP bar glows green and shines for a moment */
+.hud .cap-panel .hp-bar.healed { box-shadow: inset 0 0 0 2px #b6ffc4, 0 0 16px #5ee05acc, 0 2px 8px #000a !important; }
+.hud .cap-panel .hp-bar.healed .fill { filter: brightness(1.35) saturate(1.2); }
+.hud .cap-panel .hp-bar.healed::after { background: linear-gradient(100deg, transparent 30%, #ffffff88 48%, transparent 66%) -100% 0 / 200% 100% no-repeat !important; animation: hpHeal .5s ease-out; }
+@keyframes hpHeal { to { background-position: 200% 0; } }
+
+/* ---------- 2.0 the active warrior spirit's ultimate (R / Y / tap), bottom right: the portrait fills up as it charges,
+   and when it is ready the button springs out and glows in the spirit's colour */
+.hud .ult-dock { position: absolute; right: 16px; bottom: 16px; z-index: 6; display: flex; align-items: center; gap: 10px; flex-direction: row-reverse; pointer-events: none; }
+.hud .ult-dock:empty { display: none; }
+.ult-btn { position: relative; flex: none; width: 70px; height: 70px; padding: 0; border: 0; border-radius: 50%; background: #050c24; cursor: pointer; pointer-events: auto; touch-action: none;
+  box-shadow: 0 0 0 2px #04061a, 0 6px 14px #000a; -webkit-tap-highlight-color: transparent; transition: transform .15s; }
+.ult-btn .ult-ring { position: absolute; inset: -6px; border-radius: 50%;
+  background: conic-gradient(var(--kc) calc((1 - var(--cd, 1)) * 360deg), #ffffff1f 0); -webkit-mask: radial-gradient(circle, transparent 60%, #000 62%); mask: radial-gradient(circle, transparent 60%, #000 62%); }
+.ult-btn .ult-art { position: absolute; inset: 4px; width: calc(100% - 8px); height: calc(100% - 8px); border-radius: 50%; object-fit: cover; filter: grayscale(.85) brightness(.5); transition: filter .3s; }
+.ult-btn .ult-t { position: absolute; inset: 0; display: grid; place-items: center; font-size: 16px; color: #fff; text-shadow: 2px 2px 0 #000, 0 0 6px #000; }
+.ult-key { position: absolute; right: -6px; bottom: -6px; min-width: 22px; padding: 4px 5px; border-radius: 7px; font: 10px "Press Start 2P", monospace; color: #04061a; text-align: center;
+  background: #fff; box-shadow: 0 0 0 2px #04061a, 0 3px 0 2px #04061a; }
+.ult-key[hidden] { display: none; }
+.ult-info { display: flex; flex-direction: column; align-items: flex-end; gap: 3px; padding: 6px 10px; border-radius: 10px; background: #050c24d9; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--kc) 60%, transparent); text-align: right; }
+.ult-info small { font-size: 7px; letter-spacing: 1px; color: color-mix(in srgb, var(--kc) 70%, #fff); }
+.ult-info b { font-size: 9px; color: #fff; white-space: nowrap; }
+.ult-info em { font-style: normal; font-size: 7px; color: #9fb2d8; }
+/* ready: it springs out, glows and shines; the info line says how to fire it */
+.ult-dock.ready .ult-art { filter: none; }
+.ult-dock.ready .ult-ring { background: var(--kc); }
+.ult-dock.ready .ult-btn { animation: ultReady 1.1s ease-in-out infinite; box-shadow: 0 0 0 2px #04061a, 0 0 22px var(--kc), 0 6px 14px #000a; }
+.ult-dock.ready .ult-btn::after { content: ''; position: absolute; inset: -6px; border-radius: 50%; background: linear-gradient(120deg, transparent 35%, #ffffffaa 50%, transparent 65%) -150% 0 / 300% 100% no-repeat; animation: ultShine 1.6s linear infinite; pointer-events: none; }
+.ult-dock.ready .ult-info { box-shadow: inset 0 0 0 2px var(--kc), 0 0 16px color-mix(in srgb, var(--kc) 60%, transparent); }
+.ult-dock.ready .ult-info em { color: #fff; font-size: 8px; animation: ultBlink .8s steps(2) infinite; }
+.ult-dock.pop .ult-btn { animation: ultPop .5s cubic-bezier(.2, 1.8, .4, 1), ultReady 1.1s ease-in-out .5s infinite; }
+.ult-btn:active { transform: scale(.9); }
+@keyframes ultPop { 0% { transform: scale(.6); } 60% { transform: scale(1.3); } 100% { transform: scale(1); } }
+@keyframes ultReady { 50% { box-shadow: 0 0 0 2px #04061a, 0 0 34px var(--kc), 0 6px 14px #000a; transform: scale(1.06); } }
+@keyframes ultShine { to { background-position: 150% 0; } }
+@keyframes ultBlink { 50% { opacity: .55; } }
+/* the plates: the active spirit says ULTI, the others PASIVA (dimmer) */
+.hud .team-hud .plate { position: relative; }
+.hud .team-hud .pl-egtag { position: absolute; z-index: 4; right: 10px; top: -9px; padding: 3px 6px; border-radius: 6px; font: 6px "Press Start 2P", monospace; white-space: nowrap; color: #c8d2ea; background: #04061a; box-shadow: inset 0 0 0 1px #ffffff33; }
+.hud .team-hud .plate.eg-active .pl-egtag { color: #04061a; background: var(--kc); box-shadow: 0 0 8px var(--kc), 0 2px 0 #04061a; }
+.hud .team-hud .plate.eg-active { box-shadow: inset 0 0 0 2px var(--kc), 0 0 20px color-mix(in srgb, var(--kc) 60%, transparent), 0 6px 16px #000a !important; }
+.hud .team-hud .plate.cap.eg-active { box-shadow: inset 0 0 0 2px var(--yellow), 0 0 0 2px var(--kc), 0 0 22px color-mix(in srgb, var(--kc) 65%, transparent), 0 6px 16px #000a !important; }
+.hud .team-hud .plate.eg-passive .pl-eg .eg-art-img { filter: saturate(.5) brightness(.8); }
+.hud .team-hud .plate.eg-passive .pl-mug { animation: none !important; }
+/* phones: the info line goes (the button says it all), the button a little bigger for the thumb */
+@media (max-width: 900px), (max-height: 520px) {
+  .hud .team-hud .pl-egtag { right: 50%; transform: translateX(50%); top: -10px; padding: 2px 4px; font-size: 5px; }
+  .hud .ult-dock { right: 12px; bottom: 12px; }
+  .ult-info { display: none; }
+  .ult-btn { width: 64px; height: 64px; }
+  .ult-dock.ready::before { content: '¡ULTI!'; position: absolute; left: 50%; bottom: calc(100% + 6px); transform: translateX(-50%); font: 8px "Press Start 2P", monospace; color: #fff; white-space: nowrap;
+    text-shadow: 1px 1px 0 #000, 0 0 8px var(--kc); animation: ultBlink .8s steps(2) infinite; }
+}
+/* landscape phones: above the team portraits, on the right where the thumb is */
+@media (max-height: 520px) and (orientation: landscape) { .hud .ult-dock { bottom: 96px; right: 14px; } }
+@media (max-width: 600px) and (orientation: portrait) { .hud .ult-dock { bottom: 112px; } }
+@media (prefers-reduced-motion: reduce) { .ult-dock .ult-btn, .ult-dock .ult-btn::after { animation: none !important; } }
+
+/* ---------- 2.0b (author: «haz más visible lo de la ulti y mejora la interfaz del HUD») */
+/* the ultimate: bigger, its charge in numbers, and when it is ready the whole screen says so */
+.hud .ult-btn { width: 86px; height: 86px; }
+.ult-btn .ult-ring { inset: -7px; -webkit-mask: radial-gradient(circle, transparent 57%, #000 59%); mask: radial-gradient(circle, transparent 57%, #000 59%); }
+.ult-btn .ult-t { font-size: 18px; align-content: center; padding-bottom: 14px; }
+.ult-btn .ult-pc { position: absolute; left: 50%; bottom: 10px; transform: translateX(-50%); font: 8px "Press Start 2P", monospace; font-style: normal; color: #fff; text-shadow: 1px 1px 0 #000, -1px -1px 0 #000; }
+.ult-dock.ready .ult-pc { bottom: auto; top: 50%; transform: translate(-50%, -50%); font-size: 12px; color: #fff; text-shadow: 0 0 8px var(--kc), 2px 2px 0 #000; animation: ultBlink .7s steps(2) infinite; }
+.ult-dock.ready .ult-t { display: none; }
+.ult-info { padding: 8px 12px; gap: 4px; }
+.ult-info small { font-size: 8px; }
+.ult-info b { font-size: 11px; }
+.ult-info em { font-size: 8px; }
+.ult-dock.ready .ult-info em { font-size: 9px; color: #fff; text-shadow: 0 0 8px var(--kc); }
+.ult-dock.ready .ult-btn::before { content: ""; position: absolute; inset: -16px; border-radius: 50%; border: 3px solid var(--kc); opacity: 0; animation: ultWave 1.2s ease-out infinite; pointer-events: none; }
+@keyframes ultWave { 0% { transform: scale(.8); opacity: .9; } 100% { transform: scale(1.35); opacity: 0; } }
+/* the edges of the screen glow in the spirit's colour while it is ready */
+.hud.ult-ready::after { content: ""; position: absolute; inset: 0; z-index: 0; pointer-events: none; box-shadow: inset 0 0 60px color-mix(in srgb, var(--ultc, #7fd3ff) 55%, transparent); animation: ultEdge 1.6s ease-in-out infinite; }
+@keyframes ultEdge { 50% { opacity: .45; } }
+/* the call in the middle of the screen when it fills */
+.ult-toast { position: absolute; left: 50%; top: 30%; z-index: 30; display: flex; align-items: center; gap: 14px; padding: 12px 26px 12px 14px; pointer-events: none; transform: translateX(-50%);
+  border-radius: 999px; background: linear-gradient(90deg, #050c24f2, color-mix(in srgb, var(--kc) 35%, #050c24) 50%, #050c24f2); box-shadow: inset 0 0 0 2px var(--kc), 0 0 40px color-mix(in srgb, var(--kc) 60%, transparent), 0 10px 26px #000c;
+  animation: utIn .45s cubic-bezier(.2, 1.6, .4, 1) both; }
+.ult-toast.out { animation: utOut .4s ease-in both; }
+.ut-rays { position: absolute; left: 34px; top: 50%; width: 220px; height: 220px; margin: -110px 0 0 -110px; border-radius: 50%; z-index: -1;
+  background: repeating-conic-gradient(color-mix(in srgb, var(--kc) 50%, transparent) 0 8deg, transparent 8deg 22deg); -webkit-mask: radial-gradient(circle, #000 20%, transparent 70%); mask: radial-gradient(circle, #000 20%, transparent 70%); animation: ejSpin 4s linear infinite; }
+.ut-art .eg-art-img { width: 62px; height: 62px; border-radius: 50%; box-shadow: 0 0 0 3px #04061a, 0 0 0 5px var(--kc), 0 0 20px var(--kc); }
+.ut-tx { display: flex; flex-direction: column; gap: 4px; }
+.ut-tx small { font-size: 9px; letter-spacing: 2px; color: color-mix(in srgb, var(--kc) 60%, #fff); }
+.ut-tx b { font-family: Impact, "Arial Black", sans-serif; font-style: italic; font-size: 30px; line-height: 1; color: #fff; -webkit-text-stroke: 1px #04061a; text-shadow: 3px 3px 0 #04061a, 0 0 18px var(--kc); white-space: nowrap; }
+.ut-tx em { font-style: normal; font-size: 9px; color: #fff; }
+.ut-tx kbd { display: inline-block; padding: 3px 6px; border-radius: 6px; font: 10px "Press Start 2P", monospace; color: #04061a; background: #fff; box-shadow: 0 3px 0 #04061a; animation: ultBlink .6s steps(2) infinite; }
+@keyframes utIn { 0% { transform: translateX(-50%) scale(.4); opacity: 0; } 100% { transform: translateX(-50%) scale(1); opacity: 1; } }
+@keyframes utOut { to { transform: translateX(-50%) translateY(-20px) scale(.9); opacity: 0; } }
+
+/* the signing with a warrior spirit: a flash, rays and the spirit bursting out with its name, level and role */
+.eg-join { position: absolute; inset: 0; z-index: 40; display: grid; place-items: center; pointer-events: none; overflow: hidden; }
+.ej-flash { position: absolute; inset: 0; background: radial-gradient(circle at 50% 45%, #ffffffcc, color-mix(in srgb, var(--kc) 50%, transparent) 30%, transparent 65%); animation: ejFlash .6s ease-out both; }
+.ej-rays { position: absolute; left: 50%; top: 45%; width: 900px; height: 900px; margin: -450px 0 0 -450px;
+  background: repeating-conic-gradient(color-mix(in srgb, var(--kc) 40%, transparent) 0 6deg, transparent 6deg 18deg); -webkit-mask: radial-gradient(circle, #000 10%, transparent 60%); mask: radial-gradient(circle, #000 10%, transparent 60%);
+  animation: ejSpin 6s linear infinite, ejRays .5s ease-out both; }
+.ej-card { position: relative; display: flex; align-items: center; gap: 18px; padding: 16px 30px 16px 18px; border-radius: 22px; transform: rotate(-3deg);
+  background: linear-gradient(120deg, #050c24f4, color-mix(in srgb, var(--kc) 30%, #050c24) 55%, #050c24f4); box-shadow: inset 0 0 0 3px var(--kc), 0 0 60px color-mix(in srgb, var(--kc) 70%, transparent), 0 14px 30px #000c;
+  animation: ejIn .6s cubic-bezier(.2, 1.7, .4, 1) .08s both; }
+.ej-art { position: relative; flex: none; }
+.ej-art .eg-art-img { width: 120px; height: 120px; border-radius: 50%; box-shadow: 0 0 0 4px #04061a, 0 0 0 7px var(--kc), 0 0 40px var(--kc); animation: ejArt 1.2s ease-in-out .6s infinite; }
+.ej-lv { position: absolute; left: 50%; bottom: -12px; transform: translateX(-50%); filter: drop-shadow(0 2px 2px #000); }
+.ej-mug { position: absolute; left: 96px; top: 74px; border-radius: 12px; overflow: hidden; box-shadow: 0 0 0 3px #04061a, 0 0 0 5px #fff; animation: ejMug .5s cubic-bezier(.2, 1.7, .4, 1) .35s both; }
+.ej-tx { display: flex; flex-direction: column; gap: 4px; max-width: min(380px, 52vw); }
+.ej-tx small { font-size: 9px; letter-spacing: 1px; color: #fff; opacity: .85; }
+.ej-tx em { font-style: normal; font-size: 11px; letter-spacing: 2px; color: color-mix(in srgb, var(--kc) 65%, #fff); }
+.ej-tx b { font-family: Impact, "Arial Black", sans-serif; font-style: italic; font-size: 46px; line-height: 1; color: #fff; -webkit-text-stroke: 2px #04061a; text-shadow: 4px 4px 0 #04061a, 0 0 26px var(--kc); animation: ejName .5s cubic-bezier(.2, 1.8, .4, 1) .25s both; }
+.ej-role { margin-top: 4px; padding: 5px 9px; border-radius: 8px; font-size: 8px; line-height: 1.5; color: #c8d2ea; background: #04061acc; box-shadow: inset 0 0 0 1px #ffffff33; }
+.eg-join.active .ej-role { color: #04061a; background: var(--kc); box-shadow: 0 0 14px var(--kc); }
+.ej-role i { font-style: normal; text-decoration: underline; }
+.eg-join.out { animation: ejOut .45s ease-in both; }
+@keyframes ejFlash { 0% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes ejSpin { to { transform: rotate(360deg); } }
+@keyframes ejRays { 0% { opacity: 0; scale: .3; } 100% { opacity: 1; scale: 1; } }
+@keyframes ejIn { 0% { transform: rotate(-3deg) scale(.2); opacity: 0; } 100% { transform: rotate(-3deg) scale(1); opacity: 1; } }
+@keyframes ejArt { 50% { box-shadow: 0 0 0 4px #04061a, 0 0 0 7px var(--kc), 0 0 70px var(--kc); } }
+@keyframes ejMug { 0% { transform: scale(0) rotate(-40deg); } 100% { transform: none; } }
+@keyframes ejName { 0% { transform: scale(2.2); opacity: 0; } 100% { transform: none; opacity: 1; } }
+@keyframes ejOut { to { opacity: 0; transform: scale(1.08); } }
+/* the signing card with a spirit */
+.lvcard.recruit.has-eg { box-shadow: inset 0 0 0 2px var(--kc), 0 0 24px color-mix(in srgb, var(--kc) 55%, transparent) !important; }
+.lvcard.recruit.has-eg .lv-ribbon { background: var(--kc) !important; color: #04061a !important; }
+.lv-eg { display: flex; align-items: center; gap: 8px; margin-top: 6px; padding: 6px 8px; border-radius: 10px; text-align: left;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--kc) 30%, #050c24), #050c24); box-shadow: inset 0 0 0 1px var(--kc); }
+.lv-eg-art .eg-art-img { width: 40px; height: 40px; border-radius: 50%; box-shadow: 0 0 0 2px #04061a, 0 0 0 3px var(--kc), 0 0 12px var(--kc); }
+.lv-eg-tx { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.lv-eg-tx small { font-size: 6px; letter-spacing: 1px; color: color-mix(in srgb, var(--kc) 65%, #fff); }
+.lv-eg-tx b { font-size: 10px; color: #fff; }
+.lv-eg-tx em { font-style: normal; font-size: 6px; line-height: 1.4; color: #dfe6f6; }
+
+/* the HUD in general: solid, even panels (the captain panel used to fade out into the pitch) */
+.hud .vitals.cap-panel { background: linear-gradient(180deg, #102a5ef4, #071233f4) !important; box-shadow: inset 0 0 0 1px #7fd3ff55, inset 0 1px 0 #ffffff22, 0 8px 20px #000a !important; }
+.hud .top-right .clock, .hud .formation-hud, .hud .minimap { box-shadow: inset 0 0 0 1px #7fd3ff55, 0 6px 16px #000a; }
+.hud .minimap { border-radius: 12px; }
+@media (max-width: 900px), (max-height: 520px) {
+  .hud .ult-btn { width: 70px; height: 70px; }
+  .ult-btn .ult-pc { font-size: 7px; bottom: 8px; }
+  .ult-toast { top: 22%; padding: 8px 18px 8px 10px; gap: 10px; }
+  .ut-art .eg-art-img { width: 44px; height: 44px; }
+  .ut-tx b { font-size: 20px; }
+  .ej-card { padding: 10px 18px 10px 12px; gap: 12px; }
+  .ej-art .eg-art-img { width: 80px; height: 80px; }
+
+  .ej-tx b { font-size: 30px; }
+  .ej-role { font-size: 7px; }
+}
+@media (prefers-reduced-motion: reduce) { .ult-toast, .eg-join *, .hud.ult-ready::after, .ej-rays, .ut-rays { animation: none !important; } }
+.lvcard.recruit.has-eg .lv-art { position: relative; overflow: hidden; }
+.lv-art-eg { position: absolute; inset: 0; z-index: 0; pointer-events: none; }
+.lv-art-eg .eg-art-img { width: 100%; height: 100%; object-fit: cover; opacity: .5; filter: saturate(1.3); -webkit-mask: linear-gradient(90deg, transparent, #000 30%, #000 70%, transparent); mask: linear-gradient(90deg, transparent, #000 30%, #000 70%, transparent); animation: ejArtPan 4s ease-in-out infinite alternate; }
+.lvcard.recruit.has-eg .lv-art > :not(.lv-art-eg) { position: relative; z-index: 1; }
+@keyframes ejArtPan { from { transform: scale(1.15) translateX(-4%); } to { transform: scale(1.15) translateX(4%); } }
+
+/* 2.0c: the ultimate beside the team plates (app positions it), the info card on its right; the face of the signing whole */
+.hud .ult-dock.beside { right: auto; bottom: 18px; flex-direction: row; }
+.hud .ult-dock.beside .ult-info { align-items: flex-start; text-align: left; }
+.ej-mug { left: auto; right: -30px; top: auto; bottom: -16px; z-index: 2; overflow: visible; border-radius: 14px; box-shadow: none; background: none; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.ej-mug .mug { display: block; border-radius: 12px; box-shadow: 0 0 0 3px #04061a, 0 0 0 5px #fff, 0 6px 14px #000a; background: #0d1f4a; }
+.ej-mug small { padding: 1px 5px; border-radius: 4px; font-size: 6px; color: #04061a; background: #fff; white-space: nowrap; }
+.ej-art { margin-right: 26px; }
+@media (max-width: 900px), (max-height: 520px) { .ej-mug { zoom: .7; } .ej-art { margin-right: 18px; } }
+
+/* ---------- 2.0d (author: «colócalo más visible · redúcelo un poco · mejora todo su atractivo, más juiced, súper sensitivo y responsivo») */
+/* the ultimate in the middle, right above the team plates (app.renderUlts sets its bottom) */
+.hud .ult-dock.above { left: 50%; right: auto; transform: translateX(-50%); flex-direction: row; gap: 12px; }
+.hud .ult-dock.above .ult-info { align-items: flex-start; text-align: left; }
+.hud .ult-dock.above .ult-btn { width: 78px; height: 78px; }
+
+/* panels: a glass sheen along the top edge and a soft light border */
+.hud .vitals.cap-panel, .hud .top-right .clock, .hud .formation-hud, .hud .team-hud .plate:not(.empty), .ult-info, .hud .res-chips > * { position: relative; }
+.hud .vitals.cap-panel::after, .hud .top-right .clock::after, .hud .team-hud .plate:not(.empty)::after {
+  content: ""; position: absolute; left: 10px; right: 10px; top: 1px; height: 38%; border-radius: inherit; pointer-events: none;
+  background: linear-gradient(180deg, #ffffff1f, transparent); }
+.hud .top-right .clock { background: linear-gradient(180deg, #102a5ef4, #071233f4) !important; }
+/* the HP bar: a gloss and a slow shine; the XP bar shimmers as it fills */
+.hud .xp-bar i { position: absolute; display: block; overflow: hidden; } /* it must stay absolute: an inline <i> ignores its width and the bar never filled */
+.hud .xp-bar i::after { content: ""; position: absolute; inset: 0; background: linear-gradient(100deg, transparent 30%, #ffffff99 50%, transparent 70%) -100% 0 / 50% 100% no-repeat; animation: xpShine 2.4s linear infinite; }
+@keyframes xpShine { to { background-position: 300% 0; } }
+.hud .lv-badge { transition: transform .15s; }
+/* everything you can press answers at once: a lift on hover, a squash on press */
+.hud button, .hud .plate:not(.empty), .ult-btn { transition: transform .1s ease-out, filter .1s ease-out, box-shadow .15s; }
+.hud .formation-hud button:hover, .hud .pausebtn:hover { transform: translateY(-2px); filter: brightness(1.15); }
+.hud .formation-hud button:active, .hud .pausebtn:active { transform: translateY(1px) scale(.94); filter: brightness(.95); transition-duration: .04s; }
+.hud .team-hud .plate:not(.empty):hover { transform: translateY(-3px); filter: brightness(1.08); }
+.ult-btn:hover { filter: brightness(1.12); transform: scale(1.04); }
+.ult-btn:active { transform: scale(.88) !important; transition-duration: .04s; }
+.ult-dock.ready .ult-btn:hover { transform: scale(1.1); }
+
+/* the combined techniques above the team: richer chips, the charge glows, ready ones burn and shine */
+.hud .combo-hud .combo-chip { position: relative; overflow: hidden; border-radius: 10px !important; padding: 5px 10px 7px !important;
+  background: linear-gradient(180deg, #1a2e66f2, #0a1438f2) !important; box-shadow: inset 0 0 0 1px #ffd23f66, 0 4px 12px #000a !important; }
+.hud .combo-hud .combo-chip > i { position: absolute; left: 0; bottom: 0; height: 3px; background: linear-gradient(90deg, #ffb020, #ffe24a) !important; box-shadow: 0 0 8px #ffd23f; transition: width .2s linear; }
+.hud .combo-hud .combo-chip.ready { background: linear-gradient(180deg, #6a4a08f2, #2a1a04f2) !important; box-shadow: inset 0 0 0 2px #ffe24a, 0 0 18px #ffd23faa, 0 4px 12px #000a !important; animation: chipBurn 1s ease-in-out infinite; }
+.hud .combo-hud .combo-chip.ready::after { content: ""; position: absolute; inset: 0; background: linear-gradient(100deg, transparent 35%, #ffffffaa 50%, transparent 65%) -100% 0 / 60% 100% no-repeat; animation: xpShine 1.4s linear infinite; }
+.hud .combo-hud .combo-chip.goal.ready { color: #fff; }
+@keyframes chipBurn { 50% { box-shadow: inset 0 0 0 2px #fff3a0, 0 0 28px #ffd23f, 0 4px 12px #000a; } }
+
+@media (max-width: 900px), (max-height: 520px) {
+  .hud .vitals.cap-panel::after, .hud .top-right .clock::after { display: none; }
+}
+@media (prefers-reduced-motion: reduce) { .hud .xp-bar i::after, .hud .combo-hud .combo-chip.ready, .hud .combo-hud .combo-chip.ready::after { animation: none !important; } }
+
+/* ---------- 2.0e (author: «haz más pequeña la interfaz de la vida y el tiempo, es too much grande, y mejórala, está muy
+   simple»): on a computer the captain panel and the clock block are compact and dressed up — a crest in a turning gold
+   ring, a segmented HP bar with a gloss, a slim XP bar, a diagonal-stripe panel with a gold edge, a pill clock */
+@media (min-width: 901px) and (min-height: 521px) {
+  .hud .vitals.cap-panel { width: 352px !important; gap: 9px !important; padding: 7px 14px 8px 7px !important; border-radius: 12px 26px 12px 26px !important;
+    background:
+      repeating-linear-gradient(115deg, #ffffff07 0 2px, transparent 2px 9px),
+      linear-gradient(100deg, #17336ef6 0%, #0b1a44f6 55%, #071233f6 100%) !important;
+    box-shadow: inset 3px 0 0 var(--yellow), inset 0 0 0 1px #7fd3ff40, inset 0 1px 0 #ffffff26, 0 0 0 2px #04081a, 0 8px 18px #000a !important; }
+  .hud .vitals.cap-panel::after { left: 14px; right: 18px; height: 34%; }
+  /* the crest: round, in a slowly turning gold ring */
+  .hud .cap-crest { position: relative; width: 56px !important; height: 56px; flex: none; align-self: center; padding: 0 !important; border: 0 !important; border-radius: 50% !important;
+    background: radial-gradient(circle at 50% 38%, #2f63c8, #0a1d48 72%) !important; box-shadow: 0 0 0 2px #04081a, 0 0 0 4px #ffd23f, 0 0 14px #ffd23f66, inset 0 0 10px #000a !important; }
+  .hud .cap-crest::before { content: ""; position: absolute; inset: -6px; border-radius: 50%; background: conic-gradient(from 0deg, transparent 0 60%, #fff3a0 75%, transparent 90%); animation: crestSpin 4s linear infinite;
+    -webkit-mask: radial-gradient(circle, transparent 62%, #000 64%); mask: radial-gradient(circle, transparent 62%, #000 64%); }
+  .hud .cap-crest img { width: 40px !important; height: 40px !important; }
+  .hud .cap-crest small { display: none !important; }
+  .hud .cap-panel .vbars { gap: 4px !important; min-width: 0; flex: 1; }
+  .hud .cap-name { gap: 5px !important; align-items: center; min-width: 0; }
+  .hud .cap-name b { font-size: 10px !important; max-width: none !important; overflow: visible !important; white-space: nowrap; }
+  .hud .cap-name span { font-size: 6px !important; padding: 1px 5px !important; }
+  .hud .cap-panel .cap-eg { position: absolute; top: -9px; right: 22px; z-index: 4; box-shadow: inset 0 0 0 1px var(--kc), 0 0 0 2px #04081a, 0 0 10px color-mix(in srgb, var(--kc) 60%, transparent); }
+  .hud .cap-name { padding-right: 4px; }
+  .hud .cap-eg .eg-art-img { width: 14px; height: 14px; }
+  .hud .cap-eg em { font-size: 6px; }
+  /* HP: slimmer, segmented every 10 %, a gloss on top */
+  .hud .cap-panel .hp-bar { height: 20px !important; }
+  .hud .cap-panel .hp-bar span { font-size: 10px !important; line-height: 20px !important; letter-spacing: 1px; }
+  .hud .cap-panel .hp-bar::before { font-size: 11px !important; left: 6px !important; }
+  .hud .cap-panel .hp-bar .fill { overflow: hidden; }
+  .hud .cap-panel .hp-bar .fill::after { content: ""; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(180deg, #ffffff50, transparent 50%, #00000026); }
+  .hud .cap-panel .hp-bar span { background: repeating-linear-gradient(90deg, transparent 0 calc(10% - 1px), #04081a66 calc(10% - 1px) 10%); }
+  .hud .rev-chip { font-size: 6px !important; padding: 1px 6px !important; }
+  .hud .cap-panel .xp-row { gap: 6px !important; align-items: center; }
+  .hud .cap-panel .lv-badge { width: 26px !important; height: 26px !important; flex: none; }
+  .hud .cap-panel .lv-badge b { font-size: 11px !important; }
+  .hud .cap-panel .lv-badge small { display: none; }
+  .hud .xp-bar { height: 9px !important; }
+  .hud .xp-bar span { font-size: 6px !important; line-height: 9px !important; }
+  .hud .cap-panel .hud-stats { gap: 4px; font-size: 7px !important; }
+  .hud .hud-stats span { font-size: 7px !important; padding: 1px 6px !important; box-shadow: inset 0 0 0 1px #ffffff1a; }
+
+  /* the clock: a pill with its icon in a gold disc and the run's progress under the numbers */
+  .hud .top-right { gap: 6px !important; }
+  .hud .clock { gap: 8px !important; padding: 4px 16px 8px 5px !important; border-radius: 999px !important;
+    background: repeating-linear-gradient(115deg, #ffffff07 0 2px, transparent 2px 9px), linear-gradient(180deg, #17336ef6, #071233f6) !important;
+    box-shadow: inset 0 0 0 1px #7fd3ff40, inset 0 1px 0 #ffffff26, 0 0 0 2px #04081a, 0 6px 14px #000a !important; }
+  .hud .clock .ck-ic { width: 24px; height: 24px; place-items: center; border-radius: 50%; font-size: 13px !important; color: #2a1a04 !important; background: radial-gradient(circle at 40% 35%, #fff3a0, #ffd23f 60%, #c88a00); box-shadow: 0 0 0 2px #04081a, 0 0 10px #ffd23f88; }
+  .hud .clock .ck-ic svg { width: 14px; height: 14px; }
+  .hud .clock b { font-size: 15px !important; letter-spacing: 1px; text-shadow: 2px 2px 0 #000; }
+  .hud .ck-bar { left: 36px !important; right: 14px !important; bottom: 3px !important; height: 3px !important; }
+  .hud .clock.late .ck-ic { background: radial-gradient(circle at 40% 35%, #ffd0d0, #ff4f5a 60%, #a01020); color: #fff !important; }
+  /* formations: small icons, the chosen one with its name */
+  .hud .formation-hud { padding: 3px !important; border-radius: 12px !important; }
+  .hud .formation-hud svg { width: 22px !important; height: 22px !important; }
+  .hud .formation-hud button { padding: 3px 6px !important; gap: 4px !important; }
+  .hud .formation-hud button span { font-size: 7px !important; }
+  .hud .formation-hud kbd { font-size: 6px !important; }
+  .hud .fdesc { font-size: 7px !important; padding: 2px 8px !important; }
+  .hud .pausebtn { font-size: 8px !important; padding: 5px 12px !important; }
+  /* the chips under the captain panel follow its size */
+  .hud .res-chips .syn-chip { transform: scale(.85); transform-origin: left top; }
+}
+@keyframes crestSpin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .hud .cap-crest::before { animation: none; } }
+
+/* ---------- 2.0f (author: «las cartas siguen enormes · con 4 al lado, hasta 5: 3 arriba y 2 abajo centradas · la ulti
+   abajo a la izquierda, que no esté todo el rato: que avise 3 veces y se apague · mejora todo el apartado artístico») */
+/* level-up cards: smaller on a computer; 4 in one row; 5 as 3 + 2, centred */
+@media (min-width: 901px) and (min-height: 521px) {
+  .levelup .lv-cards { zoom: .8; grid-template-columns: repeat(3, minmax(0, 280px)); width: auto; }
+  .levelup .lv-cards.n4 { grid-template-columns: repeat(4, minmax(0, 260px)); }
+  .levelup .lv-cards.n5 { zoom: .7; grid-template-columns: repeat(6, minmax(0, 140px)); }
+  .levelup .lv-cards.n5 > * { grid-column: span 2; }
+  .levelup .lv-cards.n5 > :nth-child(4) { grid-column: 2 / span 2; }
+  .levelup .lv-cards.n5 > :nth-child(5) { grid-column: 4 / span 2; }
+  .levelup .lv-cards .lvcard { min-height: min(52vh, 420px) !important; }
+  .levelup .lv-title span { font-size: clamp(30px, 4vw, 52px) !important; }
+  .levelup .lv-bottom { zoom: .85; }
+}
+
+/* the ultimate, bottom-left: a small dim button while it charges; when ready it springs out with its card, flashes three
+   times (with the screen's edges) and then stays lit, quiet, until it is used */
+.hud .ult-dock.left { left: 16px; right: auto; bottom: 16px; transform: none; flex-direction: row; gap: 10px; }
+.hud .ult-dock.left .ult-info { align-items: flex-start; text-align: left; }
+.hud .ult-dock.left .ult-btn { width: 70px; height: 70px; }
+.hud .ult-dock:not(.ready) .ult-btn { opacity: .78; }
+.hud .ult-dock:not(.ready) .ult-info { display: none; }
+.hud .ult-dock.ready .ult-info { animation: ultInfoIn .35s cubic-bezier(.2, 1.6, .4, 1) both; }
+.hud .ult-dock.ready.calm .ult-info { animation: ultInfoOut .4s ease-in both; }
+@keyframes ultInfoIn { from { opacity: 0; transform: translateX(-14px) scale(.8); } to { opacity: 1; transform: none; } }
+@keyframes ultInfoOut { to { opacity: 0; transform: translateX(-10px); visibility: hidden; } }
+/* three flashes, then quiet */
+.ult-dock.ready .ult-btn { animation: ultReady 1.1s ease-in-out 3 !important; }
+.ult-dock.pop .ult-btn { animation: ultPop .5s cubic-bezier(.2, 1.8, .4, 1), ultReady 1.1s ease-in-out .5s 3 !important; }
+.ult-dock.ready .ult-btn::before { animation: ultWave 1.1s ease-out 3 !important; }
+.ult-dock.ready .ult-btn::after { animation: ultShine 1.6s linear 2 !important; }
+.ult-dock.ready .ult-pc { animation: ultBlink .7s steps(2) 5 !important; }
+.ult-dock.calm .ult-btn { box-shadow: 0 0 0 2px #04061a, 0 0 12px color-mix(in srgb, var(--kc) 70%, transparent), 0 6px 14px #000a !important; }
+.hud.ult-ready::after { animation: ultEdge3 1.1s ease-in-out 3 both !important; }
+@keyframes ultEdge3 { 0%, 100% { opacity: 0; } 50% { opacity: 1; } }
+.ult-toast { top: 18% !important; }
+
+/* team plates: the same dressed-up panels as the captain's (stripes, a gold edge on the captain, a sheen) */
+@media (min-width: 901px) and (min-height: 521px) {
+  .hud .team-hud .plate:not(.empty) { background:
+      repeating-linear-gradient(115deg, #ffffff06 0 2px, transparent 2px 9px),
+      linear-gradient(165deg, color-mix(in srgb, var(--kc, var(--rc)) 24%, #12285e) 0%, #0a1740f4 50%, #060f2cf4 100%) !important; }
+  .hud .team-hud .plate.cap { box-shadow: inset 3px 0 0 var(--yellow), inset 0 0 0 1px #ffd23f99, 0 0 0 2px #04081a, 0 0 16px #ffd23f40, 0 6px 16px #000a !important; }
+  .hud .team-hud .plate.empty { background: radial-gradient(circle, #0d1f4acc, #06102b99) !important; box-shadow: inset 0 0 0 2px #7fd3ff40, 0 0 0 2px #04081a99 !important; }
+  .hud .team-hud .plate.empty b { color: #9fe8ff; text-shadow: 0 0 8px #4fc8ff; }
+  .hud .team-hud .pl-tech { border-radius: 8px; background: #04081a99 !important; box-shadow: inset 0 0 0 1px #ffffff14; }
+  .hud .minimap { box-shadow: inset 0 0 0 1px #7fd3ff55, 0 0 0 2px #04081a, 0 6px 16px #000a !important;
+    background: radial-gradient(circle at 50% 40%, #12306acc, #06102bdd) !important; }
+}
+@media (prefers-reduced-motion: reduce) { .ult-dock .ult-btn, .ult-dock .ult-info, .hud.ult-ready::after { animation: none !important; } }

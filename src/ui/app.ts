@@ -1,15 +1,16 @@
 /** HTML/CSS front-end: onboarding, main menu, captain/map select, collection, gacha (IE3 capsule machine), upgrades,
  *  options, profile, HUD, level-up, pause and results. */
 import type Phaser from 'phaser';
+import { rankMark, zEmblem } from './rankZ';
 import type { Manifest, MapInfo, Rarity, RosterEntry, Technique } from '../data/manifest';
 import { ICON, RARITY_LABEL, RARITY_ORDER } from '../data/manifest';
 import { uiIcon, type UiIconName } from './uiIcons';
 import { deathCause } from '../systems/deathCause';
 import { serverNow, syncServerTime, timeSource, trustedClock } from '../online/serverTime';
-import { PASS, claimPass, passStatus } from '../systems/weeklyPass';
+import { PASS, PASS_TOTAL, claimPass, passStatus, type PassReward } from '../systems/weeklyPass';
 import { applyReward, codePlayer, hasRedeemed, INA483_ODDS, normalizeCode, redeemLocal, type CodeReward } from '../systems/promo';
 import { clearRoad, JADEN_EVERY, JADEN_ID, ROAD_BY_ID, ROAD_DIFFS, ROAD_SQUAD, roadEligible, roadMatchSec, roadOf, type RoadDiff } from '../systems/road';
-import { BANNERS, BANNER_ORDER, bannerPool, bannerPrice, eraOf, featured, perPlayerOdds, rarityOdds, teamChoices, type BannerId } from '../systems/banners';
+import { BANNERS, BANNER_ORDER, bannerPool, bannerPrice, eraOf, featured, featuredMachine, FEATURED_BOOST, perPlayerOdds, rarityOdds, teamChoices, type BannerId } from '../systems/banners';
 import { exportSave, importSave, remapIds, remapTechSlots, storeSave, type SaveData, type ParticleLevel, type Rank } from '../systems/save';
 import { addCopy, eligibleTeams, pull, recordHistory, DUPLICATE_REFUND_BY, PULL_COST, MAX_STARS, starBonus, onboardingPull, type PullResult } from '../systems/gacha';
 import { applyRun, isMapUnlocked, mapTierScale, type RunResult } from '../systems/economy';
@@ -26,15 +27,15 @@ import { GEAR_SLOTS, applyGear, buildGear, buyGear, equipGear, type GearItem } f
 import { SAGAS, sagaOf, setTeamLabels, setTeamSagas, teamLabel, teamNames } from '../data/sagas';
 import { canClaim, claimAllTeamRewards, claimTeamReward, grantFavorite, hasCrest, hasKit, teamCaptain, teamMembers, teamProgress, type TeamRewardKind } from '../systems/teamRewards';
 import { buyOffer, isBought as isOfferBought, msToNextDay, msToNextWeek, PRICE, rollDaily, type Offer } from '../systems/dailyShop';
-import { rankDef, RANKS, RANK_ORDER } from '../systems/difficulty';
+import { rankDef, RANKS, RANK_ORDER, rankZDaysLeft, rankZLeftMs, rankZOpen } from '../systems/difficulty';
 import { squadCombos, COMBOS, COMBO_MAX_LEVEL, comboDamage, playsAs } from '../systems/combos';
 /** v1.6: training field limits: footballers on the pitch and active techniques each */
 const TRAIN_TEAM = 5, TRAIN_SLOTS = 4;
 import { CLUB_CHEMISTRY, kitBonus } from '../systems/kitBonus';
 import { squadPotential } from '../systems/synergy';
 import { championsTable, recordTriumph } from '../systems/hallOfFame';
-import { BUILD, CURRENT_PUBLIC, PUBLIC_VERSION, TIKTOK_PATH, TIKTOK_URL, VERSION_LABEL } from '../data/release';
-import { allNews, LATEST_NEWS_ID, NEWS_KIND_LABEL, type NewsItem } from '../data/news';
+import { BUILD, CURRENT_PUBLIC, PUBLIC_RELEASES, PUBLIC_VERSION, TIKTOK_PATH, TIKTOK_URL, VERSION_LABEL } from '../data/release';
+import { allNews, latestNewsId, NEWS_KIND_LABEL, type NewsItem } from '../data/news';
 /** Fix 1.32: news text: escaped, **bold** allowed */
 const newsText = (t: string) => esc(t).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
 /** «Hoy», «Ayer», «Hace 3 días» or «2 nov» */
@@ -43,7 +44,8 @@ function newsRelDate(d: string) {
   return days <= 0 ? 'Hoy' : days === 1 ? 'Ayer' : days < 7 ? `Hace ${days} días` : new Date(`${d}T12:00:00`).toLocaleDateString('es', { day: 'numeric', month: 'short' });
 }
 import { buildMeta, CATEGORIES, SEVERITIES, SHOT_MAX_BYTES, SHOT_MAX_SIDE, SHOT_TYPES, STATUS_LABEL, TECH_FIELDS, validateBug, validateShot } from '../systems/bugReport';
-import { elementIcon } from './elements';
+import { elementIcon, setElementArt } from './elements';
+import { prefetchRunArt, showRunLoader } from './runLoader';
 import { EXTRA_STARS_MAX, affordableStars, assignPick, buyStars, resetStars185, restoreHeroStars188, capBonusOf, extraStarsOf, hasExtraStars, nextStar, pendingPicks, STAR_CAP_STEP } from '../systems/stars';
 import { CHAMPION_CAP, CHAMPION_STATS, CHAMPION_TRAIN, playerStats, resetTraining, statCapOf, trainingOf, trainingUsed, trainMaxOf, trainRoom, trainStat, trimTraining, type StatKey } from '../systems/training';
 import { AURA_PCT, AURA_ELEMENT_BONUS, AURA_TECH_DAMAGE, BOND_PCT, EFFECTIVE_STAT_MAX, auraBonus, auraOf, bondOf, canBeAura, carrierForRun, carrierOf, equipAura, inheritedTechs, removeAura, sanitizeAuras, withAura, type AuraBonus } from '../systems/auras';
@@ -54,9 +56,10 @@ import { ALTAR_COLOR, ALTAR_ICON, ALTAR_INFO, ALTAR_MODE, ALTAR_REWARD } from '.
 import { adaptedPassive, passiveText, talentChanges, talentText } from '../systems/talents';
 import { adminSuggestions, adminUpdateSuggestion, claimBugNotices, claimBugRewards, claimSuggestionNotices, mySuggestions, redeemCode, submitSuggestion, type SuggestionRow } from '../online/client';
 import { THANKS_EVENT, addThanksTokens, thanksActive, thanksLeftMs, thanksTokens } from '../systems/thanksEvent';
+import { BLUELOCK_EVENT, BLUELOCK_WINS_FOR_BANNER, bluelockActive, bluelockDaysToStart, bluelockLeftMs, bluelockUpcoming, recordBluelockWin } from '../systems/collabEvent';
 import { gtsDeposit, gtsFeed, gtsMine, gtsSearch, gtsTake, gtsWithdraw, type GtsOffer } from '../online/client';
 import { submitTierlist, tierlistFeed, type TierlistRow } from '../online/client';
-import { clanOf, clanAnswer, clanCancelRequest, clanClaimMission, clanClaimPrizes, clanCreate, clanKick, clanLastWeek, clanLeave, clanRanking, clanRequest, clanRequests, clanSearch, clanSetRole, clanSubmitRun, clanUpdate, myClan, myClanRequests, type ClanMember, type ClanMission, type ClanPrize, type ClanRole, type MyClan } from '../online/client';
+import { championOfRows, clanOf, clanAnswer, clanCancelRequest, clanClaimMission, clanClaimPrizes, clanCreate, clanKick, clanLastWeek, clanLeave, clanRanking, clanRequest, clanRequests, clanSearch, clanSetRole, clanSubmitRun, clanUpdate, myClan, myClanRequests, type ClanMember, type ClanMission, type ClanPrize, type ClanRole, type MyClan } from '../online/client';
 import { addBag, boughtThisWeek, canPay, CLAN_COST, CLAN_ERRORS, CLAN_ITEMS, CLAN_MAX, CLAN_MISSION_TEXT, CLAN_PRIZES, CLAN_REWARD_MULT, CLAN_ROLE_LABEL, CLAN_RUNS_PER_DAY, clanDrops, clanError, clanNameProblem, clanPlayer, clanShop, clanWeekKey, clanWeekLeftMs, payBag, recordBuy, tierOfPos, type ClanBag, type ClanOffer, type ClanTier } from '../systems/clans';
 import { cleanTiers, placeIn, tierCount, topicLabel, TIER_COLOR, TIER_MAX, TIER_MIN, TIER_TOPICS, TIERS, type Tier, type Tiers } from '../systems/tierlist';
 import { CoopLink, type CoopMsg } from '../online/coop';
@@ -65,7 +68,7 @@ import type { CoopRun } from '../game/coopArena';
 import { applyCoachPerks, COACH_BY_ID, COACH_PULL_CHANCE, COACHES, coachesOfMachine, coachRun, PASSIVE_ICON, passiveText as coachPassiveText, type CoachDef } from '../data/coaches';
 import { clashWith } from '../systems/identity';
 import { applyGtsLedger, canLeave, gtsBanned, gtsError, gtsSlots, gtsSpare, type GtsRow } from '../systems/gts';
-import { accountId, adminBugReports, adminPlayerStats, adminUpdateBug, amIAdmin, consumeAuthRedirect, deleteAccount, deleteMyBugReports, deleteShot, myBugReports, notifyBug, shotUrl, submitBugReport, uploadShot, getCloudSave, leaderboard, myPosition, profileBanners, profileFrames, publicProfile, type PublicProfile, myProfile, onlineConfigured, putCloudSave, reserveUsername, resetMyProgress, signedEmail, signedIn, signInWithGoogle, signOut, submitScore, usernameAvailable, type BoardQuery, type BoardRow, type BugFilter, type BugRow, type CloudSave } from '../online/client';
+import { accountId, adminBugReports, adminMetrics, adminPlayerStats, adminUpdateBug, amIAdmin, consumeAuthRedirect, deleteAccount, deleteMyBugReports, deleteShot, myBugReports, notifyBug, shotUrl, submitBugReport, uploadShot, getCloudSave, leaderboard, myPosition, profileBanners, profileFrames, publicProfile, type PublicProfile, myProfile, onlineConfigured, putCloudSave, reserveUsername, resetMyProgress, signedEmail, signedIn, signInWithGoogle, signOut, submitScore, usernameAvailable, type BoardQuery, type BoardRow, type BugFilter, type BugRow, type CloudSave } from '../online/client';
 import { backup, linkPlan, progressOf, summarize, type SaveSummary } from '../online/cloudSync';
 import { epochOf, freshProgress, resetSummary } from '../systems/resetProgress';
 import { scoreOf, localBoard, recordBest } from '../systems/leaderboard';
@@ -82,8 +85,11 @@ import { MAX_TEAM, canStartWith, startingTech, type Card } from '../systems/card
 import { clearSquad, renameSquad, savedSquads, setSquad, SQUAD_SIZE, fillSquad, makeCaptain, placeInSquad, removeFromSquad, squadOf, switchSquad, syncActiveSquad } from '../systems/squad';
 import type { ArenaInit, ArenaScene, HudState, MarkerState, Poi, TrainingSetup } from '../game/ArenaScene';
 import { BOSS_WARN_SEC } from '../systems/bossKit';
+import { canLevel, egTokens, giveKeshinGift, keshinElClass, KESHIN_LABEL, KESHIN_MAX, KESHINS, keshinForRun, keshinLevel, keshinOf, keshinStepCost, levelKeshin, nextCost, passiveText as keshinPassiveText, statBonus, techFor, withKeshinStats, type KeshinDef } from '../systems/keshin';
 import { charCanvas, initPreviews, mountPreviews, setPreviewKit } from './sprites';
-import { sfx, setVolume } from '../game/sfx';
+import { egAwaken, sfx, setVolume } from '../game/sfx';
+import { firstPad } from '../game/controls';
+import { setEgArt } from '../game/fxKeshin';
 import { currentTrack, initMusic, setMusicContext, setMusicSource, setMusicVolume, musicUnlocked } from '../game/music';
 
 type Frames = Record<string, { frame: { x: number; y: number; w: number; h: number }; sheet?: number }>;
@@ -108,7 +114,8 @@ const FORMATION_ICON = (f: FormationId, size = 46) => {
 };
 
 /** marks the public news as read; changes with each public version */
-const NEWS_KEY = `noticias-${LATEST_NEWS_ID}`; // Fix 1.32: the menu marks Noticias until the newest item has been seen
+/** Fix 1.32: the menu marks Noticias until the newest item has been seen (timed items count once they show) */
+const newsKey = () => `noticias-${latestNewsId(serverNow())}`;
 /**
  * The interface was laid out for screens about 460 px on their short side; a phone is smaller (≈330 px tall in landscape),
  * so on touch screens it shrinks to fit, never under 60%. The player's own scale setting multiplies this.
@@ -202,7 +209,13 @@ export class App {
 
   constructor(private game: Phaser.Game, private m: Manifest, private save: SaveData,
     private mugFrames: Frames, private iconFrames: Frames) {
+    // author: InaZurvivors x BlueLock is a surprise until it opens — its footballers stay out of the encyclopedia, lists
+    // and searches (unless already owned, e.g. the QA accounts); the menu teaser only shows their silhouettes
+    if (bluelockUpcoming(serverNow())) m.roster = m.roster.filter((p) => p.exclusive !== 'bluelock' || !!save.owned[String(p.id)]);
     this.byId = new Map(m.roster.map((p) => [p.id, p]));
+    setElementArt(m.elements); // author: the original element icons, in every menu from the start
+    // the loading screen's runners: their sprites in the cache before the first run (ui/runLoader.ts)
+    window.setTimeout(() => prefetchRunArt(m, (save.squad ?? []).map((id) => this.byId.get(id)?.head.texture ?? '').filter(Boolean), m.kits?.[save.kit]?.field ?? null), 1500);
     // 1.93: the clan arena is only for the Juegos del Clan: out of the arena path, the training field and the lists
     this.clanMap = m.maps.find((x) => x.clanOnly) ?? null;
     m.maps = m.maps.filter((x) => !x.clanOnly);
@@ -242,12 +255,12 @@ export class App {
         tiltRaf = 0;
         // v1.4: the level-up cards tilt too; Fix 1.41: measured on their wrapper (.lvc), which does not move, so the angle
         // does not feed back on itself, and tilted harder (up to ±11°) so it can actually be seen
-        const card = (e.target as Element | null)?.closest?.('.pcard:not(.locked), .lvc') as HTMLElement | null;
+        const card = (e.target as Element | null)?.closest?.('.pcard:not(.locked), .lvc, .eg-card') as HTMLElement | null;
         if (!card) return;
-        const lv = card.classList.contains('lvc');
+        const lv = card.classList.contains('lvc'), eg = card.classList.contains('eg-card'); // author: the spirits' cards tilt gently (they are wide)
         const r = card.getBoundingClientRect(), x = (e.clientX - r.left) / r.width, y = (e.clientY - r.top) / r.height;
-        card.style.setProperty('--ry', `${((x - 0.5) * (lv ? 22 : 14)).toFixed(1)}deg`);
-        card.style.setProperty('--rx', `${((0.5 - y) * (lv ? 18 : 12)).toFixed(1)}deg`);
+        card.style.setProperty('--ry', `${((x - 0.5) * (lv ? 22 : eg ? 6 : 14)).toFixed(1)}deg`);
+        card.style.setProperty('--rx', `${((0.5 - y) * (lv ? 18 : eg ? 5 : 12)).toFixed(1)}deg`);
         card.style.setProperty('--ry-n', ((x - 0.5) * 2).toFixed(2));
         card.style.setProperty('--rx-n', ((0.5 - y) * 2).toFixed(2));
         card.style.setProperty('--gx', `${Math.round(x * 100)}%`);
@@ -294,12 +307,6 @@ export class App {
       if (ret?.signedIn && !after) window.setTimeout(() => this.toast(this.save.onlineName ? `¡Hola de nuevo, ${this.save.onlineName}!` : '¡Conectado con Google!', 3500), 600);
     }
     const returning = this.save.onboardingDone;
-    // the public landing (index.html) sits over the game until «Jugar»: the intro waits for it instead of playing unseen
-    await new Promise<void>((ok) => {
-      const gone = () => !document.getElementById('landing') || getComputedStyle(document.getElementById('landing')!).display === 'none';
-      if (gone()) { ok(); return; }
-      const id = window.setInterval(() => { if (gone()) { window.clearInterval(id); ok(); } }, 100);
-    });
     void this.intro(this.save.introSeen).then(() => {
       if (!returning) { this.afterIntro(); after?.(); return; }
       this.titleScreen(() => { this.mainMenu(); after?.(); });
@@ -331,7 +338,7 @@ export class App {
   private titleScreen(next: () => void) {
     const name = this.save.onlineName ?? this.save.profile.name;
     const guest = onlineConfigured() && !signedIn();
-    this.show(`<div class="cine cine4 title-screen">${this.cineStage()}<div class="cine-shot in"><div class="logo cine-logo ib-logo4 idle"><h1><span class="p1">INA</span><span class="bolt p2">Z</span><span class="p3">URVIVORS</span><i class="ib-shine"></i><span class="ib-pre">PRE-2.0</span></h1>
+    this.show(`<div class="cine cine4 title-screen">${this.cineStage()}<div class="cine-shot in"><div class="logo cine-logo ib-logo4 idle"><h1><span class="p1">INA</span><span class="bolt p2">Z</span><span class="p3">URVIVORS</span><i class="ib-shine"></i><span class="ib-pre ib-v2">2.0</span></h1>
       <div class="sub">ROGUELITE DE FÚTBOL · FANGAME</div></div>
       <p class="cine-text">¡Hola de nuevo, ${esc(name)}!</p>
       <p class="wiz-next"><button class="btn big" id="tscont">Continuar ▶</button></p>
@@ -501,7 +508,7 @@ export class App {
       if (status !== 'ok' || !reward) { sfx('error'); return say('Error de conexión. Inténtalo de nuevo.'); }
       this.persist();
       const gifts = (reward.pennants ?? []).map((id) => PENNANT_BY_ID.get(id)).filter((d): d is PennantDef => !!d).map((d) => `${isFrame(d) ? 'el marco' : 'el banner'} «${d.name}»`);
-      say(`¡Código válido! Recibes ${[reward.tokens ? `${reward.tokens} fichas` : '', reward.eventTokens ? `${reward.eventTokens} fichas de evento` : '', reward.coins ? `${reward.coins.toLocaleString('es')} monedas` : '', ...gifts].filter(Boolean).join(', ')}${reward.player !== null ? ` y un futbolista ${RARITY_LABEL[this.byId.get(reward.player)?.rarity ?? 'legendario']}` : ''}.`, true);
+      say(`¡Código válido! Recibes ${[reward.tokens ? `${reward.tokens} fichas` : '', reward.eventTokens ? `${reward.eventTokens} fichas de evento` : '', reward.egTokens ? `${reward.egTokens} Fichas EG` : '', reward.coins ? `${reward.coins.toLocaleString('es')} monedas` : '', ...gifts].filter(Boolean).join(', ')}${reward.player !== null ? ` y un futbolista ${RARITY_LABEL[this.byId.get(reward.player)?.rarity ?? 'legendario']}` : ''}.`, true);
       sfx('legend');
       const p = reward.player !== null ? this.byId.get(reward.player) : undefined;
       if (p) {
@@ -573,6 +580,11 @@ export class App {
   private applyMotion() {
     document.body.classList.toggle('reduced-motion', this.save.settings.reducedMotion);
     document.documentElement.style.setProperty('--ui-scale', String(Math.round(this.save.settings.uiScale * autoUiScale() * 100) / 100));
+    // 2.0 (author: «¿crees que es visible?» on a big monitor): the run HUD was laid out for 1366×768 and stayed that size
+    // on big screens; on a computer it now grows with the window (up to 1.6×), so it always looks as designed
+    const touch = window.matchMedia?.('(pointer: coarse)').matches || 'ontouchstart' in window;
+    const hud = touch ? 1 : Math.max(1, Math.min(1.45, window.innerWidth / 1600, window.innerHeight / 900)); // (author: «redúcelo un poco»)
+    document.documentElement.style.setProperty('--hud-scale', String(Math.round(hud * 100) / 100));
   }
 
   // ---- kit portraits: original head portrait + the ROM's portrait torso of the equipped kit, composed once and cached
@@ -673,7 +685,8 @@ export class App {
   }
   /** Fix 1.3: the stats the game really uses (rarity band, ascension, HÉROE, training: training.ts); null without data. */
   private statsOf(p: RosterEntry): Record<string, number> | null {
-    return p.stats ? playerStats(this.save, p, effectiveRarity(this.save, p), isHero(this.save, p.id)) : null;
+    // 2.0: with his warrior spirit's percentage on the stat of its technique (keshin.ts)
+    return p.stats ? withKeshinStats(playerStats(this.save, p, effectiveRarity(this.save, p), isHero(this.save, p.id)), keshinOf(p.id), keshinLevel(this.save, p.id)) : null;
   }
   private rar(p: RosterEntry) {
     const r = effectiveRarity(this.save, p);
@@ -845,7 +858,7 @@ export class App {
         <div class="cc-face">
           <div class="cc-art${locked ? ' dark' : ''}">${crest ? `<img class="cc-crest" src="${crest}" alt="">` : ''}<i class="cc-rays"></i>
             ${this.mug(p.id, opts.big ? 152 : 112)}${locked ? '<span class="qmark">?</span><span class="lock-tag">Bloqueado</span>' : opts.big || opts.anim !== undefined ? `<span class="minisprite">${charCanvas(p.id, 2, opts.anim ?? 4)}</span>` : ''}
-            <div class="cc-gem" title="${esc(e)}">${locked ? '' : elementIcon(e, 16)}</div>
+            <div class="cc-gem" title="${esc(e)}">${locked ? '' : elementIcon(e, 16)}</div>${this.egBadge(p.id, 'cc-eg')}
             ${st ? `<div class="cc-ovr" title="Media de estadísticas"><b>${statMean(st)}</b><small>${POS_LABEL[p.position] ?? p.position}</small></div>` : `<div class="cc-ovr pos"><small>${POS_LABEL[p.position] ?? p.position}</small></div>`}
             <div class="cc-name"><span>${locked ? '???' : esc(p.name)}</span></div></div>
           <div class="cc-rar">${locked ? `<span class="rar ${er}">${RARITY_LABEL[er].toUpperCase()}</span>` : this.rar(p)}</div>
@@ -889,7 +902,7 @@ export class App {
           const balls = Array.from({ length: 6 }, (_, k) => `<i class="ib-ball" style="--y:${15 + k * 13}%;--d:${0.4 + k * 0.18}s">⚽</i>`).join('');
           const sparks = Array.from({ length: 18 }, (_, k) => `<i class="ib-spark" style="--a:${k * 20}deg;--r:${120 + (k % 3) * 60}px;--d:${0.95 + (k % 4) * 0.03}s"></i>`).join('');
           box.innerHTML = `<div class="intro-burst">${bolts}${balls}<div class="ib-orbit">${orbs}</div><i class="ib-flash"></i><i class="ib-ring"></i><i class="ib-ring r2"></i>${sparks}
-            <div class="logo cine-logo ib-logo4"><h1><span class="p1">INA</span><span class="bolt p2">Z</span><span class="p3">URVIVORS</span><i class="ib-shine"></i><span class="ib-pre">PRE-2.0</span></h1><div class="sub">${words('ROGUELITE DE FÚTBOL · FANGAME', 1300)}</div><span class="ver-badge ib-ver">${esc(VERSION_LABEL)}</span></div>${this.versionStamp()}</div>`;
+            <div class="logo cine-logo ib-logo4"><h1><span class="p1">INA</span><span class="bolt p2">Z</span><span class="p3">URVIVORS</span><i class="ib-shine"></i><span class="ib-pre ib-v2">2.0</span></h1><div class="sub">${words('ROGUELITE DE FÚTBOL · FANGAME', 1300)}</div><span class="ver-badge ib-ver">${esc(VERSION_LABEL)}</span></div>${this.versionStamp()}</div>`;
           if (!this.save.settings.reducedMotion) window.setTimeout(() => { sfx('boom'); if (this.save.settings.shake <= 0) return; document.querySelector('.cine4')?.classList.add('shake'); window.setTimeout(() => document.querySelector('.cine4')?.classList.remove('shake'), 420); }, 950);
           if (!this.save.settings.reducedMotion) sfx('legend');
         }
@@ -1053,9 +1066,9 @@ export class App {
     const tile = (go: string, icon: UiIconName, label: string, sub: string, badge = 0, hot = false) => `<button class="m4-tile${hot ? ' hot' : ''}" data-go="${go}"><span class="m4-ic">${uiIcon(icon)}</span><span class="m4-tx"><b>${label}</b><small>${sub}</small></span>${badge ? `<span class="m4-badge">${badge}</span>` : ''}</button>`;
     const group = (cls: string, icon: UiIconName, title: string, tiles: string) => `<div class="m4-group ${cls}"><h4>${uiIcon(icon)}${title}</h4><div class="m4-grid">${tiles}</div></div>`;
     const squad = squadOf(this.save, this.byId);
-    const unseenLog = this.save.devlogSeen !== NEWS_KEY;
+    const unseenLog = this.save.devlogSeen !== newsKey();
     const pass = passStatus(this.save, serverNow());
-    const news = allNews()[0];
+    const news = allNews(true, serverNow())[0];
     const featR = feat ? effectiveRarity(this.save, feat) : 'comun';
     const featStats = feat ? this.statsOf(feat) : null;
     const promo = this.promoSlides();
@@ -1065,7 +1078,7 @@ export class App {
           <span><b>${esc(this.save.profile.name)}</b><small>${owned.length}/${this.m.roster.length} futbolistas · ${this.save.stats.wins} victorias</small></span></button>
         <button class="m4-clanchip" id="m4clan" data-go="clan">${this.clanChipHtml()}</button>
         <span class="spacer"></span>
-        <div class="m4-wallet"><span class="tokens" title="Fichas de Fichaje">${this.save.tokens}</span><span class="coins" title="Monedas">${this.save.coins}</span></div>
+        <div class="m4-wallet"><span class="tokens" title="Fichas de Fichaje">${this.save.tokens}</span><span class="coins" title="Monedas">${this.save.coins}</span><span class="egt" title="Fichas EG">${this.egIcon(16)}${egTokens(this.save)}</span></div>
         <nav class="m4-tools">${this.tiktokLink()}
           <button class="m4-tool" data-go="devlog" title="Noticias">${uiIcon('news')}<span>Noticias</span>${unseenLog ? '<i class="m4-dot"></i>' : ''}</button>
           <button class="m4-tool" data-go="options" title="Ajustes">${uiIcon('cog')}<span>Ajustes</span></button>
@@ -1081,9 +1094,10 @@ export class App {
             <button class="m4-play" data-go="play"><i class="m4-shine"></i><span class="m4-play-ic">${uiIcon('play')}</span>
               <span class="m4-tx"><b>JUGAR</b><small>${squad[0] ? `Capitán: ${esc(squad[0].name)} · Rango ${this.save.difficulty}` : 'Prepara tu equipo'}</small></span></button>
             <button class="m4-team" data-go="squad"><span class="m4-tx"><b>MI EQUIPO</b><small>${squad.length}/${SQUAD_SIZE} candidatos</small></span>
-              <span class="m4-faces">${squad.slice(0, 7).map((p) => `<span class="m4-face r-${effectiveRarity(this.save, p)}" style="--rc:${RARITY_COLOR[effectiveRarity(this.save, p)]}">${this.mug(p.id, 30)}</span>`).join('') || uiIcon('team')}</span></button>
+              <span class="m4-faces">${squad.length ? this.teamFaces(squad) : uiIcon('team')}</span></button>
           </div>
           ${group('g-club', 'team', 'TU CLUB', tile('collection', 'cards', 'COLECCIÓN', claims ? '¡Recompensas!' : `${owned.length} de ${this.m.roster.length}`, claims, !!claims)
+            + `<button class="m4-tile hot eg-tile" data-go="keshin"><span class="m4-ic">${this.m.eg ? `<img src="${this.m.eg.insignia}" alt="">` : uiIcon('fire')}</span><span class="m4-tx"><b>ESPÍRITUS</b><small>${egTokens(this.save)} Fichas EG</small></span><em class="eg-new">2.0</em></button>`
             + tile('perks', 'perks', 'MEJORAS', 'Potencia permanente') + tile('shop', 'bolt', 'TÉCNICAS', 'Manuales')
             + tile('training', 'target', 'ENTRENAMIENTO', 'Prueba técnicas') + tile('coaches', 'crown', 'ENTRENADORES', `${this.save.coaches?.owned.length ?? 0} de ${COACHES.length}`) + tile('kits', 'shirt', 'EQUIPACIONES', 'Uniforme y escudo') + tile('gear', 'boot', 'EQUIPAMIENTO', 'Botas y accesorios') + tile('hall', 'trophy', 'SALÓN', `${(this.save.hall ?? []).length} victorias`))}
           ${group('g-sign', 'capsule', 'FICHAJES', tile('gacha', 'capsule', 'FICHAJES', `${this.save.tokens} fichas`, 0, true) + (thanksActive(serverNow()) ? tile('thanksev', 'gift', 'AGRADECIMIENTO', `${this.save.eventTokens ?? 0} fichas de evento`, 0, true) : '') + (eventActive(serverNow()) ? tile('pnevent', 'gift', 'EVENTO', 'Banners de leyenda', 0, true) : '') + tile('daily', 'shop', 'TIENDA', 'Ofertas del día') + tile('gts', 'gts', 'GTS', 'Intercambios online') + tile('codes', 'gift', 'CÓDIGOS', 'Canjea regalos'))}
@@ -1118,10 +1132,19 @@ export class App {
     // Fix 1.31: notice when the Colección has something new to collect (once per new reward, not on every visit)
     if (claims > Math.max(0, this.claimsAnnounced)) window.setTimeout(() => { if (this.screenKey === 'menu-mode') this.claimNotice(this.teamClaimList(), '¡Para recoger en la Colección!'); }, 400);
     this.claimsAnnounced = claims;
+    // 2.0 (author): the launch intro, once per browser, before anything else of the menu
+    if (this.launch20Pending()) window.setTimeout(() => { if (this.screenKey === 'menu-mode' && !this.game.scene.isActive('Arena')) this.launch20(); }, 300);
+    // 2.0: the Espíritus Guerreros are introduced once per save (no gift: Fichas EG are earned in rank X)
+    if (giveKeshinGift(this.save)) {
+      this.persist();
+      // after any other notice of the menu (Road, achievements): it waits until none is open, and never shows over a run
+      const show = (tries: number) => { if (this.screenKey !== 'menu-mode') return; if ((document.querySelector('.modal, .eg-intro, .launch20') || this.game.scene.isActive('Arena')) && tries) { window.setTimeout(() => show(tries - 1), 1000); return; } this.keshinIntro(); };
+      window.setTimeout(() => show(30), claims > 0 ? 4200 : 1200);
+    }
     // v1.5: an achievement just completed is announced once, with its medal (the claim itself stays in Recompensas)
     recordCollection(this.save, this.m.roster, this.m.mainTeams ?? [], this.auraMaxStat());
     const newFlags = grantAchievementPennants(this.save, this.m.roster); // v1.65: 200 footballers, a Leyenda
-    if (newFlags.length) { this.persist(); window.setTimeout(() => this.toast(`¡Logro! ${newFlags.map((f) => `${isFrame(f) ? 'Marco' : 'Banner'} ${f.name}`).join(', ')}. Póntelo en tu Perfil.`, 5000), 1500); }
+    if (newFlags.length) { this.persist(); window.setTimeout(() => this.toast(`¡Logro! ${newFlags.map((f) => /^(Marco|Banner|Banderín) /.test(f.name) ? f.name : `${isFrame(f) ? 'Marco' : 'Banner'} ${f.name}`).join(', ')}. Póntelo en tu Perfil.`, 5000), 1500); }
     const shown = new Set(this.save.achShown ?? []);
     const fresh = MISSIONS.filter((d) => d.kind === 'logro' && isClaimable(this.save, d) && !shown.has(d.id));
     if (fresh.length) {
@@ -1138,6 +1161,7 @@ export class App {
       if (go === 'squad') this.captainSelect();
       if (go === 'training') this.trainingField(); // v1.6
       if (go === 'coaches') this.coachesScreen(); // pre-2.0
+      if (go === 'keshin') this.keshinScreen(); // 2.0
       if (go === 'road') this.roadScreen();
       if (go === 'tierlist') this.tierlistScreen(); // 1.9
       if (go === 'clan') void this.clanScreen(); // 1.93
@@ -1197,26 +1221,41 @@ export class App {
     const now = serverNow();
     const art = (ids: number[], size = 128) => ids.map((id, i) => `<span class="m5-who" style="--i:${i}">${this.mug(id, size as 64)}</span>`).join('');
     const slides: { kicker: string; title: string; text: string; cta: string; color: string; art: string; tag?: string; act: () => void }[] = [];
-    const news = allNews()[0];
+    const news = allNews(true, serverNow())[0];
     if (thanksActive(now)) {
       const pool = bannerPool(this.m.roster, 'evento').filter((p) => p.exclusive);
       slides.push({ kicker: 'BANNER ESPECIAL', title: BANNERS.evento.label, text: BANNERS.evento.tagline, cta: '¡Fichar ahora!', color: BANNERS.evento.color, tag: 'LIMITADO',
         art: art(featured(pool, 3).map((p) => p.id)), act: () => { this.gachaBanner = 'evento'; this.gacha(); } });
     }
+    // author: InaZurvivors x BlueLock — once open, its slide; before, «Próximamente» with the days left and only silhouettes
+    if (bluelockActive(now)) slides.push({ kicker: 'COLABORACIÓN · LIMITADO', title: 'InaZurvivors x BlueLock', text: `Nagi e Isagi, solo en su banner. Termina en ${this.leftText(bluelockLeftMs(now))}.`, cta: '¡Fichar ahora!', color: BANNERS.bluelock.color, tag: 'NUEVO',
+      art: `<span class="m5-bl">${this.blLogo()}<span class="m5-bl-who">${art(BLUELOCK_EVENT.players)}</span></span>`, act: () => { this.gachaBanner = 'bluelock'; this.gacha(); } });
+    else if (bluelockUpcoming(now)) {
+      const d = bluelockDaysToStart(now);
+      slides.unshift({ kicker: 'PRÓXIMAMENTE', title: 'Nueva colaboración', text: d > 1 ? `Faltan ${d} días. ¿Quiénes serán?` : '¡Mañana! ¿Quiénes serán?', cta: `${d > 1 ? `${d} días` : 'Mañana'}`, color: '#2a5ad8', tag: d > 1 ? `${d} DÍAS` : 'MAÑANA',
+        art: `<span class="m5-soon"><span class="m5-sil">${art(BLUELOCK_EVENT.players)}</span><b class="m5-q">?</b></span>`, act: () => this.toast(d > 1 ? `La nueva colaboración llega en ${d} días` : 'La nueva colaboración llega mañana') });
+    }
+    // (author) Rango Z: the Tuesday update at 12:00; before it, the days left, then a week of «Nuevo»
+    if (!rankZOpen(now)) slides.unshift({ kicker: 'PRÓXIMAMENTE · MARTES 12:00', title: 'Rango Z', text: `Más allá del X: más difícil que nada, más puntos en el ranking y las mejores recompensas. ${this.rankZCountdown(true)}.`,
+      cta: this.rankZCountdown(), color: '#ff2a45', tag: rankZDaysLeft(now) > 1 ? `${rankZDaysLeft(now)} DÍAS` : 'MAÑANA', art: `<span class="m5-big m5-rz">${zEmblem()}</span>`, act: () => this.toast(`El Rango Z llega el martes 10 a las 12:00 · ${this.rankZCountdown(true)}`) });
+    else if (rankZLeftMs(now) === 0 && +now - Date.parse('2026-11-10T12:00:00+01:00') < 7 * 86_400_000) slides.unshift({ kicker: 'NUEVO RANGO', title: 'Rango Z', text: 'Más allá del X. Recompensas ×3,2, 60 fichas la primera victoria por arena, 3 Fichas EG por mapa y ×7 de puntos en el ranking.',
+      cta: '¡Atrévete!', color: '#ff2a45', tag: 'NUEVO', art: `<span class="m5-big m5-rz">${zEmblem()}</span>`, act: () => { this.save.difficulty = 'Z'; this.persist(); this.mapSelect(); } });
     // a saga machine in the spotlight, a different one each day
-    const machines: BannerId[] = ['ff', 'alius', 'ffi', 'go', 'chrono', 'galaxy', 'ares', 'orion'];
-    const b = machines[Math.floor(now.getTime() / 86400000) % machines.length];
+    const b = featuredMachine(now); // (author) and its good rarities are likelier today (banners.FEATURED_BOOST)
     slides.push({ kicker: 'MÁQUINA DESTACADA DE HOY', title: BANNERS[b].label, text: BANNERS[b].tagline, cta: '¡A fichar!', color: BANNERS[b].color, tag: 'HOY',
       art: art(featured(bannerPool(this.m.roster, b), 3).map((p) => p.id)), act: () => { this.gachaBanner = b; this.gacha(); } });
     if (eventActive(now)) slides.push({ kicker: 'EVENTO', title: 'Banners de leyenda', text: 'Banners y marcos de perfil por tiempo limitado.', cta: 'Ver el evento', color: '#ffd84a', tag: 'EVENTO', art: `<span class="m5-big">${uiIcon('gift')}</span>`, act: () => this.pennantEvent() });
     if (this.byId.has(JADEN_ID)) slides.push({ kicker: 'MODO DESAFÍO', title: 'Road to Fútbol Frontier', text: 'Gana en Máxima y llévate a Jaden Evans.', cta: 'Jugar el camino', color: '#ff8a2a', tag: 'EXCLUSIVO',
       art: art([JADEN_ID], 160), act: () => this.roadScreen() });
-    slides.push({ kicker: 'NUEVO · CLANES', title: 'Juegos del Clan', text: this.save.clanSeen ? `${this.save.clanSeen.name}: 3 partidas al día en la Colina de los Cerezos. Premios cada lunes.` : 'Funda o únete a un clan, jugad 3 partidas al día cada uno y ganad premios cada semana.',
+    slides.push({ kicker: 'NUEVO · CLANES', title: 'Juegos del Clan', text: this.save.clanSeen ? `${this.save.clanSeen.name}: 1 partida al día en la Colina de los Cerezos. Premios cada lunes.` : 'Funda o únete a un clan, jugad 1 partida al día cada uno y ganad premios cada semana.',
       cta: this.save.clanSeen ? 'Jugar por el clan' : 'Ver los clanes', color: '#3fd07a', tag: 'NUEVO', art: `<span class="m5-big">${uiIcon('team')}</span>`, act: () => void this.clanScreen(this.save.clanSeen ? 'juegos' : undefined) });
     slides.push({ kicker: 'NUEVO · COMUNIDAD', title: 'Crea tu tierlist', text: 'Ordena a tus futbolistas favoritos de S a D y publícala: todo el mundo la verá en el menú.', cta: 'Crear la mía', color: '#ff4f6a', tag: 'NUEVO',
       art: `<span class="m5-tiers">${TIERS.map((k) => `<i style="--tc:${TIER_COLOR[k]}">${k}</i>`).join('')}</span>`, act: () => { this.tierTab = 'crear'; this.tierlistScreen(); } });
-    if (news) slides.push({ kicker: `NOTICIAS · ${VERSION_LABEL}`, title: news.title, text: news.summary, cta: 'Leer más', color: '#4fb3ff', tag: this.save.devlogSeen !== NEWS_KEY ? 'NUEVO' : undefined,
+    if (news) slides.push({ kicker: `NOTICIAS · ${VERSION_LABEL}`, title: news.title, text: news.summary, cta: 'Leer más', color: '#4fb3ff', tag: this.save.devlogSeen !== newsKey() ? 'NUEVO' : undefined,
       art: `<span class="m5-big">${uiIcon('news')}</span>`, act: () => this.devlog() });
+    // 2.0 (author): the first slide of the menu explains the update and opens its news
+    slides.unshift({ kicker: 'NUEVA VERSIÓN', title: 'InaZurvivors 2.0 · Espíritus Guerreros', text: '19 espíritus con definitiva (R), Rango Z, 6 arenas nuevas, técnicas combinadas de leyenda y Fichas EG en clanes y códigos. Toca para verlo todo.',
+      cta: 'Ver novedades', color: '#c45aff', tag: '2.0', art: `<span class="m5-big m5-v2">2.0</span>`, act: () => this.devlog('version-2-0-espiritus') });
     return slides;
   }
   private promoHtml(slides: ReturnType<App['promoSlides']>) {
@@ -1430,11 +1469,11 @@ export class App {
     body.innerHTML = `<div class="cl-grid">
       <div class="panel cl-games"><div class="cl-games-art">${mp?.minimapTexture ? `<img src="${mp.minimapTexture}" alt="">` : ''}<span><small>ARENA EXCLUSIVA DE CLANES</small><b>${esc(mp?.name ?? 'Juegos del Clan')}</b></span></div>
         <p>${esc(mp?.blurb ?? '')} Juegas con <b>la equipación del clan</b> (${esc(c.kit ? teamLabel(c.kit) : 'Raimon')}) y tu Rango actual (<b>${this.save.difficulty}</b>): cuanto más alto, más puntos.</p>
-        <div class="cl-left"><span class="cl-dots big">${Array.from({ length: CLAN_RUNS_PER_DAY }, (_x, i) => `<i class="${i < c.runsToday ? 'on' : ''}"></i>`).join('')}</span><b>${left ? `Te quedan ${left} de ${CLAN_RUNS_PER_DAY} partidas hoy` : 'Ya has jugado las 3 de hoy: vuelve mañana'}</b></div>
+        <div class="cl-left"><span class="cl-dots big">${Array.from({ length: CLAN_RUNS_PER_DAY }, (_x, i) => `<i class="${i < c.runsToday ? 'on' : ''}"></i>`).join('')}</span><b>${left ? 'Te queda tu partida de hoy' : 'Ya has jugado tu partida de hoy: vuelve mañana'}</b></div>
         <button class="btn big cl-play" id="clplay" ${left && squad.length && mp ? '' : 'disabled'}>${uiIcon('play')}¡Jugar por el clan!</button>
-        <p class="note">Puntos: rivales derrotados, tiempo aguantado, daño y +300 por ganar, por el Rango (C ×1 · B ×1,25 · A ×1,5 · S ×1,8 · X ×2,2). Las monedas y fichas de la partida son la mitad de lo normal, pero caen objetos del clan.</p></div>
+        <p class="note">Puntos: rivales derrotados, tiempo aguantado, daño y +300 por ganar, por el Rango (C ×1 · B ×1,25 · A ×1,5 · S ×1,8 · X ×2,2 · Z ×2,8). La partida da sus monedas y fichas normales y, además, objetos del clan.</p></div>
       <div class="panel"><h3>${uiIcon('gift')}Objetos del clan</h3><div class="cl-bag">${CLAN_ITEMS.map((it) => `<span class="cl-item big r-${it.rarity}" title="${esc(it.name)}">${this.icon(it.icon, 2.5)}<b>${this.save.clanItems?.[it.id] ?? 0}</b><small>${esc(it.name)}</small></span>`).join('')}</div>
-        <p class="note">Caen en los Juegos del Clan: uno cada 60 rivales, 3 más si ganas y más cuanto más alto el Rango. Se gastan en la Tienda del clan.</p>
+        <p class="note">Caen en los Juegos del Clan: 3 cada 60 rivales, 9 más si ganas y más cuanto más alto el Rango. Se gastan en la Tienda del clan.</p>
         <button class="btn blue" id="clshop">Ir a la tienda</button></div></div>`;
     document.getElementById('clplay')?.addEventListener('click', () => this.clanPlay());
     document.getElementById('clshop')!.addEventListener('click', () => { this.clanTab = 'tienda'; this.clanHome(); });
@@ -1442,7 +1481,7 @@ export class App {
 
   private async clanTabRanking(body: HTMLElement) {
     const c = this.clanData!;
-    const prizes = (Object.entries(CLAN_PRIZES) as [ClanTier, (typeof CLAN_PRIZES)[ClanTier]][]).map(([t, p]) => `<div class="cl-prize t-${t}"><b>${p.label}</b><span>${p.tokens} fichas · ${p.coins.toLocaleString('es')} ◉</span><small>${p.players.map((x) => `${x.n} ${x.label}`).join(' · ')}</small></div>`).join('');
+    const prizes = (Object.entries(CLAN_PRIZES) as [ClanTier, (typeof CLAN_PRIZES)[ClanTier]][]).map(([t, p]) => `<div class="cl-prize t-${t}"><b>${p.label}</b><span>${p.tokens} fichas · ${p.eg} Fichas EG · ${p.coins.toLocaleString('es')} ◉</span><small>${p.players.map((x) => `${x.n} ${x.label}`).join(' · ')}</small></div>`).join('');
     body.innerHTML = `<div class="cl-grid"><div class="panel"><h3>${uiIcon('crown')}Ranking de la semana</h3><div id="clrank" class="cl-list"><div class="note">Cargando…</div></div></div>
       <div class="panel"><h3>${uiIcon('trophy')}Premios del lunes</h3><div class="cl-prizes">${prizes}</div><p class="note">Los recibe cada miembro que jugó al menos una partida por el clan esa semana (TOP 1 el primero, TOP 3 hasta el 3.º, TOP 8 hasta el 8.º, el resto si sumó puntos). Se cobran al entrar al menú.</p>
         <h3>${uiIcon('clock')}La semana pasada</h3><div id="cllast" class="cl-list"><div class="note">Cargando…</div></div></div></div>`;
@@ -1462,6 +1501,7 @@ export class App {
     const costHtml = (cost: ClanBag) => CLAN_ITEMS.filter((it) => cost[it.id]).map((it) => `<span class="cl-item${(bag[it.id] ?? 0) >= (cost[it.id] ?? 0) ? '' : ' short'}" title="${esc(it.name)}">${this.icon(it.icon, 1.25)}<b>${cost[it.id]}</b></span>`).join('');
     const art = (o: ClanOffer) => o.kind === 'monedas' ? `<span class="cl-off-ic coins">◉</span><b>${o.coins.toLocaleString('es')} monedas</b>`
       : o.kind === 'fichas' ? `<span class="cl-off-ic tokens">${uiIcon('capsule')}</span><b>${o.tokens} fichas</b><small>un ×10</small>`
+      : o.kind === 'eg' ? `<span class="cl-off-ic eg">EG</span><b>${o.egTokens} Ficha EG</b><small>Espíritus Guerreros</small>`
       : o.kind === 'pennant' ? (() => { const d = PENNANT_BY_ID.get(o.pennant)!; return `${isFrame(d) ? `<span class="fr-prev">${this.framed(this.frameFace(), d.id)}</span>` : `<span class="pn-prev">${pennantRibbon(d)}</span>`}<b>${esc(d.name)}</b><small>${isFrame(d) ? 'Marco' : 'Banner'} exclusivo</small>`; })()
       : `<span class="cl-off-ic r-${o.rarity}" style="--rc:${RARITY_COLOR[o.rarity]}">${uiIcon('cards')}</span><b>Futbolista</b><small>${esc(o.label)}</small>`;
     body.innerHTML = `<div class="panel cl-shop"><h3>${uiIcon('shop')}Tienda del clan <small>se renueva en ${this.leftText(clanWeekLeftMs(serverNow()))}</small></h3>
@@ -1475,6 +1515,7 @@ export class App {
       payBag(this.save, o.cost); recordBuy(this.save, week, o.id);
       if (o.kind === 'monedas') { this.save.coins += o.coins; this.toast(`+${o.coins.toLocaleString('es')} ◉`); }
       else if (o.kind === 'fichas') { this.save.tokens += o.tokens; this.toast(`+${o.tokens} fichas`); }
+      else if (o.kind === 'eg') { this.save.egTokens = (this.save.egTokens ?? 0) + o.egTokens; this.toast(`+${o.egTokens} Ficha EG`); }
       else if (o.kind === 'pennant') { givePennant(this.save, o.pennant); this.toast(`¡${PENNANT_BY_ID.get(o.pennant)?.name}! Póntelo en tu Perfil.`); }
       this.persist(); sfx('powerup');
       if (o.kind === 'jugador') {
@@ -1592,6 +1633,7 @@ export class App {
     const won: PullResult[] = [];
     for (const z of prizes) {
       this.save.coins += z.coins; this.save.tokens += z.tokens;
+      this.save.egTokens = (this.save.egTokens ?? 0) + (CLAN_PRIZES[z.tier]?.eg ?? 0); // author: Fichas EG by position
       for (const g of CLAN_PRIZES[z.tier]?.players ?? []) for (let i = 0; i < g.n; i++) {
         const p = clanPlayer(this.m.roster, g.odds, Math.random);
         if (p) won.push({ player: p, ...addCopy(this.save, p) });
@@ -1600,7 +1642,7 @@ export class App {
     this.persist();
     const box = document.createElement('div');
     box.className = 'modal clan-end';
-    box.innerHTML = `<div class="panel cl-end-card"><small>PREMIOS DE CLAN</small><h2>¡Cierre de la semana!</h2>${prizes.map((z) => `<div class="cl-prize t-${z.tier}"><b>${CLAN_PRIZES[z.tier]?.label ?? z.tier} · puesto ${z.pos}</b><span>${esc(z.clan)}</span><small>+${z.tokens} fichas · +${z.coins.toLocaleString('es')} ◉ · ${(CLAN_PRIZES[z.tier]?.players ?? []).map((g) => `${g.n} ${g.label}`).join(' · ')}</small></div>`).join('')}
+    box.innerHTML = `<div class="panel cl-end-card"><small>PREMIOS DE CLAN</small><h2>¡Cierre de la semana!</h2>${prizes.map((z) => `<div class="cl-prize t-${z.tier}"><b>${CLAN_PRIZES[z.tier]?.label ?? z.tier} · puesto ${z.pos}</b><span>${esc(z.clan)}</span><small>+${z.tokens} fichas · +${CLAN_PRIZES[z.tier]?.eg ?? 0} Fichas EG · +${z.coins.toLocaleString('es')} ◉ · ${(CLAN_PRIZES[z.tier]?.players ?? []).map((g) => `${g.n} ${g.label}`).join(' · ')}</small></div>`).join('')}
       <div class="cp-actions"><button class="btn big" id="clprok">${won.length ? '¡Abrir los fichajes!' : 'Genial'}</button></div></div>`;
     (document.body.querySelector('#ui') ?? this.root).appendChild(box);
     if (this.save.settings.particles !== 'desactivado') confetti(120);
@@ -1813,7 +1855,7 @@ export class App {
       <span class="rk-pos">${i < 3 ? ['🥇', '🥈', '🥉'][i] : `#${i + 1}`}</span>${this.mug(p.id, 64)}<b>${esc(p.name)}</b>
       <small>${c.wins} ${c.wins === 1 ? 'victoria' : 'victorias'} · ${c.captain} de capitán · mejor rango ${c.best}</small></div>`; }).join('');
     const rows = hall.slice(0, 60).map((t, i) => `<div class="hof-run" style="--d:${Math.min(i, 15) * 40}ms">
-      <span class="rank-btn r-${t.rank} rk-r"><b>${t.rank}</b></span>
+      <span class="rank-btn r-${t.rank} rk-r">${rankMark(t.rank)}</span>
       <span class="hof-meta"><b>${esc(mapName(t.map))}</b><small>${new Date(t.at).toLocaleDateString('es')} · ${fmtTime(t.time)} · ${t.kills} eliminaciones · ${t.damage.toLocaleString('es')} daño${t.endless ? ` · ∞ ${fmtTime(t.endless)}` : ''}</small></span>
       <span class="hof-team">${t.team.filter((id) => this.byId.has(id)).map((id, k) => `<span class="hof-p${k === 0 ? ' cap' : ''}" title="${esc(this.byId.get(id)!.name)}">${this.mug(id, 44)}${k === 0 ? '<i>C</i>' : ''}</span>`).join('')}</span></div>`).join('');
     const byMap = this.m.maps.map((mp) => `${esc(mp.name)}: ${hall.filter((t) => t.map === mp.id).length}`).join(' · ');
@@ -1859,25 +1901,25 @@ export class App {
     if (!list || !me) return;
     const mapName = (id: string) => this.m.maps.find((x) => x.id === id)?.name ?? id;
     const row = (pos: number, name: string, captain: number, crest: string, map: string, rank: string, time: number, damage: number, mine = false, score?: number) => {
-      const p = this.byId.get(captain), pts = score ?? scoreOf({ rank, time, damage }), rb = this.flagMini(name);
+      const p = this.byId.get(captain), pts = score ?? scoreOf({ map, rank, time, damage }), rb = this.flagMini(name);
       return `<div class="rank-row${pos <= 3 ? ` top${pos}` : ''}${mine ? ' mine' : ''}${rb ? ' has-pn' : ''}" style="--d:${Math.min(pos, 15) * 40}ms"${onlineConfigured() ? ` data-user="${esc(name)}" title="Ver el perfil de ${esc(name)}"` : ''}>
         ${rb}<span class="rk-pos">${pos <= 3 ? ['🥇', '🥈', '🥉'][pos - 1] : `#${pos}`}</span>
-        ${this.framed(`<span class="rk-av${p ? ` r-${p.rarity}` : ''}">${p ? this.mug(p.id, 48) : ''}</span>`, this.frameOf(name))}
-        <span class="rk-name"><b>${esc(name)}</b>${this.clanBadge(name)}<small>${esc(mapName(map))}</small></span>
+        ${this.framed(`<span class="rk-av${p ? ` r-${p.rarity}` : ''}${this.champLevel(name, captain) ? ' champ' : ''}">${p ? this.mug(p.id, 48) : ''}</span>`, this.frameOf(name))}
+        <span class="rk-name"><b>${esc(name)}</b>${this.clanBadge(name)}${this.champTag(name, captain)}<small>${esc(mapName(map))}</small></span>
         ${crest && this.emblemOf(crest) ? `<img class="rk-crest" src="${this.emblemOf(crest)}" alt="">` : '<span class="rk-crest"></span>'}
-        <span class="rank-btn r-${rank} rk-r"><b>${rank}</b></span>
+        <span class="rank-btn r-${rank} rk-r">${rankMark(rank)}</span>
         <span class="rk-num rk-pts${q.order === 'score' || q.order === 'rank' ? ' on' : ''}"><b>${pts.toLocaleString('es')}</b><small>puntos</small></span>
         <span class="rk-num${q.order === 'time' ? ' on' : ''}"><b>${fmtTime(time)}</b><small>tiempo</small></span><span class="rk-num${q.order === 'damage' ? ' on' : ''}"><b>${damage.toLocaleString('es')}</b><small>daño</small></span></div>`;
     };
     type RowArgs = readonly [number, string, number, string, string, string, number, number, boolean, number | undefined];
     const metric = (time: number, damage: number, pts: number) => q.order === 'time' ? [fmtTime(time), 'tiempo'] : q.order === 'damage' ? [damage.toLocaleString('es'), 'daño'] : [pts.toLocaleString('es'), 'puntos'];
     const podium = (top: readonly RowArgs[]) => `<div class="rk-podium">${top.map(([pos, name, captain, crest, map, rank, time, damage, , score]) => {
-      const p = this.byId.get(captain), pts = score ?? scoreOf({ rank, time, damage }), [big, unit] = metric(time, damage, pts);
+      const p = this.byId.get(captain), pts = score ?? scoreOf({ map, rank, time, damage }), [big, unit] = metric(time, damage, pts);
       return `<div class="rk-pod p${pos}" style="--d:${pos * 90}ms"${onlineConfigured() ? ` data-user="${esc(name)}" title="Ver el perfil de ${esc(name)}"` : ''}><span class="rk-medal">${pos}</span>
-        ${this.framed(`<span class="rk-pmug${p ? ` r-${p.rarity}` : ''}">${p ? this.mug(p.id, pos === 1 ? 112 : 88) : ''}</span>`, this.frameOf(name))}
-        ${this.namePlate('rk-pname', name)}${this.clanBadge(name)}<small>${p ? esc(p.name) : ''} · ${esc(mapName(map))}</small>
+        ${this.framed(`<span class="rk-pmug${p ? ` r-${p.rarity}` : ''}${this.champLevel(name, captain) ? ' champ' : ''}">${p ? this.mug(p.id, pos === 1 ? 112 : 88) : ''}</span>`, this.frameOf(name))}
+        ${this.namePlate('rk-pname', name)}${this.clanBadge(name)}${this.champTag(name, captain)}<small>${p ? esc(p.name) : ''} · ${esc(mapName(map))}</small>
         <div class="rk-pbig"><b>${big}</b><small>${unit}</small></div>
-        <div class="rk-pmeta">${crest && this.emblemOf(crest) ? `<img class="rk-crest" src="${this.emblemOf(crest)}" alt="">` : ''}<span class="rank-btn r-${rank}"><b>${rank}</b></span>
+        <div class="rk-pmeta">${crest && this.emblemOf(crest) ? `<img class="rk-crest" src="${this.emblemOf(crest)}" alt="">` : ''}<span class="rank-btn r-${rank}">${rankMark(rank)}</span>
           <span><b>${fmtTime(time)}</b><small>tiempo</small></span><span><b>${damage.toLocaleString('es')}</b><small>daño</small></span></div>
         <i class="rk-step"><b>${pos}</b></i></div>`;
     }).join('')}</div>`;
@@ -1890,7 +1932,7 @@ export class App {
     }
     try {
       const rows = await leaderboard(q);
-      await this.loadFlags(rows.map((r) => r.username)); // v1.65
+      await Promise.all([this.loadFlags(rows.map((r) => r.username)), this.loadChamps(rows.map((r) => ({ username: r.username, captain: r.captain_id })))]); // v1.65; 2.0 champions
       const all = rows.map((r) => [Number(r.pos), r.username, r.captain_id, r.crest, r.map, r.rank, r.time_sec, Number(r.damage), false, r.score == null ? undefined : Number(r.score)] as const);
       list.innerHTML = all.length ? podium(all.slice(0, 3)) + all.slice(3).map((r) => row(...r)).join('') : '<div class="note">Nadie ha jugado este tablero todavía.</div>';
       const mine = signedIn() ? await myPosition(q) : null;
@@ -1916,6 +1958,25 @@ export class App {
       profileFrames(want).then((got) => { for (const n of want) this.frameCache.delete(n.toLowerCase()); for (const r of got) if (isFrame(PENNANT_BY_ID.get(r.frame))) this.frameCache.set(r.username.toLowerCase(), r.frame); }).catch(() => { /* without frames */ }),
       clanOf(want).then((got) => { for (const n of want) this.clanCache.delete(n.toLowerCase()); for (const r of got) this.clanCache.set(r.username.toLowerCase(), { name: r.clan, crest: r.crest }); }).catch(() => { /* without clans */ }), // 1.93
     ]);
+  }
+  /** 2.0 (author: «que en el ranking se vea si es campeón o no»): the Camino del Campeón level of each row's captain
+   *  (lowercase name|captain → 1..3); one's own comes from the save */
+  private champCache = new Map<string, number>();
+  private async loadChamps(rows: { username: string; captain: number }[]) {
+    if (!rows.length || !onlineConfigured()) return;
+    try {
+      const got = await championOfRows(rows);
+      for (const r of rows) this.champCache.delete(`${r.username.toLowerCase()}|${r.captain}`);
+      for (const r of got) if (r.champion > 0) this.champCache.set(`${r.username.toLowerCase()}|${r.captain_id}`, r.champion);
+    } catch { /* the board shows without it (the function may not be on the server yet) */ }
+  }
+  private champLevel(name: string, captain: number) {
+    const me = (this.save.onlineName ?? this.save.profile.name).toLowerCase() === name.toLowerCase();
+    return me ? championOf(this.save, captain) : this.champCache.get(`${name.toLowerCase()}|${captain}`) ?? 0;
+  }
+  private champTag(name: string, captain: number) {
+    const c = this.champLevel(name, captain);
+    return c ? `<span class="rk-champ c${c}" title="Su capitán es ${CHAMPION_LABEL[c]}">♛ ${CHAMPION_LABEL[c]}</span>` : '';
   }
   /** 1.93: the clan of each name on the ranking (lowercase name → clan) */
   private clanCache = new Map<string, { name: string; crest: string }>();
@@ -1960,7 +2021,7 @@ export class App {
     // 1.81: a code's banner is only listed for whoever owns it
     const list = PENNANTS.filter((d) => visiblePennant(this.save, d));
     const eq = this.save.pennants?.equipped, owned = list.filter((d) => hasPennant(this.save, d.id)).length;
-    const how = (d: PennantDef) => d.source === 'tienda' ? `Tienda · ${d.price?.toLocaleString('es')} ◉` : d.source === 'logro' ? `Logro: ${d.how}` : d.source === 'codigo' ? (d.how ?? 'Código') : d.source === 'clan' ? 'Tienda del clan' : 'Evento por tiempo limitado';
+    const how = (d: PennantDef) => d.source === 'tienda' ? `Tienda · ${d.price?.toLocaleString('es')} ◉` : d.source === 'logro' ? `Logro: ${d.how}` : d.source === 'codigo' ? (d.how ?? 'Código') : d.source === 'clan' ? 'Tienda del clan' : d.source === 'colab' ? `Colaboración BlueLock: ${d.how}${d.id === 'colab-bluelock' && !hasPennant(this.save, d.id) ? ` (${Math.min(this.save.blWins ?? 0, BLUELOCK_WINS_FOR_BANNER)}/${BLUELOCK_WINS_FOR_BANNER})` : ''}` : 'Evento por tiempo limitado';
     return `<div class="panel pf-pennants"><h3>${uiIcon('crown')}Banners <small>${owned}/${list.length}</small></h3>
       <p class="note">Tu banner sale junto a tu nombre en el ranking y en tu perfil, también cuando otros lo abren.</p>
       <div class="pn-grid">${list.map((d) => { const own = hasPennant(this.save, d.id);
@@ -2064,7 +2125,7 @@ export class App {
       return `<button class="rd-pick r-${r}${on ? ' on' : ''}" data-rpick="${p.id}" style="--rc:${RARITY_COLOR[r]}">${this.mug(p.id, 40)}<span><b>${esc(p.name)}</b><small>${esc(teamLabel(p.teams.find((t) => t.includes('Inazuma') || t.includes('Raimon')) ?? ''))}</small></span></button>`; }).join('');
     const act = active ? ROAD_BY_ID.get(active.diff)! : null;
     this.show(`<div class="screen road-screen">${this.titlebar('Road to Fútbol Frontier', 'Menú')}
-      <div class="rd-hero"><div><small>MODO DESAFÍO · PRE-2.0</small><b>Road to Fútbol Frontier</b><span>5 futbolistas del Raimon o de Inazuma Japan, sin Auras, partido tras partido hasta la final del Estadio Zeus. Si pierdes uno, se acaba el camino.</span></div>
+      <div class="rd-hero"><div><small>MODO DESAFÍO</small><b>Road to Fútbol Frontier</b><span>5 futbolistas del Raimon o de Inazuma Japan, sin Auras, partido tras partido hasta la final del Estadio Zeus. Si pierdes uno, se acaba el camino.</span></div>
         <div class="rd-jaden${ownsJaden ? ' own' : ''}"><span class="rd-jart">${this.mug(JADEN_ID, 80)}${ownsJaden ? '' : '<i class="rd-lock">🔒</i>'}</span><span><small>${ownsJaden ? 'OTRA COPIA DE JADEN EN' : 'JADEN EVANS EN'}</small><b>${toJaden} ${toJaden === 1 ? 'victoria' : 'victorias'} en Máxima</b><i style="width:${((maxClears % JADEN_EVERY) / JADEN_EVERY) * 100}%"></i></span></div></div>
       ${active && act ? `<div class="panel rd-active"><h3>${uiIcon('trophy')}Camino en curso · ${act.label}</h3>
           <span class="rd-path big">${act.maps.map((m, i) => `<i class="${i < active.level ? 'done' : i === active.level ? 'now' : ''}" title="${esc(mapName(m))}">${i < active.level ? '✔' : i + 1}</i>`).join('<em></em>')}</span>
@@ -2242,6 +2303,423 @@ export class App {
     });
   }
 
+  // ------------------------------------------------------------- 2.0 Espíritus Guerreros (keshin.ts)
+  /** the Ficha EG icon (its own pixel art) */
+  /** (author) the collab's celebration in its machine: the banner (3 wins while open) and the frame (Nagi and Isagi), with progress */
+  private blRewards() {
+    const wins = Math.min(this.save.blWins ?? 0, BLUELOCK_WINS_FOR_BANNER);
+    const item = (art: string, label: string, done: boolean, prog: string) =>
+      `<span class="bl-rw${done ? ' done' : ''}"><span class="bl-rw-art">${art}</span><span><b>${label}</b><em>${done ? '¡Conseguido! Póntelo en tu Perfil' : prog}</em></span></span>`;
+    return `<div class="bl-rewards"><small>RECOMPENSAS DE LA COLABORACIÓN</small><div>
+      ${item(pennantSvg('colab-bluelock', 30), 'Banner InaZurvivors x BlueLock', hasPennant(this.save, 'colab-bluelock'), `Gana ${BLUELOCK_WINS_FOR_BANNER} partidas · ${wins}/${BLUELOCK_WINS_FOR_BANNER}`)}
+      ${item(`<span class="bl-rw-fr">${frameSvg('marco-bluelock')}</span>`, 'Marco BlueLock', hasPennant(this.save, 'marco-bluelock'), `Ficha a Nagi y a Isagi · ${BLUELOCK_EVENT.players.filter((id) => this.save.owned[String(id)]).length}/2`)}
+    </div></div>`;
+  }
+
+  /** author: «InaZurvivors x BlueLock» — the game's name, an x and the BlueLock logo */
+  private blLogo() {
+    const logo = this.m.collab?.bluelock;
+    return `<span class="bl-logo"><b class="bl-iz">InaZurvivors</b><i class="bl-x">×</i>${logo ? `<img src="${logo}" alt="BlueLock">` : '<b>BlueLock</b>'}</span>`;
+  }
+  private egIcon(size = 18) { const src = this.m.eg?.ficha; return src ? `<img class="eg-fic" src="${src}" alt="Ficha EG" style="width:${size}px;height:${size}px">` : '<b class="eg-fic">EG</b>'; }
+  /** the symbol of a spirit level: II…Ω are drawn; level I has none */
+  private egLevel(lv: number, h = 26) {
+    const src = this.m.eg?.levels[String(lv)];
+    // the symbols are the games' pixel art (24 px high): shown at whole multiples of it, never smoothed
+    return lv >= 2 ? (src ? `<img class="eg-lvsym" src="${src}" alt="${KESHIN_LABEL[lv]}" style="height:${Math.max(12, Math.round(h / 12) * 12)}px">` : `<b class="eg-lvsym">${KESHIN_LABEL[lv]}</b>`) : '';
+  }
+  /** 2.0 (author: «mejora los logos de los miembros del equipo en el botón de Mi Equipo»): the captain bigger with his C,
+   *  rarity rings that glow, each awakened warrior spirit as a tiny medal, the free places as dashed rings; they fan out on hover */
+  private teamFaces(squad: RosterEntry[]) {
+    const faces = squad.slice(0, SQUAD_SIZE).map((p, i) => {
+      const r = effectiveRarity(this.save, p), k = keshinOf(p.id), lv = k ? keshinLevel(this.save, p.id) : 0;
+      return `<span class="m4-face r-${r}${i === 0 ? ' cap' : ''}" style="--rc:${RARITY_COLOR[r]};--i:${i}" title="${esc(p.name)}">${this.mug(p.id, i === 0 ? 38 : 30)}`
+        + `${i === 0 ? '<b class="m4-c">C</b>' : ''}${k && lv ? `<i class="m4-eg" style="--kc:${k.color}">${this.egArt(k)}</i>` : ''}</span>`;
+    });
+    for (let i = squad.length; i < SQUAD_SIZE; i++) faces.push(`<span class="m4-face empty" style="--i:${i}"><b>+</b></span>`);
+    return faces.join('');
+  }
+  /** the footballer whose spirit is the active one in this run (its ultimate on R), for the signing cards */
+  private ultActiveId: number | null = null;
+  private ultCalmTimer = 0;
+  /** 2.0 (author: «haz más visible lo de la ulti»): when the ultimate fills, a big call in the middle of the screen */
+  private ultToast(k: KeshinDef, tech: string) {
+    document.querySelector('.ult-toast')?.remove();
+    const pad = !!firstPad(), touch = document.body.classList.contains('touch');
+    const box = document.createElement('div');
+    box.className = 'ult-toast';
+    box.style.setProperty('--kc', k.color);
+    box.innerHTML = `<i class="ut-rays"></i><span class="ut-art">${this.egArt(k)}</span><div class="ut-tx"><small>¡DEFINITIVA LISTA!</small><b>${esc(tech)}</b>
+      <em>${pad ? 'Pulsa <kbd>Y</kbd>' : touch ? 'Toca su botón' : 'Pulsa <kbd>R</kbd>'}</em></div>`;
+    document.getElementById('hud')?.appendChild(box);
+    setTimeout(() => box.classList.add('out'), 1500);
+    setTimeout(() => box.remove(), 1900);
+  }
+  /** 2.0 (author: «cuando fiches a un jugador que salga EG si tiene, hazlo chulo y juiced»): his warrior spirit bursts
+   *  out behind him in its colour, its name and level, and whether it is the team's active one or gives its passive */
+  private egJoin(e: { playerId: number; active: boolean }) {
+    const k = keshinOf(e.playerId), p = this.byId.get(e.playerId), lv = keshinLevel(this.save, e.playerId);
+    if (!k || !p) return;
+    document.querySelector('.eg-join')?.remove();
+    const box = document.createElement('div');
+    box.className = `eg-join${e.active ? ' active' : ''}`;
+    box.style.setProperty('--kc', k.color);
+    box.innerHTML = `<i class="ej-flash"></i><i class="ej-rays"></i>
+      <div class="ej-card"><span class="ej-art">${this.egArt(k)}${lv >= 2 ? `<span class="ej-lv">${this.egLevel(lv, 22)}</span>` : ''}
+          <span class="ej-mug">${this.mug(p.id, 72)}<small>${esc(p.name)}</small></span></span>
+        <div class="ej-tx"><small>¡FICHAJE! ${esc(p.name.toUpperCase())} TRAE SU</small><em>ESPÍRITU GUERRERO</em><b>${esc(k.name)}</b>
+          <span class="ej-role">${e.active ? `★ ACTIVO · Definitiva <i>${esc(techFor(k, lv).name)}</i> con R` : `PASIVA · ${esc(k.passive.name)}: ${esc(keshinPassiveText(k, lv))}`}</span></div></div>`;
+    document.getElementById('hud')?.appendChild(box);
+    sfx('legend');
+    setTimeout(() => box.classList.add('out'), 2300);
+    setTimeout(() => box.remove(), 2800);
+  }
+  /** 2.0 (author: «las ultis con la R»): the active warrior spirit's button, bottom right. Its portrait fills up as it
+   *  charges; when the ultimate is ready the button springs out, glows in the spirit's colour and shows how to fire it:
+   *  R on a keyboard, Y / Triangle on a pad, a tap on a touch screen */
+  private renderUlts(s: HudState) {
+    const dock = document.getElementById('ultdock');
+    if (!dock) return;
+    const u = s.ults?.[0], k = u ? keshinOf(u.playerId) : null;
+    this.ultActiveId = u?.playerId ?? null;
+    const sig = u && k ? String(u.playerId) : '';
+    if (dock.dataset.sig !== sig) {
+      dock.dataset.sig = sig;
+      dock.innerHTML = u && k ? `<button class="ult-btn" data-ult="${u.playerId}" title="${esc(u.tech)} · ${esc(k.name)} (R)">
+          <i class="ult-ring"></i>${this.egArt(k, 'ult-art')}<b class="ult-t"></b><em class="ult-pc"></em><kbd class="ult-key"></kbd></button>
+        <div class="ult-info"><small>${esc(k.name.toUpperCase())}</small><b>${esc(u.tech)}</b><em class="ult-state"></em></div>` : '';
+      dock.classList.remove('ready');
+    }
+    if (!u || !k) return;
+    // (author: «ponlo abajo a la izquierda») on a computer it sits bottom-left (styleHud20.css .ult-dock.left)
+    dock.classList.toggle('left', window.matchMedia('(min-width: 901px) and (min-height: 521px)').matches);
+    const ready = u.cd <= 0, pad = !!firstPad(), touch = document.body.classList.contains('touch');
+    dock.style.setProperty('--cd', String(u.cd)); dock.style.setProperty('--kc', k.color);
+    if (ready !== dock.classList.contains('ready')) {
+      dock.classList.toggle('ready', ready);
+      const hudEl = document.getElementById('hud');
+      hudEl?.classList.toggle('ult-ready', ready); // the edges of the screen glow in its colour
+      hudEl?.style.setProperty('--ultc', k.color);
+      // (author: «que no salga todo el rato, que salga las 3 veces indicando y se apague») when it fills it springs out and
+      // flashes three times with the screen's edges, says so in the middle of the screen, then calms down until it is used
+      window.clearTimeout(this.ultCalmTimer);
+      dock.classList.remove('pop', 'calm');
+      if (ready) {
+        void dock.offsetWidth; dock.classList.add('pop'); sfx('powerup');
+        this.ultToast(k, u.tech);
+        this.ultCalmTimer = window.setTimeout(() => dock.classList.add('calm'), 3400);
+      }
+    }
+    const key = pad ? 'Y' : touch ? '' : 'R';
+    const kb = dock.querySelector<HTMLElement>('.ult-key')!;
+    if (kb.textContent !== key) kb.textContent = key;
+    kb.hidden = !key;
+    const t = dock.querySelector<HTMLElement>('.ult-t')!, txt = ready ? '' : String(Math.ceil(u.left));
+    if (t.textContent !== txt) t.textContent = txt;
+    const pc = dock.querySelector<HTMLElement>('.ult-pc')!, pcTxt = ready ? '¡YA!' : `${Math.floor((1 - u.cd) * 100)}%`;
+    if (pc.textContent !== pcTxt) pc.textContent = pcTxt;
+    const st = dock.querySelector<HTMLElement>('.ult-state')!, stTxt = ready ? (pad ? '¡LISTA! Pulsa Y' : touch ? '¡LISTA! Tócala' : '¡LISTA! Pulsa R') : `Cargando ${Math.round((1 - u.cd) * 100)}%`;
+    if (st.textContent !== stTxt) st.textContent = stTxt;
+  }
+  private egArt(k: KeshinDef, cls = '') { const src = this.m.eg?.spirits[k.id]; return src ? `<img class="eg-art-img ${cls}" src="${src}" alt="${esc(k.name)}">` : `<b class="eg-art-img ${cls}">${esc(k.name[0])}</b>`; }
+  /** the badge of a footballer who can call a spirit (lit once unlocked, with its level symbol) */
+  private egBadge(id: number, cls = '') {
+    if (!keshinOf(id) || !this.m.eg) return '';
+    const lv = keshinLevel(this.save, id);
+    // (author: «que los EGs se vean más grandes»): the spirit's own portrait, with the EG badge on its corner
+    const k = keshinOf(id)!;
+    return `<span class="eg-badge ${cls}${lv ? ' on' : ''}" style="--kc:${k.color}" title="${esc(k.name)}${lv ? ` · nivel ${KESHIN_LABEL[lv]}` : ' · sin despertar'}"><span class="eg-bart">${this.egArt(k)}</span><img class="eg-bins" src="${this.m.eg.insignia}" alt="EG">${lv >= 2 ? this.egLevel(lv, 14) : ''}</span>`;
+  }
+  /** the spirit's portrait beside a footballer's face in Mi Equipo (grey until it is awakened) */
+  private egMedal(id: number) {
+    const k = keshinOf(id);
+    if (!k || !this.m.eg) return '';
+    const lv = keshinLevel(this.save, id);
+    return `<span class="sq-eg${lv ? ' on' : ''}" style="--kc:${k.color}" title="${esc(k.name)}${lv ? ` · nivel ${KESHIN_LABEL[lv]}` : ' · sin despertar'}"><span class="sq-eg-art">${this.egArt(k)}</span>${lv >= 2 ? this.egLevel(lv, 14) : ''}</span>`;
+  }
+  private egTypeLabel(k: KeshinDef) { return k.type === 'parada' ? 'Parada' : k.type === 'regate' ? 'Regate' : k.type === 'defensa' ? 'Defensa' : 'Tiro'; }
+
+  /** 2.0: every warrior spirit, who calls it and the level of each one; unlocked and levelled with Fichas EG */
+  keshinScreen(back: 'menu' | number = 'menu', focus?: number) {
+    setMusicContext('collection');
+    const have = egTokens(this.save);
+    const pips = (lv: number) => `<span class="eg-pips">${Array.from({ length: KESHIN_MAX }, (_, i) => `<i class="${i < lv ? 'on' : ''}${i === KESHIN_MAX - 1 ? ' om' : ''}">${KESHIN_LABEL[i + 1]}</i>`).join('')}</span>`;
+    const holderRow = (k: KeshinDef, h: { id: number; name: string }) => {
+      const p = this.byId.get(h.id);
+      if (!p) return '';
+      const own = !!this.owned(h.id), lv = keshinLevel(this.save, h.id), cost = nextCost(this.save, h.id), why = canLevel(this.save, h.id);
+      const b = statBonus(k, Math.max(1, lv));
+      const btn = !own ? '<span class="eg-need">🔒 Consíguelo en Fichajes</span>'
+        : cost === null ? `<span class="eg-max">${this.egLevel(KESHIN_MAX, 22)} MÁXIMO</span>`
+        : `<button class="btn small eg-buy${why === 'ok' ? ' can' : ''}" data-eglv="${h.id}" ${why === 'ok' ? '' : 'disabled'}>${lv ? `Subir a ${KESHIN_LABEL[lv + 1]}` : 'Desbloquear'} · ${this.egIcon(14)} ${cost}</button>`;
+      return `<div class="eg-holder${own ? '' : ' off'}${lv ? ' lit' : ''}${focus === h.id ? ' focus' : ''}" data-egh="${h.id}">
+        <span class="eg-hmug">${this.mug(h.id, 44)}</span>
+        <div class="eg-htx"><b>${esc(p.name)}</b>${lv ? `<span class="eg-hlv">${this.egLevel(lv, 18) || '<em>Nivel I</em>'}<small>+${Math.round(b.pct * 100)}% ${STAT_SHORT[b.key]}</small></span>` : `<small class="note">${own ? 'Sin despertar' : 'No está en tu colección'}</small>`}
+          ${pips(lv)}</div>${btn}</div>`;
+    };
+    const cards = KESHINS.map((k) => {
+      const best = Math.max(0, ...k.holders.map((h) => keshinLevel(this.save, h.id)));
+      const shown = Math.max(1, best);
+      const t = techFor(k, shown);
+      return `<article class="eg-card ${keshinElClass(k)}${best ? ' awake' : ''}${best >= KESHIN_MAX ? ' omega' : ''}" style="--kc:${k.color};--ec:${ELEMENT_COLOR[k.element]}" data-egcard="${k.id}">
+        <div class="eg-stage" data-egview="${k.id}" title="Ver la carta"><i class="eg-rays"></i><i class="eg-ring"></i><i class="eg-embers"></i>${this.egArt(k)}<span class="eg-zoom">VER CARTA</span>
+          <span class="eg-elem">${elementIcon(k.element, 18)}</span>${best >= 2 ? `<span class="eg-best">${this.egLevel(best, 30)}</span>` : ''}</div>
+        <div class="eg-body"><small class="eg-title">${esc(k.title)}</small><h3>${esc(k.name)}</h3>
+          <div class="eg-chips"><span class="eg-chip el">${esc(k.element)}</span><span class="eg-chip">${this.egTypeLabel(k)}</span><span class="eg-chip st">+${STAT_SHORT[statBonus(k, 1).key]}</span></div>
+          <div class="eg-tech"><span class="eg-k">DEFINITIVA · tecla R</span><b>${esc(t.name)}</b><small>Potencia ${t.power}${best ? '' : ' (nivel I)'} · la lanzas tú con R o su botón (cada ${perkEffects(this.save).ultCooldownSec} s; mejórala en Mejoras · «Espíritu despierto»)</small></div>
+          <div class="eg-pas"><span class="eg-k">PASIVA · ${esc(k.passive.name)}</span><p>${esc(keshinPassiveText(k, shown))}${best ? '' : ' <small>(nivel I)</small>'}</p><small class="eg-game">En GO: «${esc(k.passive.game)}»</small></div>
+          <div class="eg-holders">${k.holders.map((h) => holderRow(k, h)).join('')}</div></div>${this.egFrame(best)}</article>`;
+    }).join('');
+    const awake = Object.keys(this.save.keshin ?? {}).filter((id) => keshinOf(Number(id))).length;
+    const total = KESHINS.reduce((n, k) => n + k.holders.filter((h) => this.byId.has(h.id)).length, 0);
+    this.show(`<div class="screen eg-screen">${this.titlebar('Espíritus Guerreros', back === 'menu' ? 'Menú' : 'Colección')}
+      <header class="eg-head"><i class="eg-head-glow"></i>
+        <div class="eg-logo"><small>INAZURVIVORS 2.0</small><b>ESPÍRITUS GUERREROS</b><span>Despierta el espíritu que llevan dentro tus futbolistas</span></div>
+        <div class="eg-wallet" title="Fichas EG">${this.egIcon(30)}<span><small>FICHAS EG</small><b>${have}</b></span></div>
+        <div class="eg-howto">
+          <div><b>${awake}/${total}</b><small>despertados</small></div>
+          <div><b>Despertar</b><small>${this.egIcon(12)} ${keshinStepCost(1)}</small></div>
+          <div><b>Subir nivel</b><small>II ${this.egIcon(12)}1 · III 2 · IV 3 · V 4 · Ω 5</small></div>
+          <div class="eg-levels">${[2, 3, 4, 5, 6].map((l) => this.egLevel(l, 22)).join('')}</div>
+          <p class="note">Mientras su futbolista juega, el espíritu da su <b>pasiva a todo el equipo</b>, sube un <b>% la estadística</b> de su técnica (se acumula con cada nivel) y le enseña su <b>supertécnica</b>. Las Fichas EG se ganan venciendo arenas en rango A, S y X, superando rangos por primera vez y aguantando en el infinito.</p></div>
+      </header>
+      <div class="eg-grid">${cards}</div></div>`);
+    this.on('[data-back]', 'click', () => (back === 'menu' ? this.mainMenu() : this.collection(back)));
+    this.on('[data-eglv]', 'click', (_e, el) => {
+      const id = Number(el.dataset.eglv), k = keshinOf(id)!, before = keshinLevel(this.save, id);
+      const r = levelKeshin(this.save, id);
+      if (typeof r !== 'number') { sfx('error'); this.toast(r === 'poor' ? 'Te faltan Fichas EG' : 'No se puede ahora'); return; }
+      this.persist();
+      const y = window.scrollY;
+      this.keshinSummon(k, id, before, r, () => { this.keshinScreen(back, id); window.scrollTo(0, y); });
+    });
+    this.on('[data-egview]', 'click', (_e, el) => this.keshinCard(el.dataset.egview as KeshinDef['id']));
+    if (focus) window.setTimeout(() => this.root.querySelector(`[data-egh="${focus}"]`)?.scrollIntoView({ block: 'center', behavior: 'smooth' }), 60);
+  }
+
+  /** (author: «juiced y currada, que deje ver la tarjeta con lo 3D») the spirit's trading card, big: it turns in 3D after the
+   *  pointer (or a finger), floats on its own and shines like foil; a tap turns it over (who calls it and what each level
+   *  gives), a drag spins it, the arrows go through the spirits; Esc or a tap outside closes it */
+  private keshinCard(id: KeshinDef['id']) {
+    const i0 = KESHINS.findIndex((k) => k.id === id);
+    if (i0 < 0) return;
+    document.querySelector('.egx')?.remove();
+    const box = document.createElement('div');
+    box.className = 'egx';
+    document.body.appendChild(box);
+    sfx('whoosh');
+    let idx = i0, base = 0, dragX = 0, dragging = false, moved = false, x0 = 0, rx = 0, ry = 0, raf = 0;
+    const t0 = performance.now();
+    const render = () => {
+      const k = KESHINS[idx];
+      const best = Math.max(0, ...k.holders.map((h) => keshinLevel(this.save, h.id))), shown = Math.max(1, best), t = techFor(k, shown), sb = statBonus(k, 1).key;
+      const holders = k.holders.filter((h) => this.byId.has(h.id)).map((h) => {
+        const lv = keshinLevel(this.save, h.id), own = !!this.owned(h.id);
+        return `<div class="egx-h${own ? '' : ' off'}${lv ? ' lit' : ''}">${this.mug(h.id, 40)}<b>${esc(this.byId.get(h.id)!.name)}</b><span>${lv ? (this.egLevel(lv, 18) || 'Nivel I') : own ? 'Sin despertar' : 'No lo tienes'}</span></div>`;
+      }).join('');
+      const rows = Array.from({ length: KESHIN_MAX }, (_, n) => n + 1).map((lv) => `<tr class="${lv <= best ? 'on' : ''}${lv === KESHIN_MAX ? ' om' : ''}"><th>${lv >= 2 ? this.egLevel(lv, 16) : 'I'}</th><td>+${Math.round(statBonus(k, lv).pct * 100)}% ${STAT_SHORT[sb]}</td><td>${techFor(k, lv).power}</td><td>${esc((keshinPassiveText(k, lv).match(/[+-]\d+(?:,\d+)?%/g) ?? []).join(' ') || '—')}</td></tr>`).join('');
+      box.className = `egx ${keshinElClass(k)}${best ? ' awake' : ''}${best >= KESHIN_MAX ? ' omega' : ''}`;
+      box.style.setProperty('--kc', k.color);
+      box.style.setProperty('--ec', ELEMENT_COLOR[k.element]);
+      box.innerHTML = `<i class="egx-bg"></i><i class="egx-rays"></i>
+        <button class="egx-nav prev" aria-label="Anterior">‹</button>
+        <div class="egx-scene"><div class="egx-card in">
+          <div class="egx-face egx-front"><i class="egx-foil"></i>
+            <div class="egx-top">${elementIcon(k.element, 26)}<small>${esc(k.title)}</small>${best >= 2 ? `<span class="egx-lv">${this.egLevel(best, 34)}</span>` : ''}</div>
+            <div class="egx-art"><i class="egx-art-rays"></i>${this.egArt(k)}${best ? '' : '<span class="egx-sleep">SIN DESPERTAR</span>'}</div>
+            <h2>${esc(k.name)}</h2>
+            <div class="egx-chips"><span>${esc(k.element)}</span><span>${this.egTypeLabel(k)}</span><span>+${STAT_SHORT[sb]}</span></div>
+            <div class="egx-box"><small>DEFINITIVA · R</small><b>${esc(t.name)}</b><em>Potencia ${t.power}</em></div>
+            <div class="egx-box pas"><small>PASIVA · ${esc(k.passive.name)}</small><p>${esc(keshinPassiveText(k, shown))}</p></div>
+            <div class="egx-foot"><span>${this.m.eg ? `<img src="${this.m.eg.insignia}" alt="">` : ''}ESPÍRITU GUERRERO</span><span>${idx + 1}/${KESHINS.length}</span></div>
+            <i class="egx-glare"></i>${this.egFrame(best)}</div>
+          <div class="egx-face egx-back"><i class="egx-foil"></i>
+            <div class="egx-back-logo">${this.m.eg ? `<img src="${this.m.eg.insignia}" alt="">` : ''}<b>${esc(k.name)}</b><small>En GO: «${esc(k.passive.game)}»</small></div>
+            <h3>Lo despiertan</h3><div class="egx-hs">${holders}</div>
+            <h3>Por nivel</h3><p class="egx-pt">${esc(k.passive.name)}: ${esc(keshinPassiveText(k, 1).replace(/^[+-]\d+(?:,\d+)?%\s*/, ''))}</p><table class="egx-t"><tr><th></th><th>Estad.</th><th>Pot.</th><th>${esc(k.passive.name)}</th></tr>${rows}</table>
+            <i class="egx-glare"></i></div>
+        </div></div>
+        <button class="egx-nav next" aria-label="Siguiente">›</button>
+        <div class="egx-hint">Mueve el ratón o arrastra para girarla · tócala para darle la vuelta · ← → otro espíritu · Esc para cerrar</div>
+        <button class="btn small egx-close">Cerrar</button>`;
+      const card = box.querySelector<HTMLElement>('.egx-card')!;
+      box.querySelector('.prev')!.addEventListener('click', (e) => { e.stopPropagation(); go(-1); });
+      box.querySelector('.next')!.addEventListener('click', (e) => { e.stopPropagation(); go(1); });
+      box.querySelector('.egx-close')!.addEventListener('click', close);
+      const scene = box.querySelector<HTMLElement>('.egx-scene')!;
+      scene.addEventListener('pointerdown', (e) => { dragging = true; moved = false; x0 = e.clientX; dragX = 0; scene.setPointerCapture(e.pointerId); });
+      scene.addEventListener('pointermove', (e) => {
+        const r = scene.getBoundingClientRect(), x = (e.clientX - r.left) / r.width, y = (e.clientY - r.top) / r.height;
+        if (dragging) { dragX = e.clientX - x0; if (Math.abs(dragX) > 6) moved = true; }
+        ry = (x - 0.5) * 30; rx = (0.5 - y) * 24;
+        card.style.setProperty('--gx', `${Math.round(x * 100)}%`); card.style.setProperty('--gy', `${Math.round(y * 100)}%`);
+      });
+      scene.addEventListener('pointerup', () => {
+        if (!dragging) return;
+        dragging = false;
+        if (!moved) { base += 180; sfx('whoosh'); } // a tap turns it over
+        else base = Math.round((base + dragX * 0.6) / 180) * 180; // a drag spins it, and it settles on a face
+        dragX = 0;
+      });
+      scene.addEventListener('pointerleave', () => { if (!dragging) { rx = 0; ry = 0; } });
+    };
+    const go = (d: number) => { idx = (idx + d + KESHINS.length) % KESHINS.length; base = 0; sfx('click'); render(); };
+    const tick = () => {
+      if (!box.isConnected) return;
+      const card = box.querySelector<HTMLElement>('.egx-card'), t = (performance.now() - t0) / 1000;
+      if (card) { // it floats and sways on its own, plus the pointer's tilt and the turn
+        const turn = base + ry + Math.sin(t * 0.9) * 4 + dragX * 0.6;
+        card.style.transform = `translateY(${(Math.sin(t * 1.6) * 6).toFixed(1)}px) rotateX(${(rx + Math.cos(t * 1.1) * 3).toFixed(1)}deg) rotateY(${turn.toFixed(1)}deg)`;
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    const key = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') close();
+      else if (e.key === 'ArrowLeft') go(-1);
+      else if (e.key === 'ArrowRight') go(1);
+      else if (e.key === ' ') { e.preventDefault(); base += 180; }
+    };
+    const close = () => { cancelAnimationFrame(raf); document.removeEventListener('keydown', key); box.classList.add('out'); window.setTimeout(() => box.remove(), 220); };
+    box.addEventListener('click', (e) => { const el = e.target as HTMLElement; if (el === box || el.classList.contains('egx-bg') || el.classList.contains('egx-rays')) close(); });
+    document.addEventListener('keydown', key);
+    render();
+    raf = requestAnimationFrame(tick);
+  }
+
+  /** the awakening (or a new level): the spirit comes out of the dark over its footballer, its level symbol falls in */
+  private keshinSummon(k: KeshinDef, id: number, from: number, to: number, done: () => void) {
+    const p = this.byId.get(id)!, b = statBonus(k, to), t = techFor(k, to);
+    const box = document.createElement('div');
+    box.className = `eg-summon ${keshinElClass(k)}${from ? ' up' : ' first'}${to >= KESHIN_MAX ? ' omega' : ''}`;
+    box.style.setProperty('--kc', k.color);
+    box.style.setProperty('--ec', ELEMENT_COLOR[k.element]);
+    box.innerHTML = `<i class="es-dark"></i><i class="es-burst"></i><i class="es-rays"></i><i class="es-ring r1"></i><i class="es-ring r2"></i><i class="es-sparks">${Array.from({ length: 18 }, (_, i) => `<b style="--a:${i * 20}deg;--d:${(i % 6) * 70}ms"></b>`).join('')}</i>
+      <div class="es-center"><div class="es-fw"><div class="es-spirit">${this.egArt(k, 'es-img')}</div>${this.egFrame(from || to)}</div><div class="es-player">${this.mug(id, 64)}</div></div>
+      <div class="es-text"><small>${from ? '¡EL ESPÍRITU CRECE!' : '¡ESPÍRITU GUERRERO DESPERTADO!'}</small><b>${esc(k.name)}</b><span>${esc(p.name)} · ${esc(k.title)}</span>
+        <div class="es-lv">${to >= 2 ? this.egLevel(to, 64) : '<em>NIVEL I</em>'}</div>
+        <ul class="es-gain"><li>+${Math.round(b.pct * 100)}% ${STAT_SHORT[b.key]}</li><li>${esc(k.passive.name)}: ${esc(keshinPassiveText(k, to))}</li><li>Definitiva (R): ${esc(t.name)} · potencia ${t.power}</li></ul>
+        <button class="btn big es-ok">¡Genial!</button></div>`;
+    document.body.appendChild(box);
+    egAwaken(k.element, to >= KESHIN_MAX ? 'omega' : from ? 'up' : 'first'); // 2.1 (author): epic, and by its affinity
+    if (from) window.setTimeout(() => { // (author) a level up makes the frame burst and grow
+      const fr = box.querySelector('.es-fw .eg-frame');
+      if (fr) { fr.className = `eg-frame fl-${Math.min(KESHIN_MAX, to)} grow`; }
+    }, 1000);
+    if (this.save.settings.particles !== 'desactivado') window.setTimeout(() => confetti(), 900);
+    let closed = false;
+    const close = () => { if (closed) return; closed = true; box.classList.add('out'); window.setTimeout(() => { box.remove(); done(); }, 260); };
+    window.setTimeout(() => box.querySelector('.es-ok')?.addEventListener('click', close), 500);
+  }
+
+  /** 2.1 (author): the frame of a spirit by its affinity, growing with its level (1..6 = I..Ω; 0 shows as I): a border,
+   *  corner ornaments, edge ornaments from III, a pulsing glow from V, a double border at Ω (styleEgFrames.css) */
+  private egFrame(lv: number) {
+    const n = Math.max(1, Math.min(KESHIN_MAX, lv));
+    return `<i class="eg-frame fl-${n}"><i class="ef-ring"></i>${['c1', 'c2', 'c3', 'c4'].map((c) => `<i class="ef-c ${c}"></i>`).join('')}${['m1', 'm2', 'm3', 'm4'].map((c) => `<i class="ef-m ${c}"></i>`).join('')}</i>`;
+  }
+
+  /** the panel of a footballer's spirit in his sheet (Colección) */
+  private keshinPanel(d: RosterEntry) {
+    const k = keshinOf(d.id);
+    if (!k) return '';
+    const lv = keshinLevel(this.save, d.id), b = statBonus(k, Math.max(1, lv));
+    return `<div class="eg-panel ${keshinElClass(k)}${lv ? ' lit' : ''}" style="--kc:${k.color};--ec:${ELEMENT_COLOR[k.element]}">${this.egFrame(lv)}
+      <span class="eg-pimg">${this.egArt(k)}</span>
+      <div class="eg-ptx"><small>ESPÍRITU GUERRERO</small><b>${esc(k.name)} ${lv >= 2 ? this.egLevel(lv, 20) : lv ? '<em>Nivel I</em>' : ''}</b>
+        <span>${lv ? `+${Math.round(b.pct * 100)}% ${STAT_SHORT[b.key]} · ${esc(k.passive.name)} · ${esc(techFor(k, lv).name)}` : `Sin despertar · ${esc(k.passive.name)} y ${esc(k.tech.name)}`}</span></div>
+      <button class="btn small${lv ? ' blue' : ''}" data-keshin="${d.id}">${lv ? 'Ver espíritu' : `Despertar · ${this.egIcon(14)} ${nextCost(this.save, d.id)}`}</button></div>`;
+  }
+
+  /** 2.0 launch notice: the gift of Fichas EG (once) */
+  /**
+   * 2.0 (author: «muy épico»): the launch intro, once per browser — a lightning bolt and a shockwave, the logo slams in,
+   * a giant «2.0» drops with electricity, the 19 spirits light up in a ring round it in their affinity colours, the
+   * novelties come in one by one, and the board's 2.0 news is one click away.
+   */
+  /**
+   * (author) the spirits orbit the «2.0»: an oval sized by the number every frame (so it never reaches «ESPÍRITUS
+   * GUERREROS» below, on any screen), in front bigger and over the number, behind smaller, dimmer and under it; the
+   * pointer (mouse or finger) pushes the nearby ones away and they drift back to their orbit.
+   */
+  private launchOrbit(box: HTMLElement) {
+    const wrap = box.querySelector('.l2-vw') as HTMLElement | null, num = box.querySelector('.l2-v') as HTMLElement | null;
+    const spans = [...box.querySelectorAll<HTMLElement>('.l2-ring span')];
+    if (!wrap || !num || !spans.length) return;
+    const push = spans.map(() => ({ x: 0, y: 0 }));
+    let px = -9999, py = -9999;
+    box.addEventListener('pointermove', (e) => { px = e.clientX; py = e.clientY; });
+    box.addEventListener('pointerdown', (e) => { px = e.clientX; py = e.clientY; });
+    box.addEventListener('pointerleave', () => { px = -9999; py = -9999; });
+    const t0 = performance.now();
+    const frame = (now: number) => {
+      if (!box.isConnected) return;
+      const t = (now - t0) / 1000, w = wrap.getBoundingClientRect(), r = num.getBoundingClientRect();
+      const cx = r.left - w.left + r.width / 2, cy = r.top - w.top + r.height * 0.44;
+      const Rx = Math.min(r.width * 1.05 + 60, window.innerWidth / 2 - 22), Ry = r.height * 0.36; // wide, with depth
+      spans.forEach((s, i) => {
+        const a = (i / spans.length) * Math.PI * 2 + t * 0.32, depth = Math.sin(a); // +1 in front (bottom of the oval), -1 behind
+        const x = cx + Math.cos(a) * Rx, y = cy + depth * Ry;
+        const p = push[i], dx = w.left + x + p.x - px, dy = w.top + y + p.y - py, d = Math.hypot(dx, dy) || 1;
+        if (d < 120) { const f = ((120 - d) / 120) * 7; p.x += (dx / d) * f; p.y += (dy / d) * f; }
+        p.x *= 0.92; p.y *= 0.92;
+        const appear = Math.max(0, Math.min(1, (t - 1.2 - i * 0.06) / 0.45)), sc = (0.55 + (depth + 1) * 0.4) * (0.5 + 0.5 * appear); // (author) the nearer, the bigger: 0.55 behind, 1.35 in front
+        s.style.transform = `translate(${(x + p.x).toFixed(1)}px, ${(y + p.y).toFixed(1)}px) scale(${sc.toFixed(3)})`;
+        s.style.zIndex = depth > 0 ? '3' : '1';
+        s.style.opacity = (appear * (0.4 + (depth + 1) * 0.3)).toFixed(3);
+      });
+      requestAnimationFrame(frame);
+    };
+    requestAnimationFrame(frame);
+  }
+
+  private launch20Pending() {
+    try { return localStorage.getItem('iz-launch-2.0') !== '1'; } catch { return false; }
+  }
+  private launch20() {
+    try { localStorage.setItem('iz-launch-2.0', '1'); } catch { /* private window: it may show again */ }
+    const rel = PUBLIC_RELEASES[0];
+    const box = document.createElement('div');
+    box.className = 'launch20';
+    const ring = KESHINS.map((k, i) => `<span style="--d:${i * 60}ms;--kc:${k.color}">${this.egArt(k)}</span>`).join('');
+    const feats = rel.features.slice(0, 10).map((f, i) => `<b style="--d:${i * 110}ms">${f.icon} ${esc(f.title)}</b>`).join('');
+    box.innerHTML = `<i class="l2-rays"></i><i class="l2-glow"></i><i class="l2-shock"></i><i class="l2-bolt"></i><i class="l2-flash"></i>
+      <div class="l2-main"><div class="l2-logo">INAZURVIVORS</div><div class="l2-vw"><div class="l2-ring">${ring}</div><div class="l2-v">2.0</div></div><div class="l2-sub">ESPÍRITUS GUERREROS</div>
+        <div class="l2-feats">${feats}</div>
+        <div class="l2-btns"><button class="btn big blue" data-l2news>Ver todas las novedades</button><button class="btn big" data-l2go>¡A jugar! ▶</button></div></div>
+      <button class="l2-skip" data-l2go>Saltar</button>`;
+    document.body.appendChild(box);
+    this.launchOrbit(box);
+    window.setTimeout(() => sfx('boom'), 150);
+    window.setTimeout(() => egAwaken('Fuego', 'omega'), 450);
+    window.setTimeout(() => sfx('legend'), 2200);
+    if (this.save.settings.particles !== 'desactivado') window.setTimeout(() => confetti(140), 1200);
+    let closed = false;
+    const close = (news: boolean) => {
+      if (closed) return; closed = true;
+      document.removeEventListener('keydown', onKey);
+      box.classList.add('out');
+      window.setTimeout(() => { box.remove(); if (news) this.devlog('version-2-0-espiritus'); }, 420);
+    };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') close(false); };
+    document.addEventListener('keydown', onKey);
+    box.querySelectorAll('[data-l2go]').forEach((b) => b.addEventListener('click', () => close(false)));
+    box.querySelector('[data-l2news]')!.addEventListener('click', () => close(true));
+  }
+
+  private keshinIntro() {
+    const box = document.createElement('div');
+    box.className = 'eg-intro';
+    box.innerHTML = `<div class="eg-intro-card"><i class="eg-head-glow"></i><small>INAZURVIVORS 2.0</small><b>¡Llegan los Espíritus Guerreros!</b>
+      <div class="eg-intro-row">${KESHINS.map((k, i) => `<span style="--kc:${k.color};--d:${i * 70}ms">${this.egArt(k)}</span>`).join('')}</div>
+      <p>Algunos futbolistas llevan dentro un espíritu guerrero. Despiértalo con <b>Fichas EG</b> para darle su pasiva, más estadísticas y su supertécnica. Los que lo tienen llevan esta insignia: ${this.m.eg ? `<img class="eg-inline" src="${this.m.eg.insignia}" alt="">` : ''}</p>
+      <div class="eg-gift">${this.egIcon(34)}<small>Fichas EG: <b>1</b> por mapa en rango X y <b>3</b> en rango Z · <b>3</b> con el código EGu3rr3r0 · hasta <b>6</b> por semana en la tienda del clan · <b>12 / 8 / 5 / 2</b> en los premios semanales del clan</small></div>
+      <p class="tut-nav"><button class="btn blue" data-close>Luego</button><span class="spacer"></span><button class="btn big" data-go-eg>Ver espíritus ▶</button></p></div>`;
+    document.body.appendChild(box);
+    sfx('legend');
+    box.querySelector('[data-close]')!.addEventListener('click', () => box.remove());
+    box.querySelector('[data-go-eg]')!.addEventListener('click', () => { box.remove(); this.keshinScreen(); });
+  }
+
   // ------------------------------------------------------------- pre-2.0 co-op
   private coop: CoopLink | null = null;
   /** pre-2.0: the partner's card (squad, kit, name, icon, crest, banner, frame), from his «hello»; a co-op run in progress */
@@ -2289,7 +2767,7 @@ export class App {
     setMusicContext('menu');
     const link = this.coop?.open ? this.coop : null;
     const ok = onlineConfigured() && signedIn();
-    const hero = `<div class="cp-hero"><div class="cp-hero-tx"><small>MODO COOPERATIVO · PRE-2.0</small><b>Juega con un amigo</b>
+    const hero = `<div class="cp-hero"><div class="cp-hero-tx"><small>MODO COOPERATIVO</small><b>Juega con un amigo</b>
         <span>Cada uno con su equipo, los mismos rivales y una sola barra de experiencia. Si uno cae, el otro lo levanta.</span></div>
       <span class="cp-test" title="Puede tener fallos: si ves alguno, repórtalo desde el 🐞">EN PRUEBAS</span></div>`;
     let body: string;
@@ -2526,7 +3004,7 @@ export class App {
         runs: p.stats.runs, kills: p.stats.kills, bestTimeSec: p.stats.bestTimeSec, pulls: p.stats.pulls ?? null,
         achv: p.achievements ? MISSIONS.filter((d) => d.kind === 'logro' && claimed.has(d.id)).length : null })}
       <h3>${uiIcon('team')}Su equipo</h3><div class="opf-squad">${squad || '<div class="note">Todavía no ha elegido equipo.</div>'}</div>
-      ${p.marks.length ? `<h3>${uiIcon('crown')}Mejores marcas</h3><div class="opf-marks">${p.marks.map((m) => `<span class="opf-mark"><span class="rank-btn r-${esc(m.rank)}"><b>${esc(m.rank)}</b></span>${esc(mapName(m.map))}<b>${fmtTime(m.time_sec)}</b><small>${Number(m.damage).toLocaleString('es')} daño</small></span>`).join('')}</div>` : ''}
+      ${p.marks.length ? `<h3>${uiIcon('crown')}Mejores marcas</h3><div class="opf-marks">${p.marks.map((m) => `<span class="opf-mark"><span class="rank-btn r-${esc(m.rank)}">${rankMark(esc(m.rank))}</span>${esc(mapName(m.map))}<b>${fmtTime(m.time_sec)}</b><small>${Number(m.damage).toLocaleString('es')} daño</small></span>`).join('')}</div>` : ''}
     </div>`;
     box.querySelector('[data-close]')!.addEventListener('click', close);
     // pre-2.0: add as a friend (for the co-op)
@@ -2800,25 +3278,25 @@ export class App {
     try {
       const q: BoardQuery = { map: null, rank: null, order: 'score' }; // Fix 1.31: the menu shows the points ranking
       const [top, mine] = await Promise.all([leaderboard(q), signedIn() ? myPosition(q) : Promise.resolve(null)]);
-      await this.loadFlags(top.map((r) => r.username)); // v1.65
+      await Promise.all([this.loadFlags(top.map((r) => r.username)), this.loadChamps(top.map((r) => ({ username: r.username, captain: r.captain_id })))]); // v1.65; 2.0 champions
       const el = document.getElementById('menurank');
       if (!el) return;
       const crest = (c: string) => (c && this.emblemOf(c) ? `<img class="wr-crest" src="${this.emblemOf(c)}" alt="">` : '<span class="wr-crest"></span>');
       const cap = (id: number) => this.byId.get(id);
-      const pts = (r: BoardRow) => r.score == null ? scoreOf({ rank: r.rank, time: r.time_sec, damage: Number(r.damage) }) : Number(r.score);
+      const pts = (r: BoardRow) => r.score == null ? scoreOf({ map: r.map, rank: r.rank, time: r.time_sec, damage: Number(r.damage) }) : Number(r.score);
       const podium = top.slice(0, 3).map((r) => {
         const p = cap(r.captain_id), pos = Number(r.pos);
         return `<div class="wr-pod p${pos}" data-user="${esc(r.username)}" title="Ver el perfil de ${esc(r.username)}"><span class="wr-medal">${['🥇', '🥈', '🥉'][pos - 1]}</span>
-          ${this.framed(`<span class="wr-mug${p ? ` r-${p.rarity}` : ''}">${p ? this.mug(p.id, pos === 1 ? 96 : 80) : ''}</span>`, this.frameOf(r.username))}
-          ${this.namePlate('wr-name', r.username)}${this.clanBadge(r.username)}<small class="wr-cap">${p ? esc(p.name) : ''}</small>
+          ${this.framed(`<span class="wr-mug${p ? ` r-${p.rarity}` : ''}${this.champLevel(r.username, r.captain_id) ? ' champ' : ''}">${p ? this.mug(p.id, pos === 1 ? 96 : 80) : ''}</span>`, this.frameOf(r.username))}
+          ${this.namePlate('wr-name', r.username)}${this.clanBadge(r.username)}${this.champTag(r.username, r.captain_id)}<small class="wr-cap">${p ? esc(p.name) : ''}</small>
           <div class="wr-pts"><b>${pts(r).toLocaleString('es')}</b> <small>puntos</small></div>
-          <div class="wr-stats">${crest(r.crest)}<span class="rank-btn r-${r.rank}"><b>${r.rank}</b></span><span><b>${fmtTime(r.time_sec)}</b><small>tiempo</small></span><span><b>${Number(r.damage).toLocaleString('es')}</b><small>daño</small></span></div></div>`;
+          <div class="wr-stats">${crest(r.crest)}<span class="rank-btn r-${r.rank}">${rankMark(r.rank)}</span><span><b>${fmtTime(r.time_sec)}</b><small>tiempo</small></span><span><b>${Number(r.damage).toLocaleString('es')}</b><small>daño</small></span></div></div>`;
       }).join('');
       const row = (r: BoardRow, me = false) => {
         const p = cap(r.captain_id), rb = this.flagMini(r.username);
         return `<div class="wr-row${me ? ' me' : ''}${rb ? ' has-pn' : ''}" data-user="${esc(r.username)}" title="Ver el perfil de ${esc(r.username)}">${rb}<span class="wr-pos">#${r.pos}</span>${this.framed(`<span class="wr-mini">${p ? this.mug(p.id, 40) : ''}</span>`, this.frameOf(r.username))}
-          <span class="wr-who"><b>${esc(r.username)}</b>${this.clanBadge(r.username)}<small>${p ? esc(p.name) : ''}</small></span>${crest(r.crest)}
-          <span class="rank-btn r-${r.rank}"><b>${r.rank}</b></span><span class="wr-num"><b>${pts(r).toLocaleString('es')} pts</b><small>${fmtTime(r.time_sec)} · ${Number(r.damage).toLocaleString('es')} daño</small></span></div>`;
+          <span class="wr-who"><b>${esc(r.username)}</b>${this.clanBadge(r.username)}${this.champTag(r.username, r.captain_id)}<small>${p ? esc(p.name) : ''}</small></span>${crest(r.crest)}
+          <span class="rank-btn r-${r.rank}">${rankMark(r.rank)}</span><span class="wr-num"><b>${pts(r).toLocaleString('es')} pts</b><small>${fmtTime(r.time_sec)} · ${Number(r.damage).toLocaleString('es')} daño</small></span></div>`;
       };
       el.innerHTML = top.length
         ? `<div class="wr-podium">${podium}</div><div class="wr-list">${top.slice(3, 15).map((r) => row(r)).join('')}</div>`
@@ -2829,16 +3307,36 @@ export class App {
   }
 
   /** Fix 1.12: the weekly pass in the main menu, the seven days at a glance (days 1, 4 and 7 stand out). */
+  /** 2.0: the art of a pass reward — the IE3 capsule machine's own pieces (blue capsule = ×10 pull, gold coin, gold capsule =
+   *  footballer) and, on day 7, the crest of the chosen team */
+  private passArt(i: number, cls = '') {
+    const r = PASS[i];
+    const team = r.jugador?.team ? this.emblemOf(this.passTeam || this.save.favoriteTeam || '') : '';
+    const src = team || (r.kind === 'fichas' ? this.cap('cap_azul_spin0') : r.kind === 'monedas' ? this.cap('coin_oro') : this.cap('cap_amarillo_spin0'));
+    return src ? `<img class="wp2-art ${cls}${team ? ' crest' : ''}" src="${src}" alt="">` : `<span class="wp2-art ${cls}">${r.kind === 'monedas' ? '◉' : '★'}</span>`;
+  }
+  /** 2.0: everything a day gives, as chips (fichas, coins, the footballer) */
+  private passItems(r: PassReward) {
+    return `<span class="wp3-items">${r.jugador ? `<i class="wp3-it pl">★ ${esc(r.jugador.label)}</i>` : ''}${r.fichas ? `<i class="wp3-it tk">${this.cap('cap_azul_spin0') ? `<img src="${this.cap('cap_azul_spin0')}" alt="">` : ''}+${r.fichas} fichas</i>` : ''}${r.monedas ? `<i class="wp3-it cn">◉ +${r.monedas.toLocaleString('es')}</i>` : ''}</span>`;
+  }
+  /** 2.0: the odds of a footballer reward, as a bar of rarity colours with its legend */
+  private passOdds(r: PassReward) {
+    if (!r.jugador) return '';
+    const parts = RARITY_ORDER.filter((x) => (r.jugador!.odds[x] ?? 0) > 0);
+    return `<span class="wp3-odds" title="${parts.map((x) => `${RARITY_LABEL[x]} ${r.jugador!.odds[x]}%`).join(' · ')}"><span class="wp3-bar">${parts.map((x) => `<i style="flex:${r.jugador!.odds[x]};--rc:${RARITY_COLOR[x]}"></i>`).join('')}</span>
+      <small>${parts.map((x) => `<b style="color:${RARITY_COLOR[x]}">${RARITY_LABEL[x].slice(0, 3)}</b> ${r.jugador!.odds[x]}%`).join(' · ')}</small></span>`;
+  }
+  private passCount(left: number) { return `${Math.floor(left / 3600000)} h ${String(Math.floor(left / 60000) % 60).padStart(2, '0')} min`; }
+
   private passWidget() {
     const now = serverNow(), st = passStatus(this.save, now), left = msToNextDay(now);
     const days = PASS.map((r, i) => {
       const state = i < st.index ? 'reclamado' : i === st.index ? (st.available ? 'disponible' : 'siguiente') : 'bloqueado';
-      const icon = r.kind === 'fichas' ? '◎' : r.kind === 'monedas' ? '◉' : '★';
-      return `<div class="wp-day ${state}${[0, 3, 6].includes(i) ? ' big' : ''}"><small>DÍA ${i + 1}</small><b>${icon}</b><span>${esc(r.label)}</span><em>${state === 'reclamado' ? '✔' : state === 'disponible' ? '¡HOY!' : state === 'siguiente' ? 'Mañana' : '🔒'}</em></div>`;
-    }).join('');
-    return `<div class="wide-head"><h3>✦ Pase semanal</h3><small>${st.available ? '¡Tienes una recompensa lista!' : `Siguiente en ${Math.floor(left / 3600000)} h ${Math.floor(left / 60000) % 60} min`}</small></div>
-      <div class="wp-row">${days}</div>
-      <div class="wp-foot"><span>Día ${st.index + 1} de 7 · ${esc(PASS[st.index].label)}</span>${st.available ? '<button class="btn" id="wpclaim">Reclamar</button>' : '<button class="btn small" data-go="pass">Ver pase</button>'}</div>`;
+      return `<div class="wp2-mini ${state}${i === PASS.length - 1 ? ' grand' : ''}" title="Día ${i + 1}: ${esc(r.label)}"><small>${i + 1}</small>${this.passArt(i)}${state === 'reclamado' ? '<i class="wp2-ok">✔</i>' : ''}</div>`;
+    }).join('<i class="wp2-link"></i>');
+    return `<div class="wide-head"><h3>✦ Pase semanal</h3><small>${st.available ? '¡Tienes una recompensa lista!' : `Siguiente en ${this.passCount(left)}`}</small></div>
+      <div class="wp2-strip" style="--p:${st.index / (PASS.length - 1)}">${days}</div>
+      <div class="wp-foot"><span>Día ${st.index + 1} de ${PASS.length} · ${esc(PASS[st.index].label)}</span>${st.available ? '<button class="btn" id="wpclaim">Reclamar</button>' : '<button class="btn small" data-go="pass">Ver pase</button>'}</div>`;
   }
 
   /** Claims today's pass reward (team reward: the favourite team, or the one chosen on the pass screen). */
@@ -3074,10 +3572,10 @@ export class App {
   /** Noticias: every news item on the left (tag, pinned, date, unread dot), the chosen one in full on the right. */
   devlog(sel?: string) {
     setMusicContext('menu');
-    const items = allNews(onlineConfigured());
+    const items = allNews(onlineConfigured(), serverNow());
     // first visit to the board: the old updates count as read, only the news of this version shows as new
     if (!this.save.newsRead) this.save.newsRead = items.filter((n) => n.version && n.version !== PUBLIC_VERSION).map((n) => n.id);
-    this.save.devlogSeen = NEWS_KEY;
+    this.save.devlogSeen = newsKey();
     const cur = items.find((n) => n.id === (sel ?? this.newsSel)) ?? items[0];
     this.newsSel = cur?.id ?? '';
     if (cur && !this.save.newsRead.includes(cur.id)) this.save.newsRead = [...this.save.newsRead, cur.id].slice(-200);
@@ -3089,13 +3587,14 @@ export class App {
     this.show(`<div class="screen news-board">${this.titlebar('Noticias', 'Menú')}
       <div class="nb-mast"><svg class="nb-mast-bolt" viewBox="0 0 60 100"><polygon points="38,0 6,56 26,56 16,100 56,38 34,38"/></svg><div><b>LA GACETA <span>INAZURVIVORS</span></b>
         <small>Noticias, avisos y todas las actualizaciones · ${esc(VERSION_LABEL)}</small></div><span class="nb-mast-n">${items.filter((x) => !this.save.newsRead!.includes(x.id)).length || '✔'}<small>${items.some((x) => !this.save.newsRead!.includes(x.id)) ? 'sin leer' : 'al día'}</small></span></div>
-      <div class="nb"><aside class="nb-list">${list}</aside><article class="nb-detail" id="nbdetail">${cur ? this.newsDetail(cur) : ''}</article></div></div>`);
+      <div class="nb"><aside class="nb-list">${list}</aside><article class="nb-detail" id="nbdetail">${cur?.id === 'version-2-0-espiritus' ? '<p class="nb-replay"><button class="btn big" id="newsl2">▶ Ver la presentación de la 2.0</button></p>' : ''}${cur ? this.newsDetail(cur) : ''}</article></div></div>`);
     const listEl = this.root.querySelector('.nb-list');
     if (listEl) listEl.scrollTop = listTop; // choosing an item keeps the list where it was
     this.on('[data-back]', 'click', () => this.mainMenu());
     this.on('[data-news]', 'click', (_e, el) => { this.devlog(el.dataset.news); document.getElementById('nbdetail')?.scrollTo(0, 0); if (window.innerWidth < 760) document.getElementById('nbdetail')?.scrollIntoView({ behavior: 'smooth' }); });
     document.getElementById('newsplay')?.addEventListener('click', () => { this.mainMenu(); (this.root.querySelector('[data-go="play"]') as HTMLElement | null)?.click(); });
     document.getElementById('newsbug')?.addEventListener('click', () => this.bugReportModal());
+    document.getElementById('newsl2')?.addEventListener('click', () => this.launch20()); // (author) the 2.0 intro, again
   }
 
   /**
@@ -3374,9 +3873,11 @@ export class App {
   }
 
   /** Fix 1.41: how many people play (accounts only: guests never reach the server). The server refuses non-admins. */
-  private async adminPlayers() {
-    this.show(`<div class="screen">${this.titlebar('Panel de jugadores', 'Ajustes')}<div class="panel"><div id="aplist" class="note">Cargando…</div></div></div>`);
+  private async adminPlayers(tab: 'players' | 'metrics' = 'players', days = 30) {
+    this.show(`<div class="screen">${this.titlebar('Panel de jugadores', 'Ajustes')}<div class="panel"><div class="seg" id="aptabs"><button data-t="players" class="${tab === 'players' ? 'on' : ''}">Jugadores</button><button data-t="metrics" class="${tab === 'metrics' ? 'on' : ''}">Métricas</button></div><div id="aplist" class="note">Cargando…</div></div></div>`);
     this.on('[data-back]', 'click', () => this.options());
+    this.on('#aptabs button', 'click', (_e, el) => { void this.adminPlayers(el.dataset.t as 'players' | 'metrics', days); });
+    if (tab === 'metrics') return this.adminMetricsView(days);
     const box = document.getElementById('aplist')!;
     const ago = (iso: string | null) => {
       if (!iso) return '—';
@@ -3392,6 +3893,46 @@ export class App {
         <p class="note">Solo cuenta cuentas con sesión iniciada: quien juega como invitado guarda en su navegador y el servidor no sabe de él. ${s.accounts - s.with_name} cuenta(s) aún sin nombre de usuario.</p>
         <div class="ap-table"><div class="ap-row ap-head"><span>Usuario</span><span>Última vez</span><span>Partidas</span><span>Ranking</span><span>Mejor tiempo</span><span>Colección</span><span>Alta</span></div>
         ${s.players.map((p) => `<div class="ap-row"><b>${esc(p.username ?? '(sin nombre)')}</b><span>${ago(p.last_seen)}</span><span>${p.runs}</span><span>${p.ranked_runs}</span><span>${Math.floor(p.best_time / 60)}:${String(p.best_time % 60).padStart(2, '0')}</span><span>${p.owned}</span><span>${new Date(p.created_at).toLocaleDateString('es')}</span></div>`).join('')}</div>`;
+    } catch (e) { box.textContent = /forbidden/.test((e as Error).message) ? 'No tienes permiso para ver este panel.' : `No se pudo cargar: ${(e as Error).message}`; }
+  }
+
+  /** Métricas: activity per Madrid day, peak hours, retention and what people play. Plain CSS bars, no chart library. */
+  private async adminMetricsView(days: number) {
+    const box = document.getElementById('aplist')!;
+    try {
+      const m = await adminMetrics(days);
+      if (!document.getElementById('aplist')) return;
+      const n = (v: number) => v.toLocaleString('es');
+      const pct = (a: number, b: number) => b ? `${Math.round((a / b) * 100)} %` : '—';
+      const tile = (v: string, t: string) => `<div class="ap-tile"><b>${v}</b><span>${t}</span></div>`;
+      const sum = (k: 'new' | 'players' | 'runs') => m.daily.reduce((a, d) => a + d[k], 0);
+      const today = m.daily[m.daily.length - 1];
+      const step = Math.max(1, Math.ceil(m.daily.length / 8));
+      const cols = (vals: number[], labels: string[], tips: string[]) => {
+        const max = Math.max(1, ...vals);
+        return `<div class="mt-cols">${vals.map((v, i) => `<div class="mt-col" title="${esc(tips[i])}"><i style="height:${Math.round((v / max) * 100)}%"></i><small>${esc(labels[i])}</small></div>`).join('')}</div>`;
+      };
+      const daily = (k: 'new' | 'players' | 'runs', title: string) => `<h4>${title} <small>(máx. ${n(Math.max(0, ...m.daily.map((d) => d[k])))} · total ${n(sum(k))})</small></h4>`
+        + cols(m.daily.map((d) => d[k]),
+          m.daily.map((d, i) => (m.daily.length - 1 - i) % step === 0 ? `${d.day.slice(8)}/${d.day.slice(5, 7)}` : ''),
+          m.daily.map((d) => `${new Date(d.day + 'T12:00').toLocaleDateString('es', { weekday: 'short', day: 'numeric', month: 'short' })}: ${d[k]}`));
+      const rows = (items: { label: string; n: number }[]) => {
+        const max = Math.max(1, ...items.map((x) => x.n)), tot = items.reduce((a, x) => a + x.n, 0);
+        return items.length ? `<div class="mt-rows">${items.map((x) => `<div class="mt-row"><span>${esc(x.label)}</span><div><i style="width:${(x.n / max) * 100}%"></i></div><b>${n(x.n)} <small>${pct(x.n, tot)}</small></b></div>`).join('')}</div>` : '<p class="note">Sin datos todavía.</p>';
+      };
+      const mapName = (id: string) => this.m.maps.find((x) => x.id === id)?.name ?? id;
+      box.className = '';
+      box.innerHTML = `<div class="seg small" id="mtdays">${[7, 30, 90].map((d) => `<button data-d="${d}" class="${d === days ? 'on' : ''}">${d} días</button>`).join('')}</div>
+        <div class="ap-tiles">${tile(n(m.online_now), 'conectados ahora')}${tile(n(m.online_1h), 'conectados última hora')}${tile(n(today.players), 'han jugado hoy')}${tile(n(today.runs), 'partidas hoy')}${tile(n(today.new), 'cuentas nuevas hoy')}${tile(pct(m.retention.d1, m.retention.d1_base), `vuelven al día siguiente (${m.retention.d1}/${m.retention.d1_base})`)}${tile(pct(m.retention.d7, m.retention.d7_base), `siguen tras 7 días (${m.retention.d7}/${m.retention.d7_base})`)}${tile(pct(m.totals.wins, m.totals.runs), 'partidas ganadas')}${tile(n(m.totals.pulls), 'fichajes en la máquina')}</div>
+        ${daily('players', 'Jugadores por día')}${daily('runs', 'Partidas por día')}${daily('new', 'Cuentas nuevas por día')}
+        <h4>Horas punta <small>(partidas de los últimos ${m.days} días, hora de España)</small></h4>
+        ${cols(m.hours, m.hours.map((_, h) => h % 3 === 0 ? `${h}h` : ''), m.hours.map((v, h) => `${h}:00–${h}:59: ${v} partidas`))}
+        <div class="mt-split"><div><h4>Arenas más jugadas</h4>${rows(m.maps.map((x) => ({ label: mapName(x.map), n: x.n })))}</div>
+        <div><h4>Rangos</h4>${rows(m.ranks.map((x) => ({ label: `Rango ${x.rank}`, n: x.n })))}</div>
+        <div><h4>Capitanes favoritos</h4>${rows(m.captains.map((x) => ({ label: this.byId.get(x.id)?.name ?? `#${x.id}`, n: x.n })))}</div></div>
+        <h4>Comunidad</h4><div class="ap-tiles">${tile(n(m.social.friendships), 'amistades')}${tile(n(m.social.clans), 'clanes')}${tile(n(m.social.clan_members), 'miembros de clan')}${tile(n(m.social.coop_7d), 'partidas co-op (7 días)')}${tile(n(m.social.tierlists), 'tierlists')}${tile(n(m.social.bugs_open), 'bugs abiertos')}${tile(n(m.social.ideas_open), 'ideas pendientes')}</div>
+        <p class="note">Partidas por día, horas, arenas, rangos y capitanes salen de las partidas enviadas al ranking (solo cuentas con sesión; los invitados no cuentan). Arenas, rangos y capitanes son de todo el historial.</p>`;
+      this.on('#mtdays button', 'click', (_e, el) => { void this.adminPlayers('metrics', Number(el.dataset.d)); });
     } catch (e) { box.textContent = /forbidden/.test((e as Error).message) ? 'No tienes permiso para ver este panel.' : `No se pudo cargar: ${(e as Error).message}`; }
   }
 
@@ -3582,7 +4123,7 @@ export class App {
     box.innerHTML = `<div class="panel aura-sheet" style="--rc:${RARITY_COLOR[er]};--ec:${ELEMENT_COLOR[String(ae.element)] ?? '#8a9bbd'}">
       <div class="ai-head"><div class="ai-cards"><div class="ai-carrier">${this.mug(p.id, 64)}<small>${esc(p.name)}</small></div><i class="ai-link">${b.bond ? '♥' : '✦'}</i><div class="ai-aura t-${isHero(this.save, ae.id) ? 'heroe' : er}">${this.mug(ae.id, 64)}<small>${esc(ae.name)}</small></div></div>
         <div><h2>Aura: ${esc(ae.name)}</h2><div class="sq-tags">${this.rar(ae)} ${this.elem(ae)} <span class="pos">${esc(ae.teams.slice(0, 2).map(teamLabel).join(' · '))}</span></div>
-        <div class="ai-pct${b.bond ? ' bond' : ''}">${b.bond ? `♥ Compatibles (${esc(BOND_KIND_LABEL[b.bond.kind])}): <b>${Math.round(BOND_PCT * 100)}%</b>` : `Aura normal: <b>${Math.round(AURA_PCT * 100)}%</b>`} de sus tres mejores estadísticas</div>
+        <div class="ai-pct${b.bond ? ' bond' : ''}">${b.bond ? `♥ Compatibles (${esc(BOND_KIND_LABEL[b.bond.kind])}): <b>${Math.round(BOND_PCT * 100)}%</b>` : `Aura normal: <b>${Math.round(AURA_PCT * 100)}%</b>`} de ${b.keys.length >= 7 ? '<b>todas</b> sus estadísticas (Aura legendaria)' : 'sus tres mejores estadísticas'}</div>
         ${b.bond ? `<p class="note">${esc(b.bond.reason)}</p>` : `<p class="note">Sin vínculo especial con ${esc(p.name)}. Un compañero de historia, familia o técnica conjunta daría ${Math.round(BOND_PCT * 100)}%.</p>`}</div></div>
       <div class="ai-cols"><div><h3>Estadísticas de ${esc(p.name)}</h3><table class="ai-table"><tr><th></th><th>Propia</th><th>Aura</th><th>Total</th><th></th></tr>${rows}</table>
         <p class="note">Bonificación = estadística del Aura × ${Math.round(b.pct * 100)}%, redondeada. Lo propio sigue en 99 como máximo; con el Aura, hasta ${EFFECTIVE_STAT_MAX}.</p></div>
@@ -3741,7 +4282,7 @@ export class App {
       return `<div class="sq-slot ccs${ae ? ' has-aura' : ''} t-${isHero(this.save, p.id) ? 'heroe' : er} rs-${isHero(this.save, p.id) ? 'heroe' : er}${editing}${i === 0 ? ' cap' : ''}${isHero(this.save, p.id) ? ' hero' : ''}${this.squadLanded === i ? ' landed' : ''}" data-slot="${i}" data-drag="${p.id}" style="--rc:${RARITY_COLOR[er]};--ec:${ELEMENT_COLOR[String(p.element)] ?? '#8a9bbd'}">
         ${i === 0 ? '<span class="captain-badge">C</span>' : `<button class="sq-act" data-captain="${p.id}" title="Hacer capitán">★</button>`}
         <button class="sq-act x" data-remove="${p.id}" title="Quitar">✕</button>
-        <div class="sq-head"><div class="sq-mug">${this.mug(p.id, 64)}${st ? `<span class="sq-ovr${ae ? ' aura' : ''}" title="Media${ae ? ' con su Aura' : ''}">${statMean(split!.eff!)}</span>` : ''}</div></div>
+        <div class="sq-head">${this.egMedal(p.id)}<div class="sq-mug">${this.mug(p.id, 64)}${st ? `<span class="sq-ovr${ae ? ' aura' : ''}" title="Media${ae ? ' con su Aura' : ''}">${statMean(split!.eff!)}</span>` : ''}</div></div>
         <b class="sq-name">${esc(p.name)}</b>
         <div class="sq-tags"><span class="pos">${POS_LABEL[p.position] ?? p.position}</span>${this.elem(p)}${this.rar(p)}</div>
         ${comboOf.get(p.name) ? `<span class="sq-combo" title="Técnica combinada: ${esc(comboOf.get(p.name)!)}">🔗 ${esc(comboOf.get(p.name)!)}</span>` : ''}
@@ -4104,12 +4645,13 @@ export class App {
         <span class="mp-pips">${RANK_ORDER.map((id) => `<i class="${done.includes(id) ? 'on' : ''}"></i>`).join('')}</span></button>`;
     }).join('');
     const rk = this.save.difficulty;
+    const zShut = !rankZOpen(serverNow());
     const ranks = RANK_ORDER.map((id) => {
-      const R = RANKS[id];
-      return `<button class="rk4 r-${id}${id === rk ? ' on' : ''}" data-rank="${id}"><span class="rk4-l">${id}</span><small>×${R.reward}</small></button>`;
+      const R = RANKS[id], shut = id === 'Z' && zShut;
+      return `<button class="rk4 r-${id}${id === rk ? ' on' : ''}${shut ? ' rk4-shut' : ''}" data-rank="${id}"${shut ? ` title="El Rango Z llega el martes a las 12:00"` : ''}><span class="rk4-l${id === 'Z' && !shut ? ' rk4-z' : ''}">${shut ? '🔒' : id === 'Z' ? zEmblem() : id}</span><small>${shut ? this.rankZCountdown() : `×${R.reward}`}</small></button>`;
     }).join('');
     this.show(`<div class="screen ms-screen mp-screen">${this.titlebar('Camino de arenas', 'Mi Equipo')}
-      <div class="ms-diff r-${rk}"><div class="ms-dl"><small>DIFICULTAD</small><b>Rango ${rk}</b><p>${esc(rankDef(rk).blurb)} Recompensas ×${RANKS[rk].reward}.</p></div><div class="ms-ranks">${ranks}</div></div>
+      <div class="ms-diff r-${rk}"><div class="ms-dl"><small>DIFICULTAD</small><b>Rango ${rk === 'Z' ? zEmblem('z-inl') : rk}</b><p>${esc(rankDef(rk).blurb)} Recompensas ×${RANKS[rk].reward}.</p></div><div class="ms-ranks">${ranks}</div></div>
       <div class="ms-team"><span><small>TU EQUIPO</small><b>${esc(squadOf(this.save, this.byId)[0]?.name ?? '—')} (capitán) · ${squadOf(this.save, this.byId).length}/${SQUAD_SIZE}</b></span>
         <span class="m4-faces">${squadOf(this.save, this.byId).slice(0, 7).map((p) => { const ae = this.auraEntryOf(p.id); return `<span class="m4-face${ae ? ' with-aura' : ''}" style="--rc:${RARITY_COLOR[effectiveRarity(this.save, p)]}" title="${esc(p.name)}${ae ? ` · Aura: ${esc(ae.name)}` : ''}">${this.mug(p.id, 38)}${ae ? `<i class="ms-aura">${this.mug(ae.id, 40)}</i>` : ''}</span>`; }).join('')}</span>
         <button class="btn small" id="toteam">${uiIcon('team')} Cambiar equipo</button></div>
@@ -4161,8 +4703,18 @@ export class App {
     });
     document.querySelector('.mp-node.sel')?.scrollIntoView({ block: 'nearest' });
     document.getElementById('toteam')?.addEventListener('click', () => this.captainSelect());
-    this.on('[data-rank]', 'click', (_e, el) => { this.save.difficulty = el.dataset.rank as Rank; this.persist(); this.mapSelect(); });
+    this.on('[data-rank]', 'click', (_e, el) => {
+      if (el.dataset.rank === 'Z' && !rankZOpen(serverNow())) { this.toast(`El Rango Z llega el martes 10 a las 12:00 · ${this.rankZCountdown(true)}`, 3000); return; }
+      this.save.difficulty = el.dataset.rank as Rank; this.persist(); this.mapSelect();
+    });
     this.on('[data-back]', 'click', () => this.captainSelect());
+  }
+  /** days (or hours, on the last day) until Rango Z opens; `long` for a sentence */
+  private rankZCountdown(long = false) {
+    const now = serverNow(), ms = rankZLeftMs(now), d = rankZDaysLeft(now), h = Math.ceil(ms / 3_600_000);
+    if (ms <= 0) return long ? 'Ya está aquí' : 'Abierto';
+    if (h <= 24) return long ? `Faltan ${h} h` : `${h} h`;
+    return long ? `Faltan ${d} días` : `${d} días`;
   }
   /** green for the first arenas, then yellow, red and purple for the last ones */
   private tierColor(tier: number) {
@@ -4257,6 +4809,7 @@ export class App {
         ${filtered.length > list.length ? `<p style="text-align:center"><button class="btn blue" id="more">Ver más (${filtered.length - list.length})</button></p>` : ''}`}</div>`);
     this.on('[data-back]', 'click', () => this.mainMenu());
     this.on('.pcard[data-id]', 'click', (_e, el) => { if (this.owned(Number(el.dataset.id))) { this.collection(Number(el.dataset.id)); this.root.querySelector('.screen')?.scrollTo(0, 0); } });
+    this.on('[data-keshin]', 'click', (_e, el) => this.keshinScreen(Number(el.dataset.keshin), Number(el.dataset.keshin))); // 2.0
     this.on('[data-ascend]', 'click', (_e, el) => this.ascension(Number(el.dataset.ascend), () => this.collection(Number(el.dataset.ascend))));
     this.on('[data-starbuy]', 'click', (_e, el) => this.starStatPicker(Number(el.dataset.starbuy), 'buy')); // 1.84
     document.getElementById('ascall')?.addEventListener('click', (e) => this.armed(e.currentTarget as HTMLElement, () => { // 1.85: everyone at once
@@ -4405,40 +4958,52 @@ export class App {
     const st = passStatus(this.save, now);
     const teams = teamChoices(this.m.roster, this.m.mainTeams ?? []);
     if (!teams.some((t) => t.team === this.passTeam)) this.passTeam = (teams.find((t) => t.team === this.save.favoriteTeam) ?? teams[0])?.team ?? '';
-    // v1.4: a road of seven days: the claimed ones stamped, today's big and bouncing, the next ones locked
-    const RIC: Record<string, UiIconName> = { fichas: 'capsule', monedas: 'shop', jugador: 'cards' };
+    // 2.0 (author: «mejora mucho la interfaz del pase»): a road of seven tickets joined by a path that fills, the game's own
+    // art on each one, a stamp on the claimed ones, today's ticket glowing, and day 7 as the grand prize
     const left = msToNextDay(now);
     const days = PASS.map((r, i) => {
       const state = i < st.index ? 'reclamado' : i === st.index ? (st.available ? 'disponible' : 'siguiente') : 'bloqueado';
-      const big = i === 3 || i === 6;
-      return `<div class="ps4-day ${state}${big ? ' big' : ''} k-${r.kind}" style="--d:${i * 60}ms"><small>DÍA ${i + 1}</small>
-        <span class="ps4-ic">${uiIcon(RIC[r.kind] ?? 'gift')}</span><b>${esc(r.label)}</b>
-        <em>${state === 'reclamado' ? '✔ Cobrado' : state === 'disponible' ? '¡HOY!' : state === 'siguiente' ? 'Mañana' : '🔒'}</em>${state === 'reclamado' ? '<i class="ps4-stamp">✔</i>' : ''}</div>`;
+      const grand = i === PASS.length - 1;
+      return `<div class="wp2-day ${state}${grand ? ' grand' : ''}${r.tier === 'plus' ? ' plus' : ''} k-${r.kind}" style="--d:${i * 70}ms">
+        <span class="wp2-node">${i + 1}</span>
+        <div class="wp2-card">${grand ? '<i class="wp3-crown">👑</i><i class="wp3-sparks"></i>' : ''}<small>DÍA ${i + 1}${grand ? ' · GRAN PREMIO' : r.tier === 'plus' ? ' · PLUS' : ''}</small>
+          <span class="wp2-stage"><i class="wp2-rays"></i>${this.passArt(i)}</span>${this.passItems(r)}${this.passOdds(r)}
+          <em>${state === 'reclamado' ? 'Cobrado' : state === 'disponible' ? '¡HOY!' : state === 'siguiente' ? `En ${this.passCount(left)}` : 'Bloqueado'}</em>
+          ${state === 'reclamado' ? '<i class="wp2-stamp">COBRADO</i>' : state === 'bloqueado' ? '<i class="wp2-lock">🔒</i>' : ''}</div></div>`;
     }).join('');
     const next = PASS[st.index];
-    const teamPick = next.kind === 'jugador' && next.team ? `<label class="team-sel ps4-team">Equipo: <select id="passteam">${teams.map((t) => `<option value="${esc(t.team)}" ${t.team === this.passTeam ? 'selected' : ''}>${esc(teamLabel(t.team))}</option>`).join('')}</select></label>` : '';
-    const pct = Math.round(st.index / PASS.length * 100);
-    this.show(`<div class="screen ps4-screen">${this.titlebar('Pase semanal', 'Menú')}
-      <div class="ps4-hero${st.available ? ' hot' : ''}"><i class="rw-rays"></i>
-        <div class="ps4-hero-tx"><small>PASE SEMANAL GRATIS · DÍA ${st.index + 1} DE ${PASS.length}</small>
-          <b>${st.available ? '¡Tu recompensa de hoy está lista!' : 'Ya has cobrado hoy'}</b>
-          <span>${st.available ? 'Una recompensa por día. Si te saltas días no pierdes nada: el pase te espera.' : `La siguiente llega en <em id="pscount">${Math.floor(left / 3600000)} h ${Math.floor(left / 60000) % 60} min</em>.`}</span>
-          <div class="ps4-prog"><i style="width:${pct}%"></i><span>${st.index}/${PASS.length} cobrados en este ciclo</span></div></div>
-        <div class="ps4-today${st.available ? '' : ' wait'}"><small>${st.available ? 'HOY' : 'SIGUIENTE'}</small><span class="ps4-ic big">${uiIcon(RIC[next.kind] ?? 'gift')}</span><b>${esc(next.label)}</b>
-          ${st.available ? `${teamPick}<button class="rw-all" id="passclaim"><i class="m4-shine"></i>¡RECLAMAR!</button>` : '<span class="note">Vuelve mañana</span>'}</div></div>
-      <div class="ps4-road">${days}</div>
+    const teamPick = next.jugador?.team ? `<label class="team-sel wp2-team">Equipo: <select id="passteam">${teams.map((t) => `<option value="${esc(t.team)}" ${t.team === this.passTeam ? 'selected' : ''}>${esc(teamLabel(t.team))}</option>`).join('')}</select></label>` : '';
+    this.show(`<div class="screen wp2-screen">${this.titlebar('Pase semanal', 'Menú')}
+      <header class="wp2-hero${st.available ? ' hot' : ''}"><i class="wp2-glow"></i>
+        <div class="wp2-title"><small>GRATIS · CICLO DE ${PASS.length} DÍAS</small><b>PASE SEMANAL</b>
+          <span>${st.available ? 'Tu recompensa de hoy te está esperando.' : `Ya has cobrado hoy. La siguiente llega en <em id="pscount">${this.passCount(left)}</em>.`} Si te saltas días no pierdes nada: el pase te espera.</span>
+          <div class="wp2-dots">${PASS.map((_, i) => `<i class="${i < st.index ? 'on' : i === st.index ? 'now' : ''}"></i>`).join('')}<small>${st.index}/${PASS.length}</small></div>
+          <div class="wp3-total"><small>CADA SEMANA</small><span>${this.cap('cap_azul_spin0') ? `<img src="${this.cap('cap_azul_spin0')}" alt="">` : ''}<b>${PASS_TOTAL.fichas}</b> fichas</span><span><b>◉ ${PASS_TOTAL.monedas.toLocaleString('es')}</b> monedas</span><span><b>★ ${PASS_TOTAL.jugadores}</b> futbolistas, hasta Leyenda</span></div></div>
+        <div class="wp2-today${st.available ? '' : ' wait'}"><small>${st.available ? 'RECOMPENSA DE HOY' : 'SIGUIENTE'}</small>
+          <span class="wp2-stage big"><i class="wp2-rays"></i>${this.passArt(st.index, 'big')}</span>${this.passItems(next)}${this.passOdds(next)}
+          ${st.available ? `${teamPick}<button class="rw-all wp2-claim" id="passclaim"><i class="m4-shine"></i>¡RECLAMAR!</button>` : `<span class="wp2-wait">${uiIcon('clock')} ${this.passCount(left)}</span>`}</div></header>
+      <div class="wp2-road" style="--p:${st.index / (PASS.length - 1)}"><i class="wp2-path"><i></i></i>${days}</div>
       <div class="ps4-foot">${uiIcon('clock')}${timeSource() === 'servidor' ? 'Hora del servidor' : 'Hora de este dispositivo'} · tras el día ${PASS.length} empieza un ciclo nuevo</div></div>`);
     this.on('[data-back]', 'click', () => this.mainMenu());
-    document.getElementById('passteam')?.addEventListener('change', (e) => { this.passTeam = (e.target as HTMLSelectElement).value; });
+    // 2.0: the countdown ticks live while the screen is open
+    const tick = window.setInterval(() => {
+      const el = document.getElementById('pscount'), w = this.root.querySelector('.wp2-wait'), n = this.root.querySelector('.wp2-day.siguiente em');
+      if (!el && !w) { window.clearInterval(tick); return; }
+      const t = this.passCount(msToNextDay(serverNow()));
+      if (el) el.textContent = t;
+      if (w) w.innerHTML = `${uiIcon('clock')} ${t}`;
+      if (n) n.textContent = `En ${t}`;
+    }, 1000);
+    document.getElementById('passteam')?.addEventListener('change', (e) => { this.passTeam = (e.target as HTMLSelectElement).value; this.weeklyPass(); });
     document.getElementById('passclaim')?.addEventListener('click', (e) => {
       const b = e.currentTarget as HTMLButtonElement;
       b.disabled = true;
-      // the day card of today pops and gets its stamp before the reward shows
-      const day = this.root.querySelector<HTMLElement>('.ps4-day.disponible');
+      // today's ticket pops and gets its stamp before the reward shows
+      const day = this.root.querySelector<HTMLElement>('.wp2-day.disponible');
       day?.classList.add('claiming');
       if (day) { flyTo(day, '.coins', 8); flyTo(day, '.tokens', 6); }
       confetti(40);
-      window.setTimeout(() => this.claimPassNow(() => this.weeklyPass()), 450);
+      window.setTimeout(() => this.claimPassNow(() => this.weeklyPass()), 650);
     });
   }
 
@@ -4571,10 +5136,11 @@ export class App {
     const reps = Array.from({ length: Math.max(4, d.techniques.length) }, (_, i) => d.techniques[i]); // GO players can know more than 4
     return `<div class="panel detail r-${d.rarity}${isHero(this.save, d.id) ? ' is-hero' : ''}" style="--rc:${RARITY_COLOR[d.rarity]}"><div class="art">${this.mug(d.id, 128)}${charCanvas(d.id, 3, 12)}</div><div>
       <h3>${esc(d.name)} “${esc(d.nickname)}” ${this.rar(d)} ${this.elem(d)}</h3>
-      <div class="note">${POS_LABEL[d.position]} · ${esc(d.teams.filter((t) => (this.m.mainTeams ?? []).includes(t)).slice(0, 5).map(teamLabel).join(', ') || 'Jugador de Fichatrón / Ojeador')}${(() => { const sg = [...new Set(d.teams.map(sagaOf).filter(Boolean))]; return sg.length ? ` · Saga: ${esc(sg.join(', '))}` : ''; })()}</div>
+      <div class="note">${POS_LABEL[d.position]} · ${esc(d.teams.filter((t) => (this.m.mainTeams ?? []).includes(t)).slice(0, 5).map(teamLabel).join(', ') || (d.exclusive === 'bluelock' ? 'Colaboración InaZurvivors x BlueLock' : d.exclusive === 'evento' ? 'Colaboración · Banner de agradecimiento' : 'Jugador de Fichatrón / Ojeador'))}${(() => { const sg = [...new Set(d.teams.map(sagaOf).filter(Boolean))]; return sg.length ? ` · Saga: ${esc(sg.join(', '))}` : ''; })()}</div>
       ${o ? `<p><button class="btn small blue" data-compare="${d.id}">${this.compareWith === d.id ? 'Elige otro futbolista para comparar…' : '⇄ Comparar con otro'}</button></p>` : ''}
       ${o ? this.starPanel(d) : ''}
       ${o && (nextStep(this.save, d) || isHero(this.save, d.id) || championOf(this.save, d.id)) ? `<p><button class="btn ${nextStep(this.save, d) ? 'big' : 'blue'}" data-ascend="${d.id}">${!nextStep(this.save, d) ? (championOf(this.save, d.id) ? `★ Ver ${CHAMPION_LABEL[championOf(this.save, d.id)]}` : '★ Ver HÉROE') : nextStep(this.save, d)!.step === 'campeon' ? `♛ ${CHAMPION_LABEL[championOf(this.save, d.id) + 1]} (${sparesOf(this.save, d.id)}/${nextStep(this.save, d)!.cost})` : nextStep(this.save, d)!.step === 'estrella' ? `★ Estrella de héroe (${sparesOf(this.save, d.id)}/${nextStep(this.save, d)!.cost})` : `▲ Ascensión (${sparesOf(this.save, d.id)}/${nextStep(this.save, d)!.cost})`}</button></p>` : ''}
+      ${this.keshinPanel(d)}
       ${d.heroTech ? `<div class="note">Técnica de HÉROE: <b>${esc(d.heroTech.name)}</b>${isHero(this.save, d.id) ? ' (desbloqueada)' : ''}</div>` : ''}
       ${(() => { const pa = adaptedPassive(d); return (pa ? `<div class="note">Pasiva: <b>${esc(pa.name)}</b> · ${esc(passiveText(pa))} <small>(adaptación de InaZurvivors)</small></div>` : '') + d.techniques.filter((t) => t.type === 'talento').map((t) => `<div class="note">Talento: <b>${esc(t.name)}</b> · ${esc(talentText(t.id, 1))} <small>(efecto adaptado; sube con el nivel de la técnica)</small></div>`).join(''); })()}
       <h3 style="margin-top:8px">Repertorio (2 técnicas activas en combate)</h3>
@@ -4598,28 +5164,30 @@ export class App {
   /** 1.88: a pull is only in progress while its knob turns or its capsule is on screen; a lost one frees the machine */
   private pullBusy() { return this.pulling && (performance.now() - this.pullAt < 5000 || !!this.root.querySelector('.reveal')); }
   gacha() {
-    const thanksOpen = thanksActive(serverNow());
-    if (this.gachaBanner === 'evento' && !thanksOpen) this.gachaBanner = 'ff'; // 1.75: only while the event is open
+    const thanksOpen = thanksActive(serverNow()), blOpen = bluelockActive(serverNow());
+    if (this.gachaBanner === 'evento' && !thanksOpen) this.gachaBanner = blOpen ? 'bluelock' : 'ff'; // 1.75: only while the event is open
+    if (this.gachaBanner === 'bluelock' && !blOpen) this.gachaBanner = 'ff'; // author: InaZurvivors x BlueLock, only while it is open
     const banner = BANNERS[this.gachaBanner];
-    const ev = banner.id === 'evento', wallet = ev ? this.save.eventTokens ?? 0 : this.save.tokens, unit = ev ? 'fichas de evento' : 'fichas';
+    const ev = banner.id === 'evento' || banner.id === 'bluelock', wallet = ev ? this.save.eventTokens ?? 0 : this.save.tokens, unit = ev ? 'fichas de evento' : 'fichas';
     const teams = teamChoices(this.m.roster, this.m.mainTeams ?? []);
     if (banner.id === 'equipo' && !teams.some((t) => t.team === this.gachaTeam)) this.gachaTeam = (teams.find((t) => t.team === this.save.favoriteTeam) ?? teams[0])?.team ?? '';
     const pool = bannerPool(this.m.roster, banner.id, this.gachaTeam);
-    const real = rarityOdds(pool, banner.id);
-    const each = perPlayerOdds(pool, banner.id);
+    const hot = featuredMachine(serverNow()) === banner.id; // (author) today's featured machine: better odds
+    const real = rarityOdds(pool, banner.id, hot);
+    const each = perPlayerOdds(pool, banner.id, hot);
     const price = bannerPrice(pool, banner.id); // Fix 1.31: by how many Míticos the machine holds
     const PULL_COST = price.cost, MULTI_COST = price.multiCost;
-    const tabs = BANNER_ORDER.filter((b) => b !== 'evento' || thanksOpen).map((b) => {
+    const tabs = BANNER_ORDER.filter((b) => (b !== 'evento' || thanksOpen) && (b !== 'bluelock' || blOpen)).map((b) => {
       const bp = bannerPool(this.m.roster, b, this.gachaTeam);
       const pr = b === 'equipo' ? { cost: BANNERS.equipo.cost } : bannerPrice(bp, b);
       const star = featured(bp, 1)[0]; // v1.4: each machine shows its best player
-      return `<button class="banner-tab bt4${b === banner.id ? ' on' : ''}" data-banner="${b}" style="--bc:${BANNERS[b].color}">
+      return `<button class="banner-tab bt4${b === banner.id ? ' on' : ''}${featuredMachine(serverNow()) === b ? ' hot' : ''}" data-banner="${b}" style="--bc:${BANNERS[b].color}">${featuredMachine(serverNow()) === b ? '<i class="bt-hot">HOY ★</i>' : ''}
         <span class="bt-art">${star ? this.mug(star.id, 64) : uiIcon('capsule')}</span>
         <span class="bt-tx"><b>${esc(BANNERS[b].label)}</b><small>${esc(BANNERS[b].tagline)}</small></span><em class="bt-price">${pr.cost}</em></button>`;
     }).join('');
     const teamSel = banner.id === 'equipo' ? `<label class="team-sel">Equipo: <select id="gteam">${teams.map((t) => `<option value="${esc(t.team)}" ${t.team === this.gachaTeam ? 'selected' : ''}>${esc(teamLabel(t.team))} (${t.size})</option>`).join('')}</select></label>` : '';
     // the special banner shows all its stars
-    const feat = featured(pool, banner.id === 'evento' ? pool.filter((p) => p.exclusive).length : 5).map((p) => `<span class="feat r-${p.rarity}" style="--rc:${RARITY_COLOR[p.rarity]}" title="${esc(p.name)}">${this.mug(p.id, 48)}<small>${esc(p.name)}</small></span>`).join('');
+    const feat = featured(pool, ev ? pool.filter((p) => p.exclusive).length : 5).map((p) => `<span class="feat r-${p.rarity}" style="--rc:${RARITY_COLOR[p.rarity]}" title="${esc(p.name)}">${this.mug(p.id, 48)}<small>${esc(p.name)}</small></span>`).join('');
     const odds = RARITY_ORDER.map((r) => `<div class="odd"><span class="rar ${r}">${RARITY_LABEL[r].toUpperCase()}</span><i style="--w:${Math.max(1.5, real[r])}%;--c:${RARITY_COLOR[r]}"></i><b>${real[r] ? `${+real[r].toFixed(2)}% · c/u ${+each[r].toFixed(3)}%` : 'vacía'}</b></div>`).join('');
     const empty = RARITY_ORDER.filter((r) => !real[r]).map((r) => RARITY_LABEL[r]);
     const hist = (this.save.gachaHistory ?? []).slice(0, 12).map((h) => {
@@ -4631,11 +5199,12 @@ export class App {
     setMusicContext('gacha');
     this.show(`<div class="screen gacha-screen">${this.titlebar('Máquina de fichajes', 'Menú')}
       ${thanksOpen && !ev ? `<button class="pn-eventcta thanks-cta" id="thanksev"><span class="th-faces">${bannerPool(this.m.roster, 'evento').filter((p) => p.exclusive).slice(0, 5).map((p) => this.mug(p.id, 40)).join('')}</span><span><small>EVENTO · TERMINA EN ${this.leftText(thanksLeftMs(serverNow()))}</small><b>Banner de agradecimiento</b><em>Ataque a los Titanes, Los Siete Pecados Capitales y Axel Encapuchado · ${THANKS_EVENT.cost} fichas de evento la tirada</em></span></button>` : ''}
+      ${blOpen && banner.id !== 'bluelock' ? `<button class="pn-eventcta bl-cta" id="blev"><span class="th-faces">${BLUELOCK_EVENT.players.map((id) => this.mug(id, 40)).join('')}</span><span><small>COLABORACIÓN · TERMINA EN ${this.leftText(bluelockLeftMs(serverNow()))}</small><b>InaZurvivors x BlueLock</b><em>Nagi e Isagi · ${BLUELOCK_EVENT.cost} fichas de evento la tirada</em></span></button>` : ''}
       ${eventActive(serverNow()) ? `<button class="pn-eventcta" id="pnevent"><span class="pn-cta-art">${pennantSvg('supernova', 44)}</span><span><small>EVENTO · TERMINA EN ${this.eventLeftText(serverNow())}</small><b>Banners de leyenda</b><em>Se paga con monedas · Mítico al 3%</em></span></button>` : ''}
       <div class="banner-tabs">${tabs}</div>
-      <div class="banner-head bh4" style="--bc:${banner.color}"><div class="bh-tx"><small>MÁQUINA</small><b>${esc(banner.label)}</b><span>${esc(banner.tagline)} · ${pool.length} futbolistas</span> ${teamSel}
-          <div class="bh-chips"><span>${uiIcon('capsule')}×1 · <b>${PULL_COST}</b>${ev ? ' de evento' : ''}</span><span>${uiIcon('capsule')}×10 · <b>${MULTI_COST}</b>${ev ? ' de evento' : ''}</span>${ev ? `<span>Termina en <b>${this.leftText(thanksLeftMs(serverNow()))}</b></span>` : ''}<span class="ok">×10: Épico o mejor asegurado</span></div>
-          <details class="rk-how"><summary>${uiIcon('help')}Precio y reglas</summary><div>${banner.id === 'evento' ? `Los futbolistas especiales solo salen aquí, con ${pool.filter((p) => !p.exclusive).length} Comunes, Raros y Épicos de relleno. Se paga con fichas de evento: cada partida en Rango S o X te da tantas como fichas normales mientras dura el evento.` : banner.id === 'equipo' ? 'Solo futbolistas del equipo elegido; las rarezas altas tienen un tope por jugador.' : `Cada futbolista sale en una sola máquina: la de la primera saga en la que aparece. Precio según sus Míticos (${price.mythics}): sin estrellas 5 · sin Míticos 10 · de 1 a 5 Míticos 15 · 6 o más 20.`}</div></details></div>
+      <div class="banner-head bh4${banner.id === 'bluelock' ? ' bh-bl' : ''}" style="--bc:${banner.color}"><div class="bh-tx"><small>${banner.id === 'bluelock' ? 'COLABORACIÓN' : 'MÁQUINA'}</small>${banner.id === 'bluelock' ? this.blLogo() : `<b>${esc(banner.label)}</b>`}<span>${esc(banner.tagline)} · ${pool.length} futbolistas</span> ${teamSel}
+          <div class="bh-chips"><span>${uiIcon('capsule')}×1 · <b>${PULL_COST}</b>${ev ? ' de evento' : ''}</span><span>${uiIcon('capsule')}×10 · <b>${MULTI_COST}</b>${ev ? ' de evento' : ''}</span>${ev ? `<span>Termina en <b>${this.leftText(banner.id === 'bluelock' ? bluelockLeftMs(serverNow()) : thanksLeftMs(serverNow()))}</b></span>` : ''}<span class="ok">×10: Épico o mejor asegurado</span>${hot ? `<span class="hot">★ Destacada hoy: Épico ×${String(FEATURED_BOOST.epico).replace('.', ',')} · Legendario, Mítico y Leyenda ×${String(FEATURED_BOOST.legendario).replace('.', ',')}</span>` : ''}</div>
+          <details class="rk-how"><summary>${uiIcon('help')}Precio y reglas</summary><div>${ev ? `Los futbolistas especiales solo salen aquí, con ${pool.filter((p) => !p.exclusive).length} Comunes, Raros y Épicos de relleno. Se paga con fichas de evento: cada partida en Rango S o X te da tantas como fichas normales mientras dura el evento.` : banner.id === 'equipo' ? 'Solo futbolistas del equipo elegido; las rarezas altas tienen un tope por jugador.' : `Cada futbolista sale en una sola máquina: la de la primera saga en la que aparece. Precio según sus Míticos (${price.mythics}): sin estrellas 5 · sin Míticos 10 · de 1 a 5 Míticos 15 · 6 o más 20.`}</div></details>${banner.id === 'bluelock' ? this.blRewards() : ''}</div>
         <div class="feat-row"><small>DESTACADOS</small><div>${feat}</div></div>${this.machineCoaches(banner.id)}</div>
       <div class="ie3-machine">${has ? `<div class="ds-top"><img id="globe" src="${this.cap('globe0')}" alt=""></div>
         <div class="ds-bottom" style="background-image:url(${this.cap('panel_bottom')})">
@@ -4672,6 +5241,7 @@ export class App {
     }
     const pick = (b: BannerId) => { if (this.pullBusy()) return; this.pulling = false; this.gachaBanner = b; this.gacha(); };
     this.onTap('#thanksev', () => pick('evento'));
+    this.onTap('#blev', () => pick('bluelock'));
     this.onTap('[data-banner]', (el) => pick(el.dataset.banner as BannerId));
     document.getElementById('gteam')?.addEventListener('change', (e) => { this.gachaTeam = (e.target as HTMLSelectElement).value; this.gacha(); });
     this.on('[data-pull]', 'click', async (_e, el) => {
@@ -4682,7 +5252,7 @@ export class App {
       const bpool = bannerPool(this.m.roster, b.id, this.gachaTeam);
       const bp = bannerPrice(bpool, b.id);
       const claimsBefore = new Set(this.teamClaimList().map((c) => `${c.team}|${c.kind}`));
-      const res = pull(bpool, this.save, Number(el.dataset.pull) as 1 | 10, Math.random, { cost: bp.cost, multiCost: bp.multiCost, odds: rarityOdds(bpool, b.id), currency: b.id === 'evento' ? 'eventTokens' : 'tokens' });
+      const res = pull(bpool, this.save, Number(el.dataset.pull) as 1 | 10, Math.random, { cost: bp.cost, multiCost: bp.multiCost, odds: rarityOdds(bpool, b.id, featuredMachine(serverNow()) === b.id), currency: b.id === 'evento' || b.id === 'bluelock' ? 'eventTokens' : 'tokens' });
       if (!res) { this.pulling = false; return; }
       recordHistory(this.save, res);
       addCounter(this.save, 'news', res.filter((x) => x.isNew).length);
@@ -5499,7 +6069,8 @@ export class App {
    * (rarity band, ascension, HÉROE, training); v1.5: a carrier plays with his Aura (stats up to 120, inherited techniques).
    */
   private runEntry(p: RosterEntry): RosterEntry {
-    const base: RosterEntry = { ...(isHero(this.save, p.id) && p.heroTech ? { ...p, techniques: [...p.techniques, p.heroTech] } : p), stats: this.statsOf(p) ?? p.stats };
+    // 2.0: his warrior spirit (keshin.ts): its supertechnique after the HÉROE one, and the link for its passive
+    const base: RosterEntry = keshinForRun({ ...(isHero(this.save, p.id) && p.heroTech ? { ...p, techniques: [...p.techniques, p.heroTech] } : p), stats: this.statsOf(p) ?? p.stats }, keshinLevel(this.save, p.id));
     if (this.roadMatch) return base; // pre-2.0: Road to Fútbol Frontier is played without Auras
     const a = auraOf(this.save, p.id), ae = a === null ? undefined : this.byId.get(a);
     return ae ? carrierForRun(this.save, base, base.stats as Record<StatKey, number> | null, ae) : base;
@@ -5514,6 +6085,7 @@ export class App {
     this.inTraining = !!training;
     const runTeam = team.map(heroed), runUnlocked = candidates.filter((p) => this.owned(p.id)).map(heroed);
     this.runById = new Map([...runUnlocked, ...runTeam].map((p) => [p.id, p]));
+    setEgArt(this.m.eg?.spirits ?? {}); // 2.0: the ultimates' banners show the spirits' portraits
     const runAuras = [...new Set([...runTeam, ...runUnlocked].map((p) => p.aura?.id).filter((x): x is number => x !== undefined))].map((id) => this.byId.get(id)!).filter(Boolean);
     const stars: Record<string, number> = {};
     for (const [k, v] of Object.entries(this.save.owned)) stars[k] = v.stars + (v.extraStars ?? 0); // 1.88: extra stars count
@@ -5526,7 +6098,7 @@ export class App {
       <div class="vitals cap-panel">
         <div class="cap-crest" title="${esc(this.save.crest ? teamLabel(this.save.crest) : 'InaZurvivors')}"><img src="${this.emblemOf(this.save.crest) || 'logo-192.png'}" alt=""><small>${esc(this.save.crest ? teamLabel(this.save.crest) : 'InaZurvivors')}</small></div>
         <div class="vbars">
-          <div class="cap-name"><b>${esc(team[0]?.name ?? 'Capitán')}</b><span>CAPITÁN</span><em class="crit-tag" id="crittag">¡CRÍTICO!</em></div>
+          <div class="cap-name"><b>${esc(team[0]?.name ?? 'Capitán')}</b><span>CAPITÁN</span>${(() => { const k = team[0] && keshinOf(team[0].id), lv = k ? keshinLevel(this.save, team[0].id) : 0; return k && lv ? `<span class="cap-eg" style="--kc:${k.color}" title="${esc(k.title)}">${this.egArt(k)}<em>${esc(k.name)}</em>${lv >= 2 ? this.egLevel(lv, 12) : ''}</span>` : ''; })()}<em class="crit-tag" id="crittag">¡CRÍTICO!</em></div>
           <div class="hp-bar" id="hpbar"><i class="ghost"></i><i class="fill"></i><span></span></div>
           <div class="rev-chip none" id="revchip" title="Revivir: si tu capitán cae, se levanta y gasta una carga">✚ Revivir <b>0</b></div>
           <div class="xp-row"><div class="lv-badge" id="lvbadge"><small>NV</small><b>1</b></div><div class="xp-bar" id="xpbar"><i></i><span id="xptext"></span></div></div>
@@ -5539,12 +6111,16 @@ export class App {
         <button class="btn small blue pausebtn" id="pausebtn">II Pausa</button></div>
       <div class="bossbar" id="boss" style="display:none"><span class="bb-mug"></span><div class="bb-head"><span class="bb-ic">${uiIcon('crown')}</span><span class="bb-names"><small class="bb-title"></small><b class="bb-name"></b></span><span class="bb-phase"></span></div><div class="bb-bar"><i class="bb-ghost"></i><i class="bb-fill"></i><i class="bb-tick" style="left:33.333%"></i><i class="bb-tick" style="left:66.667%"></i><em class="bb-pct"></em></div><div class="bb-pop"></div></div>
       <canvas class="minimap" id="minimap" width="132" height="100" aria-hidden="true"></canvas><div class="edge-marks" id="marks"></div>
-      <div class="altar-hud" id="altar"></div><div class="event-card" id="eventcard"></div><div class="event-result" id="eventresult"></div><div class="buffs" id="buffs"></div><div class="combo-hud" id="combohud"></div><div class="team-hud" id="hudteam"></div><div id="bannerbox"></div><div class="joy" id="joy"><b><i></i></b></div></div>`, 'run-mode');
+      <div class="altar-hud" id="altar"></div><div class="event-card" id="eventcard"></div><div class="event-result" id="eventresult"></div><div class="buffs" id="buffs"></div><div class="combo-hud" id="combohud"></div><div class="team-hud" id="hudteam"></div><div class="ult-dock" id="ultdock"></div><div id="bannerbox"></div><div class="joy" id="joy"><b><i></i></b></div></div>`, 'run-mode');
     this.keepCombosAboveTeam();
     this.warmMugs(); // 1.8: the mugshot sheets decoded now, not in the middle of the run when a combined technique is learned
     bindStick(document.getElementById('joy')!);
     document.getElementById('pausebtn')!.addEventListener('click', () => this.pauseFromHud());
     this.root.querySelectorAll<HTMLElement>('#fbtns button').forEach((b) => b.addEventListener('click', () => this.arena()?.selectFormation(b.dataset.f as FormationId)));
+    document.getElementById('ultdock')!.addEventListener('pointerdown', (e) => { // 2.0: the ultimates, by touch or click (R on a keyboard)
+      const b = (e.target as HTMLElement).closest<HTMLElement>('[data-ult]');
+      if (b) { e.preventDefault(); e.stopPropagation(); this.arena()?.requestUlt(Number(b.dataset.ult)); }
+    });
     const init: ArenaInit = {
       rank: coop?.rank ?? (this.roadMatch ? ROAD_BY_ID.get(this.roadMatch.diff)!.rank : this.save.difficulty),
       road: !!this.roadMatch,
@@ -5566,6 +6142,7 @@ export class App {
         coopPicking: (name) => this.coopPickingPill(name),
         event: (r) => this.eventCard(r),
         combo: (c) => this.comboUnlock(c),
+        egJoin: (e) => this.egJoin(e), // 2.0
         bossWarn: () => this.bossWarnFx(),
         bossIntro: (b) => this.bossIntroFx(b),
         bossDefeated: () => this.bossDefeatedFx(),
@@ -5577,6 +6154,11 @@ export class App {
       },
     };
     this.runInfo = { map: map.name, difficulty: this.save.difficulty };
+    // author: a loading screen with the team running instead of a spinner (ui/runLoader.ts)
+    const kitInfo = this.m.kits?.[kitKey];
+    const loader = showRunLoader(this.m, runTeam, map.name, kitInfo?.field ?? null);
+    init.hooks.loading = (p: number) => loader.progress(p);
+    init.hooks.ready = () => loader.done();
     if (training) document.getElementById('hud')?.insertAdjacentHTML('beforeend', '<div class="train-tag">ENTRENAMIENTO · sin daño ni recompensas · Pausa para salir</div>');
     this.game.scene.start('Arena', init);
   }
@@ -5655,16 +6237,20 @@ export class App {
    * players, so the combo chips can't sit at a fixed height. They follow the panel's real top edge instead.
    */
   private keepCombosAboveTeam() {
-    const team = document.getElementById('hudteam'), ch = document.getElementById('combohud');
+    const team = document.getElementById('hudteam'), ch = document.getElementById('combohud'), dock = document.getElementById('ultdock');
     if (!team || !ch || typeof ResizeObserver === 'undefined') return;
     const place = () => {
       if (!ch.isConnected) { ro.disconnect(); return; }
       const box = ch.offsetParent?.getBoundingClientRect(), t = team.getBoundingClientRect();
       if (!box || !t.height) return;
-      ch.style.bottom = `${Math.max(8, Math.round(box.bottom - t.top + 10))}px`;
+      // 2.0: over the ultimate too when it sits above the plates; screen pixels divided by the HUD's zoom
+      const d = dock?.classList.contains('above') && dock.offsetHeight ? dock.getBoundingClientRect().top : Infinity;
+      const zoom = parseFloat(getComputedStyle(this.root).zoom) || 1;
+      ch.style.bottom = `${Math.max(8, Math.round((box.bottom - Math.min(t.top, d)) / zoom + 10))}px`;
     };
     const ro = new ResizeObserver(place);
     ro.observe(team);
+    if (dock) ro.observe(dock);
     place();
   }
 
@@ -5803,6 +6389,7 @@ export class App {
     if (lost >= s.maxHp * 0.08) { hp.classList.remove('hit'); void hp.offsetWidth; hp.classList.add('hit'); }
     this.lastHudHp = s.hp;
     hp.classList.toggle('shielded', s.shield > 0);
+    hp.classList.toggle('healed', s.now - (s.healAt ?? -10) < 0.5); // 2.0: the bar glows green on a heal
     (document.querySelector('#xpbar i') as HTMLElement).style.width = pct(s.xp, s.xpNext);
     document.getElementById('xptext')!.textContent = `${s.xp} / ${s.xpNext} EXP`;
     const badge = document.getElementById('lvbadge')!;
@@ -5855,15 +6442,24 @@ export class App {
     }
     // the captain panel grows (Revivir row, small screens): the chips always sit right under it, never over kills/coins
     const capPanel = document.querySelector<HTMLElement>('#hud .cap-panel');
+    // 2.0: the UI is zoomed on phones (#ui zoom): screen rects are divided by it before they become CSS tops
+    const uiZoom = parseFloat(getComputedStyle(this.root).zoom) || 1;
     if (capPanel && resEl.offsetParent) {
-      const top = Math.round(capPanel.getBoundingClientRect().bottom - resEl.offsetParent.getBoundingClientRect().top + 6);
+      const top = Math.round((capPanel.getBoundingClientRect().bottom - resEl.offsetParent.getBoundingClientRect().top) / uiZoom + 6);
       if (resEl.dataset.top !== String(top)) { resEl.dataset.top = String(top); resEl.style.setProperty('top', `${top}px`, 'important'); }
     }
+    // 2.0: phone portrait: clock, formations and pause go right under the captain panel, the minimap under them
+    const tr = document.querySelector<HTMLElement>('#hud .top-right'), mm = document.getElementById('minimap');
+    if (capPanel && tr?.offsetParent && matchMedia('(max-width: 620px) and (min-height: 521px)').matches) {
+      const top = Math.round((capPanel.getBoundingClientRect().bottom - tr.offsetParent.getBoundingClientRect().top) / uiZoom + 6);
+      if (tr.dataset.top !== String(top)) { tr.dataset.top = String(top); tr.style.setProperty('top', `${top}px`, 'important'); }
+      if (mm) { const mt = Math.round((tr.getBoundingClientRect().bottom - tr.offsetParent.getBoundingClientRect().top) / uiZoom + 6); if (mm.dataset.top !== String(mt)) { mm.dataset.top = String(mt); mm.style.setProperty('top', `${mt}px`, 'important'); } }
+    } else if (tr?.dataset.top) { delete tr.dataset.top; tr.style.removeProperty('top'); if (mm) { delete mm.dataset.top; mm.style.removeProperty('top'); } }
     // pre-2.0: the partner's chip makes the captain panel taller; the event box goes under the panel and the chips
     const altEl = document.getElementById('altar');
     if (co && capPanel && altEl?.offsetParent) {
       const low = Math.max(capPanel.getBoundingClientRect().bottom, resEl.childElementCount ? resEl.getBoundingClientRect().bottom : 0);
-      const top = Math.round(low - altEl.offsetParent.getBoundingClientRect().top + 6);
+      const top = Math.round((low - altEl.offsetParent.getBoundingClientRect().top) / uiZoom + 6);
       if (altEl.dataset.top !== String(top)) { altEl.dataset.top = String(top); altEl.style.setProperty('top', `${top}px`, 'important'); }
     }
     document.getElementById('clocktxt')!.textContent = s.endless ? `∞ ${fmtTime(s.endless.sec)} · ${s.endless.phase}` : `${fmtTime(s.timeSec)} / ${fmtTime(s.durationSec)}`;
@@ -5872,6 +6468,7 @@ export class App {
     document.getElementById('clock')!.classList.toggle('late', !s.endless && s.durationSec - s.timeSec < 60);
     document.getElementById('kills')!.textContent = `✖ ${s.kills}`;
     this.root.querySelectorAll<HTMLElement>('#fbtns button').forEach((b) => b.classList.toggle('on', b.dataset.f === s.formation));
+    this.renderUlts(s);
     const F = FORMATIONS[s.formation];
     const dmg = Math.round((F.damageMult - 1) * 100), taken = Math.round((F.damageTakenMult - 1) * 100);
     document.getElementById('fdesc')!.textContent = dmg || taken ? `Daño ${dmg >= 0 ? '+' : ''}${dmg}% · recibido ${taken >= 0 ? '+' : ''}${taken}%` : 'Sin modificadores';
@@ -5887,16 +6484,21 @@ export class App {
       this.lastBannerAt = s.formationChangedAt;
       document.getElementById('bannerbox')!.innerHTML = `<div class="banner">${FORMATION_ICON(s.formation, 34)} FORMACIÓN ${F.label.toUpperCase()}</div>`;
     }
-    const key = s.team.map((t) => t.id).join(',');
+    const key = `${s.team.map((t) => t.id).join(',')}|${s.ults?.[0]?.playerId ?? ''}`; // 2.0: and which spirit is the active one
     const teamEl = document.getElementById('hudteam')!;
     if (key !== this.hudTeamKey) {
       this.hudTeamKey = key;
       const slots = Array.from({ length: MAX_TEAM }, (_, i) => s.team[i]);
       teamEl.innerHTML = slots.map((t, i) => {
-        if (!t) return '<div class="plate empty"><b>+</b><span>Ficha al subir de nivel</span></div>';
+        if (!t) return '<div class="plate empty" title="Ficha al subir de nivel"><b>+</b><span>Ficha al subir de nivel</span></div>';
         const p = this.byId.get(t.id)!;
-        return `<div class="plate${i === 0 ? ' cap' : ''}" data-m="${t.id}" style="--rc:${RARITY_COLOR[p.rarity]};--ec:${ELEMENT_COLOR[String(p.element)] ?? '#ccc'}">
-          <div class="pl-head"><span class="pl-mug">${this.mug(t.id, 40)}</span>${i === 0 ? '<span class="pl-c">C</span>' : ''}
+        // 2.0: an awakened warrior spirit shows on the plate (its portrait, its level, its colour round the face)
+        const k = keshinOf(t.id), klv = k ? keshinLevel(this.save, t.id) : 0;
+        // (author) the active spirit is the leftmost one: its plate says ULTI; the others give only their passive
+        const active = !!k && klv > 0 && s.ults?.[0]?.playerId === t.id;
+        const eg = k && klv ? `<span class="pl-eg" title="${esc(k.name)} · nivel ${KESHIN_LABEL[klv]} · ${active ? 'activo: su definitiva con R' : 'solo su pasiva (el activo es el de más a la izquierda)'}">${this.egArt(k)}${klv >= 2 ? this.egLevel(klv, 11) : ''}</span><b class="pl-egtag">${active ? '★ ULTI · R' : 'PASIVA'}</b>` : '';
+        return `<div class="plate${i === 0 ? ' cap' : ''}${eg ? ` has-eg ${active ? 'eg-active' : 'eg-passive'}` : ''}" data-m="${t.id}" style="--rc:${RARITY_COLOR[p.rarity]};--ec:${ELEMENT_COLOR[String(p.element)] ?? '#ccc'}${k ? `;--kc:${k.color}` : ''}">
+          <div class="pl-head"><span class="pl-mug">${this.mug(t.id, 40)}</span>${eg}${i === 0 ? '<span class="pl-c">C</span>' : ''}
           <span class="pl-elem" title="${esc(p.element)}">${elementIcon(String(p.element), 18)}</span>
           <span class="pl-name">${esc(p.name)}<small>${POS_LABEL[p.position]} · ${esc(p.element)}</small></span>${t.aura ? `<span class="pl-aura" title="Aura: ${esc(t.aura.name)}">${this.mug(t.aura.id, 40)}</span>` : ''}</div>
           ${t.techs.map((_, k) => `<div class="pl-tech" data-k="${k}"><span class="pl-icon"><i class="cd"></i></span><span class="pl-tn"></span><span class="pl-pips"></span></div>`).join('')}</div>`;
@@ -6040,10 +6642,14 @@ export class App {
       const p = runP(c.playerId);
       // Fix 1.41 (author): the card shows the technique he really starts with (the one chosen in Mi Equipo), not his first one
       const start = p.techniques[this.startOf(this.byId.get(p.id) ?? p)] ?? p.techniques[0];
-      return `<button class="lvcard recruit" data-i="${i}" style="--rc:${RARITY_COLOR[p.rarity]}"><div class="lv-ribbon">¡NUEVO FICHAJE!</div>
-        <div class="lv-type">FICHAJE · ${this.rar(p)}</div><div class="lv-art">${this.mug(p.id, 128)}<span class="minisprite">${charCanvas(p.id, 2, 12)}</span></div>
+      // 2.0: a footballer with an awakened spirit says so on the card: its portrait, and whether it will be the active one
+      const k = keshinOf(p.id), klv = k ? keshinLevel(this.save, p.id) : 0;
+      const egBox = k && klv ? `<div class="lv-eg" style="--kc:${k.color}"><span class="lv-eg-art">${this.egArt(k)}</span><span class="lv-eg-tx"><small>ESPÍRITU GUERRERO${klv >= 2 ? ` · ${KESHIN_LABEL[klv]}` : ''}</small><b>${esc(k.name)}</b>
+        <em>${this.ultActiveId === null ? `★ Será tu EG activo: ${esc(techFor(k, klv).name)} con R` : `Pasiva: ${esc(k.passive.name)}`}</em></span></div>` : '';
+      return `<button class="lvcard recruit${egBox ? ' has-eg' : ''}" data-i="${i}" style="--rc:${RARITY_COLOR[p.rarity]}${k ? `;--kc:${k.color}` : ''}"><div class="lv-ribbon">${egBox ? '¡FICHAJE CON ESPÍRITU!' : '¡NUEVO FICHAJE!'}</div>
+        <div class="lv-type">FICHAJE · ${this.rar(p)}</div><div class="lv-art">${egBox ? `<span class="lv-art-eg">${this.egArt(k!)}</span>` : ''}${this.mug(p.id, 128)}<span class="minisprite">${charCanvas(p.id, 2, 12)}</span></div>
         <div class="lv-name">${esc(p.name)}</div><div class="lv-sub">${POS_LABEL[p.position]} · ${this.elem(p)}</div>
-        <div class="lv-techs">${[start].filter(Boolean).map((t) => `<div>${this.icon(ICON.manual[t.type], 1.5)} ${esc(t.name)} <small>${TYPE_LABEL[t.type]}</small></div>`).join('')}</div>${auraTag(p)}</button>`;
+        <div class="lv-techs">${[start].filter(Boolean).map((t) => `<div>${this.icon(ICON.manual[t.type], 1.5)} ${esc(t.name)} <small>${TYPE_LABEL[t.type]}</small></div>`).join('')}</div>${auraTag(p)}${egBox}</button>`;
     }
     if (c.kind === 'upgrade') {
       const p = runP(c.playerId);
@@ -6117,7 +6723,7 @@ export class App {
         document.getElementById('lvl')?.remove();
         this.root.insertAdjacentHTML('beforeend', `<div class="levelup${first ? ' first' : ''}" id="lvl"><div class="lv-rays"></div>
           <div class="lv-title"><span>${level ? `¡NIVEL ${level}!` : '¡RECOMPENSA!'}</span><small>Elige una mejora para tu equipo</small></div>
-          <div class="lv-cards">${cs.map((c, i) => this.cardHtml(c, i)).join('')}</div>
+          <div class="lv-cards n${cs.length}">${cs.map((c, i) => this.cardHtml(c, i)).join('')}</div>
           <div class="lv-bottom"><button class="btn big blue reroll" id="reroll" ${left > 0 ? '' : 'disabled'}>⟳ CAMBIAR CARTAS <span class="rr-count">${left}</span></button></div></div>`);
         mountPreviews();
         const modal = document.getElementById('lvl')!;
@@ -6218,17 +6824,20 @@ export class App {
     document.getElementById('lvl')?.remove();
     document.getElementById('pause')?.remove();
     const effects = perkEffects(this.save);
-    const clanMul = this.clanMatch ? CLAN_REWARD_MULT : 1; // 1.93: the Juegos del Clan pay half
-    const { rewards, total, records, tokens, tokenTotal: tokens0, training, trainTotal } = applyRun(this.save, r, effects.coinMult, effects.rewardMult * clanMul, effects.extraTokens);
+    const clanMul = this.clanMatch ? CLAN_REWARD_MULT : 1; // 1.93: the Juegos del Clan paid half; full since the 1-a-day limit
+    const { rewards, total, records, tokens, tokenTotal: tokens0, training, trainTotal, eg, egTotal: eg0 } = applyRun(this.save, r, effects.coinMult, effects.rewardMult * clanMul, effects.extraTokens);
     let tokenTotal = tokens0;
     if (this.clanMatch) {
       // every line of fichas at half (the coins were already halved through rewardMult)
-      for (const t of tokens) { const half = Math.floor(t.coins * CLAN_REWARD_MULT); this.save.tokens -= t.coins - half; tokenTotal -= t.coins - half; t.coins = half; t.label += ' · clan ½'; }
+      if (CLAN_REWARD_MULT < 1) for (const t of tokens) { const half = Math.floor(t.coins * CLAN_REWARD_MULT); this.save.tokens -= t.coins - half; tokenTotal -= t.coins - half; t.coins = half; t.label += ' · clan ½'; }
       this.save.clearedMaps = this.save.clearedMaps.filter((x) => x !== r.mapId);
+      this.save.egTokens = Math.max(0, (this.save.egTokens ?? 0) - eg0); // 2.0: no Fichas EG in the Juegos del Clan
+      eg.length = 0;
       if (this.save.clearedRanks) delete this.save.clearedRanks[r.mapId];
     }
     const evTokens = thanksTokens(r.rank, tokenTotal, serverNow()); // 1.75: Rango S / X while the Banner de agradecimiento is open
     addThanksTokens(this.save, evTokens);
+    if (r.victory) recordBluelockWin(this.save, serverNow()); // (author) 3 wins while it is open: the BlueLock banner
     const cap = this.byId.get(r.teamIds?.[0] ?? -1);
     r.captainEra = cap ? eraOf(cap) : undefined;
     r.favoriteOnPitch = (r.teamIds ?? []).filter((id) => this.save.favoriteTeam && this.byId.get(id)?.teams.includes(this.save.favoriteTeam)).length;
@@ -6281,7 +6890,9 @@ export class App {
         <tr class="rrow total" style="--d:${1000 + tokens.length * 110}ms"><td><b>Fichas de Fichaje</b></td><td><b id="ttokens">+0</b></td></tr>
         ${evTokens ? `<tr class="rrow total ev-tok" style="--d:${1100 + tokens.length * 110}ms"><td><b>Fichas de evento</b></td><td><b>+${evTokens}</b></td></tr>` : ''}</table>
       ${trainTotal ? `<table class="rewards trn">${training.map((x, i) => `<tr class="rrow" style="--d:${1000 + i * 110}ms"><td>${esc(x.label)}</td><td>+${x.coins}</td></tr>`).join('')}
-        <tr class="rrow total" style="--d:${1000 + training.length * 110}ms"><td><b>Fichas de entrenamiento</b></td><td><b>+${trainTotal}</b></td></tr></table>` : ''}</div>
+        <tr class="rrow total" style="--d:${1000 + training.length * 110}ms"><td><b>Fichas de entrenamiento</b></td><td><b>+${trainTotal}</b></td></tr></table>` : ''}
+      ${eg.length ? `<table class="rewards egr">${eg.map((x, i) => `<tr class="rrow" style="--d:${1100 + i * 110}ms"><td>${esc(x.label)}</td><td>+${x.coins}</td></tr>`).join('')}
+        <tr class="rrow total" style="--d:${1100 + eg.length * 110}ms"><td><b>${this.egIcon(14)} Fichas EG</b></td><td><b>+${eg.reduce((a, x) => a + x.coins, 0)}</b></td></tr></table>` : ''}</div>
       <div class="result-wallet"><span class="tokens">${this.save.tokens - tokenTotal}</span><span class="coins">${this.save.coins - total}</span></div>
       <p class="note">Colección: ${owned} de ${this.m.roster.length} futbolistas · Una tirada cuesta ${PULL_COST} fichas</p>
       ${pending ? `<p class="newtag">¡Tienes ${pending} ${pending === 1 ? 'misión' : 'misiones'} por cobrar!</p>` : ''}

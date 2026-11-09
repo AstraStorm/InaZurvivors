@@ -98,6 +98,7 @@
 .cl-off > b { font-weight: normal; font-size: 10px; color: #fff; } .cl-off > small { font-size: 7px; color: #cfe3ff; }
 .cl-off-ic { width: 56px; height: 56px; display: grid; place-items: center; border-radius: 50%; font-size: 26px; color: #0a1022; background: radial-gradient(circle at 35% 30%, #fff6c8, #ffd23f 60%, #c98a00); box-shadow: 0 0 14px #ffd23f88; }
 .cl-off-ic.tokens { background: radial-gradient(circle at 35% 30%, #c8f0ff, #4fb3ff 60%, #1a5aa8); box-shadow: 0 0 14px #4fb3ff88; color: #fff; }
+.cl-off-ic.eg { background: radial-gradient(circle at 35% 30%, #ffe0ff, #c45aff 60%, #4a0a8a); box-shadow: 0 0 14px #c45aff99; color: #fff; font: 900 18px/1 var(--px, sans-serif); letter-spacing: 1px; }
 .cl-off-ic[class*='r-'] { background: radial-gradient(circle at 35% 30%, #fff, var(--rc) 60%, #050c22); box-shadow: 0 0 16px var(--rc); color: #fff; }
 .cl-off-ic svg { width: 28px; height: 28px; }
 .cl-off .pn-prev, .cl-off .fr-prev { display: block; height: 56px; }

@@ -23,8 +23,8 @@ const oldPerkTotal = PERKS.filter((p) => !['jefes', 'botiquin', 'inicio', 'raros
   .reduce((a, p) => { let c = 0; for (let l = 0; l < p.max; l++) c += p.baseCost + p.step * l; return a + c; }, 0);
 const daily = MISSIONS.filter((m) => m.kind === 'diaria');
 const weekly = MISSIONS.filter((m) => m.kind === 'semanal');
-const passCoins = PASS.reduce((a, r) => a + (r.kind === 'monedas' ? r.amount : 0), 0);
-const passTokens = PASS.reduce((a, r) => a + (r.kind === 'fichas' ? r.amount : 0), 0);
+const passCoins = PASS.reduce((a, r) => a + r.monedas, 0);
+const passTokens = PASS.reduce((a, r) => a + r.fichas, 0);
 
 function runCoins(p: Profile, victory: boolean, legacy = false) {
   const r = { mapId: 'raimon', victory, timeSec: victory ? 300 : p.time * 0.7, kills: Math.round((victory ? 300 : p.time * 0.7) / 60 * p.kpm), minibosses: victory ? 2 : 1, reachedBoss: victory, bossDefeated: victory };
@@ -61,7 +61,7 @@ describe('economy simulation', () => {
       `Coste total de todas las mejoras permanentes: ${perkTotal} monedas (1.1: ${oldPerkTotal} con las mejoras de entonces)`,
       `Misiones diarias: ${daily.length} (${daily.reduce((a, m) => a + m.coins, 0)} monedas, ${daily.reduce((a, m) => a + m.tokens, 0)} fichas al día si se completan todas)`,
       `Misiones semanales: ${weekly.length} (${weekly.reduce((a, m) => a + m.coins, 0)} monedas, ${weekly.reduce((a, m) => a + m.tokens, 0)} fichas)`,
-      `Pase semanal: ${passCoins} monedas, ${passTokens} fichas (${passTokens / MULTI_COST} tiradas ×10) y 3 futbolistas Épico+`,
+      `Pase semanal: ${passCoins} monedas, ${passTokens} fichas (${passTokens / MULTI_COST} tiradas ×10) y 3 futbolistas (Épico+, Legendario+ y Legendario+ de tu equipo)`,
       `Multiplicadores de rango: ${Object.values(RANKS).map((r) => `${r.id} ×${r.reward}`).join(', ')}`, ''];
     const out: Record<string, number[]> = {};
     for (const p of PROFILES) {

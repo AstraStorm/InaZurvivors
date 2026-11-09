@@ -1225,8 +1225,9 @@ export function whiteHurricaneShot(scene: S, ball: Img, lv: number) {
 }
 
 // combos added in this batch
-export type Combo189 = 'tormenta-tigre' | 'bestia-trueno' | 'huracan' | 'reaccion' | 'unoparatodos' | 'prime' | 'tripegaso' | 'fenix2' | 'granlobo';
-export const COMBO189: ReadonlySet<string> = new Set(['tormenta-tigre', 'bestia-trueno', 'huracan', 'reaccion', 'unoparatodos', 'prime', 'tripegaso', 'fenix2', 'granlobo']);
+export type Combo189 = 'tormenta-tigre' | 'bestia-trueno' | 'huracan' | 'reaccion' | 'unoparatodos' | 'prime' | 'tripegaso' | 'fenix2' | 'granlobo'
+  | 'lluvia-oscura' | 'lluvia-azufre' | 'triple-amenaza' | 'grito-eden' | 'pinguino3'; // 2.0
+export const COMBO189: ReadonlySet<string> = new Set(['tormenta-tigre', 'bestia-trueno', 'huracan', 'reaccion', 'unoparatodos', 'prime', 'tripegaso', 'fenix2', 'granlobo', 'lluvia-oscura', 'lluvia-azufre', 'triple-amenaza', 'grito-eden', 'pinguino3']);
 export function combo189Charge(scene: S, e: Combo189, who: P[], x: number, y: number, lv: number, ms: number) {
   const L = 4 + lv;
   if (e === 'tormenta-tigre') tigerStormCharge(scene, who, x, y, L, ms);
@@ -1238,6 +1239,11 @@ export function combo189Charge(scene: S, e: Combo189, who: P[], x: number, y: nu
   else if (e === 'tripegaso') triPegasusCharge(scene, who, x, y, L, ms);
   else if (e === 'fenix2') phoenixCharge(scene, x, y, L, ms, false);
   else if (e === 'granlobo') fenrirCharge(scene, who, x, y, L, ms);
+  else if (e === 'lluvia-oscura') darkRainCharge(scene, who, x, y, L, ms);
+  else if (e === 'lluvia-azufre') sulfurRainCharge(scene, x, y, L, ms);
+  else if (e === 'triple-amenaza') tripleThreatCharge(scene, who, x, y, L, ms);
+  else if (e === 'grito-eden') edenCharge(scene, who, x, y, L, ms);
+  else if (e === 'pinguino3') penguin3Charge(scene, who, x, y, L, ms);
 }
 export function combo189Shot(scene: S, e: Combo189, ball: Img, lv: number) {
   const L = 4 + lv;
@@ -1248,4 +1254,189 @@ export function combo189Shot(scene: S, e: Combo189, ball: Img, lv: number) {
   else if (e === 'tripegaso') starShot(scene, ball, L, T_BLUE, T_ICE);
   else if (e === 'fenix2') phoenixShot(scene, ball, L, false);
   else if (e === 'granlobo') beastShot(scene, ball, L, 0x3a6ad8, 0xcfe0ff, T_PURPLE);
+  else if (e === 'lluvia-oscura') darkRainShot(scene, ball, L);
+  else if (e === 'lluvia-azufre') sulfurRainShot(scene, ball, L);
+  else if (e === 'triple-amenaza') tripleThreatShot(scene, ball, L);
+  else if (e === 'grito-eden') edenShot(scene, ball, L);
+  else if (e === 'pinguino3') penguin3Shot(scene, ball, L);
+}
+
+// ================================================================ 2.0 (author): five more, from their scenes on YouTube
+//   Lluvia oscura (qg5Xd1z-3I0) — Sael and Destra dash in, one leaps into a dark storm sky and kicks the ball down from
+//     above, it swells grey and spinning, the other volleys it: a grey whirling ball inside black lightning on yellow.
+//   Lluvia de azufre (jNAJtIWA1CE) — violet beams rain down a dark blue sky, the ball becomes a cyan orb split by dark
+//     cracks, an overhead kick sends it down as a cracked cyan fireball.
+//   Triple amenaza (K6EoxbBQLFM, 0:04) — the three run in, two leap into a blue sky, the ball is wrapped in cyan energy
+//     cracked with dark-blue lightning, the third volleys it and it hits as a golden blaze.
+//   Grito del Edén (ASic9X6-pII) — a golden apple of light in Gandares' hand rolls to Ryugel, it sinks into a violet vortex
+//     with a white heart, both kick: a white-violet comet with violet lightning.
+//   Pingüino emperador n.º 3 (JXrTNXuHQrU, 0:12) — Jude whistles, a pink magic circle with arrows turns on the pitch, the
+//     three leap into a blue sky round a blue sphere, a pink whirl comes down onto the ball and pink penguins rush out.
+const E_GREY = 0x6a6e78, E_DARK = 0x16161e, E_YELLOW = 0xffe85a, E_CYAN = 0x5ae8ff, E_DEEP = 0x1a2a8a, E_VIOLET = 0x9a3aff,
+  E_MAGENTA = 0xff3ad8, E_GOLD = 0xffc83a, E_WHITE = 0xffffff, E_PINK = 0xff5ac8, E_SKY = 0x3a8aff;
+
+/** a jagged bolt from (x0, y0) to (x1, y1) */
+function zig(g: G, x0: number, y0: number, x1: number, y1: number, w: number, c: number, a: number, seed: number) {
+  const n = 6, dx = x1 - x0, dy = y1 - y0, L = Math.hypot(dx, dy) || 1, nx = -dy / L, ny = dx / L;
+  g.lineStyle(w, c, a).beginPath().moveTo(x0, y0);
+  for (let i = 1; i < n; i++) { const o = Math.sin(seed * 7.3 + i * 2.1) * L * 0.12; g.lineTo(x0 + dx * i / n + nx * o, y0 + dy * i / n + ny * o); }
+  g.lineTo(x1, y1).strokePath();
+}
+
+export function darkRainCharge(scene: S, who: P[], x: number, y: number, lv: number, ms: number) {
+  const R = 40 + lv * 2;
+  play(scene, x, y - 50, AIR - 2, ms, (g, k, t) => { // the dark storm cloud swirling over them
+    const a = Math.min(1, k * 3);
+    for (let i = 0; i < 6; i++) { const ph = t * 3 + i; g.fillStyle(i % 2 ? E_DARK : E_GREY, 0.35 * a).fillEllipse(Math.cos(ph) * R * 0.3, Math.sin(ph) * R * 0.12, R * (2 - i * 0.22), R * (0.7 - i * 0.07)); }
+    for (let i = 0; i < 10; i++) { const px = ((i * 37 + t * 220) % (R * 2.4)) - R * 1.2, py = R * 0.2 + ((i * 53 + t * 400) % 60); g.lineStyle(1.5, 0x9aa0b0, 0.6 * a).lineBetween(px, py, px - 4, py + 10); } // the rain
+    if (((t * 14) | 0) % 3 === 0) zig(g, -R * 0.6, 0, -R * 0.2, R * 0.7, 2, E_YELLOW, 0.9 * a, t);
+  });
+  play(scene, x, y, AIR + 2, ms, (g, k) => { // the ball falls from the cloud, swelling grey and spinning
+    const q = Math.min(1, k * 1.4), py = -60 + q * 50, r = 6 + q * (6 + lv * 0.6);
+    g.fillStyle(E_GREY, 0.5).fillCircle(0, py, r * 1.6);
+    g.fillStyle(E_WHITE, 0.95).fillCircle(0, py, r);
+    g.lineStyle(2, E_DARK, 0.9).strokeCircle(0, py, r * 0.6);
+  });
+  void who;
+}
+export function darkRainShot(scene: S, ball: Img, lv: number) {
+  const r = 11 + lv * 0.5;
+  ride(scene, ball, (g, bx, by, ang, t) => { // a grey whirling ball in black lightning on a yellow glow
+    tail(g, bx, by, ang, 110 + lv * 4, r * 2, E_YELLOW, 0.35);
+    tail(g, bx, by, ang, 90 + lv * 3, r * 1.2, E_GREY, 0.7);
+    for (let i = 0; i < 5; i++) { const an = ang + Math.PI + (i - 2) * 0.35; zig(g, bx, by, bx + Math.cos(an) * r * (3 + (i % 2)), by + Math.sin(an) * r * (3 + (i % 2)), 2.5, E_DARK, 0.9, t * 20 + i); }
+    for (let i = 0; i < 4; i++) { const ph = t * 16 + i * 1.57; g.lineStyle(2, E_WHITE, 0.7).beginPath().arc(bx, by, r * 1.2, ph, ph + 1).strokePath(); }
+    g.fillStyle(E_GREY, 1).fillCircle(bx, by, r * 0.8); g.fillStyle(E_WHITE, 0.9).fillCircle(bx - r * 0.2, by - r * 0.2, r * 0.3);
+  }, (x, y) => burst(scene, x, y, 520, [E_YELLOW, E_GREY, E_WHITE], 34 + lv * 2));
+}
+
+export function sulfurRainCharge(scene: S, x: number, y: number, lv: number, ms: number) {
+  play(scene, x, y - 30, AIR - 2, ms, (g, k, t) => { // violet beams raining down a dark blue sky
+    const a = Math.min(1, k * 3) * (1 - Math.max(0, k - 0.9) * 10);
+    g.fillStyle(E_DEEP, 0.3 * a).fillEllipse(0, 0, 200, 130);
+    for (let i = 0; i < 9; i++) { const px = ((i * 41 + t * 160) % 220) - 110; g.lineStyle(i % 3 ? 2 : 4, i % 2 ? E_VIOLET : E_MAGENTA, 0.7 * a).lineBetween(px + 30, -70, px - 20, 60); }
+  }, true);
+  play(scene, x, y - 40, AIR + 2, ms, (g, k, t) => { // the cyan orb split by dark cracks
+    const s2 = Math.min(1, k * 1.5), R = (12 + lv) * s2;
+    g.fillStyle(E_CYAN, 0.35).fillCircle(0, 0, R * 1.7);
+    g.fillStyle(0xbff6ff, 0.95).fillCircle(0, 0, R);
+    for (let i = 0; i < 5; i++) zig(g, 0, 0, Math.cos(i * 1.26 + 0.3) * R, Math.sin(i * 1.26 + 0.3) * R, 2, E_DEEP, 0.9, i + ((t * 6) | 0));
+    if (k > 0.85) g.fillStyle(E_WHITE, (k - 0.85) * 6).fillCircle(0, 0, R * 3); // the white flash
+  });
+}
+export function sulfurRainShot(scene: S, ball: Img, lv: number) {
+  const r = 11 + lv * 0.5;
+  ride(scene, ball, (g, bx, by, ang, t) => { // a cracked cyan fireball with violet sparks
+    tail(g, bx, by, ang, 120 + lv * 4, r * 2.1, E_SKY, 0.4);
+    tail(g, bx, by, ang, 95 + lv * 3, r * 1.3, E_CYAN, 0.7);
+    g.fillStyle(0xbff6ff, 1).fillCircle(bx, by, r);
+    for (let i = 0; i < 4; i++) zig(g, bx, by, bx + Math.cos(i * 1.57 + t * 2) * r, by + Math.sin(i * 1.57 + t * 2) * r, 2, E_DEEP, 0.9, i + ((t * 10) | 0));
+    if (((t * 16) | 0) % 2) for (let i = 0; i < 3; i++) g.fillStyle(E_MAGENTA, 0.9).fillCircle(bx - Math.cos(ang) * (20 + i * 18) + Math.sin(t * 30 + i) * 8, by - Math.sin(ang) * (20 + i * 18) + Math.cos(t * 30 + i) * 8, 2);
+  }, (x, y) => burst(scene, x, y, 520, [E_CYAN, E_VIOLET, E_WHITE], 34 + lv * 2));
+}
+
+export function tripleThreatCharge(scene: S, who: P[], x: number, y: number, lv: number, ms: number) {
+  play(scene, x, y - 30, AIR - 2, ms, (g, k, t) => { // the blue sky and its speed lines
+    const a = Math.min(1, k * 3) * (1 - Math.max(0, k - 0.9) * 10);
+    g.fillStyle(E_SKY, 0.22 * a).fillEllipse(0, 0, 220, 150);
+    for (let i = 0; i < 16; i++) { const an = i * 0.39 + Math.sin(i) * 0.1, u = (t * 2 + i * 0.13) % 1, r0 = 30 + u * 80; g.lineStyle(2, E_WHITE, 0.6 * a * (1 - u)).lineBetween(Math.cos(an) * r0, Math.sin(an) * r0 * 0.7, Math.cos(an) * (r0 + 24), Math.sin(an) * (r0 + 24) * 0.7); }
+  }, true);
+  play(scene, 0, 0, AIR + 1, ms, (g, k) => { // the three send their power up to the ball
+    const a = Math.min(1, k * 2.5);
+    for (const p of who) { g.lineStyle(4, E_CYAN, 0.35 * a).lineBetween(p.x, p.y - 10, x, y - 40); g.lineStyle(1.5, E_WHITE, 0.9 * a).lineBetween(p.x, p.y - 10, x, y - 40); }
+  }, true);
+  play(scene, x, y - 40, AIR + 2, ms, (g, k, t) => { // the ball wrapped in cyan energy cracked with dark-blue lightning
+    const s2 = Math.min(1, k * 1.4), R = (14 + lv) * s2;
+    for (let i = 0; i < 5; i++) { const ph = t * 8 + i * 1.2; g.lineStyle(5 - i * 0.6, i % 2 ? E_WHITE : E_CYAN, 0.8).beginPath().arc(0, 0, R * (0.9 + i * 0.18), ph, ph + 2.6).strokePath(); }
+    g.fillStyle(E_CYAN, 0.45).fillCircle(0, 0, R);
+    for (let i = 0; i < 4; i++) zig(g, 0, 0, Math.cos(i * 1.6 + t) * R * 1.8, Math.sin(i * 1.6 + t) * R * 1.8, 2.5, E_DEEP, 0.9, i + ((t * 8) | 0));
+    g.fillStyle(E_WHITE, 1).fillCircle(0, 0, R * 0.35);
+  });
+}
+export function tripleThreatShot(scene: S, ball: Img, lv: number) {
+  const r = 11 + lv * 0.5;
+  ride(scene, ball, (g, bx, by, ang, t) => { // cyan whirl with dark lightning that turns into a golden blaze
+    const gold = Math.min(1, Math.max(0, (t - 0.25) / 0.3));
+    tail(g, bx, by, ang, 120 + lv * 4, r * 2.1, gold > 0.5 ? E_GOLD : E_CYAN, 0.45);
+    tail(g, bx, by, ang, 90 + lv * 3, r * 1.1, gold > 0.5 ? 0xff8a2a : E_WHITE, 0.7);
+    if (gold < 1) for (let i = 0; i < 3; i++) zig(g, bx, by, bx - Math.cos(ang + (i - 1) * 0.5) * r * 3.5, by - Math.sin(ang + (i - 1) * 0.5) * r * 3.5, 2.5, E_DEEP, 0.9 * (1 - gold), t * 20 + i);
+    g.fillStyle(gold > 0.5 ? E_GOLD : E_CYAN, 0.6).fillCircle(bx, by, r * (1.3 + gold * 0.4));
+    g.fillStyle(E_WHITE, 1).fillCircle(bx, by, r * 0.7);
+  }, (x, y) => burst(scene, x, y, 560, [E_GOLD, 0xff8a2a, E_WHITE], 38 + lv * 2), true);
+}
+
+export function edenCharge(scene: S, who: P[], x: number, y: number, lv: number, ms: number) {
+  const R = 14 + lv;
+  play(scene, x, y - 30, AIR + 2, ms, (g, k, t) => {
+    if (k < 0.5) { // the golden apple of light
+      const q = k / 0.5, r = R * (0.6 + q * 0.4);
+      g.fillStyle(E_GOLD, 0.35).fillCircle(0, 0, r * 1.7);
+      g.fillStyle(0xffe27a, 1).fillCircle(-r * 0.25, 0, r); g.fillStyle(0xffe27a, 1).fillCircle(r * 0.25, 0, r);
+      g.fillStyle(E_WHITE, 0.7).fillEllipse(-r * 0.35, -r * 0.35, r * 0.6, r * 0.4);
+      g.lineStyle(2.5, 0x6a4a10, 1).lineBetween(0, -r * 0.8, r * 0.15, -r * 1.3); g.fillStyle(0x4ac83a, 1).fillEllipse(r * 0.4, -r * 1.2, r * 0.6, r * 0.3); // stem and leaf
+      return;
+    }
+    const s2 = (k - 0.5) / 0.5; // it sinks into a violet vortex with a white heart
+    for (let i = 0; i < 8; i++) { const ph = -t * 9 + i * 0.8; g.lineStyle(6 - i * 0.5, i % 2 ? 0x4a10a0 : E_VIOLET, 0.85).beginPath().arc(0, 0, R * (0.4 + i * 0.22) * (0.5 + s2 * 0.6), ph, ph + 2.6).strokePath(); }
+    g.fillStyle(E_WHITE, 0.95).fillCircle(0, 0, R * 0.5 * (0.6 + s2 * 0.6));
+    if (k > 0.88) g.fillStyle(E_WHITE, (k - 0.88) * 7).fillCircle(0, 0, R * 4);
+  }, true);
+  void who;
+}
+export function edenShot(scene: S, ball: Img, lv: number) {
+  const r = 11 + lv * 0.5;
+  ride(scene, ball, (g, bx, by, ang, t) => { // a white-violet comet with violet lightning
+    tail(g, bx, by, ang, 130 + lv * 4, r * 2.2, E_VIOLET, 0.45);
+    tail(g, bx, by, ang, 110 + lv * 4, r * 1.2, 0xcfe8ff, 0.65);
+    tail(g, bx, by, ang, 80 + lv * 3, r * 0.6, E_WHITE, 0.95);
+    if (((t * 14) | 0) % 2) for (let i = 0; i < 3; i++) { const d = 30 + i * 30; zig(g, bx - Math.cos(ang) * d, by - Math.sin(ang) * d, bx - Math.cos(ang) * d + Math.sin(ang) * (i % 2 ? 26 : -26), by - Math.sin(ang) * d - Math.cos(ang) * (i % 2 ? 26 : -26), 2, E_MAGENTA, 0.9, t * 10 + i); }
+    g.fillStyle(E_WHITE, 1).fillCircle(bx, by, r * 0.9);
+  }, (x, y) => burst(scene, x, y, 560, [E_VIOLET, E_WHITE, E_CYAN], 36 + lv * 2), true);
+}
+
+export function penguin3Charge(scene: S, who: P[], x: number, y: number, lv: number, ms: number) {
+  const R = 42 + lv * 2;
+  play(scene, x, y, AIR - 2, ms, (g, k, t) => { // the pink magic circle with its arrows, turning on the pitch
+    const a = Math.min(1, k * 3);
+    g.fillStyle(E_PINK, 0.18 * a).fillEllipse(0, 0, R * 2, R * 0.8);
+    g.lineStyle(3, E_PINK, 0.85 * a).strokeEllipse(0, 0, R * 2, R * 0.8);
+    g.lineStyle(1.5, E_WHITE, 0.7 * a).strokeEllipse(0, 0, R * 1.5, R * 0.6);
+    for (let i = 0; i < 4; i++) { // the arrows chasing round the circle
+      const an = t * 3 + i * 1.57, px = Math.cos(an) * R, py = Math.sin(an) * R * 0.4, tx = -Math.sin(an), ty = Math.cos(an) * 0.4, tl = Math.hypot(tx, ty) || 1;
+      const ux = tx / tl, uy = ty / tl;
+      g.fillStyle(E_PINK, a).fillTriangle(px + ux * 10, py + uy * 10, px - uy * 6, py + ux * 6, px + uy * 6, py - ux * 6);
+    }
+  }, true);
+  play(scene, x, y - 50, AIR + 2, ms, (g, k, t) => {
+    const s2 = Math.min(1, k * 1.6), r = (10 + lv) * s2;
+    g.fillStyle(E_SKY, 0.45).fillCircle(0, 0, r * 1.8); g.fillStyle(0xbfe8ff, 0.95).fillCircle(0, 0, r); // the blue sphere between the three
+    if (k > 0.55) { // the pink whirl coming down onto the ball
+      const q = (k - 0.55) / 0.45;
+      for (let i = 0; i < 6; i++) { const ph = t * 12 + i; g.lineStyle(4 - i * 0.4, i % 2 ? E_WHITE : E_PINK, 0.85).beginPath().arc(0, 50 * q - i * 8, r * (0.6 + i * 0.25), ph, ph + 3).strokePath(); }
+      g.fillStyle(E_PINK, 0.6 * q).fillRect(-r * 0.4, -80, r * 0.8, 80 + 50 * q);
+    }
+  }, true);
+  void who;
+}
+/** a pink emperor penguin flying along `ang`, its beak forward, `s` long */
+function flyingPenguin(g: G, x: number, y: number, ang: number, s: number, a: number) {
+  g.save(); g.translateCanvas(x, y); g.rotateCanvas(ang);
+  g.fillStyle(E_PINK, a).fillEllipse(0, -s * 0.08, s, s * 0.42); // the pink back
+  g.fillStyle(E_WHITE, a).fillEllipse(s * 0.05, s * 0.1, s * 0.8, s * 0.26); // the white belly
+  g.fillStyle(0xffa21a, a).fillTriangle(s * 0.48, -s * 0.06, s * 0.48, s * 0.06, s * 0.7, 0); // the beak
+  g.fillStyle(E_PINK, a).fillTriangle(-s * 0.1, -s * 0.1, -s * 0.45, -s * 0.42, -s * 0.3, -s * 0.05); // a flipper
+  g.fillStyle(0x101010, a).fillCircle(s * 0.3, -s * 0.1, s * 0.05);
+  g.restore();
+}
+export function penguin3Shot(scene: S, ball: Img, lv: number) {
+  const r = 10 + lv * 0.5, s = 22 + lv;
+  ride(scene, ball, (g, bx, by, ang, t) => { // pink penguins racing with the ball
+    const c = Math.cos(ang), sn = Math.sin(ang), nx = -sn, ny = c;
+    tail(g, bx, by, ang, 100 + lv * 4, r * 1.6, E_PINK, 0.4);
+    for (let i = 0; i < 3; i++) {
+      const o = (i - 1) * 18, back = 14 + Math.abs(i - 1) * 16 + Math.sin(t * 20 + i) * 3;
+      flyingPenguin(g, bx - c * back + nx * o, by - sn * back + ny * o, ang, s * (i === 1 ? 1.2 : 1), 0.95);
+    }
+    g.fillStyle(E_WHITE, 1).fillCircle(bx, by, r * 0.6);
+  }, (x, y) => burst(scene, x, y, 520, [E_PINK, E_WHITE, E_SKY], 34 + lv * 2));
 }

@@ -40,6 +40,8 @@ export interface Technique {
 
 export interface RosterEntry {
   skin?: Skin | null;
+  /** 'M' / 'F' from the ROM's catalog (special players: data/special_players.json); for the passives of boys and girls */
+  gender?: 'M' | 'F' | null;
   id: number;
   name: string;
   nickname: string;
@@ -70,6 +72,8 @@ export interface RosterEntry {
   exclusive?: string;
   /** v1.5: the Aura this footballer carries in a run (auras.ts carrierForRun); never in the manifest */
   aura?: import('../systems/auras').AuraLink;
+  /** 2.0: the warrior spirit he calls in this run and its level (keshin.ts keshinForRun); never in the manifest */
+  keshin?: import('../systems/keshin').KeshinRun;
   /** 1.83: lowest value of a stat whatever the rarity band gives (rosterFixes.ts statFloor) */
   statFloor?: Partial<Record<string, number>>;
 }
@@ -157,6 +161,12 @@ export interface Manifest {
   capsule: CapsuleSheet | null;
   /** 1.81: logo of each technique level step (src/systems/evolution.ts labels → generated/mejoras/*.webp) */
   evoIcons?: Record<string, string>;
+  /** 2.0: Espíritus Guerreros art (tools/eg_assets.py): portraits by spirit id, level symbols 2-6, Ficha EG, badge */
+  eg?: { ficha: string; insignia: string; levels: Record<string, string>; spirits: Record<string, string> } | null;
+  /** the original element icons (Sprites Inazuma/Elementos), by element name */
+  elements?: Record<string, string>;
+  /** collab logos for their banners (generated/collab), by collab id */
+  collab?: Record<string, string>;
   /** verified team kits: body sheets with the same cells and rig as the Raimon body */
   /** saga of IE3 teams, from the export's folders */
   teamSagas?: Record<string, string>;

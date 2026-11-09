@@ -205,7 +205,7 @@ export class Fx {
   private emitters = new Map<string, Phaser.GameObjects.Particles.ParticleEmitter>();
   private numbers: Phaser.GameObjects.Text[] = [];
   /** 1.93: the combo meter at the top of the screen (fxCombo.ts) */
-  private combo: ComboMeter;
+  combo: ComboMeter;
   /** 1.93: the usual size of a hit (slow average), so «big» and «huge» stay special as the run grows */
   private avgHit = 0;
   private numberIdx = 0;
@@ -689,6 +689,34 @@ export class Fx {
    * 1.93 (author: juiced): three sizes — normal (white), big or critical (gold or orange, «!»), huge (red, bigger, a little
    * shake) — each popping in and arcing up; every hit also feeds the combo meter. Heals are green and don't count.
    */
+  /**
+   * 2.0 (author: «que se vean los puntos de curación, con flow y efectos»): a heal on the captain — a big green «+N»
+   * with a dark outline that pops and floats up, a soft green ring, and little crosses rising round him.
+   */
+  healFx(x: number, y: number, value: number) {
+    const v = Math.round(value);
+    if (v < 1) return;
+    const big = v >= 25;
+    if (this.settings.particles !== 'desactivado') {
+      const ring = this.scene.add.circle(x, y + 4, 10, 0x5ee05a, 0).setStrokeStyle(3, 0x8fffa0, 0.9).setDepth(9400).setScale(1, 0.55);
+      this.scene.tweens.add({ targets: ring, radius: big ? 34 : 24, alpha: 0, duration: 520, ease: 'Cubic.easeOut', onComplete: () => ring.destroy() });
+      const n = Math.min(10, 3 + Math.floor(v / 8));
+      for (let i = 0; i < n; i++) {
+        const c = this.scene.add.text(x + Phaser.Math.Between(-16, 16), y + Phaser.Math.Between(-6, 10), '✚', { fontFamily: 'sans-serif', fontSize: `${Phaser.Math.Between(8, 13)}px`, color: i % 3 ? '#7dff9a' : '#e4ffe9', stroke: '#0a4a1a', strokeThickness: 2 })
+          .setOrigin(0.5).setDepth(9450).setAlpha(0);
+        this.scene.tweens.add({ targets: c, alpha: 1, duration: 120, delay: i * 45 });
+        this.scene.tweens.add({ targets: c, y: c.y - Phaser.Math.Between(24, 44), x: c.x + Phaser.Math.Between(-6, 6), delay: i * 45, duration: 760, ease: 'Sine.easeOut' });
+        this.scene.tweens.add({ targets: c, alpha: 0, delay: i * 45 + 480, duration: 300, onComplete: () => c.destroy() });
+      }
+    }
+    if (!this.settings.damageNumbers) return;
+    const t = this.scene.add.text(x, y - 16, `+${v}`, { fontFamily: '"Press Start 2P", monospace', fontSize: big ? '15px' : '11px', color: '#8fffa0', stroke: '#063a14', strokeThickness: 4 })
+      .setOrigin(0.5).setDepth(9550).setScale(0.4);
+    this.scene.tweens.add({ targets: t, scale: 1, duration: 200, ease: 'Back.easeOut' });
+    this.scene.tweens.add({ targets: t, y: t.y - (big ? 16 : 12), duration: 900, ease: 'Cubic.easeOut' });
+    this.scene.tweens.add({ targets: t, alpha: 0, delay: 620, duration: 300, onComplete: () => t.destroy() });
+  }
+
   damageNumber(x: number, y: number, value: number, big = false, heal = false) {
     if (!heal) this.combo.add(value, big);
     if (!this.settings.damageNumbers) return;

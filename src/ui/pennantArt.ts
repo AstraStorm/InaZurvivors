@@ -10,6 +10,8 @@ import type { Rarity } from '../data/manifest';
 const RARITY_COLOR: Record<Rarity, string> = { comun: '#9fb0c8', raro: '#4fb3ff', epico: '#b36bff', legendario: '#ffb020', mitico: '#ff4f8b', leyenda: '#fff6c8' };
 
 let uid = 0;
+/** the BlueLock logo, relative like every generated asset (works under the GitHub Pages path too) */
+const BL_LOGO = 'generated/collab/bluelock.webp';
 const W = 100, H = 132;
 const CLOTH = 'M8,10 H92 V112 L50,96 L8,112 Z';
 
@@ -27,6 +29,8 @@ function pattern(p: PennantPattern, a: string, id: string): string {
     case 'copos': return Array.from({ length: 12 }, (_, k) => { const x = 14 + ((k * 31) % 74), y = 18 + ((k * 47) % 82); return `<g stroke="${a}" stroke-width="1" opacity=".55"><path d="M${x - 3},${y} H${x + 3} M${x},${y - 3} V${y + 3} M${x - 2},${y - 2} L${x + 2},${y + 2} M${x - 2},${y + 2} L${x + 2},${y - 2}"/></g>`; }).join('');
     case 'espiral': return `<path d="M50,52 m0,-6 a6,6 0 1,1 -6,6 a12,12 0 1,1 12,12 a20,20 0 1,1 -20,-20 a30,30 0 1,1 30,30" stroke="${a}" stroke-width="2.5" fill="none" opacity=".3"/>`;
     case 'nebulosa': return `<radialGradient id="${id}n" cx=".5" cy=".42" r=".6"><stop offset="0" stop-color="#b04aff" stop-opacity=".55"/><stop offset=".55" stop-color="#4a1a8a" stop-opacity=".25"/><stop offset="1" stop-color="#000" stop-opacity="0"/></radialGradient><rect x="0" y="0" width="${W}" height="${H}" fill="url(#${id}n)"/>${Array.from({ length: 14 }, (_, k) => `<circle cx="${12 + ((k * 41) % 78)}" cy="${16 + ((k * 29) % 84)}" r=".9" fill="#fff" opacity=".7"/>`).join('')}`;
+    // (author) InaZurvivors x BlueLock: the facility's blue grid and a light beam across
+    case 'rejilla': return `<pattern id="${id}h" width="10" height="10" patternUnits="userSpaceOnUse"><path d="M10,0 H0 V10" stroke="${a}" stroke-width=".7" fill="none" opacity=".35"/></pattern><rect x="0" y="0" width="${W}" height="${H}" fill="url(#${id}h)"/><path d="M-10,96 L110,18 L110,40 L-10,118 Z" fill="${a}" opacity=".12"/>`;
   }
 }
 
@@ -47,6 +51,8 @@ function emblem(e: PennantEmblem, a: string, C = 'translate(50 52)'): string {
     case 'reloj': return `<g transform="${C}"><circle r="21" fill="#fff" stroke="${a}" stroke-width="4"/><circle r="17" fill="none" stroke="#2e1470" stroke-width="1" stroke-dasharray="1.5 6.4"/><path d="M0,0 V-13 M0,0 L9,5" stroke="#2e1470" stroke-width="3" stroke-linecap="round"/><circle r="2.5" fill="#2e1470"/><path d="M-6,-26 H6 M0,-26 V-22" stroke="${a}" stroke-width="3"/></g>`;
     case 'planeta': return `<g transform="${C}"><ellipse rx="34" ry="8" fill="#dff6ff" opacity=".2"/><circle r="19" fill="#1e62e0" stroke="#dff6ff" stroke-width="2"/><path d="M-12,-8 Q-4,-14 2,-8 Q6,-2 -2,0 Q-10,2 -12,-8 Z M4,6 Q12,2 14,10 Q8,16 2,12 Z" fill="${a}"/><circle cx="-7" cy="-9" r="5" fill="#fff" opacity=".35"/><ellipse rx="32" ry="7" fill="none" stroke="#ff4a4a" stroke-width="2"/></g>`;
     case 'ojo': return `<g transform="${C}"><circle r="22" fill="#07020f" stroke="#8a3aff" stroke-width="2.5"/><path d="M-28,0 Q0,-20 28,0 Q0,20 -28,0 Z" fill="none" stroke="#8a3aff" stroke-width="1.5" opacity=".6"/><ellipse rx="9" ry="14" fill="${a}" class="pn-eye"/><ellipse rx="5" ry="10" fill="#ffb04a"/><ellipse rx="1.6" ry="8" fill="#fff"/></g>`;
+    // (author) the BlueLock logo (generated/collab/bluelock.webp, 960×209, blue) on a light plate with a cyan edge
+    case 'bluelock': return `<g transform="${C}"><rect x="-34" y="-11" width="68" height="22" rx="4" fill="#eef8ff" stroke="${a}" stroke-width="2.5"/><rect x="-31.5" y="-8.5" width="63" height="17" rx="2.5" fill="none" stroke="#1f5bff" stroke-width="1" opacity=".5"/><image href="${BL_LOGO}" x="-31" y="-7" width="62" height="13.5" preserveAspectRatio="xMidYMid meet"/></g>`;
   }
 }
 
@@ -129,6 +135,9 @@ function widePattern(p: PennantPattern, a: string, id: string): string {
     case 'rayos': return Array.from({ length: 28 }, (_, k) => { const g = (k / 28) * Math.PI * 2, L = 900; return `<path d="M${EX},${EY} L${EX + Math.cos(g - 0.05) * L},${EY + Math.sin(g - 0.05) * L} L${EX + Math.cos(g + 0.05) * L},${EY + Math.sin(g + 0.05) * L} Z" fill="${a}" opacity=".12"/>`; }).join('');
     case 'copos': return Array.from({ length: 34 }, (_, k) => { const x = rnd(k * 5 + 1, RW), y = 10 + rnd(k * 11 + 4, RH - 20), r = k % 4 ? 4 : 8; return `<path d="M${x - r},${y} H${x + r} M${x},${y - r} V${y + r} M${x - r * 0.7},${y - r * 0.7} L${x + r * 0.7},${y + r * 0.7} M${x - r * 0.7},${y + r * 0.7} L${x + r * 0.7},${y - r * 0.7}" stroke="${a}" stroke-width="1.4" opacity=".55"/>`; }).join('');
     case 'espiral': return ([[EX, EY, 1], [220, 60, 0.6], [1060, 50, 0.5]] as const).map(([x, y, k]) => `<path d="M${x},${y} m0,-8 a8,8 0 1,1 -8,8 a20,20 0 1,1 20,20 a36,36 0 1,1 -36,-36 a58,58 0 1,1 58,58 a86,86 0 1,1 -86,-86" stroke="${a}" stroke-width="3" fill="none" opacity="${0.32 * k}"/>`).join('');
+    case 'rejilla': return `<pattern id="${id}h" width="24" height="24" patternUnits="userSpaceOnUse"><path d="M24,0 H0 V24" stroke="${a}" stroke-width="1" fill="none" opacity=".28"/></pattern><rect width="${RW}" height="${RH}" fill="url(#${id}h)"/>`
+      + [[120, 90], [880, 70]].map(([x, w]) => `<path d="M${x},${RH} L${x + 60},0 h${w} L${x + 60 + w - 60},${RH} Z" fill="${a}" opacity=".13"/>`).join('')
+      + `<path d="M0,${EY} H${RW}" stroke="${a}" stroke-width="1.5" opacity=".35" stroke-dasharray="2 10"/>`;
     case 'nebulosa': return `<radialGradient id="${id}n" cx=".58" cy=".5" r=".5"><stop offset="0" stop-color="#b04aff" stop-opacity=".6"/><stop offset=".5" stop-color="#4a1a8a" stop-opacity=".25"/><stop offset="1" stop-color="#000" stop-opacity="0"/></radialGradient><rect width="${RW}" height="${RH}" fill="url(#${id}n)"/>`
       + '<ellipse cx="250" cy="70" rx="180" ry="40" fill="#ff3a6a" opacity=".12"/><ellipse cx="1050" cy="40" rx="140" ry="34" fill="#3a6aff" opacity=".14"/>'
       + Array.from({ length: 50 }, (_, k) => `<circle cx="${rnd(k * 3 + 7, RW)}" cy="${rnd(k * 13 + 1, RH)}" r="${k % 6 ? 0.9 : 1.8}" fill="#fff" opacity=".75"/>`).join('');
@@ -155,7 +164,7 @@ export function pennantRibbon(def: PennantDef | string | null | undefined, withE
       ${widePattern(p.pattern, p.accent, id)}${isClan(p) ? clanRibbonDeco(p) : ''}
       ${isClan(p) ? '' : `<g opacity=".2">${echo(300, 1.1)}${echo(1040, 1.1)}</g>`}
       ${withEmblem ? `<ellipse cx="${EX}" cy="${EY}" rx="120" ry="70" fill="url(#${id}o)"/>
-      <g class="pnr-emb">${isClan(p) ? clanEmblem(p, EX, EY, 1) : emblem(p.emblem, p.accent, `translate(${EX} ${EY}) scale(1.75)`)}</g>` : ''}
+      <g class="pnr-emb">${isClan(p) ? clanEmblem(p, EX, EY, 1) : emblem(p.emblem, p.accent, `translate(${EX} ${EY}) scale(${p.emblem === 'bluelock' ? 2.9 : 1.75})`)}</g>` : ''}
       <rect width="${RW}" height="${RH}" fill="url(#${id}v)"/>
       <path d="M0,7 H${RW} M0,${RH - 7} H${RW}" stroke="${p.accent}" stroke-width="2" opacity=".55"/>
       ${shine ? `<rect class="pnr-shine" x="-200" y="0" width="140" height="${RH}" fill="url(#${id}s)" transform="skewX(-20)"/>` : ''}
@@ -206,6 +215,9 @@ function ornaments(p: PennantPattern, a: string, c1: string, sq: boolean, id: st
     case 'copos': return around(10, (x, y, g, k) => `<path d="M-3,0 L0,-${k % 2 ? 9 : 14} L3,0 Z" fill="#fff" stroke="${a}" stroke-width=".8" opacity=".95" transform="translate(${x} ${y}) rotate(${deg(g) + 90})"/>`, 58)
       + around(5, (x, y) => `<path d="M${x - 3},${y} H${x + 3} M${x},${y - 3} V${y + 3}" stroke="#fff" stroke-width="1"/>`, 66, 0.3);
     case 'espiral': return `<g fill="none" stroke="${a}" stroke-width="3" stroke-linecap="round">${around(3, (x, y, g) => `<path d="M0,0 a6,6 0 1,1 6,6 a10,10 0 0,1 -14,-6" transform="translate(${x} ${y}) rotate(${deg(g)})"/>`, 60, 0.6)}</g>`;
+    // (author) BlueLock: chain links around the ring
+    case 'rejilla': return around(14, (x, y, g, k) => `<rect x="-6" y="-3" width="12" height="6" rx="3" fill="none" stroke="${k % 2 ? a : '#dff6ff'}" stroke-width="2" transform="translate(${x} ${y}) rotate(${deg(g) + 90 + (k % 2 ? 0 : 0)})"/>`, 58)
+      + around(14, (x, y) => `<circle cx="${x}" cy="${y}" r="1" fill="#fff" opacity=".8"/>`, 66, Math.PI / 14);
     case 'nebulosa': return `<radialGradient id="${id}a" cx=".5" cy=".5" r=".5"><stop offset=".62" stop-color="#b04aff" stop-opacity="0"/><stop offset=".78" stop-color="#b04aff" stop-opacity=".55"/><stop offset="1" stop-color="#000" stop-opacity="0"/></radialGradient><circle cx="${FC}" cy="${FC}" r="70" fill="url(#${id}a)"/>`
       + around(9, (x, y, _g, k) => `<circle cx="${x}" cy="${y}" r="${k % 3 ? 1.4 : 2.4}" fill="${k % 2 ? a : '#fff'}"/>`, 64, 0.2);
   }
@@ -274,7 +286,8 @@ export function frameSvg(def: PennantDef | string | null | undefined, square = f
     ${ornaments(p.pattern, p.accent, p.c1, square, id)}${p.source === 'clan' ? clanDeco(p) : ''}
     <g transform="translate(${FC} 13)">${p.source === 'clan' && p.id === 'marco-clan'
       ? `<path d="M-13,-12 L13,-12 L13,1 Q13,11 0,16 Q-13,11 -13,1 Z" fill="${p.c2}" stroke="${p.accent}" stroke-width="2.4"/>` // 1.93: a shield for the clan
-      : `<circle r="12.5" fill="${p.c2}" stroke="${p.rarity === 'leyenda' ? `url(#${id}r)` : p.accent}" stroke-width="2.4"/>`}${emblem(p.emblem, p.accent, 'scale(.36)')}</g>
+      : p.emblem === 'bluelock' ? '' // (author) BlueLock: its logo plate, wide enough to read
+      : `<circle r="12.5" fill="${p.c2}" stroke="${p.rarity === 'leyenda' ? `url(#${id}r)` : p.accent}" stroke-width="2.4"/>`}${emblem(p.emblem, p.accent, p.emblem === 'bluelock' ? 'translate(0 2) scale(.7)' : 'scale(.36)')}</g>
     ${top ? `<g transform="translate(${FC} 127)"><path d="M0,-7 L7,0 L0,7 L-7,0 Z" fill="${p.accent}" stroke="${p.c2}" stroke-width="1.6"/><path d="M0,-4 L3,0 L0,4 L-3,0 Z" fill="#fff" opacity=".8"/></g>` : ''}
   </svg>`;
 }

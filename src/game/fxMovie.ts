@@ -56,7 +56,7 @@ export function movieOf(name: string): MovieMove | null {
 }
 
 /** Draws `frame(g, k, t)` every frame for `ms` (k 0..1) on its own graphics, then removes it. */
-function play(scene: S, x: number, y: number, depth: number, ms: number, frame: (g: G, k: number, t: number) => void, blend = false) {
+export function play(scene: S, x: number, y: number, depth: number, ms: number, frame: (g: G, k: number, t: number) => void, blend = false) {
   const g = scene.add.graphics({ x, y }).setDepth(depth);
   if (blend) g.setBlendMode(ADD);
   const t0 = scene.time.now;
@@ -72,7 +72,7 @@ function play(scene: S, x: number, y: number, depth: number, ms: number, frame: 
 }
 
 /** Follows a flying ball; `end` runs once where it stopped. */
-function ride(scene: S, ball: Img, frame: (g: G, bx: number, by: number, ang: number, t: number) => void, end: (x: number, y: number) => void) {
+export function ride(scene: S, ball: Img, frame: (g: G, bx: number, by: number, ang: number, t: number) => void, end: (x: number, y: number) => void) {
   const g = scene.add.graphics().setDepth(AIR);
   let px = ball.x, py = ball.y, ang = 0;
   const t0 = scene.time.now;
@@ -88,7 +88,7 @@ function ride(scene: S, ball: Img, frame: (g: G, bx: number, by: number, ang: nu
 }
 
 /** A jagged bolt from (x0,y0) to (x1,y1); `seed` keeps its shape for a few frames instead of flickering every frame. */
-function bolt(g: G, x0: number, y0: number, x1: number, y1: number, seed: number, w: number, color: number, edge: number | null, alpha = 1, steps = 7) {
+export function bolt(g: G, x0: number, y0: number, x1: number, y1: number, seed: number, w: number, color: number, edge: number | null, alpha = 1, steps = 7) {
   const pts: [number, number][] = [[x0, y0]];
   const dx = x1 - x0, dy = y1 - y0, len = Math.hypot(dx, dy) || 1, nx = -dy / len, ny = dx / len;
   for (let i = 1; i < steps; i++) {
@@ -104,7 +104,7 @@ function bolt(g: G, x0: number, y0: number, x1: number, y1: number, seed: number
 }
 
 /** Sparks flying out from a point and fading. */
-function sparks(scene: S, x: number, y: number, n: number, dist: number, colors: number[], ms = 380) {
+export function sparks(scene: S, x: number, y: number, n: number, dist: number, colors: number[], ms = 380) {
   for (let i = 0; i < n; i++) {
     const a = Math.random() * Math.PI * 2, d = dist * (0.5 + Math.random() * 0.6);
     const s = scene.add.circle(x, y, 1.5 + Math.random() * 2, colors[i % colors.length], 1).setDepth(AIR + 2).setBlendMode(ADD);

@@ -8,6 +8,8 @@ import { fxStyle, trajectory, STYLE_COLORS, type Fx, type FxStyle } from './fx';
 import { holyLight } from './fxAnime';
 import { boltStorm, energyOrb, flames, funnel, iceSpikes, phoenix, shadows, starburst } from './fxManif';
 import { movieOf } from './fxMovie';
+import { isCataclysm } from './fxCataclysm';
+import { signatureOf } from './fxSignature';
 
 export type RecipeId = 'fuego' | 'demonio' | 'supernova' | 'tornado' | 'dragon' | 'fenix' | 'meteoro' | 'rayo' | 'hielo' | 'sombra' | 'divino' | 'canon' | 'basico';
 
@@ -54,6 +56,10 @@ export function recipeFor(t: Pick<Technique, 'name' | 'element' | 'power'>, rari
   // 1.88 (author): Rizo de dragón and Ciclón blanco redone from their scenes (fxCombo183.ts): no generic dragon or funnel
   if (/^rizo de drag[oó]n$|dragon ?blaster/i.test(n.trim())) return { id: 'rayo', tier, style: 'rayo' as FxStyle, windupSec: 0.85 + tier * 0.05, ballTexture: 'fx:ball', ballScale: 1, own: true };
   if (/cicl[oó]n blanco|hurac[aá]n blanco|white hurricane/i.test(n)) return { id: 'tornado', tier, style: 'viento' as FxStyle, windupSec: 0.85 + tier * 0.05, ballTexture: 'fx:ball', ballScale: 1, own: true };
+  // author: Golpe cataclismo redrawn from its scene (fxCataclysm.ts): red lightning and sphere, no generic manifestation
+  // author: Ceniza negra redrawn from its scene (fxSignature.ts): its own flame pillar and black whirl, no generic shadows
+  if (signatureOf(n) === 'ceniza') return { id: 'sombra', tier, style: 'sombra' as FxStyle, windupSec: 0.85 + tier * 0.05, ballTexture: 'fx:ball', ballScale: 1, own: true };
+  if (isCataclysm(n)) return { id: 'canon', tier, style: 'fuego' as FxStyle, windupSec: 0.8 + tier * 0.05, ballTexture: 'fx:ball', ballScale: 1, own: true };
   if (movieOf(n)) return { id, tier, style, windupSec: Math.max(0.6, WINDUP[id] + tier * 0.05), ballTexture: 'fx:ball', ballScale: 1, own: true };
   return { id, tier, style: id === 'supernova' ? 'energia' : style, windupSec: WINDUP[id] + tier * 0.05,
     ballTexture: id === 'supernova' ? 'fx:nova' : 'fx:ball', ballScale: id === 'supernova' ? 1.1 : 1 };

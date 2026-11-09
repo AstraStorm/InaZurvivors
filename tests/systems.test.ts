@@ -221,7 +221,7 @@ describe('economy', () => {
     expect(isMapUnlocked({ id: 'zeus', unlock: 'clear:nara' }, s)).toBe(true);
     expect(mapTierScale(1)).toEqual({ hp: 1, damage: 1 });
     expect(mapTierScale(12).hp).toBeGreaterThan(mapTierScale(6).hp);
-    expect(MAP_ORDER.length).toBe(12);
+    expect(MAP_ORDER.length).toBe(18);
   });
 });
 
@@ -685,8 +685,8 @@ describe('Mi Equipo (squad of seven)', () => {
 });
 
 describe('difficulty ranks', () => {
-  it('five ranks, harder ones change pace, elites and hazards, not only health, and pay more', () => {
-    expect(RANK_ORDER).toEqual(['C', 'B', 'A', 'S', 'X']);
+  it('six ranks, harder ones change pace, elites and hazards, not only health, and pay more', () => {
+    expect(RANK_ORDER).toEqual(['C', 'B', 'A', 'S', 'X', 'Z']);
     for (let i = 1; i < RANK_ORDER.length; i++) {
       const a = RANKS[RANK_ORDER[i - 1]], b = RANKS[RANK_ORDER[i]];
       expect(b.spawnInterval).toBeLessThanOrEqual(a.spawnInterval);
@@ -727,8 +727,8 @@ describe('combined techniques', () => {
   const cross = COMBOS.find((c) => c.id === 'fuego-cruzado')!;
 
   it('every combo names its source and real participants, and at most a few exist', () => {
-    expect(COMBOS.length).toBeLessThanOrEqual(40); // 1.88: eight more (author); 1.76: Zero Magnum, La Aurora (Byron) and Súper relámpago; 1.83: six more, all added by the author
-    for (const c of COMBOS) { expect(c.source).toMatch(/fandom|MyAnimeList|ROM/); expect(c.needs.length).toBeGreaterThanOrEqual(2); }
+    expect(COMBOS.length).toBeLessThanOrEqual(48); // 2.0: the Último recurso family (author) // 2.0: five more (author) // 1.88: eight more (author); 1.76: Zero Magnum, La Aurora (Byron) and Súper relámpago; 1.83: six more, all added by the author
+    for (const c of COMBOS) { expect(c.source).toMatch(/fandom|MyAnimeList|ROM|indicad[oa]s? por el autor/); expect(c.needs.length).toBeGreaterThanOrEqual(c.requires ? 1 : 2); } // the Dragón: Petronio alone, on top of a Último recurso
   });
   it('Endou Mamoru plays Mark Evans in every combination (1.88 bug report: same character for the Aura, so for combos too)', () => {
     expect(playsAs('Endou Mamoru', 'Mark Evans')).toBe(true);
@@ -743,8 +743,8 @@ describe('combined techniques', () => {
     expect(comboReady(cross, [member('Axel Blaze', ['Tornado de fuego'], 2), shawn])).toBe(false);
     expect(comboReady(cross, [axel, member('Shawn Froste', ['Entrada huracán'], 10)])).toBe(false);
   });
-  it('Fix 1.51: two participants need levels 3 and 5, three participants 3, 3 and 5', () => {
-    for (const c of COMBOS) expect(c.needs.map((n) => n.level), c.name).toEqual(c.needs.length === 2 ? [3, 5] : [3, 3, 5]);
+  it('Fix 1.51: two participants need levels 3 and 5, three participants 3, 3 and 5 (four: 3, 3, 3, 5; one alone: 5)', () => {
+    for (const c of COMBOS) expect(c.needs.map((n) => n.level), c.name).toEqual([...Array(c.needs.length - 1).fill(3), 5]);
   });
   it('upgrades make it stronger', () => {
     expect(comboDamage(cross, 5)).toBeGreaterThan(comboDamage(cross, 1));
@@ -1054,13 +1054,13 @@ describe('reiniciar progreso', () => {
 describe('versión pública y reportes de bugs', () => {
   it('the public news start at v1.0 and no internal version leaks into them', async () => {
     const { PUBLIC_RELEASES, PUBLIC_VERSION, RELEASED, VERSION_LABEL, BUILD, TIKTOK_URL } = await import('../src/data/release');
-    expect(PUBLIC_VERSION).toBe('1.94-pre2.0');
-    expect(PUBLIC_RELEASES.map((r) => r.version)).toEqual(['1.94-pre2.0', '1.93-pre2.0', '1.92-pre2.0', '1.91-pre2.0', '1.9', '1.88', '1.87', '1.86', '1.85', '1.84', '1.83', '1.82', '1.81', '1.8', '1.77', '1.76', '1.75', '1.7', '1.66', '1.65', '1.6', '1.53', '1.52', '1.51', '1.5', '1.41', '1.4', '1.32', '1.31', '1.3', '1.22', '1.21', '1.2', '1.12', '1.11', '1.1', '1.0']); // newest first, starting at v1.0
+    expect(PUBLIC_VERSION).toBe('2.0');
+    expect(PUBLIC_RELEASES.map((r) => r.version)).toEqual(['2.0', '1.94-pre2.0', '1.93-pre2.0', '1.92-pre2.0', '1.91-pre2.0', '1.9', '1.88', '1.87', '1.86', '1.85', '1.84', '1.83', '1.82', '1.81', '1.8', '1.77', '1.76', '1.75', '1.7', '1.66', '1.65', '1.6', '1.53', '1.52', '1.51', '1.5', '1.41', '1.4', '1.32', '1.31', '1.3', '1.22', '1.21', '1.2', '1.12', '1.11', '1.1', '1.0']); // newest first, starting at v1.0
     expect(PUBLIC_RELEASES.at(-1)!.title).toBe('InaZurvivors v1.0 — ¡Comienza la aventura!');
-    expect(JSON.stringify(PUBLIC_RELEASES)).not.toMatch(/\bv?[234]\.\d\b/);
+    expect(JSON.stringify(PUBLIC_RELEASES)).not.toMatch(/\bv?(?:[34]\.\d|2\.[1-9])\b/); // 2.0 is public now; internal tags stay out
     expect(BUILD).not.toBe('1.0');
-    expect(RELEASED).toBe(false); // true only after a verified public deployment
-    expect(VERSION_LABEL).toContain('pre-lanzamiento');
+    expect(RELEASED).toBe(true); // (author) 2.0: no more «pre»
+    expect(VERSION_LABEL).toBe('v2.0');
     expect(TIKTOK_URL).toBe('https://www.tiktok.com/@aastra.__');
   });
   it('the news board shows fixes (two decimals) in their own colour, updates in green', async () => {

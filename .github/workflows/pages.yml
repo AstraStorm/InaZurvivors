@@ -7,6 +7,11 @@ name: Deploy InaZurvivors (web)
 on:
   push:
     branches: [main]
+  # (author) the 2.0 goes live by itself on Tuesday 10 November 2026 at 12:00 Madrid (11:00 UTC; GitHub may run it a few
+  # minutes late). It is the same as a manual run with «publicar». Remove this schedule once the 2.0 is out, or it would
+  # run again every 10 November.
+  schedule:
+    - cron: '0 11 10 11 *'
   workflow_dispatch:
     inputs:
       publicar:
@@ -34,7 +39,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  PUBLICAR: ${{ github.event_name == 'workflow_dispatch' && inputs.publicar }}
+  PUBLICAR: ${{ (github.event_name == 'workflow_dispatch' && inputs.publicar) || github.event_name == 'schedule' }}
   PRUEBAS: ${{ github.event_name == 'workflow_dispatch' && inputs.publicar && inputs.pruebas }}
 
 jobs:
@@ -110,6 +115,9 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
+      - name: La publicación programada solo vale para la 2.0 (10 de noviembre de 2026)
+        if: github.event_name == 'schedule'
+        run: test "$(date -u +%Y-%m-%d)" = "2026-11-10" || { echo "Publicación programada fuera de fecha: no se despliega"; exit 1; }
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
@@ -175,7 +183,7 @@ jobs:
           path: dist
   deploy:
     needs: build
-    if: github.event_name == 'workflow_dispatch' && inputs.publicar
+    if: (github.event_name == 'workflow_dispatch' && inputs.publicar) || github.event_name == 'schedule'
     runs-on: ubuntu-latest
     permissions:
       pages: write

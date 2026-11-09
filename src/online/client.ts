@@ -227,7 +227,7 @@ export const deleteMyBugReports = () => rpc<(string | null)[]>('delete_my_bug_re
 export const amIAdmin = () => rpc<boolean>('am_i_admin', {});
 /** Fix 1.12: promotional codes (one per account, decided on the server) */
 export const redeemCode = (code: string, alreadyApplied = false) =>
-  rpc<{ status: 'ok' | 'used' | 'invalid' | 'linked'; reward?: { tokens: number; coins: number; player: number | null; eventTokens?: number; pennants?: string[] } }>('redeem_code', { p_code: code, p_already_applied: alreadyApplied });
+  rpc<{ status: 'ok' | 'used' | 'invalid' | 'linked'; reward?: { tokens: number; coins: number; player: number | null; eventTokens?: number; egTokens?: number; pennants?: string[] } }>('redeem_code', { p_code: code, p_already_applied: alreadyApplied });
 /** 1.85: bug bounty — rewards for the player's reports the admin marked «corregido», taken once (server marks them claimed) */
 /** 1.88: replies to the player's reports, and reports fixed or discarded, not yet shown (taken once) */
 /** 1.88: recommendations (migration 20261106000600_suggestions.sql) */
@@ -244,6 +244,14 @@ export const adminBugReports = (f: BugFilter) => rpc<BugRow[]>('admin_bug_report
 export interface AdminPlayerRow { username: string | null; created_at: string; last_seen: string | null; runs: number; kills: number; best_time: number; owned: number; ranked_runs: number }
 export interface AdminPlayerStats { accounts: number; with_name: number; played: number; runs: number; kills: number; ranked_runs: number; active_24h: number; active_7d: number; new_7d: number; players: AdminPlayerRow[] }
 export const adminPlayerStats = (limit = 200) => rpc<AdminPlayerStats>('admin_player_stats', { p_limit: limit });
+/** Métricas tab of the players panel (admins only): Madrid days, peak hours, retention, maps/ranks/captains, social use. */
+export interface AdminMetrics {
+  days: number; daily: { day: string; new: number; players: number; runs: number }[]; hours: number[]; online_now: number; online_1h: number;
+  retention: { d1: number; d1_base: number; d7: number; d7_base: number }; totals: { runs: number; wins: number; pulls: number };
+  maps: { map: string; n: number }[]; ranks: { rank: string; n: number }[]; captains: { id: number; n: number }[];
+  social: { friendships: number; clans: number; clan_members: number; coop_7d: number; tierlists: number; bugs_open: number; ideas_open: number };
+}
+export const adminMetrics = (days = 30) => rpc<AdminMetrics>('admin_metrics', { p_days: days });
 export const adminUpdateBug =(code: string, status: string | null, notes: string | null, reply: string | null = null) => rpc<string>('admin_update_bug', { p_code: code, p_status: status, p_notes: notes, p_reply: reply });
 /** Asks the server to tell the author. Best effort: the report is already saved whatever happens here. */
 export async function notifyBug(code: string) {
@@ -287,6 +295,8 @@ export const clanSubmitRun = (runId: string, kills: number, timeSec: number, dam
   rpc<{ points: number; left: number; weekPoints: number }>('clan_submit_run', { p_run_id: runId, p_kills: Math.floor(kills), p_time_sec: Math.floor(timeSec), p_damage: Math.floor(damage), p_rank: rank, p_victory: victory });
 export const clanClaimPrizes = () => rpc<ClanPrize[]>('clan_claim_prizes', {});
 /** the clan of each of these players (left out: those without a clan) */
+/** 2.0: the Camino del Campeón level of each ranking row's captain in that player's save (champion_of.sql) */
+export const championOfRows = (rows: { username: string; captain: number }[]) => rpc<{ username: string; captain_id: number; champion: number }[]>('champion_of', { p_usernames: rows.slice(0, 60).map((r) => r.username), p_captains: rows.slice(0, 60).map((r) => r.captain) }, false);
 export const clanOf = (usernames: string[]) => rpc<{ username: string; clan: string; crest: string }[]>('clan_of', { p_usernames: usernames.slice(0, 60) }, false);
 export const clanClaimMission = (id: string) => rpc<{ coins: number; tokens: number }>('clan_claim_mission', { p_id: id });
 

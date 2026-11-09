@@ -90,7 +90,7 @@ export function tokenRewards(r: RunResult, firstClear: boolean, runsBefore = Inf
   return out;
 }
 
-export const MAP_ORDER = ['raimon', 'ribera', 'royal', 'nara', 'zeus', 'alpino', 'nevada', 'claustro', 'naniwa', 'yokato', 'marytimes', 'fuji'];
+export const MAP_ORDER = ['raimon', 'ribera', 'royal', 'nara', 'zeus', 'alpino', 'nevada', 'claustro', 'naniwa', 'yokato', 'marytimes', 'fuji', 'ehime', 'alius', 'ruinas', 'barrio', 'plazanieve', 'torre']; // 2.0: three more arenas after the sea of trees; 2.1: three after the ruins
 
 function ruleMet(rule: string | undefined, save: SaveData) {
   if (!rule) return false;
@@ -114,13 +114,24 @@ export function mapTierScale(tier = 1) {
 export function trainingRewards(r: RunResult, newRankClear: boolean): Reward[] {
   const out: Reward[] = [];
   if (r.victory) out.push({ label: 'Victoria', coins: 1 });
-  if (r.bossDefeated && (r.rank === 'A' || r.rank === 'S' || r.rank === 'X')) out.push({ label: 'Jefe en rango alto', coins: 1 });
+  if (r.bossDefeated && (r.rank === 'A' || r.rank === 'S' || r.rank === 'X' || r.rank === 'Z')) out.push({ label: 'Jefe en rango alto', coins: 1 });
   if (newRankClear) out.push({ label: 'Rango superado por primera vez', coins: 2 });
   if ((r.endlessSec ?? 0) >= 300) out.push({ label: 'Supervivencia infinita', coins: Math.floor((r.endlessSec ?? 0) / 300) });
   return out;
 }
 
-export function applyRun(save: SaveData, r: RunResult, coinMult = 1, rewardMult = 1, extraTokens = 0): { save: SaveData; rewards: Reward[]; total: number; records: string[]; tokens: Reward[]; tokenTotal: number; training: Reward[]; trainTotal: number } {
+/** 2.0 (author: «cada vez que te pases un mapa en rango X te dan fichas EG (1); nada que te regalen fichas»): the only
+ *  source of Fichas EG is beating a map (boss defeated) in rank X, 1 each time */
+export const EG_X_WIN = 1;
+/** (author) Rango Z pays more: 3 Fichas EG per map beaten */
+export const EG_Z_WIN = 3;
+export function egRewards(r: RunResult, _newRankClear: boolean): Reward[] {
+  if (!r.victory || !r.bossDefeated) return [];
+  if (r.rank === 'Z') return [{ label: 'Mapa superado en rango Z', coins: EG_Z_WIN }];
+  return r.rank === 'X' ? [{ label: 'Mapa superado en rango X', coins: EG_X_WIN }] : [];
+}
+
+export function applyRun(save: SaveData, r: RunResult, coinMult = 1, rewardMult = 1, extraTokens = 0): { save: SaveData; rewards: Reward[]; total: number; records: string[]; tokens: Reward[]; tokenTotal: number; training: Reward[]; trainTotal: number; eg: Reward[]; egTotal: number } {
   const rewards = computeRewards(r, rewardMult);
   if (coinMult > 1) {
     const base = rewards.reduce((a, x) => a + x.coins, 0);
@@ -146,6 +157,9 @@ export function applyRun(save: SaveData, r: RunResult, coinMult = 1, rewardMult 
   const training = trainingRewards(r, newRank);
   const trainTotal = training.reduce((a, x) => a + x.coins, 0);
   save.trainTokens = (save.trainTokens ?? 0) + trainTotal;
+  const eg = egRewards(r, newRank);
+  const egTotal = eg.reduce((a, x) => a + x.coins, 0);
+  save.egTokens = (save.egTokens ?? 0) + egTotal;
   const records: string[] = [];
   if (Math.floor(r.timeSec) > save.stats.bestTimeSec) records.push('tiempo');
   if (r.kills > (save.stats.bestKills ?? 0)) records.push('eliminaciones');
@@ -161,5 +175,5 @@ export function applyRun(save: SaveData, r: RunResult, coinMult = 1, rewardMult 
     save.stats.wins += 1;
     if (!save.clearedMaps.includes(r.mapId)) save.clearedMaps.push(r.mapId);
   }
-  return { save, rewards, total, records, tokens, tokenTotal, training, trainTotal };
+  return { save, rewards, total, records, tokens, tokenTotal, training, trainTotal, eg, egTotal };
 }

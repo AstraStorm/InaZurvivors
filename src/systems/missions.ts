@@ -57,6 +57,7 @@ export const MISSIONS: MissionDef[] = [
   M('l_mitico', 'logro', 'Asciende un Legendario a Mítico', 'col_ascended', 1, 500),
   M('l_heroe', 'logro', 'Asciende a un futbolista a HÉROE', 'col_heroes', 1, 1500),
   M('l_rangoX', 'logro', 'Gana una partida en rango X', 'wins_X', 1, 2000),
+  M('l_rangoZ', 'logro', 'Gana una partida en rango Z', 'wins_Z', 1, 5000, 25),
   M('l_combo', 'logro', 'Aprende una técnica combinada', 'combos', 1, 500),
   // Fix 1.11: more ways to earn fichas by playing (daily 3, weekly 10, achievements 8, per run 3)
   M('d_victoria', 'diaria', 'Gana una partida', 'wins', 1, 50),
@@ -99,6 +100,12 @@ export const MISSIONS: MissionDef[] = [
   L('l_naniwa', 'Gana en Naniwaland', 'wins_map_naniwa', 1, 550),
   L('l_yokato', 'Gana en el Instituto Yokato', 'wins_map_yokato', 1, 550),
   L('l_fuji', 'Gana en el Mar de Árboles', 'wins_map_fuji', 1, 1000, 2),
+  L('l_ehime', 'Gana en el Puerto de Ehime', 'wins_map_ehime', 1, 1100, 2), // 2.0
+  L('l_alius', 'Gana en la Academia Alius', 'wins_map_alius', 1, 1200, 2),
+  L('l_ruinas', 'Gana en el Instituto en ruinas', 'wins_map_ruinas', 1, 1500, 3),
+  L('l_barrio', 'Gana en el Parque de la calle comercial', 'wins_map_barrio', 1, 1700, 3), // 2.1
+  L('l_plazanieve', 'Gana en la Plaza nevada del Alpino', 'wins_map_plazanieve', 1, 1900, 3),
+  L('l_torre', 'Gana en la Torre de hierro al atardecer', 'wins_map_torre', 1, 2500, 3),
   L('l_camino', 'Completa el camino de arenas entero', 'arenas', 12, 3000, 3),
   L('l_rangoB', 'Gana una partida en rango B', 'wins_B', 1, 300),
   L('l_rangoA', 'Gana una partida en rango A', 'wins_A', 1, 600, 2),
@@ -223,7 +230,7 @@ export function recordRun(s: SaveData, r: RunResult, now = periodNow()) {
   const add: Record<string, number> = { runs: 1, kills: r.kills, time: Math.floor(r.timeSec), wins: r.victory ? 1 : 0,
     levels: Math.max(0, (r.level ?? 1) - 1), bosses: r.bossDefeated ? 1 : 0, altars: r.altars ?? 0, endless: Math.floor(r.endlessSec ?? 0),
     combos: r.combos?.length ?? 0 };
-  if (r.victory && r.rank) { add[`wins_${r.rank}`] = 1; if (['A', 'S', 'X'].includes(r.rank)) add.wins_hi = 1; if (r.rank !== 'C') add.wins_hi_b = 1; }
+  if (r.victory && r.rank) { add[`wins_${r.rank}`] = 1; if (['A', 'S', 'X', 'Z'].includes(r.rank)) add.wins_hi = 1; if (r.rank !== 'C') add.wins_hi_b = 1; }
   if (r.victory && r.formation) add[`wins_${r.formation}`] = 1;
   // Fix 1.11 counters: formation played, era of the captain, favourite team, arena, long survivals
   if (r.formation) add[`runs_${r.formation}`] = 1;

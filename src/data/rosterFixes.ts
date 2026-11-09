@@ -21,6 +21,8 @@ export interface RosterFix {
   nivel?: Record<string, number>;
   /** 1.83: lowest value of a stat (training.ts baseStats), whatever the rarity band gives */
   statFloor?: Partial<Record<string, number>>;
+  /** the footballer's corrected name (a typo in the generated data); `name` stays the one in the data */
+  nombre?: string;
 }
 
 export const ROSTER_FIXES: Record<number, RosterFix> = {
@@ -33,6 +35,9 @@ export const ROSTER_FIXES: Record<number, RosterFix> = {
   101719: { name: 'Austin Hobbes', nivel: { 'Remate del tigre': 1 } },
   101357: { name: 'Dilshod Sobirov', cambiar: { 'Gran lobo': 'Ataque+' } },
   101524: { name: 'Fubuki Yukio', cambiar: { 'Gran lobo': 'Ataque+' } },
+  // author: Petronio (his name had a typo) has no Último recurso D of his own any more — the Dragón is a combined technique
+  // that needs a Último recurso in the run; Fuerza de tiro takes its place
+  101595: { name: 'Petrionio Patti', nombre: 'Petronio Patti', cambiar: { 'Último recurso D': 'Fuerza de tiro' } },
 };
 
 /** Applies ROSTER_FIXES in place; returns the problems found (unknown id, name mismatch, technique not found). */
@@ -43,6 +48,7 @@ export function applyRosterFixes(m: Manifest, fixes: Record<number, RosterFix> =
   for (const [key, fix] of Object.entries(fixes)) {
     const p = byId.get(Number(key));
     if (!p || p.name !== fix.name) { problems.push(`${key}: no es ${fix.name}`); continue; }
+    if (fix.nombre) p.name = fix.nombre;
     if (fix.rarity) p.rarity = fix.rarity;
     if (fix.element) p.element = fix.element;
     if (fix.position) p.position = fix.position;

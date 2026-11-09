@@ -19,7 +19,7 @@ describe('weekly pass', () => {
     const s = newSave([], null);
     const t0 = s.tokens;
     expect(claimPass(s, roster, day(2))!.reward).toBe(PASS[0]);
-    expect(s.tokens).toBe(t0 + (PASS[0] as { amount: number }).amount);
+    expect(s.tokens).toBe(t0 + PASS[0].fichas);
     expect(claimPass(s, roster, day(2))).toBeNull(); // same day: no double claim
     expect(passStatus(s, day(9)).index).toBe(1); // a week away: still waits on day 2
     let rng = 0.5;

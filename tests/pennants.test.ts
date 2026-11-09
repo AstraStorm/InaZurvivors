@@ -2,10 +2,11 @@
 import { describe, expect, it } from 'vitest';
 import { EVENT_POOL, FRAMES as ALL_FRAMES, PENNANTS as ALL_PENNANTS, PENNANT_EVENT } from '../src/data/pennants';
 
-// 1.81: the code banners/frames (INA483) are counted apart, in tests/ina483.test.ts
-const PENNANTS = ALL_PENNANTS.filter((p) => p.source !== 'codigo'), FRAMES = ALL_FRAMES.filter((p) => p.source !== 'codigo');
+// 1.81: the code banners/frames (INA483) are counted apart, in tests/ina483.test.ts; the BlueLock ones, at the end of this file
+const PENNANTS = ALL_PENNANTS.filter((p) => p.source !== 'codigo' && p.source !== 'colab'), FRAMES = ALL_FRAMES.filter((p) => p.source !== 'codigo' && p.source !== 'colab');
 import { buyPennant, equipFrame, equippedFrame, equipPennant, equippedPennant, eventActive, eventEnd, eventOdds, eventStart, grantAchievementPennants, pullEvent } from '../src/systems/pennants';
 import { exportSave, importSave, newSave, validate } from '../src/systems/save';
+import { BLUELOCK_EVENT, recordBluelockWin } from '../src/systems/collabEvent';
 
 describe('banners', () => {
   it('fifteen: 3 shop (común, raro, épico), 2 achievements (legendario, leyenda), 10 event with one Mítico only there', () => {
@@ -96,5 +97,29 @@ describe('1.94 clan pennants', () => {
     (s as unknown as { pennants: unknown }).pennants = { owned: ['clan-estandarte', 'marco-clan', 'raimon'], equipped: 'clan-estandarte', frame: 'marco-clan' };
     validate(s);
     expect(s.pennants).toEqual({ owned: ['clan-cerezo', 'marco-cerezo', 'raimon'], equipped: 'clan-cerezo', frame: 'marco-cerezo' });
+  });
+});
+
+describe('InaZurvivors x BlueLock celebration', () => {
+  const open = Date.parse(BLUELOCK_EVENT.start) + 3_600_000;
+  it('the banner needs 3 wins while the collab is open; the frame, Nagi and Isagi', () => {
+    const s = newSave([], null);
+    recordBluelockWin(s, Date.parse(BLUELOCK_EVENT.start) - 1); // before it opens: does not count
+    recordBluelockWin(s, open); recordBluelockWin(s, open);
+    expect(grantAchievementPennants(s, [])).toEqual([]);
+    recordBluelockWin(s, open);
+    expect(grantAchievementPennants(s, []).map((p) => p.id)).toEqual(['colab-bluelock']);
+    s.owned['900200'] = { stars: 0, copies: 1, obtainedAt: '' };
+    expect(grantAchievementPennants(s, [])).toEqual([]);
+    s.owned['900201'] = { stars: 0, copies: 1, obtainedAt: '' };
+    expect(grantAchievementPennants(s, []).map((p) => p.id)).toEqual(['marco-bluelock']);
+    expect(equipFrame(s, 'marco-bluelock') && equipPennant(s, 'colab-bluelock')).toBe(true);
+  });
+  it('the wins counter survives validation and bad values are cleared', () => {
+    const s = newSave([], null);
+    s.blWins = 2.7;
+    expect(validate(s).blWins).toBe(2);
+    (s as unknown as { blWins: unknown }).blWins = -4;
+    expect('blWins' in validate(s)).toBe(false);
   });
 });

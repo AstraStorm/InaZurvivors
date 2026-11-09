@@ -9,7 +9,7 @@
  *
  * To add one: a new line with both ids and names, the kind, the reason in Spanish and where it comes from.
  */
-export type BondKind = 'tecnica' | 'amistad' | 'familia' | 'rivalidad' | 'companeros';
+export type BondKind = 'tecnica' | 'amistad' | 'familia' | 'rivalidad' | 'companeros' | 'legado';
 
 export interface AuraBond {
   a: number; aName: string;
@@ -23,7 +23,7 @@ export interface AuraBond {
 }
 
 export const BOND_KIND_LABEL: Record<BondKind, string> = {
-  tecnica: 'Técnica conjunta', amistad: 'Amistad', familia: 'Familia', rivalidad: 'Rivalidad', companeros: 'Compañeros históricos',
+  tecnica: 'Técnica conjunta', amistad: 'Amistad', familia: 'Familia', rivalidad: 'Rivalidad', companeros: 'Compañeros históricos', legado: 'Legado',
 };
 
 /** Compatible pairs give this share of the Aura's stats instead of AURA_PCT (auras.ts). */
@@ -58,15 +58,56 @@ export const AURA_BONDS: AuraBond[] = [
     source: 'Wiki de Inazuma Eleven (fandom), «Kazuya Ichinose» y «Asuka Domon».' },
   { a: 1, aName: 'Mark Evans', b: 100773, bName: 'David Evans', kind: 'familia', reason: 'Nieto y abuelo: el cuaderno de David es la base del fútbol de Mark.',
     source: 'Wiki de Inazuma Eleven (fandom), «Daisuke Endou».' },
+  // author: Impulso del equipo definitivo — the three Mixi Max forms of Chrono Storm
+  { a: 101004, aName: 'Victor + Okita', b: 101520, bName: 'Arion + Arthur', kind: 'tecnica', reason: 'Chrono Storm: con Fei lanzan el Impulso del equipo definitivo.', combos: ['equipo-definitivo'],
+    source: 'Wiki de Inazuma Eleven (fandom), «Impulso del equipo definitivo».' },
+  { a: 102346, aName: 'Fei + Big', b: 101520, bName: 'Arion + Arthur', kind: 'tecnica', reason: 'Chrono Storm: con Victor lanzan el Impulso del equipo definitivo.', combos: ['equipo-definitivo'],
+    source: 'Wiki de Inazuma Eleven (fandom), «Impulso del equipo definitivo».' },
+  { a: 101004, aName: 'Victor + Okita', b: 102346, bName: 'Fei + Big', kind: 'tecnica', reason: 'Chrono Storm: con Arion lanzan el Impulso del equipo definitivo.', combos: ['equipo-definitivo'],
+    source: 'Wiki de Inazuma Eleven (fandom), «Impulso del equipo definitivo».' },
+  // author: Escena nocturna — Desmodus and Wolfram, the vampire and the wolf
+  { a: 101437, aName: 'Desmodus Drakul', b: 100678, bName: 'Wolfram Vulpeen', kind: 'tecnica', reason: 'El vampiro y el lobo: juntos lanzan Escena nocturna bajo la luna roja.', combos: ['escena-nocturna'],
+    source: 'Wiki de Inazuma Eleven (fandom), «Escena nocturna».' },
+  { a: 101437, aName: 'Desmodus Drakul', b: 100398, bName: 'Vulpeen MM', kind: 'tecnica', reason: 'El vampiro y el lobo: juntos lanzan Escena nocturna bajo la luna roja.', combos: ['escena-nocturna'],
+    source: 'Wiki de Inazuma Eleven (fandom), «Escena nocturna»; cualquier Desmodus con cualquier Wolfram (autor).' },
+  { a: 101652, aName: 'Drakul MM', b: 100678, bName: 'Wolfram Vulpeen', kind: 'tecnica', reason: 'El vampiro y el lobo: juntos lanzan Escena nocturna bajo la luna roja.', combos: ['escena-nocturna'],
+    source: 'Wiki de Inazuma Eleven (fandom), «Escena nocturna»; cualquier Desmodus con cualquier Wolfram (autor).' },
+  { a: 101652, aName: 'Drakul MM', b: 100398, bName: 'Vulpeen MM', kind: 'tecnica', reason: 'El vampiro y el lobo: juntos lanzan Escena nocturna bajo la luna roja.', combos: ['escena-nocturna'],
+    source: 'Wiki de Inazuma Eleven (fandom), «Escena nocturna»; cualquier Desmodus con cualquier Wolfram (autor).' },
+  // author: Último recurso and Último recurso Σ — Asuto, Nosaka, Haizaki and (for Σ) Hikaru Ichihoshi
+  { a: 101504, aName: 'Inamori Asuto', b: 100905, bName: 'Nosaka Yuuma', kind: 'tecnica', reason: 'Inazuma Japón: con Haizaki lanzan el Último recurso.', combos: ['ultimo-recurso', 'ultimo-recurso-sigma'],
+    source: 'Wiki de Inazuma Eleven (fandom), «Último recurso» y «Último recurso: Sigma».' },
+  { a: 101504, aName: 'Inamori Asuto', b: 100979, bName: 'Haizaki Ryouhei', kind: 'tecnica', reason: 'Inazuma Japón: con Nosaka lanzan el Último recurso.', combos: ['ultimo-recurso', 'ultimo-recurso-sigma'],
+    source: 'Wiki de Inazuma Eleven (fandom), «Último recurso» y «Último recurso: Sigma».' },
+  { a: 100905, aName: 'Nosaka Yuuma', b: 100979, bName: 'Haizaki Ryouhei', kind: 'tecnica', reason: 'Inazuma Japón: con Asuto lanzan el Último recurso.', combos: ['ultimo-recurso', 'ultimo-recurso-sigma'],
+    source: 'Wiki de Inazuma Eleven (fandom), «Último recurso» y «Último recurso: Sigma».' },
+  { a: 101308, aName: 'Ichihoshi Hikaru', b: 101504, bName: 'Inamori Asuto', kind: 'tecnica', reason: 'Inazuma Japón: los cuatro lanzan el Último recurso Σ.', combos: ['ultimo-recurso-sigma'],
+    source: 'Wiki de Inazuma Eleven (fandom), «Último recurso: Sigma»; Hikaru indicado por el autor.' },
+  { a: 101308, aName: 'Ichihoshi Hikaru', b: 100905, bName: 'Nosaka Yuuma', kind: 'tecnica', reason: 'Inazuma Japón: los cuatro lanzan el Último recurso Σ.', combos: ['ultimo-recurso-sigma'],
+    source: 'Wiki de Inazuma Eleven (fandom), «Último recurso: Sigma»; Hikaru indicado por el autor.' },
+  { a: 101308, aName: 'Ichihoshi Hikaru', b: 100979, bName: 'Haizaki Ryouhei', kind: 'tecnica', reason: 'Inazuma Japón: los cuatro lanzan el Último recurso Σ.', combos: ['ultimo-recurso-sigma'],
+    source: 'Wiki de Inazuma Eleven (fandom), «Último recurso: Sigma»; Hikaru indicado por el autor.' },
+  // author: InaZurvivors x BlueLock — Nagi and Isagi, 20% and Cometa legendario together
+  { a: 900200, aName: 'Seishiro Nagi', b: 900201, bName: 'Yoichi Isagi', kind: 'tecnica', reason: 'El genio y el que lo ve todo: compañeros y rivales en Blue Lock, juntos lanzan Cometa legendario.', combos: ['cometa-legendario-bl'],
+    source: 'Colaboración InaZurvivors x BlueLock (pedido del autor).' },
+  // author: David Evans, the Leyenda nobody played, bonds with every Mark, Hector Helio and Astero Black (the elder Ray Dark)
+  { a: 100234, aName: 'Endou Mamoru', b: 100773, bName: 'David Evans', kind: 'familia', reason: 'Nieto y abuelo: Mark adulto sigue entrenando con el cuaderno de David.',
+    source: 'Wiki de Inazuma Eleven (fandom), «Daisuke Endou»; vínculo pedido por el autor.' },
+  { a: 100332, aName: 'Mark + Arion', b: 100773, bName: 'David Evans', kind: 'familia', reason: 'Mark, aunque sea en Miximax con Arion, sigue siendo su nieto.',
+    source: 'Wiki de Inazuma Eleven (fandom), «Daisuke Endou»; vínculo pedido por el autor.' },
+  { a: 101894, aName: 'Hector Helio', b: 100773, bName: 'David Evans', kind: 'legado', reason: 'Los dos paran con la Mano celestial X, la técnica que nació en el cuaderno de David.',
+    source: 'Movesets de Hector Helio y David Evans (Mano celestial X); vínculo pedido por el autor.' },
+  { a: 101558, aName: 'Ray Dark', b: 100773, bName: 'David Evans', kind: 'rivalidad', reason: 'Astero Black, el Ray Dark mayor: el eterno rival de David desde los tiempos del Inazuma Eleven original.',
+    source: 'Wiki de Inazuma Eleven (fandom), «Daisuke Endou» y «Reiji Kageyama»; vínculo pedido por el autor.' },
   { a: 1, aName: 'Mark Evans', b: 1616, bName: 'Canon Evans', kind: 'familia', reason: 'Canon es el bisnieto de Mark, llegado del futuro.',
     source: 'Wiki de Inazuma Eleven (fandom), «Kanon Endou».' },
   { a: 1513, aName: 'Shawn Froste', b: 100797, bName: 'Aiden Froste', kind: 'familia', reason: 'Hermanos: Aiden vive en el juego de Shawn. Juntos lanzan Lanza Nórdica Congelada o Frente Frío.', combos: ['lanza-nordica', 'frente-frio', 'ventisca-triple'],
     source: 'Wiki de Inazuma Eleven (fandom), «Atsuya Fubuki».' },
   { a: 29, aName: 'Jude Sharp', b: 1620, bName: 'Celia Hills', kind: 'familia', reason: 'Hermanos separados de pequeños.',
     source: 'Wiki de Inazuma Eleven (fandom), «Haruna Otonashi».' },
-  { a: 29, aName: 'Jude Sharp', b: 1542, bName: 'David Samford', kind: 'amistad', reason: 'Compañeros y amigos de la Royal Academy.',
+  { a: 29, aName: 'Jude Sharp', b: 1542, bName: 'David Samford', kind: 'amistad', reason: 'Compañeros y amigos de la Royal Academy.', combos: ['pinguino-emperador-3'],
     source: 'Wiki de Inazuma Eleven (fandom), «Jirou Sakuma».' },
-  { a: 29, aName: 'Jude Sharp', b: 1541, bName: 'Caleb Stonewall', kind: 'rivalidad', reason: 'Rivales desde Shin Teikoku que acaban jugando juntos en Inazuma Japón.', combos: ['campo-fuerza'],
+  { a: 29, aName: 'Jude Sharp', b: 1541, bName: 'Caleb Stonewall', kind: 'rivalidad', reason: 'Rivales desde Shin Teikoku que acaban jugando juntos en Inazuma Japón.', combos: ['campo-fuerza', 'pinguino-emperador-3'],
     source: 'Wiki de Inazuma Eleven (fandom), «Akio Fudou».' },
   { a: 101722, aName: 'Xavier Foster', b: 1513, bName: 'Shawn Froste', kind: 'tecnica', reason: 'De rivales en Alius a compañeros en Inazuma Japón: juntos lanzan La Aurora y, con Jude, Big Bang.', combos: ['la-aurora', 'big-bang'],
     source: 'ROM IE3: «The Birth» (ザ・バース), «La Aurora» en inazumo.es; pareja indicada por el autor.' },
@@ -82,11 +123,11 @@ export const AURA_BONDS: AuraBond[] = [
   { a: 157, aName: 'Byron Love', b: 1370, bName: 'Bryce Whitingale', kind: 'tecnica', reason: 'Remate caótico con Claude en Fire Dragon.', combos: ['remate-caotico'],
     source: 'Wiki de Inazuma Eleven (fandom), «Chaos Break».' },
   // GO / Chrono Stone / Galaxy
-  { a: 100538, aName: 'Arion Sherwind', b: 100544, bName: 'Riccardo Di Rigo', kind: 'tecnica', reason: 'Capitán y cerebro de Raimon GO: La Tierra ∞.', combos: ['la-tierra-inf'],
+  { a: 100538, aName: 'Arion Sherwind', b: 100544, bName: 'Riccardo Di Rigo', kind: 'tecnica', reason: 'Capitán y cerebro de Raimon GO: La Tierra ∞.', combos: ['la-tierra-inf', 'triple-amenaza'],
     source: 'Wiki de Inazuma Eleven (fandom), «The Earth ∞» (GO Galaxy, episodio 43).' },
-  { a: 100538, aName: 'Arion Sherwind', b: 100562, bName: 'Victor Blade', kind: 'tecnica', reason: 'De rivales a compañeros: La Tierra ∞.', combos: ['la-tierra-inf', 'tornado-dd', 'tornado-tc'],
+  { a: 100538, aName: 'Arion Sherwind', b: 100562, bName: 'Victor Blade', kind: 'tecnica', reason: 'De rivales a compañeros: La Tierra ∞.', combos: ['la-tierra-inf', 'tornado-dd', 'tornado-tc', 'triple-amenaza'],
     source: 'Wiki de Inazuma Eleven (fandom), «The Earth ∞».' },
-  { a: 100544, aName: 'Riccardo Di Rigo', b: 100562, bName: 'Victor Blade', kind: 'tecnica', reason: 'Participantes de La Tierra ∞.', combos: ['la-tierra-inf'],
+  { a: 100544, aName: 'Riccardo Di Rigo', b: 100562, bName: 'Victor Blade', kind: 'tecnica', reason: 'Participantes de La Tierra ∞ y Lluvia de azufre.', combos: ['la-tierra-inf', 'lluvia-azufre', 'triple-amenaza'],
     source: 'Wiki de Inazuma Eleven (fandom), «The Earth ∞».' },
   { a: 100562, aName: 'Victor Blade', b: 100828, bName: 'Vladimir Blade', kind: 'familia', reason: 'Hermanos: Victor juega por su hermano Vladimir.',
     source: 'Wiki de Inazuma Eleven (fandom), «Yuuichi Tsurugi».' },
@@ -165,4 +206,11 @@ export const AURA_BONDS: AuraBond[] = [
     source: 'Técnica combinada indicada por el autor (1.88).' },
   { a: 1024, aName: 'Erik Eagle', b: 101838, bName: 'Mark Krueger', kind: 'tecnica', reason: 'Con Dylan lanzan Gran lobo.', combos: ['gran-lobo'],
     source: 'Técnica combinada indicada por el autor (1.88).' },
+  // 2.0 (author): the new combined techniques' pairs
+  { a: 102014, aName: 'Sael', b: 102025, bName: 'Destra', kind: 'tecnica', reason: 'Juntos lanzan Lluvia oscura.', combos: ['lluvia-oscura'],
+    source: 'Técnica combinada indicada por el autor (2.0).' },
+  { a: 100510, aName: 'Gandares Baran', b: 102205, bName: 'Ryugel Baran', kind: 'familia', reason: 'Hermanos: juntos lanzan Grito del Edén.', combos: ['grito-eden'],
+    source: 'Técnica combinada indicada por el autor (2.0).' },
+  { a: 1541, aName: 'Caleb Stonewall', b: 1542, bName: 'David Samford', kind: 'tecnica', reason: 'Con Jude lanzan Pingüino emperador n.º 3.', combos: ['pinguino-emperador-3'],
+    source: 'Técnica combinada indicada por el autor (2.0).' },
 ];

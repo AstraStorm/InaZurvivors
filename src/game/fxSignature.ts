@@ -45,43 +45,105 @@ export function illusionBall(scene: Phaser.Scene, x: number, y: number, level: n
   scene.tweens.add({ targets: ring, scaleX: 3, scaleY: 3, alpha: 0, duration: ms, onComplete: () => ring.destroy() });
 }
 
-/** Ceniza negra, the charge: black smoke spirals up around the shooter and the light dims around him. */
+/*
+ * Ceniza negra (author: redrawn from its scene in the GO movie, youtube 4DZ9DrCcL48 0:05-0:16, watched frame by frame).
+ * A pillar of magenta and violet flame rises round the shooter; black arms whirl round the ball, which glows pink in the
+ * middle of the vortex; the kick turns it into a white sphere wrapped in a black swirl, and it flies as a black needle
+ * edged in glowing magenta. Where it lands, a huge black star of spikes bursts over a violet glow.
+ */
+const MAG = 0xff3ad8, VIO = 0x8a3aff, INK = 0x07030c;
+
+/** runs `frame(g, u, t)` on a fresh graphics at (x, y) for `ms` (u = 0..1, t seconds) */
+function anim(scene: Phaser.Scene, x: number, y: number, depth: number, ms: number, frame: (g: Phaser.GameObjects.Graphics, u: number, t: number) => void, add = false) {
+  const g = scene.add.graphics({ x, y }).setDepth(depth);
+  if (add) g.setBlendMode(ADD);
+  const t0 = scene.time.now;
+  const tick = () => {
+    const t = scene.time.now - t0;
+    if (t > ms || !g.active) { scene.events.off('update', tick); g.destroy(); return; }
+    g.clear(); frame(g, t / ms, t / 1000);
+  };
+  scene.events.on('update', tick);
+  scene.events.once('shutdown', () => scene.events.off('update', tick));
+  tick();
+}
+
+/** Ceniza negra, the charge: the magenta flame pillar, the black whirl round the glowing pink ball, the white sphere. */
 export function blackAshCharge(scene: Phaser.Scene, x: number, y: number, level: number, ms: number) {
-  const dim = scene.add.ellipse(x, y + 2, 70 + level * 4, 26 + level, 0x000000, 0.0).setDepth(y - 2);
-  scene.tweens.add({ targets: dim, fillAlpha: 0.45, duration: ms * 0.7, yoyo: true, hold: ms * 0.3, onComplete: () => dim.destroy() });
-  const n = 10 + level;
-  for (let k = 0; k < n; k++) {
-    const a = (k / n) * Math.PI * 2, delay = (k / n) * ms * 0.6;
-    const puff = scene.add.circle(x + Math.cos(a) * 18, y + Math.sin(a) * 7, 4, 0x140a1c, 0.8).setDepth(y + 1);
-    scene.tweens.add({ targets: puff, x: x + Math.cos(a + 2) * 6, y: y - 26 - level, scale: 2.4, alpha: 0, delay, duration: ms * 0.6, ease: 'Sine.easeIn', onComplete: () => puff.destroy() });
-  }
+  const k = 1 + level * 0.05;
+  // a dark blue shade under the shooter, only round him (author: never the whole screen)
+  anim(scene, x, y + 2, y - 2, ms + 200, (g, u) => { const a = Math.min(1, u * 4) * (u > 0.85 ? (1 - u) / 0.15 : 1); g.fillStyle(0x0a0a3a, 0.5 * a).fillEllipse(0, 0, (110 + u * 30) * k, (44 + u * 12) * k); });
+  // the pillar of magenta and violet flame
+  anim(scene, x, y, y + 2, ms + 120, (g, u, t) => {
+    const a = Math.min(1, u * 3) * (u > 0.85 ? (1 - u) / 0.15 : 1), H = (40 + Math.min(1, u * 2) * 26) * k;
+    for (let n = 0; n < 13; n++) {
+      const fx = (n - 6) * 4 * k, L = H * (0.6 + Math.abs(Math.sin(t * 9 + n * 1.7)) * 0.5);
+      g.fillStyle(n % 3 === 0 ? VIO : MAG, (n % 2 ? 0.55 : 0.4) * a).fillTriangle(fx - 5 * k, 4, fx + 5 * k, 4, fx + Math.sin(t * 7 + n) * 4 * k, -L);
+    }
+    g.fillStyle(0xffb8f0, 0.35 * a).fillEllipse(0, -H * 0.4, 16 * k, H * 0.8);
+  }, true);
+  // the black whirl round the ball, which glows pink in its middle; at the end the ball is a white sphere in a black swirl
+  anim(scene, x + 10 * k, y - 6, y + 3, ms + 140, (g, u, t) => {
+    if (u < 0.3) return;
+    const w = Math.min(1, (u - 0.3) / 0.4), a = u > 0.9 ? (1 - u) / 0.1 : 1, R = (16 + w * 10) * k;
+    for (let arm = 0; arm < 4; arm++) { // curved black arms sweeping in, a violet edge on each
+      let px = 0, py = 0;
+      for (let i = 0; i <= 14; i++) {
+        const q = i / 14, an = t * 6 + arm * Math.PI / 2 + q * 3.2, r = R * (0.25 + q * 1.2);
+        const nx = Math.cos(an) * r, ny = Math.sin(an) * r * 0.7;
+        if (i) { g.lineStyle((2 + q * 6) * k, VIO, 0.5 * a * w).lineBetween(px, py, nx, ny); g.lineStyle((1 + q * 4) * k, INK, 0.95 * a * w).lineBetween(px, py, nx, ny); }
+        px = nx; py = ny;
+      }
+    }
+    const white = u > 0.8;
+    g.fillStyle(white ? 0xffffff : MAG, (white ? 0.95 : 0.6) * a).fillCircle(0, 0, (white ? 7 : 5 + w * 3) * k);
+    if (white) g.lineStyle(3 * k, INK, a).beginPath().arc(0, 0, 9 * k, t * 8, t * 8 + 4.2).strokePath();
+  });
 }
 
 /**
- * Ceniza negra, the flight: the ball turns black and drags a fog that spreads and lingers, with violet embers; where it
- * ends, the fog swallows a patch of the pitch for a moment.
+ * Ceniza negra, the flight: a black needle edged in magenta from the kick to the ball, its tip a dark point with a white
+ * core; where it ends, a black star of spikes bursts over a violet glow and lingers a moment.
  */
 export function blackAshTrail(scene: Phaser.Scene, ball: Phaser.GameObjects.Image, level: number) {
-  ball.setTint(0x3a2448);
-  let lastX = ball.x, lastY = ball.y;
-  const ev = scene.time.addEvent({
-    delay: 40, loop: true,
-    callback: () => {
-      if (!ball.active) {
-        ev.remove();
-        const fog = scene.add.ellipse(lastX, lastY + 8, 30, 12, 0x07030c, 0.75).setDepth(lastY - 1);
-        scene.tweens.add({ targets: fog, scaleX: 3 + level * 0.15, scaleY: 3 + level * 0.15, alpha: 0, duration: 1400, ease: 'Sine.easeOut', onComplete: () => fog.destroy() });
-        return;
+  const k = 1 + level * 0.05, x0 = ball.x, y0 = ball.y;
+  ball.setTint(0x1a0a24);
+  const g = scene.add.graphics().setDepth(ball.depth - 1);
+  let lastX = ball.x, lastY = ball.y, ang = 0;
+  const tick = () => {
+    if (!ball.active) { scene.events.off('update', tick); g.destroy(); burst(lastX, lastY); return; }
+    if (Math.hypot(ball.x - lastX, ball.y - lastY) > 0.5) ang = Math.atan2(ball.y - lastY, ball.x - lastX);
+    lastX = ball.x; lastY = ball.y;
+    const nx = -Math.sin(ang), ny = Math.cos(ang), w = (2.5 + level * 0.15) * k;
+    g.clear();
+    // the needle: a magenta glow, then the black core, thin at the kick and wider at the tip
+    g.fillStyle(MAG, 0.55).fillTriangle(x0, y0, lastX + nx * w * 2.2, lastY + ny * w * 2.2, lastX - nx * w * 2.2, lastY - ny * w * 2.2);
+    g.fillStyle(INK, 1).fillTriangle(x0, y0, lastX + nx * w, lastY + ny * w, lastX - nx * w, lastY - ny * w);
+    // the tip: rounded (author), a black head with a magenta glow and a white core
+    const hx = lastX + Math.cos(ang) * w * 1.2, hy = lastY + Math.sin(ang) * w * 1.2;
+    g.fillStyle(MAG, 0.7).fillCircle(hx, hy, w * 3.2);
+    g.fillStyle(INK, 1).fillCircle(hx, hy, w * 2.3);
+    g.fillStyle(0xffffff, 0.9).fillCircle(hx, hy, w * 0.9);
+  };
+  scene.events.on('update', tick);
+  scene.events.once('shutdown', () => scene.events.off('update', tick));
+  const burst = (x: number, y: number) => {
+    // the violet glow under it
+    anim(scene, x, y, y - 1, 1100, (gg, u) => { const a = u < 0.15 ? u / 0.15 : (1 - u); gg.fillStyle(VIO, 0.45 * a).fillCircle(0, 0, (22 + u * 36) * k); gg.fillStyle(MAG, 0.3 * a).fillCircle(0, 0, (12 + u * 14) * k); }, true);
+    // the black star of spikes, bursting out and lingering
+    const spikes = 13, seed = Math.random() * 10;
+    anim(scene, x, y, y + 1, 1100, (gg, u) => {
+      const grow = 1 - Math.pow(1 - Math.min(1, u * 3), 3), a = u > 0.7 ? (1 - u) / 0.3 : 1, R = (14 + grow * 32) * k; // author: a little smaller
+      const pts: { x: number; y: number }[] = [];
+      for (let i = 0; i < spikes * 2; i++) {
+        const an = i / (spikes * 2) * Math.PI * 2, long = i % 2 === 0, j = Math.abs(Math.sin(seed + i * 7.3));
+        const r = long ? R * (0.8 + j * 0.45) : R * 0.5;
+        pts.push({ x: Math.cos(an) * r, y: Math.sin(an) * r * 0.75 });
       }
-      lastX = ball.x; lastY = ball.y;
-      const puff = scene.add.circle(ball.x + Phaser.Math.Between(-3, 3), ball.y + Phaser.Math.Between(-3, 3), 4 + level * 0.3, 0x0b0612, 0.75).setDepth(ball.depth - 1);
-      scene.tweens.add({ targets: puff, scale: 2.6 + level * 0.12, alpha: 0, duration: 1000, ease: 'Sine.easeOut', onComplete: () => puff.destroy() });
-      if (Math.random() < 0.55) {
-        const ember = scene.add.image(ball.x, ball.y, 'fx:spark').setTint(0xa24bff).setBlendMode(ADD).setDepth(ball.depth + 1);
-        scene.tweens.add({ targets: ember, x: ember.x + Phaser.Math.Between(-10, 10), y: ember.y - Phaser.Math.Between(6, 16), alpha: 0, duration: 500, onComplete: () => ember.destroy() });
-      }
-    },
-  });
+      gg.fillStyle(INK, 0.95 * a).fillPoints(pts, true);
+      gg.lineStyle(2, VIO, 0.6 * a).strokePoints(pts, true);
+    });
+  };
 }
 
 /**

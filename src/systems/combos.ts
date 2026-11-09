@@ -30,12 +30,18 @@ export interface ComboDef {
     | 'triangulo' | 'triangulo2' | 'dragon2' | 'tornado-dd' | 'tornado-tc' | 'perseo' | 'ventisca3'
     // 1.88
     | 'cosmico' | 'granexpl' | 'pinguinos-ls' | 'campo'
-    | 'tormenta-tigre' | 'bestia-trueno' | 'huracan' | 'reaccion' | 'unoparatodos' | 'prime' | 'tripegaso' | 'fenix2' | 'granlobo';
+    | 'tormenta-tigre' | 'bestia-trueno' | 'huracan' | 'reaccion' | 'unoparatodos' | 'prime' | 'tripegaso' | 'fenix2' | 'granlobo'
+    // 2.0
+    | 'lluvia-oscura' | 'lluvia-azufre' | 'triple-amenaza' | 'grito-eden' | 'pinguino3'
+    | 'equipo-definitivo' | 'escena-nocturna' | 'ultimo-recurso' | 'ultimo-recurso-sigma' | 'ultimo-recurso-dragon';
   /** Fix 1.12: when several are learnable at once, the higher one is offered first */
   priority: number;
   source: string;
   /** 1.76: combos of one group are alternatives: a run offers one of them at random and learns only one */
   group?: string;
+  /** author (Último recurso: Dragón): learnable only once the run has learned one of these combos, and it fires only
+   *  while one of them is active (learned, with its participants on the pitch) */
+  requires?: string[];
 }
 
 export const COMBOS: ComboDef[] = [
@@ -155,7 +161,7 @@ export const COMBOS: ComboDef[] = [
   {
     id: 'la-tierra-inf', name: 'La Tierra ∞', jp: 'ジ・アース∞', en: 'The Earth ∞', element: 'Montaña', power: 165,
     needs: [{ player: 'Arion Sherwind', level: 3 }, { player: 'Riccardo Di Rigo', level: 3 }, { player: 'Victor Blade', level: 5 }],
-    cooldownMs: 11000, effect: 'tierra-inf', priority: 10,
+    cooldownMs: 11000, effect: 'tierra-inf', priority: 10, group: 'tierra-triple', // 2.0 (author): it or Triple amenaza, never both
     source: 'Wiki de Inazuma Eleven (fandom), «The Earth ∞»: Matsukaze Tenma (Arion), Shindou Takuto (Riccardo) y Tsurugi Kyousuke (Victor) en GO Galaxy, episodio 43. Condición de niveles: diseño de InaZurvivors.',
   },
   // ---- 1.83 (author): six more, drawn from their scenes (fxCombo183.ts); levels by the rule of Fix 1.51
@@ -239,12 +245,52 @@ export const COMBOS: ComboDef[] = [
   { id: 'cometa-legendario', name: 'Cometa legendario', jp: 'プライムレジェンド', en: 'Prime Legend', element: 'Aire', power: 115,
     needs: [{ player: 'Jude Sharp', level: 3 }, { player: 'Axel Blaze', level: 5 }], cooldownMs: 7500, effect: 'prime', priority: 8,
     source: 'Wiki de Inazuma Eleven (fandom), «Prime Legend»: Kidou (Jude) y Gouenji (Axel); escena youtube yYKkXmp5AzI.' },
+  // author: Impulso del equipo definitivo (Saikyō Eleven Hadō) — Victor, Arion and Fei, each in his Mixi Max form
+  { id: 'equipo-definitivo', name: 'Impulso del equipo definitivo', jp: '最強イレブン波動', en: 'Ultimate Eleven Assault', element: 'Aire', power: 130,
+    needs: [{ player: 'Victor + Okita', level: 3 }, { player: 'Fei + Big', level: 3 }, { player: 'Arion + Arthur', level: 5 }], cooldownMs: 9000, effect: 'equipo-definitivo', priority: 10,
+    source: 'Wiki de Inazuma Eleven (fandom), «Impulso del equipo definitivo»: Arion ayudado por Victor y Fei (Chrono Stones, contra Ragnah); formas Mixi Max indicadas por el autor; escena youtube 636DMnBkpVU (0:12).' },
+  // author: Escena nocturna between any Desmodus and any Wolfram (their Mixi Max forms through COUNTERPARTS)
+  { id: 'escena-nocturna', name: 'Escena nocturna', jp: 'ザ・モンスターズ', en: 'Nocturne', element: 'Aire', power: 125,
+    needs: [{ player: 'Desmodus Drakul', level: 3 }, { player: 'Wolfram Vulpeen', level: 5 }], cooldownMs: 7500, effect: 'escena-nocturna', priority: 8,
+    source: 'Wiki de Inazuma Eleven (fandom), «Escena nocturna»: Wolfram Vulpeen y Desmodus Drakul (Chrono Stones), elemento Aire; escena youtube WIhN69SSTPk (desde 0:03). Cualquier Desmodus con cualquier Wolfram (autor). Potencia: diseño de InaZurvivors.' },
+  // author: the Último recurso family (scenes in youtube J76gfn1Cbxs). The normal one and Σ are alternatives (group): a run
+  // learns only one of them. The Dragón is Petronio's, learnable only once one of the other two is learned
+  { id: 'ultimo-recurso', name: 'Último recurso', jp: 'ラストリゾート', en: 'Last Resort', element: 'Fuego', power: 135,
+    needs: [{ player: 'Nosaka Yuuma', level: 3 }, { player: 'Haizaki Ryouhei', level: 3 }, { player: 'Inamori Asuto', level: 5 }], cooldownMs: 8500, effect: 'ultimo-recurso', priority: 9, group: 'ultimo-recurso',
+    source: 'Wiki de Inazuma Eleven (fandom), «Último recurso» (Orion, elemento Fuego); escena youtube J76gfn1Cbxs (1:00), con Asuto, Nosaka y Haizaki; jugadores indicados por el autor. Potencia: diseño de InaZurvivors.' },
+  { id: 'ultimo-recurso-sigma', name: 'Último recurso Σ', jp: 'ラストリゾート Σ', en: 'Last Resort Σ', element: 'Neutro', power: 165,
+    needs: [{ player: 'Nosaka Yuuma', level: 3 }, { player: 'Haizaki Ryouhei', level: 3 }, { player: 'Ichihoshi Hikaru', level: 3 }, { player: 'Inamori Asuto', level: 5 }], cooldownMs: 10000, effect: 'ultimo-recurso-sigma', priority: 10, group: 'ultimo-recurso',
+    source: 'Wiki de Inazuma Eleven (fandom), «Último recurso: Sigma» (Orion, elemento Neutro); escena youtube J76gfn1Cbxs (1:52); jugadores (Asuto, Nosaka, Haizaki e Hikaru Ichihoshi) indicados por el autor. Potencia: diseño de InaZurvivors.' },
+  { id: 'ultimo-recurso-dragon', name: 'Último recurso: Dragón', jp: 'ラストリゾート D', en: 'Last Resort D', element: 'Neutro', power: 145,
+    needs: [{ player: 'Petronio Patti', level: 5 }], cooldownMs: 9000, effect: 'ultimo-recurso-dragon', priority: 9, requires: ['ultimo-recurso', 'ultimo-recurso-sigma'],
+    source: 'Wiki de Inazuma Eleven (fandom), «Último recurso: Dragón» (Petronio, Orion, elemento Neutro); escena youtube J76gfn1Cbxs (1:31). Indicado por el autor: solo con un Último recurso activo en la partida. Potencia: diseño de InaZurvivors.' },
+  // author: the Blue Lock collab — Nagi and Isagi also have Cometa legendario (the same scene)
+  { id: 'cometa-legendario-bl', name: 'Cometa legendario', jp: 'プライムレジェンド', en: 'Prime Legend', element: 'Aire', power: 115,
+    needs: [{ player: 'Seishiro Nagi', level: 3 }, { player: 'Yoichi Isagi', level: 5 }], cooldownMs: 7500, effect: 'prime', priority: 8,
+    source: 'Colaboración InaZurvivors x BlueLock: Nagi e Isagi con Cometa legendario, indicados por el autor; escena de «Prime Legend», youtube yYKkXmp5AzI.' },
   { id: 'tripegaso', name: 'Tripegaso', jp: 'トライペガサス', en: 'Tri-Pegasus', element: 'Montaña', power: 110,
     needs: [{ player: 'Erik Eagle', level: 3 }, { player: 'Bobby Shearer', level: 3 }, { player: 'Mark Evans', level: 5 }], cooldownMs: 7500, effect: 'tripegaso', priority: 8, group: 'fenix-pegaso',
     source: 'Wiki de Inazuma Eleven (fandom), «Tri-Pegasus»: Ichinose (Erik), Domon (Bobby) y Endou (Mark), episodio 21; escena youtube wKoZ4gJcs9w. Alternativa de El Fénix (autor).' },
   { id: 'gran-lobo', name: 'Gran lobo', jp: 'グランフェンリル', en: 'Gran Fenrir', element: 'Bosque', power: 115,
     needs: [{ player: 'Dylan Keats', level: 3 }, { player: 'Erik Eagle', level: 3 }, { player: 'Mark Krueger', level: 5 }], cooldownMs: 8000, effect: 'granlobo', priority: 8,
     source: 'Wiki de Inazuma Eleven (fandom), «Gran Fenrir»: Ichinose (Erik), Mark Kruger y Dylan; escena youtube DWnf-a6fAlM.' },
+  // ---- 2.0 (author): five more, drawn from their scenes (fxCombo183.ts); levels by the rule of Fix 1.51. The author named the
+  // players and Grito del Edén's element and power; the other elements and powers are InaZurvivors design
+  { id: 'lluvia-oscura', name: 'Lluvia oscura', jp: '', en: '', element: 'Bosque', power: 115,
+    needs: [{ player: 'Sael', level: 3 }, { player: 'Destra', level: 5 }], cooldownMs: 7000, effect: 'lluvia-oscura', priority: 7,
+    source: 'Escena: youtube qg5Xd1z-3I0. Jugadores indicados por el autor (Sael y Destra). Elemento y potencia: diseño de InaZurvivors.' },
+  { id: 'lluvia-azufre', name: 'Lluvia de azufre', jp: '', en: '', element: 'Fuego', power: 120,
+    needs: [{ player: 'Riccardo Di Rigo', level: 3 }, { player: 'Victor Blade', level: 5 }], cooldownMs: 7500, effect: 'lluvia-azufre', priority: 8,
+    source: 'Escena: youtube jNAJtIWA1CE. Jugadores indicados por el autor (Victor Blade y Riccardo Di Rigo). Elemento y potencia: diseño de InaZurvivors.' },
+  { id: 'triple-amenaza', name: 'Triple amenaza', jp: '', en: 'Triple Threat', element: 'Aire', power: 160,
+    needs: [{ player: 'Riccardo Di Rigo', level: 3 }, { player: 'Victor Blade', level: 3 }, { player: 'Arion Sherwind', level: 5 }], cooldownMs: 11000, effect: 'triple-amenaza', priority: 10, group: 'tierra-triple',
+    source: 'Victory Road, «Triple Threat»; escena: youtube K6EoxbBQLFM (desde 0:04). Jugadores indicados por el autor (Arion, Victor y Riccardo); alternativa de La Tierra ∞ (solo se aprende una). Elemento y potencia: diseño de InaZurvivors.' },
+  { id: 'grito-eden', name: 'Grito del Edén', jp: '', en: '', element: 'Bosque', power: 125,
+    needs: [{ player: 'Ryugel Baran', level: 3 }, { player: 'Gandares Baran', level: 5 }], cooldownMs: 7500, effect: 'grito-eden', priority: 8,
+    source: 'Escena: youtube ASic9X6-pII. Jugadores (Ruger, es decir Ryugel, y Gandares), elemento Bosque y potencia 125 indicados por el autor.' },
+  { id: 'pinguino-emperador-3', name: 'Pingüino emperador n.º 3', jp: '皇帝ペンギン3号', en: 'Emperor Penguin No. 3', element: 'Bosque', power: 130,
+    needs: [{ player: 'Caleb Stonewall', level: 3 }, { player: 'David Samford', level: 3 }, { player: 'Jude Sharp', level: 5 }], cooldownMs: 8500, effect: 'pinguino3', priority: 9,
+    source: 'Escena: youtube JXrTNXuHQrU (desde 0:12). Jugadores indicados por el autor (Caleb, David y Jude). Elemento y potencia: diseño de InaZurvivors.' },
 ];
 /**
  * Fix 1.51 (author): other versions of a footballer can stand in for him in every combined technique — his alias in
@@ -260,6 +306,9 @@ export const COUNTERPARTS: Record<string, string[]> = {
   // 1.76: their Miximax fusions also count for Zero Magnum and La Aurora
   'Bai Long': ['Bailong + Zhuge', 'Bailong + Victor', 'Tezcat + Bailong'],
   'Tezcat': ['Arion + Tezcat', 'Tezcat + Bailong'],
+  // author: Escena nocturna works with any Desmodus and any Wolfram
+  'Desmodus Drakul': ['Drakul MM'],
+  'Wolfram Vulpeen': ['Vulpeen MM'],
 };
 /** True when a roster name can play the part of a participant (himself or one of his counterparts). */
 export const playsAs = (name: string | undefined, player: string) => !!name && (name === player || !!COUNTERPARTS[player]?.includes(name));
@@ -353,6 +402,7 @@ export function comboGoals(team: OnPitch[], learned: Iterable<string> = []): Com
   const out: ComboGoal[] = [];
   for (const c of COMBOS_BY_PRIORITY) {
     if (got.has(c.id)) continue;
+    if (c.requires && !c.requires.some((r) => got.has(r))) continue; // the Dragón only once a Último recurso is learned
     const parts = c.needs.map((n): ComboPart => {
       const self = team.find((x) => playsAs(x.entry.name, n.player));
       const m = self ?? team.find((x) => playsAs(x.entry.aura?.name, n.player));
@@ -397,6 +447,9 @@ export function squadCombos(squad: Pick<RosterEntry, 'name' | 'id'>[], auraNames
     const has = (player: string) => [...names].some((nm) => playsAs(nm, player));
     const present = c.needs.filter((n) => has(n.player)).map((n) => n.player);
     const missing = c.needs.filter((n) => !has(n.player)).map((n) => n.player);
+    // the Dragón also needs a Último recurso complete in the squad: it shows as missing until one is
+    const reqs = (c.requires ?? []).map((id) => COMBOS.find((x) => x.id === id)).filter((x): x is ComboDef => !!x);
+    if (reqs.length && !reqs.some((r) => r.needs.every((n) => has(n.player)))) missing.push(reqs[0].name);
     return { combo: c, present, missing, ready: !missing.length, viaAura: present.filter((n) => auraNames.some((a) => playsAs(a, n)) && !squad.some((p) => playsAs(p.name, n))) };
   }).filter((x) => x.present.length > 0);
 }

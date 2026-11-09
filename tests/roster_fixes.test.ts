@@ -29,4 +29,12 @@ describe('roster fixes', () => {
     const m = JSON.parse(fs.readFileSync(file, 'utf-8')) as Manifest;
     expect(applyRosterFixes(m, ROSTER_FIXES)).toEqual([]);
   });
+  it.skipIf(!fs.existsSync(file))('author: Petronio is spelled right and has Fuerza de tiro instead of Último recurso D', () => {
+    const m = JSON.parse(fs.readFileSync(file, 'utf-8')) as Manifest;
+    applyRosterFixes(m, ROSTER_FIXES);
+    const p = m.roster.find((x) => x.id === 101595)!;
+    expect(p.name).toBe('Petronio Patti');
+    expect(p.techniques.map((t) => t.name)).not.toContain('Último recurso D');
+    expect(p.techniques[0]).toMatchObject({ name: 'Fuerza de tiro', type: 'talento' });
+  });
 });

@@ -1608,6 +1608,43 @@ begin
 end $$;
 revoke all on function private.economy_cap(jsonb, jsonb, timestamptz, uuid) from public, anon, authenticated;
 
+-- ===== 20261106000400_coin_cap.sql
+-- 1.86 (author: coins easier to earn): runs, missions and the weekly pass pay double coins, so the economy cap lets coins
+-- grow twice as fast between two writes (16.000 + 16.000 per hour; 120.000 for the first copy of an account). Fichas are
+-- unchanged. Same function as 20261106000300_bug_bounty.sql otherwise.
+
+create or replace function private.economy_cap(p_new jsonb, p_old jsonb, p_since timestamptz, p_uid uuid) returns jsonb
+language plpgsql stable security definer set search_path = '' as $$
+declare
+  hours numeric := greatest(0, extract(epoch from (now() - coalesce(p_since, now()))) / 3600);
+  promo_t numeric := 0; promo_c numeric := 0; bug_t numeric := 0;
+  old_t numeric; old_c numeric; new_t numeric; new_c numeric; max_t numeric; max_c numeric;
+  out jsonb := p_new;
+begin
+  if to_regclass('private.promo_redemptions') is not null then
+    execute 'select coalesce(sum((r.result ->> ''tokens'')::numeric), 0), coalesce(sum((r.result ->> ''coins'')::numeric), 0)
+      from private.promo_redemptions r where r.user_id = $1 and r.created_at > coalesce($2, ''-infinity''::timestamptz)'
+      into promo_t, promo_c using p_uid, p_since;
+  end if;
+  select coalesce(sum(b.tokens), 0) into bug_t from private.bug_rewards b
+    where b.user_id = p_uid and b.claimed_at is not null and b.claimed_at > coalesce(p_since, '-infinity'::timestamptz);
+  promo_t := promo_t + bug_t;
+  new_t := case when jsonb_typeof(p_new -> 'tokens') = 'number' then (p_new ->> 'tokens')::numeric else 0 end;
+  new_c := case when jsonb_typeof(p_new -> 'coins') = 'number' then (p_new ->> 'coins')::numeric else 0 end;
+  if p_old is null then
+    max_t := 5000 + promo_t; max_c := 120000 + promo_c;
+  else
+    old_t := case when jsonb_typeof(p_old -> 'tokens') = 'number' then greatest(0, (p_old ->> 'tokens')::numeric) else 0 end;
+    old_c := case when jsonb_typeof(p_old -> 'coins') = 'number' then greatest(0, (p_old ->> 'coins')::numeric) else 0 end;
+    max_t := old_t + 2000 + 1000 * hours + promo_t;
+    max_c := old_c + 16000 + 16000 * hours + promo_c;
+  end if;
+  if new_t > max_t then out := jsonb_set(out, '{tokens}', to_jsonb(floor(max_t)::bigint)); end if;
+  if new_c > max_c then out := jsonb_set(out, '{coins}', to_jsonb(floor(max_c)::bigint)); end if;
+  return out;
+end $$;
+revoke all on function private.economy_cap(jsonb, jsonb, timestamptz, uuid) from public, anon, authenticated;
+
 -- ===== 20261106000500_bug_replies.sql
 -- 1.88 (author): the bug panel can answer the reporter. A reply (bug_reports.reply, separate from the private
 -- admin_notes) or a status change to «corregido» or «descartado» leaves a notice for the reporter (notice_pending); their
@@ -2812,3 +2849,323 @@ create or replace function public.clan_of(p_usernames text[]) returns table (use
 language sql stable security invoker set search_path = '' as $$ select * from private.clan_of(p_usernames); $$;
 revoke execute on function private.clan_of(text[]), public.clan_of(text[]) from public, anon, authenticated;
 grant execute on function private.clan_of(text[]), public.clan_of(text[]) to anon, authenticated;
+
+-- ===== 20261109000000_champion_of.sql
+-- 2.0 (author: «que en el ranking se vea si es campeón o no»): for each name on the ranking and the captain of its mark,
+-- that footballer's Camino del Campeón level in the player's own save (0 none, 1 CAMPEÓN, 2 CAMPEÓN+, 3 CAMPEÓN++).
+-- Public, like the clan: one small number per row. At most 60 pairs per call.
+create or replace function private.champion_of(p_usernames text[], p_captains integer[])
+returns table (username text, captain_id integer, champion integer)
+language sql stable security definer set search_path = '' as $$
+  select p.username::text, q.cap,
+         least(3, greatest(0, coalesce((s.data -> 'owned' -> (q.cap::text) ->> 'champion')::integer, 0)))
+  from unnest(p_usernames[1:60], p_captains[1:60]) as q(name, cap)
+  join public.profiles p on lower(p.username::text) = lower(q.name)
+  join public.saves s on s.user_id = p.id
+  where q.cap is not null;
+$$;
+create or replace function public.champion_of(p_usernames text[], p_captains integer[])
+returns table (username text, captain_id integer, champion integer)
+language sql stable security invoker set search_path = '' as $$ select * from private.champion_of(p_usernames, p_captains); $$;
+revoke execute on function private.champion_of(text[], integer[]), public.champion_of(text[], integer[]) from public, anon, authenticated;
+grant execute on function private.champion_of(text[], integer[]), public.champion_of(text[], integer[]) to anon, authenticated;
+
+-- ===== 20261109000100_admin_metrics.sql
+-- Métricas (admin): daily activity, peak hours, retention, what people play and how much the social features are used.
+-- Same shape as admin_player_stats: body in `private` behind is_admin(), public invoker wrapper. Days are Madrid days.
+
+create or replace function private.admin_metrics(p_days integer default 30) returns jsonb
+language plpgsql stable security definer set search_path = public as $$
+declare
+  d integer := least(greatest(coalesce(p_days, 30), 7), 90);
+  today date := (now() at time zone 'Europe/Madrid')::date;
+  out jsonb;
+begin
+  if not private.is_admin() then raise exception 'forbidden' using errcode = '42501'; end if;
+  with days as (select generate_series(today - (d - 1), today, interval '1 day')::date as day),
+  runs as (select user_id, (at at time zone 'Europe/Madrid') as t from public.submitted_runs where at > now() - make_interval(days => d + 1)),
+  signups as (select (created_at at time zone 'Europe/Madrid')::date as day from auth.users where created_at > now() - make_interval(days => d + 1)),
+  first_run as (select user_id, min(at) as first_at from public.submitted_runs group by user_id),
+  ret as (
+    select u.id, u.created_at,
+      exists (select 1 from public.submitted_runs r where r.user_id = u.id and r.at >= u.created_at + interval '1 day' and r.at < u.created_at + interval '2 days') as d1,
+      exists (select 1 from public.submitted_runs r where r.user_id = u.id and r.at >= u.created_at + interval '7 days') as d7
+    from auth.users u join first_run f on f.user_id = u.id
+  ),
+  st as (select coalesce((data->'stats'->>'runs')::bigint, 0) as runs, coalesce((data->'stats'->>'wins')::bigint, 0) as wins,
+    coalesce((data->'stats'->>'pulls')::bigint, 0) as pulls from public.saves)
+  select jsonb_build_object(
+    'days', d,
+    'daily', (select jsonb_agg(jsonb_build_object(
+        'day', x.day,
+        'new', (select count(*) from signups s where s.day = x.day),
+        'players', (select count(distinct user_id) from runs r where r.t::date = x.day),
+        'runs', (select count(*) from runs r where r.t::date = x.day)) order by x.day) from days x),
+    'hours', (select jsonb_agg(coalesce((select count(*) from runs r where extract(hour from r.t) = h), 0) order by h) from generate_series(0, 23) h),
+    'online_now', (select count(*) from private.presence where seen_at > now() - interval '2 minutes'),
+    'online_1h', (select count(*) from private.presence where seen_at > now() - interval '1 hour'),
+    'retention', jsonb_build_object(
+      'd1_base', (select count(*) from ret where created_at < now() - interval '2 days'),
+      'd1', (select count(*) from ret where created_at < now() - interval '2 days' and d1),
+      'd7_base', (select count(*) from ret where created_at < now() - interval '8 days'),
+      'd7', (select count(*) from ret where created_at < now() - interval '8 days' and d7)),
+    'totals', jsonb_build_object(
+      'runs', (select coalesce(sum(runs), 0) from st), 'wins', (select coalesce(sum(wins), 0) from st),
+      'pulls', (select coalesce(sum(pulls), 0) from st)),
+    'maps', coalesce((select jsonb_agg(jsonb_build_object('map', map, 'n', n) order by n desc) from
+      (select map, count(*) n from public.scores group by map order by n desc limit 10) m), '[]'::jsonb),
+    'ranks', coalesce((select jsonb_agg(jsonb_build_object('rank', rank, 'n', n) order by n desc) from
+      (select rank, count(*) n from public.scores group by rank) m), '[]'::jsonb),
+    'captains', coalesce((select jsonb_agg(jsonb_build_object('id', captain_id, 'n', n) order by n desc) from
+      (select captain_id, count(*) n from public.scores where captain_id is not null group by captain_id order by n desc limit 10) m), '[]'::jsonb),
+    'social', jsonb_build_object(
+      'friendships', (select count(*) from public.friendships where status = 'aceptada'),
+      'clans', (select count(*) from public.clans),
+      'clan_members', (select count(*) from public.clan_members),
+      'coop_7d', (select count(*) from public.coop_rooms where connected_at > now() - interval '7 days'),
+      'tierlists', (select count(*) from public.tierlists),
+      'bugs_open', (select count(*) from public.bug_reports where status not in ('corregido', 'descartado')),
+      'ideas_open', (select count(*) from public.suggestions where status = 'pendiente'))
+  ) into out;
+  return out;
+end $$;
+alter function private.admin_metrics(integer) set statement_timeout = '8s';
+
+create or replace function public.admin_metrics(p_days integer default 30) returns jsonb
+language sql stable security invoker set search_path = '' as $$ select private.admin_metrics(p_days); $$;
+
+revoke execute on function private.admin_metrics(integer), public.admin_metrics(integer) from public, anon, authenticated;
+grant execute on function private.admin_metrics(integer), public.admin_metrics(integer) to authenticated;
+
+notify pgrst, 'reload schema';
+
+-- ===== 20261110000000_rank_z.sql
+-- (author) Rango Z: a rank above X. It counts the most on the ranking (×7) and opens with the Tuesday update,
+-- 2026-11-10 12:00 Madrid: before that the server refuses Z marks and clan runs. The arena counts too now: points get
+-- ×(1 + 5% per step of the path), from the tier in data/maps.json (same table as MAP_TIER in src/systems/leaderboard.ts).
+-- Boards are recomputed on the fly, so the marks already stored get the arena multiplier at once.
+
+alter table public.scores drop constraint if exists scores_rank_check;
+alter table public.scores add constraint scores_rank_check check (rank in ('C', 'B', 'A', 'S', 'X', 'Z'));
+
+create or replace function private.rank_z_open() returns boolean
+language sql stable set search_path = '' as $$ select now() >= timestamptz '2026-11-10 12:00:00+01'; $$;
+
+create or replace function private.map_mult(p_map text) returns numeric
+language sql immutable set search_path = '' as $$
+  select 1 + (coalesce(case p_map
+    when 'raimon' then 1 when 'ribera' then 2 when 'royal' then 3 when 'nara' then 4 when 'zeus' then 5
+    when 'alpino' then 6 when 'nevada' then 7 when 'claustro' then 8 when 'naniwa' then 9 when 'yokato' then 10
+    when 'marytimes' then 11 when 'fuji' then 12 when 'ehime' then 13 when 'alius' then 14 when 'ruinas' then 15 end, 1) - 1) * 0.05;
+$$;
+
+-- the 3-argument form (rank only) keeps deciding which mark of a board is a player's best (same arena, so the same);
+-- the 4-argument one is what the boards show and sort by
+create or replace function private.score_of(p_rank text, p_time_sec integer, p_damage bigint) returns bigint
+language sql immutable set search_path = '' as $$
+  select round((greatest(p_time_sec, 0) * 10 + sqrt(greatest(p_damage, 0)::numeric) * 2)
+    * case p_rank when 'Z' then 7 when 'X' then 4.8 when 'S' then 3.4 when 'A' then 2.4 when 'B' then 1.6 else 1 end)::bigint;
+$$;
+
+create or replace function private.score_of(p_map text, p_rank text, p_time_sec integer, p_damage bigint) returns bigint
+language sql immutable set search_path = '' as $$
+  select round((greatest(p_time_sec, 0) * 10 + sqrt(greatest(p_damage, 0)::numeric) * 2)
+    * case p_rank when 'Z' then 7 when 'X' then 4.8 when 'S' then 3.4 when 'A' then 2.4 when 'B' then 1.6 else 1 end
+    * private.map_mult(p_map))::bigint;
+$$;
+
+create or replace function private.submit_score(p_run_id uuid, p_map text, p_rank text, p_time_sec integer, p_damage bigint, p_captain_id integer)
+returns text language plpgsql security definer set search_path = public, extensions as $$
+declare uid uuid := private.real_user();
+begin
+  if not exists (select 1 from public.profiles where id = uid) then raise exception 'no_username' using errcode = '42501'; end if;
+  if p_rank not in ('C', 'B', 'A', 'S', 'X', 'Z') or p_map !~ '^[a-z0-9_-]{1,32}$' then raise exception 'invalid_board' using errcode = '22023'; end if;
+  if p_rank = 'Z' and not private.rank_z_open() then raise exception 'rank_locked' using errcode = '22023'; end if;
+  if p_time_sec < 0 or p_time_sec > 4 * 3600 then raise exception 'implausible_time' using errcode = '22023'; end if;
+  if p_damage < 0 or p_damage > (p_time_sec + 1)::bigint * 200000 then raise exception 'implausible_damage' using errcode = '22023'; end if;
+  if exists (select 1 from public.submitted_runs r where r.user_id = uid and r.at > now() - interval '20 seconds') then
+    raise exception 'too_fast' using errcode = '54000';
+  end if;
+  insert into public.submitted_runs (run_id, user_id) values (p_run_id, uid) on conflict do nothing;
+  if not found then return 'duplicate'; end if;
+  insert into public.scores as s (user_id, map, rank, time_sec, damage, captain_id, run_id)
+    values (uid, p_map, p_rank, p_time_sec, p_damage, coalesce(p_captain_id, 0), p_run_id)
+  on conflict (user_id, map, rank) do update
+    set time_sec = excluded.time_sec, damage = excluded.damage, captain_id = excluded.captain_id, run_id = excluded.run_id, created_at = now()
+    where (private.score_of(excluded.rank, excluded.time_sec, excluded.damage), excluded.time_sec, excluded.damage)
+        > (private.score_of(s.rank, s.time_sec, s.damage), s.time_sec, s.damage);
+  return 'ok';
+end $$;
+-- create or replace drops the settings of the function: the lock limit of 20261103000000 goes back on
+alter function private.submit_score(uuid, text, text, integer, bigint, integer) set lock_timeout = '3s';
+
+-- same columns as before (the leaderboard/my_position readers stay): points with the arena, Z on top
+create or replace function private.board(p_map text, p_rank text, p_order text)
+returns table (pos bigint, user_id uuid, username extensions.citext, avatar text, crest text, map text, rank text, time_sec integer, damage bigint, captain_id integer, score bigint)
+language sql stable set search_path = public, extensions as $$
+  with marks as (
+    select s.*, private.score_of(s.map, s.rank, s.time_sec, s.damage) as score, array_position(array['C', 'B', 'A', 'S', 'X', 'Z'], s.rank) as tier,
+      case coalesce(p_order, 'score')
+        when 'time' then s.time_sec::numeric
+        when 'damage' then s.damage::numeric
+        when 'rank' then array_position(array['C', 'B', 'A', 'S', 'X', 'Z'], s.rank)::numeric * 1e15 + private.score_of(s.map, s.rank, s.time_sec, s.damage)
+        else private.score_of(s.map, s.rank, s.time_sec, s.damage)::numeric end as k
+    from public.scores s
+    where (p_map is null or s.map = p_map) and (p_rank is null or s.rank = p_rank)
+  ), best as (
+    select distinct on (m.user_id) m.* from marks m order by m.user_id, m.k desc, m.score desc, m.created_at
+  ), ranked as (
+    select row_number() over (order by b.k desc, b.score desc, b.created_at) as pos, b.* from best b
+  )
+  select r.pos, r.user_id, p.username, p.avatar, p.crest, r.map, r.rank, r.time_sec, r.damage, r.captain_id, r.score
+  from ranked r join public.profiles p on p.id = r.user_id
+  order by r.pos;
+$$;
+
+-- Juegos del Clan: Z is worth the most points too, and only once it is open. (author) And 1 match a day per player
+-- (it was 3), from now on: clan_submit_run below.
+create or replace function private.clan_points(p_kills int, p_time int, p_damage bigint, p_rank text, p_victory boolean) returns int
+language sql immutable set search_path = '' as $$
+  select floor((least(greatest(p_kills, 0), 4000) * 3 + least(greatest(p_time, 0), 900) * 2 + floor(sqrt(least(greatest(p_damage, 0), 20000000)))
+    + case when p_victory then 300 else 0 end)
+    * case p_rank when 'Z' then 2.8 when 'X' then 2.2 when 'S' then 1.8 when 'A' then 1.5 when 'B' then 1.25 else 1 end)::int;
+$$;
+
+create or replace function private.clan_submit_run(p_run_id text, p_kills int, p_time_sec int, p_damage bigint, p_rank text, p_victory boolean) returns jsonb
+language plpgsql security definer set search_path = public as $$
+declare uid uuid := private.real_user(); cid bigint; d date := private.clan_day(); n int; pts int;
+begin
+  select clan_id into cid from public.clan_members where user_id = uid;
+  if cid is null then raise exception 'not_in_clan' using errcode = '42501'; end if;
+  if p_rank not in ('C', 'B', 'A', 'S', 'X', 'Z') or (p_rank = 'Z' and not private.rank_z_open()) then raise exception 'invalid_rank' using errcode = '22023'; end if;
+  perform pg_advisory_xact_lock(hashtext('clan_run'), hashtext(uid::text));
+  if exists (select 1 from public.clan_runs where user_id = uid and run_id = p_run_id) then raise exception 'duplicate' using errcode = '23505'; end if;
+  select count(*) into n from public.clan_runs where user_id = uid and day = d;
+  if n >= 1 then raise exception 'clan_daily_limit' using errcode = '54000'; end if;
+  pts := private.clan_points(p_kills, p_time_sec, p_damage, p_rank, p_victory);
+  insert into public.clan_runs (clan_id, user_id, run_id, day, week, points, kills, victory)
+    values (cid, uid, p_run_id, d, private.clan_week(), pts, least(greatest(p_kills, 0), 4000), coalesce(p_victory, false));
+  return jsonb_build_object('points', pts, 'left', greatest(0, 1 - (n + 1)),
+    'weekPoints', (select coalesce(sum(points), 0) from public.clan_runs where clan_id = cid and week = private.clan_week()));
+end $$;
+
+-- the profile card lists the best marks from the highest rank down: Z first
+create or replace function private.public_profile(p_username text) returns jsonb
+language sql stable security definer set search_path = public as $$
+  select jsonb_build_object(
+    'username', p.username::text,
+    'avatar', p.avatar,
+    'crest', coalesce(nullif(s.data->>'crest', ''), p.crest),
+    'joined', p.created_at::date,
+    'favorite', coalesce(s.data->>'favoriteTeam', ''),
+    'icon', coalesce(s.data->'profile'->'icon', 'null'::jsonb),
+    'kit', coalesce(s.data->>'kit', ''),
+    'captain', coalesce(s.data->'captainId', 'null'::jsonb),
+    'banner', case when coalesce(s.data->'pennants'->>'equipped', '') ~ '^[a-z0-9-]{1,32}$' then s.data->'pennants'->>'equipped' end,
+    'frame', case when coalesce(s.data->'pennants'->>'frame', '') ~ '^[a-z0-9-]{1,32}$' then s.data->'pennants'->>'frame' end,
+    'stats', jsonb_build_object(
+      'runs', coalesce((s.data->'stats'->>'runs')::int, 0),
+      'wins', coalesce((s.data->'stats'->>'wins')::int, 0),
+      'kills', coalesce((s.data->'stats'->>'kills')::bigint, 0),
+      'bestTimeSec', coalesce((s.data->'stats'->>'bestTimeSec')::int, 0),
+      'bestEndless', coalesce((s.data->'stats'->>'bestEndless')::int, 0),
+      'pulls', coalesce((s.data->'stats'->>'pulls')::int, 0)),
+    'owned', (select count(*) from jsonb_object_keys(coalesce(s.data->'owned', '{}'::jsonb))),
+    'heroes', (select count(*) from jsonb_each(coalesce(s.data->'owned', '{}'::jsonb)) o where (o.value->>'hero')::boolean),
+    'collection', coalesce((select jsonb_object_agg(o.key, jsonb_strip_nulls(jsonb_build_object(
+        'stars', o.value->'stars', 'hero', o.value->'hero', 'heroStars', o.value->'heroStars',
+        'ascMitico', o.value->'ascMitico', 'ascRarity', o.value->'ascRarity', 'train', o.value->'train')))
+      from jsonb_each(case when jsonb_typeof(s.data->'owned') = 'object' then s.data->'owned' else '{}'::jsonb end) o
+      where o.key ~ '^[0-9]{1,9}$' and jsonb_typeof(o.value) = 'object'), '{}'::jsonb),
+    'achievements', coalesce((select jsonb_agg(c.v) from (
+        select distinct c.v from jsonb_array_elements_text(case when jsonb_typeof(s.data->'missions'->'claimed') = 'array' then s.data->'missions'->'claimed' else '[]'::jsonb end) c(v)
+        where c.v ~ '^[a-z0-9_-]{1,48}$' limit 500) c), '[]'::jsonb),
+    'squad', coalesce((select jsonb_agg(jsonb_build_object(
+        'id', sq.id::int,
+        'stars', coalesce((s.data->'owned'->sq.id->>'stars')::int, 0),
+        'hero', coalesce((s.data->'owned'->sq.id->>'hero')::boolean, false),
+        'heroStars', coalesce((s.data->'owned'->sq.id->>'heroStars')::int, 0),
+        'ascRarity', s.data->'owned'->sq.id->>'ascRarity',
+        'asc', coalesce((s.data->'owned'->sq.id->>'ascMitico')::boolean, false),
+        'aura', s.data->'auras'->>sq.id) order by sq.n)
+      from jsonb_array_elements_text(coalesce(s.data->'squad', '[]'::jsonb)) with ordinality as sq(id, n)
+      where sq.n <= 7 and sq.id ~ '^[0-9]{1,9}$'), '[]'::jsonb),
+    'marks', coalesce((select jsonb_agg(jsonb_build_object('map', m.map, 'rank', m.rank, 'time_sec', m.time_sec, 'damage', m.damage, 'captain_id', m.captain_id))
+      from (select * from public.scores sc where sc.user_id = p.id
+            order by array_position(array['Z', 'X', 'S', 'A', 'B', 'C'], sc.rank), sc.time_sec desc limit 6) m), '[]'::jsonb)
+  )
+  from public.profiles p
+  left join public.saves s on s.user_id = p.id
+  where p.username = trim(p_username)::extensions.citext
+$$;
+alter function private.public_profile(text) set statement_timeout = '5s';
+
+notify pgrst, 'reload schema';
+
+-- ===== 20261110000100_clan_missions.sql
+-- (author) Juegos del Clan at 1 match a day per player (20261110000000_rank_z.sql): the weekly missions get goals a
+-- clan can reach that way (made for a clan of 3-5 who play most days: ~12 matches; a clan match averaged 3,300 rivals,
+-- 25,000 points and 94% wins on 2026-11-08) and pay more, and there
+-- are two new ones: play on 5 different days, and 3 different members win. Texts in src/systems/clans.ts.
+create or replace function private.clan_missions_def() returns table (id text, kind text, goal bigint, coins int, tokens int) language sql immutable set search_path = '' as $$
+  select * from (values
+    ('partidas', 'runs', 12::bigint, 8000, 40),
+    ('victorias', 'wins', 10::bigint, 12000, 50),
+    ('rivales', 'kills', 30000::bigint, 12000, 60),
+    ('puntos', 'points', 250000::bigint, 20000, 80),
+    ('todos', 'everyone', 1::bigint, 15000, 80),
+    ('constancia', 'days', 5::bigint, 10000, 60),
+    ('ganadores', 'winners', 3::bigint, 12000, 60)
+  ) v (id, kind, goal, coins, tokens);
+$$;
+
+-- the same as in 20261108000000_clans.sql, with the progress of the two new kinds (days played, members who won)
+create or replace function private.my_clan() returns jsonb language plpgsql stable security definer set search_path = public as $$
+declare uid uuid := auth.uid(); cid bigint; w date := private.clan_week(); d date := private.clan_day(); out jsonb;
+begin
+  select clan_id into cid from public.clan_members where user_id = uid;
+  if cid is null then return null; end if;
+  select jsonb_build_object(
+    'id', c.id, 'name', c.name::text, 'crest', c.crest, 'kit', c.kit, 'members', c.members, 'created_at', c.created_at,
+    'me', (select role from public.clan_members where user_id = uid), 'mode', c.mode,
+    'requests', case when (select role from public.clan_members where user_id = uid) in ('lider', 'oficial')
+      then (select count(*) from public.clan_requests q where q.clan_id = c.id) else 0 end,
+    'runsToday', (select count(*) from public.clan_runs r where r.user_id = uid and r.day = d),
+    'weekPoints', coalesce((select sum(points) from public.clan_runs r where r.clan_id = c.id and r.week = w), 0),
+    'pos', (select x.pos from (select r.clan_id, row_number() over (order by sum(r.points) desc, max(r.created_at)) as pos
+                                from public.clan_runs r where r.week = w group by r.clan_id) x where x.clan_id = c.id),
+    'clans', (select count(distinct r.clan_id) from public.clan_runs r where r.week = w),
+    'roster', (select coalesce(jsonb_agg(jsonb_build_object('username', p.username::text, 'avatar', p.avatar, 'role', m.role,
+                  'today', (select count(*) from public.clan_runs r where r.user_id = m.user_id and r.day = d),
+                  'week', coalesce((select sum(points) from public.clan_runs r where r.user_id = m.user_id and r.clan_id = c.id and r.week = w), 0))
+                order by m.role = 'lider' desc, m.role = 'oficial' desc, m.joined_at), '[]'::jsonb)
+               from public.clan_members m join public.profiles p on p.id = m.user_id where m.clan_id = c.id),
+    'missions', (select jsonb_agg(jsonb_build_object('id', md.id, 'goal', md.goal, 'coins', md.coins, 'tokens', md.tokens,
+                  'progress', case md.kind
+                    when 'runs' then (select count(*) from public.clan_runs r where r.clan_id = c.id and r.week = w)
+                    when 'wins' then (select count(*) from public.clan_runs r where r.clan_id = c.id and r.week = w and r.victory)
+                    when 'kills' then (select coalesce(sum(kills), 0) from public.clan_runs r where r.clan_id = c.id and r.week = w)
+                    when 'points' then (select coalesce(sum(points), 0) from public.clan_runs r where r.clan_id = c.id and r.week = w)
+                    when 'days' then (select count(distinct r.day) from public.clan_runs r where r.clan_id = c.id and r.week = w)
+                    when 'winners' then (select count(distinct r.user_id) from public.clan_runs r where r.clan_id = c.id and r.week = w and r.victory)
+                    else (case when c.members >= 3 and not exists (select 1 from public.clan_members m2 where m2.clan_id = c.id
+                            and not exists (select 1 from public.clan_runs r where r.user_id = m2.user_id and r.clan_id = c.id and r.week = w)) then 1 else 0 end) end,
+                  'claimed', exists (select 1 from public.clan_rewards cr where cr.user_id = uid and cr.kind = 'mision' and cr.ref = w::text || ':' || md.id)))
+               from private.clan_missions_def() md))
+  into out from public.clans c where c.id = cid;
+  return out;
+end $$;
+
+notify pgrst, 'reload schema';
+
+-- ===== 20261110000200_new_arenas.sql
+-- 2.1 (author: «añade 3 mapas nuevos»): three arenas after the ruins, steps 16-18 of the path. The ranking's arena
+-- multiplier learns them (+5% per step: ×1.75, ×1.8, ×1.85); same table as MAP_TIER in src/systems/leaderboard.ts.
+create or replace function private.map_mult(p_map text) returns numeric
+language sql immutable set search_path = '' as $$
+  select 1 + (coalesce(case p_map
+    when 'raimon' then 1 when 'ribera' then 2 when 'royal' then 3 when 'nara' then 4 when 'zeus' then 5
+    when 'alpino' then 6 when 'nevada' then 7 when 'claustro' then 8 when 'naniwa' then 9 when 'yokato' then 10
+    when 'marytimes' then 11 when 'fuji' then 12 when 'ehime' then 13 when 'alius' then 14 when 'ruinas' then 15
+    when 'barrio' then 16 when 'plazanieve' then 17 when 'torre' then 18 end, 1) - 1) * 0.05;
+$$;

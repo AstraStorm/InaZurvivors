@@ -1,0 +1,94 @@
+/* 2.0 (author: «muy épico»): the logo stamp, the one-time launch intro (App.launch20) and the menu slide. */
+
+/* the logo stamp: «2.0» in gold and violet, electric */
+.ib-logo4 h1 .ib-pre.ib-v2 { font-size: clamp(11px, 2.3vw, 24px); padding: .25em .5em; color: #fff; -webkit-text-fill-color: #fff;
+  background: linear-gradient(180deg, #ffe680, #ffb020 45%, #c45aff 100%); box-shadow: 0 3px 0 #4a1a7a, 0 0 0 2px #fff, 0 0 18px #ffd23aaa, 0 0 34px #c45aff88;
+  text-shadow: 0 2px 0 #4a1a7a, 0 0 8px #fff; animation: ibPre .38s 1.25s cubic-bezier(.3,1.6,.5,1) both, ibV2 2.2s 1.7s ease-in-out infinite; }
+.title-screen .ib-logo4.idle h1 .ib-pre.ib-v2 { animation: ibV2 2.2s ease-in-out infinite; }
+@keyframes ibV2 { 50% { box-shadow: 0 3px 0 #4a1a7a, 0 0 0 2px #fff, 0 0 28px #ffe680, 0 0 54px #c45aff; } }
+
+/* ---- the launch intro */
+.launch20 { position: fixed; inset: 0; z-index: 9600; overflow: hidden; display: grid; place-items: center; background: #02010a; color: #fff;
+  font-family: 'Press Start 2P', monospace; } /* opaque from the first frame: the menu never shows through */
+.launch20.out { animation: l2Out .45s ease-in forwards; }
+@keyframes l2In { from { opacity: 0; } }
+@keyframes l2Out { to { opacity: 0; transform: scale(1.06); } }
+.l2-rays { position: absolute; left: 50%; top: 42%; width: 240vmax; height: 240vmax; margin: -120vmax; opacity: 0;
+  background: repeating-conic-gradient(from 0deg, #c45aff33 0deg 6deg, transparent 6deg 14deg, #ffd23a22 14deg 18deg, transparent 18deg 26deg);
+  animation: l2Fade .8s ease-out .5s forwards, l2Spin 40s linear infinite; }
+.l2-glow { position: absolute; left: 50%; top: 42%; width: 90vmin; height: 90vmin; margin: -45vmin; border-radius: 50%; opacity: 0;
+  background: radial-gradient(circle, #ffd23a55, #c45aff33 40%, transparent 70%); animation: l2Fade .6s ease-out .9s forwards, l2Breathe 3s ease-in-out 1.5s infinite; }
+@keyframes l2Spin { to { transform: rotate(360deg); } }
+@keyframes l2Fade { to { opacity: 1; } }
+@keyframes l2Breathe { 50% { transform: scale(1.12); } }
+/* the lightning flash and the shockwave */
+.l2-flash { position: absolute; inset: 0; background: #fff; opacity: 0; animation: l2Flash .7s ease-out .15s; pointer-events: none; z-index: 5; }
+@keyframes l2Flash { 0% { opacity: 0; } 10% { opacity: 1; } 22% { opacity: .2; } 30% { opacity: .9; } 100% { opacity: 0; } }
+.l2-bolt { position: absolute; left: 50%; top: 0; width: 18vmin; height: 60vh; margin-left: -9vmin; opacity: 0; z-index: 4;
+  background: linear-gradient(#fff, #ffe680 60%, #ffb020); clip-path: polygon(40% 0, 70% 0, 52% 38%, 78% 38%, 30% 100%, 44% 52%, 20% 52%);
+  filter: drop-shadow(0 0 18px #ffe680); animation: l2Bolt .5s ease-out .15s; }
+@keyframes l2Bolt { 0% { opacity: 0; transform: scaleY(.3); transform-origin: top; } 25% { opacity: 1; transform: scaleY(1); } 100% { opacity: 0; } }
+.l2-shock { position: absolute; left: 50%; top: 42%; width: 20px; height: 20px; margin: -10px; border-radius: 50%; border: 6px solid #ffe680; opacity: 0;
+  box-shadow: 0 0 30px #ffd23a, inset 0 0 20px #c45aff; animation: l2Shock 1s ease-out .35s; }
+@keyframes l2Shock { 0% { opacity: 1; transform: scale(1); } 100% { opacity: 0; transform: scale(80); border-width: 1px; } }
+/* (author) the spirits orbit the «2.0»: App.launch20 moves them every frame on an oval sized by the number — the ones in
+   front are bigger and go over it, the ones behind are smaller, dimmer and under it; the pointer pushes them away */
+.l2-ring { position: absolute; inset: 0; pointer-events: none; }
+.l2-ring span { position: absolute; left: 0; top: 0; width: clamp(38px, 7vmin, 72px); height: clamp(38px, 7vmin, 72px); margin: calc(clamp(38px, 7vmin, 72px) / -2);
+  border-radius: 12px; overflow: hidden; box-shadow: 0 0 0 2px #fff, 0 0 16px var(--kc); background: #0a0f2e; opacity: 0; will-change: transform, opacity;
+  animation: l2Spirit .5s ease-out calc(1.2s + var(--d)) backwards, l2Float 3s ease-in-out calc(2s + var(--d)) infinite; }
+.l2-ring span img, .l2-ring span .eg-art-img { width: 100%; height: 100%; object-fit: cover; image-rendering: pixelated; }
+@keyframes l2Spirit { from { filter: brightness(4); } to { filter: brightness(1); } }
+.l2-v { z-index: 2; } /* between the spirits behind (1) and in front (3) */
+@keyframes l2Float { 50% { box-shadow: 0 0 0 2px #fff, 0 0 30px var(--kc); } }
+/* the title */
+.l2-main { position: relative; z-index: 3; display: flex; flex-direction: column; align-items: center; gap: 1.6vh; text-align: center; margin-top: -6vh; }
+.l2-logo { font-family: Impact, 'Arial Black', sans-serif; font-style: italic; font-weight: 900; font-size: clamp(26px, 6vw, 64px); letter-spacing: 2px; line-height: 1;
+  background: linear-gradient(180deg, #fff, #8ae8ff 55%, #2a7ad8); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 4px 0 #0a1a4a) drop-shadow(0 0 14px #5ad8ff88); animation: l2Slam .45s cubic-bezier(.2, 1.5, .4, 1) .4s backwards; }
+@keyframes l2Slam { from { opacity: 0; transform: scale(3) rotate(-4deg); } }
+.l2-v { position: relative; font-family: Impact, 'Arial Black', sans-serif; font-style: italic; font-weight: 900; font-size: clamp(90px, 24vw, 260px); line-height: .9;
+  background: linear-gradient(180deg, #fffbe0 0%, #ffe680 30%, #ffb020 55%, #c45aff 100%); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 8px 0 #3a0a6a) drop-shadow(0 0 30px #ffd23aaa) drop-shadow(0 0 60px #c45aff99);
+  animation: l2Drop .7s cubic-bezier(.2, 1.7, .4, 1) .95s backwards, l2Volt 1.4s ease-in-out 2s infinite; }
+.l2-v::after { content: ''; position: absolute; inset: 0; background: linear-gradient(105deg, transparent 40%, #ffffffcc 50%, transparent 60%); background-size: 250% 100%;
+  -webkit-mask: linear-gradient(#000 0 0); mix-blend-mode: overlay; animation: l2Sweep 2.4s ease-in-out 1.8s infinite; pointer-events: none; }
+@keyframes l2Drop { 0% { opacity: 0; transform: translateY(-80vh) scale(1.6); } 70% { transform: translateY(2vh) scale(.95); } 100% { opacity: 1; } }
+@keyframes l2Volt { 50% { filter: drop-shadow(0 8px 0 #3a0a6a) drop-shadow(0 0 46px #ffe680) drop-shadow(0 0 90px #c45aff); } }
+@keyframes l2Sweep { from { background-position: 150% 0; } to { background-position: -100% 0; } }
+.l2-sub { font-size: clamp(10px, 2.2vw, 20px); letter-spacing: 4px; color: #ffe680; text-shadow: 0 0 12px #ffb020, 0 2px 0 #3a0a6a;
+  animation: l2Wipe .6s ease-out 1.55s backwards; }
+@keyframes l2Wipe { from { opacity: 0; clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
+/* the novelties, one by one */
+.l2-feats { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; max-width: min(94vw, 760px); margin-top: 1vh; }
+.l2-feats b { font-weight: normal; font-size: clamp(7px, 1.2vw, 10px); padding: 7px 10px; border-radius: 999px; background: #0d0a2acc; border: 1px solid #c45aff;
+  box-shadow: 0 0 12px #c45aff55; opacity: 0; animation: l2Chip .35s cubic-bezier(.2, 1.6, .4, 1) calc(2.1s + var(--d)) forwards; }
+@keyframes l2Chip { from { opacity: 0; transform: translateY(12px) scale(.8); } to { opacity: 1; transform: none; } }
+.l2-btns { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; margin-top: 1.5vh; opacity: 0; animation: l2Fade .4s ease-out 3.4s forwards; }
+.l2-skip { position: absolute; right: 14px; bottom: 12px; z-index: 6; font-size: 8px; color: #9a9ac8; background: none; border: 0; cursor: pointer; }
+
+/* ---- the menu slide of the 2.0 */
+.m5-v2 { font-family: Impact, 'Arial Black', sans-serif; font-style: italic; font-weight: 900; font-size: 64px; line-height: 1;
+  background: linear-gradient(180deg, #fffbe0, #ffe680 35%, #ffb020 60%, #c45aff); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 4px 0 #3a0a6a) drop-shadow(0 0 16px #ffd23a99); }
+
+.l2-vw { position: relative; isolation: isolate; }
+
+/* (author: «el 2.0 se ve cortado») italic text painted with background-clip: give the slant room on both sides, or its
+   last letter is cut at the box's edge */
+.l2-v { padding: 0 .16em; margin: 0 -.16em; }
+.l2-logo { padding: 0 .14em; }
+.m5-v2 { padding: 0 .16em .06em; }
+
+/* a little air between the oval of spirits and the subtitle */
+.l2-sub { margin-top: 2.2vh; }
+
+/* the button that plays the 2.0 intro again, on top of its news */
+.nb-replay { margin: 0 0 12px; text-align: center; }
+
+/* (author) today's featured machine: better odds — its tab says so, and its header chip */
+.banner-tab.hot { position: relative; box-shadow: 0 0 0 2px #ffd23a, 0 0 16px #ffd23a88; }
+.bt-hot { position: absolute; top: 3px; right: 4px; z-index: 2; padding: 2px 6px; border-radius: 6px; font: 7px/1.2 'Press Start 2P', monospace; font-style: normal;
+  color: #2a1400; background: linear-gradient(180deg, #fff3a0, #ffb020); box-shadow: 0 2px 0 #7a4a00; animation: btHot 1.6s ease-in-out infinite; }
+@keyframes btHot { 50% { transform: scale(1.1); } }
+.bh-chips .hot { color: #2a1400; background: linear-gradient(180deg, #fff3a0, #ffb020); border-color: #ffb020; }

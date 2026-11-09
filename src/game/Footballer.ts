@@ -12,8 +12,8 @@ export const bodyKey = (kind: 'field' | 'gk') => `body:${kind}`;
 
 export class Footballer {
   readonly container: Phaser.GameObjects.Container;
-  private body: Phaser.GameObjects.Sprite;
-  private head: Phaser.GameObjects.Sprite;
+  readonly body: Phaser.GameObjects.Sprite;
+  readonly head: Phaser.GameObjects.Sprite;
   private anims: Map<number, RigAnimation>;
   private animTime = 0;
   private currentAnim = -1;

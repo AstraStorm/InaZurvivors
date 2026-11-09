@@ -22,12 +22,12 @@ it.skipIf(!fs.existsSync(file))('banner odds: every pool sums to 100 and a rarer
     rows.push(`${name} (${pool.length}, ${bannerPrice(pool, b).cost} fichas): ` + present.map((r) => `${r} ${odds[r].toFixed(3)}% total / ${per[r].toFixed(4)}% c.u. (${pool.filter((p: { rarity: string }) => p.rarity === r).length})`).join(' · '));
   }
   // Fix 1.31: each character in exactly one saga machine, and every machine has players
-  const total = BANNER_ORDER.filter((b) => b !== 'equipo' && b !== 'evento').reduce((a, b) => a + bannerPool(m.roster, b).length, 0);
+  const total = BANNER_ORDER.filter((b) => b !== 'equipo' && b !== 'evento' && b !== 'bluelock').reduce((a, b) => a + bannerPool(m.roster, b).length, 0);
   expect(total).toBe(m.roster.filter((p: { exclusive?: string }) => !p.exclusive).length); // special footballers only in their banner
-  expect(new Set(m.roster.filter((p: { exclusive?: string }) => !p.exclusive).map((p: never) => machineOf(p))).size).toBe(BANNER_ORDER.length - 2);
+  expect(new Set(m.roster.filter((p: { exclusive?: string }) => !p.exclusive).map((p: never) => machineOf(p))).size).toBe(BANNER_ORDER.length - 3);
   // the special banner: every exclusive footballer (pre-2.0: except the road's, Jaden Evans), and below them only Común, Raro and Épico
   const ev = bannerPool(m.roster, 'evento');
-  expect(ev.filter((p) => p.exclusive).length).toBe(m.roster.filter((p: { exclusive?: string }) => p.exclusive && p.exclusive !== 'road').length);
+  expect(ev.filter((p) => p.exclusive).length).toBe(m.roster.filter((p: { exclusive?: string }) => p.exclusive && p.exclusive !== 'road' && p.exclusive !== 'bluelock').length);
   expect(ev.some((p) => p.exclusive === 'road')).toBe(false);
   expect(ev.every((p) => p.exclusive || ['comun', 'raro', 'epico'].includes(p.rarity))).toBe(true);
   for (const r of ['comun', 'raro', 'epico']) { const n = ev.filter((p) => !p.exclusive && p.rarity === r).length; expect(n).toBeGreaterThanOrEqual(15); expect(n).toBeLessThanOrEqual(20); }

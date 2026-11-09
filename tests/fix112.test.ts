@@ -41,7 +41,7 @@ describe('combined techniques (Fix 1.12)', async () => {
       expect(c.source.length).toBeGreaterThan(20);
       expect(c.needs.length).toBeGreaterThanOrEqual(2);
     }
-    expect(new Set(COMBOS.map((c) => c.effect)).size).toBe(new Set(COMBOS.map((c) => c.jp)).size); // no two techniques share an animation (the collab trios reuse the one of their technique)
+    expect(new Set(COMBOS.map((c) => c.effect)).size).toBe(new Set(COMBOS.map((c) => c.jp || c.id)).size); // 2.0: some have no known original name // no two techniques share an animation (the collab trios reuse the one of their technique)
     expect(COMBOS_BY_PRIORITY[0].priority).toBe(Math.max(...COMBOS.map((c) => c.priority)));
   });
   it('only with every participant on the pitch at the required level (owning them is not enough)', () => {

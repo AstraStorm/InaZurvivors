@@ -6,9 +6,9 @@
  */
 import { CHANGELOG } from './changelog';
 
-export const PUBLIC_VERSION = '1.94-pre2.0';
+export const PUBLIC_VERSION = '2.0';
 export const BUILD = CHANGELOG[0].version;
-export const RELEASED = false;
+export const RELEASED = true; // (author) 2.0: the «pre» phase is over
 export const VERSION_LABEL = RELEASED ? `v${PUBLIC_VERSION}` : `v${PUBLIC_VERSION} · pre-lanzamiento`;
 export const TIKTOK_URL = 'https://www.tiktok.com/@aastra.__';
 /** Simple Icons "TikTok" glyph (CC0), used only as a link to the author's profile. */
@@ -28,6 +28,31 @@ export interface PublicRelease {
 
 /** Public news, newest first. Starts at v1.0: the internal versions before it are not part of the public history. */
 export const PUBLIC_RELEASES: PublicRelease[] = [
+  {
+    version: '2.0', date: '2026-11-10',
+    title: 'InaZurvivors 2.0 — ¡Espíritus Guerreros!',
+    tagline: 'Despierta el espíritu que llevan dentro',
+    intro: 'La actualización más grande del juego. Llegan los Espíritus Guerreros con sus definitivas, el Rango Z, seis arenas nuevas, técnicas combinadas de leyenda y mucho más. Se acabó la fase «pre»: esto ya es la versión 2.0.',
+    features: [
+      { icon: '👻', title: 'Espíritus Guerreros', text: '19 espíritus de los juegos GO (Grandius, Pegaso, Lancelot, Atenea, Demogorgo, Zodíaco, Evera, Surtur, Eris...) que viven dentro de algunos futbolistas. Despiértalos con Fichas EG y súbelos del nivel I al Ω: cada nivel sube un % la estadística de su técnica y refuerza su pasiva, que ayuda a todo el equipo. Los futbolistas que llevan uno tienen su insignia.' },
+      { icon: '⚡', title: 'Definitivas con la R', text: 'El espíritu del futbolista más a la izquierda de tu equipo es el activo: su definitiva se lanza con R, con Y/Triángulo en el mando o con su botón, cada 30 s (la mejora «Espíritu despierto» la baja hasta 15 s). Cada una tiene su propia escena, dibujada desde el juego original. Los demás espíritus del equipo dan su pasiva.' },
+      { icon: '🎴', title: 'Cómo conseguir Fichas EG', text: '1 por cada mapa superado en rango X y 3 en rango Z; 3 con el código EGu3rr3r0 (una vez); hasta 6 por semana en la tienda del clan; y en los premios semanales del clan: 12 el primero, 8 el top 3, 5 el top 8 y 2 el resto.' },
+      { icon: '🔥', title: 'Cada espíritu, con su afinidad', text: 'El color, el marco y el sonido de cada espíritu van por su elemento: fuego, aire, montaña o bosque. El marco crece con el nivel (adornos nuevos, brillo, doble borde en Ω) y al despertarlo suena una fanfarria distinta para cada elemento.' },
+      { icon: '🏔', title: 'Rango Z', text: 'Más allá del X, desde el martes 10 a las 12:00: los rivales más duros del juego, recompensas ×3,2, 60 fichas la primera victoria en cada arena, 3 Fichas EG por mapa y ×7 de puntos en el ranking.' },
+      { icon: '🗺', title: 'Seis arenas nuevas', text: 'Puerto de Ehime, Academia Alius, Instituto en ruinas, el Parque de la calle comercial, la Plaza nevada del Alpino y la Torre de hierro al atardecer, cada una con su equipo y su jefe.' },
+      { icon: '🔗', title: 'Técnicas combinadas nuevas', text: 'Escena nocturna (cualquier Desmodus con cualquier Wolfram), la familia del Último recurso (el normal o el Σ con Hikaru, y el Dragón de Petronio encima), Impulso del equipo definitivo, Lluvia oscura, Lluvia de azufre, Triple amenaza, Grito del Edén y Pingüino emperador n.º 3, todas con su escena.' },
+      { icon: '🎬', title: 'Técnicas redibujadas', text: 'Golpe cataclismo, Ceniza negra, Impulso efímero y las de Victor Blade, dibujadas de nuevo fotograma a fotograma desde sus escenas.' },
+      { icon: '🏯', title: 'Clanes', text: 'Una partida al día por jugador en la Colina de los Cerezos, misiones semanales nuevas (como jugar 5 días distintos), más premios y Fichas EG en la tienda y en los premios de cada lunes.', online: true },
+      { icon: '🤫', title: 'Una nueva colaboración', text: 'Cuando termine el Banner de agradecimiento llega una colaboración nueva. ¿Quiénes serán? El menú te dirá cuántos días faltan.' },
+      { icon: '🤝', title: 'Cooperativo, amigos, entrenadores y Road to FF', text: 'Todo lo de la fase previa ya es parte de la 2.0: juega con un amigo, añade amigos, ficha entrenadores que dan ventajas desde el banquillo y gana a Jaden Evans en Road to Fútbol Frontier.', online: true },
+      { icon: '✨', title: 'Y más', text: 'Pantalla de carga con tu equipo corriendo, interfaz que se adapta a la pantalla, cartas de espíritu en 3D que giran y se voltean, iconos de elemento originales y muchos arreglos.' },
+    ],
+    start: [
+      'Abre ESPÍRITUS GUERREROS desde el menú y mira qué futbolistas de tu colección llevan uno.',
+      'Consigue tus primeras Fichas EG: canjea EGu3rr3r0 en CÓDIGOS y supera mapas en rango X.',
+      'Pon al futbolista con el espíritu más a la izquierda de tu equipo y pulsa R en la partida.',
+    ],
+  },
   {
     version: '1.94-pre2.0', date: '2026-11-06',
     title: 'InaZurvivors 1.94-pre2.0 — Ráfagas de daño y altares nuevos',

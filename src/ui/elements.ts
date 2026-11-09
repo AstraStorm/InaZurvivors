@@ -13,8 +13,14 @@ const SHAPES: Record<string, { bg: string; rim: string; path: string }> = {
 
 export const ELEMENT_NAMES = Object.keys(SHAPES);
 
+/** author: the original pixel-art icons of the elements (manifest.elements); the emblems above stay as the fallback */
+let ART: Record<string, string> = {};
+export function setElementArt(art: Record<string, string> | undefined) { ART = art ?? {}; }
+
 /** Round emblem of an element; a neutral grey disc when the technique or player has none. */
 export function elementIcon(element: string | null | undefined, size = 16) {
+  const art = ART[String(element)];
+  if (art) return `<img class="el-ic el-px" src="${art}" width="${size}" height="${size}" alt="${element}" title="${element}" style="image-rendering:pixelated">`;
   const s = SHAPES[String(element)] ?? { bg: '#8a9bbd', rim: '#3a4660', path: '<circle cx="12" cy="12" r="3" fill="#fff"/>' };
   return `<svg class="el-ic" width="${size}" height="${size}" viewBox="0 0 24 24" role="img" aria-label="${element ?? 'Sin elemento'}"><circle cx="12" cy="12" r="11" fill="${s.bg}" stroke="${s.rim}" stroke-width="2"/>${s.path}</svg>`;
 }

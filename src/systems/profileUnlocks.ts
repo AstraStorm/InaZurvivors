@@ -29,7 +29,7 @@ export function coachRequirement(save: SaveData, roster: RosterEntry[], index: n
     case 4: return { ok: ownedIn(save, roster, /claustro/i) >= 3, label: 'Ten 3 futbolistas del Claustro Sagrado' };
     case 5: return { ok: ownedIn(save, roster, /fauxshore/i) >= 3, label: 'Ten 3 futbolistas del Fauxshore' };
     case 6: return { ok: ownedIn(save, roster, /mary/i) >= 3, label: 'Ten 3 futbolistas del Mary Times' };
-    default: return { ok: anyRank('A') || anyRank('S') || anyRank('X'), label: 'Gana una arena en rango A o superior' };
+    default: return { ok: anyRank('A') || anyRank('S') || anyRank('X') || anyRank('Z'), label: 'Gana una arena en rango A o superior' };
   }
 }
 

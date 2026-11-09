@@ -44,6 +44,35 @@ import { blackAshCharge, blackAshTrail, illusionBall, signatureOf, stormZone } f
 import { COMBO189, combo189Charge, combo189Shot, solo189Charge, solo189Of, solo189Shot, type Combo189 } from './fxCombo183';
 import { COMBO183, combo183Charge, combo183Shot, combo183Wind, isMeteorShower, judgementHammer, killerFieldsBlast, maouHand, meteorShower, solo183Charge, solo183Of, solo183Shot, type Combo183 } from './fxCombo183';
 import { natureArea, natureCharge, natureOf, natureShot, setNatureLowPower } from './fxNature';
+import { blackAxeStrike, AXE_MS, CAST_DEPTH, skyBolt, BOLT_MS, ultBanner } from './fxKeshin';
+import { whiteBreath, BREATH_MS } from './fxGuiverno';
+import { solarFlare, SUN_MS } from './fxApolo';
+import { samuraiSlash, SLASH_MS } from './fxMusashi';
+import { CLAW_MS, royalClaw } from './fxJmet';
+import { flameClaws, FLAME_MS } from './fxHuargo';
+import { demonBolt, DEMON_MS } from './fxGlenr';
+import { insidiousThorns, THORN_MS } from './fxEris';
+import { iceLance, ICE_MS } from './fxChione';
+import { harmony, HARMONY_MS } from './fxMagister';
+import { colorBurst, COLOR_MS } from './fxPapelin';
+import { scarletPrison, PRISON_MS, prisonSize } from './fxZodiaco';
+import { demonClear, demonClearSize, DEMOGORGO_MS } from './fxDemogorgo';
+import { athenaStrike, ATHENA_MS } from './fxAtenea';
+import { mortalSmash, SMASH_MS, smashSize } from './fxEvera';
+import { shellbitBurst, SHELLBIT_CHARGE } from './fxShellbit';
+import { greatHand, greatSize, GREAT_MS } from './fxGrandius';
+import { inferno, INFERNO_MS } from './fxSurtur';
+import { lancelotThrust, THRUST_MS } from './fxLancelot';
+import { victorCharge, victorOf, victorShot } from './fxVictor';
+import { isSetsuna, setsunaCharge, setsunaShot } from './fxSetsuna';
+import { ultimateElevenCharge, ultimateElevenShot } from './fxUltimateEleven';
+import { nocturneCharge, nocturneShot, NOCTURNE_WIND } from './fxNocturne';
+import { cataclysmCharge, cataclysmShot, isCataclysm } from './fxCataclysm';
+import { LAST_RESORT_WIND, lastResortCharge, lastResortShot, type LastResort } from './fxLastResort';
+import { applyKeshin, KESHIN_BY_ID, ULT_FIRST_SHARE, ultTech, ultTechLevel } from '../systems/keshin';
+
+/** 2.0: the slot index of a member's warrior-spirit ultimate (after the five technique slots); fired with R / the HUD button */
+const ULT = 5;
 import { animeCharge, animeOf, animeShot, auroraVeil, cometTex, earthBurst, earthCharge, furyFist, breezeStep, chaosBreakCharge, chaosBreakShot, fireBlizzardCharge, fireBlizzardShot, godWindGust } from './fxAnime';
 import { fuegoOf, supremoCharge, supremoShot, totalCharge, totalWave } from './fxFuego';
 import { adaptedPassive, CAP_ELEMENTAL, CAP_LAST_STAND, emptyFx, TALENTS, talentScale, type TalentFx } from '../systems/talents';
@@ -56,7 +85,7 @@ export interface HudMember { id: number; techs: (HudTech | null)[]; /** v1.5 */ 
 export interface HudState {
   hp: number; maxHp: number; xp: number; xpNext: number; level: number; timeSec: number; durationSec: number;
   kills: number; team: HudMember[]; boss: { name: string; hp: number; maxHp: number; title: string; phase: number; rival: boolean } | null;
-  rerolls: number; formation: FormationId; formationChangedAt: number; hurtAt: number; now: number;
+  rerolls: number; formation: FormationId; formationChangedAt: number; hurtAt: number; healAt?: number; now: number;
   buffs: { id: BuffId; left: number; total: number }[];
   runCoins: number; runTokens: number; shield: number;
   resonance: { element: string; bonus: number }[];
@@ -68,6 +97,8 @@ export interface HudState {
   upgraded: { playerId: number; slot: number; at: number } | null;
   /** special slot of the combined techniques (0 = ready) */
   combos: { name: string; level: number; cd: number }[];
+  /** 2.0: the active warrior spirit's ultimate (R / Y / its button; at most one); cd 0 = ready */
+  ults?: { playerId: number; spirit: string; tech: string; cd: number; left: number }[];
   /** v1.7: combined techniques still to learn with the team on the pitch, and what each participant needs */
   comboGoals: { id: string; name: string; complete: boolean; ready: boolean; parts: { player: string; tech?: string; anyTech?: boolean; bestTech?: string; need: number; have: number; memberId: number | null; viaAura: boolean }[] }[];
   /** v1.7: Revivir charges left, and the most a run can hold */
@@ -90,6 +121,9 @@ export interface ArenaHooks {
   pause(): void;
   /** boss beaten for the first time: the player picks finishing now or endless survival */
   bossDown(): Promise<'end' | 'continue'>;
+  /** author: the loading screen — the share of the run's files loaded (0..1), and the first frame drawn */
+  loading?(progress: number): void;
+  ready?(): void;
   markers?(m: MarkerState): void;
   /** pre-2.0 (IDEA-45F61B95): the co-op partner is choosing his level-up card (null: he is not) */
   coopPicking?(name: string | null): void;
@@ -97,6 +131,8 @@ export interface ArenaHooks {
   event?(r: { ok: boolean; title: string; detail: string }): void;
   /** Fix 1.12: a combined technique was just learned: participants' portraits and its name */
   combo?(c: { name: string; ids: number[] }): void;
+  /** 2.0: a signing that brings a warrior spirit; `active`: it is the team's active one (its ultimate on R) */
+  egJoin?(e: { playerId: number; active: boolean }): void;
   /** 1.82 (author: the boss had to feel dangerous): the alarm a moment before the boss comes, then its entrance card */
   bossWarn?(): void;
   bossIntro?(b: { name: string; title: string; again: boolean }): void;
@@ -149,6 +185,8 @@ interface Member {
   f: Footballer; state: TeamMemberState; entry: RosterEntry; damageMult: number;
   cds: number[]; maxCd: number[]; styles: FxStyle[]; trajs: Trajectory[]; recipes: Recipe[];
   slot: number; windup: { i: number; until: number } | null;
+  /** 2.0: his warrior spirit's ultimate (slot ULT), fired by the player */
+  ult: { tech: Technique; lv: number } | null;
   dash: { fromX: number; fromY: number; toX: number; toY: number; t: number; dur: number; hits: Set<Enemy>; chain: Set<Enemy>; dmg: number; style: FxStyle; left: number } | null;
   vx: number; vy: number; settled: boolean;
   /** v1.65: distance to its formation slot; a new dribble only starts back in formation, so nobody sticks to a boss */
@@ -237,6 +275,10 @@ export class ArenaScene extends Phaser.Scene {
   private formation: FormationId = 'equilibrada';
   private formationChangedAt = -10;
   private hurtAt = -10;
+  /** 2.0: last heal (HUD flash) and the regeneration gathered since its last number */
+  private healAt = -10;
+  private regenShown = 0;
+  private regenAt = 0;
   /** shared i-frames: a crowd touching the squad at once costs one hit, not ten */
   private invulnUntil = 0;
   private hitsTaken: Record<string, number> = {};
@@ -328,7 +370,7 @@ export class ArenaScene extends Phaser.Scene {
     this.hp = this.maxHp = 100; this.xp = 0; this.level = 1; this.kills = 0; this.runTime = 0; this.spawnAcc = 0;
     this.flowAcc = 0; this.fadeAcc = 0; this.minibossesSpawned = 0; this.minibossesKilled = 0; this.boss = null;
     this.bossSpawned = false; this.bossWarned = false; this.ended = false; this.rerolls = 2 + data.perks.extraRerolls; this.levelingUp = false;
-    this.formation = data.formation; this.formationChangedAt = -10; this.hurtAt = -10; this.heading = 0; this.capVx = 0; this.capVy = 0; this.invulnUntil = 0; this.hitsTaken = {}; this.lastHit = null; this.reviveCharges = 0; this.hitSrc = { by: '', attack: '' };
+    this.formation = data.formation; this.formationChangedAt = -10; this.hurtAt = -10; this.healAt = -10; this.regenShown = 0; this.regenAt = 0; this.heading = 0; this.capVx = 0; this.capVy = 0; this.invulnUntil = 0; this.hitsTaken = {}; this.lastHit = null; this.reviveCharges = 0; this.hitSrc = { by: '', attack: '' };
     this.rng = new Phaser.Math.RandomDataGenerator([String(data.seed ?? Date.now())]);
     this.mods = baseMods(); this.taken = {}; this.buffs = new Map(); this.bonusCoins = 0; this.lastUpgrade = null; this.techUses = {}; this.auraTechUses = 0; this.auraCombos = 0; this.guardBlocks = 0;
     this.padHeld = {}; this.xpCombo = 0; this.xpComboUntil = 0; this.techById = {};
@@ -341,6 +383,7 @@ export class ArenaScene extends Phaser.Scene {
 
   preload() {
     const { manifest: m, map, unlocked, team } = this.cfg;
+    this.load.on('progress', (p: number) => this.cfg.hooks.loading?.(p));
     const sheet = (key: string, s: { texture: string; frameW: number; frameH: number }) => {
       if (!this.textures.exists(key)) this.load.spritesheet(key, s.texture, { frameWidth: s.frameW, frameHeight: s.frameH });
     };
@@ -369,9 +412,11 @@ export class ArenaScene extends Phaser.Scene {
 
   create() {
     const { map, settings } = this.cfg;
+    this.game.events.once(Phaser.Core.Events.POST_RENDER, () => this.cfg.hooks.ready?.()); // the loading screen goes once the pitch is drawn
     this.arena = new Arena(this, map, settings.quality);
     this.arena.build();
     this.fx = new Fx(this, { ...settings }); // a copy: adaptive quality must not change the saved settings
+    this.fx.combo.onRank = (r) => this.comboUltCharge(r); // 2.0: bursts charge the ultimate a little
     setLowPower(false); setNatureLowPower(false); this.lowFps = 0; this.synergySeen.clear();
     this.xp = Math.floor(this.xpNext() * this.cfg.perks.startXpFrac); // «Ventaja inicial»
     this.cameras.main.setBounds(0, 0, this.arena.widthPx, this.arena.heightPx).setZoom(this.zoomFor()).setBackgroundColor(map.ambience);
@@ -401,6 +446,7 @@ export class ArenaScene extends Phaser.Scene {
     kb.on('keydown-TWO', fresh('equilibrada'));
     kb.on('keydown-THREE', fresh('defensiva'));
     kb.on('keydown-E', () => this.acceptAltar());
+    kb.on('keydown-R', () => this.requestUlt()); // 2.0: the warrior spirits' ultimates
     this.events.on('resume', () => { this.input.keyboard?.resetKeys(); });
     // pre-2.0: nothing outside the camera is drawn (cull.ts); the simulation is untouched
     this.events.on('postupdate', () => { this.cullStats = cullOffscreen(this); });
@@ -446,8 +492,18 @@ export class ArenaScene extends Phaser.Scene {
       cds: perSlot((k) => 700 + this.members.length * 230 + k * 600), maxCd: perSlot(() => 1),
       styles: perSlot((k) => fxStyle(entry.techniques[state.slots[k] ?? -1] ?? first)), trajs: perSlot((k) => trajectory(entry.techniques[state.slots[k] ?? -1] ?? first)),
       recipes: perSlot((k) => recipeFor(entry.techniques[state.slots[k] ?? -1] ?? first, this.fxRarity(entry))),
-      slot: this.members.length - 1, windup: null, dash: null, vx: 0, vy: 0, settled: false, slotDist: 0, guardUntil: 0, guardLock: 0, hpAdd: 0,
+      slot: this.members.length - 1, windup: null, ult: null, dash: null, vx: 0, vy: 0, settled: false, slotDist: 0, guardUntil: 0, guardLock: 0, hpAdd: 0,
     };
+    // 2.0 (author): one active spirit, the leftmost on the team (the first to join); the others keep only their passive.
+    // Its ultimate rests in slot ULT, beyond the five normal ones, at the spirit's level (never chosen or levelled in a run)
+    if (entry.keshin && !this.members.some((o) => o.ult)) {
+      const ut = ultTech(entry.keshin);
+      if (ut) {
+        m.ult = { tech: ut, lv: ultTechLevel(entry.keshin.level) };
+        m.cds[ULT] = this.ultCdMs() * ULT_FIRST_SHARE; m.maxCd[ULT] = this.ultCdMs();
+        m.styles[ULT] = fxStyle(ut); m.trajs[ULT] = trajectory(ut); m.recipes[ULT] = recipeFor(ut, this.fxRarity(entry));
+      }
+    }
     this.members.push(m);
     const add = Math.round((this.members.length === 1 ? 160 : 25) * sb.hp * this.cfg.perks.hpMult * statHealth(entry)); // Fix 1.13: teammates add 25 (was 40)
     m.hpAdd = add;
@@ -529,6 +585,9 @@ export class ArenaScene extends Phaser.Scene {
   private talents(): TalentFx {
     if (this.fxAt > this.runTime - 0.5 && this.fxAt <= this.runTime && this.fxCache) return this.fxCache;
     const f = emptyFx();
+    // (author) the footballers on the pitch and their Auras count, each by their own gender
+    const people = this.members.flatMap((m) => [m.entry.gender, m.entry.aura ? this.cfg.manifest.roster.find((p) => p.id === m.entry.aura!.id)?.gender : undefined]);
+    const genders = { male: people.filter((g) => g === 'M').length, female: people.filter((g) => g === 'F').length };
     for (const m of this.members) {
       // Fix 1.13: a talent works without taking an active slot (it used to need one, so most did nothing); in a slot it
       // also grows with the technique level of the run
@@ -539,6 +598,7 @@ export class ArenaScene extends Phaser.Scene {
       }
       for (const t of m.entry.techniques) if (t.type === 'talento' && !slotted.has(t.id)) TALENTS[t.id]?.apply(f, talentScale(1));
       adaptedPassive(m.entry)?.apply(f);
+      applyKeshin(f, m.entry.keshin, genders); // 2.0: the warrior spirit's passive, for the whole team (some count boys or girls)
     }
     this.fxCache = f; this.fxAt = this.runTime;
     return f;
@@ -572,11 +632,12 @@ export class ArenaScene extends Phaser.Scene {
   }
 
   private activeTech(m: Member, slot: number): Technique | null {
+    if (slot === ULT) return m.ult?.tech ?? null;
     const idx = m.state.slots[slot];
     return idx === null || idx === undefined ? null : m.entry.techniques[idx] ?? null;
   }
 
-  private techLevel(m: Member, slot: number) { return m.state.levels[m.state.slots[slot] ?? -1] ?? 1; }
+  private techLevel(m: Member, slot: number) { return slot === ULT ? m.ult?.lv ?? 1 : m.state.levels[m.state.slots[slot] ?? -1] ?? 1; }
 
   private buffOn(id: BuffId) { return (this.buffs.get(id)?.until ?? 0) > this.runTime; }
 
@@ -599,6 +660,9 @@ export class ArenaScene extends Phaser.Scene {
     if (t.type === 'parada' && m.entry.rarity === 'leyenda') { s.damage = Math.round(s.damage * LEGEND_SAVE_DAMAGE); s.heal *= LEGEND_SAVE_HEAL; } // 1.76
     s.cooldownMs = Math.round(s.cooldownMs * capCooldown(this.mods.cooldown * this.cfg.perks.cooldownMult * (1 - fx.cooldown) * statCooldown(m.entry)) * (this.buffOn('recarga') ? 1 - (this.cfg.perks.cooldownBuff ?? 0.4) : 1) * FORMATIONS[this.formation].cooldownMult);
     s.radius = Math.round(s.radius * capArea(this.mods.area * this.cfg.perks.areaMult * (this.buffOn('amplio') ? 1.2 : 1)));
+    // 2.0 (author: «son ultis, han de ser más poderosas en lo que abarcan»): the warrior spirit's ultimate, twice the area and
+    // the damage, two more projectiles, through everything
+    if (i === ULT) { s.radius *= 2; s.damage *= 2; s.count += 2; s.pierce = 99; s.knockback *= 1.6; }
     return s;
   }
 
@@ -641,17 +705,23 @@ export class ArenaScene extends Phaser.Scene {
     const regen = capRegen(this.mods.regen + this.cfg.perks.regen + this.talents().regen + (still ? this.talents().idleRegen : 0));
     if (this.talents().revive && !this.reviveUsed && this.hp > 0 && this.hp < this.maxHp * 0.2) {
       this.reviveUsed = true;
-      this.hp = Math.min(this.maxHp, this.hp + this.maxHp * this.talents().revive); // more with the talent's level (talents.ts)
+      this.healBy(this.maxHp * this.talents().revive); // more with the talent's level (talents.ts)
       this.fx.ring(this.members[0].f.x, this.members[0].f.y - 10, 60, 0x5ee05a, 500, 3);
       this.banner('¡Resurgir!', '#8fffa0');
       sfx('evolve');
     }
-    if (regen && !this.down) this.hp = Math.min(this.maxHp, this.hp + this.maxHp * regen * dt / 1000);
+    if (regen && !this.down) { // 2.0: the regeneration is shown too, gathered into one number a second
+      const before = this.hp;
+      this.hp = Math.min(this.maxHp, this.hp + this.maxHp * regen * dt / 1000);
+      this.regenShown += this.hp - before;
+      if (this.runTime - this.regenAt >= 1.2 && this.regenShown >= 1) { this.regenAt = this.runTime; const c = this.members[0].f; this.fx.healFx(c.x, c.y - 10, this.regenShown); this.healAt = this.runTime; this.regenShown = 0; }
+    }
     this.fadeAcc += dt;
     if (this.fadeAcc > 150) {
       this.fadeAcc = 0;
       this.arena.fadePropsNear(this.members.map((m) => ({ x: m.f.x, y: m.f.y })));
     }
+    this.drawUltRing();
     this.markerAcc += dt;
     if (this.markerAcc > 120) { this.markerAcc = 0; this.pushMarkers(); }
     this.hudAcc += dt;
@@ -779,7 +849,7 @@ export class ArenaScene extends Phaser.Scene {
     });
   }
 
-  /** Shoulder buttons cycle formations during play. */
+  /** Shoulder buttons cycle formations during play; Y / Triangle fires an ultimate (2.0). */
   private padButtons() {
     const p = firstPad();
     if (!p) return;
@@ -788,6 +858,9 @@ export class ArenaScene extends Phaser.Scene {
       if (down && !this.padHeld[i]) this.setFormation(FORMATION_ORDER[(FORMATION_ORDER.indexOf(this.formation) + step) % 3]);
       this.padHeld[i] = down;
     }
+    const y = !!p.buttons[3]?.pressed; // 2.0: Y / Triangle fires an ultimate, as R does
+    if (y && !this.padHeld[3]) this.requestUlt();
+    this.padHeld[3] = y;
   }
 
   private nearestEnemy(x: number, y: number, range: number): Enemy | null {
@@ -805,6 +878,7 @@ export class ArenaScene extends Phaser.Scene {
   private runTechniques(dt: number) {
     for (const m of this.members) {
       const ox = m.f.x, oy = m.f.y - 10;
+      if (m.ult && m.cds[ULT] > 0) m.cds[ULT] -= dt;
       if (m.windup) {
         if (this.runTime >= m.windup.until) {
           const i = m.windup.i;
@@ -813,329 +887,1073 @@ export class ArenaScene extends Phaser.Scene {
         }
         continue;
       }
-      m.state.slots.forEach((_, i) => {
-        const t = this.activeTech(m, i);
-        if (!t) return;
-        if (t.type === 'talento') {
-          m.cds[i] -= dt;
-          if (m.cds[i] <= 0) {
-            m.cds[i] = 5000;
-            m.maxCd[i] = 5000;
-            this.fx.burst(m.styles[i], ox, oy, 4 + this.techLevel(m, i), 25, true);
-          }
-          return;
-        }
-        m.cds[i] -= dt;
-        if (m.cds[i] > 0) return;
-        const s = this.stats(m, i);
-        const lv = this.techLevel(m, i);
-        const style = m.styles[i];
-        const [c1, c2] = STYLE_COLORS[style];
-        // Fix 1.11: counted only when the technique really fires (not on a retry with no rival in reach)
-        const used = () => {
-          this.techById[t.id] = (this.techById[t.id] ?? 0) + 1;
-          const elementKey = t.element ?? 'neutro';
-          this.techUses[elementKey] = (this.techUses[elementKey] ?? 0) + 1;
-          if (t.aura !== undefined) this.auraTechUses++;
-        };
-        if (/colmillo de pantera/i.test(t.name)) {
-          // signature move, deliberately strong: lunges at the closest rival and bites everything in a wide area
-          const target = this.nearestEnemy(ox, oy, 150 + lv * 6);
-          if (!target) { m.cds[i] = 150; return; }
-          const bx = target.pos.x, by = target.pos.y - 10;
-          const r = 46 + lv * 5;
-          const dmg = Math.max(s.damage, (t.power ?? 80) * 0.9) * 3 * (1 + 0.15 * (lv - 1));
-          m.f.hop(this, 6, 200);
-          this.fx.fangs(bx, by, r, lv);
-          sfx('whoosh');
-          this.time.delayedCall(230, () => {
-            sfx('boom');
-            for (const e of this.enemies) {
-              const d = Math.hypot(e.pos.x - bx, e.pos.y - 10 - by);
-              if (d < r + e.radius) { this.hit(e, dmg, (e.pos.x - bx) / (d || 1) * 90, (e.pos.y - by) / (d || 1) * 90, 'fuego', true); e.slowUntil = this.runTime + 2; }
-            }
-          });
-          if (t.type === 'parada') this.hp = Math.min(this.maxHp, this.hp + Math.round(this.maxHp * s.heal));
-          used();
-          m.cds[i] = Math.max(1600, s.cooldownMs * 0.6);
-          m.maxCd[i] = m.cds[i];
-          return;
-        }
-        if (/^tormenta de fuego$/i.test(t.name)) {
-          // Fix 1.22: Tormenta de fuego (Bakunetsu Storm) with its own animation: the fiery Majin, the spin, the volley. Same
-          // damage and cooldown as any shot of its level (its numbers come from techStats); the blast hits around the target
-          const target = this.nearestEnemy(ox, oy, 240 * this.cfg.perks.rangeMult);
-          if (!target) { m.cds[i] = 150; return; }
-          const size = 26 + lv * 2, r = Math.max(36, s.radius);
-          const charge = 560;
-          fireStormCharge(this, ox, oy, size, charge);
-          sfx('whoosh');
-          m.f.hop(this, 14, charge * 0.6);
-          this.time.delayedCall(charge, () => {
-            if (this.sys.isActive() === false) return;
-            const bx = target.pos.x, by = target.pos.y - 10;
-            sfx('whoosh');
-            fireStormShot(this, m.f.x, m.f.y - 16, bx, by, size, 340, () => {
-              sfx('boom');
-              this.fx.shake(0.005, 180);
-              for (const e of this.enemies) {
-                const d = Math.hypot(e.pos.x - bx, e.pos.y - 10 - by);
-                if (d < r + e.radius) this.hit(e, s.damage, (e.pos.x - bx) / (d || 1) * 100, (e.pos.y - by) / (d || 1) * 100, 'fuego', true);
-              }
-            });
-          });
-          used();
-          m.cds[i] = s.cooldownMs;
-          m.maxCd[i] = m.cds[i];
-          return;
-        }
-        if (/tiro supermasivo/i.test(t.name)) {
-          // signature move: charge in a black and red vortex, then a huge orb that tears the pitch and blows up on arrival
-          const target = this.nearestEnemy(ox, oy, 260 * this.cfg.perks.rangeMult);
-          if (!target) { m.cds[i] = 150; return; }
-          const size = 34 + lv * 2.5, r = 58 + lv * 5, dmg = s.damage * 2.2;
-          const charge = 620;
-          chaosMeteorCharge(this, ox, oy, size, charge);
-          sfx('whoosh');
-          m.f.hop(this, 8, charge * 0.5);
-          this.time.delayedCall(charge, () => {
-            if (this.sys.isActive() === false) return;
-            const bx = target.pos.x, by = target.pos.y - 10;
-            const sx = m.f.x, sy = m.f.y - size * 1.25;
-            sfx('whoosh');
-            chaosMeteorShot(this, sx, sy, bx, by, size, 300, () => {
-              sfx('boom');
-              this.fx.shake(0.006, 220);
-              for (const e of this.enemies) {
-                const d = Math.hypot(e.pos.x - bx, e.pos.y - 10 - by);
-                if (d < r + e.radius) this.hit(e, dmg, (e.pos.x - bx) / (d || 1) * 120, (e.pos.y - by) / (d || 1) * 120, 'sombra', true);
-              }
-            });
-          });
-          used();
-          m.cds[i] = Math.max(3200, s.cooldownMs * 1.5);
-          m.maxCd[i] = m.cds[i];
-          return;
-        }
-        if (t.type === 'tiro') {
-          const target = this.nearestEnemy(ox, oy, 240 * this.cfg.perks.rangeMult);
-          if (!target) { m.cds[i] = 150; return; }
-          // anticipation + charge come from the technique's recipe
-          const recipe = m.recipes[i];
-          m.windup = { i, until: this.runTime + recipe.windupSec };
-          m.f.hop(this, 5 + lv * 0.6, recipe.windupSec * 1000);
-          charge(this.fx, recipe, ox, oy, lv);
-          if (signatureOf(t.name) === 'ceniza') blackAshCharge(this, ox, oy, lv, recipe.windupSec * 1000);
-          const nat = natureOf(t.name); // Fix 1.31: penguins, flowers, sharks... drawn after the wiki
-          if (nat) natureCharge(this, nat, ox, oy, lv, recipe.windupSec * 1000);
-          const anime = animeOf(t.name); // v1.4: techniques redrawn from their anime scenes
-          if (anime) animeCharge(this, anime, ox, oy, lv, recipe.windupSec * 1000);
-          const mv = movieOf(t.name); // 1.76: six more shots redrawn from their scenes (fxMovie.ts)
-          if (mv) movieCharge(this, mv, ox, oy, lv, recipe.windupSec * 1000);
-          const s183 = solo183Of(t.name); // 1.83: Disparo sagrado, Tornado dragón (fxCombo183.ts)
-          if (s183) solo183Charge(this, s183, ox, oy, lv, recipe.windupSec * 1000);
-          const s189 = solo189Of(t.name); // 1.88: Remate del tigre, Fénix, Fénix oscuro
-          if (s189) solo189Charge(this, s189, ox, oy, lv, recipe.windupSec * 1000);
-          if (mv === 'vibora') this.darkClone(m, recipe.windupSec * 1000); // Víbora de Orión: her dark clone kicks with her
-          const fuego = fuegoOf(t.name); // Axel Blaze Encapuchado: Fuego supremo / Fuego total (fxFuego.ts)
-          if (fuego === 'supremo') supremoCharge(this, ox, oy, lv, recipe.windupSec * 1000);
-          else if (fuego === 'total') totalCharge(this, ox, oy, lv, recipe.windupSec * 1000);
-          if (recipe.id === 'dragon') dragon(this, 'rise', ox, oy, c1, c2, lv, recipe.windupSec * 1000 + 160, ox, oy, recipe.tier >= 3);
-        } else if (t.type === 'regate') {
-          if (!canStartGuardedMove(this.runTime, m.guardLock)) { m.cds[i] = 120; return; }
-          if (m === this.members[0]) {
-            // captain: elemental whirl (the captain is never moved automatically)
-            const r = s.radius + 6;
-            m.guardUntil = this.runTime + 0.26;
-            m.guardLock = m.guardUntil + GUARD_LOCKOUT_SEC;
-            this.fx.ring(ox, oy + 6, r, c1, 260, 2 + Math.floor(lv / 2));
-            const sig = signatureOf(t.name), dr = dribbleOf(t.name); // 1.76: Espada real, El ojo del huracán, Hora celestial (fxMovie.ts)
-            const near0 = dr ? this.nearestEnemy(ox, oy, 160) : null;
-            if (isMeteorShower(t.name)) { const near = this.nearestEnemy(ox, oy, 160); meteorShower(this, ox, oy, near ? near.pos.x : ox + 50, near ? near.pos.y - 10 : oy, lv); } // 1.83
-            if (isCorrienteNegra(t.name)) { const near = this.nearestEnemy(ox, oy, 160); corrienteNegra(this, ox, oy, near ? near.pos.x : ox + 50, near ? near.pos.y - 10 : oy, lv); } // pre-2.0 (fxJaden.ts)
-            if (dr) {
-              movieDribble(this, dr, ox, oy, near0 ? near0.pos.x : ox + 40, near0 ? near0.pos.y - 10 : oy, lv, 420);
-              if (dr === 'hora' || dr === 'atenea') for (const e of this.enemies) if (Math.hypot(e.pos.x - ox, e.pos.y - oy) < 90) e.slowUntil = this.runTime + 1.2; // time stops / the hymn charms them
-            } else if (sig === 'espejismo') illusionBall(this, ox, oy, lv);
-            else if (sig === 'huracan') stormZone(this, ox, oy, r + 10, lv);
-            else if (animeOf(t.name) === 'brisa') { const near = this.nearestEnemy(ox, oy, 160), ba = near ? Math.atan2(near.pos.y - 10 - oy, near.pos.x - ox) : 0; breezeStep(this, ox - Math.cos(ba) * 30, oy - Math.sin(ba) * 30, ox + Math.cos(ba) * 40, oy + Math.sin(ba) * 40, lv); }
-            else if (/drag[oó]n/i.test(t.name)) dragon(this, /ascend/i.test(t.name) ? 'rise' : 'coil', ox, oy, c1, c2, lv, 520);
-            else elementBurst(this, style, ox, oy, r, 300, c1);
-            for (let k = 0; k < 6 + lv * 2; k++) {
-              const a = (k / (6 + lv * 2)) * Math.PI * 2;
-              this.fx.burst(style, ox + Math.cos(a) * r, oy + 6 + Math.sin(a) * r * 0.6, 1, 20, k % 2 === 0);
-            }
-            const hurtR = dr === 'hora' ? Math.max(r, 90) : r; // 1.91: Hora celestial hurts the whole area it stops
-            for (const e of this.enemies) {
-              const d = Math.hypot(e.pos.x - ox, e.pos.y - 10 - oy);
-              if (d < hurtR + e.radius) this.hit(e, s.damage, (e.pos.x - ox) / (d || 1) * 60, (e.pos.y - oy) / (d || 1) * 60, style);
-            }
-            sfx('whoosh');
-          } else {
-            // v1.65 (author: melee players stayed on a tough boss until it died): back to the formation first
-            if (m.slotDist > 36) { m.cds[i] = 150; return; }
-            const target = this.nearestEnemy(ox, oy, 120);
-            if (!target) { m.cds[i] = 200; return; }
-            const ang = Math.atan2(target.pos.y - 10 - oy, target.pos.x - ox);
-            const reach = Math.min(110, Math.hypot(target.pos.x - ox, target.pos.y - oy) + 24);
-            m.settled = false;
-            m.guardUntil = Infinity; // released when the movement phase ends
-            if (/drag[oó]n/i.test(t.name)) dragon(this, 'strike', m.f.x, m.f.y - 10, c1, c2, lv, 300, m.f.x + Math.cos(ang) * reach, m.f.y - 10 + Math.sin(ang) * reach);
-            if (signatureOf(t.name) === 'espejismo') illusionBall(this, m.f.x, m.f.y, lv, 420);
-            if (animeOf(t.name) === 'brisa') breezeStep(this, m.f.x, m.f.y, m.f.x + Math.cos(ang) * reach, m.f.y + Math.sin(ang) * reach, lv, 300);
-            const dr = dribbleOf(t.name); // 1.76 (fxMovie.ts)
-            if (dr) movieDribble(this, dr, m.f.x, m.f.y, m.f.x + Math.cos(ang) * reach, m.f.y + Math.sin(ang) * reach, lv, 420);
-            if (isCorrienteNegra(t.name)) corrienteNegra(this, m.f.x, m.f.y, m.f.x + Math.cos(ang) * reach, m.f.y - 6 + Math.sin(ang) * reach, lv); // pre-2.0
-            if (isMeteorShower(t.name)) meteorShower(this, m.f.x, m.f.y, m.f.x + Math.cos(ang) * reach, m.f.y - 10 + Math.sin(ang) * reach, lv); // 1.83
-            if (dr === 'hora' || dr === 'atenea') for (const e of this.enemies) if (Math.hypot(e.pos.x - m.f.x, e.pos.y - m.f.y) < 90) e.slowUntil = this.runTime + 1.2;
-            if (!dr && signatureOf(t.name) === 'huracan') stormZone(this, m.f.x + Math.cos(ang) * reach * 0.5, m.f.y + Math.sin(ang) * reach * 0.5, 34, lv, 520);
-            m.dash = { fromX: m.f.x, fromY: m.f.y, toX: m.f.x + Math.cos(ang) * reach, toY: m.f.y + Math.sin(ang) * reach,
-              t: 0, dur: 220, hits: new Set(), chain: new Set(), dmg: s.damage, style, left: s.count - 1 };
-            sfx('whoosh');
-          }
-        } else if (t.type === 'defensa') {
-          const r = s.radius;
-          const wall = /muro|muralla|pared|barrera|escudo|armadur|bloque|fortal|refugio|falange/i.test(t.name);
-          const web = /telara[ñn]a|spider ?web/i.test(t.name);
-          this.fx.ring(ox, oy + 8, r, c1, 320, 2 + Math.floor(lv / 2));
-          if (wall) {
-            const wv = this.add.rectangle(ox, oy + 2, r * 1.4, 10 + lv * 2, c1, 0.55).setStrokeStyle(2, c2).setDepth(m.f.y + 2);
-            this.tweens.add({ targets: wv, scaleY: 2.2, alpha: 0, duration: 380, onComplete: () => wv.destroy() });
-          }
-          this.fx.burst(style, ox, oy + 8, 8 + lv * 3, 70);
-          if (/apisonadora|sabaki/i.test(t.name)) judgementHammer(this, ox, oy + 2, r, lv, () => this.fx.shake(0.006, 180)); // 1.83: the hammer of judgement
-          const natD = natureOf(t.name);
-          const volcano = isCorteVolcanico(t.name); // pre-2.0: the arc and wall of fire of its scene (fxJaden.ts)
-          if (volcano) { const ne = this.nearestEnemy(ox, oy, r * 2.5); corteVolcanico(this, ox, oy + 2, r, ne ? Math.atan2(ne.pos.y - 10 - oy, ne.pos.x - ox) : this.heading, lv); }
-          if (volcano) { /* its own drawing */ } else if (natD) natureArea(this, natD, ox, oy + 2, r, lv, this.enemies.filter((e) => !e.dead && Math.hypot(e.pos.x - ox, e.pos.y - 10 - oy) < r + e.radius).map((e) => ({ x: e.pos.x, y: e.pos.y - 10 })));
-          else if (!wall && !web) elementBurst(this, style, ox, oy + 2, r, 420, c1); // Fix 1.11: rock, vines, wind, fire... by element
-          for (const e of this.enemies) {
-            const d = Math.hypot(e.pos.x - ox, e.pos.y - 10 - oy);
-            if (d < r + e.radius) {
-              this.hit(e, s.damage, (e.pos.x - ox) / (d || 1) * s.knockback, (e.pos.y - oy) / (d || 1) * s.knockback, style);
-              if (s.slow < 1) e.slowUntil = this.runTime + 1.5;
-              if (web) e.webUntil = this.runTime + 0.8 + lv * 0.08; // Telaraña: the rivals in it are caught for a moment
-            }
-          }
-          if (web) this.fx.spiderWeb(ox, oy + 8, r);
-        } else if (t.type === 'parada') {
-          const heal = Math.round(this.maxHp * s.heal);
-          let cx = ox, cy = oy; // centre of the area hit
-          let later = false; // Fix 1.53: the hit comes with the animation, not at once
-          if (/olvido|the end/i.test(t.name)) {
-            // El Olvido (The End): a black hole in front of the keeper swallows the rivals' balls and pulls rivals in
-            const big = ['mitico', 'leyenda'].includes(m.entry.rarity) || !!this.cfg.asc?.[String(m.entry.id)]?.hero;
-            // the hole opens on the rivals (the closest one in reach), never on the keeper
-            const target = this.nearestEnemy(ox, oy, 220 * this.cfg.perks.rangeMult);
-            if (!target) { m.cds[i] = 200; return; }
-            const hx = target.pos.x, hy = target.pos.y - 10;
-            cx = hx; cy = hy;
-            this.fx.blackHole(hx, hy, s.radius, lv, 900, big);
-            this.shots = this.shots.filter((b) => {
-              if (Math.hypot(b.x - hx, b.y - hy) >= s.radius * 1.4) return true;
-              this.tweens.add({ targets: b.img, x: hx, y: hy, scale: 0, duration: 260, ease: 'Cubic.easeIn', onComplete: () => b.img.destroy() });
-              return false;
-            });
-            for (const e of this.enemies) {
-              const d = Math.hypot(e.pos.x - hx, e.pos.y - hy);
-              if (d < s.radius * 1.3) e.slowUntil = this.runTime + 0.9;
-            }
-            sfx('whoosh');
-            this.time.delayedCall(700, () => { if (!this.ended) sfx('boom'); });
-          } else if (/ara[ñn]a gigante|giant spider/i.test(t.name)) {
-            // Araña Gigante: the spider lands on the rivals around the keeper and webs them: caught rivals can't move
-            // for a while (bosses only slow down) and the balls in the web stop dead
-            const target = this.nearestEnemy(ox, oy, 200 * this.cfg.perks.rangeMult);
-            if (!target) { m.cds[i] = 200; return; }
-            cx = target.pos.x; cy = target.pos.y - 10;
-            const webR = s.radius * 1.25;
-            const caught = this.enemies.filter((e) => Math.hypot(e.pos.x - cx, e.pos.y - 10 - cy) < webR + e.radius).slice(0, 6 + lv);
-            const hold = 1.4 + lv * 0.12;
-            for (const e of caught) { e.webUntil = this.runTime + hold; e.slowUntil = this.runTime + hold + 1; }
-            this.shots = this.shots.filter((b) => {
-              if (Math.hypot(b.x - cx, b.y - cy) >= webR) return true;
-              b.img.destroy();
-              return false;
-            });
-            this.fx.spider(cx, cy, webR, lv, 900, caught.map((e) => ({ x: e.pos.x, y: e.pos.y - 10 })), ['mitico', 'leyenda'].includes(m.entry.rarity));
-            sfx('whoosh');
-          } else if (/mordisco de serpiente|snake bite|serpent/i.test(t.name)) {
-            // Mordisco de serpiente: the serpent lunges at the closest rival in reach, bites and poisons the rivals around
-            // the bite (damage over 3 s on top of the hit)
-            const target = this.nearestEnemy(ox, oy, 210 * this.cfg.perks.rangeMult);
-            if (!target) { m.cds[i] = 200; return; }
-            cx = target.pos.x; cy = target.pos.y - 10;
-            this.fx.serpentBite(ox, oy - 6, cx, cy, lv, ['mitico', 'leyenda'].includes(m.entry.rarity));
-            const dps = Math.max(2, s.damage * 0.25);
-            for (const e of this.enemies) if (Math.hypot(e.pos.x - cx, e.pos.y - 10 - cy) < s.radius) e.poison = { until: this.runTime + 3, dps, acc: 0 };
-            sfx('whoosh');
-          } else if (/drag[oó]n/i.test(t.name)) {
-            // Mate del dragón: a dragon leaves the keeper, bites the closest rival and the catch hits around it
-            const target = this.nearestEnemy(ox, oy, 200 * this.cfg.perks.rangeMult);
-            if (!target) { m.cds[i] = 200; return; }
-            cx = target.pos.x; cy = target.pos.y - 10;
-            dragon(this, 'strike', ox, oy - 6, c1, c2, lv, 420, cx, cy, ['mitico', 'leyenda'].includes(m.entry.rarity));
-            sfx('whoosh');
-          } else if (/mano diab[oó]lica|maou/i.test(t.name)) {
-            // 1.83: Mano Diabólica (Maou The Hand): a magenta demon with a red horned mask rises and its hand closes on the ball
-            maouHand(this, ox, oy, lv, ['mitico', 'leyenda'].includes(m.entry.rarity) || !!this.cfg.asc?.[String(m.entry.id)]?.hero);
-            this.fx.ring(ox, oy, s.radius, 0xd02ad8, 420, 2);
-          } else if (/m[aá]gica|majin/i.test(t.name)) {
-            // Mano mágica (Majin The Hand): the Majin rises behind the keeper and raises its arm, then the hand blocks
-            const tint = handTintOf(m.entry.name); // 1.76: Mark's yellow-orange, Darren's blue
-            this.fx.entity('majin', ox, oy + 6, 900, ['mitico', 'leyenda'].includes(m.entry.rarity) || !!this.cfg.asc?.[String(m.entry.id)]?.hero, tint);
-            this.fx.magicHand(ox, oy, lv, tint);
-            this.fx.ring(ox, oy, s.radius, tint?.main ?? 0xb36bff, 420, 2);
-          } else if (natureOf(t.name)) {
-            // Fix 1.31: Mano de pingüinos, Tormenta de pétalos, Hojarasca... drawn after the wiki
-            natureArea(this, natureOf(t.name)!, ox, oy, s.radius, lv, this.enemies.filter((e) => !e.dead && Math.hypot(e.pos.x - ox, e.pos.y - oy) < s.radius).map((e) => ({ x: e.pos.x, y: e.pos.y - 10 })));
-            this.fx.ring(ox, oy, s.radius, 0xffe27a, 480, 2);
-          } else if (/pu[ñn]o de furia/i.test(t.name)) {
-            // Fix 1.53 (author, from the scene): the golden giant's fist comes down on the closest rival, 30% more damage and
-            // reach than a plain catch; the heal is immediate, the hit lands with the fist
-            const near = this.nearestEnemy(ox, oy, 210 * this.cfg.perks.rangeMult);
-            if (!near) { m.cds[i] = 200; return; }
-            const fx0 = near.pos.x, fy0 = near.pos.y - 10, r = s.radius * 1.3;
-            later = true;
-            m.f.hop(this, 16, 380);
-            sfx('whoosh');
-            furyFist(this, ox, oy, fx0, fy0, lv, 640, () => {
-              if (this.ended) return;
-              sfx('boom');
-              this.fx.shake(0.007, 220);
-              for (const e of this.enemies) {
-                const d = Math.hypot(e.pos.x - fx0, e.pos.y - 10 - fy0);
-                if (d < r + e.radius) this.hit(e, s.damage * 1.3, (e.pos.x - fx0) / (d || 1) * s.knockback, (e.pos.y - fy0) / (d || 1) * s.knockback, 'fuego', true);
-              }
-              this.shots = this.shots.filter((b) => { if (Math.hypot(b.x - fx0, b.y - fy0) >= r) return true; b.img.destroy(); return false; });
-            });
-          } else if (handKind(t.name)) {
-            // Fix 1.11: drawn hands and fists per family (fxTech.ts); fists hit where they land
-            const kind = handKind(t.name)!;
-            const near = this.nearestEnemy(ox, oy, 200 * this.cfg.perks.rangeMult);
-            if (kind === 'puno' && near) { cx = near.pos.x; cy = near.pos.y - 10; }
-            const aims = this.enemies.filter((e) => !e.dead && Math.hypot(e.pos.x - ox, e.pos.y - oy) < 200).slice(0, 6).map((e) => ({ x: e.pos.x, y: e.pos.y - 10 }));
-            keeperHand(this.fx, this, t.name, kind, ox, oy, lv, c2, near?.pos.x ?? ox + 60, (near?.pos.y ?? oy) - 10, aims,
-              ['mitico', 'leyenda'].includes(m.entry.rarity) || !!this.cfg.asc?.[String(m.entry.id)]?.hero, m.entry.name);
-            if (kind === 'punos') for (const a of aims) for (const e of this.enemies) if (Math.hypot(e.pos.x - a.x, e.pos.y - 10 - a.y) < 18 + e.radius) this.hit(e, s.damage * 0.6, 0, 0, style);
-            this.fx.ring(cx, cy, s.radius, 0xffe27a, 480, 3); // the push that rejects rivals
-          }
-          else this.fx.ring(ox, oy, s.radius, 0xffe27a, 520, 3);
-          this.fx.burst('energia', ox, oy, 6 + lv * 2, 40, true);
-          // El Olvido pulls inwards (into the hole) instead of pushing away; same damage and reach as every parada
-          const pull = /olvido|the end/i.test(t.name) ? -0.8 : 1;
-          this.hp = Math.min(this.maxHp, this.hp + heal); // after the target check: an Olvido with no rival in reach does nothing
-          if (!later) for (const e of this.enemies) {
-            const d = Math.hypot(e.pos.x - cx, e.pos.y - cy);
-            if (d < s.radius) this.hit(e, s.damage, (e.pos.x - cx) / (d || 1) * s.knockback * pull, (e.pos.y - cy) / (d || 1) * s.knockback * pull, style);
-          }
-          if (heal > 0) this.fx.damageNumber(ox, oy - 26, heal, false, true); // 1.93: a heal, not a hit (combo meter)
-        }
-        used();
-        m.cds[i] = s.cooldownMs;
-        m.maxCd[i] = s.cooldownMs;
-      });
+      m.state.slots.forEach((_, i) => this.castSlot(m, i, dt, ox, oy));
     }
+    if (this.ultWanted !== false && this.castUlt()) this.ultWanted = false;
+  }
+
+  /** 2.0 (author: «las ultis con la R»): R or the HUD button asks for an ultimate; it fires on the next frame of play */
+  private ultWanted: number | boolean = false;
+  /** 2.0 (author: «más visible lo de la ulti»): on the pitch, a ring under the active spirit's holder fills in its colour
+   *  as the ultimate charges; ready, it glows and pulses and the key to fire it floats over his head */
+  private ultG: Phaser.GameObjects.Graphics | null = null;
+  private ultKey: Phaser.GameObjects.Text | null = null;
+  private ultReadyAt = 0;
+  private drawUltRing() {
+    const m = this.members.find((x) => x.ult), k = m?.entry.keshin && KESHIN_BY_ID.get(m.entry.keshin.id);
+    if (!m || !k) { this.ultG?.setVisible(false); this.ultKey?.setVisible(false); return; }
+    if (!this.ultG?.active) this.ultG = this.add.graphics();
+    if (!this.ultKey?.active) this.ultKey = this.add.text(0, 0, 'R', { fontFamily: '"Press Start 2P"', fontSize: '9px', color: '#04061a', backgroundColor: '#ffffff', padding: { x: 4, y: 3 } }).setOrigin(0.5, 1);
+    const col = Phaser.Display.Color.HexStringToColor(k.color).color, g = this.ultG, x = m.f.x, y = m.f.y + 1, t = this.time.now / 1000;
+    const fill = Math.max(0, Math.min(1, 1 - m.cds[ULT] / Math.max(1, m.maxCd[ULT]))), ready = m.cds[ULT] <= 0;
+    if (ready && !this.ultReadyAt) this.ultReadyAt = this.time.now; else if (!ready) this.ultReadyAt = 0;
+    const fresh = ready && this.time.now - this.ultReadyAt < 3300; // (author) it signals three times, then stays quiet
+    g.clear().setVisible(true).setDepth(y - 2);
+    const rx = 15, ry = 6;
+    g.lineStyle(3, 0x04061a, 0.55).strokeEllipse(x, y, rx * 2, ry * 2);
+    if (ready) {
+      const p = fresh ? 1 + Math.sin(t * 5.7) * 0.12 : 1;
+      g.fillStyle(col, 0.22 + Math.sin(t * 8) * 0.08).fillEllipse(x, y, rx * 2.4 * p, ry * 2.4 * p);
+      g.lineStyle(2.5, col, 1).strokeEllipse(x, y, rx * 2 * p, ry * 2 * p);
+      g.lineStyle(1.5, 0xffffff, 0.9).strokeEllipse(x, y, rx * 2.6 * p, ry * 2.6 * p);
+    } else if (fill > 0) {
+      g.lineStyle(3, col, 0.95).beginPath();
+      for (let a = 0; a <= fill * Math.PI * 2 + 0.001; a += 0.12) {
+        const px = x + Math.sin(a) * rx, py = y - Math.cos(a) * ry;
+        if (a === 0) g.moveTo(px, py); else g.lineTo(px, py);
+      }
+      g.strokePath();
+    }
+    const pad = !!firstPad(), touch = typeof document !== 'undefined' && document.body.classList.contains('touch');
+    const key = pad ? 'Y' : 'R';
+    this.ultKey.setVisible(fresh && !touch && Math.sin(t * 5.7) > -0.3).setText(key).setPosition(x, m.f.y - 40 + Math.sin(t * 6) * 2).setDepth(9500).setScale(1 + Math.max(0, Math.sin(t * 8)) * 0.15);
+  }
+
+  /** 2.0 (author: a small use for the combos, «no muy rota»): each burst rank past ¡COMBO! takes 4 % per rank step off the
+   *  active ultimate's charge (¡GENIAL! 4 %, ¡BRUTAL! 8 %, ¡IMPARABLE! 12 %, ¡INAZUMA! 16 %: 40 % at most in one burst) */
+  private comboUltCharge(rank: number) {
+    const m = this.members.find((x) => x.ult);
+    if (!m || m.cds[ULT] <= 0) return null;
+    const pct = 0.04 * rank;
+    m.cds[ULT] = Math.max(0, m.cds[ULT] - m.maxCd[ULT] * pct);
+    const k = m.entry.keshin && KESHIN_BY_ID.get(m.entry.keshin.id);
+    return { text: `+${Math.round(pct * 100)}% DEFINITIVA`, color: k?.color ?? '#7fd3ff' };
+  }
+  /** ms between two ultimates: 30 s, down to 15 s with the «Espíritu despierto» upgrade */
+  private ultCdMs() { return (this.cfg.perks.ultCooldownSec ?? 30) * 1000; }
+  /** `playerId`: that footballer's ultimate (a tap on its HUD button); none: the first ready one */
+  requestUlt(playerId?: number) { if (!this.ended) this.ultWanted = playerId ?? true; }
+  /** the active spirit's ultimate; with no rival in reach it stays ready. False while its holder is winding up another
+   *  shot: the request waits for it (it is never lost) */
+  private castUlt(): boolean {
+    const only = typeof this.ultWanted === 'number' ? this.ultWanted : null;
+    for (const m of this.members) {
+      if (!m.ult || m.cds[ULT] > 0 || (only !== null && m.entry.id !== only)) continue;
+      if (m.windup) return false;
+      m.cds[ULT] = 0;
+      this.castSlot(m, ULT, 0, m.f.x, m.f.y - 10);
+      const fired = m.cds[ULT] > 200 || (m.windup as Member['windup'])?.i === ULT; // a shot winds up first
+      m.cds[ULT] = fired ? this.ultCdMs() : 0;
+      m.maxCd[ULT] = fired ? m.cds[ULT] : 1;
+      // (author: «el banner debería salir antes de la animación, no al final») every ultimate opens with its banner
+      const k = m.entry.keshin && KESHIN_BY_ID.get(m.entry.keshin.id);
+      if (fired && k) {
+        ultBanner(this, m.ult.tech.name, k.name.toUpperCase(), k.id, 1500, '', k.color);
+        this.cameras.main.shake(220, 0.008);
+      }
+      if (!fired) this.fx.label(m.f.x, m.f.y - 40, 'Sin rival cerca', '#9fe8ff');
+      return true;
+    }
+    return true;
+  }
+
+  /** one technique slot of a member: its cooldown and, when it is ready, its cast (2.0: also the ultimate, slot ULT) */
+  private castSlot(m: Member, i: number, dt: number, ox: number, oy: number) {
+    const t = this.activeTech(m, i);
+    if (!t) return;
+    if (t.type === 'talento') {
+      m.cds[i] -= dt;
+      if (m.cds[i] <= 0) {
+        m.cds[i] = 5000;
+        m.maxCd[i] = 5000;
+        this.fx.burst(m.styles[i], ox, oy, 4 + this.techLevel(m, i), 25, true);
+      }
+      return;
+    }
+    m.cds[i] -= dt;
+    if (m.cds[i] > 0) return;
+    const s = this.stats(m, i);
+    const lv = this.techLevel(m, i);
+    const style = m.styles[i];
+    const [c1, c2] = STYLE_COLORS[style];
+    // Fix 1.11: counted only when the technique really fires (not on a retry with no rival in reach)
+    const used = () => {
+      this.techById[t.id] = (this.techById[t.id] ?? 0) + 1;
+      const elementKey = t.element ?? 'neutro';
+      this.techUses[elementKey] = (this.techUses[elementKey] ?? 0) + 1;
+      if (t.aura !== undefined) this.auraTechUses++;
+    };
+    if (/colmillo de pantera/i.test(t.name)) {
+      // signature move, deliberately strong: lunges at the closest rival and bites everything in a wide area
+      const target = this.nearestEnemy(ox, oy, 150 + lv * 6);
+      if (!target) { m.cds[i] = 150; return; }
+      const bx = target.pos.x, by = target.pos.y - 10;
+      const r = 46 + lv * 5;
+      const dmg = Math.max(s.damage, (t.power ?? 80) * 0.9) * 3 * (1 + 0.15 * (lv - 1));
+      m.f.hop(this, 6, 200);
+      this.fx.fangs(bx, by, r, lv);
+      sfx('whoosh');
+      this.time.delayedCall(230, () => {
+        sfx('boom');
+        for (const e of this.enemies) {
+          const d = Math.hypot(e.pos.x - bx, e.pos.y - 10 - by);
+          if (d < r + e.radius) { this.hit(e, dmg, (e.pos.x - bx) / (d || 1) * 90, (e.pos.y - by) / (d || 1) * 90, 'fuego', true); e.slowUntil = this.runTime + 2; }
+        }
+      });
+      if (t.type === 'parada') this.healBy(Math.round(this.maxHp * s.heal));
+      used();
+      m.cds[i] = Math.max(1600, s.cooldownMs * 0.6);
+      m.maxCd[i] = m.cds[i];
+      return;
+    }
+    if (/hacha del azote negro/i.test(t.name)) {
+      // (author) the first warrior-spirit technique: Dark Exodus comes down with its axe; the blow blows up the
+      // ground in front of the player and a magenta beam runs across the pitch. Long cooldown: it is an ultimate
+      const target = this.nearestEnemy(ox, oy, 300 * this.cfg.perks.rangeMult);
+      if (!target) { m.cds[i] = 150; return; }
+      sfx('whoosh');
+      this.cinematic(AXE_MS.total);
+      m.f.container.setDepth(CAST_DEPTH); // over the spirit while the game is stopped (the next frame puts it back)
+      this.time.delayedCall(AXE_MS.leap, () => { if (this.sys.isActive()) { m.f.hop(this, 26, 460); sfx('whoosh'); } });
+      // (author: "que haga mucho daño") an ultimate: the blow, the beam and the burning cut that stays on the ground
+      const blow = s.damage * 4, beam = s.damage * 9, burn = s.damage * 0.9;
+      blackAxeStrike(this, ox, oy, target.pos.x, target.pos.y - 10, lv, {
+        onDrop: (ax, ay) => { // (author) the falling axe already hits round where it lands
+          sfx('boom');
+          const r = 70 + lv * 5;
+          for (const e of this.enemies) {
+            const d = Math.hypot(e.pos.x - ax, e.pos.y - 10 - ay);
+            if (d < r + e.radius) this.hit(e, s.damage * 2, (e.pos.x - ax) / (d || 1) * 120, (e.pos.y - ay) / (d || 1) * 120, 'sombra', true);
+          }
+        },
+        onImpact: (ix, iy) => {
+          sfx('boom');
+          const r = 90 + lv * 6;
+          for (const e of this.enemies) {
+            const d = Math.hypot(e.pos.x - ix, e.pos.y - 10 - iy);
+            if (d < r + e.radius) this.hit(e, blow, (e.pos.x - ix) / (d || 1) * 140, (e.pos.y - iy) / (d || 1) * 140, 'sombra', true);
+          }
+        },
+        onBeam: (x0, y0, x1, y1, w) => {
+          const dx = x1 - x0, dy = y1 - y0, L2 = dx * dx + dy * dy || 1;
+          for (const e of this.enemies) {
+            const ex = e.pos.x, ey = e.pos.y - 10, u = Math.max(0, Math.min(1, ((ex - x0) * dx + (ey - y0) * dy) / L2));
+            const d = Math.hypot(ex - (x0 + dx * u), ey - (y0 + dy * u));
+            if (d < w / 2 + e.radius) this.hit(e, beam, dx / Math.sqrt(L2) * 160, dy / Math.sqrt(L2) * 160, 'sombra', true);
+          }
+        },
+        onScar: (x0, y0, x1, y1, w, ms) => {
+          const dx = x1 - x0, dy = y1 - y0, L2 = dx * dx + dy * dy || 1;
+          this.time.addEvent({ delay: 250, repeat: Math.floor(ms / 250) - 1, callback: () => {
+            for (const e of this.enemies) {
+              const ex = e.pos.x, ey = e.pos.y - 10, u = Math.max(0, Math.min(1, ((ex - x0) * dx + (ey - y0) * dy) / L2));
+              if (Math.hypot(ex - (x0 + dx * u), ey - (y0 + dy * u)) < w / 2 + e.radius) this.hit(e, burn, 0, 0, 'sombra');
+            }
+          } });
+        },
+        at: () => ({ x: m.f.x, y: m.f.y }),
+      });
+      used();
+      m.cds[i] = Math.max(9000, s.cooldownMs * 4);
+      m.maxCd[i] = m.cds[i];
+      return;
+    }
+    if (/^movimientos arm[oó]nicos$/i.test(t.name)) {
+      // 2.0 (author, from its scene): Magister's shot. He conducts, the ball becomes a sphere of blue light and flies in a
+      // spiral; where it lands it bursts and the music notes turn into shots at the rivals round it
+      const target = this.nearestEnemy(ox, oy, 320 * this.cfg.perks.rangeMult);
+      if (!target) { m.cds[i] = 150; return; }
+      sfx('whoosh');
+      this.cinematic(HARMONY_MS.total);
+      m.f.container.setDepth(CAST_DEPTH);
+      this.time.delayedCall(HARMONY_MS.kick - 200, () => { if (this.sys.isActive()) { m.f.hop(this, 14, 360); sfx('kick'); } });
+      harmony(this, ox, oy, target.pos.x, target.pos.y - 10, lv, {
+        onBurst: (bx, by, r) => {
+          sfx('boom');
+          for (const e of this.enemies) {
+            const d = Math.hypot(e.pos.x - bx, e.pos.y - 10 - by);
+            if (d < r + e.radius) this.hit(e, s.damage * 5, (e.pos.x - bx) / (d || 1) * 150, (e.pos.y - by) / (d || 1) * 150, 'bosque', true);
+          }
+        },
+        pick: (bx, by, n) => this.enemies.filter((e) => !e.dead && Math.hypot(e.pos.x - bx, e.pos.y - by) < 320)
+          .sort((a, b) => Math.hypot(a.pos.x - bx, a.pos.y - by) - Math.hypot(b.pos.x - bx, b.pos.y - by)).slice(0, n)
+          .map((e) => ({ x: e.pos.x, y: e.pos.y - 10, hit: () => { if (!e.dead) this.hit(e, s.damage * 2.5, 0, 0, 'bosque', true); } })),
+        at: () => ({ x: m.f.x, y: m.f.y }),
+      });
+      used();
+      m.cds[i] = Math.max(7000, s.cooldownMs * 3);
+      m.maxCd[i] = m.cds[i];
+      return;
+    }
+    if (/^descarga de colores$/i.test(t.name)) {
+      // 2.1 (author, from its scene): Papelín's save. Cyan reticles lock on the rivals' shots and the nearest rivals, his
+      // pencil revolver fires a stream of coloured shots at them, and the burst of colours round the keeper swallows every
+      // rival shot in reach; the team is healed like any save
+      const reach = 360 * this.cfg.perks.rangeMult;
+      const near = this.enemies.filter((e) => !e.dead && Math.hypot(e.pos.x - ox, e.pos.y - oy) < reach)
+        .sort((a, b) => Math.hypot(a.pos.x - ox, a.pos.y - oy) - Math.hypot(b.pos.x - ox, b.pos.y - oy));
+      const incoming = this.shots.filter((b) => Math.hypot(b.x - ox, b.y - oy) < reach);
+      if (!near.length && !incoming.length) { m.cds[i] = 150; return; }
+      sfx('whoosh');
+      this.cinematic(COLOR_MS.total);
+      m.f.container.setDepth(CAST_DEPTH);
+      this.time.delayedCall(COLOR_MS.aim - 100, () => { if (this.sys.isActive()) { m.f.hop(this, 10, 300); sfx('kick'); } });
+      const swallow = (b: (typeof this.shots)[number]) => {
+        const k = this.shots.indexOf(b);
+        if (k < 0) return;
+        this.shots.splice(k, 1);
+        this.tweens.add({ targets: b.img, alpha: 0, scale: 0, duration: 180, onComplete: () => b.img.destroy() });
+      };
+      colorBurst(this, ox, oy, lv, {
+        pick: (n) => {
+          const shots = incoming.slice(0, n).map((b) => ({ x: b.x, y: b.y, hit: () => swallow(b) }));
+          const foes = near.slice(0, Math.max(0, n - shots.length)).map((e) => ({ x: e.pos.x, y: e.pos.y - 10, hit: () => { if (!e.dead) this.hit(e, s.damage * 2.2, 0, 0, 'bosque', true); } }));
+          return [...shots, ...foes];
+        },
+        onClear: (bx, by, r) => {
+          for (const b of this.shots.filter((q) => Math.hypot(q.x - bx, q.y - by) < r)) swallow(b);
+          for (const e of this.enemies) {
+            const d = Math.hypot(e.pos.x - bx, e.pos.y - 10 - by);
+            if (d < r * 0.6 + e.radius && d > 1) this.hit(e, s.damage * 1.5, (e.pos.x - bx) / d * 220, (e.pos.y - by) / d * 220, 'bosque', true);
+          }
+          this.healBy(Math.round(this.maxHp * s.heal));
+        },
+      });
+      used();
+      m.cds[i] = Math.max(9000, s.cooldownMs * 4);
+      m.maxCd[i] = m.cds[i];
+      return;
+    }
+    if (/^prisi[oó]n escarlata$/i.test(t.name)) {
+      // 2.1 (author, from its scene): Zodíaco's shot. The ball is locked in a red crystal and flies to the thickest crowd;
+      // there every rival round it is locked in a crystal of its own (bosses only slowed), and they all shatter at once
+      const near = this.enemies.filter((e) => !e.dead && Math.hypot(e.pos.x - ox, e.pos.y - oy) < 340 * this.cfg.perks.rangeMult);
+      if (!near.length) { m.cds[i] = 150; return; }
+      const { r } = prisonSize(lv);
+      const target = near.reduce((best, e) => {
+        const n = near.filter((o) => Math.hypot(o.pos.x - e.pos.x, o.pos.y - e.pos.y) < r).length;
+        return n > best.n ? { e, n } : best;
+      }, { e: near[0], n: 0 }).e;
+      sfx('whoosh');
+      this.cinematic(PRISON_MS.total);
+      m.f.container.setDepth(CAST_DEPTH);
+      this.time.delayedCall(PRISON_MS.flash - 150, () => { if (this.sys.isActive()) { m.f.hop(this, 14, 360); sfx('kick'); } });
+      scarletPrison(this, ox, oy, target.pos.x, target.pos.y - 10, lv, {
+        lock: (bx, by, rr) => {
+          sfx('boom');
+          return this.enemies.filter((e) => !e.dead && Math.hypot(e.pos.x - bx, e.pos.y - 10 - by) < rr + e.radius).map((e) => {
+            if (e.kind !== 'boss') e.webUntil = this.runTime + 2.6;
+            e.slowUntil = this.runTime + 3.6;
+            return { x: e.pos.x, y: e.pos.y - 10, shatter: () => { if (!e.dead) { this.hit(e, s.damage * 6, 0, 0, 'tierra', true); e.curseUntil = this.runTime + 3; } } };
+          });
+        },
+      });
+      used();
+      m.cds[i] = Math.max(7000, s.cooldownMs * 3);
+      m.maxCd[i] = m.cds[i];
+      return;
+    }
+    if (/^despeje demon[ií]aco$/i.test(t.name)) {
+      // 2.1 (author, from its scene): Demogorgo's save. He rises behind the keeper in a green burst, slashes the air and
+      // brings his black fist down on the thickest crowd near the goal: every rival shot in reach is punched away, the
+      // rivals of the blow fly off stunned, and the team is healed like any save
+      const reach = 340 * this.cfg.perks.rangeMult;
+      const near = this.enemies.filter((e) => !e.dead && Math.hypot(e.pos.x - ox, e.pos.y - oy) < reach);
+      const incoming = this.shots.filter((b) => Math.hypot(b.x - ox, b.y - oy) < reach);
+      if (!near.length && !incoming.length) { m.cds[i] = 150; return; }
+      const { r } = demonClearSize(lv);
+      const target = near.length ? near.reduce((best, e) => {
+        const n = near.filter((o) => Math.hypot(o.pos.x - e.pos.x, o.pos.y - e.pos.y) < r).length;
+        return n > best.n ? { e, n } : best;
+      }, { e: near[0], n: 0 }).e : null;
+      const px = target ? target.pos.x : incoming[0].x, py = target ? target.pos.y - 10 : incoming[0].y;
+      sfx('whoosh');
+      this.cinematic(DEMOGORGO_MS.total);
+      m.f.container.setDepth(CAST_DEPTH);
+      this.time.delayedCall(DEMOGORGO_MS.rise, () => { if (this.sys.isActive()) m.f.hop(this, 12, 360); });
+      demonClear(this, ox, oy, px, py, lv, {
+        punch: (bx, by, rr) => {
+          sfx('boom');
+          const flown: { x: number; y: number }[] = [];
+          for (const b of this.shots.filter((q) => Math.hypot(q.x - ox, q.y - oy) < reach || Math.hypot(q.x - bx, q.y - by) < rr)) {
+            const k = this.shots.indexOf(b);
+            if (k < 0) continue;
+            this.shots.splice(k, 1);
+            flown.push({ x: b.x, y: b.y });
+            this.tweens.add({ targets: b.img, alpha: 0, scale: 0, duration: 160, onComplete: () => b.img.destroy() });
+          }
+          for (const e of this.enemies) {
+            if (e.dead) continue;
+            const d = Math.hypot(e.pos.x - bx, e.pos.y - 10 - by);
+            if (d > rr + e.radius) continue;
+            const k = d > 1 ? d : 1;
+            this.hit(e, s.damage * 5, (e.pos.x - bx) / k * 380, (e.pos.y - by) / k * 380, 'bosque', true);
+            if (e.kind !== 'boss') e.webUntil = this.runTime + 1.2; // stunned
+            flown.push({ x: e.pos.x, y: e.pos.y - 10 });
+          }
+          this.healBy(Math.round(this.maxHp * s.heal));
+          return flown;
+        },
+      });
+      used();
+      m.cds[i] = Math.max(9000, s.cooldownMs * 4);
+      m.maxCd[i] = m.cds[i];
+      return;
+    }
+    if (/^golpe de atenea$/i.test(t.name)) {
+      // 2.1 (author, from its scene): Atenea's shot. She spins down behind the shooter, her serpents send a pink and a cyan
+      // orb into the ball, and it leaves as a violet beam that runs through every rival in its line toward the thickest crowd
+      const near = this.enemies.filter((e) => !e.dead && Math.hypot(e.pos.x - ox, e.pos.y - oy) < 360 * this.cfg.perks.rangeMult);
+      if (!near.length) { m.cds[i] = 150; return; }
+      const target = near.reduce((best, e) => {
+        const n = near.filter((o) => Math.hypot(o.pos.x - e.pos.x, o.pos.y - e.pos.y) < 90).length;
+        return n > best.n ? { e, n } : best;
+      }, { e: near[0], n: 0 }).e;
+      sfx('whoosh');
+      this.cinematic(ATHENA_MS.total);
+      m.f.container.setDepth(CAST_DEPTH);
+      this.time.delayedCall(ATHENA_MS.shot - 150, () => { if (this.sys.isActive()) { m.f.hop(this, 14, 360); sfx('kick'); } });
+      athenaStrike(this, ox, oy, target.pos.x, target.pos.y - 10, lv, {
+        beam: (bx, by, ang, len, half) => {
+          sfx('boom');
+          this.sweepBand(bx, by, ang, bx + Math.cos(ang) * len, by + Math.sin(ang) * len, half, new Set(), s.damage * 5, 260, 'viento');
+        },
+      });
+      used();
+      m.cds[i] = Math.max(7000, s.cooldownMs * 3);
+      m.maxCd[i] = m.cds[i];
+      return;
+    }
+    if (/^asalto mortal$/i.test(t.name)) {
+      // 2.1 (author, from its scene): Evera's shot. He charges his red fist with blue lightning and punches the ball as the
+      // shooter kicks it: a sphere of lightning flies to the thickest crowd and bursts there (big blow, knockback, stun),
+      // and the lightning jumps to the rivals round it
+      const near = this.enemies.filter((e) => !e.dead && Math.hypot(e.pos.x - ox, e.pos.y - oy) < 340 * this.cfg.perks.rangeMult);
+      if (!near.length) { m.cds[i] = 150; return; }
+      const { r } = smashSize(lv);
+      const target = near.reduce((best, e) => {
+        const n = near.filter((o) => Math.hypot(o.pos.x - e.pos.x, o.pos.y - e.pos.y) < r).length;
+        return n > best.n ? { e, n } : best;
+      }, { e: near[0], n: 0 }).e;
+      sfx('whoosh');
+      this.cinematic(SMASH_MS.total);
+      m.f.container.setDepth(CAST_DEPTH);
+      this.time.delayedCall(SMASH_MS.punch - 120, () => { if (this.sys.isActive()) { m.f.hop(this, 14, 360); sfx('kick'); } });
+      mortalSmash(this, ox, oy, target.pos.x, target.pos.y - 10, lv, {
+        burst: (bx, by, rr) => {
+          sfx('boom');
+          const zaps: { x: number; y: number; zap: () => void }[] = [];
+          for (const e of this.enemies) {
+            if (e.dead) continue;
+            const d = Math.hypot(e.pos.x - bx, e.pos.y - 10 - by);
+            if (d < rr * 0.55 + e.radius) {
+              const k = d > 1 ? d : 1;
+              this.hit(e, s.damage * 5, (e.pos.x - bx) / k * 320, (e.pos.y - by) / k * 320, 'tierra', true);
+              if (e.kind !== 'boss') e.webUntil = this.runTime + 1.4; // stunned
+            } else if (d < rr * 1.25 + e.radius && zaps.length < 12) {
+              zaps.push({ x: e.pos.x, y: e.pos.y - 10, zap: () => { if (!e.dead) { this.hit(e, s.damage * 2.5, 0, 0, 'tierra', true); e.slowUntil = this.runTime + 2; } } });
+            }
+          }
+          return zaps;
+        },
+      });
+      used();
+      m.cds[i] = Math.max(7000, s.cooldownMs * 3);
+      m.maxCd[i] = m.cds[i];
+      return;
+    }
+    if (/^mano grandiosa$/i.test(t.name)) {
+      // 2.0 (author's portrait): Grandius' save. He roars (the roar pushes the rivals away), thrusts his giant hand and the
+      // palm slams down on the thickest crowd in reach: everyone under it is crushed and stunned, then a golden wave runs
+      // across the pitch swallowing every rival shot; the team is healed like any save
+      const near = this.enemies.filter((e) => !e.dead && Math.hypot(e.pos.x - ox, e.pos.y - oy) < 340 * this.cfg.perks.rangeMult);
+      if (!near.length) { m.cds[i] = 150; return; }
+      const { slam } = greatSize(lv);
+      const target = near.reduce((best, e) => { // the crowd: the rival with the most others under the palm
+        const n = near.filter((o) => Math.hypot(o.pos.x - e.pos.x, o.pos.y - e.pos.y) < slam).length;
+        return n > best.n ? { e, n } : best;
+      }, { e: near[0], n: 0 }).e;
+      sfx('whoosh');
+      this.cinematic(GREAT_MS.total);
+      m.f.container.setDepth(CAST_DEPTH);
+      this.time.delayedCall(GREAT_MS.thrust - 120, () => { if (this.sys.isActive()) { m.f.hop(this, 10, 300); sfx('kick'); } });
+      greatHand(this, ox, oy, target.pos.x, target.pos.y - 10, lv, {
+        onRoar: (rx, ry, r) => {
+          sfx('boom');
+          for (const e of this.enemies) {
+            const d = Math.hypot(e.pos.x - rx, e.pos.y - 10 - ry);
+            if (d < r + e.radius) this.hit(e, s.damage, (e.pos.x - rx) / (d || 1) * 260, (e.pos.y - ry) / (d || 1) * 260, 'tierra', true);
+          }
+        },
+        onSlam: (bx, by, r) => {
+          sfx('boom');
+          for (const e of this.enemies) {
+            const d = Math.hypot(e.pos.x - bx, e.pos.y - 10 - by);
+            if (d < r + e.radius) { this.hit(e, s.damage * 6, 0, 0, 'tierra', true); e.webUntil = this.runTime + 2.2; e.slowUntil = this.runTime + 3.5; }
+          }
+          this.healBy(Math.round(this.maxHp * s.heal));
+        },
+        onWave: (bx, by, r) => {
+          this.shots = this.shots.filter((b) => {
+            if (Math.hypot(b.x - bx, b.y - by) >= r) return true;
+            this.tweens.add({ targets: b.img, alpha: 0, scale: 0, duration: 200, onComplete: () => b.img.destroy() });
+            return false;
+          });
+          for (const e of this.enemies) {
+            const d = Math.hypot(e.pos.x - bx, e.pos.y - 10 - by);
+            if (d < r + e.radius && d > 1) this.hit(e, s.damage * 1.5, (e.pos.x - bx) / d * 200, (e.pos.y - by) / d * 200, 'tierra', true);
+          }
+        },
+      });
+      used();
+      m.cds[i] = Math.max(9000, s.cooldownMs * 4);
+      m.maxCd[i] = m.cds[i];
+      return;
+    }
+    if (/^estocada de lancelot$/i.test(t.name)) {
+      // 2.0 (author: Lancelot, the third cell of the spritesheet): the knight lifts his sword while fire runs up the blade,
+      // aims and thrusts: a giant flaming blade runs straight across the pitch piercing everything in its line, and the
+      // line blows up behind it
+      const target = this.nearestEnemy(ox, oy, 360 * this.cfg.perks.rangeMult);
+      if (!target) { m.cds[i] = 150; return; }
+      sfx('whoosh');
+      this.cinematic(THRUST_MS.total);
+      m.f.container.setDepth(CAST_DEPTH);
+      this.time.delayedCall(THRUST_MS.kick - 60, () => { if (this.sys.isActive()) { m.f.hop(this, 12, 320); sfx('kick'); } });
+      lancelotThrust(this, ox, oy, target.pos.x, target.pos.y - 10, lv, {
+        onThrust: (x0, y0, x1, y1, w) => {
+          sfx('boom');
+          const dx = x1 - x0, dy = y1 - y0, L2 = dx * dx + dy * dy, L = Math.sqrt(L2);
+          for (const e of this.enemies) {
+            const ex = e.pos.x, ey = e.pos.y - 10, u = Math.max(0, Math.min(1, ((ex - x0) * dx + (ey - y0) * dy) / L2));
+            if (Math.hypot(ex - (x0 + dx * u), ey - (y0 + dy * u)) < w / 2 + e.radius) this.hit(e, s.damage * 5, dx / L * 180, dy / L * 180, 'fuego', true);
+          }
+        },
+        onBurst: (bx, by, r) => {
+          for (const e of this.enemies) {
+            const d = Math.hypot(e.pos.x - bx, e.pos.y - 10 - by);
+            if (d < r + e.radius) this.hit(e, s.damage * 1.2, (e.pos.x - bx) / (d || 1) * 80, (e.pos.y - by) / (d || 1) * 80, 'fuego', true);
+          }
+        },
+      });
+      used();
+      m.cds[i] = Math.max(9000, s.cooldownMs * 4);
+      m.maxCd[i] = m.cds[i];
+      return;
+    }
+    if (/^lanza de carámbanos$/i.test(t.name)) {
+      // 2.0 (author, from its scene): Chione's shot. A blizzard wraps the player, she sweeps her spear and the ball flies off
+      // in a lance of ice; where it lands ice spikes burst out and freeze everything round (wider with the spirit's level)
+      const target = this.nearestEnemy(ox, oy, 320 * this.cfg.perks.rangeMult);
+      if (!target) { m.cds[i] = 150; return; }
+      sfx('whoosh');
+      this.cinematic(ICE_MS.total);
+      m.f.container.setDepth(CAST_DEPTH);
+      this.time.delayedCall(ICE_MS.kick - 200, () => { if (this.sys.isActive()) { m.f.hop(this, 14, 360); sfx('kick'); } });
+      iceLance(this, ox, oy, target.pos.x, target.pos.y - 10, lv, {
+        onLance: (x0, y0, x1, y1, w) => {
+          const dx = x1 - x0, dy = y1 - y0, L = Math.sqrt(dx * dx + dy * dy) || 1;
+          for (const e of this.enemies) {
+            const ex = e.pos.x, ey = e.pos.y - 10, u = Math.max(0, Math.min(1, ((ex - x0) * dx + (ey - y0) * dy) / (L * L)));
+            if (Math.hypot(ex - (x0 + dx * u), ey - (y0 + dy * u)) < w / 2 + e.radius) { this.hit(e, s.damage * 3, dx / L * 100, dy / L * 100, 'hielo', true); e.slowUntil = this.runTime + 2; }
+          }
+        },
+        onBurst: (bx, by, r) => {
+          sfx('boom');
+          for (const e of this.enemies) {
+            const d = Math.hypot(e.pos.x - bx, e.pos.y - 10 - by);
+            if (d >= r + e.radius) continue;
+            this.hit(e, s.damage * 5, 0, 0, 'hielo', true);
+            e.webUntil = this.runTime + 2.5; e.slowUntil = this.runTime + 4; // frozen still (bosses only slowed), then slow
+            if (!e.dead) e.sprite.setTint?.(0xbfefff);
+            this.time.delayedCall(2500, () => { if (!e.dead) e.sprite.clearTint?.(); });
+          }
+        },
+        at: () => ({ x: m.f.x, y: m.f.y }),
+      });
+      used();
+      m.cds[i] = Math.max(7000, s.cooldownMs * 3);
+      m.maxCd[i] = m.cds[i];
+      return;
+    }
+    if (/^estocada samur[aá]i$/i.test(t.name)) {
+      // 2.0 (author, from its scene): Musashi's shot. He rises out of the smoke, draws both katanas and cuts a red X across
+      // the pitch; the ball flies at its heart and the X blows up on the rival (longer, wider with the spirit's level)
+      const target = this.nearestEnemy(ox, oy, 320 * this.cfg.perks.rangeMult);
+      if (!target) { m.cds[i] = 150; return; }
+      sfx('whoosh');
+      this.cinematic(SLASH_MS.total);
+      m.f.container.setDepth(CAST_DEPTH);
+      this.time.delayedCall(SLASH_MS.cut - 200, () => { if (this.sys.isActive()) { m.f.hop(this, 16, 360); sfx('kick'); } });
+      // (author: «que todo lo que corte Musashi muera») every ordinary rival he cuts falls; bosses and minibosses lose at
+      // least 12 % of their whole life instead (a one-shot boss would break the run)
+      const slay = (e: Enemy, dmg: number) => (e.kind === 'boss' || e.kind === 'miniboss' ? Math.max(dmg, e.maxHp * 0.12) : Math.max(dmg, e.hp + 1));
+      samuraiSlash(this, ox, oy, target.pos.x, target.pos.y - 10, lv, {
+        onCross: (x0, y0, x1, y1, w) => {
+          sfx('boom');
+          const dx = x1 - x0, dy = y1 - y0, L = Math.sqrt(dx * dx + dy * dy) || 1;
+          for (const e of this.enemies) {
+            const ex = e.pos.x, ey = e.pos.y - 10, u = Math.max(0, Math.min(1, ((ex - x0) * dx + (ey - y0) * dy) / (L * L)));
+            if (Math.hypot(ex - (x0 + dx * u), ey - (y0 + dy * u)) < w / 2 + e.radius) this.hit(e, slay(e, s.damage * 3), dx / L * 120, dy / L * 120, 'tierra', true);
+          }
+        },
+        onBlast: (bx, by, r) => {
+          sfx('boom');
+          for (const e of this.enemies) {
+            const d = Math.hypot(e.pos.x - bx, e.pos.y - 10 - by);
+            if (d < r + e.radius) this.hit(e, slay(e, s.damage * 5), (e.pos.x - bx) / (d || 1) * 170, (e.pos.y - by) / (d || 1) * 170, 'tierra', true);
+          }
+        },
+        at: () => ({ x: m.f.x, y: m.f.y }),
+      });
+      used();
+      m.cds[i] = Math.max(7000, s.cooldownMs * 3);
+      m.maxCd[i] = m.cds[i];
+      return;
+    }
+    if (/^llamarada solar$/i.test(t.name)) {
+      // 2.0 (author, from its scene): Apolo's shot. The god gathers a sun over the pitch and the player kicks it down on
+      // the rival: a huge blast, then a sea of flames that keeps burning (wider with the spirit's level)
+      const target = this.nearestEnemy(ox, oy, 300 * this.cfg.perks.rangeMult);
+      if (!target) { m.cds[i] = 150; return; }
+      sfx('whoosh');
+      this.cinematic(SUN_MS.total);
+      m.f.container.setDepth(CAST_DEPTH);
+      this.time.delayedCall(SUN_MS.kick - 260, () => { if (this.sys.isActive()) { m.f.hop(this, 22, 420); sfx('kick'); } });
+      solarFlare(this, ox, oy, target.pos.x, target.pos.y - 10, lv, {
+        onImpact: (bx, by, r) => {
+          sfx('boom');
+          for (const e of this.enemies) {
+            const d = Math.hypot(e.pos.x - bx, e.pos.y - 10 - by);
+            if (d < r + e.radius) this.hit(e, s.damage * 6, (e.pos.x - bx) / (d || 1) * 170, (e.pos.y - by) / (d || 1) * 170, 'fuego', true);
+          }
+        },
+        onBurn: (bx, by, r, ms) => {
+          this.time.addEvent({ delay: 250, repeat: Math.floor(ms / 250) - 1, callback: () => {
+            for (const e of this.enemies) if (Math.hypot(e.pos.x - bx, (e.pos.y - 10 - by) * 1.6) < r + e.radius) this.hit(e, s.damage * 0.6, 0, 0, 'fuego');
+          } });
+        },
+        at: () => ({ x: m.f.x, y: m.f.y }),
+      });
+      used();
+      m.cds[i] = Math.max(7000, s.cooldownMs * 3);
+      m.maxCd[i] = m.cds[i];
+      return;
+    }
+    if (/^aliento blanco$/i.test(t.name)) {
+      // 2.0 (author, from its scene): Guiverno Blanco's shot. The dragon coils round the player, gathers the light in the
+      // ball at its mouth and breathes it out in a huge white-gold beam; longer and wider with the spirit's level
+      const target = this.nearestEnemy(ox, oy, 300 * this.cfg.perks.rangeMult);
+      if (!target) { m.cds[i] = 150; return; }
+      sfx('whoosh');
+      this.cinematic(BREATH_MS.total);
+      m.f.container.setDepth(CAST_DEPTH);
+      this.time.delayedCall(BREATH_MS.kick - 200, () => { if (this.sys.isActive()) { m.f.hop(this, 14, 360); sfx('kick'); } });
+      whiteBreath(this, ox, oy, target.pos.x, target.pos.y - 10, lv, {
+        onBreath: (x0, y0, x1, y1, w) => {
+          sfx('boom');
+          const dx = x1 - x0, dy = y1 - y0, L = Math.sqrt(dx * dx + dy * dy) || 1;
+          for (const e of this.enemies) {
+            const ex = e.pos.x, ey = e.pos.y - 10, u = Math.max(0, Math.min(1, ((ex - x0) * dx + (ey - y0) * dy) / (L * L)));
+            const half = w * (0.2 + u * 0.4); // the cone widens away from the mouth
+            if (Math.hypot(ex - (x0 + dx * u), ey - (y0 + dy * u)) < half + e.radius) this.hit(e, s.damage * 6, dx / L * 180, dy / L * 180, 'viento', true);
+          }
+        },
+        at: () => ({ x: m.f.x, y: m.f.y }),
+      });
+      used();
+      m.cds[i] = Math.max(7000, s.cooldownMs * 3);
+      m.maxCd[i] = m.cds[i];
+      return;
+    }
+    if (/^zarpazo real$/i.test(t.name)) {
+      // author, from its scene: Jmet's dribble. He rises out of a sandstorm roaring (the roar shoves the rivals round the
+      // player) and rakes his golden claw across a wide fan in front: everything in it is hit hard, flung away and slowed
+      const target = this.nearestEnemy(ox, oy, 260 * this.cfg.perks.rangeMult);
+      if (!target) { m.cds[i] = 150; return; }
+      sfx('whoosh');
+      this.cinematic(CLAW_MS.total);
+      m.f.container.setDepth(CAST_DEPTH);
+      this.time.delayedCall(CLAW_MS.rake - 200, () => { if (this.sys.isActive()) { m.f.hop(this, 12, 320); sfx('kick'); } });
+      royalClaw(this, ox, oy, target.pos.x, target.pos.y - 10, lv, {
+        onRoar: (rx, ry, r) => {
+          for (const e of this.enemies) {
+            const d = Math.hypot(e.pos.x - rx, e.pos.y - ry);
+            if (d < r + e.radius) this.hit(e, s.damage, (e.pos.x - rx) / (d || 1) * 200, (e.pos.y - ry) / (d || 1) * 200, 'tierra');
+          }
+        },
+        onRake: (cx, cy, r, ang, spread) => {
+          sfx('boom');
+          for (const e of this.enemies) {
+            const dx = e.pos.x - cx, dy = e.pos.y - 10 - cy, d = Math.hypot(dx, dy);
+            const off = Math.abs(Phaser.Math.Angle.Wrap(Math.atan2(dy, dx) - ang));
+            if (d < r + e.radius && (off < spread || d < 30)) { this.hit(e, s.damage * 5.5, Math.cos(ang) * 260, Math.sin(ang) * 260, 'tierra', true); e.slowUntil = this.runTime + 1.5; }
+          }
+        },
+        at: () => ({ x: m.f.x, y: m.f.y }),
+      });
+      used();
+      m.cds[i] = Math.max(7000, s.cooldownMs * 3);
+      m.maxCd[i] = m.cds[i];
+      return;
+    }
+    if (/^espinas insidiosas$/i.test(t.name)) {
+      // author, from its scene: Eris's block. She drives her hair into the ground and four lashes of black thorns burst up in
+      // blue fire round the biggest group of rivals: hurt, and held fast (bosses only slowed)
+      const target = this.nearestEnemy(ox, oy, 260 * this.cfg.perks.rangeMult);
+      if (!target) { m.cds[i] = 150; return; }
+      sfx('whoosh');
+      this.cinematic(THORN_MS.total);
+      m.f.container.setDepth(CAST_DEPTH);
+      m.f.hop(this, 8, 300);
+      insidiousThorns(this, ox, oy, target.pos.x, target.pos.y - 10, lv, {
+        onThorns: (bx, by, r) => {
+          sfx('boom');
+          for (const e of this.enemies) {
+            const d = Math.hypot(e.pos.x - bx, e.pos.y - 10 - by);
+            if (d < r + e.radius) { this.hit(e, s.damage * 5, 0, 0, 'viento', true); if (e.kind !== 'boss') e.webUntil = this.runTime + 2.4; e.slowUntil = this.runTime + 3.5; }
+          }
+        },
+        at: () => ({ x: m.f.x, y: m.f.y }),
+      });
+      used();
+      m.cds[i] = Math.max(7000, s.cooldownMs * 3);
+      m.maxCd[i] = m.cds[i];
+      return;
+    }
+    if (/^garras llameantes$/i.test(t.name)) {
+      // author, from its scene: Huargo's dribble. Out of a spiral of fire, he rakes three streaks of fire along the ground at
+      // the rival; a row of flames erupts along them and keeps burning
+      const target = this.nearestEnemy(ox, oy, 260 * this.cfg.perks.rangeMult);
+      if (!target) { m.cds[i] = 150; return; }
+      sfx('whoosh');
+      this.cinematic(FLAME_MS.total);
+      m.f.container.setDepth(CAST_DEPTH);
+      this.time.delayedCall(FLAME_MS.rake - 200, () => { if (this.sys.isActive()) { m.f.hop(this, 12, 320); sfx('kick'); } });
+      const inLine = (e: Enemy, x0: number, y0: number, x1: number, y1: number, w: number) => {
+        const dx = x1 - x0, dy = y1 - y0, L2 = dx * dx + dy * dy || 1, ex = e.pos.x, ey = e.pos.y - 10, u = Math.max(0, Math.min(1, ((ex - x0) * dx + (ey - y0) * dy) / L2));
+        return Math.hypot(ex - (x0 + dx * u), ey - (y0 + dy * u)) < w / 2 + e.radius;
+      };
+      flameClaws(this, ox, oy, target.pos.x, target.pos.y - 10, lv, {
+        onRake: (x0, y0, x1, y1, w) => {
+          sfx('boom');
+          const L = Math.hypot(x1 - x0, y1 - y0) || 1;
+          for (const e of this.enemies) if (inLine(e, x0, y0, x1, y1, w)) this.hit(e, s.damage * 5, (x1 - x0) / L * 200, (y1 - y0) / L * 200, 'fuego', true);
+        },
+        onBurn: (x0, y0, x1, y1, w, ms) => {
+          this.time.addEvent({ delay: 250, repeat: Math.floor(ms / 250) - 1, callback: () => {
+            for (const e of this.enemies) if (inLine(e, x0, y0, x1, y1, w)) this.hit(e, s.damage * 0.5, 0, 0, 'fuego');
+          } });
+        },
+        at: () => ({ x: m.f.x, y: m.f.y }),
+      });
+      used();
+      m.cds[i] = Math.max(7000, s.cooldownMs * 3);
+      m.maxCd[i] = m.cds[i];
+      return;
+    }
+    if (/^rayo demon[ií]aco$/i.test(t.name)) {
+      // author, from its scene: Glenr's dribble. Night falls, a sphere of cyan lightning gathers in his palm and he hurls it:
+      // it bursts on the rival and the lightning leaps to the rivals around (more of them with the spirit's level)
+      const target = this.nearestEnemy(ox, oy, 280 * this.cfg.perks.rangeMult);
+      if (!target) { m.cds[i] = 150; return; }
+      sfx('whoosh');
+      this.cinematic(DEMON_MS.total);
+      m.f.container.setDepth(CAST_DEPTH);
+      m.f.hop(this, 8, 300);
+      const chains = 4 + lv;
+      demonBolt(this, ox, oy, target.pos.x, target.pos.y - 10, lv, {
+        onBurst: (bx, by, r) => {
+          sfx('boom');
+          const struck = new Set<Enemy>();
+          for (const e of this.enemies) {
+            const d = Math.hypot(e.pos.x - bx, e.pos.y - 10 - by);
+            if (d < r + e.radius) { struck.add(e); this.hit(e, s.damage * 5.5, (e.pos.x - bx) / (d || 1) * 160, (e.pos.y - by) / (d || 1) * 160, 'rayo', true); e.slowUntil = this.runTime + 1.5; }
+          }
+          const near = (e: Enemy) => Math.hypot(e.pos.x - bx, e.pos.y - 10 - by);
+          const out = this.enemies.filter((e) => !struck.has(e) && near(e) < r * 3).sort((a, b) => near(a) - near(b)).slice(0, chains);
+          for (const e of out) { this.hit(e, s.damage * 2, 0, 0, 'rayo'); e.slowUntil = this.runTime + 1; }
+          return out.map((e) => ({ x: e.pos.x, y: e.pos.y - 10 }));
+        },
+        at: () => ({ x: m.f.x, y: m.f.y }),
+      });
+      used();
+      m.cds[i] = Math.max(7000, s.cooldownMs * 3);
+      m.maxCd[i] = m.cds[i];
+      return;
+    }
+    if (/^rayo celeste$/i.test(t.name)) {
+      // 2.0 (author, from its scene): Pegaso's dribble. It flies into the storm over the rival and punches a cyan
+      // bolt down on him; the area grows with the spirit's level and the shock jumps to the rivals nearby
+      const target = this.nearestEnemy(ox, oy, 220 * this.cfg.perks.rangeMult);
+      if (!target) { m.cds[i] = 150; return; }
+      sfx('whoosh');
+      this.cinematic(BOLT_MS.total);
+      m.f.container.setDepth(CAST_DEPTH);
+      m.f.hop(this, 8, 300);
+      const chains = 4 + lv;
+      skyBolt(this, ox, oy, target.pos.x, target.pos.y - 10, lv, {
+        onStrike: (bx, by, r) => {
+          sfx('boom');
+          const struck = new Set<Enemy>();
+          for (const e of this.enemies) {
+            const d = Math.hypot(e.pos.x - bx, e.pos.y - 10 - by);
+            if (d < r + e.radius) { struck.add(e); this.hit(e, s.damage * 5, (e.pos.x - bx) / (d || 1) * 150, (e.pos.y - by) / (d || 1) * 150, 'rayo', true); e.slowUntil = this.runTime + 1.5; }
+          }
+          // the shock jumps to the nearest rivals outside the area
+          const near = (e: Enemy) => Math.hypot(e.pos.x - bx, e.pos.y - 10 - by);
+          const out = this.enemies.filter((e) => !struck.has(e) && near(e) < r * 3.2).sort((a, b) => near(a) - near(b)).slice(0, chains);
+          for (const e of out) { this.hit(e, s.damage * 2, 0, 0, 'rayo'); e.slowUntil = this.runTime + 1; }
+          return out.map((e) => ({ x: e.pos.x, y: e.pos.y - 10 }));
+        },
+        at: () => ({ x: m.f.x, y: m.f.y }),
+      });
+      used();
+      m.cds[i] = Math.max(7000, s.cooldownMs * 3);
+      m.maxCd[i] = m.cds[i];
+      return;
+    }
+    if (i === ULT && /^tormenta de fuego$/i.test(t.name)) {
+      // 2.0 (author: «Surtur la convierte en un infierno»): the spirit's own Tormenta de fuego (Axel's ordinary one stays
+      // below). Surtur rises with his arms crossed, throws them open in a ring of fire, the fireball lands and the storm
+      // breaks: fire tornadoes burst up all round the rival and the ground keeps burning
+      const target = this.nearestEnemy(ox, oy, 320 * this.cfg.perks.rangeMult);
+      if (!target) { m.cds[i] = 150; return; }
+      sfx('whoosh');
+      this.cinematic(INFERNO_MS.total);
+      m.f.container.setDepth(CAST_DEPTH);
+      this.time.delayedCall(INFERNO_MS.kick - 200, () => { if (this.sys.isActive()) { m.f.hop(this, 18, 380); sfx('kick'); } });
+      const around = (x: number, y: number, r: number, f: (e: Enemy, d: number) => void) => {
+        for (const e of this.enemies) { const d = Math.hypot(e.pos.x - x, e.pos.y - 10 - y); if (d < r + e.radius) f(e, d); }
+      };
+      inferno(this, ox, oy, target.pos.x, target.pos.y - 10, lv, {
+        onRing: (x, y, r) => { sfx('boom'); around(x, y, r, (e, d) => this.hit(e, s.damage, (e.pos.x - x) / (d || 1) * 220, (e.pos.y - y) / (d || 1) * 220, 'fuego', true)); },
+        onBlast: (x, y, r) => { sfx('boom'); around(x, y, r, (e, d) => this.hit(e, s.damage * 5, (e.pos.x - x) / (d || 1) * 160, (e.pos.y - y) / (d || 1) * 160, 'fuego', true)); },
+        onTornado: (x, y, r) => around(x, y, r, (e) => { this.hit(e, s.damage * 2, 0, 0, 'fuego', true); e.slowUntil = this.runTime + 1.5; }),
+        onBurn: (x, y, r, ms) => {
+          const burn = s.damage * 0.35;
+          this.time.addEvent({ delay: 250, repeat: Math.floor(ms / 250) - 1, callback: () => around(x, y, r, (e) => this.hit(e, burn, 0, 0, 'fuego')) });
+        },
+      });
+      used();
+      m.cds[i] = Math.max(9000, s.cooldownMs * 4);
+      m.maxCd[i] = m.cds[i];
+      return;
+    }
+    if (/^ca[nñ]onazo de fragmentos$/i.test(t.name)) {
+      // 2.1 (author, from its scene): Simeon's Shellbit Burst. A shell of green hexagons forms behind him, its plates light
+      // up and each fires a fragment at a rival near him, and the ball leaves as a yellow beam that bursts on the target.
+      // The beam does the damage of any shot of its level; the fragments add a third of it each
+      const target = this.nearestEnemy(ox, oy, 250 * this.cfg.perks.rangeMult);
+      if (!target) { m.cds[i] = 150; return; }
+      const size = 28 + lv * 2, r = Math.max(42, s.radius * 1.15);
+      const others = this.enemies.filter((e) => !e.dead && e !== target && Math.hypot(e.pos.x - ox, e.pos.y - oy) < 230 * this.cfg.perks.rangeMult)
+        .sort((a, b) => Math.hypot(a.pos.x - ox, a.pos.y - oy) - Math.hypot(b.pos.x - ox, b.pos.y - oy)).slice(0, 3 + Math.floor(lv / 3));
+      sfx('whoosh');
+      m.f.hop(this, 16, SHELLBIT_CHARGE * 0.7);
+      const bx = target.pos.x, by = target.pos.y - 10;
+      shellbitBurst(this, ox, oy, bx, by, size,
+        others.map((e) => ({ x: e.pos.x, y: e.pos.y - 10, hit: () => { if (!e.dead) this.hit(e, s.damage * 0.33, 0, 0, 'energia', true); } })),
+        () => {
+          sfx('boom');
+          this.fx.shake(0.005, 180);
+          for (const e of this.enemies) {
+            const d = Math.hypot(e.pos.x - bx, e.pos.y - 10 - by);
+            if (d < r + e.radius) this.hit(e, s.damage, (e.pos.x - bx) / (d || 1) * 120, (e.pos.y - by) / (d || 1) * 120, 'energia', true);
+          }
+        });
+      used();
+      m.cds[i] = s.cooldownMs;
+      m.maxCd[i] = m.cds[i];
+      return;
+    }
+    if (/^tormenta de fuego$/i.test(t.name)) {
+      // Fix 1.22: Tormenta de fuego (Bakunetsu Storm) with its own animation: the fiery Majin, the spin, the volley. Same
+      // damage and cooldown as any shot of its level (its numbers come from techStats); the blast hits around the target
+      const target = this.nearestEnemy(ox, oy, 240 * this.cfg.perks.rangeMult);
+      if (!target) { m.cds[i] = 150; return; }
+      const size = 26 + lv * 2, r = Math.max(36, s.radius);
+      const charge = 560;
+      fireStormCharge(this, ox, oy, size, charge);
+      sfx('whoosh');
+      m.f.hop(this, 14, charge * 0.6);
+      this.time.delayedCall(charge, () => {
+        if (this.sys.isActive() === false) return;
+        const bx = target.pos.x, by = target.pos.y - 10;
+        sfx('whoosh');
+        fireStormShot(this, m.f.x, m.f.y - 16, bx, by, size, 340, () => {
+          sfx('boom');
+          this.fx.shake(0.005, 180);
+          for (const e of this.enemies) {
+            const d = Math.hypot(e.pos.x - bx, e.pos.y - 10 - by);
+            if (d < r + e.radius) this.hit(e, s.damage, (e.pos.x - bx) / (d || 1) * 100, (e.pos.y - by) / (d || 1) * 100, 'fuego', true);
+          }
+        });
+      });
+      used();
+      m.cds[i] = s.cooldownMs;
+      m.maxCd[i] = m.cds[i];
+      return;
+    }
+    if (/tiro supermasivo/i.test(t.name)) {
+      // signature move: charge in a black and red vortex, then a huge orb that tears the pitch and blows up on arrival
+      const target = this.nearestEnemy(ox, oy, 260 * this.cfg.perks.rangeMult);
+      if (!target) { m.cds[i] = 150; return; }
+      const size = 34 + lv * 2.5, r = 58 + lv * 5, dmg = s.damage * 2.2;
+      const charge = 620;
+      chaosMeteorCharge(this, ox, oy, size, charge);
+      sfx('whoosh');
+      m.f.hop(this, 8, charge * 0.5);
+      this.time.delayedCall(charge, () => {
+        if (this.sys.isActive() === false) return;
+        const bx = target.pos.x, by = target.pos.y - 10;
+        const sx = m.f.x, sy = m.f.y - size * 1.25;
+        sfx('whoosh');
+        chaosMeteorShot(this, sx, sy, bx, by, size, 300, () => {
+          sfx('boom');
+          this.fx.shake(0.006, 220);
+          for (const e of this.enemies) {
+            const d = Math.hypot(e.pos.x - bx, e.pos.y - 10 - by);
+            if (d < r + e.radius) this.hit(e, dmg, (e.pos.x - bx) / (d || 1) * 120, (e.pos.y - by) / (d || 1) * 120, 'sombra', true);
+          }
+        });
+      });
+      used();
+      m.cds[i] = Math.max(3200, s.cooldownMs * 1.5);
+      m.maxCd[i] = m.cds[i];
+      return;
+    }
+    if (t.type === 'tiro') {
+      const target = this.nearestEnemy(ox, oy, 240 * this.cfg.perks.rangeMult);
+      if (!target) { m.cds[i] = 150; return; }
+      // anticipation + charge come from the technique's recipe
+      const recipe = m.recipes[i];
+      m.windup = { i, until: this.runTime + recipe.windupSec };
+      m.f.hop(this, 5 + lv * 0.6, recipe.windupSec * 1000);
+      charge(this.fx, recipe, ox, oy, lv);
+      if (signatureOf(t.name) === 'ceniza') blackAshCharge(this, ox, oy, lv, recipe.windupSec * 1000);
+      const nat = natureOf(t.name); // Fix 1.31: penguins, flowers, sharks... drawn after the wiki
+      if (nat) natureCharge(this, nat, ox, oy, lv, recipe.windupSec * 1000);
+      const anime = animeOf(t.name); // v1.4: techniques redrawn from their anime scenes
+      if (anime) animeCharge(this, anime, ox, oy, lv, recipe.windupSec * 1000);
+      const mv = movieOf(t.name); // 1.76: six more shots redrawn from their scenes (fxMovie.ts)
+      if (mv) movieCharge(this, mv, ox, oy, lv, recipe.windupSec * 1000);
+      const vb = victorOf(t.name); // Victor Blade's shots redrawn from their scenes (fxVictor.ts)
+      if (vb) victorCharge(this, vb, ox, oy, lv, recipe.windupSec * 1000);
+      if (isSetsuna(t.name)) setsunaCharge(this, ox, oy, lv, recipe.windupSec * 1000, target.pos.x, target.pos.y, m.f); // author: Impulso efímero redrawn (fxSetsuna.ts)
+      if (isCataclysm(t.name)) cataclysmCharge(this, ox, oy, lv, recipe.windupSec * 1000); // author: Golpe cataclismo redrawn (fxCataclysm.ts)
+      const s183 = solo183Of(t.name); // 1.83: Disparo sagrado, Tornado dragón (fxCombo183.ts)
+      if (s183) solo183Charge(this, s183, ox, oy, lv, recipe.windupSec * 1000);
+      const s189 = solo189Of(t.name); // 1.88: Remate del tigre, Fénix, Fénix oscuro
+      if (s189) solo189Charge(this, s189, ox, oy, lv, recipe.windupSec * 1000);
+      if (mv === 'vibora') this.darkClone(m, recipe.windupSec * 1000); // Víbora de Orión: her dark clone kicks with her
+      const fuego = fuegoOf(t.name); // Axel Blaze Encapuchado: Fuego supremo / Fuego total (fxFuego.ts)
+      if (fuego === 'supremo') supremoCharge(this, ox, oy, lv, recipe.windupSec * 1000);
+      else if (fuego === 'total') totalCharge(this, ox, oy, lv, recipe.windupSec * 1000);
+      if (recipe.id === 'dragon') dragon(this, 'rise', ox, oy, c1, c2, lv, recipe.windupSec * 1000 + 160, ox, oy, recipe.tier >= 3);
+    } else if (t.type === 'regate') {
+      if (!canStartGuardedMove(this.runTime, m.guardLock)) { m.cds[i] = 120; return; }
+      if (m === this.members[0]) {
+        // captain: elemental whirl (the captain is never moved automatically)
+        const r = s.radius + 6;
+        m.guardUntil = this.runTime + 0.26;
+        m.guardLock = m.guardUntil + GUARD_LOCKOUT_SEC;
+        this.fx.ring(ox, oy + 6, r, c1, 260, 2 + Math.floor(lv / 2));
+        const sig = signatureOf(t.name), dr = dribbleOf(t.name); // 1.76: Espada real, El ojo del huracán, Hora celestial (fxMovie.ts)
+        const near0 = dr ? this.nearestEnemy(ox, oy, 160) : null;
+        if (isMeteorShower(t.name)) { const near = this.nearestEnemy(ox, oy, 160); meteorShower(this, ox, oy, near ? near.pos.x : ox + 50, near ? near.pos.y - 10 : oy, lv); } // 1.83
+        if (isCorrienteNegra(t.name)) { const near = this.nearestEnemy(ox, oy, 160); corrienteNegra(this, ox, oy, near ? near.pos.x : ox + 50, near ? near.pos.y - 10 : oy, lv, undefined, (cx, cy, cr) => this.waterCrash(cx, cy, cr, s.damage * 1.4, style)); } // pre-2.0 (fxJaden.ts); 2.0: the crash hurts
+        if (dr) {
+          movieDribble(this, dr, ox, oy, near0 ? near0.pos.x : ox + 40, near0 ? near0.pos.y - 10 : oy, lv, 420);
+          if (dr === 'hora' || dr === 'atenea') for (const e of this.enemies) if (Math.hypot(e.pos.x - ox, e.pos.y - oy) < 90) e.slowUntil = this.runTime + 1.2; // time stops / the hymn charms them
+        } else if (sig === 'espejismo') illusionBall(this, ox, oy, lv);
+        else if (sig === 'huracan') stormZone(this, ox, oy, r + 10, lv);
+        else if (animeOf(t.name) === 'brisa') { const near = this.nearestEnemy(ox, oy, 160), ba = near ? Math.atan2(near.pos.y - 10 - oy, near.pos.x - ox) : 0; breezeStep(this, ox - Math.cos(ba) * 30, oy - Math.sin(ba) * 30, ox + Math.cos(ba) * 40, oy + Math.sin(ba) * 40, lv); }
+        else if (/drag[oó]n/i.test(t.name)) dragon(this, /ascend/i.test(t.name) ? 'rise' : 'coil', ox, oy, c1, c2, lv, 520);
+        else elementBurst(this, style, ox, oy, r, 300, c1);
+        for (let k = 0; k < 6 + lv * 2; k++) {
+          const a = (k / (6 + lv * 2)) * Math.PI * 2;
+          this.fx.burst(style, ox + Math.cos(a) * r, oy + 6 + Math.sin(a) * r * 0.6, 1, 20, k % 2 === 0);
+        }
+        const hurtR = dr === 'hora' ? Math.max(r, 90) : r; // 1.91: Hora celestial hurts the whole area it stops
+        for (const e of this.enemies) {
+          const d = Math.hypot(e.pos.x - ox, e.pos.y - 10 - oy);
+          if (d < hurtR + e.radius) this.hit(e, s.damage, (e.pos.x - ox) / (d || 1) * 60, (e.pos.y - oy) / (d || 1) * 60, style);
+        }
+        sfx('whoosh');
+      } else {
+        // v1.65 (author: melee players stayed on a tough boss until it died): back to the formation first
+        if (m.slotDist > 36) { m.cds[i] = 150; return; }
+        const target = this.nearestEnemy(ox, oy, 120);
+        if (!target) { m.cds[i] = 200; return; }
+        const ang = Math.atan2(target.pos.y - 10 - oy, target.pos.x - ox);
+        const reach = Math.min(110, Math.hypot(target.pos.x - ox, target.pos.y - oy) + 24);
+        m.settled = false;
+        m.guardUntil = Infinity; // released when the movement phase ends
+        if (/drag[oó]n/i.test(t.name)) dragon(this, 'strike', m.f.x, m.f.y - 10, c1, c2, lv, 300, m.f.x + Math.cos(ang) * reach, m.f.y - 10 + Math.sin(ang) * reach);
+        if (signatureOf(t.name) === 'espejismo') illusionBall(this, m.f.x, m.f.y, lv, 420);
+        if (animeOf(t.name) === 'brisa') breezeStep(this, m.f.x, m.f.y, m.f.x + Math.cos(ang) * reach, m.f.y + Math.sin(ang) * reach, lv, 300);
+        const dr = dribbleOf(t.name); // 1.76 (fxMovie.ts)
+        if (dr) movieDribble(this, dr, m.f.x, m.f.y, m.f.x + Math.cos(ang) * reach, m.f.y + Math.sin(ang) * reach, lv, 420);
+        if (isCorrienteNegra(t.name)) corrienteNegra(this, m.f.x, m.f.y, m.f.x + Math.cos(ang) * reach, m.f.y - 6 + Math.sin(ang) * reach, lv, undefined, (cx, cy, cr) => this.waterCrash(cx, cy, cr, s.damage * 1.4, style)); // pre-2.0; 2.0: the crash hurts
+        if (isMeteorShower(t.name)) meteorShower(this, m.f.x, m.f.y, m.f.x + Math.cos(ang) * reach, m.f.y - 10 + Math.sin(ang) * reach, lv); // 1.83
+        if (dr === 'hora' || dr === 'atenea') for (const e of this.enemies) if (Math.hypot(e.pos.x - m.f.x, e.pos.y - m.f.y) < 90) e.slowUntil = this.runTime + 1.2;
+        if (!dr && signatureOf(t.name) === 'huracan') stormZone(this, m.f.x + Math.cos(ang) * reach * 0.5, m.f.y + Math.sin(ang) * reach * 0.5, 34, lv, 520);
+        m.dash = { fromX: m.f.x, fromY: m.f.y, toX: m.f.x + Math.cos(ang) * reach, toY: m.f.y + Math.sin(ang) * reach,
+          t: 0, dur: 220, hits: new Set(), chain: new Set(), dmg: s.damage, style, left: s.count - 1 };
+        sfx('whoosh');
+      }
+    } else if (t.type === 'defensa') {
+      const r = s.radius;
+      const wall = /muro|muralla|pared|barrera|escudo|armadur|bloque|fortal|refugio|falange/i.test(t.name);
+      const web = /telara[ñn]a|spider ?web/i.test(t.name);
+      this.fx.ring(ox, oy + 8, r, c1, 320, 2 + Math.floor(lv / 2));
+      if (wall) {
+        const wv = this.add.rectangle(ox, oy + 2, r * 1.4, 10 + lv * 2, c1, 0.55).setStrokeStyle(2, c2).setDepth(m.f.y + 2);
+        this.tweens.add({ targets: wv, scaleY: 2.2, alpha: 0, duration: 380, onComplete: () => wv.destroy() });
+      }
+      this.fx.burst(style, ox, oy + 8, 8 + lv * 3, 70);
+      if (/apisonadora|sabaki/i.test(t.name)) judgementHammer(this, ox, oy + 2, r, lv, () => this.fx.shake(0.006, 180)); // 1.83: the hammer of judgement
+      const natD = natureOf(t.name);
+      const volcano = isCorteVolcanico(t.name); // pre-2.0: the arc and wall of fire of its scene (fxJaden.ts)
+      if (volcano) { const ne = this.nearestEnemy(ox, oy, r * 2.5); corteVolcanico(this, ox, oy + 2, r, ne ? Math.atan2(ne.pos.y - 10 - oy, ne.pos.x - ox) : this.heading, lv); }
+      if (volcano) { /* its own drawing */ } else if (natD) natureArea(this, natD, ox, oy + 2, r, lv, this.enemies.filter((e) => !e.dead && Math.hypot(e.pos.x - ox, e.pos.y - 10 - oy) < r + e.radius).map((e) => ({ x: e.pos.x, y: e.pos.y - 10 })));
+      else if (!wall && !web) elementBurst(this, style, ox, oy + 2, r, 420, c1); // Fix 1.11: rock, vines, wind, fire... by element
+      for (const e of this.enemies) {
+        const d = Math.hypot(e.pos.x - ox, e.pos.y - 10 - oy);
+        if (d < r + e.radius) {
+          this.hit(e, s.damage, (e.pos.x - ox) / (d || 1) * s.knockback, (e.pos.y - oy) / (d || 1) * s.knockback, style);
+          if (s.slow < 1) e.slowUntil = this.runTime + 1.5;
+          if (web) e.webUntil = this.runTime + 0.8 + lv * 0.08; // Telaraña: the rivals in it are caught for a moment
+        }
+      }
+      if (web) this.fx.spiderWeb(ox, oy + 8, r);
+    } else if (t.type === 'parada') {
+      const heal = Math.round(this.maxHp * s.heal);
+      let cx = ox, cy = oy; // centre of the area hit
+      let later = false; // Fix 1.53: the hit comes with the animation, not at once
+      if (/olvido|the end/i.test(t.name)) {
+        // El Olvido (The End): a black hole in front of the keeper swallows the rivals' balls and pulls rivals in
+        const big = ['mitico', 'leyenda'].includes(m.entry.rarity) || !!this.cfg.asc?.[String(m.entry.id)]?.hero;
+        // the hole opens on the rivals (the closest one in reach), never on the keeper
+        const target = this.nearestEnemy(ox, oy, 220 * this.cfg.perks.rangeMult);
+        if (!target) { m.cds[i] = 200; return; }
+        const hx = target.pos.x, hy = target.pos.y - 10;
+        cx = hx; cy = hy;
+        this.fx.blackHole(hx, hy, s.radius, lv, 900, big);
+        this.shots = this.shots.filter((b) => {
+          if (Math.hypot(b.x - hx, b.y - hy) >= s.radius * 1.4) return true;
+          this.tweens.add({ targets: b.img, x: hx, y: hy, scale: 0, duration: 260, ease: 'Cubic.easeIn', onComplete: () => b.img.destroy() });
+          return false;
+        });
+        for (const e of this.enemies) {
+          const d = Math.hypot(e.pos.x - hx, e.pos.y - hy);
+          if (d < s.radius * 1.3) e.slowUntil = this.runTime + 0.9;
+        }
+        sfx('whoosh');
+        this.time.delayedCall(700, () => { if (!this.ended) sfx('boom'); });
+      } else if (/ara[ñn]a gigante|giant spider/i.test(t.name)) {
+        // Araña Gigante: the spider lands on the rivals around the keeper and webs them: caught rivals can't move
+        // for a while (bosses only slow down) and the balls in the web stop dead
+        const target = this.nearestEnemy(ox, oy, 200 * this.cfg.perks.rangeMult);
+        if (!target) { m.cds[i] = 200; return; }
+        cx = target.pos.x; cy = target.pos.y - 10;
+        const webR = s.radius * 1.25;
+        const caught = this.enemies.filter((e) => Math.hypot(e.pos.x - cx, e.pos.y - 10 - cy) < webR + e.radius).slice(0, 6 + lv);
+        const hold = 1.4 + lv * 0.12;
+        for (const e of caught) { e.webUntil = this.runTime + hold; e.slowUntil = this.runTime + hold + 1; }
+        this.shots = this.shots.filter((b) => {
+          if (Math.hypot(b.x - cx, b.y - cy) >= webR) return true;
+          b.img.destroy();
+          return false;
+        });
+        this.fx.spider(cx, cy, webR, lv, 900, caught.map((e) => ({ x: e.pos.x, y: e.pos.y - 10 })), ['mitico', 'leyenda'].includes(m.entry.rarity));
+        sfx('whoosh');
+      } else if (/mordisco de serpiente|snake bite|serpent/i.test(t.name)) {
+        // Mordisco de serpiente: the serpent lunges at the closest rival in reach, bites and poisons the rivals around
+        // the bite (damage over 3 s on top of the hit)
+        const target = this.nearestEnemy(ox, oy, 210 * this.cfg.perks.rangeMult);
+        if (!target) { m.cds[i] = 200; return; }
+        cx = target.pos.x; cy = target.pos.y - 10;
+        this.fx.serpentBite(ox, oy - 6, cx, cy, lv, ['mitico', 'leyenda'].includes(m.entry.rarity));
+        const dps = Math.max(2, s.damage * 0.25);
+        for (const e of this.enemies) if (Math.hypot(e.pos.x - cx, e.pos.y - 10 - cy) < s.radius) e.poison = { until: this.runTime + 3, dps, acc: 0 };
+        sfx('whoosh');
+      } else if (/drag[oó]n/i.test(t.name)) {
+        // Mate del dragón: a dragon leaves the keeper, bites the closest rival and the catch hits around it
+        const target = this.nearestEnemy(ox, oy, 200 * this.cfg.perks.rangeMult);
+        if (!target) { m.cds[i] = 200; return; }
+        cx = target.pos.x; cy = target.pos.y - 10;
+        dragon(this, 'strike', ox, oy - 6, c1, c2, lv, 420, cx, cy, ['mitico', 'leyenda'].includes(m.entry.rarity));
+        sfx('whoosh');
+      } else if (/mano diab[oó]lica|maou/i.test(t.name)) {
+        // 1.83: Mano Diabólica (Maou The Hand): a magenta demon with a red horned mask rises and its hand closes on the ball
+        maouHand(this, ox, oy, lv, ['mitico', 'leyenda'].includes(m.entry.rarity) || !!this.cfg.asc?.[String(m.entry.id)]?.hero);
+        this.fx.ring(ox, oy, s.radius, 0xd02ad8, 420, 2);
+      } else if (/m[aá]gica|majin/i.test(t.name)) {
+        // Mano mágica (Majin The Hand): the Majin rises behind the keeper and raises its arm, then the hand blocks
+        const tint = handTintOf(m.entry.name); // 1.76: Mark's yellow-orange, Darren's blue
+        this.fx.entity('majin', ox, oy + 6, 900, ['mitico', 'leyenda'].includes(m.entry.rarity) || !!this.cfg.asc?.[String(m.entry.id)]?.hero, tint);
+        this.fx.magicHand(ox, oy, lv, tint);
+        this.fx.ring(ox, oy, s.radius, tint?.main ?? 0xb36bff, 420, 2);
+      } else if (natureOf(t.name)) {
+        // Fix 1.31: Mano de pingüinos, Tormenta de pétalos, Hojarasca... drawn after the wiki
+        natureArea(this, natureOf(t.name)!, ox, oy, s.radius, lv, this.enemies.filter((e) => !e.dead && Math.hypot(e.pos.x - ox, e.pos.y - oy) < s.radius).map((e) => ({ x: e.pos.x, y: e.pos.y - 10 })));
+        this.fx.ring(ox, oy, s.radius, 0xffe27a, 480, 2);
+      } else if (/pu[ñn]o de furia/i.test(t.name)) {
+        // Fix 1.53 (author, from the scene): the golden giant's fist comes down on the closest rival, 30% more damage and
+        // reach than a plain catch; the heal is immediate, the hit lands with the fist
+        const near = this.nearestEnemy(ox, oy, 210 * this.cfg.perks.rangeMult);
+        if (!near) { m.cds[i] = 200; return; }
+        const fx0 = near.pos.x, fy0 = near.pos.y - 10, r = s.radius * 1.3;
+        later = true;
+        m.f.hop(this, 16, 380);
+        sfx('whoosh');
+        furyFist(this, ox, oy, fx0, fy0, lv, 640, () => {
+          if (this.ended) return;
+          sfx('boom');
+          this.fx.shake(0.007, 220);
+          for (const e of this.enemies) {
+            const d = Math.hypot(e.pos.x - fx0, e.pos.y - 10 - fy0);
+            if (d < r + e.radius) this.hit(e, s.damage * 1.3, (e.pos.x - fx0) / (d || 1) * s.knockback, (e.pos.y - fy0) / (d || 1) * s.knockback, 'fuego', true);
+          }
+          this.shots = this.shots.filter((b) => { if (Math.hypot(b.x - fx0, b.y - fy0) >= r) return true; b.img.destroy(); return false; });
+        });
+      } else if (handKind(t.name)) {
+        // Fix 1.11: drawn hands and fists per family (fxTech.ts); fists hit where they land
+        const kind = handKind(t.name)!;
+        const near = this.nearestEnemy(ox, oy, 200 * this.cfg.perks.rangeMult);
+        if (kind === 'puno' && near) { cx = near.pos.x; cy = near.pos.y - 10; }
+        const aims = this.enemies.filter((e) => !e.dead && Math.hypot(e.pos.x - ox, e.pos.y - oy) < 200).slice(0, 6).map((e) => ({ x: e.pos.x, y: e.pos.y - 10 }));
+        keeperHand(this.fx, this, t.name, kind, ox, oy, lv, c2, near?.pos.x ?? ox + 60, (near?.pos.y ?? oy) - 10, aims,
+          ['mitico', 'leyenda'].includes(m.entry.rarity) || !!this.cfg.asc?.[String(m.entry.id)]?.hero, m.entry.name);
+        if (kind === 'punos') for (const a of aims) for (const e of this.enemies) if (Math.hypot(e.pos.x - a.x, e.pos.y - 10 - a.y) < 18 + e.radius) this.hit(e, s.damage * 0.6, 0, 0, style);
+        this.fx.ring(cx, cy, s.radius, 0xffe27a, 480, 3); // the push that rejects rivals
+      }
+      else this.fx.ring(ox, oy, s.radius, 0xffe27a, 520, 3);
+      this.fx.burst('energia', ox, oy, 6 + lv * 2, 40, true);
+      // El Olvido pulls inwards (into the hole) instead of pushing away; same damage and reach as every parada
+      const pull = /olvido|the end/i.test(t.name) ? -0.8 : 1;
+      this.healBy(heal, false); // after the target check: an Olvido with no rival in reach does nothing (its number comes below)
+      if (!later) for (const e of this.enemies) {
+        const d = Math.hypot(e.pos.x - cx, e.pos.y - cy);
+        if (d < s.radius) this.hit(e, s.damage, (e.pos.x - cx) / (d || 1) * s.knockback * pull, (e.pos.y - cy) / (d || 1) * s.knockback * pull, style);
+      }
+      if (heal > 0) { this.fx.healFx(this.members[0].f.x, this.members[0].f.y - 10, heal); this.healAt = this.runTime; } // 2.0: a heal, shown as one
+    }
+    used();
+    m.cds[i] = s.cooldownMs;
+    m.maxCd[i] = s.cooldownMs;
   }
 
   /** Special slot of the combined techniques: fires on its own cooldown while every participant is on the pitch. */
@@ -1144,6 +1962,7 @@ export class ArenaScene extends Phaser.Scene {
       const def = COMBOS.find((x) => x.id === id)!;
       const who = comboMembers(def, this.members);
       if (!who.length) continue;
+      if (def.requires && !this.comboActive(def.requires)) continue; // author: the Dragón needs a Último recurso active
       st.cd -= dt;
       if (st.cd > 0) continue;
       const mx = who.reduce((a, m) => a + m.f.x, 0) / who.length, my = who.reduce((a, m) => a + m.f.y, 0) / who.length - 10;
@@ -1154,6 +1973,11 @@ export class ArenaScene extends Phaser.Scene {
     }
   }
 
+  /** One of these combos is learned in this run and its participants are on the pitch (or carried as Aura). */
+  private comboActive(ids: string[]) {
+    return ids.some((id) => { const d = COMBOS.find((x) => x.id === id); return !!d && this.combos.has(id) && comboMembers(d, this.members).length > 0; });
+  }
+
   /** Cooperative wind-up (participants jump, their auras meet in the middle), then one big piercing shot. */
   private comboShot(def: ComboDef, level: number, who: Member[], mx: number, my: number, target: Enemy) {
     const t = { name: def.name, element: def.element, power: def.power };
@@ -1161,7 +1985,8 @@ export class ArenaScene extends Phaser.Scene {
     const style = fxStyle(t);
     const [c1, c2] = STYLE_COLORS[style];
     // Fix 1.12: the participants send their power to the meeting point and each combination has its own manifestation
-    const wind = COMBO189.has(def.effect) ? 800 : COMBO183.has(def.effect) ? combo183Wind(def.effect as Combo183) : def.effect === 'tierra' || def.effect === 'tierra-inf' || def.effect === 'bigbang' || def.effect === 'fuego-total' ? 900 : def.effect === 'caos' || def.effect === 'fenix' || def.effect === 'aurora' || def.effect === 'tiro-doble' || def.effect === 'zero' || def.effect === 'frente' ? 700 : def.effect === 'gungnir' ? 900 : def.effect === 'tiro-rayo' || def.effect === 'superrayo' ? 600 : 360;
+    const lastResort = def.effect.startsWith('ultimo-recurso') ? def.effect as LastResort : null; // author (fxLastResort.ts)
+    const wind = lastResort ? LAST_RESORT_WIND : def.effect === 'escena-nocturna' ? NOCTURNE_WIND : COMBO189.has(def.effect) ? 800 : COMBO183.has(def.effect) ? combo183Wind(def.effect as Combo183) : def.effect === 'tierra' || def.effect === 'tierra-inf' || def.effect === 'bigbang' || def.effect === 'fuego-total' ? 900 : def.effect === 'caos' || def.effect === 'fenix' || def.effect === 'aurora' || def.effect === 'tiro-doble' || def.effect === 'zero' || def.effect === 'frente' ? 700 : def.effect === 'gungnir' ? 900 : def.effect === 'tiro-rayo' || def.effect === 'superrayo' ? 600 : 360;
     // v1.5: a participant carried as Aura appears beside its carrier for the technique only, then fades away
     const ghosts: { x: number; y: number }[] = [];
     for (const c of comboCast(def, who)) {
@@ -1214,6 +2039,9 @@ export class ArenaScene extends Phaser.Scene {
     else if (def.effect === 'fuego-total') totalCharge(this, mx, my, 4 + level, wind); // the curtain of fire between the three
     else if (COMBO183.has(def.effect)) combo183Charge(this, def.effect as Combo183, who.map((m) => ({ x: m.f.x, y: m.f.y, name: m.entry.name })), mx, my, level, wind); // 1.83
     else if (COMBO189.has(def.effect)) combo189Charge(this, def.effect as Combo189, who.map((m) => ({ x: m.f.x, y: m.f.y })), mx, my, level, wind); // 1.88
+    else if (def.effect === 'equipo-definitivo') ultimateElevenCharge(this, who.map((m) => ({ x: m.f.x, y: m.f.y })), mx, my, level, wind); // author (fxUltimateEleven.ts)
+    else if (def.effect === 'escena-nocturna') nocturneCharge(this, who.map((m) => ({ x: m.f.x, y: m.f.y })), mx, my, level, wind); // author (fxNocturne.ts)
+    else if (lastResort) lastResortCharge(this, lastResort, who.map((m) => ({ x: m.f.x, y: m.f.y })), mx, my, level, wind);
     this.fx.ring(mx, my, 34, c2, 360, 3);
     this.fx.label(mx, my - 30, def.name, '#ffe24a');
     sfx('evolve');
@@ -1276,6 +2104,9 @@ export class ArenaScene extends Phaser.Scene {
         else if (def.effect === 'caos') { if (off > 0) { ball.setVisible(false); aura.setVisible(false); } else chaosBreakShot(this, ball, level); }
         else if (COMBO183.has(def.effect)) combo183Shot(this, def.effect as Combo183, ball, level); // 1.83
         else if (COMBO189.has(def.effect)) combo189Shot(this, def.effect as Combo189, ball, level); // 1.88
+        else if (def.effect === 'equipo-definitivo') { if (off === 0) ultimateElevenShot(this, ball, level); else { ball.setVisible(false); aura.setVisible(false); } }
+        else if (def.effect === 'escena-nocturna') { nocturneShot(this, ball, level); aura.setVisible(false); }
+        else if (lastResort) { lastResortShot(this, lastResort, ball, level); aura.setVisible(false); }
         this.projectiles.push({ ball, aura, x: mx, y: my, vx: Math.cos(ang) * speed, vy: Math.sin(ang) * speed, t: 0,
           traj: twin ? 'espiral' : 'recta' as Trajectory, style: twin && off > 0 ? 'hielo' : style,
           // 1.76: Big Bang explodes on the first rival it touches, over the area its explosion is drawn on (it pierced
@@ -1411,6 +2242,10 @@ export class ArenaScene extends Phaser.Scene {
       if ((k === 0 || anime === 'supernova') && anime && anime !== 'brisa') animeShot(this, anime, ball, lv); // every Supernova sphere has its whirl and eye
       const mv = movieOf(t.name);
       if (mv && k === 0) movieShot(this, mv, ball, lv);
+      const vb = victorOf(t.name);
+      if (vb && k === 0) victorShot(this, vb, ball, lv);
+      if (isSetsuna(t.name) && k === 0) setsunaShot(this, ball, lv);
+      if (isCataclysm(t.name) && k === 0) cataclysmShot(this, ball, lv);
       const s183 = solo183Of(t.name);
       if (s183 && k === 0) solo183Shot(this, s183, ball, lv);
       const s189 = solo189Of(t.name);
@@ -2094,6 +2929,34 @@ export class ArenaScene extends Phaser.Scene {
     }
   }
 
+  /** 2.0: heals the captain and shows it (green number, ring, crosses, HUD flash); `show` false when the caller shows it */
+  private healBy(amount: number, show = true) {
+    const before = this.hp;
+    this.hp = Math.min(this.maxHp, this.hp + amount);
+    const got = this.hp - before;
+    if (got >= 1 && show && this.members[0]) { const c = this.members[0].f; this.fx.healFx(c.x, c.y - 10, got); this.healAt = this.runTime; }
+  }
+
+  /** 2.0: Corriente negra's beast crashing down: hurts and pushes back every rival in the splash */
+  private waterCrash(cx: number, cy: number, r: number, dmg: number, style: FxStyle) {
+    sfx('boom');
+    for (const e of this.enemies) {
+      const d = Math.hypot(e.pos.x - cx, e.pos.y - 10 - cy);
+      if (d < r + e.radius) this.hit(e, dmg, (e.pos.x - cx) / (d || 1) * 150, (e.pos.y - cy) / (d || 1) * 150, style);
+    }
+  }
+
+  /** (author) the game stops for an ultimate: nothing moves or hurts, the camera closes in, then all goes on */
+  private cinematic(ms: number) {
+    const wall = ms / Math.max(0.05, this.time.timeScale);
+    this.cineUntil = performance.now() + wall;
+    this.invulnUntil = Math.max(this.invulnUntil, this.runTime + 0.6);
+    const cam = this.cameras.main, z = this.zoomFor();
+    cam.zoomTo(z * 1.22, 320, 'Cubic.easeOut', true);
+    cam.setFollowOffset(0, 34); // a little higher: the spirit and its axe stand above the player (running eases it back)
+    this.time.delayedCall(ms - 260, () => { if (this.sys.isActive()) cam.zoomTo(this.zoomFor(), 300, 'Cubic.easeInOut', true); });
+  }
+
   /**
    * 1.82 (author: the boss had to feel dangerous): BOSS_WARN_SEC before it comes, the alarm: the pitch darkens and pulses
    * red three times while the HUD shows the warning (app.ts bossWarn).
@@ -2377,7 +3240,7 @@ export class ArenaScene extends Phaser.Scene {
     this.fx.ring(c.x, c.y - 10, 24, 0xffffff, 260, 2);
     this.fx.burst('energia', c.x, c.y - 10, 8, 60, true);
     if (d.id === 'arroz' || d.id === 'chocolate') {
-      this.hp = Math.min(this.maxHp, this.hp + Math.round(this.maxHp * (d.id === 'arroz' ? 0.15 : 0.4) * this.cfg.perks.healMult));
+      this.healBy(Math.round(this.maxHp * (d.id === 'arroz' ? 0.15 : 0.4) * this.cfg.perks.healMult));
       sfx('pickup');
     } else if (d.id === 'iman') {
       // IDEA-C16CF5D6: with «Imán de botín» the coin bags, fichas and chests come too
@@ -2593,6 +3456,7 @@ export class ArenaScene extends Phaser.Scene {
       for (const c of [...COMBOS_BY_PRIORITY].reverse()) { // the highest priority ends up first
         const got = this.combos.get(c.id);
         if (!got && c.group && ([...this.combos.keys()].some((id) => COMBOS.find((x) => x.id === id)?.group === c.group) || groupPick.get(c.group) !== c.id)) continue;
+        if (!got && c.requires && !this.comboActive(c.requires)) continue; // author: the Dragón only with a Último recurso active
         if (!got && comboReady(c, pitch)) cards.splice(0, 1, { kind: 'combo', id: c.id, toLevel: 1 });
         else if (got && got.level < COMBO_MAX_LEVEL && this.rng.frac() < 0.35) cards.splice(cards.length - 1, 1, { kind: 'combo', id: c.id, toLevel: got.level + 1 });
       }
@@ -2663,7 +3527,7 @@ export class ArenaScene extends Phaser.Scene {
       return;
     }
     if (card.kind === 'heal') {
-      this.hp = Math.min(this.maxHp, this.hp + Math.round(this.maxHp * card.amount));
+      this.healBy(Math.round(this.maxHp * card.amount));
       return;
     }
     if (card.kind === 'stat' || card.kind === 'passive') {
@@ -2684,7 +3548,17 @@ export class ArenaScene extends Phaser.Scene {
     const before = this.currentTeam();
     const after = applyCard(card, before, recruit, this.cfg.perks.techSlots, recruit ? this.cfg.loadout?.[String(recruit.id)] : undefined);
     if (card.kind === 'recruit') {
-      if (after.length > before.length && recruit) this.addMember(recruit, c.x, c.y + 12);
+      if (after.length > before.length && recruit) {
+        this.addMember(recruit, c.x, c.y + 12);
+        const nm = this.members[this.members.length - 1], k = nm?.entry.keshin && KESHIN_BY_ID.get(nm.entry.keshin.id);
+        if (k && nm.entry.id === recruit.id) { // 2.0 (author: «que salga el EG si tiene, chulo y juiced»): a pause, his spirit's colour round him, the reveal (app.ts)
+          const col = Phaser.Display.Color.HexStringToColor(k.color).color;
+          this.slowmoUntil = performance.now() + 900;
+          for (const [d, r] of [[0, 30], [120, 44], [240, 58]] as const) this.time.delayedCall(d, () => this.fx.ring(nm.f.x, nm.f.y - 10, r, col, 620, 3));
+          this.fx.burst('energia', nm.f.x, nm.f.y - 10, 18, 70, true);
+          this.cfg.hooks.egJoin?.({ playerId: nm.entry.id, active: !!nm.ult });
+        }
+      }
       return;
     }
     const m = this.members.find((x) => x.entry.id === card.playerId);
@@ -2959,7 +3833,7 @@ export class ArenaScene extends Phaser.Scene {
       }), aura: m.entry.aura ? { id: m.entry.aura.id, name: m.entry.aura.name } : null })),
       boss: (() => { const b = this.boss ?? this.rival; return b ? { name: b.unit.name, hp: Math.max(0, b.hp), maxHp: b.maxHp, title: this.kitOf(b).title, phase: b.phase ?? 0, rival: !!b.rival } : null; })(),
       rerolls: this.rerolls, formation: this.formation, formationChangedAt: this.formationChangedAt,
-      hurtAt: this.hurtAt, now: this.runTime, upgraded: this.lastUpgrade, runCoins: this.bonusCoins, runTokens: this.bonusTokens,
+      hurtAt: this.hurtAt, healAt: this.healAt, now: this.runTime, upgraded: this.lastUpgrade, runCoins: this.bonusCoins, runTokens: this.bonusTokens,
       shield: this.buffOn('escudo') ? 1 : 0,
       resonance: [...new Set(this.members.flatMap((m) => m.state.slots.map((_, i) => this.activeTech(m, i)?.element ?? '')))].filter(Boolean)
         .map((element) => ({ element, bonus: resonanceBonus(this.elementCount(element)) })).filter((r) => r.bonus > 0),
@@ -2972,6 +3846,7 @@ export class ArenaScene extends Phaser.Scene {
       endless: this.endless ? { mult: this.endlessScaleNow().hp, sec: this.runTime - this.endless.since, phase: endlessPhase(this.endlessMin()).name } : null,
       combos: [...this.combos].map(([id, s]) => { const d = COMBOS.find((x) => x.id === id)!; return { name: d.name, level: s.level, cd: Math.max(0, Math.min(1, s.cd / d.cooldownMs)) }; }),
       comboGoals: goals.map((g) => ({ id: g.combo.id, name: g.combo.name, complete: g.complete, ready: g.ready, parts: g.parts })),
+      ults: this.members.filter((m) => m.ult).map((m) => ({ playerId: m.entry.id, spirit: m.entry.keshin!.id, tech: m.ult!.tech.name, cd: Math.max(0, Math.min(1, m.cds[ULT] / Math.max(1, m.maxCd[ULT]))), left: Math.max(0, m.cds[ULT] / 1000) })),
       revives: this.reviveCharges, reviveMax: MAX_REVIVES,
     });
   }
@@ -3175,6 +4050,10 @@ export class ArenaScene extends Phaser.Scene {
     if (anime && anime !== 'brisa') animeShot(this, anime, ball, m.lv);
     const mv = movieOf(m.name);
     if (mv) movieShot(this, mv, ball, m.lv);
+    const vb = victorOf(m.name);
+    if (vb) victorShot(this, vb, ball, m.lv);
+    if (isSetsuna(m.name)) setsunaShot(this, ball, m.lv);
+    if (isCataclysm(m.name)) cataclysmShot(this, ball, m.lv);
     const s183 = solo183Of(m.name);
     if (s183) solo183Shot(this, s183, ball, m.lv);
     const s189 = solo189Of(m.name);

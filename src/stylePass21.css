@@ -1,0 +1,68 @@
+/* 2.0 (author: «mejora el pase semanal, más visual»): what each day gives as chips, the rarity odds as a bar, the week's
+   total in the hero, day 5 as a violet «plus» day and day 7 as a golden grand prize with a crown and sparkles. */
+
+/* the week's total */
+.wp3-total { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 8px; }
+.wp3-total small { font-size: 7px; letter-spacing: 2px; color: #8fe8ff; width: 100%; }
+.wp3-total span { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 10px; font-size: 8px; color: #dfe8ff;
+  background: #0a1440cc; border: 1px solid #7fb4ff44; box-shadow: inset 0 1px 0 #ffffff14; }
+.wp3-total span b { font-size: 11px; color: #ffe27a; }
+.wp3-total img { width: 18px; height: 18px; image-rendering: pixelated; }
+
+/* what a day gives */
+.wp3-items { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px; }
+.wp3-it { display: inline-flex; align-items: center; gap: 4px; font-style: normal; font-size: 7.5px; line-height: 1.3; padding: 4px 7px; border-radius: 8px; white-space: nowrap; }
+.wp3-it img { width: 14px; height: 14px; image-rendering: pixelated; }
+.wp3-it.tk { color: #d8f0ff; background: #1a5aa8aa; box-shadow: inset 0 0 0 1px #4fb3ff66; }
+.wp3-it.cn { color: #fff3c8; background: #6a4a10aa; box-shadow: inset 0 0 0 1px #ffd23a66; }
+.wp3-it.pl { color: #fff; background: linear-gradient(90deg, #6a2ab8, #b36bff); box-shadow: inset 0 0 0 1px #e0b8ff88, 0 0 8px #b36bff66; white-space: normal; text-align: center; }
+.wp2-today .wp3-it { font-size: 9px; padding: 5px 9px; }
+
+/* the odds of a footballer reward */
+.wp3-odds { display: flex; flex-direction: column; align-items: center; gap: 3px; width: 100%; }
+.wp3-bar { display: flex; width: 92%; height: 7px; border-radius: 4px; overflow: hidden; box-shadow: 0 0 0 1px #00000088, inset 0 1px 0 #ffffff33; }
+.wp3-bar i { background: linear-gradient(180deg, color-mix(in srgb, var(--rc) 70%, #fff), var(--rc)); }
+.wp3-odds small { font-size: 6.5px; line-height: 1.4; color: #bfd0f5; text-align: center; }
+.wp3-odds small b { font-weight: normal; }
+
+/* roomier cards: they hold more now */
+.wp2-card { min-height: 200px; justify-content: flex-start; gap: 7px; }
+.wp2-card > em { margin-top: auto; }
+
+/* day 5: the «plus» day, violet */
+.wp2-day.plus .wp2-card { border-color: #b36bff; background: linear-gradient(180deg, #5a2a9a, #1a0c4a); box-shadow: 0 6px 0 #1a0632, 0 0 18px #b36bff66; }
+.wp2-day.plus .wp2-card > small { color: #e0b8ff; }
+
+/* day 7: the grand prize — a golden animated frame, a crown, sparkles */
+.wp2-day.grand .wp2-card { border: 3px solid transparent; min-height: 228px;
+  background: linear-gradient(180deg, #4a3208, #1a1030) padding-box, conic-gradient(from var(--wpa, 0deg), #fff3a0, #ffb020, #ff6a2a, #ffd23a, #fff3a0) border-box;
+  box-shadow: 0 6px 0 #2a1800, 0 0 28px #ffd23a88; animation: wpGrand 4s linear infinite; }
+@property --wpa { syntax: '<angle>'; inherits: false; initial-value: 0deg; }
+@keyframes wpGrand { to { --wpa: 360deg; } }
+.wp2-day.grand .wp2-card > small { color: #ffe27a; text-shadow: 0 0 8px #ffb020; }
+.wp3-crown { position: absolute; top: 2px; left: 50%; transform: translateX(-50%); font-size: 18px; font-style: normal; filter: drop-shadow(0 2px 0 #3a2400) drop-shadow(0 0 6px #ffd23a);
+  animation: wpCrown 2s ease-in-out infinite; z-index: 2; }
+@keyframes wpCrown { 50% { transform: translateX(-50%) translateY(-3px) rotate(-6deg); } }
+.wp2-day.grand .wp2-card > small { margin-top: 16px; }
+.wp3-sparks { position: absolute; inset: 0; pointer-events: none; z-index: 0;
+  background-image: radial-gradient(2px 2px at 20% 30%, #fff8 50%, transparent), radial-gradient(2px 2px at 80% 20%, #ffe27a 50%, transparent),
+    radial-gradient(1.5px 1.5px at 65% 70%, #fff 50%, transparent), radial-gradient(2px 2px at 30% 80%, #ffd23a 50%, transparent), radial-gradient(1.5px 1.5px at 90% 60%, #fff 50%, transparent);
+  animation: wpSpark 1.8s ease-in-out infinite alternate; }
+@keyframes wpSpark { from { opacity: .3; } to { opacity: 1; } }
+.wp2-day.grand .wp2-card > *:not(.wp3-sparks):not(.wp3-crown) { position: relative; z-index: 1; }
+
+/* phones */
+@media (max-width: 760px) {
+  .wp3-total span { font-size: 7px; padding: 5px 8px; }
+  .wp3-total span b { font-size: 9px; }
+  .wp2-card { min-height: 0; flex-wrap: wrap; align-items: center; padding-top: 18px; }
+  .wp2-day.grand .wp2-card { min-height: 0; }
+  .wp2-day.grand .wp2-card > small { margin-top: 0; position: absolute !important; } /* back to its corner (the grand card lifts its children) */
+  /* «DÍA N» stays in its corner; the odds legend is not a corner label */
+  .wp2-card .wp3-odds small { position: static; }
+  .wp3-items { flex: 1 1 140px; justify-content: flex-start; }
+  .wp3-odds { flex: 1 1 140px; align-items: flex-start; }
+  .wp3-bar { width: 100%; }
+  .wp3-crown { left: 8px; top: 2px; transform: none; animation: none; }
+}
+@media (prefers-reduced-motion: reduce) { .wp2-day.grand .wp2-card, .wp3-crown, .wp3-sparks { animation: none; } }

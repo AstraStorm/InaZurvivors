@@ -12,6 +12,13 @@ import './styleBoss.css';
 import './styleCards.css';
 import './styleMenu19.css';
 import './styleClans.css';
+import './styleKeshin.css';
+import './styleEgFrames.css';
+import './styleLaunch20.css';
+import './styleMobile20.css';
+import './styleHud20.css';
+import './stylePass20.css';
+import './stylePass21.css';
 import type { Manifest } from './data/manifest';
 import { applyRosterFixes } from './data/rosterFixes';
 import { applyTechFixes } from './data/techFixes';
@@ -30,6 +37,8 @@ const msg = document.getElementById('boot-msg');
 const progress = (k: number, text: string) => {
   if (bar) bar.style.width = `${Math.round(k * 100)}%`;
   if (msg) msg.textContent = text;
+  const pct = document.getElementById('boot-pct');
+  if (pct) pct.textContent = `${Math.round(k * 100)}%`;
 };
 
 /** JSON with a progress callback; servers that compress the reply give no length, so the size is then estimated. */
@@ -81,6 +90,26 @@ async function boot() {
   progress(0.92, 'Abriendo el vestuario…');
   // new profiles start empty: their first 5 footballers come from the one-time onboarding draft
   const save = loadSave([], null);
+  // 2.0 (dev only): ?qa=eg opens a QA club with every Espíritu Guerrero holder; never on localhost, where the author's save lives
+  if (import.meta.env.DEV && new URLSearchParams(location.search).get('qa') === 'eg' && location.hostname !== 'localhost') {
+    const { KESHINS } = await import('./systems/keshin');
+    // author: plus the InaZurvivors x BlueLock pair (Nagi and Isagi) in the team, to see how they look
+    const ids = [900200, 900201, ...KESHINS.flatMap((k) => k.holders.map((h) => h.id))].filter((id, i, a) => a.indexOf(id) === i && manifest.roster.some((p) => p.id === id));
+    for (const id of ids) save.owned[String(id)] ??= { stars: 0, copies: 1, obtainedAt: new Date().toISOString() };
+    Object.assign(save, { squad: ids.slice(0, 7), captainId: 100303, onboardingDone: true, introSeen: true, thanksSeen: true, roadIntroSeen: true, auraIntroSeen: true,
+      tutorial: 'hecho', nameLocked: true, coins: 50000, tokens: 200, egTokens: 40, eventTokens: 300, keshin: { 10: 6, 1: 3, 100538: 2 } });
+    save.profile.name = 'QA_EG';
+    history.replaceState(null, '', location.pathname);
+  }
+  // (dev only) the QA_EG club keeps the BlueLock pair in its team even when opened without ?qa=eg (a club made before
+  // the collab existed did not have them)
+  if (import.meta.env.DEV && save.profile.name === 'QA_EG' && location.hostname !== 'localhost') {
+    const bl = [900200, 900201].filter((id) => manifest.roster.some((p) => p.id === id));
+    for (const id of bl) save.owned[String(id)] ??= { stars: 0, copies: 1, obtainedAt: new Date().toISOString() };
+    if (bl.some((id) => !save.squad?.includes(id))) save.squad = [...bl, ...(save.squad ?? []).filter((id) => !bl.includes(id))].slice(0, 7);
+    if (save.captainId !== null && !save.squad.includes(save.captainId)) save.captainId = save.squad[0];
+    save.eventTokens = Math.max(save.eventTokens ?? 0, 300);
+  }
   storeSave(save);
 
   const game = new Phaser.Game({

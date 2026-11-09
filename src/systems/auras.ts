@@ -22,7 +22,7 @@ import { COMBOS, playsAs } from './combos';
 import { effectiveRarity, isHero } from './ascension';
 import { STAT_KEYS, playerStats, type StatKey } from './training';
 import type { SaveData } from './save';
-import { clashWith } from './identity';
+import { clashWith, sameCharacter } from './identity';
 
 export const AURA_PCT = 0.15;
 export { BOND_PCT };
@@ -32,6 +32,10 @@ export const AURA_TECHS = 2;
 /** v1.5 balance: an inherited technique is one more active technique for its carrier, so it hits at 85% (BALANCE.md) */
 export const AURA_TECH_DAMAGE = 0.85;
 export const AURA_RARITIES: Rarity[] = ['legendario', 'mitico', 'leyenda'];
+/** author: «chetar a David Evans» (the Leyenda nobody played) — as an Aura he passes ALL his stats, not just the best three */
+export const FULL_AURAS = new Set([100773]);
+/** how many of the Aura's stats it passes */
+export const auraStatCount = (auraId: number) => (FULL_AURAS.has(auraId) ? STAT_KEYS.length : 3);
 
 type Entry = Pick<RosterEntry, 'id' | 'name' | 'rarity' | 'stats' | 'techniques' | 'element'> & { position?: string };
 
@@ -101,7 +105,7 @@ export function releaseAsAura(save: SaveData, id: number) {
 }
 
 /**
- * Drops links that are no longer valid (not owned, not Legendario+, chains, duplicates, self). Run at load and after a
+ * Drops links that are no longer valid (not owned, not Legendario+, chains, duplicates, self or his other version). Run at load and after a
  * cloud load; returns how many were dropped.
  */
 export function sanitizeAuras(save: SaveData, byId: Map<number, Pick<RosterEntry, 'id' | 'rarity' | 'name'>>): number {
@@ -113,7 +117,8 @@ export function sanitizeAuras(save: SaveData, byId: Map<number, Pick<RosterEntry
   const keys = Object.keys(src).sort((a, b) => Number(a) - Number(b));
   for (const k of keys) {
     const c = Number(k), a = src[k], carrier = byId.get(c), aura = byId.get(a);
-    const ok = carrier && aura && save.owned[k] && save.owned[String(a)] && c !== a && !used.has(a) && !carriers.has(a) && !used.has(c) && canBeAura(save, aura);
+    const ok = carrier && aura && save.owned[k] && save.owned[String(a)] && c !== a && !used.has(a) && !carriers.has(a) && !used.has(c) && canBeAura(save, aura)
+      && !sameCharacter(carrier, aura); // author: never his own other version (Wolfram with Vulpeen MM)
     if (ok) { out[k] = a; used.add(a); carriers.add(c); } else dropped++;
   }
   // an Aura that is also in the squad leaves the squad
@@ -145,7 +150,7 @@ export function auraBonus(save: SaveData, carrierId: number, aura: Entry): AuraB
   const own = auraOwnStats(save, aura);
   const bond = bondOf(carrierId, aura.id);
   const pct = bond ? BOND_PCT : AURA_PCT;
-  const keys = topStats(own);
+  const keys = topStats(own, auraStatCount(aura.id));
   const add: Partial<Record<StatKey, number>> = {}, from: Partial<Record<StatKey, number>> = {};
   for (const k of keys) { from[k] = own[k]; add[k] = Math.round(own[k] * pct); }
   return { auraId: aura.id, pct, bond, keys, add, from };

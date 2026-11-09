@@ -24,13 +24,109 @@ export type NewsBlock =
   | { list: string[] }
   | { callout: 'aviso' | 'nuevo' | 'info'; text: string }
   | { divider: true };
-export interface NewsItem { id: string; kind: NewsKind; date: string; title: string; summary: string; icon?: string; pinned?: boolean; blocks: NewsBlock[]; version?: string }
+export interface NewsItem { id: string; kind: NewsKind; date: string; title: string; summary: string; icon?: string; pinned?: boolean; blocks: NewsBlock[]; version?: string;
+  /** (author) hidden until this moment (ISO date with its zone; the game passes the server's clock) */ from?: string }
 
 export const NEWS_KIND_LABEL: Record<NewsKind, string> = { novedad: 'NOVEDAD', aviso: 'AVISO', actualizacion: 'ACTUALIZACIÓN', fix: 'FIX', evento: 'EVENTO' };
 
 export const AUTHOR_NEWS: NewsItem[] = [
+  // (author) InaZurvivors x BlueLock: it appears on its own, pinned, the moment its banner opens (server clock)
   {
-    id: 'online-pre2', kind: 'novedad', date: '2026-11-06', icon: '🤝', pinned: true,
+    id: 'colab-bluelock', kind: 'evento', date: '2026-11-12', icon: '⚽', pinned: true, from: '2026-11-12T15:00:00+01:00',
+    title: '¡InaZurvivors x BlueLock ya está aquí!',
+    summary: 'Seishiro Nagi e Yoichi Isagi llegan en su propio banner durante 7 días. Juntos tienen afinidad del 20% y Cometa legendario.',
+    blocks: [
+      { callout: 'nuevo', text: 'La nueva colaboración ya está abierta: **InaZurvivors x BlueLock**, hasta el **19 de noviembre a las 15:00**.' },
+      { h: 'Los fichajes', icon: '⚽' },
+      { list: [
+        '**Seishiro Nagi** · Aire · Delantero · **Mítico**: Ventisca eterna, Espejismo de balón, Regate supersónico y Ultratécnica.',
+        '**Yoichi Isagi** · Bosque · Delantero · **Mítico**: Impulso efímero, Mirada al futuro, Fuerza de tiro y Lance crítico.',
+        'Juntos tienen **afinidad del 20%** como Aura y la técnica combinada **Cometa legendario**.',
+      ] },
+      { h: 'El banner', icon: '🎰' },
+      { list: [
+        'Se paga con **fichas de evento**: **15** una tirada y **150** diez. Ganas fichas de evento con las partidas en **rango S o X** mientras está abierto.',
+        'Nagi e Isagi **solo salen en este banner** y solo mientras dure.',
+      ] },
+      { h: 'Premios de la colaboración', icon: '🏅' },
+      { list: [
+        'Gana **3 partidas** mientras esté abierta y llévate el **banner de perfil InaZurvivors x BlueLock**.',
+        'Ficha a **Nagi y a Isagi** y consigue el **Marco BlueLock**.',
+      ] },
+      { callout: 'info', text: 'Lo encontrarás en el menú, en **FICHAJES**, y en la portada del carrusel.' },
+    ],
+  },
+  {
+    id: 'version-2-0-espiritus', kind: 'actualizacion', date: '2026-11-10', icon: '👻', pinned: true,
+    title: '¡Llega la 2.0: Espíritus Guerreros!',
+    summary: 'La actualización más grande de InaZurvivors: 19 Espíritus Guerreros con definitivas, el Rango Z, seis arenas nuevas, técnicas combinadas de leyenda y mucho más. Aquí tienes todo explicado.',
+    blocks: [
+      { callout: 'nuevo', text: 'Se acabó la fase «pre»: esto ya es la **versión 2.0**. Gracias a todos los que habéis jugado, probado y reportado fallos durante estas semanas.' },
+      { h: 'Espíritus Guerreros', icon: '👻' },
+      { p: 'Algunos futbolistas llevan dentro un **Espíritu Guerrero** de los juegos GO. Los reconocerás por su **insignia** en las cartas y en Mi Equipo. Hay **19**: Grandius, Pegaso, Lancelot, Musashi, Apolo, Surtur, Chione, Guiverno Blanco, Magister, Azote Negro, Eris, Huargo, Glenr, Jmet, Papelín, Zodíaco, Evera, Demogorgo y Atenea.' },
+      { list: [
+        '**Despertarlo** cuesta **3 Fichas EG**. Desde la casilla **ESPÍRITUS GUERREROS** del menú ves todos, quién los lleva y qué dan.',
+        'Sube de nivel **I → II → III → IV → V → Ω** (cada nivel cuesta una ficha más que el anterior: II 1, III 2… Ω 5).',
+        'Cada nivel sube un **% la estadística** de la técnica del espíritu (tiro, regate, defensa o parada) y refuerza su **pasiva**, que ayuda a **todo el equipo** mientras su futbolista juega.',
+        'Los espíritus son de **fuego, aire, montaña o bosque**: su color, su **marco** (que crece con el nivel) y la **fanfarria** al despertarlos van por su elemento.',
+        'Toca el retrato de un espíritu para ver su **carta en 3D**: gírala, dale la vuelta y pasa de uno a otro con las flechas.',
+      ] },
+      { h: 'Definitivas con la R', icon: '⚡' },
+      { p: 'El espíritu del futbolista **más a la izquierda** de tu equipo es el **activo**. Su definitiva se lanza con **R**, con **Y / Triángulo** en el mando o con su **botón** (encima de las placas). Los demás espíritus del equipo dan su pasiva.' },
+      { list: [
+        'Se recarga cada **30 s**; la mejora **«Espíritu despierto»** (Mejoras, Combate) la baja hasta **15 s**. Las ráfagas de daño (¡GENIAL!… ¡INAZUMA!) también la cargan un poco.',
+        'Abarcan el doble que una técnica normal y cada una tiene **su propia escena**, dibujada desde el juego original: el puño de Demogorgo, el rayo de Atenea, la prisión escarlata de Zodíaco, el sol de Apolo…',
+        'Un anillo bajo los pies del futbolista y el botón te dicen cuánto falta. Cuando está lista, se anuncia en pantalla.',
+      ] },
+      { h: 'Cómo conseguir Fichas EG', icon: '🎴' },
+      { list: [
+        '**1** por cada mapa superado en **rango X** y **3** en **rango Z**.',
+        '**3** con el código **EGu3rr3r0** (una sola vez, en la casilla CÓDIGOS).',
+        'Hasta **6 por semana** en la **tienda del clan** (1 por 2 Néctar y 1 Chapa vieja).',
+        'En los **premios semanales del clan**: **12** el primero, **8** el top 3, **5** el top 8 y **2** el resto.',
+      ] },
+      { divider: true },
+      { h: 'Rango Z', icon: '🏔' },
+      { p: 'Más allá del X, para los mejores equipos. Abre el **martes 10 a las 12:00**: los rivales más duros del juego, recompensas **×3,2**, **60 fichas** la primera victoria en cada arena, **3 Fichas EG** por mapa y **×7** de puntos en el ranking.' },
+      { h: 'Seis arenas nuevas', icon: '🗺' },
+      { list: [
+        '**Puerto de Ehime** · jefe Caleb Stonewall', '**Academia Alius** · jefe Xene', '**Instituto en ruinas** · jefe Kevin Dragonfly',
+        '**Parque de la calle comercial**', '**Plaza nevada del Alpino**', '**Torre de hierro al atardecer**',
+      ] },
+      { h: 'Técnicas combinadas nuevas', icon: '🔗' },
+      { p: 'Se aprenden en la partida cuando sus futbolistas están en el campo con sus técnicas al nivel que piden (lo verás en Mi Equipo y en las cartas):' },
+      { list: [
+        '**Escena nocturna**: cualquier Desmodus con cualquier Wolfram, bajo una luna roja.',
+        '**Último recurso** (Asuto, Nosaka y Haizaki) o **Último recurso Σ** (también Hikaru): solo se aprende uno por partida. Con uno de ellos activo, **Petronio** puede aprender **Último recurso: Dragón**.',
+        '**Impulso del equipo definitivo** (Victor, Fei y Arion en sus Mixi Max), **Lluvia oscura**, **Lluvia de azufre**, **Triple amenaza**, **Grito del Edén** y **Pingüino emperador n.º 3**.',
+      ] },
+      { callout: 'info', text: 'Los futbolistas que comparten una técnica combinada tienen **afinidad del 20%** como Aura. Y un futbolista y su propia forma Mixi Max (por ejemplo, Wolfram y Vulpeen MM) **no pueden** ser Aura el uno del otro.' },
+      { h: 'Técnicas redibujadas', icon: '🎬' },
+      { p: '**Golpe cataclismo**, **Ceniza negra**, **Impulso efímero** y los tiros de **Victor Blade** se han dibujado de nuevo, fotograma a fotograma, desde sus escenas.' },
+      { divider: true },
+      { h: 'Clanes', icon: '🏯' },
+      { p: 'Cada jugador juega **1 partida al día** por su clan en la Colina de los Cerezos. Hay **misiones semanales** nuevas (por ejemplo, jugar 5 días distintos o que ganen 3 miembros), más premios y, cada lunes, **Fichas EG** según vuestro puesto.' },
+      { h: 'Una nueva colaboración', icon: '🤫' },
+      { p: 'Cuando termine el **Banner de agradecimiento** llega una **colaboración nueva**. Aún es secreta: el menú te dirá cuántos días faltan. ¿Quiénes serán?' },
+      { h: 'Lo que ya estaba en la fase previa', icon: '🤝' },
+      { list: [
+        '**Cooperativo**: juega con un amigo, cada uno con su equipo (casilla COOP).',
+        '**Amigos**: añádelos por su nombre o desde su perfil en el ranking.',
+        '**Entrenadores**: salen en las máquinas de fichajes y, desde el banquillo, dan ventajas a tu equipo.',
+        '**Road to Fútbol Frontier**: gana en Máxima y llévate a **Jaden Evans**.',
+      ] },
+      { divider: true },
+      { h: 'Para empezar', icon: '▶' },
+      { list: [
+        'Canjea **EGu3rr3r0** en **CÓDIGOS**: con esas 3 fichas despiertas tu primer espíritu.',
+        'Abre **ESPÍRITUS GUERREROS** y mira quién de tu colección lleva uno.',
+        'Pon a ese futbolista **el primero por la izquierda** de tu equipo y pulsa **R** en la partida.',
+      ] },
+      { callout: 'aviso', text: 'Si encuentras cualquier fallo, repórtalo desde el **🐞** del menú. ¡Gracias por jugar!' },
+    ],
+  },
+  {
+    id: 'online-pre2', kind: 'novedad', date: '2026-11-06', icon: '🤝', // 2.0: no longer pinned (the 2.0 news is)
     title: 'Pre-2.0: llega el cooperativo online (en pruebas)',
     summary: 'Ya puedes jugar con un amigo: cada uno con su equipo, los mismos rivales y una barra de experiencia para los dos. Está en pruebas: si veis fallos, reportadlos.',
     blocks: [
@@ -155,12 +251,13 @@ export function releaseNews(r: PublicRelease, online = true): NewsItem {
 }
 
 /** Every news item, pinned first, then newest first (same day: author news before the update). */
-export function allNews(online = true): NewsItem[] {
-  const all = [...AUTHOR_NEWS, ...PUBLIC_RELEASES.map((r) => releaseNews(r, online))];
+export function allNews(online = true, now: number | Date = Date.now()): NewsItem[] {
+  const all = [...AUTHOR_NEWS.filter((n) => !n.from || +now >= Date.parse(n.from)), ...PUBLIC_RELEASES.map((r) => releaseNews(r, online))];
   const order = new Map(all.map((n, i) => [n.id, i]));
   return all.sort((a, b) => Number(!!b.pinned) - Number(!!a.pinned) || b.date.localeCompare(a.date) || order.get(a.id)! - order.get(b.id)!);
 }
 
 /** id of the newest item: the menu marks Noticias as new until it has been opened. */
-export const LATEST_NEWS_ID = [...AUTHOR_NEWS.map((n) => ({ id: n.id, date: n.date })), ...PUBLIC_RELEASES.map((r) => ({ id: `version-${r.version}`, date: r.date }))]
+export const latestNewsId = (now: number | Date = Date.now()) => [...AUTHOR_NEWS.filter((n) => !n.from || +now >= Date.parse(n.from)).map((n) => ({ id: n.id, date: n.date })), ...PUBLIC_RELEASES.map((r) => ({ id: `version-${r.version}`, date: r.date }))]
   .sort((a, b) => b.date.localeCompare(a.date))[0]?.id ?? '';
+export const LATEST_NEWS_ID = latestNewsId();

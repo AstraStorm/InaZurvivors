@@ -86,6 +86,18 @@ describe('stats', () => {
     expect(90 + Math.round(95 * 0.15)).toBe(104);
     expect(90 + Math.round(95 * 0.2)).toBe(109);
   });
+  it('David Evans is an Aura legendaria: all seven stats, 20% with every Mark, Hector Helio and Astero Black', () => {
+    const s = fresh();
+    const david = P(100773, 'David Evans', 'leyenda', [tech(12, 'Mano celestial X', 'parada', 90, 'Montaña')], { kick: 71, body: 76, guard: 81, control: 71, speed: 71, guts: 79, stamina: 71 }, 'Montaña');
+    for (const id of [1, 100234, 100332, 101894, 101558]) {
+      const b = auraBonus(s, id, david);
+      expect(b.pct, String(id)).toBe(BOND_PCT);
+      expect(Object.keys(b.add)).toHaveLength(7);
+    }
+    const other = auraBonus(s, 10, david);
+    expect(other.pct).toBe(AURA_PCT);
+    expect(Object.keys(other.add)).toHaveLength(7);
+  });
   it('own stats stay at 99 at most; with the Aura the effective stat stops at 120', () => {
     const base = { kick: 99, control: 90, guard: 50, body: 50, speed: 50, guts: 50, stamina: 50 };
     const b = { auraId: 1, pct: 0.2, bond: null, keys: ['kick', 'control', 'guard'] as const, add: { kick: 25, control: 19, guard: 5 }, from: {} };
@@ -196,5 +208,54 @@ describe('bond table', () => {
       const bond = AURA_BONDS.find((x) => (x.aName === a.player && x.bName === b.player) || (x.aName === b.player && x.bName === a.player));
       expect(bond, `${c.name}: ${a.player} + ${b.player}`).toBeTruthy();
     }
+  });
+});
+
+describe('Escena nocturna (author): any Desmodus with any Wolfram', () => {
+  const desmo = P(101437, 'Desmodus Drakul', 'legendario', [tech(20, 'Mordida Vampírica', 'tiro', 70)]);
+  const desmoMM = P(101652, 'Drakul MM', 'mitico', [tech(21, 'Chorro rebotante', 'tiro', 80)]);
+  const wolf = P(100678, 'Wolfram Vulpeen', 'legendario', [tech(22, 'Gran lobo', 'tiro', 80)]);
+  const wolfMM = P(100398, 'Vulpeen MM', 'mitico', [tech(23, 'Aullido de Licántropo', 'tiro', 85)]);
+  const four = [desmo, desmoMM, wolf, wolfMM];
+  const ids = new Map(four.map((p) => [p.id, p]));
+  const save = () => { const s = newSave(four.map((p) => p.id), 101437); s.squad = []; s.captainId = null; return s; };
+  it('every Desmodus–Wolfram pair is 20% compatible', () => {
+    for (const d of [desmo, desmoMM]) for (const w of [wolf, wolfMM]) {
+      expect(auraBonus(save(), d.id, w).pct, `${d.name} + ${w.name}`).toBe(BOND_PCT);
+      expect(auraBonus(save(), w.id, d).pct, `${w.name} + ${d.name}`).toBe(BOND_PCT);
+    }
+    expect(BOND_PCT).toBe(0.2);
+  });
+  it('a footballer and his own Mixi Max form are never each other\'s Aura', () => {
+    for (const [a, b] of [[wolf, wolfMM], [wolfMM, wolf], [desmo, desmoMM], [desmoMM, desmo]]) {
+      const r = equipAura(save(), a, b, ids);
+      expect(r.ok, `${b.name} as ${a.name}'s Aura`).toBe(false);
+    }
+    expect(equipAura(save(), wolf, desmoMM, ids).ok).toBe(true);
+    // a link saved before the rule is dropped at load
+    const s = save(); s.auras = { '100678': 100398 };
+    expect(sanitizeAuras(s, ids)).toBe(1);
+    expect(s.auras).toEqual({});
+  });
+});
+
+describe('Último recurso family (author)', () => {
+  const dragon = COMBOS.find((c) => c.id === 'ultimo-recurso-dragon')!;
+  const normal = COMBOS.find((c) => c.id === 'ultimo-recurso')!, sigma = COMBOS.find((c) => c.id === 'ultimo-recurso-sigma')!;
+  const on = (name: string, lv: number) => ({ entry: { ...P(name.length, name, 'legendario', [tech(1, 'Tiro', 'tiro', 60)]) }, state: { playerId: name.length, slots: [0, null], levels: { 0: lv } } });
+  it('the normal one and Σ are alternatives: a run learns only one of them', () => {
+    expect(normal.group).toBe('ultimo-recurso');
+    expect(sigma.group).toBe(normal.group);
+  });
+  it('the Dragón needs Petronio and a Último recurso already learned', async () => {
+    const { comboGoals, squadCombos } = await import('../src/systems/combos');
+    const team = [on('Petronio Patti', 5)] as never;
+    expect(comboGoals(team, []).some((g) => g.combo.id === dragon.id)).toBe(false);
+    expect(comboGoals(team, ['ultimo-recurso']).some((g) => g.combo.id === dragon.id && g.ready)).toBe(true);
+    expect(comboGoals(team, ['ultimo-recurso-sigma']).some((g) => g.combo.id === dragon.id && g.ready)).toBe(true);
+    const alone = squadCombos([{ id: 1, name: 'Petronio Patti' }]).find((c) => c.combo.id === dragon.id)!;
+    expect(alone.ready).toBe(false);
+    const full = squadCombos(['Petronio Patti', 'Inamori Asuto', 'Nosaka Yuuma', 'Haizaki Ryouhei'].map((name, id) => ({ id, name }))).find((c) => c.combo.id === dragon.id)!;
+    expect(full.ready).toBe(true);
   });
 });

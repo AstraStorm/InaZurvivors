@@ -547,6 +547,14 @@ export function earthCharge(scene: S, x: number, y: number, size: number, ms: nu
         g.fillStyle(0xffffff, 0.4 * e).fillCircle(-r * 0.35, -r * 0.38, r * 0.28); // the shine
         g.lineStyle(2, 0xdff6ff, e).strokeCircle(0, 0, r);
         if (inf) [0xff4a4a, 0xffb020, 0xffe24a, 0x5ee05a, 0x4fb3ff, 0xb36bff].forEach((c, i) => g.lineStyle(2, c, 0.9 * e).strokeEllipse(0, 0, r * (2.7 + i * 0.12), r * (0.7 + i * 0.05)));
+        if (inf && e > 0.4) { // 2.0 (author, QkZ988BNDjg): the infinity logo of La Tierra ∞ wrapping the globe, blue edged in green
+          const q = (e - 0.4) / 0.6, W = r * 2.3, H = r * 0.95;
+          for (const [w, c, al] of [[7, 0x1a4aff, 0.85], [4, 0x5ae87a, 0.95], [1.5, 0xffffff, 0.9]] as const) {
+            g.lineStyle(w, c, al * q).beginPath();
+            for (let u = 0; u <= Math.PI * 2 * q + 0.001; u += 0.08) { const d = 1 + Math.sin(u) ** 2; const px = W * Math.cos(u) / d, py = H * Math.sin(u) * Math.cos(u) / d; if (u === 0) g.moveTo(px, py); else g.lineTo(px, py); }
+            g.strokePath();
+          }
+        }
         else g.lineStyle(2, 0xff4a4a, 0.85 * e).strokeEllipse(0, 0, r * 2.7, r * 0.75); // the red orbit
       }
       g.setPosition(x, y);

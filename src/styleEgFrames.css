@@ -1,0 +1,84 @@
+/*
+ * 2.1 (author): the frame of every warrior spirit goes by its affinity (element) and grows with its level. App.egFrame(lv)
+ * draws <i class="eg-frame fl-N"> (N = 1..6, 6 = Ω) with corner ornaments, edge ornaments from level III, inside a
+ * container that carries .el-fuego / .el-aire / .el-montana / .el-bosque:
+ *   Fuego   — a border burning from yellow to red, flickering flames;
+ *   Aire    — a white and cyan border, wind curls;
+ *   Montaña — a thick border of golden stone, carved rocks;
+ *   Bosque  — a green border, leaves.
+ * By level: thicker border and bigger ornaments each level; III adds ornaments on the top and bottom edges, IV on all
+ * four, V a pulsing glow, Ω a double border and a shine running round it. The ornaments sit centred ON the frame's corners
+ * and edges (author: they must not cover the art).
+ */
+@property --fw { syntax: '<length>'; inherits: true; initial-value: 3px; }
+@property --cb { syntax: '<length>'; inherits: true; initial-value: 22px; }
+
+.eg-frame { position: absolute; inset: 0; border-radius: inherit; pointer-events: none; z-index: 6; --sc: 1;
+  --cs: calc(var(--cb) * var(--sc)); --co: calc(var(--cs) * -0.5); transition: --fw .5s ease-out, --cb .5s ease-out; }
+.eg-frame.fl-1 { --fw: 2px; --cb: 18px; }
+.eg-frame.fl-2 { --fw: 3px; --cb: 22px; }
+.eg-frame.fl-3 { --fw: 4px; --cb: 26px; }
+.eg-frame.fl-4 { --fw: 5px; --cb: 30px; }
+.eg-frame.fl-5 { --fw: 6px; --cb: 34px; }
+.eg-frame.fl-6 { --fw: 7px; --cb: 40px; }
+.eg-frame::before { content: ''; position: absolute; inset: 0; border-radius: inherit; padding: calc(var(--fw) * var(--sc)); background: var(--fb, #fff);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; }
+.eg-frame::after { content: ''; position: absolute; inset: 0; border-radius: inherit; box-shadow: 0 0 calc(10px + var(--fw) * 2) var(--fglow, transparent); }
+/* ornaments: corners always, edges from level III (top/bottom) and IV (sides) */
+.ef-c, .ef-m { position: absolute; width: var(--cs); height: var(--cs); }
+.ef-c.c1 { left: var(--co); top: var(--co); }
+.ef-c.c2 { right: var(--co); top: var(--co); transform: scaleX(-1); }
+.ef-c.c3 { left: var(--co); bottom: var(--co); transform: scaleY(-1); }
+.ef-c.c4 { right: var(--co); bottom: var(--co); transform: scale(-1, -1); }
+.ef-m { display: none; width: calc(var(--cs) * 0.8); height: calc(var(--cs) * 0.8); --mo: calc(var(--cs) * -0.4); }
+.ef-m.m1 { left: calc(50% + var(--mo)); top: var(--mo); transform: rotate(45deg); }
+.ef-m.m2 { left: calc(50% + var(--mo)); bottom: var(--mo); transform: rotate(225deg); }
+.ef-m.m3 { top: calc(50% + var(--mo)); left: var(--mo); transform: rotate(-45deg); }
+.ef-m.m4 { top: calc(50% + var(--mo)); right: var(--mo); transform: rotate(135deg); }
+.fl-3 .ef-m.m1, .fl-3 .ef-m.m2, .fl-4 .ef-m, .fl-5 .ef-m, .fl-6 .ef-m { display: block; }
+/* V: the glow pulses; Ω: a second border inside and a shine running round */
+.eg-frame.fl-5::after, .eg-frame.fl-6::after { animation: efPulse 1.6s ease-in-out infinite; }
+@keyframes efPulse { 50% { box-shadow: 0 0 calc(18px + var(--fw) * 3) var(--fglow, transparent), 0 0 4px #fff8; } }
+.eg-frame.fl-6 .ef-ring { display: block; }
+.ef-ring { display: none; position: absolute; inset: calc(var(--fw) * var(--sc) + 3px); border-radius: inherit; border: 2px solid #fff; opacity: .55;
+  -webkit-mask: conic-gradient(from var(--efa, 0deg), #000 0 25%, transparent 25% 50%, #000 50% 75%, transparent 75%); animation: efShine 3s linear infinite; }
+@property --efa { syntax: '<angle>'; inherits: false; initial-value: 0deg; }
+@keyframes efShine { to { --efa: 360deg; } }
+/* levelling up in the awakening: the frame bursts and grows to the new level */
+.eg-frame.grow { animation: efGrow .7s cubic-bezier(.2, 1.6, .4, 1); }
+@keyframes efGrow { 0% { transform: scale(1); filter: brightness(1); } 35% { transform: scale(1.12); filter: brightness(2.2); } 100% { transform: scale(1); filter: brightness(1); } }
+
+/* Fuego */
+.el-fuego .eg-frame { --fb: linear-gradient(160deg, #fff3a8, #ff9a2a 30%, #ff3a1a 62%, #8a1008); --fglow: #ff5a1f88; }
+.el-fuego .ef-c, .el-fuego .ef-m { background: linear-gradient(135deg, #fff6b0, #ffb02a 40%, #ff3a14 75%, #a01408);
+  clip-path: polygon(0 100%, 6% 52%, 20% 66%, 22% 18%, 42% 48%, 50% 0, 64% 40%, 100% 22%, 74% 60%, 100% 72%, 62% 82%, 70% 100%);
+  filter: drop-shadow(0 0 4px #ff6a1a); animation: efFlick 0.9s ease-in-out infinite alternate; }
+.el-fuego .ef-c.c2, .el-fuego .ef-c.c3, .el-fuego .ef-m.m2 { animation-delay: -0.45s; }
+@keyframes efFlick { from { filter: drop-shadow(0 0 3px #ff6a1a) brightness(1); } to { filter: drop-shadow(0 0 8px #ffb02a) brightness(1.25); } }
+
+/* Aire */
+.el-aire .eg-frame { --fb: linear-gradient(135deg, #ffffff, #8ae8ff 35%, #2a9ad8 65%, #e8fbff); --fglow: #5ad8ff77; }
+.el-aire .ef-c, .el-aire .ef-m { border-radius: 50%;
+  background: radial-gradient(circle at 72% 72%, transparent 30%, #e8fbff 32% 40%, transparent 42% 52%, #6ad8ff 54% 62%, transparent 64%);
+  clip-path: polygon(0 0, 100% 0, 100% 30%, 30% 100%, 0 100%); filter: drop-shadow(0 0 3px #8ae8ff); animation: efBreeze 2.4s ease-in-out infinite; }
+@keyframes efBreeze { 50% { opacity: 0.6; } }
+
+/* Montaña */
+.el-montana .eg-frame { --fb: linear-gradient(180deg, #f6dc98, #c8963a 35%, #7a5420 68%, #3a2a10); --fglow: #e0a83a66; }
+.el-montana .ef-c, .el-montana .ef-m { background: linear-gradient(160deg, #fbe6b0, #c8963a 45%, #5a3e16);
+  clip-path: polygon(48% 0, 100% 34%, 84% 100%, 18% 92%, 0 38%); filter: drop-shadow(0 2px 0 #2a1a08) drop-shadow(0 0 3px #e0a83a88); }
+
+/* Bosque */
+.el-bosque .eg-frame { --fb: linear-gradient(150deg, #e0ffb8, #5ee05a 35%, #1f8a3a 68%, #bfffa0); --fglow: #4ee05a66; }
+.el-bosque .ef-c, .el-bosque .ef-m { border-radius: 0 100% 0 100%; background: linear-gradient(135deg, #d8ff9a, #5ee05a 45%, #1a7a30);
+  box-shadow: inset 2px 2px 0 #ffffff55; filter: drop-shadow(0 0 3px #5ee05a); }
+.el-bosque .ef-c::after, .el-bosque .ef-m::after { content: ''; position: absolute; left: 18%; top: 18%; width: 64%; height: 2px; background: #1a6a28; transform-origin: 0 0; transform: rotate(45deg); }
+
+/* sizes by place */
+.eg-card .eg-frame { --sc: 0.9; }
+.eg-panel { position: relative; }
+.eg-panel .eg-frame { --sc: 0.6; }
+.egx-face .eg-frame { --sc: 1.2; }
+.es-fw { position: relative; border-radius: 26px; }
+.es-fw .eg-frame { inset: -16px; --sc: 1.3; border-radius: 34px; --co: calc(var(--cs) * -0.78); --mo: calc(var(--cs) * -0.72); } /* big: the ornaments sit mostly outside the art */
+.es-player { z-index: 8; } /* the footballer's face stays over the frame */

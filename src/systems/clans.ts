@@ -8,19 +8,19 @@ import type { SaveData } from './save';
 
 export const CLAN_COST = 15000;
 export const CLAN_MAX = 20;
-export const CLAN_RUNS_PER_DAY = 3;
+export const CLAN_RUNS_PER_DAY = 1; // (author) was 3; the server limits it too (20261110000000_rank_z.sql)
 export const CLAN_ROLE_LABEL = { lider: 'Líder', oficial: 'Oficial', miembro: 'Miembro' } as const;
 export const CLAN_MAP = 'clan';
-/** the Juegos del Clan pay half the coins and fichas of a normal match */
-export const CLAN_REWARD_MULT = 0.5;
+/** (author) with 1 clan match a day it pays like a normal match (it was half when there were 3) */
+export const CLAN_REWARD_MULT = 1;
 
 export type ClanTier = 'top1' | 'top3' | 'top8' | 'resto';
 /** weekly prizes (the server records coins and fichas for the save's economy cap: same numbers in clan_prize) */
-export const CLAN_PRIZES: Record<ClanTier, { label: string; coins: number; tokens: number; players: { n: number; odds: Partial<Record<Rarity, number>>; label: string }[] }> = {
-  top1: { label: 'TOP 1', coins: 100000, tokens: 500, players: [{ n: 2, odds: { mitico: 85, leyenda: 15 }, label: 'Mítico o más' }] },
-  top3: { label: 'TOP 3', coins: 50000, tokens: 300, players: [{ n: 2, odds: { legendario: 85, mitico: 13, leyenda: 2 }, label: 'Legendario o más' }] },
-  top8: { label: 'TOP 8', coins: 25000, tokens: 300, players: [{ n: 1, odds: { legendario: 85, mitico: 13, leyenda: 2 }, label: 'Legendario o más' }, { n: 2, odds: { epico: 85, legendario: 13, mitico: 2 }, label: 'Épico o más' }] },
-  resto: { label: 'Resto', coins: 10000, tokens: 100, players: [{ n: 1, odds: { epico: 85, legendario: 13, mitico: 2 }, label: 'Épico o más' }] },
+export const CLAN_PRIZES: Record<ClanTier, { label: string; coins: number; tokens: number; /** author: Fichas EG */ eg: number; players: { n: number; odds: Partial<Record<Rarity, number>>; label: string }[] }> = {
+  top1: { label: 'TOP 1', coins: 100000, tokens: 500, eg: 12, players: [{ n: 2, odds: { mitico: 85, leyenda: 15 }, label: 'Mítico o más' }] },
+  top3: { label: 'TOP 3', coins: 50000, tokens: 300, eg: 8, players: [{ n: 2, odds: { legendario: 85, mitico: 13, leyenda: 2 }, label: 'Legendario o más' }] },
+  top8: { label: 'TOP 8', coins: 25000, tokens: 300, eg: 5, players: [{ n: 1, odds: { legendario: 85, mitico: 13, leyenda: 2 }, label: 'Legendario o más' }, { n: 2, odds: { epico: 85, legendario: 13, mitico: 2 }, label: 'Épico o más' }] },
+  resto: { label: 'Resto', coins: 10000, tokens: 100, eg: 2, players: [{ n: 1, odds: { epico: 85, legendario: 13, mitico: 2 }, label: 'Épico o más' }] },
 };
 export const tierOfPos = (pos: number): ClanTier => (pos === 1 ? 'top1' : pos <= 3 ? 'top3' : pos <= 8 ? 'top8' : 'resto');
 
@@ -31,6 +31,8 @@ export const CLAN_MISSION_TEXT: Record<string, string> = {
   rivales: 'Derrotad rivales entre todos',
   puntos: 'Sumad puntos esta semana',
   todos: 'Que todo el clan juegue al menos una vez (3 miembros o más)',
+  constancia: 'Jugad en 5 días distintos de la semana',
+  ganadores: 'Que 3 miembros distintos ganen su partida',
 };
 
 // ---- clan items: ROM objects (icon codes of the items atlas) that drop only in the Juegos del Clan
@@ -47,8 +49,9 @@ export type ClanBag = Partial<Record<ClanItemId, number>>;
 
 /** what a clan match drops: one item per 60 rivals, 3 more for winning, more for a harder rank (at most 20) */
 export function clanDrops(r: { kills: number; victory: boolean; rank?: string }, rng: () => number): ClanBag {
-  const rankBonus = ({ C: 0, B: 1, A: 2, S: 3, X: 5 } as Record<string, number>)[r.rank ?? 'C'] ?? 0;
-  const n = Math.min(20, Math.floor(Math.max(0, r.kills) / 60) + (r.victory ? 3 : 0) + rankBonus);
+  const rankBonus = ({ C: 0, B: 1, A: 2, S: 3, X: 5, Z: 8 } as Record<string, number>)[r.rank ?? 'C'] ?? 0;
+  // (author) 1 match a day: three times the items of a match (they were made for 3 a day)
+  const n = Math.min(60, 3 * (Math.floor(Math.max(0, r.kills) / 60) + (r.victory ? 3 : 0) + rankBonus));
   const out: ClanBag = {};
   const total = CLAN_ITEMS.reduce((a, x) => a + x.weight, 0);
   for (let i = 0; i < n; i++) {
@@ -82,6 +85,7 @@ export function clanWeekLeftMs(now: Date): number {
 export type ClanOffer =
   | { id: string; kind: 'monedas'; coins: number; cost: ClanBag; stock: number }
   | { id: string; kind: 'fichas'; tokens: number; cost: ClanBag; stock: number }
+  | { id: string; kind: 'eg'; egTokens: number; cost: ClanBag; stock: number }
   | { id: string; kind: 'pennant'; pennant: string; cost: ClanBag; stock: number }
   | { id: string; kind: 'jugador'; odds: Partial<Record<Rarity, number>>; label: string; rarity: Rarity; cost: ClanBag; stock: number };
 
@@ -94,6 +98,9 @@ export const CLAN_SHOP_WEEKS: Record<string, string[]> = {
 };
 export const CLAN_SHOP_DEFAULT: string[] = ['marco-cerezo'];
 export const clanShopPennants = (week: string) => CLAN_SHOP_WEEKS[week] ?? CLAN_SHOP_DEFAULT;
+/** author: a Ficha EG in the clan shop, at most CLAN_EG_STOCK a week */
+export const CLAN_EG_STOCK = 6;
+export const CLAN_EG_COST: ClanBag = { nectar: 2, chapa: 1 };
 /** what they cost: a frame a little more than a banner */
 const PENNANT_COST = { banner: { chapa: 2, nectar: 3 }, marco: { chapa: 3, nectar: 2 } };
 
@@ -109,6 +116,8 @@ export function clanShop(week: string): ClanOffer[] {
     { id: 'monedas-s', kind: 'monedas', coins: pick([5000, 6000, 7500]), cost: { pinchito: 6 }, stock: 3 },
     { id: 'monedas-l', kind: 'monedas', coins: pick([15000, 20000]), cost: { galletas: 6, pinchito: 4 }, stock: 2 },
     { id: 'fichas', kind: 'fichas', tokens: 100, cost: { galletas: 8, nectar: 3 }, stock: 2 },
+    // author: Fichas EG, one per purchase, 6 a week at most
+    { id: 'eg', kind: 'eg', egTokens: 1, cost: CLAN_EG_COST, stock: CLAN_EG_STOCK },
     ...clanShopPennants(week).map((id): ClanOffer => ({ id: `pn-${id}`, kind: 'pennant', pennant: id, cost: id.startsWith('marco-') ? PENNANT_COST.marco : PENNANT_COST.banner, stock: 1 })),
     { id: 'epico', kind: 'jugador', rarity: 'epico', label: 'Épico o más', odds: { epico: 90, legendario: 9, mitico: 1 }, cost: { pinchito: 10, galletas: 5 }, stock: 2 },
     { id: 'legendario', kind: 'jugador', rarity: 'legendario', label: 'Legendario o más', odds: { legendario: 90, mitico: 9, leyenda: 1 }, cost: { nectar: 5, chapa: 2 }, stock: 1 },
@@ -143,7 +152,7 @@ export const CLAN_ERRORS: Record<string, string> = {
   clan_not_found: 'Ese clan ya no existe.',
   not_leader: 'Tu rango en el clan no permite hacer eso.',
   no_username: 'Reserva tu nombre en Perfil antes de entrar en un clan.',
-  clan_daily_limit: 'Ya has jugado tus 3 partidas del clan de hoy.',
+  clan_daily_limit: 'Ya has jugado tu partida del clan de hoy: vuelve mañana.',
   not_in_clan: 'No estás en ningún clan.',
   play_first: 'Juega al menos una partida del clan esta semana para cobrar las misiones.',
   mission_not_done: 'Esa misión aún no está completa.',

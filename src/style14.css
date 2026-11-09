@@ -1613,6 +1613,27 @@ body.drag-aura-no .squad-row .aura-mini { opacity: .45; }
 .wr-pod .fr-host, .rk-pod .fr-host { margin: 8px 0 12px; }
 .rk-medal { z-index: 4; } .wr-medal { position: relative; z-index: 4; }
 
+/* (author) the big banner of an ultimate (fxKeshin ultBanner): a slanted band sweeping in over the game */
+.ult-banner { position: fixed; z-index: 60; pointer-events: none; overflow: hidden; }
+.ub-flash { position: absolute; inset: 0; background: radial-gradient(circle at 50% 45%, #ffd0f0aa, #ff2a9a55 35%, transparent 65%); opacity: 0; animation: ubFlash .4s ease-out both; }
+@keyframes ubFlash { 0% { opacity: .7; } 100% { opacity: 0; } }
+.ub-band { position: absolute; left: -10%; right: -10%; top: 22%; height: clamp(88px, 22%, 170px); transform: rotate(-5deg);
+  display: flex; align-items: center; gap: 18px; padding: 0 14%;
+  background: linear-gradient(90deg, #12001ccc, #6a0a4af2 18%, #c0126e 50%, #6a0a4af2 82%, #12001ccc);
+  border-top: 4px solid #ff7ad0; border-bottom: 4px solid #ff7ad0; box-shadow: 0 0 40px #ff2a9a99, inset 0 0 30px #000a;
+  animation: ubBand var(--ms) cubic-bezier(.2, .9, .2, 1) both; }
+@keyframes ubBand { 0% { clip-path: inset(0 100% 0 0); } 12% { clip-path: inset(0 0 0 0); } 86% { clip-path: inset(0 0 0 0); opacity: 1; } 100% { clip-path: inset(0 0 0 100%); opacity: .6; } }
+.ub-lines { position: absolute; inset: 0; background: repeating-linear-gradient(100deg, transparent 0 26px, #ffffff14 26px 30px); animation: ubLines .5s linear infinite; }
+@keyframes ubLines { to { background-position: 120px 0; } }
+.ub-art { position: relative; height: 150%; align-self: flex-end; margin-bottom: -4%; filter: drop-shadow(0 0 12px #ff2a9a); animation: ubArt var(--ms) ease-out both; }
+@keyframes ubArt { 0% { transform: translateX(-60px) scale(.9); opacity: 0; } 18% { transform: none; opacity: 1; } }
+.ub-tx { position: relative; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.ub-tx small { font-size: clamp(8px, 1.3vw, 13px); letter-spacing: 3px; color: #ffd0f0; text-shadow: 2px 2px 0 #000; }
+.ub-tx b { font-family: Impact, "Arial Black", sans-serif; font-style: italic; font-weight: 900; font-size: clamp(26px, 5.4vw, 64px); line-height: 1; color: #fff; letter-spacing: 1px;
+  -webkit-text-stroke: 2px #7a0040; text-shadow: 4px 4px 0 #2a0018, 0 0 22px #ff7ad0; animation: ubName var(--ms) cubic-bezier(.2, 1.6, .4, 1) both; white-space: nowrap; }
+@keyframes ubName { 0% { transform: scale(1.8); opacity: 0; } 14% { transform: scale(1); opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .ult-banner * { animation-duration: .01ms !important; } .ub-band { clip-path: none; } }
+
 /* 1.81 (author): technique level logos (+1..+5, N2..∞, G2..GO) beside the name, pixel art kept sharp */
 .evo-ic { display: inline-block; height: 1.55em; width: auto; margin-left: .3em; vertical-align: middle; image-rendering: pixelated; filter: drop-shadow(1px 1px 0 #000a); }
 .evo-ic.big { height: 26px; margin: 0 2px; }
@@ -1632,3 +1653,28 @@ body.drag-aura-no .squad-row .aura-mini { opacity: .45; }
 .wr-row { grid-template-columns: 34px 62px minmax(0, 1fr) 24px 30px auto; }
 @media (max-width: 700px) { .rk-screen .rank-row { grid-template-columns: 30px 68px 1fr 40px 76px; } }
 @media (max-width: 620px) { .wr-row { grid-template-columns: 30px 62px minmax(0, 1fr) 30px auto; } }
+
+/* Panel de jugadores > Métricas */
+#aptabs { margin-bottom: 10px; } #mtdays { margin-bottom: 10px; }
+#aplist h4 { margin: 14px 0 6px; font-size: 10px; color: #ffe24a; } #aplist h4 small { color: var(--muted); font-size: 8px; }
+.mt-cols { display: flex; align-items: stretch; gap: 2px; height: 120px; padding: 6px; border-radius: 10px; background: #0a1d48; box-shadow: inset 0 0 0 2px #ffffff14; }
+.mt-col { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; min-width: 0; cursor: default; }
+.mt-col i { display: block; width: 100%; min-height: 1px; border-radius: 3px 3px 0 0; background: linear-gradient(180deg, #ffd23f, var(--orange)); }
+.mt-col:hover i { background: #fff; }
+.mt-col small { height: 10px; font-size: 7px; color: #cfe3ff; white-space: nowrap; margin-top: 2px; }
+.mt-split { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0 14px; }
+.mt-rows { display: flex; flex-direction: column; gap: 4px; }
+.mt-row { display: grid; grid-template-columns: minmax(70px, 1.2fr) 2fr auto; gap: 6px; align-items: center; font-size: 9px; }
+.mt-row span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mt-row div { height: 10px; border-radius: 5px; background: #ffffff10; overflow: hidden; } .mt-row div i { display: block; height: 100%; background: linear-gradient(90deg, var(--orange), #ffd23f); }
+.mt-row b { color: #fff; } .mt-row b small { color: var(--muted); font-size: 7px; }
+
+/* Rango Z: locked button with its countdown, and the carousel letter */
+.rk4.rk4-shut { opacity: .7; filter: saturate(.6); } .rk4.rk4-shut small { white-space: nowrap; }
+.m5-rz { display: grid; place-items: center; } .m5-rz .z-emblem { width: 120px; height: 120px; filter: drop-shadow(0 0 14px #ff2a4599) drop-shadow(3px 4px 0 #0008); animation: zBob 3s ease-in-out infinite; }
+@keyframes zBob { 50% { transform: translateY(-4px) rotate(-3deg); } }
+.z-emblem { display: block; width: 100%; height: 100%; overflow: visible; }
+.rank-btn b.rz-b { width: 26px; height: 26px; text-shadow: none; } .wr-row .rank-btn b.rz-b, .wr-pod .rank-btn b.rz-b, .rank-row .rank-btn b.rz-b, .rk-pmeta .rank-btn b.rz-b { width: 22px; height: 22px; }
+.rk4-l.rk4-z { padding: 3px; } .rk4.on .rk4-l.rk4-z { background: radial-gradient(circle, #fff 0 35%, #ffd0d6 70%, #ff2a45); }
+.rk4-l.rk4-z .z-emblem { filter: drop-shadow(1px 2px 0 #0007); } .rk4.on .rk4-l.rk4-z .z-emblem { animation: zBob 2.4s ease-in-out infinite; }
+.z-emblem.z-inl { display: inline-block; width: 1.3em; height: 1.3em; vertical-align: -0.3em; }
