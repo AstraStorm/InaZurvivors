@@ -117,7 +117,8 @@ jobs:
     steps:
       - name: La publicación programada solo vale para la 2.0 (10 de noviembre de 2026)
         if: github.event_name == 'schedule'
-        run: test "$(date -u +%Y-%m-%d)" = "2026-11-10" || { echo "Publicación programada fuera de fecha: no se despliega"; exit 1; }
+        run: |
+          if [ "$(date -u +%Y-%m-%d)" != "2026-11-10" ]; then echo "Publicación programada fuera de fecha, no se despliega"; exit 1; fi
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
