@@ -82,7 +82,7 @@ export const KESHINS: KeshinDef[] = [
     passive: { name: 'Impulso de tiro', game: 'Mejora el tiro de todos los jugadores del equipo en 10 puntos.',
       text: (k) => `+${pct(0.06 * k)} daño de los tiros de todo el equipo`, apply: (f, k) => addType(f, 'tiro', 0.06 * k) } },
   { id: 'chione', name: 'Chione', title: 'Chione, reina de la nieve', element: 'Aire', type: 'tiro', color: '#9be7ff',
-    holders: [{ id: 1513, name: 'Shawn Froste' }, { id: 100938, name: 'Njord Snio' }],
+    holders: [{ id: 1513, name: 'Shawn Froste' }, { id: 900301, name: 'Shawn Froste Sin Bufanda' }, { id: 100938, name: 'Njord Snio' }], // 2.02: the Leyenda Shawn too
     tech: tech(990003, 'Lanza de carámbanos', 'Aire', 'tiro', 125, 'Chione envuelve al jugador en una ventisca y el balón sale en una lanza de hielo; donde cae brotan carámbanos que congelan a todos.'),
     // «Pies de plomo»: grip so nobody slips on ice; here the team keeps its footing: faster and harder to push around
     passive: { name: 'Pies de plomo', game: 'Mejora el agarre de todos los jugadores para no resbalar en campos helados.',

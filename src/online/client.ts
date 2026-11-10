@@ -253,6 +253,42 @@ export interface AdminMetrics {
   social: { friendships: number; clans: number; clan_members: number; coop_7d: number; tierlists: number; bugs_open: number; ideas_open: number };
 }
 export const adminMetrics = (days = 30) => rpc<AdminMetrics>('admin_metrics', { p_days: days });
+// ---- 2.02: run replays (migration 20261110000600_replays.sql): private bucket, one folder per account, admin watches
+const REPLAYS = 'replays';
+export interface ReplayRow { id: number; path: string; username: string; map: string; rank: string; time_sec: number; victory: boolean; kills: number; level: number;
+  captain_id: number | null; team: number[]; bytes: number; version: string; created_at: string }
+export interface ReplayMeta { map: string; rank: string; timeSec: number; victory: boolean; kills: number; level: number; captainId: number | null; team: number[]; version: string }
+/** Uploads a finished run's recording and registers it; the server hands back this account's oldest ones, deleted here. */
+export async function uploadReplay(runId: string, blob: Blob, meta: ReplayMeta) {
+  const uid = accountId();
+  if (!uid) return;
+  const path = `${uid}/${runId.replace(/[^A-Za-z0-9_-]/g, '').slice(0, 64)}.bin`;
+  const r = await fetch(`${URL_}/storage/v1/object/${REPLAYS}/${path}`, { method: 'POST', headers: { apikey: KEY, Authorization: `Bearer ${await token()}`, 'Content-Type': 'application/gzip' }, body: blob });
+  if (!r.ok && r.status !== 409) throw new Error(`replay upload ${r.status}`);
+  const old = await rpc<string[]>('register_replay', { p_path: path, p_map: meta.map, p_rank: meta.rank, p_time_sec: Math.floor(meta.timeSec), p_victory: meta.victory,
+    p_kills: Math.floor(meta.kills), p_level: meta.level, p_captain_id: meta.captainId, p_team: meta.team, p_bytes: blob.size, p_version: meta.version });
+  if (old?.length) await deleteReplays(old);
+}
+export async function deleteReplays(paths: string[]) {
+  if (!paths.length) return;
+  await fetch(`${URL_}/storage/v1/object/${REPLAYS}`, { method: 'DELETE', headers: { apikey: KEY, Authorization: `Bearer ${await token()}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ prefixes: paths }) });
+}
+/** 2.02 Métricas: the active spirit of a finished run (migration 20261111000000_spirit_stats.sql) */
+export const recordSpiritRun = (spirit: string, casts: number, damage: number) => rpc<null>('record_spirit_run', { p_spirit: spirit, p_casts: Math.floor(casts), p_damage: Math.floor(damage) });
+export interface SpiritStat { spirit: string; runs: number; casts: number; damage: number }
+export const adminSpiritStats = (days = 30) => rpc<SpiritStat[]>('admin_spirit_stats', { p_days: days });
+export const adminReplays = (username: string | null, limit = 100) => rpc<ReplayRow[]>('admin_replays', { p_username: username, p_limit: limit });
+/** Admin: deletes the recordings older than `days` (the server lists them, the files go through the Storage API). */
+export async function adminPruneReplays(days = 30) {
+  const paths = await rpc<string[]>('admin_prune_replays', { p_days: days });
+  for (let i = 0; i < paths.length; i += 100) await deleteReplays(paths.slice(i, i + 100));
+  return paths.length;
+}
+export async function replayFile(path: string) {
+  const r = await fetch(`${URL_}/storage/v1/object/authenticated/${REPLAYS}/${path}`, { headers: { apikey: KEY, Authorization: `Bearer ${await token()}` } });
+  if (!r.ok) throw new Error('No se pudo descargar la repetición.');
+  return r.arrayBuffer();
+}
 export const adminUpdateBug =(code: string, status: string | null, notes: string | null, reply: string | null = null) => rpc<string>('admin_update_bug', { p_code: code, p_status: status, p_notes: notes, p_reply: reply });
 /** Asks the server to tell the author. Best effort: the report is already saved whatever happens here. */
 export async function notifyBug(code: string) {

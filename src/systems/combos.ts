@@ -298,7 +298,7 @@ export const COMBOS: ComboDef[] = [
  * tests/aura_roster.test.ts.
  */
 export const COUNTERPARTS: Record<string, string[]> = {
-  'Shawn Froste': ['Shawn + Axel'],
+  'Shawn Froste': ['Shawn + Axel', 'Shawn Froste Defensa', 'Shawn Froste Sin Bufanda'], // 2.02: his other versions
   'Xavier Foster': ['Xene', 'Jordan + Xavier'], // 1.88 (author): Kira Hiroto is another character
   // special footballer (data/special_players.json): Axel in his Okinawa hoodie
   'Axel Blaze': ['Axel Blaze Encapuchado'],

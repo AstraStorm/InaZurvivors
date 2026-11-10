@@ -1,0 +1,61 @@
+/* 2.02 Repeticiones (app.replayViewer + game/ReplayScene.ts): the pitch stays visible; bar, info, log and controls float */
+#ui > .rplay { position: absolute; inset: 0; pointer-events: none; padding: clamp(10px, 2vw, 22px); display: flex; flex-direction: column; gap: 8px; }
+.rplay .titlebar, .rplay .rp-ctl { pointer-events: auto; }
+.rplay .titlebar { position: relative; top: 0; margin: 0; background: #0a1d48e6; }
+.rp-info { align-self: flex-start; display: flex; align-items: center; gap: 10px; padding: 6px 12px 6px 6px; border-radius: 12px;
+  background: #0a1d48d9; border: 1px solid var(--g-line, #3f7fc4); box-shadow: 0 6px 16px #0008; font-size: 10px; }
+.rp-info small { display: block; margin-top: 4px; color: var(--muted); font-size: 7px; }
+.rp-mug { flex: none; border-radius: 8px; overflow: hidden; background: #050c24; }
+.rp-mug .mug { display: block; }
+.rp-log { align-self: flex-start; display: flex; flex-direction: column; gap: 3px; max-width: min(440px, 100%); font-size: 8px; line-height: 1.5; }
+.rp-log > div { padding: 3px 8px; border-radius: 6px; background: #050c24cc; text-shadow: 1px 1px 0 #000; animation: rpIn .2s ease-out; }
+.rp-log em { font-style: normal; color: var(--muted); margin-right: 4px; }
+.rp-log b { font-weight: normal; padding: 0 4px; border-radius: 3px; color: #04061a; -webkit-text-fill-color: currentColor; background-clip: border-box; text-shadow: none; }
+.rl-card { background: #8fd0ff; } .rl-hurt { background: #ff8a8a; } .rl-boss { background: #ff5a3a; color: #fff !important; }
+.rl-ult { background: #ffe24a; } .rl-form { background: #b8ffb0; } .rl-win { background: #8fffa0; }
+@keyframes rpIn { from { opacity: 0; transform: translateX(-8px); } }
+.rp-load { align-self: center; margin-top: 20vh; padding: 10px 16px; border-radius: 10px; background: #0a1d48e6; font-size: 10px; }
+.rp-ctl { margin-top: auto; display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 14px; background: #0a1d48eb;
+  border: 1px solid var(--g-line, #3f7fc4); box-shadow: 0 6px 16px #000a; }
+.rp-ctl[hidden] { display: none; }
+.rp-play { min-width: 44px; }
+.rp-time { flex: none; font-size: 9px; min-width: 92px; text-align: center; }
+.rp-track { position: relative; flex: 1; min-width: 80px; height: 26px; display: flex; align-items: center; }
+.rp-track input { position: relative; z-index: 1; width: 100%; margin: 0; background: transparent; }
+.rp-marks { position: absolute; inset: 0 7px; pointer-events: none; }
+.rp-marks i { position: absolute; top: 2px; width: 2px; height: 6px; margin-left: -1px; border-radius: 1px; }
+.rp-marks .rm-card { background: #8fd0ff; }
+.rp-marks .rm-hurt { top: auto; bottom: 2px; background: #ff8a8a; }
+.rp-marks .rm-boss { top: 0; height: 26px; width: 3px; background: #ff5a3a; }
+.rp-speed button { min-width: 34px; }
+.rp-hp { flex: none; width: 90px; height: 10px; border-radius: 5px; background: #300; overflow: hidden; box-shadow: inset 0 0 0 1px #fff3; }
+.rp-hp i { display: block; height: 100%; width: 100%; background: linear-gradient(90deg, #ff5a5a, #8fffa0); transition: width .15s; }
+
+/* admin list */
+.rp-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 8px 0; }
+.rp-bar input { min-width: 180px; }
+.rp-bar .spacer { flex: 1; }
+.rp-bar .sure { background: #c0392b; }
+.rp-table .ap-row { grid-template-columns: 1.2fr 1fr 1.2fr .6fr .7fr 1.2fr 1.6fr .8fr; align-items: center; }
+.rp-rank.rank-btn { padding: 0; width: 22px; height: 22px; min-width: 0; min-height: 0; display: inline-grid; place-items: center; clip-path: none; border: 2px solid var(--rk); border-radius: 6px; cursor: default; }
+.rp-rank.rank-btn b { font-size: 10px; line-height: 1; }
+.rp-win { color: #8fffa0; } .rp-loss { color: #ff8a8a; }
+.rp-cap { display: flex; align-items: center; gap: 6px; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.rp-cap .mug { flex: none; border-radius: 4px; }
+.opt-note { display: block; margin-top: 4px; max-width: 420px; color: var(--muted); font-size: 7px; line-height: 1.5; }
+
+/* phone landscape: the pitch matters more than the details */
+@media (max-height: 420px) {
+  #ui > .rplay { padding: 6px 10px; gap: 4px; }
+  .rp-info { padding: 3px 8px 3px 3px; font-size: 8px; }
+  .rp-info small { display: none; }
+  .rp-mug .mug { zoom: .6; }
+  .rp-log > div:nth-child(n+4) { display: none; }
+  .rp-ctl { padding: 4px 8px; }
+}
+@media (max-width: 620px) {
+  .rp-ctl { flex-wrap: wrap; gap: 6px; }
+  .rp-track { order: 9; flex-basis: 100%; }
+  .rp-log { font-size: 7px; }
+  .rp-table .ap-row { grid-template-columns: 1fr 1fr 1fr; }
+}

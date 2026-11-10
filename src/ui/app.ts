@@ -9,7 +9,7 @@ import { deathCause } from '../systems/deathCause';
 import { serverNow, syncServerTime, timeSource, trustedClock } from '../online/serverTime';
 import { PASS, PASS_TOTAL, claimPass, passStatus, type PassReward } from '../systems/weeklyPass';
 import { applyReward, codePlayer, hasRedeemed, INA483_ODDS, normalizeCode, redeemLocal, type CodeReward } from '../systems/promo';
-import { clearRoad, JADEN_EVERY, JADEN_ID, ROAD_BY_ID, ROAD_DIFFS, ROAD_SQUAD, roadEligible, roadMatchSec, roadOf, type RoadDiff } from '../systems/road';
+import { clearRoad, compensateJaden202, jadenProgress, JADEN_ID, ROAD_BY_ID, ROAD_DIFFS, ROAD_SQUAD, roadEligible, roadMatchSec, roadOf, type RoadDiff } from '../systems/road';
 import { BANNERS, BANNER_ORDER, bannerPool, bannerPrice, eraOf, featured, featuredMachine, FEATURED_BOOST, perPlayerOdds, rarityOdds, teamChoices, type BannerId } from '../systems/banners';
 import { exportSave, importSave, remapIds, remapTechSlots, storeSave, type SaveData, type ParticleLevel, type Rank } from '../systems/save';
 import { addCopy, eligibleTeams, pull, recordHistory, DUPLICATE_REFUND_BY, PULL_COST, MAX_STARS, starBonus, onboardingPull, type PullResult } from '../systems/gacha';
@@ -85,8 +85,11 @@ import { MAX_TEAM, canStartWith, startingTech, type Card } from '../systems/card
 import { clearSquad, renameSquad, savedSquads, setSquad, SQUAD_SIZE, fillSquad, makeCaptain, placeInSquad, removeFromSquad, squadOf, switchSquad, syncActiveSquad } from '../systems/squad';
 import type { ArenaInit, ArenaScene, HudState, MarkerState, Poi, TrainingSetup } from '../game/ArenaScene';
 import type { LobbyInit, LobbyPlayer } from '../game/LobbyScene';
+import type { ReplayInit, ReplayScene } from '../game/ReplayScene';
+import { readReplay, type ReplayEvent } from '../game/replay';
+import { adminPruneReplays, adminReplays, adminSpiritStats, recordSpiritRun, replayFile, uploadReplay, type ReplayRow, type SpiritStat } from '../online/client';
 import { BOSS_WARN_SEC } from '../systems/bossKit';
-import { canLevel, egTokens, giveKeshinGift, keshinElClass, KESHIN_LABEL, KESHIN_MAX, KESHINS, keshinForRun, keshinLevel, keshinOf, keshinStepCost, levelKeshin, nextCost, passiveText as keshinPassiveText, statBonus, techFor, withKeshinStats, type KeshinDef } from '../systems/keshin';
+import { canLevel, egTokens, KESHIN_BY_ID, type KeshinId, giveKeshinGift, keshinElClass, KESHIN_LABEL, KESHIN_MAX, KESHINS, keshinForRun, keshinLevel, keshinOf, keshinStepCost, levelKeshin, nextCost, passiveText as keshinPassiveText, statBonus, techFor, withKeshinStats, type KeshinDef } from '../systems/keshin';
 import { charCanvas, initPreviews, mountPreviews, setPreviewKit } from './sprites';
 import { egAwaken, sfx, setVolume } from '../game/sfx';
 import { firstPad } from '../game/controls';
@@ -213,6 +216,8 @@ export class App {
     // author: InaZurvivors x BlueLock is a surprise until it opens — its footballers stay out of the encyclopedia, lists
     // and searches (unless already owned, e.g. the QA accounts); the menu teaser only shows their silhouettes
     if (bluelockUpcoming(serverNow())) m.roster = m.roster.filter((p) => p.exclusive !== 'bluelock' || !!save.owned[String(p.id)]);
+    // 2.02 (author): «próximamente» footballers are a secret: nowhere in the game until they are owned
+    m.roster = m.roster.filter((p) => p.exclusive !== 'proximamente' || !!save.owned[String(p.id)]);
     this.byId = new Map(m.roster.map((p) => [p.id, p]));
     setElementArt(m.elements); // author: the original element icons, in every menu from the start
     // the loading screen's runners: their sprites in the cache before the first run (ui/runLoader.ts)
@@ -233,6 +238,8 @@ export class App {
     if (restoreHeroStars188(save, m.roster)) storeSave(save); // 1.88: the HÉROE hero stars come back
     if (resetStars185(save, m.roster)) storeSave(save); // 1.85: everyone's stars start again under the coin rules
     if (compensateDrakul153(save)) storeSave(save); // Fix 1.53: 3 copies of Drakul for whoever ascended him
+    this.jadenNotice(compensateJaden202(save, this.byId.get(JADEN_ID))); // 2.02: Jaden at 3 clears, a copy every 5
+    if (save.jaden202) storeSave(save);
     if (save.auras && sanitizeAuras(save, new Map(m.roster.map((p) => [p.id, p])))) storeSave(save); // v1.5: Auras no longer valid are dropped
     if (this.trimAllTraining(save, m.roster)) storeSave(save); // Fix 1.31: points stuck above 99 come back
     if (m.profile && !iconAllowed(save, m.roster, m.profile.emblems, m.profile.coaches)) save.profile.icon = { kind: 'emblem', id: DEFAULT_EMBLEM };
@@ -1049,6 +1056,7 @@ export class App {
     if (this.game.scene.isActive('Menu') || this.game.scene.isPaused('Menu')) this.game.scene.stop('Menu');
     if (this.game.scene.isActive('Arena') || this.game.scene.isPaused('Arena')) this.game.scene.stop('Arena');
     if (this.game.scene.isActive('Lobby') || this.game.scene.isPaused('Lobby')) this.game.scene.stop('Lobby');
+    if (this.game.scene.isActive('Replay') || this.game.scene.isPaused('Replay')) this.game.scene.stop('Replay');
   }
 
   mainMenu() {
@@ -2118,7 +2126,7 @@ export class App {
     const pool = this.unlockedRoster().filter(roadEligible).sort((a, b2) => this.meanOf(b2) - this.meanOf(a));
     this.roadPick = this.roadPick.filter((id) => pool.some((p) => p.id === id)).slice(0, ROAD_SQUAD);
     const coach = this.benchCoach();
-    const maxClears = road.clears.maxima ?? 0, toJaden = JADEN_EVERY - (maxClears % JADEN_EVERY);
+    const maxClears = road.clears.maxima ?? 0, { left: toJaden, frac: jadenFrac } = jadenProgress(maxClears);
     const ownsJaden = !!this.save.owned[String(JADEN_ID)];
     const mapName = (id: string) => this.m.maps.find((m) => m.id === id)?.name ?? id;
     const diffs = ROAD_DIFFS.map((d) => `<button class="rd-diff${d.id === this.roadDiff ? ' on' : ''} d-${d.id}" data-rdiff="${d.id}" ${active ? 'disabled' : ''}>
@@ -2132,7 +2140,7 @@ export class App {
     const act = active ? ROAD_BY_ID.get(active.diff)! : null;
     this.show(`<div class="screen road-screen">${this.titlebar('Road to Fútbol Frontier', 'Menú')}
       <div class="rd-hero"><div><small>MODO DESAFÍO</small><b>Road to Fútbol Frontier</b><span>5 futbolistas del Raimon o de Inazuma Japan, sin Auras, partido tras partido hasta la final del Estadio Zeus. Si pierdes uno, se acaba el camino.</span></div>
-        <div class="rd-jaden${ownsJaden ? ' own' : ''}"><span class="rd-jart">${this.mug(JADEN_ID, 80)}${ownsJaden ? '' : '<i class="rd-lock">🔒</i>'}</span><span><small>${ownsJaden ? 'OTRA COPIA DE JADEN EN' : 'JADEN EVANS EN'}</small><b>${toJaden} ${toJaden === 1 ? 'victoria' : 'victorias'} en Máxima</b><i style="width:${((maxClears % JADEN_EVERY) / JADEN_EVERY) * 100}%"></i></span></div></div>
+        <div class="rd-jaden${ownsJaden ? ' own' : ''}"><span class="rd-jart">${this.mug(JADEN_ID, 80)}${ownsJaden ? '' : '<i class="rd-lock">🔒</i>'}</span><span><small>${ownsJaden ? 'OTRA COPIA DE JADEN EN' : 'JADEN EVANS EN'}</small><b>${toJaden} ${toJaden === 1 ? 'victoria' : 'victorias'} en Máxima</b><i style="width:${jadenFrac * 100}%"></i></span></div></div>
       ${active && act ? `<div class="panel rd-active"><h3>${uiIcon('trophy')}Camino en curso · ${act.label}</h3>
           <span class="rd-path big">${act.maps.map((m, i) => `<i class="${i < active.level ? 'done' : i === active.level ? 'now' : ''}" title="${esc(mapName(m))}">${i < active.level ? '✔' : i + 1}</i>`).join('<em></em>')}</span>
           <p class="note">Siguiente: <b>${esc(mapName(act.maps[active.level]))}</b> (partido ${active.level + 1} de ${act.maps.length}, ${active.level + 1} min).</p>
@@ -2219,7 +2227,7 @@ export class App {
     finish(`<small>ROAD TO FÚTBOL FRONTIER · ${d.label.toUpperCase()}</small><h2>¡Camino completado!</h2>
       <p>Habéis ganado los ${d.maps.length} partidos hasta la final del Estadio Zeus. Completado <b>${clears} ${clears === 1 ? 'vez' : 'veces'}</b> en ${d.label}.</p>
       <p class="rd-prize big">+${d.coins.toLocaleString('es')} ◉ · +${d.tokens} fichas${d.legendary ? ' · un Legendario o mejor' : ''}${jaden ? ` · ${jaden === 'new' ? '¡JADEN EVANS!' : 'otra copia de Jaden Evans'}` : ''}</p>
-      ${m.diff === 'maxima' && !jaden ? `<p class="note">Jaden Evans en ${JADEN_EVERY - (clears % JADEN_EVERY)} victorias más en Máxima.</p>` : ''}`,
+      ${m.diff === 'maxima' && !jaden ? `<p class="note">${this.save.owned[String(JADEN_ID)] ? 'Otra copia de Jaden Evans' : 'Jaden Evans'} en ${jadenProgress(clears).left} victorias más en Máxima.</p>` : ''}`,
       () => { if (prizes.length) void this.capsuleShow(prizes, 'Road to Fútbol Frontier').then(() => this.roadScreen()); else this.roadScreen(); }, prizes.length ? '¡Abrir premios!' : 'Genial');
   }
 
@@ -3642,6 +3650,7 @@ export class App {
     restoreHeroStars188(this.save, this.m.roster); // 1.88
     resetStars185(this.save, this.m.roster); // 1.85
     compensateDrakul153(this.save);
+    this.jadenNotice(compensateJaden202(this.save, this.byId.get(JADEN_ID))); // 2.02
     if (this.save.auras) sanitizeAuras(this.save, this.byId); // v1.5
     this.trimAllTraining(this.save, this.m.roster);
     this.captainId = this.save.captainId;
@@ -4004,11 +4013,12 @@ export class App {
   }
 
   /** Fix 1.41: how many people play (accounts only: guests never reach the server). The server refuses non-admins. */
-  private async adminPlayers(tab: 'players' | 'metrics' = 'players', days = 30) {
-    this.show(`<div class="screen">${this.titlebar('Panel de jugadores', 'Ajustes')}<div class="panel"><div class="seg" id="aptabs"><button data-t="players" class="${tab === 'players' ? 'on' : ''}">Jugadores</button><button data-t="metrics" class="${tab === 'metrics' ? 'on' : ''}">Métricas</button></div><div id="aplist" class="note">Cargando…</div></div></div>`);
+  private async adminPlayers(tab: 'players' | 'metrics' | 'replays' = 'players', days = 30) {
+    this.show(`<div class="screen">${this.titlebar('Panel de jugadores', 'Ajustes')}<div class="panel"><div class="seg" id="aptabs"><button data-t="players" class="${tab === 'players' ? 'on' : ''}">Jugadores</button><button data-t="metrics" class="${tab === 'metrics' ? 'on' : ''}">Métricas</button><button data-t="replays" class="${tab === 'replays' ? 'on' : ''}">Repeticiones</button></div><div id="aplist" class="note">Cargando…</div></div></div>`);
     this.on('[data-back]', 'click', () => this.options());
-    this.on('#aptabs button', 'click', (_e, el) => { void this.adminPlayers(el.dataset.t as 'players' | 'metrics', days); });
+    this.on('#aptabs button', 'click', (_e, el) => { void this.adminPlayers(el.dataset.t as 'players' | 'metrics' | 'replays', days); });
     if (tab === 'metrics') return this.adminMetricsView(days);
+    if (tab === 'replays') return this.adminReplaysView();
     const box = document.getElementById('aplist')!;
     const ago = (iso: string | null) => {
       if (!iso) return '—';
@@ -4027,11 +4037,160 @@ export class App {
     } catch (e) { box.textContent = /forbidden/.test((e as Error).message) ? 'No tienes permiso para ver este panel.' : `No se pudo cargar: ${(e as Error).message}`; }
   }
 
+  /** 2.02: the Jadens given for clears made under the old Road rule, said once the menu is up */
+  private jadenNotice(n: number) {
+    if (n > 0) window.setTimeout(() => this.toast(`Road to Fútbol Frontier: ahora Jaden sale a las 3 victorias en Máxima y otra copia cada 5. Por tus victorias recibes ${n === 1 ? 'a Jaden Evans' : `${n} Jaden Evans (él y sus copias)`}.`, 7000), 2500);
+  }
+
+  /** 2.02: the run's recording goes to the server in the background (a failure only loses this replay) */
+  private sendReplay(r: RunResult & { level: number }) {
+    // 2.02 Métricas: which spirit played and what its ultimates did (added up per day on the server, no account kept)
+    const sp = this.arena()?.spiritStats();
+    if (sp && r.timeSec >= 30 && onlineConfigured() && signedIn()) void recordSpiritRun(sp.spirit, sp.casts, sp.damage).catch((e) => console.warn('[spirits]', e));
+    const rec = this.arena()?.takeReplay();
+    if (!rec || r.timeSec < 60 || !r.runId) return;
+    const runId = r.runId;
+    void rec.finish()
+      .then((blob) => uploadReplay(runId, blob, { map: r.mapId, rank: r.rank ?? 'C', timeSec: r.timeSec, victory: r.victory, kills: r.kills, level: r.level,
+        captainId: r.captainId ?? null, team: r.teamIds ?? [], version: PUBLIC_VERSION }))
+      .catch((e) => console.warn('[replay]', e));
+  }
+
+  /** 2.02 (admin): the recorded runs, newest first, filtered by player */
+  private async adminReplaysView(user = '') {
+    const box = document.getElementById('aplist');
+    if (!box) return;
+    box.className = '';
+    box.innerHTML = `<div class="rp-bar"><input id="rpuser" placeholder="Usuario (vacío = todos)" value="${esc(user)}" maxlength="20" autocomplete="off">
+      <button class="btn small blue" id="rpfind">Buscar</button><span class="spacer"></span><button class="btn small" id="rpprune">Borrar las de más de 30 días (no las del ranking)</button></div>
+      <div id="rprows" class="note">Cargando…</div>`;
+    const find = () => { void this.adminReplaysView((document.getElementById('rpuser') as HTMLInputElement).value.trim()); };
+    document.getElementById('rpfind')!.addEventListener('click', find);
+    document.getElementById('rpuser')!.addEventListener('keydown', (e) => { if ((e as KeyboardEvent).key === 'Enter') find(); });
+    const prune = document.getElementById('rpprune') as HTMLButtonElement;
+    prune.addEventListener('click', async () => {
+      if (!prune.classList.contains('sure')) { prune.classList.add('sure'); prune.textContent = '¿Seguro? Pulsa otra vez'; return; }
+      prune.disabled = true;
+      try { this.toast(`${await adminPruneReplays(30)} repeticiones borradas`); } catch (e) { this.toast((e as Error).message); }
+      void this.adminReplaysView(user);
+    });
+    const list = document.getElementById('rprows')!;
+    try {
+      const rows = await adminReplays(user || null, 150);
+      if (!document.getElementById('rprows')) return;
+      if (!rows.length) { list.textContent = user ? `No hay repeticiones de ${user}.` : 'Aún no hay repeticiones: se graban las partidas en solitario de quien juega con sesión iniciada.'; return; }
+      const mapName = (id: string) => this.m.maps.find((m) => m.id === id)?.name ?? id;
+      const kb = rows.reduce((n, r) => n + r.bytes, 0) / 1024;
+      list.className = '';
+      list.innerHTML = `<p class="note">${rows.length} repeticiones · ${kb > 1024 ? `${(kb / 1024).toFixed(1)} MB` : `${Math.round(kb)} KB`} en total. Cada jugador guarda sus 3 últimas y las de sus marcas del ranking.</p>
+        <div class="ap-table rp-table"><div class="ap-row ap-head"><span>Usuario</span><span>Fecha</span><span>Arena</span><span>Rango</span><span>Duración</span><span>Resultado</span><span>Capitán</span><span></span></div>
+        ${rows.map((r, i) => { const cap = r.captain_id !== null ? this.byId.get(r.captain_id) : undefined; return `<div class="ap-row">
+          <b>${esc(r.username)}</b><span>${new Date(r.created_at).toLocaleString('es', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
+          <span>${esc(mapName(r.map))}</span><span><span class="rank-btn r-${esc(r.rank)} rp-rank">${rankMark(r.rank)}</span></span><span>${fmtTime(r.time_sec)}</span>
+          <span class="${r.victory ? 'rp-win' : 'rp-loss'}">${r.victory ? 'Victoria' : 'Derrota'} · Nv ${r.level}</span><span class="rp-cap">${cap ? `${this.mug(cap.id, 24)}${esc(cap.name)}` : '—'}</span>
+          <span><button class="btn small blue" data-rp="${i}">▶ Ver</button></span></div>`; }).join('')}</div>`;
+      this.on('[data-rp]', 'click', (_e, el) => { void this.replayViewer(rows[Number(el.dataset.rp)], user); }, list);
+    } catch (e) { list.textContent = /forbidden/.test((e as Error).message) ? 'No tienes permiso para ver este panel.' : `No se pudo cargar: ${(e as Error).message}`; }
+  }
+
+  /** a line of the replay's log, or null for what is not worth a line (shots: they are seen on the pitch) */
+  private replayEventText(e: ReplayEvent): string | null {
+    const who = (id: unknown) => this.byId.get(Number(id))?.name ?? `#${id}`;
+    const tech = (id: unknown, i: unknown) => this.byId.get(Number(id))?.techniques[Number(i)]?.name ?? 'técnica';
+    switch (e.k) {
+      case 'card': {
+        const c = e.card as { kind: string; playerId?: number; tech?: number; toLevel?: number; id?: string; amount?: number };
+        const txt = c.kind === 'recruit' ? `Ficha a ${who(c.playerId)}`
+          : c.kind === 'learn' ? `${who(c.playerId)} aprende ${tech(c.playerId, c.tech)}`
+          : c.kind === 'upgrade' ? `${tech(c.playerId, c.tech)} (${who(c.playerId)}) a Nv ${c.toLevel}`
+          : c.kind === 'combo' ? `Combinada ${COMBOS.find((x) => x.id === c.id)?.name ?? c.id} Nv ${c.toLevel}`
+          : c.kind === 'heal' ? `+${Math.round((c.amount ?? 0) * 100)}% de vida`
+          : modDef(String(c.id))?.label ?? String(c.id);
+        return `<b class="rl-card">Nv ${e.lv}</b> ${esc(txt)}`;
+      }
+      case 'hurt': return e.atk === 'entrada' && e.dmg < 15 ? null : `<b class="rl-hurt">−${e.dmg}</b> ${esc(e.by || 'Rival')} · ${esc(e.atk)}`;
+      case 'boss': return `<b class="rl-boss">JEFE</b> ¡Llega ${esc(e.name)}!`;
+      case 'ult': return `<b class="rl-ult">ULTI</b> ${esc(who(e.id))}`;
+      case 'formation': return `<b class="rl-form">Formación</b> ${esc(FORMATIONS[e.f as FormationId]?.label ?? e.f)}`;
+      case 'end': return `<b class="${e.win ? 'rl-win' : 'rl-hurt'}">FIN</b> ${e.win ? 'Victoria' : 'Derrota'} · ${e.kills.toLocaleString('es')} rivales · Nv ${e.level}`;
+      default: return null;
+    }
+  }
+
+  /** 2.02 (admin): watching one recorded run, with play/pause, speed, the timeline and a log of what happened */
+  private async replayViewer(row: ReplayRow, backUser: string) {
+    this.stopScenes();
+    const cap = row.captain_id !== null ? this.byId.get(row.captain_id) : undefined;
+    const mapName = this.m.maps.find((m) => m.id === row.map)?.name ?? row.map;
+    this.show(`<div class="rplay" id="rplay">${this.titlebar('Repetición', 'Panel')}
+      <div class="rp-info">${cap ? `<span class="rp-mug">${this.mug(cap.id, 40)}</span>` : ''}<span><b>${esc(row.username)}</b><small>${esc(mapName)} · Rango ${esc(row.rank)} · ${new Date(row.created_at).toLocaleString('es')} · v${esc(row.version)}</small></span></div>
+      <div class="rp-log" id="rplog"></div>
+      <div class="rp-load" id="rpload">Descargando la repetición…</div>
+      <div class="rp-ctl" id="rpctl" hidden>
+        <button class="btn small blue rp-play" id="rpplay" title="Espacio">❚❚</button>
+        <span class="rp-time" id="rptime">0:00</span>
+        <div class="rp-track"><div class="rp-marks" id="rpmarks"></div><input type="range" id="rpseek" min="0" max="1" step="0.1" value="0"></div>
+        <div class="seg rp-speed" id="rpspeed">${[1, 2, 4, 8].map((x) => `<button data-x="${x}" class="${x === 1 ? 'on' : ''}">×${x}</button>`).join('')}</div>
+        <div class="rp-hp" title="Vida del equipo"><i id="rphp"></i></div>
+      </div></div>`, 'replay-mode');
+    const key = this.screenKey;
+    const keys = new AbortController();
+    const leave = () => { keys.abort(); this.stopScenes(); void this.adminPlayers('replays').then(() => { if (backUser) void this.adminReplaysView(backUser); }); };
+    this.on('[data-back]', 'click', leave);
+    const load = document.getElementById('rpload')!;
+    let rp: Awaited<ReturnType<typeof readReplay>>;
+    try { rp = await readReplay(await replayFile(row.path)); } catch (e) { load.textContent = (e as Error).message; return; }
+    if (this.screenKey !== key) return;
+    load.remove();
+    document.getElementById('rpctl')!.hidden = false;
+    const seek = document.getElementById('rpseek') as HTMLInputElement, time = document.getElementById('rptime')!, play = document.getElementById('rpplay')!;
+    const hp = document.getElementById('rphp')!, log = document.getElementById('rplog')!;
+    seek.max = String(rp.duration);
+    const dur = Math.max(1, rp.duration);
+    // the timeline: bosses, cards and the hard hits
+    document.getElementById('rpmarks')!.innerHTML = rp.events.filter(({ e }) => e.k === 'boss' || e.k === 'card' || (e.k === 'hurt' && e.dmg >= 15))
+      .map(({ t, e }) => `<i class="rm-${e.k}" style="left:${(t / dur * 100).toFixed(2)}%"></i>`).join('');
+    const scene = () => this.game.scene.getScene('Replay') as ReplayScene | null;
+    let dragging = false;
+    const init: ReplayInit = {
+      manifest: this.m, replay: rp, roster: this.byId, settings: this.save.settings,
+      onTick: (s) => {
+        time.textContent = `${fmtTime(s.t)} / ${fmtTime(s.duration)}`;
+        if (!dragging) seek.value = String(s.t);
+        play.textContent = s.playing ? '❚❚' : '▶';
+        hp.style.width = `${Math.max(0, Math.min(100, (s.hp / Math.max(1, s.max)) * 100))}%`;
+      },
+      onEvent: (t, e) => {
+        const txt = this.replayEventText(e);
+        if (!txt) return;
+        log.insertAdjacentHTML('afterbegin', `<div><em>${fmtTime(t)}</em> ${txt}</div>`);
+        while (log.children.length > 8) log.lastElementChild!.remove();
+      },
+    };
+    this.game.scene.start('Replay', init);
+    const toggle = () => { const s = scene(); if (!s) return; if (!s.playing && seek.valueAsNumber >= rp.duration - 0.1) s.seek(0); s.playing = !s.playing; };
+    play.addEventListener('click', toggle);
+    seek.addEventListener('input', () => { dragging = true; scene()?.seek(seek.valueAsNumber); log.innerHTML = ''; });
+    seek.addEventListener('change', () => { dragging = false; });
+    this.on('#rpspeed button', 'click', (_e, el) => {
+      const s = scene(); if (s) s.speed = Number(el.dataset.x);
+      document.querySelectorAll('#rpspeed button').forEach((b) => b.classList.toggle('on', b === el));
+    });
+    document.addEventListener('keydown', (e) => {
+      if (this.screenKey !== key) { keys.abort(); return; }
+      if ((e.target as HTMLElement).closest('input:not([type=range]), textarea')) return;
+      const s = scene();
+      if (!s) return;
+      if (e.key === ' ') { e.preventDefault(); toggle(); }
+      if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') { e.preventDefault(); s.seek(seek.valueAsNumber + (e.key === 'ArrowRight' ? 5 : -5)); log.innerHTML = ''; }
+    }, { signal: keys.signal });
+  }
+
   /** Métricas: activity per Madrid day, peak hours, retention and what people play. Plain CSS bars, no chart library. */
   private async adminMetricsView(days: number) {
     const box = document.getElementById('aplist')!;
     try {
-      const m = await adminMetrics(days);
+      const [m, sp] = await Promise.all([adminMetrics(days), adminSpiritStats(days).catch(() => [] as SpiritStat[])]);
       if (!document.getElementById('aplist')) return;
       const n = (v: number) => v.toLocaleString('es');
       const pct = (a: number, b: number) => b ? `${Math.round((a / b) * 100)} %` : '—';
@@ -4061,10 +4220,28 @@ export class App {
         <div class="mt-split"><div><h4>Arenas más jugadas</h4>${rows(m.maps.map((x) => ({ label: mapName(x.map), n: x.n })))}</div>
         <div><h4>Rangos</h4>${rows(m.ranks.map((x) => ({ label: `Rango ${x.rank}`, n: x.n })))}</div>
         <div><h4>Capitanes favoritos</h4>${rows(m.captains.map((x) => ({ label: this.byId.get(x.id)?.name ?? `#${x.id}`, n: x.n })))}</div></div>
+        ${this.spiritMetrics(sp, days)}
         <h4>Comunidad</h4><div class="ap-tiles">${tile(n(m.social.friendships), 'amistades')}${tile(n(m.social.clans), 'clanes')}${tile(n(m.social.clan_members), 'miembros de clan')}${tile(n(m.social.coop_7d), 'partidas co-op (7 días)')}${tile(n(m.social.tierlists), 'tierlists')}${tile(n(m.social.bugs_open), 'bugs abiertos')}${tile(n(m.social.ideas_open), 'ideas pendientes')}</div>
         <p class="note">Partidas por día, horas, arenas, rangos y capitanes salen de las partidas enviadas al ranking (solo cuentas con sesión; los invitados no cuentan). Arenas, rangos y capitanes son de todo el historial.</p>`;
       this.on('#mtdays button', 'click', (_e, el) => { void this.adminPlayers('metrics', Number(el.dataset.d)); });
     } catch (e) { box.textContent = /forbidden/.test((e as Error).message) ? 'No tienes permiso para ver este panel.' : `No se pudo cargar: ${(e as Error).message}`; }
+  }
+
+  /** 2.02 Métricas: the warrior spirits most played and the ones whose ultimates take the most health */
+  private spiritMetrics(sp: SpiritStat[], days: number) {
+    if (!sp.length) return `<h4>Espíritus guerreros</h4><p class="note">Sin datos todavía: se cuentan las partidas terminadas desde la 2.02.</p>`;
+    const n = (v: number) => Math.round(v).toLocaleString('es');
+    const name = (id: string) => KESHIN_BY_ID.get(id as KeshinId)?.name ?? id;
+    const list = (items: { id: string; v: number; sub: string }[]) => {
+      const max = Math.max(1, ...items.map((x) => x.v));
+      return `<div class="mt-rows">${items.map((x) => `<div class="mt-row"><span>${esc(name(x.id))}</span><div><i style="width:${(x.v / max) * 100}%"></i></div><b>${n(x.v)} <small>${esc(x.sub)}</small></b></div>`).join('')}</div>`;
+    };
+    const used = [...sp].sort((a, b) => b.runs - a.runs).map((x) => ({ id: x.spirit, v: x.runs, sub: `partidas · ${n(x.casts)} ultis` }));
+    const dmg = [...sp].filter((x) => x.casts > 0).sort((a, b) => b.damage / b.casts - a.damage / a.casts)
+      .map((x) => ({ id: x.spirit, v: x.damage / x.casts, sub: `por ulti · ${n(x.damage)} en total` }));
+    return `<div class="mt-split"><div><h4>Espíritus más usados <small>(${days} días)</small></h4>${list(used)}</div>
+      <div><h4>Espíritus que más vida quitan <small>(media por ulti)</small></h4>${dmg.length ? list(dmg) : '<p class="note">Aún nadie ha lanzado una ulti.</p>'}</div></div>
+      <p class="note">Cuenta el espíritu activo del equipo (el primero por la izquierda) en cada partida terminada con sesión iniciada. El daño es el que hace el equipo en los 3 s siguientes a cada ulti.</p>`;
   }
 
   private adminBugDetail(r: BugRow, filter: BugFilter) {
@@ -6001,6 +6178,8 @@ export class App {
       <div class="opt-row"><span>Movimiento</span>${seg('moveKeys', [['ambos', 'WASD y flechas'], ['wasd', 'Solo WASD'], ['flechas', 'Solo flechas']], s.moveKeys)}</div>
       <div class="opt-row"><span>Idioma</span><span class="note">Español (único disponible por ahora)</span></div>
       <div class="opt-row"><span>Tutorial</span><button class="btn small blue" id="tutagain">Ver otra vez</button></div>
+      <h3 style="margin-top:12px">Privacidad</h3>
+      <div class="opt-row"><span>Compartir mis partidas<small class="opt-note">Con la sesión iniciada, cada partida en solitario se graba (posiciones, técnicas y cartas, sin nada personal) para que el autor vea cómo se juega y equilibre el juego. Se guardan tus 3 últimas y las de tus marcas del ranking.</small></span>${seg('shareReplays', [['1', 'Sí'], ['0', 'No']], s.shareReplays === false ? '0' : '1')}</div>
       <h3 style="margin-top:12px">Copia de seguridad</h3>
       <div class="opt-row"><span>Tu progreso</span><div><button class="btn small" id="export">Exportar</button> <button class="btn small blue" id="import">Importar</button><input type="file" id="importfile" accept=".json,application/json" hidden></div></div>
       <h3 style="margin-top:12px">Ayuda</h3>
@@ -6059,6 +6238,7 @@ export class App {
       if (key === 'particles') s.particles = v as ParticleLevel;
       if (key === 'flashes') s.flashes = v === '1';
       if (key === 'damageNumbers') s.damageNumbers = v === '1';
+      if (key === 'shareReplays') s.shareReplays = v === '1';
       if (key === 'muted') s.muted = v === '1';
       if (key === 'reducedMotion') { s.reducedMotion = v === '1'; this.applyMotion(); }
       if (key === 'uiScale') { s.uiScale = Number(v); this.applyMotion(); }
@@ -6286,6 +6466,8 @@ export class App {
       manifest: this.m, map, team: runTeam, unlocked: runUnlocked, auras: runAuras, stars, settings: this.save.settings,
       perks: (() => { const e = applyGear(perkEffects(this.save), this.save, this.gear); kitBonus(this.save.kit, this.m.roster).apply(e); applyCoachPerks(this.benchCoach(), e); return e; })(),
       coach: coachRun(this.benchCoach()), // pre-2.0: his formation and element
+      // 2.02: recorded for the author (Ajustes > «Compartir mis partidas»); the upload happens in results()
+      record: !training && !coop && this.save.settings.shareReplays !== false && onlineConfigured() && signedIn() ? { kit: kitKey || null, version: PUBLIC_VERSION } : undefined,
       kitTeam: kitKey || 'Raimon', shop: this.save.shop, mastery: this.save.mastery, loadout: this.validLoadout(), training, kit: this.m.kits?.[kitKey] ?? null, formation: (this.save.formation as FormationId) in FORMATIONS ? this.save.formation as FormationId : 'equilibrada',
       hooks: {
         hud: (s) => this.renderHud(s),
@@ -6972,6 +7154,7 @@ export class App {
   }
 
   private results(r: RunResult & { level: number }) {
+    this.sendReplay(r);
     document.getElementById('lvl')?.remove();
     document.getElementById('pause')?.remove();
     const effects = perkEffects(this.save);

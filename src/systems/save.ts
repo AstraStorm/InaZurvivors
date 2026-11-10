@@ -91,6 +91,8 @@ export interface SaveData {
   heroes188?: boolean;
   /** Fix 1.53: the Drakul compensation (ascension.ts compensateDrakul153) was already given */
   drakul153?: boolean;
+  /** 2.02: the Jadens owed by the new Road rule were already given (road.ts compensateJaden202) */
+  jaden202?: boolean;
   /** v1.65: profile banners owned and the one shown (pennants.ts) */
   pennants?: { owned: string[]; equipped?: string; frame?: string };
   /** pre-2.0: coaches owned and the one on the bench (coaches.ts) */
@@ -184,6 +186,8 @@ export interface Settings {
   musicSource: 'original' | 'local';
   /** how much of the pitch the camera shows: 'cerca' frames the squad tightly */
   camera: 'cerca' | 'normal' | 'lejos';
+  /** 2.02: finished runs are recorded and sent for the author to watch (signed-in players only); absent = yes */
+  shareReplays?: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = { volume: 0.5, musicVolume: 0.45, muted: false, menuTrack: '', battleTrack: '', particles: 'completo',

@@ -58,6 +58,8 @@ import { colorBurst, COLOR_MS } from './fxPapelin';
 import { scarletPrison, PRISON_MS, prisonSize } from './fxZodiaco';
 import { demonClear, demonClearSize, DEMOGORGO_MS } from './fxDemogorgo';
 import { athenaStrike, ATHENA_MS } from './fxAtenea';
+import { ReplayRecorder } from './replay';
+import { drawShot } from './shotReplay';
 import { mortalSmash, SMASH_MS, smashSize } from './fxEvera';
 import { shellbitBurst, SHELLBIT_CHARGE } from './fxShellbit';
 import { greatHand, greatSize, GREAT_MS } from './fxGrandius';
@@ -73,6 +75,8 @@ import { applyKeshin, KESHIN_BY_ID, ULT_FIRST_SHARE, ultTech, ultTechLevel, type
 
 /** 2.0: the slot index of a member's warrior-spirit ultimate (after the five technique slots); fired with R / the HUD button */
 const ULT = 5;
+/** 2.02 Métricas: the damage the team deals in these seconds after an ultimate counts as that spirit's */
+const ULT_DMG_WINDOW_SEC = 3;
 import { animeCharge, animeOf, animeShot, auroraVeil, cometTex, earthBurst, earthCharge, furyFist, breezeStep, chaosBreakCharge, chaosBreakShot, fireBlizzardCharge, fireBlizzardShot, godWindGust } from './fxAnime';
 import { fuegoOf, supremoCharge, supremoShot, totalCharge, totalWave } from './fxFuego';
 import { adaptedPassive, CAP_ELEMENTAL, CAP_LAST_STAND, emptyFx, TALENTS, talentScale, type TalentFx } from '../systems/talents';
@@ -168,6 +172,8 @@ export interface ArenaInit {
   coach?: CoachRun;
   /** pre-2.0: a match of Road to Fútbol Frontier: the boss ends it (no endless) */
   road?: boolean;
+  /** 2.02: record the run (replay.ts) with this kit and game version in its header; the app uploads it at the end */
+  record?: { kit: string | null; version: string };
 }
 
 /** v1.6: what the training field puts on the pitch: each footballer's active techniques with their levels, and combos */
@@ -339,6 +345,11 @@ export class ArenaScene extends Phaser.Scene {
   private altarsDone = 0;
   private damageDealt = 0;
   private runId = '';
+  /** 2.02 Métricas: ultimates cast and the damage dealt right after them, by spirit */
+  private ultLog = new Map<string, { casts: number; damage: number }>();
+  private ultWin: { spirit: string; until: number } | null = null;
+  /** 2.02: the run being recorded (null: not recording) */
+  private rec: ReplayRecorder | null = null;
   /** endless survival after the boss: start time, last reward tick, movement in the current tick (anti-AFK) */
   private endless: { since: number; nextTick: number; moved: number; ticks: number; nextBoss: number; nextMiniboss: number; killsAtTick: number; phase: number; bosses: number; coins: number; tokens: number } | null = null;
   private shocks: { x: number; y: number; r: number; gap: number; damage: number; color: number; g: Phaser.GameObjects.Graphics; hit: boolean; src: HitSource }[] = [];
@@ -375,6 +386,7 @@ export class ArenaScene extends Phaser.Scene {
     this.mods = baseMods(); this.taken = {}; this.buffs = new Map(); this.bonusCoins = 0; this.lastUpgrade = null; this.techUses = {}; this.auraTechUses = 0; this.auraCombos = 0; this.guardBlocks = 0;
     this.padHeld = {}; this.xpCombo = 0; this.xpComboUntil = 0; this.techById = {};
     this.rank = rankDef(data.rank); this.shots = []; this.hazards = []; this.nextHazardAt = 20; this.wavePhase = ''; this.stretchAnnounced = false; this.combos = new Map(); this.slowmoUntil = 0; this.hitstopUntil = 0; this.nextHitstop = 0; this.recentKills = []; this.nextSweepCheer = 0; this.endless = null; this.secondWindUsed = false; this.altarsDone = 0; this.damageDealt = 0; this.dismissed = new Set();
+    this.rec = null; this.ultLog = new Map(); this.ultWin = null;
     this.coop = null; this.down = false; this.nextEnemyId = 1; this.nextPickupId = 1; this.coopResumePending = false; this.coopPendingLevels = 0;
     this.runId = crypto.randomUUID?.() ?? `${Date.now()}-${Math.random()}`; this.spawnAcc = 1.2; // first rivals within a second or two
     this.bonusTokens = 0; this.altar = null; this.altarGfx = []; this.altarLook = null; this.altarTag = null; this.rival = null; this.altarRival = null; this.fxCache = null; this.fxAt = -1; this.reviveUsed = false; this.shocks = []; this.campSince = 0; this.campWarned = false; this.nextCampHit = 0; this.nextSurround = 60; this.lastMagnetAt = -MAGNET_GAP_SEC; this.nextAltarAt = FIRST_ALTAR_SEC; this.altarKills = 0; this.freezeUntil = 0; this.lure = null;
@@ -450,6 +462,10 @@ export class ArenaScene extends Phaser.Scene {
     this.events.on('resume', () => { this.input.keyboard?.resetKeys(); });
     // pre-2.0: nothing outside the camera is drawn (cull.ts); the simulation is untouched
     this.events.on('postupdate', () => { this.cullStats = cullOffscreen(this); });
+    // 2.02: only solo runs are recorded (in co-op half the world is the partner's)
+    if (this.cfg.record && !this.cfg.training && !this.cfg.coop) {
+      this.rec = new ReplayRecorder({ v: 1, map: this.cfg.map.id, rank: this.rank.id, kit: this.cfg.record.kit, team: this.cfg.team.map((p) => p.id), version: this.cfg.record.version, at: new Date().toISOString() });
+    }
     if (this.cfg.coop) {
       this.coop = new CoopSession(this.coopPort(), this.cfg.coop);
       this.events.once('shutdown', () => { this.coop?.destroy(); this.coop = null; });
@@ -562,6 +578,7 @@ export class ArenaScene extends Phaser.Scene {
     if (this.ended || this.formation === id) return;
     this.formation = id;
     this.formationChangedAt = this.runTime;
+    this.rec?.event(this.runTime, { k: 'formation', f: id });
     sfx('whoosh');
     // ghost markers on the new slots
     const cap = this.members[0].f;
@@ -702,6 +719,7 @@ export class ArenaScene extends Phaser.Scene {
     this.updatePickups(dt);
     this.updateAltar(dt); // pre-2.0: in co-op each player has his own altars (their rewards are only his)
     this.coop?.tick(dt);
+    this.rec?.tick(dt, this.runTime, this.members.map((m) => ({ id: m.entry.id, x: m.f.x, y: m.f.y, dir: m.f.dir })), this.hp, this.maxHp, this.enemies);
     if (this.runTime >= this.nextSweep) { this.nextSweep = this.runTime + 1; this.sweepGround(); this.adaptQuality(); this.announceSynergies(); }
     const pad = firstPad(); // Fix 1.12: A / Cross accepts the event, as E does
     const padA = !!pad?.buttons[0]?.pressed;
@@ -967,6 +985,10 @@ export class ArenaScene extends Phaser.Scene {
       if (fired && k) {
         ultBanner(this, m.ult.tech.name, k.name.toUpperCase(), k.id, 1500, '', k.color);
         this.cameras.main.shake(220, 0.008);
+        this.rec?.event(this.runTime, { k: 'ult', id: m.entry.id, spirit: k.id });
+        const log = this.ultLog.get(k.id) ?? { casts: 0, damage: 0 };
+        log.casts++; this.ultLog.set(k.id, log);
+        this.ultWin = { spirit: k.id, until: this.runTime + ULT_DMG_WINDOW_SEC };
         this.coop?.ult(m.entry.id, k.id); // co-op: the banner is only the caster's; the partner sees the spirit appear
       }
       if (!fired) this.fx.label(m.f.x, m.f.y - 40, 'Sin rival cerca', '#9fe8ff');
@@ -2164,6 +2186,7 @@ export class ArenaScene extends Phaser.Scene {
     m.maxCd[i] = s.cooldownMs;
     if (!target) return;
     this.coop?.shot({ name: t.name, element: t.element === null || t.element === undefined ? null : String(t.element), power: t.power ?? 0, rarity: this.fxRarity(m.entry), x: Math.round(ox), y: Math.round(oy), tx: Math.round(target.pos.x), ty: Math.round(target.pos.y - 12), lv });
+    this.rec?.event(this.runTime, { k: 'shot', n: t.name, e: t.element === null || t.element === undefined ? null : String(t.element), p: t.power ?? 0, r: this.fxRarity(m.entry), x: Math.round(ox), y: Math.round(oy), tx: Math.round(target.pos.x), ty: Math.round(target.pos.y - 12), lv });
     const style = m.styles[i];
     const traj = m.trajs[i];
     const big = (t.power ?? 0) >= 60;
@@ -2453,6 +2476,7 @@ export class ArenaScene extends Phaser.Scene {
     e.id = this.nextEnemyId++;
     this.enemies.push(e);
     this.coop?.onSpawn(e);
+    this.rec?.spawn(this.runTime, e);
     return e;
   }
 
@@ -2587,6 +2611,7 @@ export class ArenaScene extends Phaser.Scene {
     this.hp -= dmg;
     this.hurtAt = this.runTime;
     this.lastHit = { ...src, dmg, at: this.runTime };
+    this.rec?.event(this.runTime, { k: 'hurt', by: src.by, atk: src.attack, dmg });
     this.hitsTaken.capitan = (this.hitsTaken.capitan ?? 0) + 1;
     if (this.cfg.settings.flashes) target.f.flash();
     if (this.cfg.settings.damageNumbers) this.fx.label(target.f.x, target.f.y - 30, `-${dmg}`, '#ff6a6a');
@@ -2992,6 +3017,7 @@ export class ArenaScene extends Phaser.Scene {
     for (let k = 0; k < 3; k++) this.time.delayedCall(k * 140, () => this.fx.ring(x, y, 70 + k * 55, k === 1 ? 0xffffff : 0xff3a2a, 520, 5 - k));
     this.fx.burst('fuego', x, y, 26, 120, true);
     if (this.cfg.settings.flashes) this.cameras.main.flash(180, 255, 60, 40, true);
+    this.rec?.event(this.runTime, { k: 'boss', name: b.unit.name });
     if (this.cfg.hooks.bossIntro) this.cfg.hooks.bossIntro({ name: b.unit.name, title: kit.title, again });
     else this.banner(again ? `¡${b.unit.name} regresa!` : `¡${b.unit.name}!`, '#ff5a5a');
   }
@@ -3090,6 +3116,7 @@ export class ArenaScene extends Phaser.Scene {
     if (this.rng.frac() < Math.min(CAP_ELEMENTAL, p.elementalChance + tf.elemental)) { dmg *= 1.2 + Math.min(0.6, tf.elementalPower); e.slowUntil = this.runTime + 1.5; this.fx.burst(style, e.pos.x, e.pos.y - 10, 4, 30, true); }
     const v = Math.max(1, Math.round(dmg));
     this.damageDealt += Math.min(v, Math.max(0, e.hp));
+    if (this.ultWin && this.runTime <= this.ultWin.until) { const l = this.ultLog.get(this.ultWin.spirit); if (l) l.damage += Math.min(v, Math.max(0, e.hp)); }
     if (this.coop?.role === 'guest') { // pre-2.0: the host applies it (and decides the knock-out); here only what is seen
       this.coop.hit(e.id, v, kx, ky, style);
       this.fx.flash(e.sprite, 0xffffff, 60);
@@ -3160,6 +3187,7 @@ export class ArenaScene extends Phaser.Scene {
   private kill(e: Enemy, style: FxStyle) {
     e.dead = true;
     this.coop?.onKill(e.id, style);
+    this.rec?.kill(this.runTime, e.id);
     this.kills++;
     this.altarCount(e);
     this.disposeTelegraphs(e);
@@ -3521,6 +3549,7 @@ export class ArenaScene extends Phaser.Scene {
 
   private applyChoice(card: Card) {
     const c = this.members[0].f;
+    this.rec?.event(this.runTime, { k: 'card', lv: this.level, card: { ...card } });
     if (card.kind === 'combo') {
       const def = COMBOS.find((x) => x.id === card.id);
       if (!def) return;
@@ -3863,6 +3892,7 @@ export class ArenaScene extends Phaser.Scene {
   private finish(victory: boolean) {
     if (this.ended) return;
     this.coop?.end(victory);
+    this.rec?.event(this.runTime, { k: 'end', win: victory || !!this.endless, kills: this.kills, level: this.level });
     this.ended = true;
     for (const b of this.shots) b.img.destroy();
     for (const h of this.hazards) { h.shadow.destroy(); h.ring.destroy(); h.ball?.destroy(); }
@@ -4052,25 +4082,7 @@ export class ArenaScene extends Phaser.Scene {
   }
 
   /** the partner's technique, drawn here: the same charge and ball, flying to where he aimed (it hurts nothing here) */
-  private replayShot(m: FxMsg) {
-    const r = recipeFor({ name: m.name, element: m.element, power: m.power } as never, m.rarity as never);
-    charge(this.fx, r, m.x, m.y, m.lv);
-    const ball = this.add.image(m.x, m.y, r.ballTexture).setScale(r.ballScale).setDepth(8901);
-    const anime = animeOf(m.name);
-    if (anime && anime !== 'brisa') animeShot(this, anime, ball, m.lv);
-    const mv = movieOf(m.name);
-    if (mv) movieShot(this, mv, ball, m.lv);
-    const vb = victorOf(m.name);
-    if (vb) victorShot(this, vb, ball, m.lv);
-    if (isSetsuna(m.name)) setsunaShot(this, ball, m.lv);
-    if (isCataclysm(m.name)) cataclysmShot(this, ball, m.lv);
-    const s183 = solo183Of(m.name);
-    if (s183) solo183Shot(this, s183, ball, m.lv);
-    const s189 = solo189Of(m.name);
-    if (s189) solo189Shot(this, s189, ball, m.lv);
-    const ms = Math.max(200, Math.min(900, Math.hypot(m.tx - m.x, m.ty - m.y) / 0.32));
-    this.tweens.add({ targets: ball, x: m.tx, y: m.ty, duration: ms, onComplete: () => { this.fx.burst(r.style, m.tx, m.ty, 5, 40); ball.destroy(); } });
-  }
+  private replayShot(m: FxMsg) { drawShot(this, this.fx, m); }
 
   /** pre-2.0 HUD: the partner's name, health, downed state and the revive progress */
   coopHud() {
@@ -4082,6 +4094,18 @@ export class ArenaScene extends Phaser.Scene {
     return { name: c.partnerName, hp: Math.max(0, c.partnerHp.hp), max: c.partnerHp.max, down: c.partnerDown, connected: c.connected, meDown: this.down, revive: c.reviveProgress,
       partnerRevive: c.partnerRevive, picking: c.partnerPicking, meta: c.partnerMeta };
   }
+
+  /** 2.02 Métricas: the team's active warrior spirit, its ultimates and the damage right after them (null: none, or training) */
+  spiritStats(): { spirit: string; casts: number; damage: number } | null {
+    if (this.cfg.training) return null;
+    const spirit = this.members.find((m) => m.ult)?.entry.keshin?.id ?? [...this.ultLog.keys()][0];
+    if (!spirit) return null;
+    const l = this.ultLog.get(spirit) ?? { casts: 0, damage: 0 };
+    return { spirit, casts: l.casts, damage: Math.round(l.damage) };
+  }
+
+  /** 2.02: the recording of this run, once (the app uploads it); null when the run was not recorded */
+  takeReplay() { const r = this.rec; this.rec = null; return r; }
 
   /** Public for the pause menu / HUD buttons. */
   forceEnd() { this.finish(false); }

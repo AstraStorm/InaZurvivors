@@ -15,6 +15,17 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: '10.5', date: '2026-11-11', title: '2.02 Jaden antes, Shawn defensa, repeticiones y métricas de espíritus',
+    features: [
+      'Repeticiones (autor: «ver cómo juega la gente»): src/game/replay.ts graba las partidas en solitario (equipo cada 150 ms, rivales cercanos cada 250 ms, apariciones, KO, disparos, cartas, golpes, jefe, ultis, formación, fin; gzip ~11 KB/min); bucket privado replays + private.replays (migración 20261110000600): 3 por jugador más las de sus marcas del ranking. Visor ReplayScene en Panel de jugadores > Repeticiones (pausa, ×1-×8, línea de tiempo, registro). Ajustes > Privacidad > Compartir mis partidas.',
+      'Métricas de espíritus (autor): record_spirit_run al terminar cada partida con espíritu activo (ultis y daño del equipo en los 3 s tras cada una), sumado por día y espíritu sin cuenta (migración 20261111000000); Métricas muestra los más usados y los que más vida quitan por ulti.',
+      'Shawn Froste Defensa (900300, Épico, Alpino; registro IE3 1161, repertorio IE2 forma Shirou) (identity ALIASES y combos COUNTERPARTS: es Shawn). Nuevo exclusive «proximamente»: fuera de todo banner y oculto hasta tenerlo.',
+    ],
+    fixes: [],
+    visuals: [],
+    balance: ['Road (autor): Jaden a las 3 victorias en Máxima y una copia cada 5 (antes cada 10); compensateJaden202 da una vez la diferencia a quien ya tenía victorias (save.jaden202).'],
+  },
+  {
     version: '10.4', date: '2026-11-10', title: '2.01 Tiradas ×100 y fichas de clan',
     features: [
       'Tiradas ×100 (autor): pull() acepta 100, cuesta multiCost × 10 y asegura un Épico+ en cada bloque de diez; capsuleShow solo anima los Legendario+ y cierra con el resumen, que agrupa repetidos (×n), igual que gachaSummary.',

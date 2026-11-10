@@ -27,8 +27,8 @@ it.skipIf(!fs.existsSync(file))('banner odds: every pool sums to 100 and a rarer
   expect(new Set(m.roster.filter((p: { exclusive?: string }) => !p.exclusive).map((p: never) => machineOf(p))).size).toBe(BANNER_ORDER.length - 3);
   // the special banner: every exclusive footballer (pre-2.0: except the road's, Jaden Evans), and below them only Común, Raro and Épico
   const ev = bannerPool(m.roster, 'evento');
-  expect(ev.filter((p) => p.exclusive).length).toBe(m.roster.filter((p: { exclusive?: string }) => p.exclusive && p.exclusive !== 'road' && p.exclusive !== 'bluelock').length);
-  expect(ev.some((p) => p.exclusive === 'road')).toBe(false);
+  expect(ev.filter((p) => p.exclusive).length).toBe(m.roster.filter((p: { exclusive?: string }) => p.exclusive && p.exclusive !== 'road' && p.exclusive !== 'bluelock' && p.exclusive !== 'proximamente').length);
+  expect(ev.some((p) => p.exclusive === 'road' || p.exclusive === 'proximamente')).toBe(false); // 2.02: the secret one is in no banner
   expect(ev.every((p) => p.exclusive || ['comun', 'raro', 'epico'].includes(p.rarity))).toBe(true);
   for (const r of ['comun', 'raro', 'epico']) { const n = ev.filter((p) => !p.exclusive && p.rarity === r).length; expect(n).toBeGreaterThanOrEqual(15); expect(n).toBeLessThanOrEqual(20); }
   expect(bannerPrice(ev, 'evento')).toMatchObject({ cost: 15, multiCost: 150 });

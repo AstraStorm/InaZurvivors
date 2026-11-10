@@ -6,7 +6,7 @@
  */
 import { CHANGELOG } from './changelog';
 
-export const PUBLIC_VERSION = '2.01';
+export const PUBLIC_VERSION = '2.02';
 export const BUILD = CHANGELOG[0].version;
 export const RELEASED = true; // (author) 2.0: the «pre» phase is over
 export const VERSION_LABEL = RELEASED ? `v${PUBLIC_VERSION}` : `v${PUBLIC_VERSION} · pre-lanzamiento`;
@@ -28,6 +28,21 @@ export interface PublicRelease {
 
 /** Public news, newest first. Starts at v1.0: the internal versions before it are not part of the public history. */
 export const PUBLIC_RELEASES: PublicRelease[] = [
+  {
+    version: '2.02', date: '2026-11-11',
+    title: 'InaZurvivors 2.02 — Jaden antes y Shawn defensa',
+    tagline: 'Jaden a las 3 victorias',
+    intro: 'Jaden Evans llega mucho antes en Road to Fútbol Frontier, Shawn Froste se une al Alpino como defensa y el juego empieza a guardar algunas partidas para ayudar a equilibrarlo.',
+    features: [
+      { icon: '🛣', title: 'Jaden a las 3 victorias', text: 'En Road to Fútbol Frontier, Jaden Evans sale ahora a las 3 victorias en Máxima (antes 10) y después una copia cada 5 victorias (antes cada 10). Si ya llevabas victorias, recibes al entrar los Jaden que te tocan con la regla nueva.' },
+      { icon: '❄', title: 'Shawn Froste defensa', text: 'Shawn antes de fusionarse con Aiden: defensa Épico del Alpino, con Paisaje helado, Ciclón, Giro bobina y Ciclón doble. Sale en las máquinas como cualquier futbolista del Alpino. No puede jugar en el mismo equipo que el otro Shawn.' },
+      { icon: '🎥', title: 'Partidas grabadas', text: 'Con la sesión iniciada, cada partida en solitario se graba (posiciones, técnicas y cartas elegidas, nada personal) para que el autor vea cómo se juega y equilibre el juego. Se guardan tus 3 últimas y las de tus marcas del ranking. Puedes desactivarlo en Ajustes > Privacidad > «Compartir mis partidas».', online: true },
+    ],
+    start: [
+      'Abre ROAD TO FÚTBOL FRONTIER y mira cuántas victorias te faltan para Jaden.',
+      'Busca a Shawn Froste Defensa en las máquinas del Alpino.',
+    ],
+  },
   {
     version: '2.01', date: '2026-11-10',
     title: 'InaZurvivors 2.01 — Tiradas ×100 y fichas de clan',

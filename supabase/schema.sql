@@ -3169,3 +3169,316 @@ language sql immutable set search_path = '' as $$
     when 'marytimes' then 11 when 'fuji' then 12 when 'ehime' then 13 when 'alius' then 14 when 'ruinas' then 15
     when 'barrio' then 16 when 'plazanieve' then 17 when 'torre' then 18 end, 1) - 1) * 0.05;
 $$;
+
+-- ===== 20261110000300_eg_code.sql
+-- 2.0 (author): code EGU3RR3R0 (typed EGu3rr3r0; codes are upper-cased) gives 3 Fichas EG, once per account.
+-- redeem_code learns rewards.eg_tokens (answered as reward.egTokens); codes without it answer exactly as before.
+-- Same function as 20261106000200_ina483.sql otherwise.
+
+create or replace function private.redeem_code(p_code text, p_already_applied boolean) returns jsonb
+language plpgsql security definer set search_path = '' as $$
+declare uid uuid := private.real_user(); c record; pool jsonb; pick integer; res jsonb; inserted integer;
+  odds jsonb; total numeric; x numeric; r text;
+begin
+  select * into c from private.promo_codes where code = upper(trim(p_code)) and active;
+  if not found then return jsonb_build_object('status', 'invalid'); end if;
+  if p_already_applied then
+    insert into private.promo_redemptions (user_id, code, result) values (uid, c.code, jsonb_build_object('guest', true))
+    on conflict do nothing;
+    get diagnostics inserted = row_count;
+    return jsonb_build_object('status', case when inserted = 1 then 'linked' else 'used' end);
+  end if;
+  pool := c.rewards -> 'legendary_pool';
+  odds := c.rewards -> 'rarity_odds';
+  if odds is not null then
+    -- rarity first by its weight (only rarities with footballers), then one of that rarity
+    select sum((value)::numeric) into total from jsonb_each_text(odds) e
+      where jsonb_array_length(coalesce(c.rewards -> 'rarity_pools' -> e.key, '[]')) > 0;
+    x := random() * coalesce(total, 0);
+    for r in select e.key from jsonb_each_text(odds) e
+      where jsonb_array_length(coalesce(c.rewards -> 'rarity_pools' -> e.key, '[]')) > 0 order by (e.value)::numeric desc loop
+      pool := c.rewards -> 'rarity_pools' -> r;
+      x := x - (odds ->> r)::numeric;
+      exit when x < 0;
+    end loop;
+  end if;
+  pick := case when jsonb_array_length(coalesce(pool, '[]')) > 0 then (pool ->> floor(random() * jsonb_array_length(pool))::integer)::integer end;
+  res := jsonb_build_object('tokens', coalesce((c.rewards ->> 'tokens')::integer, 0), 'coins', coalesce((c.rewards ->> 'coins')::integer, 0), 'player', pick,
+    'eventTokens', coalesce((c.rewards ->> 'event_tokens')::integer, 0));
+  if c.rewards ? 'eg_tokens' then res := res || jsonb_build_object('egTokens', (c.rewards ->> 'eg_tokens')::integer); end if;
+  if c.rewards ? 'pennants' then res := res || jsonb_build_object('pennants', c.rewards -> 'pennants'); end if;
+  insert into private.promo_redemptions (user_id, code, result) values (uid, c.code, res) on conflict do nothing;
+  get diagnostics inserted = row_count;
+  if inserted = 0 then return jsonb_build_object('status', 'used'); end if;
+  return jsonb_build_object('status', 'ok', 'reward', res);
+end $$;
+
+revoke execute on function private.redeem_code(text, boolean) from public, anon, authenticated;
+grant execute on function private.redeem_code(text, boolean) to authenticated;
+
+insert into private.promo_codes (code, rewards) values ('EGU3RR3R0', jsonb_build_object('eg_tokens', 3))
+on conflict (code) do update set rewards = excluded.rewards, active = true;
+
+-- ===== 20261110000400_clan_info.sql
+-- 2.01 (author: «que cuando le des click al clan puedas ver los miembros, puntos y información»): the public card of any
+-- clan, by id or by name (the ranking only knows the clan's name, from clan_of). Public data only: name, crest, kit,
+-- mode, founding date, leader, this week's points and position, last week's result, its best week, all-time points and
+-- the roster with each member's role and points (this week and in total for this clan). No user ids.
+create or replace function private.clan_info(p_id bigint default null, p_name text default null) returns jsonb
+language sql stable security definer set search_path = '' as $$
+  with c as (
+    select * from public.clans x
+    where (p_id is not null and x.id = p_id) or (p_id is null and lower(x.name::text) = lower(trim(coalesce(p_name, ''))))
+    limit 1
+  ), w as (select private.clan_week() as wk)
+  select jsonb_build_object(
+    'id', c.id, 'name', c.name::text, 'crest', c.crest, 'kit', c.kit, 'mode', c.mode, 'members', c.members, 'created_at', c.created_at,
+    'leader', (select p.username::text from public.profiles p where p.id = c.leader),
+    'weekPoints', coalesce((select sum(r.points) from public.clan_runs r, w where r.clan_id = c.id and r.week = w.wk), 0),
+    'pos', (select x.pos from (select r.clan_id, row_number() over (order by sum(r.points) desc, max(r.created_at)) as pos
+                                from public.clan_runs r, w where r.week = w.wk group by r.clan_id) x where x.clan_id = c.id),
+    'clans', (select count(distinct r.clan_id) from public.clan_runs r, w where r.week = w.wk),
+    'totalPoints', coalesce((select sum(r.points) from public.clan_runs r where r.clan_id = c.id), 0),
+    'runs', (select count(*) from public.clan_runs r where r.clan_id = c.id),
+    'wins', (select count(*) from public.clan_runs r where r.clan_id = c.id and r.victory),
+    'lastWeek', (select jsonb_build_object('pos', x.pos, 'points', x.points, 'tier', x.tier) from public.clan_week_results x, w
+                 where x.clan_id = c.id and x.week = w.wk - 7),
+    'bestPos', (select min(x.pos) from public.clan_week_results x where x.clan_id = c.id),
+    'titles', (select count(*) from public.clan_week_results x where x.clan_id = c.id and x.pos = 1),
+    'roster', (select coalesce(jsonb_agg(jsonb_build_object('username', p.username::text, 'avatar', p.avatar, 'role', m.role, 'joined_at', m.joined_at,
+                  'week', coalesce((select sum(r.points) from public.clan_runs r, w where r.user_id = m.user_id and r.clan_id = c.id and r.week = w.wk), 0),
+                  'total', coalesce((select sum(r.points) from public.clan_runs r where r.user_id = m.user_id and r.clan_id = c.id), 0))
+                order by m.role = 'lider' desc, m.role = 'oficial' desc, m.joined_at), '[]'::jsonb)
+               from public.clan_members m join public.profiles p on p.id = m.user_id where m.clan_id = c.id))
+  from c;
+$$;
+create or replace function public.clan_info(p_id bigint default null, p_name text default null) returns jsonb
+language sql stable security invoker set search_path = '' as $$ select private.clan_info(p_id, p_name); $$;
+revoke execute on function private.clan_info(bigint, text), public.clan_info(bigint, text) from public, anon, authenticated;
+grant execute on function private.clan_info(bigint, text), public.clan_info(bigint, text) to anon, authenticated;
+alter function private.clan_info(bigint, text) set statement_timeout = '5s';
+
+-- ===== 20261110000500_damage_cap.sql
+-- 2.01 (author: a 20+ minute Rango Z run of a player did not reach the ranking): the anti-cheat damage ceiling was 200.000
+-- per second, and late teams in Rango Z with their spirits go past it, so real runs were refused as implausible_damage
+-- (6 on 2026-11-10). The ceiling is now 800.000 per second and a run above it is no longer refused: its damage is
+-- trimmed to the ceiling, so the time survived still counts.
+create or replace function private.submit_score(p_run_id uuid, p_map text, p_rank text, p_time_sec integer, p_damage bigint, p_captain_id integer)
+returns text language plpgsql security definer set search_path to 'public', 'extensions' set lock_timeout to '3s' as $function$
+declare uid uuid := private.real_user(); dmg bigint;
+begin
+  if not exists (select 1 from public.profiles where id = uid) then raise exception 'no_username' using errcode = '42501'; end if;
+  if p_rank not in ('C', 'B', 'A', 'S', 'X', 'Z') or p_map !~ '^[a-z0-9_-]{1,32}$' then raise exception 'invalid_board' using errcode = '22023'; end if;
+  if p_rank = 'Z' and not private.rank_z_open() then raise exception 'rank_locked' using errcode = '22023'; end if;
+  if p_time_sec < 0 or p_time_sec > 4 * 3600 then raise exception 'implausible_time' using errcode = '22023'; end if;
+  if p_damage < 0 then raise exception 'implausible_damage' using errcode = '22023'; end if;
+  dmg := least(p_damage, (p_time_sec + 1)::bigint * 800000);
+  if exists (select 1 from public.submitted_runs r where r.user_id = uid and r.at > now() - interval '20 seconds') then
+    raise exception 'too_fast' using errcode = '54000';
+  end if;
+  insert into public.submitted_runs (run_id, user_id) values (p_run_id, uid) on conflict do nothing;
+  if not found then return 'duplicate'; end if;
+  insert into public.scores as s (user_id, map, rank, time_sec, damage, captain_id, run_id)
+    values (uid, p_map, p_rank, p_time_sec, dmg, coalesce(p_captain_id, 0), p_run_id)
+  on conflict (user_id, map, rank) do update
+    set time_sec = excluded.time_sec, damage = excluded.damage, captain_id = excluded.captain_id, run_id = excluded.run_id, created_at = now()
+    where (private.score_of(excluded.rank, excluded.time_sec, excluded.damage), excluded.time_sec, excluded.damage)
+        > (private.score_of(s.rank, s.time_sec, s.damage), s.time_sec, s.damage);
+  return 'ok';
+end $function$;
+
+-- ===== 20261110000600_replays.sql
+-- 2.02: run replays (author: «ver cómo juega la gente»). The game records a finished solo run (src/game/replay.ts),
+-- uploads the gzipped file to a private bucket in the player's own folder and registers it here. Only the author
+-- (private.admins) lists and watches them; each player keeps the newest 3 plus those of his ranking marks (public.scores
+-- run_id): the rest are handed back to be deleted.
+-- Storage objects can only be deleted through the Storage API, so the functions return the paths to delete and the
+-- rows of files that are already gone are swept at the next call.
+
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('replays', 'replays', false, 8388608, array['application/gzip', 'application/octet-stream'])
+on conflict (id) do update set public = false, file_size_limit = excluded.file_size_limit, allowed_mime_types = excluded.allowed_mime_types;
+
+drop policy if exists replays_insert_own on storage.objects;
+create policy replays_insert_own on storage.objects for insert to authenticated
+  with check (
+    bucket_id = 'replays'
+    and (storage.foldername(name))[1] = (select auth.uid())::text
+    and not coalesce(((select auth.jwt()) ->> 'is_anonymous')::boolean, false)
+    -- at most 30 uploads per account per day
+    and (select count(*) from storage.objects o where o.bucket_id = 'replays' and o.owner_id = (select auth.uid())::text
+         and o.created_at > now() - interval '1 day') < 30
+  );
+drop policy if exists replays_read_own_or_admin on storage.objects;
+create policy replays_read_own_or_admin on storage.objects for select to authenticated
+  using (bucket_id = 'replays' and ((storage.foldername(name))[1] = (select auth.uid())::text or (select private.is_admin())));
+drop policy if exists replays_delete_own_or_admin on storage.objects;
+create policy replays_delete_own_or_admin on storage.objects for delete to authenticated
+  using (bucket_id = 'replays' and ((storage.foldername(name))[1] = (select auth.uid())::text or (select private.is_admin())));
+
+create table if not exists private.replays (
+  id bigint generated always as identity primary key,
+  user_id uuid not null references auth.users (id) on delete cascade,
+  path text not null unique,
+  map text not null,
+  rank text not null,
+  time_sec integer not null,
+  victory boolean not null,
+  kills integer not null,
+  level integer not null,
+  captain_id integer,
+  team integer[] not null default '{}',
+  bytes integer not null,
+  version text not null default '',
+  created_at timestamptz not null default now()
+);
+create index if not exists replays_user_created on private.replays (user_id, created_at desc);
+create index if not exists replays_created on private.replays (created_at desc);
+
+-- the replay just uploaded; returns the player's own older files to delete (beyond the newest 3, ranking marks kept)
+create or replace function private.register_replay(p_path text, p_map text, p_rank text, p_time_sec integer, p_victory boolean,
+  p_kills integer, p_level integer, p_captain_id integer, p_team integer[], p_bytes integer, p_version text) returns text[]
+language plpgsql volatile security definer set search_path = '' as $$
+declare
+  uid uuid := auth.uid();
+  old text[];
+begin
+  if uid is null or coalesce((auth.jwt() ->> 'is_anonymous')::boolean, false) then raise exception 'not_signed_in' using errcode = 'P0001'; end if;
+  if p_path is null or split_part(p_path, '/', 1) <> uid::text or p_path !~ '^[0-9a-f-]{36}/[A-Za-z0-9_-]{8,64}\.bin$' then
+    raise exception 'bad_path' using errcode = 'P0001';
+  end if;
+  if not exists (select 1 from storage.objects o where o.bucket_id = 'replays' and o.name = p_path) then
+    raise exception 'not_uploaded' using errcode = 'P0001';
+  end if;
+  -- rows whose file is already gone
+  delete from private.replays r where r.user_id = uid
+    and not exists (select 1 from storage.objects o where o.bucket_id = 'replays' and o.name = r.path);
+  insert into private.replays (user_id, path, map, rank, time_sec, victory, kills, level, captain_id, team, bytes, version)
+  values (uid, p_path, left(coalesce(p_map, ''), 40), left(coalesce(p_rank, ''), 4), greatest(0, least(coalesce(p_time_sec, 0), 86400)),
+    coalesce(p_victory, false), greatest(0, coalesce(p_kills, 0)), greatest(0, coalesce(p_level, 0)), p_captain_id,
+    coalesce(p_team[1:12], '{}'), greatest(0, coalesce(p_bytes, 0)), left(coalesce(p_version, ''), 24))
+  on conflict (path) do nothing;
+  select coalesce(array_agg(path), '{}') into old from (
+    select r.path from private.replays r where r.user_id = uid
+      and not exists (select 1 from public.scores s where s.user_id = uid and s.run_id::text = split_part(split_part(r.path, '/', 2), '.', 1))
+    order by r.created_at desc offset 3) x;
+  return old;
+end $$;
+
+-- admin: the replays, newest first, optionally of one player (exact name, any case)
+create or replace function private.admin_replays(p_username text default null, p_limit integer default 100) returns jsonb
+language plpgsql stable security definer set search_path = '' as $$
+begin
+  if not private.is_admin() then raise exception 'forbidden' using errcode = '42501'; end if;
+  return coalesce((select jsonb_agg(to_jsonb(x) order by x.created_at desc) from (
+    select r.id, r.path, coalesce(p.username::text, '(sin nombre)') as username, r.map, r.rank, r.time_sec, r.victory, r.kills,
+      r.level, r.captain_id, r.team, r.bytes, r.version, r.created_at
+    from private.replays r left join public.profiles p on p.id = r.user_id
+    where (p_username is null or p_username = '' or lower(p.username::text) = lower(p_username))
+      and exists (select 1 from storage.objects o where o.bucket_id = 'replays' and o.name = r.path)
+    order by r.created_at desc
+    limit least(greatest(coalesce(p_limit, 100), 1), 300)) x), '[]'::jsonb);
+end $$;
+
+-- admin: files older than p_days to delete, never a ranking mark's (the rows go once the files are gone)
+create or replace function private.admin_prune_replays(p_days integer default 30) returns text[]
+language plpgsql volatile security definer set search_path = '' as $$
+declare out text[];
+begin
+  if not private.is_admin() then raise exception 'forbidden' using errcode = '42501'; end if;
+  delete from private.replays r where not exists (select 1 from storage.objects o where o.bucket_id = 'replays' and o.name = r.path);
+  select coalesce(array_agg(path), '{}') into out from (select r.path from private.replays r
+    where r.created_at < now() - make_interval(days => greatest(coalesce(p_days, 30), 3))
+      and not exists (select 1 from public.scores s where s.user_id = r.user_id and s.run_id::text = split_part(split_part(r.path, '/', 2), '.', 1))
+    limit 500) x;
+  return out;
+end $$;
+
+create or replace function public.register_replay(p_path text, p_map text, p_rank text, p_time_sec integer, p_victory boolean,
+  p_kills integer, p_level integer, p_captain_id integer, p_team integer[], p_bytes integer, p_version text) returns text[]
+language sql volatile security invoker set search_path = '' as $$
+  select private.register_replay(p_path, p_map, p_rank, p_time_sec, p_victory, p_kills, p_level, p_captain_id, p_team, p_bytes, p_version); $$;
+create or replace function public.admin_replays(p_username text default null, p_limit integer default 100) returns jsonb
+language sql stable security invoker set search_path = '' as $$ select private.admin_replays(p_username, p_limit); $$;
+create or replace function public.admin_prune_replays(p_days integer default 30) returns text[]
+language sql volatile security invoker set search_path = '' as $$ select private.admin_prune_replays(p_days); $$;
+
+revoke all on table private.replays from public, anon, authenticated;
+revoke execute on function private.register_replay(text, text, text, integer, boolean, integer, integer, integer, integer[], integer, text),
+  public.register_replay(text, text, text, integer, boolean, integer, integer, integer, integer[], integer, text),
+  private.admin_replays(text, integer), public.admin_replays(text, integer),
+  private.admin_prune_replays(integer), public.admin_prune_replays(integer) from public, anon, authenticated;
+grant execute on function private.register_replay(text, text, text, integer, boolean, integer, integer, integer, integer[], integer, text),
+  public.register_replay(text, text, text, integer, boolean, integer, integer, integer, integer[], integer, text),
+  private.admin_replays(text, integer), public.admin_replays(text, integer),
+  private.admin_prune_replays(integer), public.admin_prune_replays(integer) to authenticated;
+alter function private.register_replay(text, text, text, integer, boolean, integer, integer, integer, integer[], integer, text) set statement_timeout = '5s';
+alter function private.admin_replays(text, integer) set statement_timeout = '8s';
+alter function private.admin_prune_replays(integer) set statement_timeout = '8s';
+
+notify pgrst, 'reload schema';
+
+-- ===== 20261111000000_spirit_stats.sql
+-- 2.02 Métricas (author: «qué espíritus son los que más se usan y los que más vidas quitan»). At the end of every run with an
+-- active warrior spirit the game sends which one, how many ultimates were cast and the damage the team dealt in the 3 s
+-- after each one. Stored added up per Madrid day and spirit: no account is kept with the numbers (only a per-account
+-- daily counter against spam). Only admins read it.
+
+create table if not exists private.spirit_daily (
+  day date not null,
+  spirit text not null,
+  runs integer not null default 0,
+  casts integer not null default 0,
+  damage bigint not null default 0,
+  primary key (day, spirit)
+);
+create table if not exists private.spirit_senders (
+  user_id uuid not null references auth.users (id) on delete cascade,
+  day date not null,
+  n integer not null default 0,
+  primary key (user_id, day)
+);
+
+create or replace function private.record_spirit_run(p_spirit text, p_casts integer, p_damage bigint) returns void
+language plpgsql volatile security definer set search_path = '' as $$
+declare
+  uid uuid := auth.uid();
+  d date := (now() at time zone 'Europe/Madrid')::date;
+  k integer;
+begin
+  if uid is null or coalesce((auth.jwt() ->> 'is_anonymous')::boolean, false) then raise exception 'not_signed_in' using errcode = 'P0001'; end if;
+  if p_spirit is null or p_spirit !~ '^[a-z_]{2,24}$' then raise exception 'bad_spirit' using errcode = 'P0001'; end if;
+  insert into private.spirit_senders (user_id, day, n) values (uid, d, 1)
+  on conflict (user_id, day) do update set n = private.spirit_senders.n + 1 returning n into k;
+  if k > 60 then return; end if; -- more runs than anyone plays in a day: ignored
+  insert into private.spirit_daily (day, spirit, runs, casts, damage)
+  values (d, p_spirit, 1, least(greatest(coalesce(p_casts, 0), 0), 400), least(greatest(coalesce(p_damage, 0), 0), 2000000000))
+  on conflict (day, spirit) do update set runs = private.spirit_daily.runs + 1, casts = private.spirit_daily.casts + excluded.casts,
+    damage = private.spirit_daily.damage + excluded.damage;
+  delete from private.spirit_senders where day < d - 2;
+end $$;
+
+create or replace function private.admin_spirit_stats(p_days integer default 30) returns jsonb
+language plpgsql stable security definer set search_path = '' as $$
+declare d integer := least(greatest(coalesce(p_days, 30), 1), 365);
+begin
+  if not private.is_admin() then raise exception 'forbidden' using errcode = '42501'; end if;
+  return coalesce((select jsonb_agg(jsonb_build_object('spirit', spirit, 'runs', runs, 'casts', casts, 'damage', damage) order by runs desc) from (
+    select spirit, sum(runs)::bigint runs, sum(casts)::bigint casts, sum(damage)::bigint damage from private.spirit_daily
+    where day > (now() at time zone 'Europe/Madrid')::date - d group by spirit) x), '[]'::jsonb);
+end $$;
+
+create or replace function public.record_spirit_run(p_spirit text, p_casts integer, p_damage bigint) returns void
+language sql volatile security invoker set search_path = '' as $$ select private.record_spirit_run(p_spirit, p_casts, p_damage); $$;
+create or replace function public.admin_spirit_stats(p_days integer default 30) returns jsonb
+language sql stable security invoker set search_path = '' as $$ select private.admin_spirit_stats(p_days); $$;
+
+revoke all on table private.spirit_daily, private.spirit_senders from public, anon, authenticated;
+revoke execute on function private.record_spirit_run(text, integer, bigint), public.record_spirit_run(text, integer, bigint),
+  private.admin_spirit_stats(integer), public.admin_spirit_stats(integer) from public, anon, authenticated;
+grant execute on function private.record_spirit_run(text, integer, bigint), public.record_spirit_run(text, integer, bigint),
+  private.admin_spirit_stats(integer), public.admin_spirit_stats(integer) to authenticated;
+alter function private.record_spirit_run(text, integer, bigint) set statement_timeout = '5s';
+alter function private.admin_spirit_stats(integer) set statement_timeout = '8s';
+
+notify pgrst, 'reload schema';

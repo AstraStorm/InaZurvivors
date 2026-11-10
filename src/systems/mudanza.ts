@@ -107,6 +107,6 @@ export function mudanzaNotice(now = Date.now()) {
   document.body.appendChild(bar);
   const t = window.setInterval(() => {
     if (!bar.isConnected) { window.clearInterval(t); return; }
-    bar.style.display = document.getElementById('hud') ? 'none' : 'flex';
+    bar.style.display = document.getElementById('hud') || document.getElementById('rplay') ? 'none' : 'flex'; // never over a run or a replay
   }, 1000);
 }
