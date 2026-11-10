@@ -25,6 +25,7 @@ import { applyTechFixes } from './data/techFixes';
 import { ArenaScene } from './game/ArenaScene';
 import { MenuScene } from './game/MenuScene';
 import { loadSave, storeSave } from './systems/save';
+import { mudanzaNotice, mudanzaToast, takeMudanza } from './systems/mudanza';
 import { App } from './ui/app';
 
 // keeps the last crash so a run that stops unexpectedly can be diagnosed
@@ -89,6 +90,7 @@ async function boot() {
   ]);
   progress(0.92, 'Abriendo el vestuario…');
   // new profiles start empty: their first 5 footballers come from the one-time onboarding draft
+  const moved = await takeMudanza(); // 2026-11-10: a guest's save brought from the old address (before it is loaded)
   const save = loadSave([], null);
   // 2.0 (dev only): ?qa=eg opens a QA club with every Espíritu Guerrero holder; never on localhost, where the author's save lives
   if (import.meta.env.DEV && new URLSearchParams(location.search).get('qa') === 'eg' && location.hostname !== 'localhost') {
@@ -129,6 +131,8 @@ async function boot() {
   const screen = document.getElementById('boot');
   screen?.classList.add('gone');
   window.setTimeout(() => screen?.remove(), 400);
+  if (moved) mudanzaToast(moved);
+  mudanzaNotice();
   // Fix 1.23: the QA hook only exists on the development server; in the published game it handed the console the save
   // (`__ies.app.save.tokens = …`), which is how fichas were made out of nothing
   if (import.meta.env.DEV) (window as unknown as Record<string, unknown>).__ies = { game, app, manifest, save };
