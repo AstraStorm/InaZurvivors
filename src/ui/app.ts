@@ -59,7 +59,7 @@ import { THANKS_EVENT, addThanksTokens, thanksActive, thanksLeftMs, thanksTokens
 import { BLUELOCK_EVENT, BLUELOCK_WINS_FOR_BANNER, bluelockActive, bluelockDaysToStart, bluelockLeftMs, bluelockUpcoming, recordBluelockWin } from '../systems/collabEvent';
 import { gtsDeposit, gtsFeed, gtsMine, gtsSearch, gtsTake, gtsWithdraw, type GtsOffer } from '../online/client';
 import { submitTierlist, tierlistFeed, type TierlistRow } from '../online/client';
-import { championOfRows, clanOf, clanAnswer, clanCancelRequest, clanClaimMission, clanClaimPrizes, clanCreate, clanKick, clanLastWeek, clanLeave, clanRanking, clanRequest, clanRequests, clanSearch, clanSetRole, clanSubmitRun, clanUpdate, myClan, myClanRequests, type ClanMember, type ClanMission, type ClanPrize, type ClanRole, type MyClan } from '../online/client';
+import { championOfRows, clanInfo, clanOf, clanAnswer, clanCancelRequest, clanClaimMission, clanClaimPrizes, clanCreate, clanKick, clanLastWeek, clanLeave, clanRanking, clanRequest, clanRequests, clanSearch, clanSetRole, clanSubmitRun, clanUpdate, myClan, myClanRequests, type ClanMember, type ClanMission, type ClanPrize, type ClanRole, type MyClan } from '../online/client';
 import { addBag, boughtThisWeek, canPay, CLAN_COST, CLAN_ERRORS, CLAN_ITEMS, CLAN_MAX, CLAN_MISSION_TEXT, CLAN_PRIZES, CLAN_REWARD_MULT, CLAN_ROLE_LABEL, CLAN_RUNS_PER_DAY, clanDrops, clanError, clanNameProblem, clanPlayer, clanShop, clanWeekKey, clanWeekLeftMs, payBag, recordBuy, tierOfPos, type ClanBag, type ClanOffer, type ClanTier } from '../systems/clans';
 import { cleanTiers, placeIn, tierCount, topicLabel, TIER_COLOR, TIER_MAX, TIER_MIN, TIER_TOPICS, TIERS, type Tier, type Tiers } from '../systems/tierlist';
 import { CoopLink, type CoopMsg } from '../online/coop';
@@ -71,7 +71,7 @@ import { applyGtsLedger, canLeave, gtsBanned, gtsError, gtsSlots, gtsSpare, type
 import { accountId, adminBugReports, adminMetrics, adminPlayerStats, adminUpdateBug, amIAdmin, consumeAuthRedirect, deleteAccount, deleteMyBugReports, deleteShot, myBugReports, notifyBug, shotUrl, submitBugReport, uploadShot, getCloudSave, leaderboard, myPosition, profileBanners, profileFrames, publicProfile, type PublicProfile, myProfile, onlineConfigured, putCloudSave, reserveUsername, resetMyProgress, signedEmail, signedIn, signInWithGoogle, signOut, submitScore, usernameAvailable, type BoardQuery, type BoardRow, type BugFilter, type BugRow, type CloudSave } from '../online/client';
 import { backup, linkPlan, progressOf, summarize, type SaveSummary } from '../online/cloudSync';
 import { epochOf, freshProgress, resetSummary } from '../systems/resetProgress';
-import { scoreOf, localBoard, recordBest } from '../systems/leaderboard';
+import { scoreOf, localBoard, mapMult, recordBest } from '../systems/leaderboard';
 import { coachRequirement, emblemUnlocked, iconAllowed, DEFAULT_EMBLEM } from '../systems/profileUnlocks';
 import { INTRO } from './cinematics';
 import { SIGNATURE } from '../data/signatures';
@@ -84,6 +84,7 @@ import { MASTERY_BONUS, MASTERY_USES, masteryLevel, recordMastery } from '../sys
 import { MAX_TEAM, canStartWith, startingTech, type Card } from '../systems/cards';
 import { clearSquad, renameSquad, savedSquads, setSquad, SQUAD_SIZE, fillSquad, makeCaptain, placeInSquad, removeFromSquad, squadOf, switchSquad, syncActiveSquad } from '../systems/squad';
 import type { ArenaInit, ArenaScene, HudState, MarkerState, Poi, TrainingSetup } from '../game/ArenaScene';
+import type { LobbyInit, LobbyPlayer } from '../game/LobbyScene';
 import { BOSS_WARN_SEC } from '../systems/bossKit';
 import { canLevel, egTokens, giveKeshinGift, keshinElClass, KESHIN_LABEL, KESHIN_MAX, KESHINS, keshinForRun, keshinLevel, keshinOf, keshinStepCost, levelKeshin, nextCost, passiveText as keshinPassiveText, statBonus, techFor, withKeshinStats, type KeshinDef } from '../systems/keshin';
 import { charCanvas, initPreviews, mountPreviews, setPreviewKit } from './sprites';
@@ -1047,6 +1048,7 @@ export class App {
   private stopScenes() {
     if (this.game.scene.isActive('Menu') || this.game.scene.isPaused('Menu')) this.game.scene.stop('Menu');
     if (this.game.scene.isActive('Arena') || this.game.scene.isPaused('Arena')) this.game.scene.stop('Arena');
+    if (this.game.scene.isActive('Lobby') || this.game.scene.isPaused('Lobby')) this.game.scene.stop('Lobby');
   }
 
   mainMenu() {
@@ -1102,7 +1104,7 @@ export class App {
             + tile('training', 'target', 'ENTRENAMIENTO', 'Prueba técnicas') + tile('coaches', 'crown', 'ENTRENADORES', `${this.save.coaches?.owned.length ?? 0} de ${COACHES.length}`) + tile('kits', 'shirt', 'EQUIPACIONES', 'Uniforme y escudo') + tile('gear', 'boot', 'EQUIPAMIENTO', 'Botas y accesorios') + tile('hall', 'trophy', 'SALÓN', `${(this.save.hall ?? []).length} victorias`))}
           ${group('g-sign', 'capsule', 'FICHAJES', tile('gacha', 'capsule', 'FICHAJES', `${this.save.tokens} fichas`, 0, true) + (thanksActive(serverNow()) ? tile('thanksev', 'gift', 'AGRADECIMIENTO', `${this.save.eventTokens ?? 0} fichas de evento`, 0, true) : '') + (eventActive(serverNow()) ? tile('pnevent', 'gift', 'EVENTO', 'Banners de leyenda', 0, true) : '') + tile('daily', 'shop', 'TIENDA', 'Ofertas del día') + tile('gts', 'gts', 'GTS', 'Intercambios online') + tile('codes', 'gift', 'CÓDIGOS', 'Canjea regalos'))}
           ${group('g-comp', 'crown', 'COMPETICIÓN', tile('missions', 'missions', 'MISIONES', pending ? '¡Por recoger!' : 'Recompensas', pending, !!pending)
-            + tile('pass', 'ticket', 'PASE', pass.available ? '¡Recompensa lista!' : 'Vuelve mañana', pass.available ? 1 : 0, pass.available) + tile('ranking', 'crown', 'RANKING', onlineConfigured() ? 'Global' : 'Tus marcas')
+            + tile('pass', 'ticket', 'PASE', pass.available ? '¡Recompensa lista!' : 'Vuelve mañana', pass.available ? 1 : 0, pass.available) + tile('ranking', 'crown', 'RANKING', onlineConfigured() ? 'Global' : 'Tus marcas') + tile('lobby', 'team', 'SALA', 'Todos los jugadores', 0, true)
             + tile('road', 'trophy', 'ROAD TO FF', this.save.road?.active ? `Partido ${this.save.road.active.level + 1} en juego` : 'Nuevo modo', 0, true) + tile('clan', 'team', 'CLANES', this.save.clanSeen ? esc(this.save.clanSeen.name) : 'Juegos del Clan', 0, true) + tile('tierlist', 'cards', 'TIERLISTS', 'Crea y comparte', 0, true) + tile('coop', 'team', 'COOP', 'pre-2.0 · en pruebas', 0, true) + tile('friends', 'gift', 'AMIGOS', 'Invita al coop'))}
         </section>
         ${feat ? `<section class="m4-hero" data-go="squad" style="--rc:${RARITY_COLOR[featR]}"><div class="m4-aura"></div><div class="m4-ring"></div>
@@ -1182,6 +1184,7 @@ export class App {
       if (go === 'profile') this.profile();
       if (go === 'devlog') this.devlog();
       if (go === 'ranking') this.ranking();
+      if (go === 'lobby') void this.lobbyScreen();
       if (go === 'hall') this.hallOfFame();
       if (go === 'pass') this.weeklyPass();
       if (go === 'codes') this.codesModal();
@@ -1388,7 +1391,7 @@ export class App {
         if (!document.body.contains(box)) return;
         const asked = new Set(mine.map((r) => r.id));
         document.getElementById('clmyreq')!.innerHTML = mine.length ? `<div class="cl-myreq"><small>TUS SOLICITUDES</small>${mine.map((r) => `<span>${this.clanCrest(r.crest, 20)}${esc(r.name)}<button class="btn small blue" data-clcancel="${r.id}">Cancelar</button></span>`).join('')}</div>` : '';
-        box.innerHTML = rows.map((c) => `<div class="cl-row">${this.clanCrest(c.crest, 36)}<span class="cl-row-tx"><b>${esc(c.name)}</b><small>${c.members}/${CLAN_MAX} miembros · ${Number(c.week_points ?? 0).toLocaleString('es')} pts esta semana · ${c.mode === 'abierto' ? 'Abierto' : 'Con solicitud'}</small></span>
+        box.innerHTML = rows.map((c) => `<div class="cl-row"><span class="cl-tap cl-row-main" data-clanid="${c.id}" title="Ver el clan">${this.clanCrest(c.crest, 36)}<span class="cl-row-tx"><b>${esc(c.name)}</b><small>${c.members}/${CLAN_MAX} miembros · ${Number(c.week_points ?? 0).toLocaleString('es')} pts esta semana · ${c.mode === 'abierto' ? 'Abierto' : 'Con solicitud'}</small></span></span>
           ${asked.has(c.id) ? '<em class="cl-pend">Solicitud enviada</em>' : c.members >= CLAN_MAX ? '<em class="cl-pend">Lleno</em>' : `<button class="btn small" data-cljoin="${c.id}">${c.mode === 'abierto' ? 'Unirse' : 'Solicitar'}</button>`}</div>`).join('')
           || '<div class="note">No hay clanes con ese nombre. ¡Funda el tuyo!</div>';
         this.on('[data-cljoin]', 'click', async (_e, el) => {
@@ -1399,6 +1402,7 @@ export class App {
             else { sfx('click'); this.toast('Solicitud enviada: el líder o un oficial la aceptará'); void search(); }
           } catch (err) { this.toast(clanError(String((err as Error)?.message ?? err))); (el as HTMLButtonElement).disabled = false; }
         }, box);
+        this.bindClans(box);
         this.on('[data-clcancel]', 'click', async (_e, el) => { await clanCancelRequest(Number(el.dataset.clcancel)).catch(() => undefined); void search(); });
       } catch { box.innerHTML = '<div class="note">La búsqueda no responde ahora.</div>'; }
     };
@@ -1489,8 +1493,9 @@ export class App {
       const [rows, last] = await Promise.all([clanRanking(), clanLastWeek()]);
       const box = document.getElementById('clrank'), lb = document.getElementById('cllast');
       if (!box || !lb) return;
-      box.innerHTML = rows.map((r) => `<div class="cl-row${r.id === c.id ? ' me' : ''}"><span class="cl-pos t-${tierOfPos(Number(r.pos))}">${r.pos}</span>${this.clanCrest(r.crest, 30)}<span class="cl-row-tx"><b>${esc(r.name)}</b><small>${r.members} miembros</small></span><em>${Number(r.points).toLocaleString('es')} pts</em></div>`).join('') || '<div class="note">Nadie ha jugado aún esta semana.</div>';
-      lb.innerHTML = last.map((r) => `<div class="cl-row"><span class="cl-pos t-${r.tier}">${r.pos}</span><span class="cl-row-tx"><b>${esc(r.name)}</b></span><em>${Number(r.points).toLocaleString('es')} pts</em></div>`).join('') || '<div class="note">Aún no hay semanas cerradas.</div>';
+      box.innerHTML = rows.map((r) => `<div class="cl-row cl-tap${r.id === c.id ? ' me' : ''}" data-clanid="${r.id}" title="Ver el clan"><span class="cl-pos t-${tierOfPos(Number(r.pos))}">${r.pos}</span>${this.clanCrest(r.crest, 30)}<span class="cl-row-tx"><b>${esc(r.name)}</b><small>${r.members} miembros</small></span><em>${Number(r.points).toLocaleString('es')} pts</em></div>`).join('') || '<div class="note">Nadie ha jugado aún esta semana.</div>';
+      lb.innerHTML = last.map((r) => `<div class="cl-row cl-tap" data-clan="${esc(r.name)}" title="Ver el clan"><span class="cl-pos t-${r.tier}">${r.pos}</span><span class="cl-row-tx"><b>${esc(r.name)}</b></span><em>${Number(r.points).toLocaleString('es')} pts</em></div>`).join('') || '<div class="note">Aún no hay semanas cerradas.</div>';
+      this.bindClans(box); this.bindClans(lb); // 2.01: tap a clan to see its card
     } catch { const box = document.getElementById('clrank'); if (box) box.innerHTML = '<div class="note">El ranking no responde ahora.</div>'; }
   }
 
@@ -1875,15 +1880,16 @@ export class App {
     const q = this.rankQuery;
     const online = onlineConfigured();
     // v1.4: the filters are chips (one tap) instead of drop-down lists
+    const multTxt = (id: string) => `×${String(+mapMult(id).toFixed(2)).replace('.', ',')}`; // 2.01: the arena's difficulty, visible
     const chips = (key: 'map' | 'rank' | 'order', opts: [string, string][], cur: string) => `<div class="rk-chips" data-rq="${key}">${opts.map(([v, l]) => `<button class="rk-chip${cur === v ? ' on' : ''}" data-v="${v}">${esc(l)}</button>`).join('')}</div>`;
     this.show(`<div class="screen rk-screen">${this.titlebar('Ranking', 'Menú')}
       <div class="rk-hero"><span class="rk-hero-ic">${uiIcon('crown')}</span><div><b>${online ? 'RANKING MUNDIAL' : 'TUS MARCAS'}</b>
         <small>${online ? 'Top 15 de todos los jugadores, cada uno con su mejor marca.' : 'El servicio online no está activado en esta versión: solo aparecen las marcas de este dispositivo.'}</small></div>
-        <details class="rk-how"><summary>${uiIcon('help')}¿Cómo se calculan los puntos?</summary><div>Puntos = (segundos × 10 + √daño × 2) × rango. El rango es lo que más cuenta: C ×1, B ×1,6, A ×2,4, S ×3,4 y X ×4,8.</div></details></div>
+        <details class="rk-how"><summary>${uiIcon('help')}¿Cómo se calculan los puntos?</summary><div>Puntos = (segundos × 10 + √daño × 2) × rango × arena. El rango es lo que más cuenta: C ×1, B ×1,6, A ×2,4, S ×3,4, X ×4,8 y Z ×7. La arena suma un 5% por cada etapa del camino, también las nuevas: ${this.m.maps.map((mp) => `${esc(mp.name)} ${multTxt(mp.id)}`).join(' · ')}.</div></details></div>
       <div class="rk-filters">
         <div class="rk-fg"><small>${uiIcon('target')}Ordenar</small>${chips('order', [['score', 'Puntos'], ['rank', 'Rango'], ['time', 'Tiempo'], ['damage', 'Daño']], q.order)}</div>
         <div class="rk-fg"><small>${uiIcon('crown')}Rango</small>${chips('rank', [['', 'Todos'], ...RANK_ORDER.map((r) => [r, r] as [string, string])], q.rank ?? '')}</div>
-        <div class="rk-fg wide"><small>${uiIcon('pitch')}Arena</small>${chips('map', [['', 'Todas'], ...this.m.maps.map((mp) => [mp.id, mp.name] as [string, string])], q.map ?? '')}</div></div>
+        <div class="rk-fg wide"><small>${uiIcon('pitch')}Arena</small>${chips('map', [['', 'Todas'], ...this.m.maps.map((mp) => [mp.id, `${mp.name} ${multTxt(mp.id)}`] as [string, string])], q.map ?? '')}</div></div>
       <div class="rank-list" id="rlist"><div class="note">Cargando…</div></div><div id="rme" class="rk-me"></div></div>`);
     this.on('[data-back]', 'click', () => this.mainMenu());
     this.on('.rk-chip', 'click', (_e, el) => {
@@ -1899,7 +1905,7 @@ export class App {
     const q = this.rankQuery;
     const list = document.getElementById('rlist'), me = document.getElementById('rme');
     if (!list || !me) return;
-    const mapName = (id: string) => this.m.maps.find((x) => x.id === id)?.name ?? id;
+    const mapName = (id: string) => `${this.m.maps.find((x) => x.id === id)?.name ?? id} · ×${String(+mapMult(id).toFixed(2)).replace('.', ',')}`; // 2.01: with the arena's multiplier
     const row = (pos: number, name: string, captain: number, crest: string, map: string, rank: string, time: number, damage: number, mine = false, score?: number) => {
       const p = this.byId.get(captain), pts = score ?? scoreOf({ map, rank, time, damage }), rb = this.flagMini(name);
       return `<div class="rank-row${pos <= 3 ? ` top${pos}` : ''}${mine ? ' mine' : ''}${rb ? ' has-pn' : ''}" style="--d:${Math.min(pos, 15) * 40}ms"${onlineConfigured() ? ` data-user="${esc(name)}" title="Ver el perfil de ${esc(name)}"` : ''}>
@@ -1983,7 +1989,7 @@ export class App {
   private clanBadge(name: string) {
     const me = (this.save.onlineName ?? this.save.profile.name).toLowerCase() === name.toLowerCase();
     const c = me && this.save.clanSeen ? { name: this.save.clanSeen.name, crest: this.save.clanSeen.crest } : this.clanCache.get(name.toLowerCase());
-    return c ? `<span class="rk-clan" title="Clan ${esc(c.name)}">${c.crest && this.emblemOf(c.crest) ? `<img src="${this.emblemOf(c.crest)}" alt="">` : uiIcon('team')}<em>${esc(c.name)}</em></span>` : '';
+    return c ? `<span class="rk-clan" data-clan="${esc(c.name)}" title="Ver el clan ${esc(c.name)}">${c.crest && this.emblemOf(c.crest) ? `<img src="${this.emblemOf(c.crest)}" alt="">` : uiIcon('team')}<em>${esc(c.name)}</em></span>` : '';
   }
   /** v1.65: avatar frame of each name on the ranking (lowercase name → id) */
   private frameCache = new Map<string, string>();
@@ -3020,6 +3026,68 @@ export class App {
   /** v1.6: every ranking name opens that player's profile */
   private bindUsers(root: HTMLElement | null) {
     root?.querySelectorAll<HTMLElement>('[data-user]').forEach((el) => el.addEventListener('click', () => void this.otherProfile(el.dataset.user!)));
+    this.bindClans(root);
+  }
+  /** 2.01: a clan's name or crest (ranking badges, clan ranking, search) opens its card; it wins over the player's row */
+  private bindClans(root: HTMLElement | null) {
+    root?.querySelectorAll<HTMLElement>('[data-clan], [data-clanid]').forEach((el) => el.addEventListener('click', (e) => {
+      e.stopPropagation();
+      void this.clanCard(el.dataset.clanid ? { id: Number(el.dataset.clanid) } : { name: el.dataset.clan! });
+    }));
+  }
+
+  /** 2.01 (author): the card of any clan: its information, its points (this week, last week, in total) and its members */
+  private async clanCard(q: { id?: number; name?: string }) {
+    document.querySelector('.cl-info-modal')?.remove();
+    const box = document.createElement('div');
+    box.className = 'tut-modal cl-info-modal';
+    box.innerHTML = `<div class="panel cl-info"><button class="cl-info-x" data-x title="Cerrar">✕</button><div class="note">Cargando el clan…</div></div>`;
+    document.body.appendChild(box);
+    sfx('click');
+    const close = () => { window.removeEventListener('keydown', keys, true); box.remove(); };
+    const keys = (e: KeyboardEvent) => { if (e.code === 'Escape') { e.preventDefault(); e.stopPropagation(); close(); } };
+    window.addEventListener('keydown', keys, true);
+    box.addEventListener('click', (e) => { if (e.target === box || (e.target as HTMLElement).closest('[data-x]')) close(); });
+    let c: Awaited<ReturnType<typeof clanInfo>>;
+    try { c = await clanInfo(q); } catch { c = undefined as never; }
+    const panel = box.querySelector('.cl-info');
+    if (!panel || !document.body.contains(box)) return;
+    if (!c) { panel.innerHTML = `<button class="cl-info-x" data-x title="Cerrar">✕</button><div class="note">${c === null ? 'Ese clan ya no existe.' : 'Los clanes no responden ahora.'}</div>`; return; }
+    const n = (v: number) => Number(v || 0).toLocaleString('es');
+    const mine = this.save.clanSeen?.name.toLowerCase() === c.name.toLowerCase();
+    const canJoin = !this.save.clanSeen && signedIn() && c.members < CLAN_MAX;
+    const sample = this.unlockedRoster()[0];
+    const top = Math.max(1, ...c.roster.map((m) => Number(m.week)));
+    const lw = c.lastWeek;
+    panel.innerHTML = `<button class="cl-info-x" data-x title="Cerrar">✕</button>
+      <div class="cl-head cl-info-head"><div class="cl-head-art">${this.clanCrest(c.crest, 72)}${sample ? `<span class="cl-head-kit">${charCanvas(sample.id, 3, 12, '', c.kit)}</span>` : ''}</div>
+        <div class="cl-head-tx"><small>CLAN · ${c.mode === 'abierto' ? 'ABIERTO' : 'CON SOLICITUD'}${mine ? ' · EL TUYO' : ''}</small><b>${esc(c.name)}</b>
+          <span class="cl-head-tags"><span>${uiIcon('team')}${c.members}/${CLAN_MAX}</span><span>${uiIcon('shirt')}${esc(c.kit ? teamLabel(c.kit) : 'Raimon')}</span>${c.leader ? `<span>${uiIcon('crown')}${esc(c.leader)}</span>` : ''}<span>${uiIcon('clock')}Desde ${new Date(c.created_at).toLocaleDateString('es')}</span></span></div>
+        <div class="cl-head-score"><small>ESTA SEMANA</small><b>${n(c.weekPoints)}</b><em>${c.pos ? `Puesto ${c.pos} de ${c.clans}` : 'Sin puntos aún'}</em></div></div>
+      <div class="cl-info-stats">
+        <span><small>Semana pasada</small><b>${lw ? `#${lw.pos}` : '—'}</b><em>${lw ? `${n(lw.points)} pts` : 'sin jugar'}</em></span>
+        <span><small>Mejor puesto</small><b>${c.bestPos ? `#${c.bestPos}` : '—'}</b><em>${c.titles ? `${c.titles} ${c.titles === 1 ? 'semana' : 'semanas'} TOP 1` : 'sin títulos'}</em></span>
+        <span><small>Puntos totales</small><b>${n(c.totalPoints)}</b><em>desde que se fundó</em></span>
+        <span><small>Partidas</small><b>${n(c.runs)}</b><em>${c.runs ? `${Math.round(c.wins / c.runs * 100)}% ganadas` : '—'}</em></span></div>
+      <h3>${uiIcon('team')}Miembros</h3>
+      <div class="cl-members cl-info-mem">${c.roster.map((m) => `<div class="cl-mem${m.username === this.save.onlineName ? ' me' : ''}" data-user="${esc(m.username)}" title="Ver el perfil de ${esc(m.username)}">
+          ${this.clanTag(m.role)}<b>${esc(m.username)}</b><span class="cl-info-bar"><i style="width:${Math.round(Number(m.week) / top * 100)}%"></i></span>
+          <em>${n(m.week)} pts<small>${n(m.total)} en total</small></em></div>`).join('') || '<div class="note">Sin miembros.</div>'}</div>
+      <div class="cl-info-foot"><small>Puntos de esta semana y del total con este clan. Toca a un miembro para ver su perfil.</small>
+        ${mine ? '<button class="btn small" data-go-clan>Ir a mi clan</button>' : canJoin ? `<button class="btn small" data-join>${c.mode === 'abierto' ? 'Unirse' : 'Solicitar unirse'}</button>` : ''}</div>`;
+    mountPreviews();
+    panel.querySelectorAll<HTMLElement>('[data-user]').forEach((el) => el.addEventListener('click', () => { close(); void this.otherProfile(el.dataset.user!); }));
+    panel.querySelector('[data-go-clan]')?.addEventListener('click', () => { close(); void this.clanScreen('clan'); });
+    panel.querySelector<HTMLButtonElement>('[data-join]')?.addEventListener('click', async (e) => {
+      const b = e.currentTarget as HTMLButtonElement;
+      b.disabled = true;
+      try {
+        const r = await clanRequest(c!.id);
+        close();
+        if (r === 'joined') { sfx('evolve'); this.toast('¡Ya eres del clan!'); void this.clanScreen('clan'); }
+        else { sfx('click'); this.toast('Solicitud enviada: el líder o un oficial la aceptará'); }
+      } catch (err) { this.toast(clanError(String((err as Error)?.message ?? err))); b.disabled = false; }
+    });
   }
 
   /** Main-menu TOP 5 of the global board (time survived, all arenas and ranks) and the player's own position. */
@@ -3304,6 +3372,69 @@ export class App {
         : '<div class="note">Aún nadie en el ranking: ¡sé el primero!</div>';
       this.bindUsers(el);
     } catch { const el = document.getElementById('menurank'); if (el) el.innerHTML = '<div class="note">El ranking no está disponible ahora mismo. <button class="linkbtn" id="mrretry">Reintentar</button></div>'; document.getElementById('mrretry')?.addEventListener('click', () => void this.fillMenuRank()); }
+  }
+
+  /**
+   * Sala de jugadores: everyone on the points ranking (one row per player, their best mark, up to 100) walking about as
+   * the captain of that mark; the own captain is the current one and is walked by hand. Pointer over someone (or, on a
+   * touch screen, walking up to them) shows their card: captain's mugshot, name and ranking.
+   */
+  private async lobbyScreen() {
+    this.stopScenes();
+    setMusicContext('menu');
+    const myCap = this.byId.get(this.save.captainId ?? -1) ?? squadOf(this.save, this.byId)[0] ?? this.unlockedRoster()[0] ?? null;
+    this.show(`<div class="lobby" id="lobby">${this.titlebar('Sala de jugadores', 'Menú')}
+      <div class="lb-info" id="lbinfo">${uiIcon('team')}<span>Cargando jugadores…</span></div><div class="lb-card" id="lbcard" hidden></div><div class="joy" id="joy"><b><i></i></b></div></div>`, 'lobby-mode');
+    const key = this.screenKey;
+    this.on('[data-back]', 'click', () => this.mainMenu());
+    bindStick(document.getElementById('joy')!);
+    type Row = { name: string; captain: RosterEntry; pos: number | null; rank: string | null; pts: number | null; me: boolean };
+    const rows = new Map<string, Row>();
+    let note = '';
+    const pts = (r: BoardRow) => r.score == null ? scoreOf({ map: r.map, rank: r.rank, time: r.time_sec, damage: Number(r.damage) }) : Number(r.score);
+    let mine: BoardRow | null = null;
+    if (onlineConfigured()) {
+      try {
+        const q: BoardQuery = { map: null, rank: null, order: 'score' };
+        const [top, me] = await Promise.all([leaderboard(q, 100), signedIn() ? myPosition(q).catch(() => null) : Promise.resolve(null)]);
+        mine = me;
+        for (const r of top) {
+          const cap = this.byId.get(r.captain_id);
+          if (cap && !(mine && r.username.toLowerCase() === mine.username.toLowerCase())) rows.set(`u:${r.username.toLowerCase()}`, { name: r.username, captain: cap, pos: Number(r.pos), rank: r.rank, pts: pts(r), me: false });
+        }
+        note = `${rows.size + (myCap ? 1 : 0)} jugadores en la sala`;
+      } catch { note = 'El ranking no responde ahora: solo estás tú en la sala.'; }
+    } else note = 'El servicio online no está activado en esta versión: solo estás tú en la sala.';
+    if (this.screenKey !== key) return; // left while the players were loading
+    if (myCap) rows.set('me', { name: mine?.username ?? this.save.profile.name, captain: myCap, pos: mine ? Number(mine.pos) : null, rank: mine?.rank ?? null, pts: mine ? pts(mine) : null, me: true });
+    const touch = document.body.classList.contains('touch');
+    const info = document.getElementById('lbinfo');
+    if (info) info.innerHTML = `${uiIcon('team')}<span>${esc(note)}<small>${touch ? 'Muévete con el joystick y acércate a alguien para ver su ficha.' : 'Muévete con WASD o flechas y pasa el ratón por encima de alguien para ver su ficha.'}</small></span>`;
+    const card = document.getElementById('lbcard')!;
+    const zoom = parseFloat(getComputedStyle(this.root).zoom) || 1;
+    let shown: string | null = null;
+    const onFocus: LobbyInit['onFocus'] = (k, x, y, feet) => {
+      const r = k ? rows.get(k) : undefined;
+      if (!r) { if (shown !== null) { card.hidden = true; shown = null; } return; }
+      if (shown !== k) {
+        shown = k;
+        const c = r.captain, rar = r.me ? effectiveRarity(this.save, c) : c.rarity; // the others' ascensions are not public
+        card.style.setProperty('--rc', RARITY_COLOR[rar]);
+        card.innerHTML = `<span class="lb-mug r-${rar}">${this.mug(c.id, 72)}</span><div class="lb-txt"><b>${esc(r.name)}</b>${r.me ? '<em>TÚ</em>' : ''}<small>Capitán: ${esc(c.name)}</small>
+          ${r.pos !== null && r.rank ? `<span class="lb-rank"><span class="lb-pos">#${r.pos}</span><span class="rank-btn r-${r.rank}">${rankMark(r.rank)}</span><span class="lb-pts"><b>${r.pts!.toLocaleString('es')}</b> pts</span></span>` : '<span class="lb-rank none">Sin marca en el ranking</span>'}</div>`;
+        card.hidden = false;
+      }
+      // over the head; under the feet when the bar would cover it, and never past the sides of the screen
+      const cx = x / zoom, cy = y / zoom, w = card.offsetWidth, h = card.offsetHeight, vw = this.root.clientWidth;
+      const top = (document.querySelector('#lobby .titlebar')?.getBoundingClientRect().bottom ?? 0) / zoom + 6;
+      const below = cy - h - 8 < top, left = Math.min(Math.max(cx - w / 2, 6), Math.max(6, vw - w - 6));
+      card.classList.toggle('below', below);
+      card.style.setProperty('--ax', `${Math.round(cx - left)}px`);
+      card.style.transform = `translate(${Math.round(left)}px, ${Math.round(below ? feet / zoom + 8 : cy - h)}px)`;
+    };
+    const players: LobbyPlayer[] = [...rows].map(([k, r]) => ({ key: k, name: r.name, captain: r.captain, me: r.me }));
+    const init: LobbyInit = { manifest: this.m, players, kit: this.m.kits?.[this.save.kit] ?? null, moveKeys: this.save.settings.moveKeys, touch, onFocus };
+    this.game.scene.start('Lobby', init);
   }
 
   /** Fix 1.12: the weekly pass in the main menu, the seven days at a glance (days 1, 4 and 7 stand out). */
@@ -4683,7 +4814,7 @@ export class App {
           <div class="mp-diffbar"><small>DIFICULTAD</small><span class="mp-meter">${maps.map((_, k) => `<i class="${k < tier ? 'on' : ''}" style="--tc:${this.tierColor(k + 1)}"></i>`).join('')}</span><b>${label}</b></div>
           ${mp.blurb ? `<p class="mp-blurb">${esc(mp.blurb)}</p>` : ''}
           <div class="mp-boss">${mp.boss !== null ? this.mug(mp.boss, 52) : ''}<div><small>JEFE FINAL</small><b>${esc(bossName)}</b></div></div>
-          <div class="mc4-chips"><span>${uiIcon('clock')}${fmtTime(mp.durationSec)}</span><span>${uiIcon('team')}${mp.enemies.length} rivales</span>${tier > 1 ? `<span class="hard">${uiIcon('fire')}Rivales +${Math.round((sc.hp - 1) * 100)}% vida · +${Math.round((sc.damage - 1) * 100)}% daño</span>` : ''}</div>
+          <div class="mc4-chips"><span>${uiIcon('clock')}${fmtTime(mp.durationSec)}</span><span>${uiIcon('team')}${mp.enemies.length} rivales</span><span title="Multiplicador de puntos del ranking por la dificultad de la arena">${uiIcon('crown')}Ranking ×${String(+mapMult(mp.id).toFixed(2)).replace('.', ',')}</span>${tier > 1 ? `<span class="hard">${uiIcon('fire')}Rivales +${Math.round((sc.hp - 1) * 100)}% vida · +${Math.round((sc.damage - 1) * 100)}% daño</span>` : ''}</div>
           <div class="m4-ranks mc4-ranks">${RANK_ORDER.map((id) => `<i class="${done.includes(id) ? 'on' : ''} r-${id}">${id}</i>`).join('')}<small>${done.length}/${RANK_ORDER.length} rangos</small></div>
           <button class="btn mp-go" data-map="${mp.id}" ${st === 'locked' ? 'disabled' : ''}>${st === 'locked' ? '🔒 Bloqueada' : '¡Saltar al campo! ▶'}</button>
         </div>`;
@@ -5176,7 +5307,7 @@ export class App {
     const real = rarityOdds(pool, banner.id, hot);
     const each = perPlayerOdds(pool, banner.id, hot);
     const price = bannerPrice(pool, banner.id); // Fix 1.31: by how many Míticos the machine holds
-    const PULL_COST = price.cost, MULTI_COST = price.multiCost;
+    const PULL_COST = price.cost, MULTI_COST = price.multiCost, HUNDRED_COST = MULTI_COST * 10; // 2.01: ×100 = ten ×10
     const tabs = BANNER_ORDER.filter((b) => (b !== 'evento' || thanksOpen) && (b !== 'bluelock' || blOpen)).map((b) => {
       const bp = bannerPool(this.m.roster, b, this.gachaTeam);
       const pr = b === 'equipo' ? { cost: BANNERS.equipo.cost } : bannerPrice(bp, b);
@@ -5203,7 +5334,7 @@ export class App {
       ${eventActive(serverNow()) ? `<button class="pn-eventcta" id="pnevent"><span class="pn-cta-art">${pennantSvg('supernova', 44)}</span><span><small>EVENTO · TERMINA EN ${this.eventLeftText(serverNow())}</small><b>Banners de leyenda</b><em>Se paga con monedas · Mítico al 3%</em></span></button>` : ''}
       <div class="banner-tabs">${tabs}</div>
       <div class="banner-head bh4${banner.id === 'bluelock' ? ' bh-bl' : ''}" style="--bc:${banner.color}"><div class="bh-tx"><small>${banner.id === 'bluelock' ? 'COLABORACIÓN' : 'MÁQUINA'}</small>${banner.id === 'bluelock' ? this.blLogo() : `<b>${esc(banner.label)}</b>`}<span>${esc(banner.tagline)} · ${pool.length} futbolistas</span> ${teamSel}
-          <div class="bh-chips"><span>${uiIcon('capsule')}×1 · <b>${PULL_COST}</b>${ev ? ' de evento' : ''}</span><span>${uiIcon('capsule')}×10 · <b>${MULTI_COST}</b>${ev ? ' de evento' : ''}</span>${ev ? `<span>Termina en <b>${this.leftText(banner.id === 'bluelock' ? bluelockLeftMs(serverNow()) : thanksLeftMs(serverNow()))}</b></span>` : ''}<span class="ok">×10: Épico o mejor asegurado</span>${hot ? `<span class="hot">★ Destacada hoy: Épico ×${String(FEATURED_BOOST.epico).replace('.', ',')} · Legendario, Mítico y Leyenda ×${String(FEATURED_BOOST.legendario).replace('.', ',')}</span>` : ''}</div>
+          <div class="bh-chips"><span>${uiIcon('capsule')}×1 · <b>${PULL_COST}</b>${ev ? ' de evento' : ''}</span><span>${uiIcon('capsule')}×10 · <b>${MULTI_COST}</b>${ev ? ' de evento' : ''}</span><span>${uiIcon('capsule')}×100 · <b>${HUNDRED_COST}</b>${ev ? ' de evento' : ''}</span>${ev ? `<span>Termina en <b>${this.leftText(banner.id === 'bluelock' ? bluelockLeftMs(serverNow()) : thanksLeftMs(serverNow()))}</b></span>` : ''}<span class="ok">×10: Épico o mejor asegurado</span>${hot ? `<span class="hot">★ Destacada hoy: Épico ×${String(FEATURED_BOOST.epico).replace('.', ',')} · Legendario, Mítico y Leyenda ×${String(FEATURED_BOOST.legendario).replace('.', ',')}</span>` : ''}</div>
           <details class="rk-how"><summary>${uiIcon('help')}Precio y reglas</summary><div>${ev ? `Los futbolistas especiales solo salen aquí, con ${pool.filter((p) => !p.exclusive).length} Comunes, Raros y Épicos de relleno. Se paga con fichas de evento: cada partida en Rango S o X te da tantas como fichas normales mientras dura el evento.` : banner.id === 'equipo' ? 'Solo futbolistas del equipo elegido; las rarezas altas tienen un tope por jugador.' : `Cada futbolista sale en una sola máquina: la de la primera saga en la que aparece. Precio según sus Míticos (${price.mythics}): sin estrellas 5 · sin Míticos 10 · de 1 a 5 Míticos 15 · 6 o más 20.`}</div></details>${banner.id === 'bluelock' ? this.blRewards() : ''}</div>
         <div class="feat-row"><small>DESTACADOS</small><div>${feat}</div></div>${this.machineCoaches(banner.id)}</div>
       <div class="ie3-machine">${has ? `<div class="ds-top"><img id="globe" src="${this.cap('globe0')}" alt=""></div>
@@ -5211,14 +5342,16 @@ export class App {
           <img class="goal" src="${this.cap('goal_slot')}" alt=""><div class="knobwrap"><img class="kbase" src="${this.cap('knob_base')}" alt="">
           <img id="knob" class="knob" src="${this.cap('knob00')}" alt=""></div>
           <div class="coins-row"><button class="coinbtn" data-pull="1" ${wallet < PULL_COST ? 'disabled' : ''}><img src="${this.cap('coin_rojo')}" alt=""><span>×1<br>${PULL_COST}</span></button>
-          <button class="coinbtn" data-pull="10" ${wallet < MULTI_COST ? 'disabled' : ''}><img src="${this.cap('coin_oro')}" alt=""><span>×10<br>${MULTI_COST}</span></button></div>
+          <button class="coinbtn" data-pull="10" ${wallet < MULTI_COST ? 'disabled' : ''}><img src="${this.cap('coin_oro')}" alt=""><span>×10<br>${MULTI_COST}</span></button>
+          <button class="coinbtn c100" data-pull="100" ${wallet < HUNDRED_COST ? 'disabled' : ''}><img src="${this.cap('coin_oro')}" alt=""><span>×100<br>${HUNDRED_COST}</span></button></div>
         </div>` : `<div class="own-machine"><div class="om-dome">${Array.from({ length: 14 }, (_, i) => `<i style="--x:${(i * 37) % 80 + 6}%;--y:${(i * 53) % 60 + 25}%;--c:${['#ff4f5a', '#4fb3ff', '#ffe24a', '#5cdc6a', '#b36bff', '#ff9a3a'][i % 6]};--d:${(i % 5) * 0.3}s"></i>`).join('')}</div>
           <div class="om-body"><div class="om-knob" id="ownknob"><b></b></div><div class="om-slot"></div></div>
           <div class="coins-row"><button class="btn" data-pull="1" ${wallet < PULL_COST ? 'disabled' : ''}>×1 · ${PULL_COST} ${unit}</button>
-          <button class="btn" data-pull="10" ${wallet < MULTI_COST ? 'disabled' : ''}>×10 · ${MULTI_COST} ${unit}</button></div></div>`}</div>
+          <button class="btn" data-pull="10" ${wallet < MULTI_COST ? 'disabled' : ''}>×10 · ${MULTI_COST} ${unit}</button>
+          <button class="btn c100" data-pull="100" ${wallet < HUNDRED_COST ? 'disabled' : ''}>×100 · ${HUNDRED_COST} ${unit}</button></div></div>`}</div>
       <div class="gacha-info">
         <div class="panel gi gi-wallet"><h3>${uiIcon('capsule')}Tus ${unit}</h3><div class="gi-big"><span class="tokens${ev ? ' ev-tok' : ''}">${wallet}</span></div>
-          <div class="note">×1 cuesta <b>${PULL_COST}</b> · ×10 cuesta <b>${MULTI_COST}</b> (con un Épico o mejor asegurado). ${wallet < PULL_COST ? `Te faltan ${PULL_COST - wallet}.` : `Te llega para ${Math.floor(wallet / PULL_COST)} tirada(s).`}${ev ? ' Las fichas de evento se ganan jugando en Rango S o X.' : ''}</div></div>
+          <div class="note">×1 cuesta <b>${PULL_COST}</b> · ×10 cuesta <b>${MULTI_COST}</b> (con un Épico o mejor asegurado) · ×100 cuesta <b>${HUNDRED_COST}</b> (diez ×10 de golpe, un Épico o mejor asegurado en cada diez). ${wallet < PULL_COST ? `Te faltan ${PULL_COST - wallet}.` : `Te llega para ${Math.floor(wallet / PULL_COST)} tirada(s).`}${ev ? ' Las fichas de evento se ganan jugando en Rango S o X.' : ''}</div></div>
         <div class="panel gi"><h3>${uiIcon('gift')}Cómo conseguir fichas</h3><ul class="gi-list"><li>Jugar partidas (más si ganas)</li><li>Misiones diarias, semanales y logros</li><li>Altares y fichas en el campo</li><li>Primera victoria en cada arena y rango</li></ul></div>
         <details class="panel gi gi-rules"><summary><h3>${uiIcon('help')}Nuevo, duplicado y ascensión</h3></summary><ul class="gi-list"><li><b class="newtag">NUEVO</b>: se desbloquea para siempre y ya puede ir en Mi Equipo.</li>
           <li><b>Duplicado</b>: sirve para ascender al futbolista; si ya no puede ascender más, se convierte en monedas.</li><li><b>Estrellas</b> (hasta ${MAX_STARS}): se compran con monedas en su ficha (10.000, 20.000… 50.000). Cada una da +${Math.round((sb.damage - 1) * 100)}% daño, +${Math.round((sb.hp - 1) * 100)}% vida y +5 al límite de la estadística que elijas. Los HÉROES y Campeones tienen 3 estrellas extra (100.000, 110.000 y 120.000).</li>
@@ -5252,7 +5385,7 @@ export class App {
       const bpool = bannerPool(this.m.roster, b.id, this.gachaTeam);
       const bp = bannerPrice(bpool, b.id);
       const claimsBefore = new Set(this.teamClaimList().map((c) => `${c.team}|${c.kind}`));
-      const res = pull(bpool, this.save, Number(el.dataset.pull) as 1 | 10, Math.random, { cost: bp.cost, multiCost: bp.multiCost, odds: rarityOdds(bpool, b.id, featuredMachine(serverNow()) === b.id), currency: b.id === 'evento' || b.id === 'bluelock' ? 'eventTokens' : 'tokens' });
+      const res = pull(bpool, this.save, Number(el.dataset.pull) as 1 | 10 | 100, Math.random, { cost: bp.cost, multiCost: bp.multiCost, odds: rarityOdds(bpool, b.id, featuredMachine(serverNow()) === b.id), currency: b.id === 'evento' || b.id === 'bluelock' ? 'eventTokens' : 'tokens' });
       if (!res) { this.pulling = false; return; }
       recordHistory(this.save, res);
       addCounter(this.save, 'news', res.filter((x) => x.isNew).length);
@@ -5261,7 +5394,7 @@ export class App {
       this.root.querySelectorAll<HTMLButtonElement>('[data-pull], [data-back]').forEach((b) => (b.disabled = true));
       try {
         await this.turnKnob();
-        await this.capsuleShow(res, res.length > 1 ? 'Fichaje ×10' : 'Fichaje');
+        await this.capsuleShow(res, res.length > 1 ? `Fichaje ×${res.length}` : 'Fichaje');
       } finally {
         this.pulling = false;
       }
@@ -5328,15 +5461,32 @@ export class App {
   private async capsuleShow(results: PullResult[], title: string) {
     let skip = false;
     this.revealSpeed = 1;
+    if (results.length > 10) { // 2.01: a ×100 only plays its Legendario-or-better capsules, then shows everything at once
+      const best = results.filter((r) => RARITY_ORDER.indexOf(r.player.rarity) >= RARITY_ORDER.indexOf('legendario'));
+      for (let i = 0; i < best.length && !skip; i++) skip = await this.revealOne(best[i], true, `${title} · lo mejor ${i + 1}/${best.length}`);
+      await this.skippedSummary(results, title);
+      return;
+    }
     for (let i = 0; i < results.length && !skip; i++) skip = await this.revealOne(results[i], results.length > 1, `${title} ${results.length > 1 ? `${i + 1}/${results.length}` : ''}`);
     if (skip) await this.skippedSummary(results, title);
+  }
+  /** 2.01: the same player pulled several times in a big pull is one card with ×n (the new copy first) */
+  private groupPulls(results: PullResult[]) {
+    const by = new Map<number, { r: PullResult; n: number }>();
+    for (const r of results) {
+      const g = by.get(r.player.id);
+      if (!g) by.set(r.player.id, { r, n: 1 });
+      else { g.n++; if (r.isNew) g.r = r; }
+    }
+    return [...by.values()];
   }
 
   /** Fix 1.31: after «Saltar todo», everything the pull gave at once (best first), closed with a click or Space/Enter/Esc. */
   private skippedSummary(results: PullResult[], title: string): Promise<void> {
     return new Promise((resolve) => {
       const rank = (r: PullResult) => RARITY_ORDER.indexOf(r.player.rarity) * 2 + (r.isNew ? 1 : 0);
-      const sorted = [...results].sort((a, b) => rank(b) - rank(a));
+      const groups = results.length > 10 ? this.groupPulls(results) : results.map((r) => ({ r, n: 1 }));
+      const sorted = groups.sort((a, b) => rank(b.r) - rank(a.r));
       const badge = (r: PullResult) => r.isNew ? 'NUEVO' : r.refund ? `+${r.refund} ◉` : r.starReady ? `★${r.starReady} lista` : r.toStar ? `${r.toStar[0]}/${r.toStar[1]} ★` : r.forAscension ? '+1 ascenso' : `★${r.stars}`;
       const main = new Set(this.m.mainTeams ?? []);
       const teamOf = (r: PullResult) => teamLabel(r.player.teams.find((t) => main.has(t)) ?? r.player.teams[0] ?? '') || 'Fichatrón';
@@ -5349,7 +5499,7 @@ export class App {
       ov.innerHTML = `<div class="pull-summary-box"><h3>${esc(title)} · todo lo que has fichado</h3>
         <div class="note">${[news ? `${news} ${news === 1 ? 'fichaje nuevo' : 'fichajes nuevos'}` : '', results.length - news ? `${results.length - news} ${results.length - news === 1 ? 'duplicado' : 'duplicados'}` : ''].filter(Boolean).join(' · ')}</div>
         ${dupTeams.size ? `<div class="ps-teams">Duplicados por equipo: ${[...dupTeams].map(([t, n]) => `<span>${esc(t)} ×${n}</span>`).join('')}</div>` : ''}
-        <div class="grid">${sorted.map((r) => `<div class="ps-item r-${r.player.rarity}${r.isNew ? ' is-new' : ''}">${this.pcard(r.player, { badge: badge(r) })}<div class="ps-cap"><b>${esc(teamOf(r))}</b>${what(r)}</div></div>`).join('')}</div>
+        <div class="grid">${sorted.map(({ r, n }) => `<div class="ps-item r-${r.player.rarity}${r.isNew ? ' is-new' : ''}">${this.pcard(r.player, { badge: badge(r) })}${n > 1 ? `<i class="ps-n">×${n}</i>` : ''}<div class="ps-cap"><b>${esc(teamOf(r))}</b>${what(r)}</div></div>`).join('')}</div>
         <button class="btn big">Aceptar</button></div>`;
       this.root.appendChild(ov);
       mountPreviews();
@@ -5548,8 +5698,9 @@ export class App {
     const panel = document.createElement('div');
     panel.className = 'panel';
     panel.style.marginTop = '14px';
-    panel.innerHTML = `<h3>Resultado (${res.length})</h3><div class="grid">${res.map((r) => this.pcard(r.player, {
-      badge: r.isNew ? 'NUEVO' : r.refund ? `+${r.refund}` : `★${r.stars}` })).join('')}</div>`;
+    const groups = res.length > 10 ? this.groupPulls(res) : res.map((r) => ({ r, n: 1 })); // 2.01: ×100 grouped
+    panel.innerHTML = `<h3>Resultado (${res.length})</h3><div class="grid">${groups.map(({ r, n }) => this.pcard(r.player, {
+      badge: `${r.isNew ? 'NUEVO' : r.refund ? `+${r.refund}` : `★${r.stars}`}${n > 1 ? ` ×${n}` : ''}` })).join('')}</div>`;
     this.root.querySelector('.screen')!.appendChild(panel);
     mountPreviews();
   }

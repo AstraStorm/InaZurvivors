@@ -174,6 +174,63 @@ export function ultBanner(scene: S, name: string, spirit: string, spiritId: stri
   window.setTimeout(() => el.remove(), ms + 400);
 }
 
+/**
+ * 2.0 co-op (author: «el banner solo sale al que lo hace y el otro ve el EG aparecer y ya»): what the partner sees of an
+ * ultimate — the spirit's portrait rising over the caster in a column of its colour, then fading. Visual only.
+ * `at`: where the caster stands now (the ghost keeps moving).
+ */
+export function spiritApparition(scene: S, spiritId: string, color: string, at: () => { x: number; y: number }, ms = 1800) {
+  const url = EG_ART[spiritId], key = `egart:${spiritId}`, tint = Phaser.Display.Color.HexStringToColor(color || '#ffffff').color;
+  const show = () => {
+    if (!scene.sys.isActive()) return;
+    const p = at(), parts: Phaser.GameObjects.GameObject[] = [];
+    const ring = scene.add.ellipse(p.x, p.y, 70, 22, tint, 0.35).setDepth(CAST_DEPTH - 2).setBlendMode(Phaser.BlendModes.ADD);
+    const column = scene.add.rectangle(p.x, p.y, 46, 150, tint, 0.18).setOrigin(0.5, 1).setDepth(CAST_DEPTH - 2).setBlendMode(Phaser.BlendModes.ADD);
+    parts.push(ring, column);
+    let art: Phaser.GameObjects.Image | null = null;
+    const medal = medallion(scene, spiritId, key, color);
+    if (medal) {
+      art = scene.add.image(p.x, p.y - 20, medal).setOrigin(0.5, 1).setDepth(CAST_DEPTH - 1).setAlpha(0).setScale(0.5);
+      parts.push(art);
+    }
+    ring.setScale(0.2); column.setScale(0.4, 0).setAlpha(0);
+    scene.tweens.add({ targets: ring, scale: 1, duration: 260, ease: 'Back.easeOut' });
+    scene.tweens.add({ targets: column, scaleX: 1, scaleY: 1, alpha: 1, duration: 320, ease: 'Cubic.easeOut' });
+    if (art) scene.tweens.add({ targets: art, alpha: 1, scale: 1, y: p.y - 34, duration: 420, ease: 'Back.easeOut' });
+    const follow = scene.time.addEvent({ delay: 16, loop: true, callback: () => {
+      const q = at();
+      ring.setPosition(q.x, q.y); column.setPosition(q.x, q.y);
+      if (art && !scene.tweens.isTweening(art)) art.setPosition(q.x, q.y - 34);
+    } });
+    scene.time.delayedCall(ms - 450, () => scene.tweens.add({ targets: parts, alpha: 0, duration: 450, onComplete: () => { follow.remove(); parts.forEach((o) => o.destroy()); } }));
+  };
+  if (!url || scene.textures.exists(key)) { show(); return; }
+  scene.load.image(key, url);
+  scene.load.once(`filecomplete-image-${key}`, show);
+  scene.load.once('loaderror', (f: { key: string }) => { if (f.key === key) show(); });
+  scene.load.start();
+}
+
+/** the spirit's portrait cut round inside a ring of its colour (one canvas per spirit, kept) */
+function medallion(scene: S, spiritId: string, key: string, color: string): string | null {
+  const out = `egmedal:${spiritId}`;
+  if (scene.textures.exists(out)) return out;
+  if (!scene.textures.exists(key)) return null;
+  const src = scene.textures.get(key).getSourceImage() as HTMLImageElement, D = 72, R = D / 2;
+  const tex = scene.textures.createCanvas(out, D, D);
+  if (!tex) return null;
+  const c = tex.getContext();
+  c.imageSmoothingEnabled = false;
+  c.save(); c.beginPath(); c.arc(R, R, R - 4, 0, Math.PI * 2); c.clip();
+  c.fillStyle = '#050c24'; c.fillRect(0, 0, D, D);
+  c.drawImage(src, 4, 4, D - 8, D - 8);
+  c.restore();
+  c.strokeStyle = color || '#ffffff'; c.lineWidth = 4; c.beginPath(); c.arc(R, R, R - 2, 0, Math.PI * 2); c.stroke();
+  c.strokeStyle = 'rgba(255,255,255,.7)'; c.lineWidth = 1; c.beginPath(); c.arc(R, R, R - 4.5, 0, Math.PI * 2); c.stroke();
+  tex.refresh();
+  return out;
+}
+
 export interface AxeHooks {
   /** the axe hits the ground in front of the player */
   onImpact: (x: number, y: number) => void;

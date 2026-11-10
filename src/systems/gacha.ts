@@ -99,14 +99,15 @@ export function effectiveOdds(pool: RosterEntry[]): Record<Rarity, number> {
 }
 
 /** currency: what pays the pull (the Banner de agradecimiento takes Fichas de evento) */
-export interface PullOptions { cost?: number; multiCost?: number; odds?: Record<Rarity, number>; currency?: 'tokens' | 'eventTokens' }
+export interface PullOptions { cost?: number; multiCost?: number; hundredCost?: number; odds?: Record<Rarity, number>; currency?: 'tokens' | 'eventTokens' }
 
 /**
  * Charges and resolves a whole pull BEFORE any animation (the animation only shows it). With banner odds, a ×10 always
  * holds at least one Épico or better: the last capsule is rolled again among Épico+ when the first nine had none.
+ * 2.01 (author): ×100 = ten ×10 at once (price ×10, the same guarantee in each block of ten).
  */
-export function pull(pool: RosterEntry[], save: SaveData, count: 1 | 10, rng: Rng = Math.random, opt: PullOptions = {}): PullResult[] | null {
-  const cost = count === 10 ? opt.multiCost ?? MULTI_COST : opt.cost ?? PULL_COST;
+export function pull(pool: RosterEntry[], save: SaveData, count: 1 | 10 | 100, rng: Rng = Math.random, opt: PullOptions = {}): PullResult[] | null {
+  const cost = count === 100 ? opt.hundredCost ?? (opt.multiCost ?? MULTI_COST) * 10 : count === 10 ? opt.multiCost ?? MULTI_COST : opt.cost ?? PULL_COST;
   const wallet = opt.currency ?? 'tokens';
   if ((save[wallet] ?? 0) < cost || !pool.length) return null;
   save[wallet] = (save[wallet] ?? 0) - cost;
@@ -115,7 +116,7 @@ export function pull(pool: RosterEntry[], save: SaveData, count: 1 | 10, rng: Rn
   const roll = odds ? (min?: Rarity) => () => rollWith(odds, rng, min) : () => undefined;
   const out: PullResult[] = [];
   for (let i = 0; i < count; i++) {
-    const guarantee = odds && count === 10 && i === 9 && !out.some((r) => RARITY_ORDER.indexOf(r.player.rarity) >= RARITY_ORDER.indexOf('epico'))
+    const guarantee = odds && count >= 10 && i % 10 === 9 && !out.slice(i - 9).some((r) => RARITY_ORDER.indexOf(r.player.rarity) >= RARITY_ORDER.indexOf('epico'))
       && pool.some((p) => RARITY_ORDER.indexOf(p.rarity) >= RARITY_ORDER.indexOf('epico'));
     out.push(pullOne(pool, save, rng, roll(guarantee ? 'epico' : undefined)));
   }

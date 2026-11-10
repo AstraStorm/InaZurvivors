@@ -154,7 +154,8 @@ export interface BoardRow { pos: number; username: string; avatar: string; crest
 /** Fix 1.31: order 'score' (points, the default), 'rank', 'time' or 'damage'; map and rank are the categories */
 export interface BoardQuery { map: string | null; rank: string | null; order: 'score' | 'rank' | 'time' | 'damage' }
 
-export const leaderboard = (q: BoardQuery) => rpc<BoardRow[]>('leaderboard', { p_map: q.map, p_rank: q.rank, p_order: q.order, p_limit: 15 }, false);
+/** `limit`: 15 on the boards; the server never gives more than 100 (Sala de jugadores) */
+export const leaderboard = (q: BoardQuery, limit = 15) => rpc<BoardRow[]>('leaderboard', { p_map: q.map, p_rank: q.rank, p_order: q.order, p_limit: limit }, false);
 /** v1.6: another player's public club (public_profile.sql); null when nobody has that name */
 export interface PublicSquadMember { id: number; stars: number; hero: boolean; heroStars: number; ascRarity: string | null; asc: boolean; aura: string | null }
 export interface PublicProfile {
@@ -298,6 +299,12 @@ export const clanClaimPrizes = () => rpc<ClanPrize[]>('clan_claim_prizes', {});
 /** 2.0: the Camino del Campeón level of each ranking row's captain in that player's save (champion_of.sql) */
 export const championOfRows = (rows: { username: string; captain: number }[]) => rpc<{ username: string; captain_id: number; champion: number }[]>('champion_of', { p_usernames: rows.slice(0, 60).map((r) => r.username), p_captains: rows.slice(0, 60).map((r) => r.captain) }, false);
 export const clanOf = (usernames: string[]) => rpc<{ username: string; clan: string; crest: string }[]>('clan_of', { p_usernames: usernames.slice(0, 60) }, false);
+/** 2.01: the public card of any clan (by id, or by name from the ranking): members, points and its record */
+export interface ClanInfoMember { username: string; avatar: string; role: ClanRole; joined_at: string; week: number; total: number }
+export interface ClanInfo { id: number; name: string; crest: string; kit: string; mode: 'abierto' | 'solicitud'; members: number; created_at: string; leader: string | null;
+  weekPoints: number; pos: number | null; clans: number; totalPoints: number; runs: number; wins: number; lastWeek: { pos: number; points: number; tier: string } | null;
+  bestPos: number | null; titles: number; roster: ClanInfoMember[] }
+export const clanInfo = (q: { id?: number; name?: string }) => rpc<ClanInfo | null>('clan_info', { p_id: q.id ?? null, p_name: q.name ?? null }, false);
 export const clanClaimMission = (id: string) => rpc<{ coins: number; tokens: number }>('clan_claim_mission', { p_id: id });
 
 export const deleteAccount = async () => { await rpc('delete_my_account', {}); signOut(); };

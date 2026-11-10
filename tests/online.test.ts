@@ -102,7 +102,11 @@ describe('ranking (database)', () => {
     await as('astra', `select public.submit_score($1, 'raimon', 'C', 200, 99999)`, [run(2)]); // worse time: kept the old one
     await age();
     expect((await db.query(`select time_sec, damage::int from public.scores where user_id = $1`, [ids.astra])).rows).toEqual([{ time_sec: 300, damage: 9000 }]);
-    await expect(as('astra', `select public.submit_score($1, 'raimon', 'C', 30, 99999999)`, [run(3)])).rejects.toThrow(/implausible_damage/);
+    await expect(as('astra', `select public.submit_score($1, 'raimon', 'C', 30, -1)`, [run(3)])).rejects.toThrow(/implausible_damage/);
+    // 2.01: too much damage per second is trimmed to 800.000/s instead of refusing the run
+    expect((await as('astra', `select public.submit_score($1, 'raimon', 'A', 30, 99999999) as r`, [run(6)])).rows[0]).toEqual({ r: 'ok' });
+    expect((await db.query(`select damage::int as d from public.scores where user_id = $1 and rank = 'A'`, [ids.astra])).rows).toEqual([{ d: 31 * 800000 }]);
+    await age();
     await expect(as('astra', `select public.submit_score($1, 'raimon', 'Q', 30, 10)`, [run(4)])).rejects.toThrow(/invalid_board/);
     // Rango Z: refused until the Tuesday update (2026-11-10 12:00 Madrid), then a board like the rest
     if (Date.now() < Date.parse('2026-11-10T12:00:00+01:00')) await expect(as('astra', `select public.submit_score($1, 'raimon', 'Z', 30, 10)`, [run(4)])).rejects.toThrow(/rank_locked/);
@@ -782,6 +786,17 @@ describe('clans (1.93)', () => {
   it('the ranking shows the clan of each player (anyone can read it)', async () => {
     const r = (await api('', `select username, clan from public.clan_of(array['cira_c', 'CLEO_C', 'COCO_C', 'Nadie']) order by username`)).rows;
     expect(r).toEqual([{ username: 'CIRA_C', clan: 'Rayos Del Sur' }, { username: 'CLEO_C', clan: 'Rayos Del Sur' }]);
+  });
+  it('2.01: anyone reads a clan card by name or id (members, points, record), no user ids', async () => {
+    const c = ((await api('', `select public.clan_info(null, 'rayos del sur') as c`)).rows[0] as { c: Record<string, unknown> & { roster: Record<string, unknown>[] } }).c;
+    expect(c).toMatchObject({ name: 'Rayos Del Sur', members: 3, leader: 'CIRA_C', pos: null, lastWeek: { pos: 2, tier: 'top3' }, bestPos: 2, titles: 0 }); // its runs were moved to last week above
+    expect(Number(c.totalPoints)).toBeGreaterThan(0);
+    expect(c.roster.map((m) => m.username)).toEqual(['CIRA_C', 'CLEO_C', 'CATA_C']);
+    expect(Number(c.roster[0].total)).toBeGreaterThan(0);
+    expect(JSON.stringify(c)).not.toContain(ids.cira);
+    const byId = ((await api('cleo', `select public.clan_info($1) as c`, [c.id])).rows[0] as { c: { name: string } }).c;
+    expect(byId.name).toBe('Rayos Del Sur');
+    expect(((await api('', `select public.clan_info(null, 'No Existe') as c`)).rows[0] as { c: unknown }).c).toBeNull();
   });
   it('the admin renames or dissolves a clan', async () => {
     await expect(api('cira', `select public.admin_clan('Rayos Del Sur', 'Hackeado')`)).rejects.toThrow(/forbidden/);

@@ -15,6 +15,19 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: '10.4', date: '2026-11-10', title: '2.01 Tiradas ×100 y fichas de clan',
+    features: [
+      'Tiradas ×100 (autor): pull() acepta 100, cuesta multiCost × 10 y asegura un Épico+ en cada bloque de diez; capsuleShow solo anima los Legendario+ y cierra con el resumen, que agrupa repetidos (×n), igual que gachaSummary.',
+      'Ficha de clan (autor: «cuando le des click al clan puedas ver los miembros, puntos y información»): RPC clan_info (migración 20261110000400, por id o nombre, sin ids de usuario) y App.clanCard desde las insignias del ranking, el ranking de clanes, la semana pasada y el buscador; miembros abren su perfil; unirse si no tienes clan.',
+      'Sala de jugadores (LobbyScene) y aparición del espíritu del compañero en cooperativo, que estaban sin publicar.',
+    ],
+    fixes: [
+      'Anti-trampas del ranking (migración 20261110000500): el tope de daño pasa de 200.000/s a 800.000/s y ya no rechaza la partida: recorta el daño al tope (Calvogor03 perdió una partida de más de 20 min en Raimon Z por implausible_damage; 6 rechazos el 2026-11-10).',
+    ],
+    visuals: ['Multiplicador de arena visible en el ranking (marcas, filtros, explicación con Z ×7) y en la ficha de cada arena (Ranking ×1,85).'],
+    balance: [],
+  },
+  {
     version: '10.3', date: '2026-11-07', title: '2.0 Espíritus Guerreros',
     features: [
       'Espíritus Guerreros (systems/keshin.ts): Apolo, Azote Negro, Chione, Grandius, Guiverno Blanco, Magister, Musashi, Pegaso y Surtur, con su elemento, técnica y talento de GO (guiasnintendo + wiki).',

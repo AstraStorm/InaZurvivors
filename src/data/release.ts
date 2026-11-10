@@ -6,7 +6,7 @@
  */
 import { CHANGELOG } from './changelog';
 
-export const PUBLIC_VERSION = '2.0';
+export const PUBLIC_VERSION = '2.01';
 export const BUILD = CHANGELOG[0].version;
 export const RELEASED = true; // (author) 2.0: the «pre» phase is over
 export const VERSION_LABEL = RELEASED ? `v${PUBLIC_VERSION}` : `v${PUBLIC_VERSION} · pre-lanzamiento`;
@@ -28,6 +28,24 @@ export interface PublicRelease {
 
 /** Public news, newest first. Starts at v1.0: the internal versions before it are not part of the public history. */
 export const PUBLIC_RELEASES: PublicRelease[] = [
+  {
+    version: '2.01', date: '2026-11-10',
+    title: 'InaZurvivors 2.01 — Tiradas ×100 y fichas de clan',
+    tagline: 'Cien fichajes de golpe',
+    intro: 'Primera mejora de la 2.0: tiradas de cien, la ficha de cada clan, la dificultad de cada arena a la vista en el ranking y un arreglo para que las partidas más bestias cuenten.',
+    features: [
+      { icon: '🎰', title: 'Tiradas ×100', text: 'Cada máquina tiene ahora un botón ×100: cuesta lo mismo que diez ×10 y lleva un Épico o mejor asegurado en cada diez. Solo se animan los Legendarios o mejores; el resto sale de golpe en el resumen, con los repetidos agrupados (×2, ×3...).' },
+      { icon: '🏯', title: 'Ficha de cada clan', text: 'Toca un clan en el ranking, en el ranking de clanes o en el buscador para ver su información (líder, equipación, desde cuándo existe), sus puntos de esta semana, la semana pasada y en total, su mejor puesto y todos sus miembros con sus puntos. Desde ahí puedes unirte o ver el perfil de cada miembro.', online: true },
+      { icon: '🗺', title: 'La dificultad de la arena, a la vista', text: 'Cada arena multiplica los puntos del ranking un 5% por etapa del camino, también las nuevas (Torre de hierro ×1,85). Ahora se ve en el ranking (en cada marca y en los filtros), en la explicación de los puntos y en la ficha de cada arena.' },
+      { icon: '🛡', title: 'Las partidas más fuertes cuentan', text: 'El control anti-trampas rechazaba partidas reales muy largas en Rango Z con espíritus por hacer demasiado daño por segundo. Ahora el límite es cuatro veces mayor y una partida que lo pase ya no se pierde: cuenta su tiempo y el daño hasta el límite.', online: true },
+      { icon: '🏟', title: 'Sala de jugadores', text: 'En Competición, la SALA: los jugadores del ranking pasean por el campo de Raimon con su capitán. Muévete con el tuyo y acércate a alguien para ver su ficha.', online: true },
+      { icon: '👻', title: 'Espíritus en cooperativo', text: 'Cuando tu compañero lanza su definitiva, en tu pantalla aparece su Espíritu Guerrero sobre él.', online: true },
+    ],
+    start: [
+      'Abre FICHAJES y prueba el botón ×100.',
+      'En el ranking, toca el nombre de un clan para ver su ficha.',
+    ],
+  },
   {
     version: '2.0', date: '2026-11-10',
     title: 'InaZurvivors 2.0 — ¡Espíritus Guerreros!',

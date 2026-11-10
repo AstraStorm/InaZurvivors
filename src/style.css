@@ -307,6 +307,10 @@ body.reduced-motion .menu-lights i { animation: none; }
 .coinbtn:hover:not(:disabled) { filter: brightness(1.3); transform: translateY(-2px); }
 .coinbtn:disabled { filter: grayscale(1) brightness(.6); cursor: not-allowed; }
 .coinbtn img { width: 34px; height: 34px; object-fit: contain; }
+/* 2.01: the ×100 stands out (gold edge and glow) */
+.coinbtn.c100 { border-color: #ffd23f; box-shadow: 0 0 10px #ffd23f88, inset 0 0 8px #ffd23f44; }
+.coinbtn.c100 span { color: #ffe27a; }
+.btn.c100 { background: linear-gradient(180deg, #ffd23f, #d98a12); color: #2a1600; }
 .reveal-title { position: absolute; top: 5vh; left: 0; right: 0; text-align: center; color: var(--yellow); font-size: 14px; text-shadow: 2px 2px 0 #000; }
 /* phones: the title sat on top of the machine's title bar; it gets its own dark strip */
 @media (max-width: 560px) { .reveal-title { top: 0; padding: max(22px, env(safe-area-inset-top)) 8px 30px; background: linear-gradient(180deg, #020814 0, #020814 70%, #02081400); } }
@@ -1557,6 +1561,8 @@ body.reduced-motion .cr-ball > i { animation: none !important; }
 .pull-summary-box h3 { margin: 0; text-align: center; }
 .pull-summary-box .grid { width: 100%; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
 .pull-summary .ps-item { animation: rise .3s both; border-radius: 8px; }
+.pull-summary .ps-item { position: relative; }
+.pull-summary .ps-n { position: absolute; top: 4px; right: 4px; z-index: 3; font-style: normal; font-weight: 800; font-size: 12px; padding: 2px 7px; border-radius: 10px; background: #0b1636e6; border: 1px solid #ffd23f; color: #ffe27a; }
 .pull-summary .ps-item.r-legendario, .pull-summary .ps-item.r-mitico, .pull-summary .ps-item.r-leyenda { box-shadow: 0 0 14px var(--rc, #ffd84d88); }
 .pull-summary .ps-item.r-legendario { --rc: #ffb43a99; } .pull-summary .ps-item.r-mitico { --rc: #ff4fd899; } .pull-summary .ps-item.r-leyenda { --rc: #fff3a0cc; }
 /* Fix 1.31: ranking by points (the column of the chosen order is highlighted) */

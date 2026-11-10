@@ -134,3 +134,27 @@
 .frame .fr-petal { animation: frPetal 3s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
 @keyframes frPetal { 0% { transform: translateY(-4px) rotate(0); opacity: 0; } 30% { opacity: .9; } 100% { transform: translateY(8px) rotate(90deg); opacity: 0; } }
 body.reduced-motion .frame .fr-petal { animation: none; }
+
+/* 2.01: the card of any clan (tap a clan on the ranking, the clan ranking or the search) */
+.rk-clan, .cl-tap { cursor: pointer; }
+.rk-clan:hover { filter: brightness(1.25); box-shadow: 0 0 0 1px #3fd07a; }
+.cl-tap:hover { filter: brightness(1.15); }
+.cl-row-main { flex: 1; display: flex; align-items: center; gap: 8px; min-width: 0; }
+.cl-info-modal { z-index: 95; align-items: flex-start; overflow-y: auto; }
+.cl-info { position: relative; width: min(640px, 100%); margin: auto 0; display: flex; flex-direction: column; gap: 10px; box-shadow: inset 0 0 0 2px #3fd07a, 0 0 30px #3fd07a44; }
+.cl-info-x { position: absolute; top: 8px; right: 8px; z-index: 2; width: 28px; height: 28px; border-radius: 8px; border: 0; background: #0a1d48; color: #fff; font: inherit; cursor: pointer; box-shadow: inset 0 0 0 1px #2a4a8a; }
+.cl-info-x:hover { background: #18306a; }
+.cl-info-head { margin: 0; padding-right: 44px; }
+.cl-info-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.cl-info-stats > span { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 8px 4px; border-radius: 10px; background: #0a1d48; box-shadow: inset 0 0 0 1px #2a4a8a; text-align: center; }
+.cl-info-stats small { font-size: 7px; color: #9fb3d8; } .cl-info-stats b { font-weight: normal; font-size: 14px; color: #ffd23f; text-shadow: 2px 2px 0 #000; } .cl-info-stats em { font-style: normal; font-size: 7px; color: #dfeaff; }
+.cl-info-mem .cl-mem { cursor: pointer; flex-wrap: nowrap; }
+.cl-info-mem .cl-mem:hover { filter: brightness(1.2); }
+.cl-info-mem .cl-mem b { flex: none; max-width: 40%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cl-info-bar { flex: 1; height: 6px; border-radius: 3px; background: #06102b; overflow: hidden; min-width: 30px; } .cl-info-bar i { display: block; height: 100%; background: linear-gradient(90deg, #3fd07a, #ffd23f); }
+.cl-info-mem .cl-mem em { display: flex; flex-direction: column; align-items: flex-end; } .cl-info-mem .cl-mem em small { font-size: 6px; color: #9fb3d8; }
+.cl-info-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; } .cl-info-foot small { font-size: 7px; color: #9fb3d8; }
+@media (max-width: 620px) {
+  .cl-info-stats { grid-template-columns: repeat(2, 1fr); }
+  .cl-info-foot { flex-direction: column; align-items: stretch; }
+}

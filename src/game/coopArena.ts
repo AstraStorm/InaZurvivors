@@ -5,7 +5,7 @@
  *
  *   state channel (unordered): team snapshots both ways (JSON) and the host's rival snapshot (binary, 8 bytes a rival)
  *   event channel (reliable):  spawn / kill / drop / gone / gift / xp / lvl / resume / eshot / hazard / shock / end (host)
- *                              hit / take / picked (guest) and fx / down / up (both)
+ *                              hit / take / picked (guest) and fx / ult / down / up (both)
  */
 import type Phaser from 'phaser';
 import type { CoopLink, CoopMsg } from '../online/coop';
@@ -52,6 +52,8 @@ export interface CoopPort {
   end(victory: boolean): void;
   banner(text: string, color: string): void;
   telegraph(m: TeleMsg): void;
+  /** 2.0: the partner fired his warrior spirit's ultimate (`at`: where his player stands now) */
+  partnerUlt(spiritId: string, at: () => { x: number; y: number }): void;
   /** IDEA-45F61B95: the partner opened (true) or closed (false) his level-up cards */
   partnerPicking(on: boolean): void;
 }
@@ -270,6 +272,11 @@ export class CoopSession {
       case 'picked': this.partnerPicked = true; if (this.resumeWait) { const r = this.resumeWait; this.resumeWait = null; r(); } break;
       // both
       case 'fx': p.replayShot(m as unknown as FxMsg); break;
+      case 'ult': {
+        const id = Number(m.id), g = () => this.ghosts.get(id) ?? [...this.ghosts.values()][0];
+        if (g()) p.partnerUlt(String(m.k ?? ''), () => { const x = g(); return x ? { x: x.f.x, y: x.f.y } : { x: 0, y: 0 }; });
+        break;
+      }
       case 'up': this.partnerDown = false; break;
       case 'pick': this.partnerPicking = !!m.on; p.partnerPicking(this.partnerPicking); break;
       case 'meta': this.partnerMeta = { auras: Array.isArray(m.au) ? (m.au as PartnerMeta['auras']).slice(0, 6) : [], combos: Array.isArray(m.cb) ? (m.cb as PartnerMeta['combos']).slice(0, 20) : [] }; break;
@@ -290,6 +297,8 @@ export class CoopSession {
   /** guest: his hit on a mirrored rival */
   hit(id: number | undefined, v: number, kx: number, ky: number, style: FxStyle) { if (id !== undefined) this.send({ t: 'hit', id, v: Math.round(v), kx: Math.round(kx), ky: Math.round(ky), st: style }); }
   shot(m: FxMsg) { this.send({ ...m, t: 'fx' }); }
+  /** 2.0: this player's spirit ultimate (the partner sees the spirit appear over him) */
+  ult(playerId: number, spiritId: string) { this.send({ t: 'ult', id: playerId, k: spiritId }); }
   /** guest: a ball for standing still, dropped by the host so both screens have it */
   askHazard(x: number, y: number) { if (this.role === 'guest') this.send({ t: 'askhz', x: Math.round(x), y: Math.round(y) }); }
   /** host: a banner meant for the partner (something the host started round him) */

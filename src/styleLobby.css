@@ -1,0 +1,37 @@
+/* Sala de jugadores (app.lobbyScreen + game/LobbyScene.ts): the pitch stays visible and takes the pointer; only the bar,
+   the note and the stick catch clicks */
+#ui > .lobby { position: absolute; inset: 0; pointer-events: none; padding: clamp(10px, 2vw, 22px); }
+.lobby .titlebar, .lobby .joy { pointer-events: auto; }
+.lobby .titlebar { position: relative; top: 0; margin: 0 0 10px; background: #0a1d48e6; }
+.lb-info { display: inline-flex; align-items: center; gap: 10px; max-width: min(560px, 100%); padding: 8px 12px; border-radius: 12px;
+  background: #0a1d48d9; border: 1px solid var(--g-line, #3f7fc4); box-shadow: 0 6px 16px #0008; font-size: 9px; line-height: 1.6; }
+.lb-info > svg { flex: none; width: 22px; height: 22px; color: var(--yellow); }
+.lb-info small { display: block; color: var(--muted); font-size: 7px; }
+
+.lb-card { position: absolute; left: 0; top: 0; z-index: 5; pointer-events: none; display: flex; align-items: center; gap: 10px;
+  min-width: 220px; max-width: 300px; padding: 8px 12px 8px 8px; border-radius: 14px; white-space: nowrap;
+  background: linear-gradient(165deg, color-mix(in srgb, var(--rc, #8a9bbd) 24%, #0d1f4a) 0%, #081638f2 50%, #050c24f2 100%);
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--rc, #8a9bbd) 70%, #fff3), 0 8px 20px #000b; animation: lbIn .14s ease-out; }
+.lb-card[hidden] { display: none; }
+.lb-card::after { content: ''; position: absolute; left: clamp(14px, var(--ax, 50%), calc(100% - 14px)); bottom: -7px; width: 12px; height: 12px; margin-left: -6px; transform: rotate(45deg);
+  background: #060e2a; box-shadow: 2px 2px 0 color-mix(in srgb, var(--rc, #8a9bbd) 70%, #fff3); }
+/* flipped under the feet (no room above): the arrow points up */
+.lb-card.below::after { bottom: auto; top: -7px; box-shadow: -2px -2px 0 color-mix(in srgb, var(--rc, #8a9bbd) 70%, #fff3); }
+@keyframes lbIn { from { opacity: 0; margin-top: 6px; } }
+.lb-mug { flex: none; border-radius: 10px; overflow: hidden; background: #050c24; box-shadow: 0 0 0 2px var(--rc, #8a9bbd), 0 0 12px color-mix(in srgb, var(--rc, #8a9bbd) 60%, transparent); }
+.lb-mug .mug { display: block; }
+.lb-txt { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.lb-txt > b { font-weight: normal; font-size: 10px; color: #fff; text-shadow: 1px 1px 0 #000; overflow: hidden; text-overflow: ellipsis; }
+.lb-txt > em { align-self: flex-start; font-style: normal; font-size: 7px; padding: 1px 5px; border-radius: 4px; background: var(--yellow); color: #04061a; }
+.lb-txt > small { font-size: 7px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; }
+.lb-rank { display: flex; align-items: center; gap: 6px; margin-top: 2px; font-size: 8px; }
+.lb-rank.none { color: var(--muted); font-size: 7px; }
+.lb-pos { color: var(--yellow); text-shadow: 1px 1px 0 #000; }
+.lb-pts b { font-weight: normal; color: #fff; }
+.lb-rank .rank-btn { padding: 0; width: 24px; height: 24px; min-width: 0; min-height: 0; flex: none; align-self: center; display: grid; place-items: center; clip-path: none; border: 2px solid var(--rk); border-radius: 6px; cursor: default; }
+.lb-rank .rank-btn b { font-size: 11px; line-height: 1; }
+.lb-rank .rank-btn b.rz-b { width: 18px; height: 18px; }
+
+@media (max-width: 620px) {
+  .lb-card { min-width: 0; max-width: 250px; gap: 8px; padding: 6px 10px 6px 6px; }
+}

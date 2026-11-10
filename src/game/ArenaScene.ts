@@ -44,7 +44,7 @@ import { blackAshCharge, blackAshTrail, illusionBall, signatureOf, stormZone } f
 import { COMBO189, combo189Charge, combo189Shot, solo189Charge, solo189Of, solo189Shot, type Combo189 } from './fxCombo183';
 import { COMBO183, combo183Charge, combo183Shot, combo183Wind, isMeteorShower, judgementHammer, killerFieldsBlast, maouHand, meteorShower, solo183Charge, solo183Of, solo183Shot, type Combo183 } from './fxCombo183';
 import { natureArea, natureCharge, natureOf, natureShot, setNatureLowPower } from './fxNature';
-import { blackAxeStrike, AXE_MS, CAST_DEPTH, skyBolt, BOLT_MS, ultBanner } from './fxKeshin';
+import { blackAxeStrike, AXE_MS, CAST_DEPTH, skyBolt, BOLT_MS, spiritApparition, ultBanner } from './fxKeshin';
 import { whiteBreath, BREATH_MS } from './fxGuiverno';
 import { solarFlare, SUN_MS } from './fxApolo';
 import { samuraiSlash, SLASH_MS } from './fxMusashi';
@@ -69,7 +69,7 @@ import { ultimateElevenCharge, ultimateElevenShot } from './fxUltimateEleven';
 import { nocturneCharge, nocturneShot, NOCTURNE_WIND } from './fxNocturne';
 import { cataclysmCharge, cataclysmShot, isCataclysm } from './fxCataclysm';
 import { LAST_RESORT_WIND, lastResortCharge, lastResortShot, type LastResort } from './fxLastResort';
-import { applyKeshin, KESHIN_BY_ID, ULT_FIRST_SHARE, ultTech, ultTechLevel } from '../systems/keshin';
+import { applyKeshin, KESHIN_BY_ID, ULT_FIRST_SHARE, ultTech, ultTechLevel, type KeshinId } from '../systems/keshin';
 
 /** 2.0: the slot index of a member's warrior-spirit ultimate (after the five technique slots); fired with R / the HUD button */
 const ULT = 5;
@@ -967,6 +967,7 @@ export class ArenaScene extends Phaser.Scene {
       if (fired && k) {
         ultBanner(this, m.ult.tech.name, k.name.toUpperCase(), k.id, 1500, '', k.color);
         this.cameras.main.shake(220, 0.008);
+        this.coop?.ult(m.entry.id, k.id); // co-op: the banner is only the caster's; the partner sees the spirit appear
       }
       if (!fired) this.fx.label(m.f.x, m.f.y - 40, 'Sin rival cerca', '#9fe8ff');
       return true;
@@ -2956,7 +2957,8 @@ export class ArenaScene extends Phaser.Scene {
   /** (author) the game stops for an ultimate: nothing moves or hurts, the camera closes in, then all goes on */
   private cinematic(ms: number) {
     const wall = ms / Math.max(0.05, this.time.timeScale);
-    this.cineUntil = performance.now() + wall;
+    // co-op (author): the game never stops for an ultimate, each screen would freeze alone and the two would part ways
+    if (!this.coop) this.cineUntil = performance.now() + wall;
     this.invulnUntil = Math.max(this.invulnUntil, this.runTime + 0.6);
     const cam = this.cameras.main, z = this.zoomFor();
     cam.zoomTo(z * 1.22, 320, 'Cubic.easeOut', true);
@@ -3945,6 +3947,7 @@ export class ArenaScene extends Phaser.Scene {
       shock: (x, y, dmg, c, by) => { this.hitSrc = { by, attack: 'onda de choque' }; this.addShock(x, y, dmg, c); },
       makeGhost: (entry, x, y) => this.makeGhost(entry, x, y),
       replayShot: (m) => this.replayShot(m),
+      partnerUlt: (id, at) => { const k = KESHIN_BY_ID.get(id as KeshinId); spiritApparition(this, id, k?.color ?? '#ffffff', at); },
       end: (v) => this.finish(v),
       banner: (t, c) => this.banner(t, c),
       telegraph: (m) => this.telegraphMirror(m),

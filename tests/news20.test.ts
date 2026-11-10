@@ -14,7 +14,7 @@ describe('news of the 2.0', () => {
     expect(latestNewsId(after)).toBe('colab-bluelock');
   });
   it('the 2.0 entry and its news only say «a new collab»', () => {
-    const v2 = JSON.stringify(PUBLIC_RELEASES[0]) + JSON.stringify(allNews(true, before).find((n) => n.id === 'version-2-0-espiritus'));
+    const v2 = JSON.stringify(PUBLIC_RELEASES.find((r) => r.version === '2.0')) + JSON.stringify(allNews(true, before).find((n) => n.id === 'version-2-0-espiritus'));
     expect(v2).not.toMatch(/blue ?lock|nagi|isagi/i);
     expect(v2).toMatch(/nueva colaboraci/i);
   });
