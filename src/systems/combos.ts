@@ -302,7 +302,7 @@ export const COUNTERPARTS: Record<string, string[]> = {
   'Xavier Foster': ['Xene', 'Jordan + Xavier'], // 1.88 (author): Kira Hiroto is another character
   // special footballer (data/special_players.json): Axel in his Okinawa hoodie
   'Axel Blaze': ['Axel Blaze Encapuchado'],
-  'Mark Evans': ['Endou Mamoru'], // 1.88 (bug report): the same character as Mark (identity.ALIASES), so he plays Mark's part too
+  'Mark Evans': ['Mark Evans Adulto'], // 1.88 (bug report): the same character as Mark (identity.ALIASES), so he plays Mark's part too
   // 1.76: their Miximax fusions also count for Zero Magnum and La Aurora
   'Bai Long': ['Bailong + Zhuge', 'Bailong + Victor', 'Tezcat + Bailong'],
   'Tezcat': ['Arion + Tezcat', 'Tezcat + Bailong'],

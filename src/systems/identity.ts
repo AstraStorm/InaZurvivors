@@ -11,7 +11,7 @@ import type { RosterEntry } from '../data/manifest';
 /** suffixes of another version of the same footballer */
 const VERSION_SUFFIX = / (Oscuro|Encapuchado)$/;
 /** other names of the same person (arc names, Japanese names) */
-const ALIASES: Record<string, string> = { 'Xene': 'Xavier Foster', 'Endou Mamoru': 'Mark Evans',
+const ALIASES: Record<string, string> = { 'Xene': 'Xavier Foster', 'Endou Mamoru': 'Mark Evans', 'Mark Evans Adulto': 'Mark Evans',
   // author: a footballer and his «MM» Mixi Max form are the same person (Wolfram can't be Vulpeen MM's Aura, and so on)
   'Vulpeen MM': 'Wolfram Vulpeen', 'Drakul MM': 'Desmodus Drakul', 'Flora MM': 'Flora', 'Simeon MM': 'Simeon Ayp' };
 /** the parts of a Miximax fusion, by the nickname the fusion uses */

@@ -96,7 +96,7 @@ export const KESHINS: KeshinDef[] = [
     passive: { name: 'Impulso de técnica', game: 'Mejora la técnica de todos los jugadores del equipo.',
       text: (k) => `+${pct(0.05 * k)} daño de los regates y las defensas de todo el equipo`, apply: (f, k) => { addType(f, 'regate', 0.05 * k); addType(f, 'defensa', 0.05 * k); } } },
   { id: 'grandius', name: 'Grandius', title: 'Mágico gigante, Grandius', element: 'Montaña', type: 'parada', color: '#ffd84a',
-    holders: [{ id: 1, name: 'Mark Evans' }, { id: 100234, name: 'Endou Mamoru' }, { id: 900002, name: 'Eren Jaeger' }], // author: adult Mark (Endou Mamoru) too
+    holders: [{ id: 1, name: 'Mark Evans' }, { id: 100234, name: 'Mark Evans Adulto' }, { id: 900002, name: 'Eren Jaeger' }], // author: adult Mark (Endou Mamoru) too
     tech: tech(990004, 'Mano grandiosa', 'Montaña', 'parada', 125, 'Grandius ruge (el rugido aparta a los rivales) y lanza su mano gigante sobre el grupo más grande: los aplasta y los deja aturdidos, y una onda dorada barre el campo tragándose los tiros rivales. Cura al equipo.'),
     // «Impulso de aguante»: Aguante is the recharge of the techniques here
     passive: { name: 'Impulso de aguante', game: 'Mejora el aguante de todos los jugadores del equipo en 10 puntos.',

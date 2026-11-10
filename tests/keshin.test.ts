@@ -6,6 +6,7 @@ import { applyRun } from '../src/systems/economy';
 import { applyKeshin, giveKeshinGift, KESHIN_GIFT, KESHIN_MAX, KESHINS, keshinForRun, keshinLevel, keshinOf, keshinStepCost, levelKeshin, statBonus, ultTech, withKeshinStats } from '../src/systems/keshin';
 import type { Manifest } from '../src/data/manifest';
 import { perkEffects } from '../src/systems/perks';
+import { ROSTER_FIXES } from '../src/data/rosterFixes';
 
 const manifestFile = 'public/generated/manifest.json';
 const m: Manifest | null = fs.existsSync(manifestFile) ? JSON.parse(fs.readFileSync(manifestFile, 'utf8')) : null;
@@ -16,7 +17,7 @@ describe('2.0 Espíritus Guerreros', () => {
     for (const k of KESHINS) for (const h of k.holders) {
       expect(seen.has(h.id), `${h.name} repetido`).toBe(false);
       seen.add(h.id);
-      if (m) expect(m.roster.find((p) => p.id === h.id)?.name, `${k.name}: ${h.name}`).toBe(h.name);
+      if (m) expect(ROSTER_FIXES[h.id]?.nombre ?? m.roster.find((p) => p.id === h.id)?.name, `${k.name}: ${h.name}`).toBe(h.name); // as the game shows it
     }
     expect(KESHINS).toHaveLength(19); // 2.0: Lancelot joined the nine, then Jmet, Huargo, Glenr and Eris; 2.1 Papelín, Zodíaco, Evera, Demogorgo and Atenea
   });

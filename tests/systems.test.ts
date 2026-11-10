@@ -731,9 +731,9 @@ describe('combined techniques', () => {
     for (const c of COMBOS) { expect(c.source).toMatch(/fandom|MyAnimeList|ROM|indicad[oa]s? por el autor/); expect(c.needs.length).toBeGreaterThanOrEqual(c.requires ? 1 : 2); } // the Dragón: Petronio alone, on top of a Último recurso
   });
   it('Endou Mamoru plays Mark Evans in every combination (1.88 bug report: same character for the Aura, so for combos too)', () => {
-    expect(playsAs('Endou Mamoru', 'Mark Evans')).toBe(true);
+    expect(playsAs('Mark Evans Adulto', 'Mark Evans')).toBe(true);
     const tri = COMBOS.find((c) => c.id === 'tripegaso')!;
-    expect(comboReady(tri, [member('Erik Eagle', ['Pegaso'], 3), member('Bobby Shearer', ['Muro'], 3), member('Endou Mamoru', ['Mano'], 5)])).toBe(true);
+    expect(comboReady(tri, [member('Erik Eagle', ['Pegaso'], 3), member('Bobby Shearer', ['Muro'], 3), member('Mark Evans Adulto', ['Mano'], 5)])).toBe(true);
   });
   it('Fuego cruzado needs Axel (Tornado de fuego 3) and Shawn (Ventisca eterna 5) on the pitch (Fix 1.51)', () => {
     const axel = member('Axel Blaze', ['Tornado de fuego'], 3), shawn = member('Shawn Froste', ['Ventisca eterna'], 5);

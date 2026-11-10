@@ -38,6 +38,8 @@ export const ROSTER_FIXES: Record<number, RosterFix> = {
   // author: Petronio (his name had a typo) has no Último recurso D of his own any more — the Dragón is a combined technique
   // that needs a Último recurso in the run; Fuerza de tiro takes its place
   101595: { name: 'Petrionio Patti', nombre: 'Petronio Patti', cambiar: { 'Último recurso D': 'Fuerza de tiro' } },
+  // author: adult Mark goes by his English name
+  100234: { name: 'Endou Mamoru', nombre: 'Mark Evans Adulto' },
 };
 
 /** Applies ROSTER_FIXES in place; returns the problems found (unknown id, name mismatch, technique not found). */
