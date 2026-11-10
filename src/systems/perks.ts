@@ -54,6 +54,8 @@ export const PERKS: PerkDef[] = [
   P('turbo', 'Combate', 'Recarga turbo', 'El objeto «Recarga» recarga un 4% más por nivel (de -40% a -60%)', 5, 220, 150),
   // 2.0 (author: «en mejoras globales el tiempo de recarga de ulti, cada 30 al principio y mejorable hasta cada 15»)
   P('ulti', 'Combate', 'Espíritu despierto', '-3 s de recarga de la definitiva de tu Espíritu Guerrero por nivel (de 30 s a 15 s)', 5, 400, 260),
+  // (author: «mejoras que incrementen la posibilidad de que te den una ficha EG más al final de la partida, hasta un 15%»)
+  P('olfatoeg', 'Economía', 'Olfato de espíritu', '+3% probabilidad de ganar 1 Ficha EG extra al terminar una partida de 3 minutos o más (máx. 15%)', 5, 500, 350),
   P('tactica', 'Equipo', 'Pizarra avanzada', 'Potencia la formación activa por nivel: ofensiva +1% daño, equilibrada +2% combinadas, defensiva -1% daño recibido (máx. 5)', 5, 280, 180),
 ];
 /** Fix 1.11: every upgrade costs half as much again, so coins keep their value over many runs */
@@ -123,6 +125,8 @@ export interface PerkEffects {
   lootMagnet: boolean; damageBuff: number; cooldownBuff: number;
   /** 2.0: seconds between two ultimates of the active warrior spirit (30, down to 15 with «Espíritu despierto») */
   ultCooldownSec: number;
+  /** chance of 1 extra Ficha EG at the end of a run of 3 minutes or more («Olfato de espíritu», up to 0.15) */
+  egChance: number;
 }
 
 export function perkEffects(s: SaveData): PerkEffects {
@@ -165,5 +169,6 @@ export function perkEffects(s: SaveData): PerkEffects {
     damageBuff: 0.5 + 0.05 * l('potenciador'),
     cooldownBuff: 0.4 + 0.04 * l('turbo'),
     ultCooldownSec: ULT_BASE_SEC - 3 * l('ulti'),
+    egChance: 0.03 * l('olfatoeg'),
   };
 }

@@ -6478,7 +6478,7 @@ export class App {
     const alt = document.getElementById('altar')!;
     this.renderEvent(s, alt);
     const labels: Record<string, string> = { escudo: 'Escudo', xp: 'Exp ×2', dano: 'Daño +50%', recarga: 'Recarga -40%', velocidad: 'Velocidad +30%' };
-    document.getElementById('buffs')!.innerHTML = s.buffs.map((b) => `<span class="buff b-${b.id}"><i style="width:${b.left / b.total * 100}%"></i>${labels[b.id] ?? DROPS.find((d) => d.id === b.id)?.label ?? ''}</span>`).join('');
+    document.getElementById('buffs')!.innerHTML = s.buffs.map((b) => `<span class="buff b-${b.id}"><i style="width:${b.left / b.total * 100}%"></i>${b.label ?? labels[b.id] ?? DROPS.find((d) => d.id === b.id)?.label ?? ''}</span>`).join('');
     document.getElementById('hurt')!.classList.toggle('on', this.save.settings.flashes && s.now - s.hurtAt < 0.12);
     if (s.formationChangedAt > 0 && s.formationChangedAt !== this.lastBannerAt) {
       this.lastBannerAt = s.formationChangedAt;
@@ -6825,7 +6825,7 @@ export class App {
     document.getElementById('pause')?.remove();
     const effects = perkEffects(this.save);
     const clanMul = this.clanMatch ? CLAN_REWARD_MULT : 1; // 1.93: the Juegos del Clan paid half; full since the 1-a-day limit
-    const { rewards, total, records, tokens, tokenTotal: tokens0, training, trainTotal, eg, egTotal: eg0 } = applyRun(this.save, r, effects.coinMult, effects.rewardMult * clanMul, effects.extraTokens);
+    const { rewards, total, records, tokens, tokenTotal: tokens0, training, trainTotal, eg, egTotal: eg0 } = applyRun(this.save, r, effects.coinMult, effects.rewardMult * clanMul, effects.extraTokens, effects.egChance);
     let tokenTotal = tokens0;
     if (this.clanMatch) {
       // every line of fichas at half (the coins were already halved through rewardMult)

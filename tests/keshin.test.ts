@@ -83,6 +83,10 @@ describe('2.0 Espíritus Guerreros', () => {
     const s0 = newSave([], null), e0 = perkEffects(s0);
     s0.upgrades.ulti = 5;
     expect([e0.ultCooldownSec, perkEffects(s0).ultCooldownSec]).toEqual([30, 15]); // «Espíritu despierto»: from 30 s to 15 s
+    s0.upgrades.olfatoeg = 5;
+    expect([e0.egChance, perkEffects(s0).egChance]).toEqual([0, 0.15]); // «Olfato de espíritu»: up to 15%
+    const run = (timeSec: number, roll: number) => applyRun(newSave([], null), { mapId: 'raimon', rank: 'C', victory: false, timeSec, kills: 10, minibosses: 0, bossDefeated: false, reachedBoss: false }, 1, 1, 0, 0.15, () => roll).egTotal;
+    expect([run(300, 0.1), run(300, 0.2), run(100, 0.1)]).toEqual([1, 0, 0]);
   });
 
   it('a map beaten in rank X pays 1 Ficha EG, nothing else does; the intro gives none; the save keeps them', () => {

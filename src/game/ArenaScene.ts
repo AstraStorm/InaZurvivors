@@ -86,7 +86,7 @@ export interface HudState {
   hp: number; maxHp: number; xp: number; xpNext: number; level: number; timeSec: number; durationSec: number;
   kills: number; team: HudMember[]; boss: { name: string; hp: number; maxHp: number; title: string; phase: number; rival: boolean } | null;
   rerolls: number; formation: FormationId; formationChangedAt: number; hurtAt: number; healAt?: number; now: number;
-  buffs: { id: BuffId; left: number; total: number }[];
+  buffs: { id: BuffId; left: number; total: number; label?: string }[];
   runCoins: number; runTokens: number; shield: number;
   resonance: { element: string; bonus: number }[];
   /** Fix 1.31: every team synergy with its progress (synergy.ts), for the big HUD panel */
@@ -638,6 +638,13 @@ export class ArenaScene extends Phaser.Scene {
   }
 
   private techLevel(m: Member, slot: number) { return slot === ULT ? m.ult?.lv ?? 1 : m.state.levels[m.state.slots[slot] ?? -1] ?? 1; }
+
+  /** BUG-D48C193C: the «Daño»/«Recarga» power-up text with the upgrades bought (Potenciador/Turbo), not the base +50%/-40% */
+  private boostLabel(id: string): string | undefined {
+    if (id === 'dano') return `Daño +${Math.round((this.cfg.perks.damageBuff ?? 0.5) * 100)}%`;
+    if (id === 'recarga') return `Recarga -${Math.round((this.cfg.perks.cooldownBuff ?? 0.4) * 100)}%`;
+    return undefined;
+  }
 
   private buffOn(id: BuffId) { return (this.buffs.get(id)?.until ?? 0) > this.runTime; }
 
@@ -3234,7 +3241,7 @@ export class ArenaScene extends Phaser.Scene {
     const d = p.drop!;
     // IDEA-C16CF5D6: the power-up says what it really gives with the upgrades bought
     const boost = d.id === 'dano' ? Math.round((this.cfg.perks.damageBuff ?? 0.5) * 100) : d.id === 'recarga' ? Math.round((this.cfg.perks.cooldownBuff ?? 0.4) * 100) : 0;
-    const label = boost ? (d.id === 'dano' ? `Daño +${boost}%` : `Recarga -${boost}%`) : d.label;
+    const label = this.boostLabel(d.id) ?? d.label;
     const info = boost && d.id === 'dano' ? `El equipo hace un ${boost}% más de daño durante 10 s.` : d.info;
     if (info) this.cfg.onPickup?.(d.id, label, info);
     this.fx.ring(c.x, c.y - 10, 24, 0xffffff, 260, 2);
@@ -3284,7 +3291,7 @@ export class ArenaScene extends Phaser.Scene {
     } else {
       const total = (d.seconds ?? 8) * this.cfg.perks.buffMult;
       this.buffs.set(d.id as BuffId, { until: this.runTime + total, total });
-      this.fx.label(c.x, c.y - 34, d.label);
+      this.fx.label(c.x, c.y - 34, label);
       sfx('powerup');
     }
   }
@@ -3842,7 +3849,7 @@ export class ArenaScene extends Phaser.Scene {
         inside: Math.hypot(this.members[0].f.x - this.altar.x, (this.members[0].f.y - this.altar.y) * 1.3) < ALTAR_RADIUS, waitLeft: this.altarWait,
         rival: this.altarRival ? { id: this.altarRival.entry?.id ?? null, name: this.altarRival.unit.name, team: this.altarRival.entry?.teams[0] ?? '' } : null, progress: this.altar.progress, goal: this.altar.goal,
         timeLeft: this.altar.timeLeft, dist: Math.round(Math.hypot(this.altar.x - this.members[0].f.x, this.altar.y - this.members[0].f.y) / 32) } : null,
-      buffs: [...this.buffs].filter(([, b]) => b.until > this.runTime).map(([id, b]) => ({ id, left: b.until - this.runTime, total: b.total })),
+      buffs: [...this.buffs].filter(([, b]) => b.until > this.runTime).map(([id, b]) => ({ id, left: b.until - this.runTime, total: b.total, label: this.boostLabel(id) })),
       endless: this.endless ? { mult: this.endlessScaleNow().hp, sec: this.runTime - this.endless.since, phase: endlessPhase(this.endlessMin()).name } : null,
       combos: [...this.combos].map(([id, s]) => { const d = COMBOS.find((x) => x.id === id)!; return { name: d.name, level: s.level, cd: Math.max(0, Math.min(1, s.cd / d.cooldownMs)) }; }),
       comboGoals: goals.map((g) => ({ id: g.combo.id, name: g.combo.name, complete: g.complete, ready: g.ready, parts: g.parts })),

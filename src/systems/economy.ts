@@ -131,7 +131,7 @@ export function egRewards(r: RunResult, _newRankClear: boolean): Reward[] {
   return r.rank === 'X' ? [{ label: 'Mapa superado en rango X', coins: EG_X_WIN }] : [];
 }
 
-export function applyRun(save: SaveData, r: RunResult, coinMult = 1, rewardMult = 1, extraTokens = 0): { save: SaveData; rewards: Reward[]; total: number; records: string[]; tokens: Reward[]; tokenTotal: number; training: Reward[]; trainTotal: number; eg: Reward[]; egTotal: number } {
+export function applyRun(save: SaveData, r: RunResult, coinMult = 1, rewardMult = 1, extraTokens = 0, egChance = 0, rng: () => number = Math.random): { save: SaveData; rewards: Reward[]; total: number; records: string[]; tokens: Reward[]; tokenTotal: number; training: Reward[]; trainTotal: number; eg: Reward[]; egTotal: number } {
   const rewards = computeRewards(r, rewardMult);
   if (coinMult > 1) {
     const base = rewards.reduce((a, x) => a + x.coins, 0);
@@ -158,6 +158,8 @@ export function applyRun(save: SaveData, r: RunResult, coinMult = 1, rewardMult 
   const trainTotal = training.reduce((a, x) => a + x.coins, 0);
   save.trainTokens = (save.trainTokens ?? 0) + trainTotal;
   const eg = egRewards(r, newRank);
+  // «Olfato de espíritu»: a chance of one more Ficha EG, same 3-minute floor as «Ojeador» so quitting at once pays nothing
+  if (egChance > 0 && r.timeSec >= 180 && rng() < egChance) eg.push({ label: 'Olfato de espíritu', coins: 1 });
   const egTotal = eg.reduce((a, x) => a + x.coins, 0);
   save.egTokens = (save.egTokens ?? 0) + egTotal;
   const records: string[] = [];
