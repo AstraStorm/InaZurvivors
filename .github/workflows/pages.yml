@@ -174,8 +174,8 @@ jobs:
           npx vitest run tests/systems.test.ts tests/online.test.ts
           npx tsc --noEmit
           node tools/integrar_recursos.mjs --recursos ../.recursos
-          npx vite build --base /InaZurvivors/pruebas/
-          node ../tools/comprobar_build.mjs --recursos ../.recursos --base /InaZurvivors/pruebas/
+          npx vite build --base /pruebas/
+          node ../tools/comprobar_build.mjs --recursos ../.recursos --base /pruebas/
           mkdir -p ../dist/pruebas
           cp -r dist/. ../dist/pruebas/
       - if: env.PUBLICAR == 'true'
