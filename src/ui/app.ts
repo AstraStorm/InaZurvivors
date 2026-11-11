@@ -34,7 +34,7 @@ const TRAIN_TEAM = 5, TRAIN_SLOTS = 4;
 import { CLUB_CHEMISTRY, kitBonus } from '../systems/kitBonus';
 import { squadPotential } from '../systems/synergy';
 import { championsTable, recordTriumph } from '../systems/hallOfFame';
-import { BUILD, CURRENT_PUBLIC, PUBLIC_RELEASES, PUBLIC_VERSION, TIKTOK_PATH, TIKTOK_URL, VERSION_LABEL } from '../data/release';
+import { BUILD, CREATOR_GAMES_URL, CURRENT_PUBLIC, PUBLIC_RELEASES, PUBLIC_VERSION, TIKTOK_PATH, TIKTOK_URL, VERSION_LABEL } from '../data/release';
 import { allNews, latestNewsId, NEWS_KIND_LABEL, type NewsItem } from '../data/news';
 /** Fix 1.32: news text: escaped, **bold** allowed */
 const newsText = (t: string) => esc(t).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
@@ -6147,6 +6147,8 @@ export class App {
         <li>Creados para InaZurvivors: efectos de supertécnicas, efectos de sonido, iconos de elemento, orbes, música «Generada» e interfaz.</li>
       </ul>
       <h3>Redes sociales</h3><p>${this.tiktokLink('Síguenos en TikTok')}</p>
+      <h3>Sobre el desarrollador</h3><p>AstraStorm también ha creado otros videojuegos.</p>
+      <p><a class="btn small blue dev-games" id="devgames" href="${CREATOR_GAMES_URL}" target="_blank" rel="noopener noreferrer" aria-label="Otros juegos del creador (se abre en una pestaña nueva)"><svg class="dg-pad" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7h10a5 5 0 0 1 4.8 6.4l-1.2 4A2.8 2.8 0 0 1 15.9 18l-1.6-2H9.7l-1.6 2a2.8 2.8 0 0 1-4.7-.6l-1.2-4A5 5 0 0 1 7 7Zm0 3v1.5H5.5v1.5H7v1.5h1.5V13H10v-1.5H8.5V10H7Zm9.3.2a1.1 1.1 0 1 0 0 2.2 1.1 1.1 0 0 0 0-2.2Zm-2 2.3a1.1 1.1 0 1 0 0 2.2 1.1 1.1 0 0 0 0-2.2Z"/></svg><span>Otros juegos del creador</span><svg class="dg-ext" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h6v6h-2V7.4l-7.3 7.3-1.4-1.4L16.6 6H14V4ZM5 6h6v2H6v10h10v-5h2v7H4V6h1Z"/></svg></a></p>
       <h3>Enlaces oficiales</h3><p>${link('https://www.level5.co.jp/', 'LEVEL-5')} · ${link('https://www.inazuma.jp/', 'Inazuma Eleven')}</p>
       <h3>Privacidad</h3><p>Sin cuenta, InaZurvivors no recopila datos personales: tu progreso se guarda solo en este navegador. Con cuenta online (Google) se guardan tu correo de Google (privado), tu nombre, tus marcas y tu guardado. <a href="privacidad.html" target="_blank" rel="noopener">Privacidad y condiciones</a></p>
       <p class="note">${esc(VERSION_LABEL)} · compilación interna ${esc(BUILD)}</p></div></div>`);

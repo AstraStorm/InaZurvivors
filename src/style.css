@@ -2134,3 +2134,9 @@ body.reduced-motion .pcard.cc *, body.reduced-motion .pcard.cc .cc-frame { anima
 .team-name { display: flex; align-items: center; gap: 4px; margin-left: auto; font-size: 9px; color: #ffd23f; }
 .team-name input { width: 140px; font: inherit; font-size: 9px; padding: 5px 8px; border-radius: 8px; border: 2px solid #ffffff22; background: #020818; color: #fff; }
 @media (max-width: 560px) { .team-tab { min-width: 0; flex: 1 1 30%; } .team-name { margin-left: 0; width: 100%; } .team-name input { flex: 1; } }
+
+/* Créditos > Sobre el desarrollador: the author's other games (an ordinary link styled as the game's buttons) */
+.dev-games { display: inline-flex; align-items: center; gap: 8px; text-decoration: none; max-width: 100%; }
+.dev-games svg { flex: none; width: 18px; height: 18px; fill: currentColor; }
+.dev-games .dg-ext { width: 12px; height: 12px; opacity: .85; }
+.dev-games span { min-width: 0; }
