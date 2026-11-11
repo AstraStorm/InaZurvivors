@@ -34,7 +34,7 @@ export const PUBLIC_RELEASES: PublicRelease[] = [
     version: '2.1', date: '2026-11-11',
     title: 'InaZurvivors 2.1 — Llegan las temporadas',
     tagline: 'El pase de temporada',
-    intro: 'El 12 de noviembre a las 15:00 empieza la Temporada 1: un pase de 125 niveles con dos futbolistas nuevos, una llave normal y otra dorada, y el ranking por temporadas.',
+    intro: 'El 12 de noviembre a las 12:00 empieza la Temporada 1: un pase de 125 niveles con dos futbolistas nuevos, una llave normal y otra dorada, y el ranking por temporadas.',
     features: [
       { icon: '🎟️', title: 'Pase de temporada', text: '125 niveles que se suben jugando: cada minuto da EXP, más cuanto más alto el rango. Fila normal con la Llave normal (15.000 monedas en la Tienda) y fila premium con la Llave dorada, que cae al derrotar rivales (0,005% por rival, el doble en cooperativo).' },
       { icon: '⭐', title: 'Dos fichajes secretos', text: 'Uno Legendario al abrir la fila premium y uno Leyenda en el nivel 100, con una copia más cada 5 niveles hasta el 125. Míralos en silueta en el menú hasta el 12 de noviembre.' },

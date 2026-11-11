@@ -35,9 +35,9 @@ export const AUTHOR_NEWS: NewsItem[] = [
   {
     id: 'pase-temporada-1', kind: 'novedad', date: '2026-11-11', icon: '👑', pinned: true,
     title: 'Llega el pase de temporada (12 de noviembre)',
-    summary: 'El 12 de noviembre a las 15:00 empieza la Temporada 1: un pase de 125 niveles con una fila normal y otra premium, dos futbolistas nuevos y el ranking por temporadas.',
+    summary: 'El 12 de noviembre a las 12:00 empieza la Temporada 1: un pase de 125 niveles con una fila normal y otra premium, dos futbolistas nuevos y el ranking por temporadas.',
     blocks: [
-      { callout: 'info', text: 'La **Temporada 1** empieza el **12 de noviembre a las 15:00**, a la vez que la nueva colaboración, y dura **un mes**: hasta el **12 de diciembre a las 15:00**.' },
+      { callout: 'info', text: 'La **Temporada 1** empieza el **12 de noviembre a las 12:00** y dura **un mes**: hasta el **12 de diciembre a las 15:00**.' },
       { h: 'El pase', icon: '🎟️' },
       { list: [
         '**125 niveles** que se suben **jugando partidas**: cada minuto jugado da EXP, y **cuanto más alto el rango, más EXP**.',
@@ -92,7 +92,7 @@ export const AUTHOR_NEWS: NewsItem[] = [
     ],
   },
   {
-    id: 'pase-temporada-1-abierto', kind: 'evento', date: '2026-11-12', icon: '👑', pinned: true, from: '2026-11-12T15:00:00+01:00',
+    id: 'pase-temporada-1-abierto', kind: 'evento', date: '2026-11-12', icon: '👑', pinned: true, from: '2026-11-12T12:00:00+01:00',
     title: '¡Ya está aquí el pase de la Temporada 1: Soy todopoderoso!',
     summary: 'Cronus Fourseasons (Legendario, con Surtur) al conseguir la llave dorada y Super Zanark (Leyenda, con Zodíaco) en el nivel 100, y más copias suyas hasta el 125. Hasta el 12 de diciembre.',
     blocks: [

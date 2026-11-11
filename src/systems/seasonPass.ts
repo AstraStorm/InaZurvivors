@@ -86,7 +86,7 @@ function season1(): Pick<SeasonDef, 'normal' | 'premium'> {
 }
 
 export const SEASONS: SeasonDef[] = [
-  { id: 'T1', name: 'Temporada 1', subtitle: 'Soy todopoderoso', start: '2026-11-12T15:00:00+01:00', end: '2026-12-12T15:00:00+01:00',
+  { id: 'T1', name: 'Temporada 1', subtitle: 'Soy todopoderoso', start: '2026-11-12T12:00:00+01:00', end: '2026-12-12T15:00:00+01:00',
     ...season1(), stars: [CRONUS_ID, SUPER_ZANARK_ID] },
 ];
 
