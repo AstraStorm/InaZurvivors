@@ -30,6 +30,37 @@ export interface NewsItem { id: string; kind: NewsKind; date: string; title: str
 export const NEWS_KIND_LABEL: Record<NewsKind, string> = { novedad: 'NOVEDAD', aviso: 'AVISO', actualizacion: 'ACTUALIZACIÓN', fix: 'FIX', evento: 'EVENTO' };
 
 export const AUTHOR_NEWS: NewsItem[] = [
+  // 2.1 (author): the season pass opens with the BlueLock collab; until then the news only tells how it works (who the two
+  // footballers are stays a secret: the menu shows them in silhouette)
+  {
+    id: 'pase-temporada-1', kind: 'novedad', date: '2026-11-11', icon: '👑', pinned: true,
+    title: 'Llega el pase de temporada (12 de noviembre)',
+    summary: 'El 12 de noviembre a las 15:00 empieza la Temporada 1: un pase de 100 niveles con una fila normal y otra premium, dos futbolistas nuevos y el ranking por temporadas.',
+    blocks: [
+      { callout: 'info', text: 'La **Temporada 1** empieza el **12 de noviembre a las 15:00**, a la vez que la nueva colaboración, y dura **un mes**: hasta el **12 de diciembre a las 15:00**.' },
+      { h: 'El pase', icon: '🎟️' },
+      { list: [
+        '**100 niveles** que se suben **jugando partidas**: cada minuto jugado da EXP, y **cuanto más alto el rango, más EXP**.',
+        'Dos filas de premios: la **normal** y la **premium**. La EXP cuenta siempre; cuando abras una fila, reclamas todo lo que ya hayas alcanzado.',
+        'Completarlo entero lleva como mínimo unas **15-20 partidas** en los rangos más altos.',
+      ] },
+      { h: 'Las dos llaves', icon: '🔑' },
+      { list: [
+        '**Llave normal**: se compra en la **Tienda** por **15.000 monedas** y abre la fila normal.',
+        '**Llave dorada**: no se compra. **Cae al derrotar rivales** durante las partidas (**0,005%** por rival) y en **cooperativo la probabilidad es el doble**. Si te toca, lo verás en la misma partida.',
+      ] },
+      { h: 'Qué hay dentro', icon: '🎁' },
+      { list: [
+        '**Dos futbolistas nuevos**: uno **Legendario** nada más abrir la fila premium y uno **Leyenda** en el nivel 100. ¿Quiénes serán? Míralos en silueta en el menú.',
+        'Fila normal: monedas, fichas, tiradas, **jugadores de un equipo nuevo para tu club**, dos **banners** de perfil y un **marco**.',
+        'Fila premium: **mucho oro**, fichas, **tiradas ×10**, **Fichas EG**, un **banner** y un **marco Legendarios** exclusivos de la temporada.',
+      ] },
+      { h: 'El ranking, por temporadas', icon: '🏆' },
+      { list: [
+        'El ranking también va por temporadas y termina con el pase. Al acabar habrá **premios para el top 1, el top 3, el top 8, el top 15 y para todos los demás**, y empezará de cero.',
+      ] },
+    ],
+  },
   // (author) InaZurvivors x BlueLock: it appears on its own, pinned, the moment its banner opens (server clock)
   {
     id: 'colab-bluelock', kind: 'evento', date: '2026-11-12', icon: '⚽', pinned: true, from: '2026-11-12T15:00:00+01:00',
@@ -54,6 +85,26 @@ export const AUTHOR_NEWS: NewsItem[] = [
         'Ficha a **Nagi y a Isagi** y consigue el **Marco BlueLock**.',
       ] },
       { callout: 'info', text: 'Lo encontrarás en el menú, en **FICHAJES**, y en la portada del carrusel.' },
+    ],
+  },
+  {
+    id: 'pase-temporada-1-abierto', kind: 'evento', date: '2026-11-12', icon: '👑', pinned: true, from: '2026-11-12T15:00:00+01:00',
+    title: '¡Ya está aquí el pase de la Temporada 1: Soy todopoderoso!',
+    summary: 'Cronus Fourseasons (Legendario, con Surtur) al conseguir la llave dorada y Super Zanark (Leyenda, con Zodíaco) en el nivel 100. Hasta el 12 de diciembre.',
+    blocks: [
+      { callout: 'nuevo', text: 'El **pase de la Temporada 1** está abierto hasta el **12 de diciembre a las 15:00**. Lo tienes en **Competición > Temporada**.' },
+      { h: 'Los dos fichajes', icon: '⭐' },
+      { list: [
+        '**Cronus Fourseasons** · Fuego · Centrocampista · **Legendario**, con el Espíritu Guerrero **Surtur**: nivel 1 de la fila premium, nada más abrirla.',
+        '**Super Zanark** · Montaña · Delantero · **Leyenda**, con el Espíritu Guerrero **Zodíaco**: Golpe cataclismo, Ultratécnica, Carga elemental y **Soy todopoderoso**. Nivel 100 de la fila premium.',
+      ] },
+      { h: 'Cómo va', icon: '🔑' },
+      { list: [
+        'Sube de nivel jugando: cada minuto de partida da EXP, y más cuanto más alto es el rango.',
+        '**Llave normal**: en la **Tienda** por **15.000 monedas**. Abre la fila normal: monedas, fichas, tiradas, los jugadores del **Dominio de Zanark**, dos banners y un marco.',
+        '**Llave dorada**: cae al derrotar rivales (**0,005%** por rival, **el doble en cooperativo**). Abre la fila premium: mucho oro, fichas, tiradas ×10, Fichas EG, el banner y el marco legendarios **Soy todopoderoso**, Zanark y los dos fichajes.',
+        'Al conseguir una llave puedes reclamar todos los niveles que ya hayas alcanzado.',
+      ] },
     ],
   },
   {

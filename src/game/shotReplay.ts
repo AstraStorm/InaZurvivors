@@ -10,6 +10,7 @@ import { movieOf, movieShot } from './fxMovie';
 import { victorOf, victorShot } from './fxVictor';
 import { isSetsuna, setsunaShot } from './fxSetsuna';
 import { isCataclysm, cataclysmShot } from './fxCataclysm';
+import { isAlmighty, almightyShot } from './fxAlmighty';
 import { solo183Of, solo183Shot, solo189Of, solo189Shot } from './fxCombo183';
 import type { FxMsg } from './coopArena';
 
@@ -25,6 +26,7 @@ export function drawShot(scene: Phaser.Scene, fx: Fx, m: FxMsg) {
   if (vb) victorShot(scene as never, vb, ball, m.lv);
   if (isSetsuna(m.name)) setsunaShot(scene as never, ball, m.lv);
   if (isCataclysm(m.name)) cataclysmShot(scene as never, ball, m.lv);
+  if (isAlmighty(m.name)) almightyShot(scene as never, ball, m.lv);
   const s183 = solo183Of(m.name);
   if (s183) solo183Shot(scene as never, s183, ball, m.lv);
   const s189 = solo189Of(m.name);

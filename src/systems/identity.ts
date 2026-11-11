@@ -15,7 +15,9 @@ const ALIASES: Record<string, string> = { 'Xene': 'Xavier Foster', 'Endou Mamoru
   // author: a footballer and his «MM» Mixi Max form are the same person (Wolfram can't be Vulpeen MM's Aura, and so on)
   'Vulpeen MM': 'Wolfram Vulpeen', 'Drakul MM': 'Desmodus Drakul', 'Flora MM': 'Flora', 'Simeon MM': 'Simeon Ayp',
   // 2.02 (author): Shawn before the fusion with Aiden (defender) and Shawn without his scarf are Shawn
-  'Shawn Froste Defensa': 'Shawn Froste', 'Shawn Froste Sin Bufanda': 'Shawn Froste' };
+  'Shawn Froste Defensa': 'Shawn Froste', 'Shawn Froste Sin Bufanda': 'Shawn Froste',
+  // 2.1: the season pass's Leyenda is Zanark
+  'Super Zanark': 'Zanark Avalonic' };
 /** the parts of a Miximax fusion, by the nickname the fusion uses */
 const FUSION_PART: Record<string, string> = {
   Aitor: 'Aitor Cazador', Arion: 'Arion Sherwind', Axel: 'Axel Blaze', Bailong: 'Bai Long', Caleb: 'Caleb Stonewall', Canon: 'Canon Evans',

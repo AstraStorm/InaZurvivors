@@ -15,6 +15,17 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: '11.0', date: '2026-11-11', title: '2.1 Temporadas: pase de temporada',
+    features: [
+      'Pase de temporada (autor): systems/seasonPass.ts (SEASONS T1 12-11 15:00 → 12-12 15:00, 100 niveles × 150 EXP, 30 EXP/min × rango C1…Z2,5, fila normal con Llave normal 15.000 ◉, fila premium con Llave dorada 0,005%/rival ×2 co-op desde ArenaScene.rollGoldKey). Cronus Fourseasons 900400 (Legendario, Surtur) premium 1, Super Zanark 900401 (Leyenda, Zodíaco) premium 100, exclusive «pase» ocultos hasta que abre; Zanark Domain en la fila normal; banners/marcos source «pase» (patrón huracan, emblemas cuernos y todopoderoso).',
+      'Servidor (migración season_pass): private.seasons y economy_cap deja 120 fichas y 6000 ◉ por nivel nuevo reclamado en la temporada, contra el máximo visto (private.season_claims).',
+      'Teaser «Próximo pase» en el carrusel con siluetas; noticias pase-temporada-1 y pase-temporada-1-abierto (from 12-11 15:00).',
+    ],
+    fixes: [],
+    visuals: ['Llaves de la hoja de objetos de la ROM (tools/pase_assets.py); pantalla del pase (styleSeason.css), aviso en partida y animación de desbloqueo en el menú.'],
+    balance: [],
+  },
+  {
     version: '10.5', date: '2026-11-11', title: '2.02 Jaden antes, Shawn defensa, repeticiones y métricas de espíritus',
     features: [
       'Repeticiones (autor: «ver cómo juega la gente»): src/game/replay.ts graba las partidas en solitario (equipo cada 150 ms, rivales cercanos cada 250 ms, apariciones, KO, disparos, cartas, golpes, jefe, ultis, formación, fin; gzip ~11 KB/min); bucket privado replays + private.replays (migración 20261110000600): 3 por jugador más las de sus marcas del ranking. Visor ReplayScene en Panel de jugadores > Repeticiones (pausa, ×1-×8, línea de tiempo, registro). Ajustes > Privacidad > Compartir mis partidas.',

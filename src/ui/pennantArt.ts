@@ -31,7 +31,22 @@ function pattern(p: PennantPattern, a: string, id: string): string {
     case 'nebulosa': return `<radialGradient id="${id}n" cx=".5" cy=".42" r=".6"><stop offset="0" stop-color="#b04aff" stop-opacity=".55"/><stop offset=".55" stop-color="#4a1a8a" stop-opacity=".25"/><stop offset="1" stop-color="#000" stop-opacity="0"/></radialGradient><rect x="0" y="0" width="${W}" height="${H}" fill="url(#${id}n)"/>${Array.from({ length: 14 }, (_, k) => `<circle cx="${12 + ((k * 41) % 78)}" cy="${16 + ((k * 29) % 84)}" r=".9" fill="#fff" opacity=".7"/>`).join('')}`;
     // (author) InaZurvivors x BlueLock: the facility's blue grid and a light beam across
     case 'rejilla': return `<pattern id="${id}h" width="10" height="10" patternUnits="userSpaceOnUse"><path d="M10,0 H0 V10" stroke="${a}" stroke-width=".7" fill="none" opacity=".35"/></pattern><rect x="0" y="0" width="${W}" height="${H}" fill="url(#${id}h)"/><path d="M-10,96 L110,18 L110,40 L-10,118 Z" fill="${a}" opacity=".12"/>`;
+    // 2.1 (author): «Soy todopoderoso», golden hurricanes with blue electricity
+    case 'huracan': return [[30, 34, 1], [72, 80, 0.8], [26, 94, 0.6]].map(([x, y, k]) => hurricane(x, y, 26 * k, a, 0.42)).join('')
+      + [[14, 20, 46, 60], [70, 18, 88, 50], [60, 70, 84, 100]].map(([x1, y1, x2, y2]) => bolt(x1, y1, x2, y2, 1.4)).join('');
   }
+}
+
+/** 2.1: a golden whirlwind (spiral strands round a centre) and a blue electric zigzag between two points */
+function hurricane(x: number, y: number, r: number, a: string, op: number): string {
+  return [0, 120, 240].map((rot) => `<path d="M0,0 C${r * 0.5},${-r * 0.2} ${r * 0.7},${r * 0.5} ${r * 0.15},${r * 0.75} C${-r * 0.5},${r * 0.9} ${-r * 1.05},${r * 0.2} ${-r * 0.8},${-r * 0.55}" transform="translate(${x} ${y}) rotate(${rot})" stroke="${a}" stroke-width="${Math.max(1.2, r / 9).toFixed(1)}" fill="none" stroke-linecap="round" opacity="${op}"/>`).join('')
+    + `<circle cx="${x}" cy="${y}" r="${(r * 0.18).toFixed(1)}" fill="#fff6c8" opacity="${op}"/>`;
+}
+function bolt(x1: number, y1: number, x2: number, y2: number, w: number, c = '#5fd8ff'): string {
+  const n = 5, nx = -(y2 - y1), ny = x2 - x1, l = Math.hypot(nx, ny) || 1, amp = Math.hypot(x2 - x1, y2 - y1) * 0.09;
+  const pts = Array.from({ length: n + 1 }, (_, k) => { const t = k / n, j = k % n ? (k % 2 ? 1 : -1) * amp : 0;
+    return `${(x1 + (x2 - x1) * t + (nx / l) * j).toFixed(1)},${(y1 + (y2 - y1) * t + (ny / l) * j).toFixed(1)}`; }).join(' ');
+  return `<polyline points="${pts}" fill="none" stroke="${c}" stroke-width="${w * 2.6}" opacity=".3" stroke-linejoin="round"/><polyline points="${pts}" fill="none" stroke="#e8fbff" stroke-width="${w}" stroke-linejoin="round" opacity=".95"/>`;
 }
 
 function emblem(e: PennantEmblem, a: string, C = 'translate(50 52)'): string {
@@ -52,6 +67,10 @@ function emblem(e: PennantEmblem, a: string, C = 'translate(50 52)'): string {
     case 'planeta': return `<g transform="${C}"><ellipse rx="34" ry="8" fill="#dff6ff" opacity=".2"/><circle r="19" fill="#1e62e0" stroke="#dff6ff" stroke-width="2"/><path d="M-12,-8 Q-4,-14 2,-8 Q6,-2 -2,0 Q-10,2 -12,-8 Z M4,6 Q12,2 14,10 Q8,16 2,12 Z" fill="${a}"/><circle cx="-7" cy="-9" r="5" fill="#fff" opacity=".35"/><ellipse rx="32" ry="7" fill="none" stroke="#ff4a4a" stroke-width="2"/></g>`;
     case 'ojo': return `<g transform="${C}"><circle r="22" fill="#07020f" stroke="#8a3aff" stroke-width="2.5"/><path d="M-28,0 Q0,-20 28,0 Q0,20 -28,0 Z" fill="none" stroke="#8a3aff" stroke-width="1.5" opacity=".6"/><ellipse rx="9" ry="14" fill="${a}" class="pn-eye"/><ellipse rx="5" ry="10" fill="#ffb04a"/><ellipse rx="1.6" ry="8" fill="#fff"/></g>`;
     // (author) the BlueLock logo (generated/collab/bluelock.webp, 960×209, blue) on a light plate with a cyan edge
+    // 2.1: Zanark's horns over a red-eyed mask (the Dominio de Zanark banners)
+    case 'cuernos': return `<g transform="${C}"><path d="M-8,-6 C-14,-14 -22,-18 -30,-16 C-24,-12 -18,-6 -16,2 Z M8,-6 C14,-14 22,-18 30,-16 C24,-12 18,-6 16,2 Z" fill="#f4f0e0" stroke="#1a1a1a" stroke-width="1.6" stroke-linejoin="round"/><path d="M-6,-14 L0,-26 L6,-14 Z" fill="#0e3a40" stroke="#1a1a1a" stroke-width="1.6" stroke-linejoin="round"/><path d="M-17,-8 Q0,-16 17,-8 L15,12 Q0,24 -15,12 Z" fill="#0e3a40" stroke="#1a1a1a" stroke-width="2"/><path d="M-11,0 L-3,3 L-11,5 Z M11,0 L3,3 L11,5 Z" fill="${a}"/></g>`;
+    // 2.1: «Soy todopoderoso»: the ball inside a golden storm sphere, blue lightning around
+    case 'todopoderoso': return `<g transform="${C}"><circle r="28" fill="#ffe94a" opacity=".25"/><circle r="22" fill="#2a1400"/><circle r="20" fill="#c8500a"/><circle r="17.5" fill="#ff8a1a"/>${[[8, 0.2, 2.6], [12, 2.3, 3], [15, 4.1, 2.4], [6, 3.6, 2.2]].map(([rr, st, sw]) => `<path d="M${(Math.cos(st) * rr).toFixed(1)},${(Math.sin(st) * rr).toFixed(1)} A${rr},${rr} 0 0,1 ${(Math.cos(st + 1.8) * rr).toFixed(1)},${(Math.sin(st + 1.8) * rr).toFixed(1)}" stroke="#ffe94a" stroke-width="${sw}" fill="none" stroke-linecap="round"/>`).join('')}<circle cx="-5" cy="-6" r="6" fill="#fff6c8" opacity=".45"/><circle r="7.5" fill="#fff" stroke="#2a1400" stroke-width="1.6"/><path d="M0,-3 L2.9,-.9 L1.8,2.5 L-1.8,2.5 L-2.9,-.9 Z" fill="#2a1400"/>${bolt(-30, -6, 30, 8, 1.8)}${bolt(-16, 24, 6, 30, 1.3)}</g>`;
     case 'bluelock': return `<g transform="${C}"><rect x="-34" y="-11" width="68" height="22" rx="4" fill="#eef8ff" stroke="${a}" stroke-width="2.5"/><rect x="-31.5" y="-8.5" width="63" height="17" rx="2.5" fill="none" stroke="#1f5bff" stroke-width="1" opacity=".5"/><image href="${BL_LOGO}" x="-31" y="-7" width="62" height="13.5" preserveAspectRatio="xMidYMid meet"/></g>`;
   }
 }
@@ -141,6 +160,8 @@ function widePattern(p: PennantPattern, a: string, id: string): string {
     case 'nebulosa': return `<radialGradient id="${id}n" cx=".58" cy=".5" r=".5"><stop offset="0" stop-color="#b04aff" stop-opacity=".6"/><stop offset=".5" stop-color="#4a1a8a" stop-opacity=".25"/><stop offset="1" stop-color="#000" stop-opacity="0"/></radialGradient><rect width="${RW}" height="${RH}" fill="url(#${id}n)"/>`
       + '<ellipse cx="250" cy="70" rx="180" ry="40" fill="#ff3a6a" opacity=".12"/><ellipse cx="1050" cy="40" rx="140" ry="34" fill="#3a6aff" opacity=".14"/>'
       + Array.from({ length: 50 }, (_, k) => `<circle cx="${rnd(k * 3 + 7, RW)}" cy="${rnd(k * 13 + 1, RH)}" r="${k % 6 ? 0.9 : 1.8}" fill="#fff" opacity=".75"/>`).join('');
+    case 'huracan': return [[150, 60, 70], [420, 40, 46], [1000, 64, 66], [1150, 30, 40], [EX, EY, 110]].map(([x, y, r]) => hurricane(x, y, r, a, 0.35)).join('')
+      + [[60, 10, 230, 110], [300, 0, 380, 120], [820, 4, 930, 112], [1080, 0, 1190, 100], [520, 110, 610, 10]].map(([x1, y1, x2, y2]) => bolt(x1, y1, x2, y2, 2.2)).join('');
   }
 }
 
@@ -220,6 +241,10 @@ function ornaments(p: PennantPattern, a: string, c1: string, sq: boolean, id: st
       + around(14, (x, y) => `<circle cx="${x}" cy="${y}" r="1" fill="#fff" opacity=".8"/>`, 66, Math.PI / 14);
     case 'nebulosa': return `<radialGradient id="${id}a" cx=".5" cy=".5" r=".5"><stop offset=".62" stop-color="#b04aff" stop-opacity="0"/><stop offset=".78" stop-color="#b04aff" stop-opacity=".55"/><stop offset="1" stop-color="#000" stop-opacity="0"/></radialGradient><circle cx="${FC}" cy="${FC}" r="70" fill="url(#${id}a)"/>`
       + around(9, (x, y, _g, k) => `<circle cx="${x}" cy="${y}" r="${k % 3 ? 1.4 : 2.4}" fill="${k % 2 ? a : '#fff'}"/>`, 64, 0.2);
+    // 2.1: little golden whirlwinds on the ring with blue sparks jumping between them
+    case 'huracan': return `<g class="fr-storm">${around(6, (x, y) => hurricane(x, y, 9, a, 0.95), 57, 0.3)}</g>`
+      + around(6, (x, y, g) => { const [x2, y2] = onFrame(g + Math.PI / 6, 62, sq); return bolt(x, y, x2, y2, 1.6); }, 60, 0.3)
+      + `<circle cx="${FC}" cy="${FC}" r="62" fill="none" stroke="#5fd8ff" stroke-width="1.2" stroke-dasharray="3 9" opacity=".8"/>`;
   }
 }
 

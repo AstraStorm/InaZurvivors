@@ -70,6 +70,7 @@ import { isSetsuna, setsunaCharge, setsunaShot } from './fxSetsuna';
 import { ultimateElevenCharge, ultimateElevenShot } from './fxUltimateEleven';
 import { nocturneCharge, nocturneShot, NOCTURNE_WIND } from './fxNocturne';
 import { cataclysmCharge, cataclysmShot, isCataclysm } from './fxCataclysm';
+import { almightyCharge, almightyShot, isAlmighty } from './fxAlmighty';
 import { LAST_RESORT_WIND, lastResortCharge, lastResortShot, type LastResort } from './fxLastResort';
 import { applyKeshin, KESHIN_BY_ID, ULT_FIRST_SHARE, ultTech, ultTechLevel, type KeshinId } from '../systems/keshin';
 
@@ -141,6 +142,8 @@ export interface ArenaHooks {
   bossWarn?(): void;
   bossIntro?(b: { name: string; title: string; again: boolean }): void;
   bossDefeated?(): void;
+  /** 2.1: the Llave dorada dropped from a rival this run (the app unlocks the premium pass and says so) */
+  goldKey?(): void;
   /** Altar de despido: the player picks a teammate to send off (never the captain); null = nobody */
   dismiss?(ids: number[]): Promise<number | null>;
 }
@@ -172,6 +175,8 @@ export interface ArenaInit {
   coach?: CoachRun;
   /** pre-2.0: a match of Road to Fútbol Frontier: the boss ends it (no endless) */
   road?: boolean;
+  /** 2.1: the season pass's Llave dorada: chance per rival knocked out (already ×2 in co-op) and its picture; absent = none */
+  goldKey?: { chance: number; texture: string | null };
   /** 2.02: record the run (replay.ts) with this kit and game version in its header; the app uploads it at the end */
   record?: { kit: string | null; version: string };
 }
@@ -345,6 +350,8 @@ export class ArenaScene extends Phaser.Scene {
   private altarsDone = 0;
   private damageDealt = 0;
   private runId = '';
+  /** 2.1: chance of the Llave dorada per rival knocked out (0 once it dropped this run) */
+  private goldChance = 0;
   /** 2.02 Métricas: ultimates cast and the damage dealt right after them, by spirit */
   private ultLog = new Map<string, { casts: number; damage: number }>();
   private ultWin: { spirit: string; until: number } | null = null;
@@ -386,7 +393,7 @@ export class ArenaScene extends Phaser.Scene {
     this.mods = baseMods(); this.taken = {}; this.buffs = new Map(); this.bonusCoins = 0; this.lastUpgrade = null; this.techUses = {}; this.auraTechUses = 0; this.auraCombos = 0; this.guardBlocks = 0;
     this.padHeld = {}; this.xpCombo = 0; this.xpComboUntil = 0; this.techById = {};
     this.rank = rankDef(data.rank); this.shots = []; this.hazards = []; this.nextHazardAt = 20; this.wavePhase = ''; this.stretchAnnounced = false; this.combos = new Map(); this.slowmoUntil = 0; this.hitstopUntil = 0; this.nextHitstop = 0; this.recentKills = []; this.nextSweepCheer = 0; this.endless = null; this.secondWindUsed = false; this.altarsDone = 0; this.damageDealt = 0; this.dismissed = new Set();
-    this.rec = null; this.ultLog = new Map(); this.ultWin = null;
+    this.rec = null; this.ultLog = new Map(); this.ultWin = null; this.goldChance = data.goldKey?.chance ?? 0;
     this.coop = null; this.down = false; this.nextEnemyId = 1; this.nextPickupId = 1; this.coopResumePending = false; this.coopPendingLevels = 0;
     this.runId = crypto.randomUUID?.() ?? `${Date.now()}-${Math.random()}`; this.spawnAcc = 1.2; // first rivals within a second or two
     this.bonusTokens = 0; this.altar = null; this.altarGfx = []; this.altarLook = null; this.altarTag = null; this.rival = null; this.altarRival = null; this.fxCache = null; this.fxAt = -1; this.reviveUsed = false; this.shocks = []; this.campSince = 0; this.campWarned = false; this.nextCampHit = 0; this.nextSurround = 60; this.lastMagnetAt = -MAGNET_GAP_SEC; this.nextAltarAt = FIRST_ALTAR_SEC; this.altarKills = 0; this.freezeUntil = 0; this.lure = null;
@@ -420,6 +427,8 @@ export class ArenaScene extends Phaser.Scene {
       if (!this.textures.exists(key)) this.load.image(key, map.baked.base + f.src);
     }
     if (!this.textures.exists('items')) this.load.atlas('items', m.atlases.items.image, m.atlases.items.json);
+    const gk = this.cfg.goldKey?.texture; // 2.1
+    if (gk && !this.textures.exists('pase:dorada')) this.load.image('pase:dorada', gk);
   }
 
   create() {
@@ -1782,6 +1791,7 @@ export class ArenaScene extends Phaser.Scene {
       if (vb) victorCharge(this, vb, ox, oy, lv, recipe.windupSec * 1000);
       if (isSetsuna(t.name)) setsunaCharge(this, ox, oy, lv, recipe.windupSec * 1000, target.pos.x, target.pos.y, m.f); // author: Impulso efímero redrawn (fxSetsuna.ts)
       if (isCataclysm(t.name)) cataclysmCharge(this, ox, oy, lv, recipe.windupSec * 1000); // author: Golpe cataclismo redrawn (fxCataclysm.ts)
+      if (isAlmighty(t.name)) almightyCharge(this, ox, oy, lv, recipe.windupSec * 1000); // 2.1: Soy todopoderoso (fxAlmighty.ts)
       const s183 = solo183Of(t.name); // 1.83: Disparo sagrado, Tornado dragón (fxCombo183.ts)
       if (s183) solo183Charge(this, s183, ox, oy, lv, recipe.windupSec * 1000);
       const s189 = solo189Of(t.name); // 1.88: Remate del tigre, Fénix, Fénix oscuro
@@ -2277,6 +2287,7 @@ export class ArenaScene extends Phaser.Scene {
       if (vb && k === 0) victorShot(this, vb, ball, lv);
       if (isSetsuna(t.name) && k === 0) setsunaShot(this, ball, lv);
       if (isCataclysm(t.name) && k === 0) cataclysmShot(this, ball, lv);
+      if (isAlmighty(t.name) && k === 0) almightyShot(this, ball, lv);
       const s183 = solo183Of(t.name);
       if (s183 && k === 0) solo183Shot(this, s183, ball, lv);
       const s189 = solo189Of(t.name);
@@ -3188,6 +3199,7 @@ export class ArenaScene extends Phaser.Scene {
     e.dead = true;
     this.coop?.onKill(e.id, style);
     this.rec?.kill(this.runTime, e.id);
+    this.rollGoldKey(e);
     this.kills++;
     this.altarCount(e);
     this.disposeTelegraphs(e);
@@ -4024,6 +4036,7 @@ export class ArenaScene extends Phaser.Scene {
   /** guest: the host knocked a rival out: the same knock-out, without drops (those come from the host too) */
   private killMirror(e: Enemy, style: FxStyle) {
     e.dead = true;
+    this.rollGoldKey(e); // 2.1: the guest rolls on the knock-outs he sees too
     this.altarCount(e);
     this.disposeTelegraphs(e);
     if (e === this.boss) this.boss = null;
@@ -4093,6 +4106,35 @@ export class ArenaScene extends Phaser.Scene {
       combos: [...this.combos].map(([id, st]) => ({ name: COMBOS.find((x) => x.id === id)?.name ?? id, level: st.level })) });
     return { name: c.partnerName, hp: Math.max(0, c.partnerHp.hp), max: c.partnerHp.max, down: c.partnerDown, connected: c.connected, meDown: this.down, revive: c.reviveProgress,
       partnerRevive: c.partnerRevive, picking: c.partnerPicking, meta: c.partnerMeta };
+  }
+
+  /**
+   * 2.1: the Llave dorada (season pass premium). It jumps out of the rival with a golden flash, hangs a moment and flies
+   * into the captain; then the app shows «¡Has obtenido el pase premium!». Only once per run.
+   */
+  private rollGoldKey(e: Enemy) {
+    if (this.goldChance <= 0 || this.cfg.training || Math.random() >= this.goldChance) return;
+    this.goldChance = 0;
+    const x = e.pos.x, y = e.pos.y - 14;
+    this.fx.pillar(x, y + 10, 0xffd23f, 10);
+    this.fx.ring(x, y, 30, 0xffe94a, 500, 4);
+    this.fx.burst('fuego', x, y, 18, 90, true);
+    sfx('legend');
+    const key = this.textures.exists('pase:dorada') ? this.add.image(x, y, 'pase:dorada').setScale(1.4) : this.add.star(x, y, 5, 5, 11, 0xffd23f);
+    key.setDepth(9500);
+    const glow = this.add.circle(x, y, 18, 0xffe94a, 0.35).setDepth(9499);
+    this.tweens.add({ targets: [key, glow], y: y - 34, duration: 520, ease: 'Back.easeOut' });
+    this.tweens.add({ targets: key, angle: 360, duration: 900 });
+    this.tweens.add({ targets: glow, scale: 1.8, alpha: 0.15, duration: 520, yoyo: true, repeat: 1 });
+    this.time.delayedCall(1100, () => {
+      const c = this.members[0]?.f;
+      if (!c || !key.active) { key.destroy(); glow.destroy(); this.cfg.hooks.goldKey?.(); return; }
+      this.tweens.add({ targets: [key, glow], x: c.x, y: c.y - 16, scale: 0.6, duration: 420, ease: 'Quad.easeIn', onComplete: () => {
+        this.fx.ring(c.x, c.y - 12, 26, 0xffd23f, 420, 4);
+        key.destroy(); glow.destroy();
+        this.cfg.hooks.goldKey?.();
+      } });
+    });
   }
 
   /** 2.02 Métricas: the team's active warrior spirit, its ultimates and the damage right after them (null: none, or training) */

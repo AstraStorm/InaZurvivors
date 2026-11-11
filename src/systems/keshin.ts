@@ -163,16 +163,16 @@ export const KESHINS: KeshinDef[] = [
     holders: [{ id: 100538, name: 'Arion Sherwind' }],
     tech: tech(990008, 'Rayo celeste', 'Aire', 'regate', 120, 'Pegaso sube a las nubes de tormenta y descarga un rayo celeste sobre el rival mientras el balón le pasa por al lado.'),
     passive: elemPassive('Brisa vigorosa', 'Mejora el efecto de las supertécnicas de aire de todos los jugadores.', 'Aire') },
-  // Cronus Fourseasons also calls Surtur in the games; he is not in the roster yet (add him here when he is)
+  // Cronus Fourseasons also calls Surtur in the games (2.1: the season pass brings him)
   { id: 'surtur', name: 'Surtur', title: 'Gigante de fuego, Surtur', element: 'Fuego', type: 'tiro', color: '#ff5a2a',
-    holders: [{ id: 10, name: 'Axel Blaze' }, { id: 1085, name: 'Axel Blaze Encapuchado' }],
+    holders: [{ id: 10, name: 'Axel Blaze' }, { id: 1085, name: 'Axel Blaze Encapuchado' }, { id: 900400, name: 'Cronus Fourseasons' }],
     // the same technique Axel already knows: the spirit makes his own one stronger (techFor)
     tech: tech(262, 'Tormenta de fuego', 'Fuego', 'tiro', 125, '¡Desata una tempestad flamígera! Surtur la convierte en un infierno: abre los brazos en un anillo de fuego, la bola de fuego estalla en tornados de llamas alrededor del rival y el suelo sigue ardiendo.'),
     passive: elemPassive('Llamas danzantes', 'Mejora el efecto de las supertécnicas de fuego de todos los jugadores.', 'Fuego') },
   // 2.1 (author): Príncipe del plano astral, Zodíaco (inazuma.fandom: mountain, shot, «Prisión escarlata»), Zanark's.
   // The games: «una oscura energía dirige sus disparos» — here the team's shots curse the rivals they hit
   { id: 'zodiaco', name: 'Zodíaco', title: 'Príncipe del plano astral, Zodíaco', element: 'Montaña', type: 'tiro', color: '#ff1a3a',
-    holders: [{ id: 100242, name: 'Zanark Avalonic' }, { id: 100952, name: 'Zanark + Cao Cao' }], // author: every Zanark, Mixi Max too
+    holders: [{ id: 100242, name: 'Zanark Avalonic' }, { id: 100952, name: 'Zanark + Cao Cao' }, { id: 900401, name: 'Super Zanark' }], // author: every Zanark, Mixi Max too
     tech: tech(990015, 'Prisión escarlata', 'Montaña', 'tiro', 130, 'Zodíaco alza su garra y el balón queda encerrado en un cristal rojo que sale disparado: donde cae, cada rival de alrededor queda preso en su propio cristal escarlata (los jefes solo se frenan) y todos estallan a la vez.'),
     passive: { name: 'Energía oscura', game: 'Una oscura energía dirige sus disparos.',
       text: (k) => `+${pct(0.04 * k)} daño de los tiros y ${pct(0.03 * k)} de probabilidad de maldecir al rival para todo el equipo`, apply: (f, k) => { addType(f, 'tiro', 0.04 * k); f.curse += 0.03 * k; } } },

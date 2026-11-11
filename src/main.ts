@@ -21,6 +21,7 @@ import './stylePass20.css';
 import './stylePass21.css';
 import './styleLobby.css';
 import './styleReplay.css';
+import './styleSeason.css';
 import type { Manifest } from './data/manifest';
 import { applyRosterFixes } from './data/rosterFixes';
 import { applyTechFixes } from './data/techFixes';

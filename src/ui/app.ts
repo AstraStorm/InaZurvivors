@@ -9,7 +9,9 @@ import { deathCause } from '../systems/deathCause';
 import { serverNow, syncServerTime, timeSource, trustedClock } from '../online/serverTime';
 import { PASS, PASS_TOTAL, claimPass, passStatus, type PassReward } from '../systems/weeklyPass';
 import { applyReward, codePlayer, hasRedeemed, INA483_ODDS, normalizeCode, redeemLocal, type CodeReward } from '../systems/promo';
-import { clearRoad, compensateJaden202, jadenProgress, JADEN_ID, ROAD_BY_ID, ROAD_DIFFS, ROAD_SQUAD, roadEligible, roadMatchSec, roadOf, type RoadDiff } from '../systems/road';
+import { activeSeason, addRunXp, buyNormalKey, canClaim as canClaimLevel, claimable, claimLevel, daysTo, giveGoldKey, goldKeyChance, levelOf, levelProgress, rowOpen, seasonEnd, seasonOf, seasonStart, upcomingSeason,
+  GOLD_KEY_CHANCE, GOLD_KEY_COOP, LEVEL_XP, LEVELS, MULTI_FICHAS, NORMAL_KEY_PRICE, RANK_XP, XP_PER_MIN, type Granted, type SeasonReward, type SeasonTrack } from '../systems/seasonPass';
+import { clearRoad, compensateJaden202, jadenProgress, JADEN_EVERY, JADEN_FIRST, JADEN_ID, ROAD_BY_ID, ROAD_DIFFS, ROAD_SQUAD, roadEligible, roadMatchSec, roadOf, type RoadDiff } from '../systems/road';
 import { BANNERS, BANNER_ORDER, bannerPool, bannerPrice, eraOf, featured, featuredMachine, FEATURED_BOOST, perPlayerOdds, rarityOdds, teamChoices, type BannerId } from '../systems/banners';
 import { exportSave, importSave, remapIds, remapTechSlots, storeSave, type SaveData, type ParticleLevel, type Rank } from '../systems/save';
 import { addCopy, eligibleTeams, pull, recordHistory, DUPLICATE_REFUND_BY, PULL_COST, MAX_STARS, starBonus, onboardingPull, type PullResult } from '../systems/gacha';
@@ -220,6 +222,8 @@ export class App {
     if (bluelockUpcoming(serverNow())) m.roster = m.roster.filter((p) => p.exclusive !== 'bluelock' || !!save.owned[String(p.id)]);
     // 2.02 (author): «próximamente» footballers are a secret: nowhere in the game until they are owned
     m.roster = m.roster.filter((p) => p.exclusive !== 'proximamente' || !!save.owned[String(p.id)]);
+    // 2.1: the season pass footballers are a surprise until the season opens (the teaser shows them in silhouette)
+    if (!activeSeason(serverNow())) m.roster = m.roster.filter((p) => p.exclusive !== 'pase' || !!save.owned[String(p.id)]);
     this.byId = new Map(m.roster.map((p) => [p.id, p]));
     setElementArt(m.elements); // author: the original element icons, in every menu from the start
     // the loading screen's runners: their sprites in the cache before the first run (ui/runLoader.ts)
@@ -1084,6 +1088,7 @@ export class App {
     const featR = feat ? effectiveRarity(this.save, feat) : 'comun';
     const featStats = feat ? this.statsOf(feat) : null;
     const promo = this.promoSlides();
+    const seasonNow = activeSeason(serverNow()); // 2.1
     this.show(`<div class="menu-root m4"><div class="menu-lights"><i></i><i></i><i></i><b></b><b></b><b></b></div>
       <header class="m4-top">
         <button class="m4-profile" data-go="profile">${this.profileIcon(46)}${this.save.crest && this.emblemOf(this.save.crest) ? `<img class="m4-crest" src="${this.emblemOf(this.save.crest)}" alt="">` : ''}
@@ -1115,6 +1120,8 @@ export class App {
             + tile('training', 'target', 'ENTRENAMIENTO', 'Prueba técnicas') + tile('coaches', 'crown', 'ENTRENADORES', `${this.save.coaches?.owned.length ?? 0} de ${COACHES.length}`) + tile('kits', 'shirt', 'EQUIPACIONES', 'Uniforme y escudo') + tile('gear', 'boot', 'EQUIPAMIENTO', 'Botas y accesorios') + tile('hall', 'trophy', 'SALÓN', `${(this.save.hall ?? []).length} victorias`))}
           ${group('g-sign', 'capsule', 'FICHAJES', tile('gacha', 'capsule', 'FICHAJES', `${this.save.tokens} fichas`, 0, true) + (thanksActive(serverNow()) ? tile('thanksev', 'gift', 'AGRADECIMIENTO', `${this.save.eventTokens ?? 0} fichas de evento`, 0, true) : '') + (eventActive(serverNow()) ? tile('pnevent', 'gift', 'EVENTO', 'Banners de leyenda', 0, true) : '') + tile('daily', 'shop', 'TIENDA', 'Ofertas del día') + tile('gts', 'gts', 'GTS', 'Intercambios online') + tile('codes', 'gift', 'CÓDIGOS', 'Canjea regalos'))}
           ${group('g-comp', 'crown', 'COMPETICIÓN', tile('missions', 'missions', 'MISIONES', pending ? '¡Por recoger!' : 'Recompensas', pending, !!pending)
+            + (seasonNow ? (() => { const st = seasonOf(this.save, seasonNow), n = claimable(st, 'normal').length + claimable(st, 'premium').length;
+              return tile('season', 'crown', 'TEMPORADA', n ? '¡Premios por reclamar!' : `Pase · nivel ${levelOf(st.xp)}`, n, true); })() : '')
             + tile('pass', 'ticket', 'PASE', pass.available ? '¡Recompensa lista!' : 'Vuelve mañana', pass.available ? 1 : 0, pass.available) + tile('ranking', 'crown', 'RANKING', onlineConfigured() ? 'Global' : 'Tus marcas') + tile('lobby', 'team', 'SALA', 'Todos los jugadores', 0, true)
             + tile('road', 'trophy', 'ROAD TO FF', this.save.road?.active ? `Partido ${this.save.road.active.level + 1} en juego` : 'Nuevo modo', 0, true) + tile('clan', 'team', 'CLANES', this.save.clanSeen ? esc(this.save.clanSeen.name) : 'Juegos del Clan', 0, true) + tile('tierlist', 'cards', 'TIERLISTS', 'Crea y comparte', 0, true) + tile('coop', 'team', 'COOP', 'pre-2.0 · en pruebas', 0, true) + tile('friends', 'gift', 'AMIGOS', 'Invita al coop'))}
         </section>
@@ -1198,6 +1205,7 @@ export class App {
       if (go === 'lobby') void this.lobbyScreen();
       if (go === 'hall') this.hallOfFame();
       if (go === 'pass') this.weeklyPass();
+      if (go === 'season') this.seasonScreen(); // 2.1
       if (go === 'codes') this.codesModal();
       if (go === 'tutorial') this.tutorial();
     });
@@ -1217,6 +1225,7 @@ export class App {
     if (onlineConfigured()) void this.fillMenuGts(); // 1.8
     if (onlineConfigured()) { this.tierFeedCache = null; void this.fillTierFeed('menutier', 1, 24); } // 1.9
     this.wirePromo(promo); // 1.9
+    this.goldKeyUnlock(); // 2.1: the Llave dorada's unlock, once
     void this.fillMenuClan(); // 1.93: the clan chip and the weekly clan prizes
     void this.claimBugBounty(); // 1.85: rewards for fixed bug reports
     this.notiBar(); // 1.88
@@ -1249,6 +1258,16 @@ export class App {
       slides.unshift({ kicker: 'PRÓXIMAMENTE', title: 'Nueva colaboración', text: d > 1 ? `Faltan ${d} días. ¿Quiénes serán?` : '¡Mañana! ¿Quiénes serán?', cta: `${d > 1 ? `${d} días` : 'Mañana'}`, color: '#2a5ad8', tag: d > 1 ? `${d} DÍAS` : 'MAÑANA',
         art: `<span class="m5-soon"><span class="m5-sil">${art(BLUELOCK_EVENT.players)}</span><b class="m5-q">?</b></span>`, act: () => this.toast(d > 1 ? `La nueva colaboración llega en ${d} días` : 'La nueva colaboración llega mañana') });
     }
+    // 2.1 (author): the season pass — once open, its slide; before, «Próximo pase» with its date and the two stars in silhouette
+    const sOpen = activeSeason(now), sNext = upcomingSeason(now);
+    if (sOpen) slides.unshift({ kicker: `${sOpen.name.toUpperCase()} · PASE`, title: sOpen.subtitle, text: `100 niveles jugando partidas. Llave normal en la tienda, llave dorada en los rivales: Cronus al instante y Super Zanark en el nivel 100. Termina en ${this.leftText(seasonEnd(sOpen) - +now)}.`,
+      cta: 'Ver el pase', color: '#ffcc2a', tag: 'NUEVO', art: `<span class="m5-sp">${this.m.pase ? `<img class="m5-key" src="${this.m.pase.dorada}" alt="">` : ''}${art(sOpen.stars)}</span>`, act: () => this.seasonScreen() });
+    else if (sNext) {
+      const d = daysTo(seasonStart(sNext), now), when = new Date(seasonStart(sNext)).toLocaleString('es', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Madrid' });
+      slides.unshift({ kicker: 'PRÓXIMO PASE', title: `${sNext.name}: ${sNext.subtitle}`, text: `Llega el ${when}: 100 niveles, una llave normal y una dorada, y dos futbolistas nuevos. ¿Quiénes serán?`,
+        cta: d > 1 ? `${d} días` : 'Mañana', color: '#ffcc2a', tag: d > 1 ? `${d} DÍAS` : 'MAÑANA',
+        art: `<span class="m5-soon"><span class="m5-sil">${art(sNext.stars)}</span><b class="m5-q">?</b></span>`, act: () => this.devlog('pase-temporada-1') });
+    }
     // (author) Rango Z: the Tuesday update at 12:00; before it, the days left, then a week of «Nuevo»
     if (!rankZOpen(now)) slides.unshift({ kicker: 'PRÓXIMAMENTE · MARTES 12:00', title: 'Rango Z', text: `Más allá del X: más difícil que nada, más puntos en el ranking y las mejores recompensas. ${this.rankZCountdown(true)}.`,
       cta: this.rankZCountdown(), color: '#ff2a45', tag: rankZDaysLeft(now) > 1 ? `${rankZDaysLeft(now)} DÍAS` : 'MAÑANA', art: `<span class="m5-big m5-rz">${zEmblem()}</span>`, act: () => this.toast(`El Rango Z llega el martes 10 a las 12:00 · ${this.rankZCountdown(true)}`) });
@@ -1270,6 +1289,9 @@ export class App {
     // 2.0 (author): the first slide of the menu explains the update and opens its news
     slides.unshift({ kicker: 'NUEVA VERSIÓN', title: 'InaZurvivors 2.0 · Espíritus Guerreros', text: '19 espíritus con definitiva (R), Rango Z, 6 arenas nuevas, técnicas combinadas de leyenda y Fichas EG en clanes y códigos. Toca para verlo todo.',
       cta: 'Ver novedades', color: '#c45aff', tag: '2.0', art: `<span class="m5-big m5-v2">2.0</span>`, act: () => this.devlog('version-2-0-espiritus') });
+    // 2.1 (author): the season pass (or its teaser) leads the carousel
+    const sp = slides.findIndex((x) => x.kicker === 'PRÓXIMO PASE' || x.kicker.endsWith(' · PASE'));
+    if (sp > 0) slides.unshift(...slides.splice(sp, 1));
     return slides;
   }
   private promoHtml(slides: ReturnType<App['promoSlides']>) {
@@ -2114,7 +2136,7 @@ export class App {
     box.className = 'modal road-intro';
     box.innerHTML = `<div class="panel road-intro-card"><small>¡NUEVO MODO!</small><h2>Road to Fútbol Frontier</h2>
       <p>Elige a <b>5 futbolistas del Raimon o de Inazuma Japan</b> (sin Auras; tu entrenador sí cuenta) y supera <b>3, 4 o 5 partidos seguidos</b> hasta la final del Estadio Zeus. Si pierdes uno, se acaba el camino.</p>
-      <ul><li>En <b>Máxima</b>, un <b>Legendario o mejor</b> asegurado al completarlo.</li><li>Complétalo en Máxima <b>10 veces</b> y ficharás a la Leyenda <b>Jaden Evans</b>${jaden ? ` <span class="road-jmug">${this.mug(JADEN_ID, 40)}</span>` : ''}; cada 10 más, otra copia suya.</li><li>Nuevos logros en Misiones.</li></ul>
+      <ul><li>En <b>Máxima</b>, un <b>Legendario o mejor</b> asegurado al completarlo.</li><li>Complétalo en Máxima <b>${JADEN_FIRST} veces</b> y ficharás a la Leyenda <b>Jaden Evans</b>${jaden ? ` <span class="road-jmug">${this.mug(JADEN_ID, 40)}</span>` : ''}; cada ${JADEN_EVERY} más, otra copia suya.</li><li>Nuevos logros en Misiones.</li></ul>
       <div class="cp-actions"><button class="btn big" id="rdgo">¡Vamos!</button><button class="btn blue" id="rdlater">Más tarde</button></div></div>`;
     this.root.appendChild(box);
     const done = () => { box.remove(); this.save.roadIntroSeen = true; this.persist(); };
@@ -2785,7 +2807,7 @@ export class App {
     const link = this.coop?.open ? this.coop : null;
     const ok = onlineConfigured() && signedIn();
     const hero = `<div class="cp-hero"><div class="cp-hero-tx"><small>MODO COOPERATIVO</small><b>Juega con un amigo</b>
-        <span>Cada uno con su equipo, los mismos rivales y una sola barra de experiencia. Si uno cae, el otro lo levanta.</span></div>
+        <span>Cada uno con su equipo, los mismos rivales y una sola barra de experiencia. Si uno cae, el otro lo levanta.</span>${activeSeason(serverNow()) && !this.save.season?.gold ? `<span class="cp-gold">${this.m.pase ? `<img src="${this.m.pase.dorada}" alt="">` : ''}Llave dorada ×${GOLD_KEY_COOP} en cooperativo: ${(GOLD_KEY_CHANCE * GOLD_KEY_COOP * 100).toLocaleString('es', { maximumFractionDigits: 3 })}% por rival</span>` : ''}</div>
       <span class="cp-test" title="Puede tener fallos: si ves alguno, repórtalo desde el 🐞">EN PRUEBAS</span></div>`;
     let body: string;
     if (!ok) body = `<div class="panel cp-panel"><p class="note">El cooperativo necesita una cuenta: entra con Google en Ajustes.</p></div>`;
@@ -4040,6 +4062,139 @@ export class App {
     } catch (e) { box.textContent = /forbidden/.test((e as Error).message) ? 'No tienes permiso para ver este panel.' : `No se pudo cargar: ${(e as Error).message}`; }
   }
 
+  // ---- 2.1 (author): the season pass (systems/seasonPass.ts)
+  /** a run's pass EXP (not training), said in a toast; levels gained are shown in the pass */
+  private seasonRunXp(r: RunResult & { level: number }) {
+    if (this.lastRunTraining) return;
+    const got = addRunXp(this.save, r.timeSec, (r.rank ?? 'C') as Rank, serverNow());
+    if (!got || !got.xp) return;
+    this.persist();
+    window.setTimeout(() => this.toast(got.to > got.from ? `Pase de temporada: +${got.xp} EXP · ¡nivel ${got.to}!` : `Pase de temporada: +${got.xp} EXP`, 3500), 900);
+  }
+
+  /** the Llave dorada dropped in a run: unlocked at once, the big notice over the HUD */
+  private goldKeyDropped() {
+    if (!giveGoldKey(this.save, serverNow())) return;
+    this.persist();
+    const key = this.m.pase?.dorada;
+    document.getElementById('hud')?.insertAdjacentHTML('beforeend', `<div class="gk-flow" id="gkflow"><span class="gk-rays"></span>${key ? `<img class="gk-key" src="${key}" alt="">` : ''}
+      <span class="gk-tx"><small>LLAVE DORADA</small><b>¡Has obtenido el pase premium!</b><em>Ábrelo en el menú al terminar la partida</em></span></div>`);
+    window.setTimeout(() => document.getElementById('gkflow')?.remove(), 4200);
+  }
+
+  /** the menu after a Llave dorada: its unlock, once (the key turns into the lock, the premium row opens) */
+  private goldKeyUnlock() {
+    const def = activeSeason(serverNow());
+    if (!def || !this.save.season || this.save.season.id !== def.id || !this.save.season.gold || this.save.season.goldSeen !== false) return;
+    this.save.season.goldSeen = true;
+    this.persist();
+    sfx('legend');
+    if (this.save.settings.particles !== 'desactivado') confetti(140);
+    const key = this.m.pase?.dorada, star = def.stars[0];
+    document.body.insertAdjacentHTML('beforeend', `<div class="gk-unlock" id="gkunlock"><div class="gk-u-in">
+      <span class="gk-u-rays"></span><span class="gk-u-lock"><i></i>${key ? `<img class="gk-u-key" src="${key}" alt="">` : ''}</span>
+      <small>${esc(def.name.toUpperCase())} · ${esc(def.subtitle.toUpperCase())}</small><b>PASE PREMIUM DESBLOQUEADO</b>
+      ${star ? `<span class="gk-u-star">${this.mug(star, 96)}<span><em>Nivel 1</em>${esc(this.byId.get(star)?.name ?? '')} ya te espera</span></span>` : ''}
+      <div class="gk-u-btns"><button class="btn" id="gkgo">Ver el pase</button><button class="btn blue" id="gkclose">Cerrar</button></div></div></div>`);
+    const close = () => document.getElementById('gkunlock')?.remove();
+    document.getElementById('gkclose')!.addEventListener('click', close);
+    document.getElementById('gkgo')!.addEventListener('click', () => { close(); this.seasonScreen(); });
+  }
+
+  /** a reward's picture and its words */
+  private seasonRewardArt(r: SeasonReward, small = false): { art: string; label: string; rar?: Rarity } {
+    switch (r.kind) {
+      case 'monedas': return { art: `<span class="sp-ic sp-coin">◉</span>`, label: `${r.n.toLocaleString('es')} monedas` };
+      case 'fichas': return { art: `<span class="sp-ic sp-tok">${uiIcon('capsule')}</span>`, label: `${r.n} fichas` };
+      case 'multi': return { art: `<span class="sp-ic sp-multi">${uiIcon('capsule')}<b>×10</b></span>`, label: `Tirada ×10 (${MULTI_FICHAS} fichas)` };
+      case 'eg': return { art: `<span class="sp-ic sp-eg">${this.egIcon(small ? 22 : 28)}</span>`, label: `${r.n} Ficha${r.n > 1 ? 's' : ''} EG` };
+      case 'jugador': { const p = this.byId.get(r.id); return { art: `<span class="sp-mug">${this.mug(r.id, small ? 40 : 56)}</span>`, label: p?.name ?? 'Futbolista', rar: p?.rarity }; }
+      case 'banner': { const d = PENNANT_BY_ID.get(r.id); return { art: `<span class="sp-pn">${pennantSvg(r.id, small ? 26 : 34)}</span>`, label: `Banner: ${d?.name ?? r.id}`, rar: d?.rarity }; }
+      case 'marco': { const d = PENNANT_BY_ID.get(r.id); return { art: `<span class="sp-fr">${this.framed(this.frameFace(), r.id)}</span>`, label: `Marco: ${d?.name ?? r.id}`, rar: d?.rarity }; }
+    }
+  }
+
+  /** pays some levels; says what came in one toast (and a footballer's arrival on its own) */
+  private seasonClaim(levels: [SeasonTrack, number][]) {
+    const def = activeSeason(serverNow());
+    if (!def) return;
+    const got: Granted[] = [];
+    let waiting = false;
+    for (const [track, lv] of levels) { const g = claimLevel(this.save, def, track, lv, this.byId); if (g) got.push(g); else waiting = true; }
+    if (!got.length) { if (waiting) this.toast('Recarga el juego para recibir este premio.'); sfx('error'); return; }
+    this.persist();
+    sfx(got.some((g) => g.player && (g.player.rarity === 'leyenda' || g.player.rarity === 'legendario')) ? 'legend' : 'buy');
+    const sum = { monedas: 0, fichas: 0, eg: 0 };
+    for (const g of got) {
+      if (g.reward.kind === 'monedas') sum.monedas += g.reward.n;
+      if (g.reward.kind === 'fichas') sum.fichas += g.reward.n;
+      if (g.reward.kind === 'multi') sum.fichas += MULTI_FICHAS;
+      if (g.reward.kind === 'eg') sum.eg += g.reward.n;
+    }
+    const parts = [sum.monedas && `${sum.monedas.toLocaleString('es')} monedas`, sum.fichas && `${sum.fichas} fichas`, sum.eg && `${sum.eg} Fichas EG`,
+      ...got.filter((g) => g.player).map((g) => `${g.player!.name}${g.isNew ? ' (¡nuevo!)' : ''}`),
+      ...got.filter((g) => g.reward.kind === 'banner' || g.reward.kind === 'marco').map((g) => PENNANT_BY_ID.get((g.reward as { id: string }).id)?.name ?? '')].filter(Boolean);
+    this.toast(`Pase: ${parts.join(' · ')}`, 4500);
+    if (got.some((g) => g.player && (g.player.rarity === 'leyenda' || g.player.rarity === 'legendario')) && this.save.settings.particles !== 'desactivado') confetti(90);
+    this.seasonScreen();
+  }
+
+  /** the pass: level and EXP, the two keys, and the two rows of 100 levels side by side */
+  seasonScreen() {
+    setMusicContext('menu');
+    const now = serverNow(), def = activeSeason(now);
+    if (!def) { this.toast('El pase de temporada aún no ha empezado.'); this.mainMenu(); return; }
+    const st = seasonOf(this.save, def), lv = levelOf(st.xp), keys = this.m.pase;
+    const ready = (['normal', 'premium'] as SeasonTrack[]).reduce((n, t) => n + claimable(st, t).length, 0);
+    const cell = (track: SeasonTrack, level: number) => {
+      const r = (track === 'normal' ? def.normal : def.premium)[level - 1];
+      const { art, label, rar } = this.seasonRewardArt(r, true);
+      const done = (track === 'normal' ? st.claimedNormal : st.claimedPremium).includes(level);
+      const open = rowOpen(st, track), reached = level <= lv, can = canClaimLevel(st, track, level);
+      const big = r.kind === 'jugador' || r.kind === 'banner' || r.kind === 'marco';
+      return `<button class="sp-cell ${track}${done ? ' done' : can ? ' can' : ''}${reached ? '' : ' far'}${open ? '' : ' shut'}${big ? ' big' : ''}" ${can ? `data-claim="${track}:${level}"` : 'tabindex="-1"'}
+        style="${rar ? `--rc:${RARITY_COLOR[rar]}` : ''}" title="${esc(label)}">${art}<small>${esc(label)}</small>${done ? '<i class="sp-ok">✔</i>' : !open ? '<i class="sp-lock">🔒</i>' : ''}</button>`;
+    };
+    const keyCard = (kind: 'normal' | 'dorada') => {
+      const has = kind === 'normal' ? st.normal : st.gold, img = keys?.[kind];
+      return `<div class="sp-key ${kind}${has ? ' has' : ''}">${img ? `<img src="${img}" alt="">` : ''}<span><b>${kind === 'normal' ? 'Llave normal' : 'Llave dorada'}</b>
+        <small>${kind === 'normal' ? (has ? 'Fila normal abierta' : `Abre la fila normal · Tienda`) : (has ? '¡Fila premium abierta!' : `Cae al derrotar rivales: ${(GOLD_KEY_CHANCE * 100).toLocaleString('es', { maximumFractionDigits: 3 })}% por rival · ×${GOLD_KEY_COOP} en cooperativo`)}</small></span>
+        ${kind === 'normal' && !has ? `<button class="btn small" id="spbuy" ${this.save.coins < NORMAL_KEY_PRICE ? 'disabled' : ''}>${NORMAL_KEY_PRICE.toLocaleString('es')} ◉</button>` : has ? '<em class="sp-has">✔</em>' : ''}</div>`;
+    };
+    const left = seasonEnd(def) - +now;
+    // the season's star prizes, up front: where they are and whether they are already yours
+    const stars = ([['premium', 1], ['premium', 25], ['premium', 75], ['premium', LEVELS]] as [SeasonTrack, number][]).map(([t, n]) => {
+      const r = (t === 'normal' ? def.normal : def.premium)[n - 1], { art, label, rar } = this.seasonRewardArt(r);
+      const done = (t === 'normal' ? st.claimedNormal : st.claimedPremium).includes(n);
+      return `<div class="sp-star${done ? ' done' : ''}" style="--rc:${rar ? RARITY_COLOR[rar] : '#ffcc2a'}">${art}<span><em>${rar ? RARITY_LABEL[rar].toUpperCase() : ''}</em><b>${esc(label.replace(/^(Banner|Marco): /, ''))}</b><small>${t === 'premium' ? 'Premium' : 'Normal'} · nivel ${n}${done ? ' · ✔ tuyo' : ''}</small></span></div>`;
+    }).join('');
+    const showcase = `<span class="sp-show-t">PREMIOS ESTRELLA</span>${stars}`;
+    this.show(`<div class="screen sp-screen">${this.titlebar('Pase de temporada', 'Menú')}
+      <section class="sp-head"><div class="sp-lv"><small>NIVEL</small><b>${lv}</b><em>/ ${LEVELS}</em></div>
+        <div class="sp-info"><small>${esc(def.name.toUpperCase())} · TERMINA EN ${esc(this.leftText(left))}</small><b>${esc(def.subtitle)}</b>
+          <div class="sp-xp"><i style="width:${(levelProgress(st.xp) * 100).toFixed(1)}%"></i><span>${lv >= LEVELS ? '¡Pase completo!' : `${st.xp % LEVEL_XP} / ${LEVEL_XP} EXP`}</span></div>
+          <span class="sp-how">EXP por minuto jugado (${XP_PER_MIN}/min) × rango: ${(['C', 'B', 'A', 'S', 'X', 'Z'] as Rank[]).map((k) => `${k} ×${RANK_XP[k].toLocaleString('es')}`).join(' · ')}</span></div>
+        <div class="sp-keys">${keyCard('normal')}${keyCard('dorada')}</div></section>
+      <section class="sp-show">${showcase}</section>
+      <div class="sp-bar"><span>Fila normal arriba · fila premium abajo</span><button class="btn small" id="spall" ${ready ? '' : 'disabled'}>Reclamar todo${ready ? ` (${ready})` : ''}</button></div>
+      <div class="sp-wrap"><div class="sp-rows" aria-hidden="true"><span class="sp-rl"></span><span class="sp-rl normal">${keys ? `<img src="${keys.normal}" alt="">` : ''}<b>NORMAL</b></span><span class="sp-rl premium">${keys ? `<img src="${keys.dorada}" alt="">` : ''}<b>PREMIUM</b></span></div>
+      <div class="sp-track" id="sptrack">${Array.from({ length: LEVELS }, (_, k) => k + 1).map((n) => `<div class="sp-col${n <= lv ? ' got' : ''}${n === lv ? ' now' : ''}${n % 10 === 0 ? ' ten' : ''}" data-lv="${n}">
+        <span class="sp-n">${n}</span>${cell('normal', n)}${cell('premium', n)}</div>`).join('')}</div></div>
+      <p class="note">Las llaves y los niveles son de esta temporada: cuando termine, empieza una nueva con su propio pase. La EXP cuenta aunque no tengas llave: al abrir una fila puedes reclamar todo lo que ya hayas alcanzado.</p></div>`);
+    this.on('[data-back]', 'click', () => this.mainMenu());
+    const track = document.getElementById('sptrack')!;
+    const at = track.querySelector<HTMLElement>(`[data-lv="${Math.max(1, Math.min(LEVELS, lv))}"]`);
+    if (at) track.scrollLeft = Math.max(0, at.offsetLeft - track.clientWidth / 2 + at.offsetWidth / 2);
+    track.addEventListener('wheel', (e) => { if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) { track.scrollLeft += e.deltaY; e.preventDefault(); } }, { passive: false });
+    this.on('[data-claim]', 'click', (_e, el) => { const [t, n] = el.dataset.claim!.split(':'); this.seasonClaim([[t as SeasonTrack, Number(n)]]); });
+    document.getElementById('spall')?.addEventListener('click', () => this.seasonClaim((['normal', 'premium'] as SeasonTrack[]).flatMap((t) => claimable(st, t).map((n) => [t, n] as [SeasonTrack, number]))));
+    const buy = document.getElementById('spbuy');
+    if (buy) buy.addEventListener('click', () => this.armed(buy, () => {
+      if (buyNormalKey(this.save, serverNow())) { this.persist(); sfx('buy'); this.toast('¡Llave normal! La fila normal del pase está abierta.', 3500); } else sfx('error');
+      this.seasonScreen();
+    }));
+  }
+
   /** 2.02: the Jadens given for clears made under the old Road rule, said once the menu is up */
   private jadenNotice(n: number) {
     if (n > 0) window.setTimeout(() => this.toast(`Road to Fútbol Frontier: ahora Jaden sale a las 3 victorias en Máxima y otra copia cada 5. Por tus victorias recibes ${n === 1 ? 'a Jaden Evans' : `${n} Jaden Evans (él y sus copias)`}.`, 7000), 2500);
@@ -5240,6 +5395,10 @@ export class App {
     this.show(`<div class="screen shop-screen">${this.titlebar('Tienda', 'Menú')}
       <div class="shop-head"><span>${offers.length} ofertas · ${timeSource() === 'servidor' ? 'hora del servidor' : 'hora de este dispositivo'}</span><span>Diarias: ${dayLeft} · Semanal: ${weekLeft}</span></div>
       ${eventActive(serverNow()) ? `<button class="pn-eventcta" id="pnevent"><span class="pn-cta-art">${pennantSvg('supernova', 44)}</span><span><small>EVENTO · TERMINA EN ${this.eventLeftText(serverNow())}</small><b>Banners y marcos de leyenda</b><em>${PENNANT_EVENT.cost.toLocaleString('es')} ◉ la tirada · Míticos al 3%</em></span></button>` : ''}
+      ${(() => { const sd = activeSeason(serverNow()); if (!sd) return ''; const has = seasonOf(this.save, sd).normal; // 2.1
+        return `<h3 class="shop-sec">Pase de temporada</h3><div class="shop-grid"><article class="shop-card sp-shopkey r-raro" style="--rc:${RARITY_COLOR.raro}"><div class="shop-art">${this.m.pase ? `<img class="sp-shopimg" src="${this.m.pase.normal}" alt="">` : ''}</div>
+          <b class="shop-name">Llave normal</b><small class="shop-left">Abre la fila normal del pase de ${esc(sd.name)}: monedas, fichas, tiradas, los jugadores del Dominio de Zanark, banners y un marco.</small>
+          <button class="btn small" id="shopkey" ${has || this.save.coins < NORMAL_KEY_PRICE ? 'disabled' : ''}>${has ? '✔ Tuya' : `${NORMAL_KEY_PRICE.toLocaleString('es')} ◉`}</button></article></div>`; })()}
       ${([['Banners de perfil', PENNANTS], ['Marcos de perfil', FRAMES]] as const).map(([title, list]) => `<h3 class="shop-sec">${title}</h3><div class="shop-grid pn-shop">${list.filter((d) => d.source === 'tienda').map((d) => { const own = hasPennant(this.save, d.id);
         return `<article class="shop-card pn-shopcard r-${d.rarity}" style="--rc:${RARITY_COLOR[d.rarity]}">${isFrame(d) ? `<div class="shop-art fr-prev">${this.framed(this.frameFace(), d.id)}</div>` : `<div class="shop-art pn-prev">${pennantRibbon(d)}</div>`}<b class="shop-name">${esc(d.name)}</b>
           <div class="shop-meta"><span class="rar ${d.rarity}">${RARITY_LABEL[d.rarity].toUpperCase()}</span></div><small class="shop-left">${esc(d.tagline)}</small>
@@ -5250,6 +5409,11 @@ export class App {
     this.on('[data-back]', 'click', () => this.mainMenu());
     this.on('[data-sf]', 'click', (_e, el) => { this.shopFilter = el.dataset.sf ?? 'todas'; this.dailyShop(); });
     document.getElementById('pnevent')?.addEventListener('click', () => this.pennantEvent());
+    const sk = document.getElementById('shopkey'); // 2.1
+    if (sk) sk.addEventListener('click', () => this.armed(sk, () => {
+      if (buyNormalKey(this.save, serverNow())) { this.persist(); sfx('buy'); this.toast('¡Llave normal! Abre el pase desde Competición > Temporada.', 4000); } else sfx('error');
+      this.dailyShop();
+    }));
     this.on('[data-pnbuy]', 'click', (_e, el) => this.armed(el, () => {
       const d = PENNANT_BY_ID.get(el.dataset.pnbuy!);
       if (d && buyPennant(this.save, d.id)) { this.persist(); sfx('buy'); this.toast(`¡${d.name} es tuyo! Póntelo en tu Perfil.`, 3500); } else sfx('error');
@@ -6412,7 +6576,10 @@ export class App {
     return ae ? carrierForRun(this.save, base, base.stats as Record<StatKey, number> | null, ae) : base;
   }
 
+  /** 2.1: the last run was on the training field (no pass EXP) */
+  private lastRunTraining = false;
   startRun(mapId: string, team: RosterEntry[], candidates: RosterEntry[] = team, training?: TrainingSetup, coop?: CoopRun & { rank: Rank }) {
+    this.lastRunTraining = !!training;
     const found = this.m.maps.find((x) => x.id === mapId) ?? (this.clanMap?.id === mapId ? this.clanMap : undefined)!;
     const kitKey = this.clanMatch ? (this.clanData?.kit ?? '') : this.save.kit; // 1.93: the Juegos del Clan are played in the clan's kit
     const map = this.roadMatch ? { ...found, durationSec: roadMatchSec(this.roadMatch.level) } : found; // 1.91: road matches of 1 to 5 minutes
@@ -6471,6 +6638,8 @@ export class App {
       manifest: this.m, map, team: runTeam, unlocked: runUnlocked, auras: runAuras, stars, settings: this.save.settings,
       perks: (() => { const e = applyGear(perkEffects(this.save), this.save, this.gear); kitBonus(this.save.kit, this.m.roster).apply(e); applyCoachPerks(this.benchCoach(), e); return e; })(),
       coach: coachRun(this.benchCoach()), // pre-2.0: his formation and element
+      // 2.1: the season pass's Llave dorada (×2 in co-op), only while a season is open and the key isn't owned
+      goldKey: training ? undefined : { chance: goldKeyChance(this.save, serverNow(), !!coop), texture: this.m.pase?.dorada ?? null },
       // 2.02: recorded for the author (Ajustes > «Compartir mis partidas»); the upload happens in results()
       record: !training && !coop && this.save.settings.shareReplays !== false && onlineConfigured() && signedIn() ? { kit: kitKey || null, version: PUBLIC_VERSION } : undefined,
       kitTeam: kitKey || 'Raimon', shop: this.save.shop, mastery: this.save.mastery, loadout: this.validLoadout(), training, kit: this.m.kits?.[kitKey] ?? null, formation: (this.save.formation as FormationId) in FORMATIONS ? this.save.formation as FormationId : 'equilibrada',
@@ -6485,7 +6654,8 @@ export class App {
         bossIntro: (b) => this.bossIntroFx(b),
         bossDefeated: () => this.bossDefeatedFx(),
         levelUp: (cards, rerolls, reroll, level) => this.levelUpModal(cards, rerolls, reroll, level),
-        end: (r) => { if (this.roadMatch) this.roadEnd(r); else if (this.clanMatch) this.clanEnd(r); else this.results(r); },
+        end: (r) => { this.seasonRunXp(r); if (this.roadMatch) this.roadEnd(r); else if (this.clanMatch) this.clanEnd(r); else this.results(r); },
+        goldKey: () => this.goldKeyDropped(), // 2.1
         pause: () => this.pauseModal(),
         bossDown: () => this.bossDownModal(),
         dismiss: (ids) => this.dismissModal(ids),

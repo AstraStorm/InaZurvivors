@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { EVENT_POOL, FRAMES as ALL_FRAMES, PENNANTS as ALL_PENNANTS, PENNANT_EVENT } from '../src/data/pennants';
 
 // 1.81: the code banners/frames (INA483) are counted apart, in tests/ina483.test.ts; the BlueLock ones, at the end of this file
-const PENNANTS = ALL_PENNANTS.filter((p) => p.source !== 'codigo' && p.source !== 'colab'), FRAMES = ALL_FRAMES.filter((p) => p.source !== 'codigo' && p.source !== 'colab');
+const PENNANTS = ALL_PENNANTS.filter((p) => p.source !== 'codigo' && p.source !== 'colab' && p.source !== 'pase'), FRAMES = ALL_FRAMES.filter((p) => p.source !== 'codigo' && p.source !== 'colab' && p.source !== 'pase'); // 2.1: the season pass ones are counted in seasonPass.test.ts
 import { buyPennant, equipFrame, equippedFrame, equipPennant, equippedPennant, eventActive, eventEnd, eventOdds, eventStart, grantAchievementPennants, pullEvent } from '../src/systems/pennants';
 import { exportSave, importSave, newSave, validate } from '../src/systems/save';
 import { BLUELOCK_EVENT, recordBluelockWin } from '../src/systems/collabEvent';

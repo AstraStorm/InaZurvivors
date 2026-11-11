@@ -106,8 +106,8 @@ export function bluelockFiller(roster: RosterEntry[]): RosterEntry[] {
 
 export function bannerPool(roster: RosterEntry[], banner: BannerId, team?: string): RosterEntry[] {
   // pre-2.0: «road» exclusives (Jaden Evans) come only from Road to Fútbol Frontier, never from a machine
-  // 2.02: «proximamente» (Shawn Froste Sin Bufanda) can't be got anywhere yet
-  if (banner === 'evento') return roster.filter((p) => (p.exclusive && p.exclusive !== 'road' && p.exclusive !== 'bluelock' && p.exclusive !== 'proximamente') || (EVENT_FILLER_IDS.includes(p.id) && EVENT_FILLER.includes(p.rarity)));
+  // 2.02: «proximamente» footballers can't be got anywhere yet; 2.1: «pase» ones only from the season pass
+  if (banner === 'evento') return roster.filter((p) => (p.exclusive && p.exclusive !== 'road' && p.exclusive !== 'bluelock' && p.exclusive !== 'proximamente' && p.exclusive !== 'pase') || (EVENT_FILLER_IDS.includes(p.id) && EVENT_FILLER.includes(p.rarity)));
   // (author) InaZurvivors x BlueLock: its two footballers and the morralla
   if (banner === 'bluelock') return [...roster.filter((p) => p.exclusive === 'bluelock'), ...bluelockFiller(roster)];
   // special footballers (data/special_players.json) only come out of their own banner

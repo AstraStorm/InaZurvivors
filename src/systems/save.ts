@@ -93,6 +93,8 @@ export interface SaveData {
   drakul153?: boolean;
   /** 2.02: the Jadens owed by the new Road rule were already given (road.ts compensateJaden202) */
   jaden202?: boolean;
+  /** 2.1: the season pass of the current season (seasonPass.ts); another season's is replaced when it is read */
+  season?: SeasonSave;
   /** v1.65: profile banners owned and the one shown (pennants.ts) */
   pennants?: { owned: string[]; equipped?: string; frame?: string };
   /** pre-2.0: coaches owned and the one on the bench (coaches.ts) */
@@ -154,6 +156,29 @@ export interface SaveData {
 }
 
 export type Rank = 'C' | 'B' | 'A' | 'S' | 'X' | 'Z';
+
+/** 2.1: a season pass in the save (systems/seasonPass.ts) */
+export interface SeasonSave {
+  id: string; xp: number;
+  /** keys of this season */
+  normal: boolean; gold: boolean;
+  /** levels claimed on each row */
+  claimedNormal: number[]; claimedPremium: number[];
+  /** false until the menu has played the golden key's unlock */
+  goldSeen?: boolean;
+}
+const PASS_LEVELS = 100, PASS_MAX_XP = 100 * 150;
+/** a save's pass as it came (cloud or local), with sane numbers; seasons are named T1, T2... */
+export function sanitizeSeason(v: unknown): SeasonSave | undefined {
+  if (!v || typeof v !== 'object') return undefined;
+  const o = v as Record<string, unknown>;
+  if (typeof o.id !== 'string' || !/^T\d{1,3}$/.test(o.id)) return undefined;
+  const lv = (a: unknown) => [...new Set((Array.isArray(a) ? a : []).map(Number).filter((n) => Number.isInteger(n) && n >= 1 && n <= PASS_LEVELS))].sort((x, y) => x - y);
+  const out: SeasonSave = { id: o.id, xp: Math.max(0, Math.min(PASS_MAX_XP, Math.floor(Number(o.xp) || 0))), normal: o.normal === true, gold: o.gold === true,
+    claimedNormal: lv(o.claimedNormal), claimedPremium: lv(o.claimedPremium) };
+  if (o.goldSeen === false) out.goldSeen = false;
+  return out;
+}
 
 export interface MissionState {
   counters: Record<string, number>; // lifetime
@@ -328,6 +353,8 @@ export function validate(s: SaveData): SaveData {
   s.trainTokens = Math.max(0, Math.floor(num(s.trainTokens, 0)));
   s.eventTokens = Math.max(0, Math.floor(num(s.eventTokens, 0)));
   s.egTokens = Math.max(0, Math.floor(num(s.egTokens, 0)));
+  const season = sanitizeSeason(s.season);
+  if (season) s.season = season; else delete s.season;
   s.blWins = Math.max(0, Math.floor(num(s.blWins, 0)));
   if (!s.blWins) delete s.blWins;
   // 2.0: spirit levels 1-6 by footballer id (which footballers really have one is checked where it is used, keshin.ts)

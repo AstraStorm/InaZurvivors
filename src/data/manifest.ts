@@ -163,6 +163,8 @@ export interface Manifest {
   evoIcons?: Record<string, string>;
   /** 2.0: Espíritus Guerreros art (tools/eg_assets.py): portraits by spirit id, level symbols 2-6, Ficha EG, badge */
   eg?: { ficha: string; insignia: string; levels: Record<string, string>; spirits: Record<string, string> } | null;
+  /** 2.1: the season pass keys (tools/pase_assets.py) */
+  pase?: { normal: string; dorada: string } | null;
   /** the original element icons (Sprites Inazuma/Elementos), by element name */
   elements?: Record<string, string>;
   /** collab logos for their banners (generated/collab), by collab id */
