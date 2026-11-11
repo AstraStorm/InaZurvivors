@@ -35,12 +35,12 @@ export const AUTHOR_NEWS: NewsItem[] = [
   {
     id: 'pase-temporada-1', kind: 'novedad', date: '2026-11-11', icon: '👑', pinned: true,
     title: 'Llega el pase de temporada (12 de noviembre)',
-    summary: 'El 12 de noviembre a las 15:00 empieza la Temporada 1: un pase de 100 niveles con una fila normal y otra premium, dos futbolistas nuevos y el ranking por temporadas.',
+    summary: 'El 12 de noviembre a las 15:00 empieza la Temporada 1: un pase de 125 niveles con una fila normal y otra premium, dos futbolistas nuevos y el ranking por temporadas.',
     blocks: [
       { callout: 'info', text: 'La **Temporada 1** empieza el **12 de noviembre a las 15:00**, a la vez que la nueva colaboración, y dura **un mes**: hasta el **12 de diciembre a las 15:00**.' },
       { h: 'El pase', icon: '🎟️' },
       { list: [
-        '**100 niveles** que se suben **jugando partidas**: cada minuto jugado da EXP, y **cuanto más alto el rango, más EXP**.',
+        '**125 niveles** que se suben **jugando partidas**: cada minuto jugado da EXP, y **cuanto más alto el rango, más EXP**.',
         'Dos filas de premios: la **normal** y la **premium**. La EXP cuenta siempre; cuando abras una fila, reclamas todo lo que ya hayas alcanzado.',
         'Completarlo entero lleva como mínimo unas **15-20 partidas** en los rangos más altos.',
       ] },
@@ -51,7 +51,7 @@ export const AUTHOR_NEWS: NewsItem[] = [
       ] },
       { h: 'Qué hay dentro', icon: '🎁' },
       { list: [
-        '**Dos futbolistas nuevos**: uno **Legendario** nada más abrir la fila premium y uno **Leyenda** en el nivel 100. ¿Quiénes serán? Míralos en silueta en el menú.',
+        '**Dos futbolistas nuevos**: uno **Legendario** nada más abrir la fila premium y uno **Leyenda** en el nivel 100. Del 105 al 125, **una copia más del Leyenda cada 5 niveles** para ascenderlo. ¿Quiénes serán? Míralos en silueta en el menú.',
         'Fila normal: monedas, fichas, tiradas, **jugadores de un equipo nuevo para tu club**, dos **banners** de perfil y un **marco**.',
         'Fila premium: **mucho oro**, fichas, **tiradas ×10**, **Fichas EG**, un **banner** y un **marco Legendarios** exclusivos de la temporada.',
       ] },
@@ -94,7 +94,7 @@ export const AUTHOR_NEWS: NewsItem[] = [
   {
     id: 'pase-temporada-1-abierto', kind: 'evento', date: '2026-11-12', icon: '👑', pinned: true, from: '2026-11-12T15:00:00+01:00',
     title: '¡Ya está aquí el pase de la Temporada 1: Soy todopoderoso!',
-    summary: 'Cronus Fourseasons (Legendario, con Surtur) al conseguir la llave dorada y Super Zanark (Leyenda, con Zodíaco) en el nivel 100. Hasta el 12 de diciembre.',
+    summary: 'Cronus Fourseasons (Legendario, con Surtur) al conseguir la llave dorada y Super Zanark (Leyenda, con Zodíaco) en el nivel 100, y más copias suyas hasta el 125. Hasta el 12 de diciembre.',
     blocks: [
       { callout: 'nuevo', text: 'El **pase de la Temporada 1** está abierto hasta el **12 de diciembre a las 15:00**. Lo tienes en **Competición > Temporada**.' },
       { h: 'Los dos fichajes', icon: '⭐' },

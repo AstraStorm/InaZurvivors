@@ -167,7 +167,7 @@ export interface SeasonSave {
   /** false until the menu has played the golden key's unlock */
   goldSeen?: boolean;
 }
-const PASS_LEVELS = 100, PASS_MAX_XP = 100 * 150;
+const PASS_LEVELS = 125, PASS_MAX_XP = 125 * 140; // seasonPass.ts LEVELS × LEVEL_XP
 /** a save's pass as it came (cloud or local), with sane numbers; seasons are named T1, T2... */
 export function sanitizeSeason(v: unknown): SeasonSave | undefined {
   if (!v || typeof v !== 'object') return undefined;

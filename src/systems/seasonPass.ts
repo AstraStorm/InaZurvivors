@@ -1,10 +1,12 @@
 /**
  * 2.1 (author): the season pass. A season lasts about a month; the ranking season ends with it. Every minute played
- * gives pass EXP, more on higher ranks; 100 levels, and maxing everything takes at least 15-20 runs on the top ranks.
+ * gives pass EXP, more on higher ranks; 125 levels, and maxing everything takes at least 15-20 runs on the top ranks.
  *
  *   fila normal   opened with the Llave normal, bought in the shop for 15.000 coins
  *   fila premium  opened with the Llave dorada, which only drops in a run: 0,005% for every rival knocked out (×2 in
- *                 co-op); its level 1 is Cronus (Legendario) and its level 100 Super Zanark (Leyenda)
+ *                 co-op); its level 1 is Cronus (Legendario) and its level 100 Super Zanark (Leyenda). 2.1 (author): levels
+ *                 101-125 give a copy of Super Zanark every 5 levels — enough for CAMPEÓN+, one short of CAMPEÓN++, which only
+ *                 the ranking's top 1 reaches (his prize is one more copy)
  *
  * EXP is earned with or without keys: opening a row lets the player claim every level already reached. What a row pays
  * stays inside the per-level limits the server allows for a claimed level (economy_cap, migration season_pass), so
@@ -39,8 +41,8 @@ export interface SeasonDef {
   stars: number[];
 }
 
-export const LEVELS = 100;
-export const LEVEL_XP = 150;
+export const LEVELS = 125;
+export const LEVEL_XP = 140;
 /** EXP per minute played, before the rank */
 export const XP_PER_MIN = 30;
 export const RANK_XP: Record<Rank, number> = { C: 1, B: 1.2, A: 1.45, S: 1.75, X: 2.1, Z: 2.5 };
@@ -62,11 +64,13 @@ function season1(): Pick<SeasonDef, 'normal' | 'premium'> {
   const domainAt = new Map(ZANARK_DOMAIN.map((id, k) => [3 + k * 6, id])); // levels 3, 9, ... 87
   const normalSpecial: Record<number, SeasonReward> = {
     20: { kind: 'banner', id: 'pase-dominio' }, 40: { kind: 'banner', id: 'pase-cuernos' }, 60: { kind: 'marco', id: 'marco-dominio' },
-    100: { kind: 'eg', n: 2 },
+    100: { kind: 'eg', n: 2 }, 125: { kind: 'eg', n: 3 },
   };
   const premiumSpecial: Record<number, SeasonReward> = {
     1: { kind: 'jugador', id: CRONUS_ID }, 25: { kind: 'banner', id: 'todopoderoso' }, 50: { kind: 'jugador', id: 100242 },
     75: { kind: 'marco', id: 'marco-todopoderoso' }, 100: { kind: 'jugador', id: SUPER_ZANARK_ID },
+    // his duplicates for the Campeón ascension (1 + 2 = CAMPEÓN+ with two to spare; the ranking's top 1 adds the last one for ++)
+    ...Object.fromEntries([105, 110, 115, 120, 125].map((lv) => [lv, { kind: 'jugador', id: SUPER_ZANARK_ID } as SeasonReward])),
   };
   for (let lv = 1; lv <= LEVELS; lv++) {
     normal.push(normalSpecial[lv] ?? (domainAt.has(lv) ? { kind: 'jugador', id: domainAt.get(lv)! }

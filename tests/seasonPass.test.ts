@@ -38,7 +38,10 @@ describe('2.1 season pass', () => {
       }
     }
     expect(T1.premium[0]).toEqual({ kind: 'jugador', id: CRONUS_ID });
-    expect(T1.premium[LEVELS - 1]).toEqual({ kind: 'jugador', id: SUPER_ZANARK_ID });
+    expect(T1.premium[99]).toEqual({ kind: 'jugador', id: SUPER_ZANARK_ID });
+    // 2.1 (author): his copies every 5 levels after 100: CAMPEÓN+ (1 + 2) with two to spare, one short of ++ (3)
+    expect(T1.premium.slice(100).filter((r) => r.kind === 'jugador' && r.id === SUPER_ZANARK_ID)).toHaveLength(5);
+    expect(LEVELS).toBe(125);
     expect(T1.normal.filter((r) => r.kind === 'jugador')).toHaveLength(15); // the Zanark Domain
     expect(T1.normal.filter((r) => r.kind === 'banner')).toHaveLength(2);
     expect(T1.normal.filter((r) => r.kind === 'marco')).toHaveLength(1);
@@ -76,7 +79,7 @@ describe('2.1 season pass', () => {
   });
 
   it('the save keeps sane numbers', () => {
-    expect(sanitizeSeason({ id: 'T1', xp: 1e9, normal: true, gold: 'x', claimedNormal: [3, 3, 0, 101, 2.5, '7'], claimedPremium: null }))
+    expect(sanitizeSeason({ id: 'T1', xp: 1e9, normal: true, gold: 'x', claimedNormal: [3, 3, 0, 126, 2.5, '7'], claimedPremium: null }))
       .toEqual({ id: 'T1', xp: LEVELS * LEVEL_XP, normal: true, gold: false, claimedNormal: [3, 7], claimedPremium: [] });
     expect(sanitizeSeason({ id: 'otra' })).toBeUndefined();
   });

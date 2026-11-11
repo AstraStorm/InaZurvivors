@@ -1262,11 +1262,11 @@ export class App {
     }
     // 2.1 (author): the season pass — once open, its slide; before, «Próximo pase» with its date and the two stars in silhouette
     const sOpen = activeSeason(now), sNext = upcomingSeason(now);
-    if (sOpen) slides.unshift({ kicker: `${sOpen.name.toUpperCase()} · PASE`, title: sOpen.subtitle, text: `100 niveles jugando partidas. Llave normal en la tienda, llave dorada en los rivales: Cronus al instante y Super Zanark en el nivel 100. Termina en ${this.leftText(seasonEnd(sOpen) - +now)}.`,
+    if (sOpen) slides.unshift({ kicker: `${sOpen.name.toUpperCase()} · PASE`, title: sOpen.subtitle, text: `${LEVELS} niveles jugando partidas. Llave normal en la tienda, llave dorada en los rivales: Cronus al instante y Super Zanark en el nivel 100. Termina en ${this.leftText(seasonEnd(sOpen) - +now)}.`,
       cta: 'Ver el pase', color: '#ffcc2a', tag: 'NUEVO', art: `<span class="m5-sp">${this.m.pase ? `<img class="m5-key" src="${this.m.pase.dorada}" alt="">` : ''}${art(sOpen.stars)}</span>`, act: () => this.seasonScreen() });
     else if (sNext) {
       const d = daysTo(seasonStart(sNext), now), when = new Date(seasonStart(sNext)).toLocaleString('es', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Madrid' });
-      slides.unshift({ kicker: 'PRÓXIMO PASE', title: `${sNext.name}: ${sNext.subtitle}`, text: `Llega el ${when}: 100 niveles, una llave normal y una dorada, y dos futbolistas nuevos. ¿Quiénes serán?`,
+      slides.unshift({ kicker: 'PRÓXIMO PASE', title: `${sNext.name}: ${sNext.subtitle}`, text: `Llega el ${when}: ${LEVELS} niveles, una llave normal y una dorada, y dos futbolistas nuevos. ¿Quiénes serán?`,
         cta: d > 1 ? `${d} días` : 'Mañana', color: '#ffcc2a', tag: d > 1 ? `${d} DÍAS` : 'MAÑANA',
         art: `<span class="m5-soon"><span class="m5-sil">${art(sNext.stars)}</span><b class="m5-q">?</b></span>`, act: () => this.devlog('pase-temporada-1') });
     }
@@ -4214,7 +4214,7 @@ export class App {
     };
     const left = seasonEnd(def) - +now;
     // the season's star prizes, up front: where they are and whether they are already yours
-    const stars = ([['premium', 1], ['premium', 25], ['premium', 75], ['premium', LEVELS]] as [SeasonTrack, number][]).map(([t, n]) => {
+    const stars = ([['premium', 1], ['premium', 25], ['premium', 75], ['premium', 100]] as [SeasonTrack, number][]).map(([t, n]) => {
       const r = (t === 'normal' ? def.normal : def.premium)[n - 1], { art, label, rar } = this.seasonRewardArt(r);
       const done = (t === 'normal' ? st.claimedNormal : st.claimedPremium).includes(n);
       return `<div class="sp-star${done ? ' done' : ''}" style="--rc:${rar ? RARITY_COLOR[rar] : '#ffcc2a'}">${art}<span><em>${rar ? RARITY_LABEL[rar].toUpperCase() : ''}</em><b>${esc(label.replace(/^(Banner|Marco): /, ''))}</b><small>${t === 'premium' ? 'Premium' : 'Normal'} · nivel ${n}${done ? ' · ✔ tuyo' : ''}</small></span></div>`;

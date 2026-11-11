@@ -17,6 +17,7 @@ export const CHANGELOG: Release[] = [
   {
     version: '11.0', date: '2026-11-11', title: '2.1 Temporadas: pase de temporada',
     features: [
+      'Pase de 125 niveles (autor): del 105 al 125 una copia de Super Zanark cada 5 niveles → CAMPEÓN+ y una corta de CAMPEÓN++, que solo alcanza el top 1 del ranking (su premio es otra copia). LEVEL_XP 140 (~19 partidas de 12 min en Z); migración pass_125 (economy_cap hasta 250 niveles reclamados) APLICADA.',
       'Pase de temporada (autor): systems/seasonPass.ts (SEASONS T1 12-11 15:00 → 12-12 15:00, 100 niveles × 150 EXP, 30 EXP/min × rango C1…Z2,5, fila normal con Llave normal 15.000 ◉, fila premium con Llave dorada 0,005%/rival ×2 co-op desde ArenaScene.rollGoldKey). Cronus Fourseasons 900400 (Legendario, Surtur) premium 1, Super Zanark 900401 (Leyenda, Zodíaco) premium 100, exclusive «pase» ocultos hasta que abre; Zanark Domain en la fila normal; banners/marcos source «pase» (patrón huracan, emblemas cuernos y todopoderoso).',
       'Servidor (migración season_pass): private.seasons y economy_cap deja 120 fichas y 6000 ◉ por nivel nuevo reclamado en la temporada, contra el máximo visto (private.season_claims).',
       'Teaser «Próximo pase» en el carrusel con siluetas; noticias pase-temporada-1 y pase-temporada-1-abierto (from 12-11 15:00).',
