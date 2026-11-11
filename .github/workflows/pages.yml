@@ -7,11 +7,11 @@ name: Deploy InaZurvivors (web)
 on:
   push:
     branches: [main]
-  # (author) the 2.0 goes live by itself on Tuesday 10 November 2026 at 12:00 Madrid (11:00 UTC; GitHub may run it a few
-  # minutes late). It is the same as a manual run with «publicar». Remove this schedule once the 2.0 is out, or it would
-  # run again every 10 November.
+  # (author) the 2.11 (season pass screen, gold names) goes live by itself on Thursday 12 November 2026 at 12:00 Madrid
+  # (11:00 UTC; GitHub may run it a few minutes late), before the Temporada 1 opens at 15:00. It is the same as a manual
+  # run with «publicar». The date check in the build job stops it from deploying again every 12 November.
   schedule:
-    - cron: '0 11 10 11 *'
+    - cron: '0 11 12 11 *'
   workflow_dispatch:
     inputs:
       publicar:
@@ -115,10 +115,10 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: La publicación programada solo vale para la 2.0 (10 de noviembre de 2026)
+      - name: La publicación programada solo vale para la 2.11 (12 de noviembre de 2026)
         if: github.event_name == 'schedule'
         run: |
-          if [ "$(date -u +%Y-%m-%d)" != "2026-11-10" ]; then echo "Publicación programada fuera de fecha, no se despliega"; exit 1; fi
+          if [ "$(date -u +%Y-%m-%d)" != "2026-11-12" ]; then echo "Publicación programada fuera de fecha, no se despliega"; exit 1; fi
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
