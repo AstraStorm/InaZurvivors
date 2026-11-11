@@ -39,8 +39,14 @@
 .m4-dot { position: absolute; top: -3px; right: -3px; width: 10px; height: 10px; border-radius: 50%; background: var(--bad); border: 2px solid #0a1022; }
 .m4-tools .tiktok svg { width: 34px; height: 34px; border-radius: 8px; border-width: 1px; }
 .m4-itch { text-decoration: none; } .m4-itch svg { width: 18px; height: 18px; fill: currentColor; }
-/* the bar has no room for it on narrower screens (it stays in Créditos) */
-@media (max-width: 960px) { .m4-itch { display: none; } }
+/* 2.02: narrower windows (the bar used to run off the right edge below ~900 px): icon-only tools, then two rows */
+@media (max-width: 1000px) { .m4-tool > span { display: none; } }
+@media (max-width: 920px) and (min-height: 521px) { .m4-top { flex-wrap: wrap; row-gap: 6px; } .m4-top .spacer { display: none; } .m4-wallet { margin-left: auto; } .m4-tools { margin-left: auto; } }
+/* phones held sideways stay on one row: the clan chip keeps only its name */
+@media (max-width: 920px) and (max-height: 520px) { .m4-clanchip small, .m4-clanchip em { display: none; } .m4-clanchip { padding: 3px 8px 3px 3px; margin-left: 4px; } .m4-clanchip b { max-width: 90px; } }
+@media (max-width: 820px) and (max-height: 520px) { .m4-profile > span:last-child { display: none; } .m4-profile { padding: 2px; } }
+@media (max-width: 700px) and (max-height: 520px) { .m4-top .m4-clanchip > span:last-child { display: none; } .m4-clanchip { padding: 3px; } }
+@media (max-width: 640px) and (max-height: 520px) { .m4-wallet { gap: 3px; } .m4-wallet .tokens, .m4-wallet .coins, .m4-wallet .egt { padding: 3px 7px; font-size: 9px; } .m4-tools { gap: 2px; } .m4-top { gap: 6px; } }
 
 /* ---------------------------------------------------------------- main menu: stage */
 .m4-stage { flex: 1 0 auto; min-height: calc(100vh - 150px); display: grid; grid-template-columns: minmax(0, 530px) minmax(0, 1fr) minmax(0, 270px); gap: 18px; align-items: center; }
