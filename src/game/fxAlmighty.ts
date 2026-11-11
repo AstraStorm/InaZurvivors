@@ -81,16 +81,27 @@ export function almightyShot(scene: S, ball: Img, lv: number) {
   const k = 1 + lv * 0.05, x0 = ball.x, y0 = ball.y;
   ride(scene, ball, (g, bx, by, ang, t) => {
     const nx = -Math.sin(ang), ny = Math.cos(ang), dx = Math.cos(ang), dy = Math.sin(ang), w = (6 + lv * 0.4) * k;
-    // golden storm streaks trailing it, waving
-    const back = Math.min(140 * k, Math.hypot(bx - x0, by - y0));
-    for (let s = 0; s < 5; s++) {
-      const off = (s - 2) * w * 0.7, ph = t * 14 + s * 1.3;
-      let px = bx + nx * off, py = by + ny * off;
-      for (let i = 1; i <= 9; i++) {
-        const d = (i / 9) * back, wav = Math.sin(ph - i * 0.9) * w * 0.9 * (i / 9);
-        const qx = bx - dx * d + nx * (off * (1 + i * 0.12) + wav), qy = by - dy * d + ny * (off * (1 + i * 0.12) + wav);
-        g.lineStyle(Math.max(1, (3.5 - i * 0.3) * k), [GOLD, ORANGE, GOLD2, DEEP, GOLD][s], 0.9 - i * 0.08).lineBetween(px, py, qx, qy);
-        px = qx; py = qy;
+    // 2.1 (author's sketch): the hurricane it leaves — a golden cone with the ball at its tip, opening behind it, wound with
+    // spinning loops (each loop an ellipse across the cone, drawn back to front, the far side fainter)
+    const back = Math.min(170 * k, Math.hypot(bx - x0, by - y0)), wide = 34 * k;
+    if (back > 4) {
+      const at = (d: number, side: number) => [bx - dx * d + nx * side, by - dy * d + ny * side] as const;
+      const [lx, ly] = at(back, wide), [rx, ry] = at(back, -wide);
+      g.fillStyle(GOLD, 0.16).fillTriangle(bx, by, lx, ly, rx, ry);
+      g.lineStyle(2.4 * k, GOLD, 0.95).lineBetween(bx, by, lx, ly).lineBetween(bx, by, rx, ry);
+      const loops = 7, spin = (t * 4.5) % 1;
+      for (let i = 0; i < loops; i++) {
+        const u = (i + spin) / loops, d = u * back, half = wide * u, len = Math.max(2, half * 0.42);
+        if (half < 2) continue;
+        const [cx, cy] = at(d, Math.sin(t * 9 + i * 1.7) * half * 0.12);
+        const fade = Math.min(1, u * 3) * (1 - Math.max(0, u - 0.85) / 0.15);
+        // the loop: an ellipse across the cone (its long axis along the normal), front half bright, back half dim
+        const pts = Array.from({ length: 19 }, (_, j) => { const a = (j / 18) * Math.PI * 2; return [cx + nx * Math.cos(a) * half - dx * Math.sin(a) * len, cy + ny * Math.cos(a) * half - dy * Math.sin(a) * len] as const; });
+        for (let j = 0; j < 18; j++) {
+          const front = j < 9;
+          g.lineStyle(Math.max(1.2, (front ? 2.8 : 1.6) * k), front ? (i % 2 ? GOLD : GOLD2) : ORANGE, (front ? 0.95 : 0.5) * fade)
+            .lineBetween(pts[j][0], pts[j][1], pts[j + 1][0], pts[j + 1][1]);
+        }
       }
     }
     // the blue-white sphere of energy, blue lightning wrapped round it

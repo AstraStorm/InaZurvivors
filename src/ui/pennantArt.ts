@@ -241,10 +241,15 @@ function ornaments(p: PennantPattern, a: string, c1: string, sq: boolean, id: st
       + around(14, (x, y) => `<circle cx="${x}" cy="${y}" r="1" fill="#fff" opacity=".8"/>`, 66, Math.PI / 14);
     case 'nebulosa': return `<radialGradient id="${id}a" cx=".5" cy=".5" r=".5"><stop offset=".62" stop-color="#b04aff" stop-opacity="0"/><stop offset=".78" stop-color="#b04aff" stop-opacity=".55"/><stop offset="1" stop-color="#000" stop-opacity="0"/></radialGradient><circle cx="${FC}" cy="${FC}" r="70" fill="url(#${id}a)"/>`
       + around(9, (x, y, _g, k) => `<circle cx="${x}" cy="${y}" r="${k % 3 ? 1.4 : 2.4}" fill="${k % 2 ? a : '#fff'}"/>`, 64, 0.2);
-    // 2.1: little golden whirlwinds on the ring with blue sparks jumping between them
-    case 'huracan': return `<g class="fr-storm">${around(6, (x, y) => hurricane(x, y, 9, a, 0.95), 57, 0.3)}</g>`
-      + around(6, (x, y, g) => { const [x2, y2] = onFrame(g + Math.PI / 6, 62, sq); return bolt(x, y, x2, y2, 1.6); }, 60, 0.3)
-      + `<circle cx="${FC}" cy="${FC}" r="62" fill="none" stroke="#5fd8ff" stroke-width="1.2" stroke-dasharray="3 9" opacity=".8"/>`;
+    // 2.1 (author's sketch): the ring wrapped in yellow hurricane curls, close together and overlapping, blue sparks in
+    // between; each curl a little loop that turns back on itself, at slightly different radii, sizes and turns
+    case 'huracan': {
+      const curl = (k: number, g: number) => { const [x, y] = onFrame(g, 56 + (((k * 37) % 7) - 3) * 0.9, sq), sc = 0.85 + (k % 3) * 0.22;
+        return `<path d="M-8,4 C-9,-7 7,-9 7,-1 C7,6 -3,7 -3,1 C-3,-3 2,-4 3,-1" transform="translate(${x.toFixed(1)} ${y.toFixed(1)}) rotate(${((deg(g) + 90 + k * 47) % 360).toFixed(0)}) scale(${sc.toFixed(2)})" fill="none" stroke="${k % 4 === 1 ? '#fff6c8' : a}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>`; };
+      const curls = Array.from({ length: 22 }, (_, k) => curl(k, (k / 22) * Math.PI * 2 + 0.07)).join('');
+      const sparks = Array.from({ length: 11 }, (_, k) => { const g = (k / 11) * Math.PI * 2 + 0.2, [x1, y1] = onFrame(g, 49, sq), [x2, y2] = onFrame(g + 0.18, 64, sq); return bolt(x1, y1, x2, y2, 1.1); }).join('');
+      return `<g class="fr-storm">${curls}</g>${sparks}`;
+    }
   }
 }
 
@@ -313,6 +318,8 @@ export function frameSvg(def: PennantDef | string | null | undefined, square = f
       ? `<path d="M-13,-12 L13,-12 L13,1 Q13,11 0,16 Q-13,11 -13,1 Z" fill="${p.c2}" stroke="${p.accent}" stroke-width="2.4"/>` // 1.93: a shield for the clan
       : p.emblem === 'bluelock' ? '' // (author) BlueLock: its logo plate, wide enough to read
       : `<circle r="12.5" fill="${p.c2}" stroke="${p.rarity === 'leyenda' ? `url(#${id}r)` : p.accent}" stroke-width="2.4"/>`}${emblem(p.emblem, p.accent, p.emblem === 'bluelock' ? 'translate(0 2) scale(.7)' : 'scale(.36)')}</g>
-    ${top ? `<g transform="translate(${FC} 127)"><path d="M0,-7 L7,0 L0,7 L-7,0 Z" fill="${p.accent}" stroke="${p.c2}" stroke-width="1.6"/><path d="M0,-4 L3,0 L0,4 L-3,0 Z" fill="#fff" opacity=".8"/></g>` : ''}
+    ${top ? `<g transform="translate(${FC} 127)">${p.pattern === 'huracan' // 2.1 (author's sketch): a round gem under the storm
+      ? `<ellipse rx="8" ry="6.5" fill="${p.accent}" stroke="#2a1400" stroke-width="1.8"/><ellipse cx="-2" cy="-2" rx="3" ry="2.2" fill="#fff" opacity=".8"/>`
+      : `<path d="M0,-7 L7,0 L0,7 L-7,0 Z" fill="${p.accent}" stroke="${p.c2}" stroke-width="1.6"/><path d="M0,-4 L3,0 L0,4 L-3,0 Z" fill="#fff" opacity=".8"/>`}</g>` : ''}
   </svg>`;
 }
