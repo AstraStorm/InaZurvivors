@@ -71,7 +71,7 @@ import type { CoopRun } from '../game/coopArena';
 import { applyCoachPerks, COACH_BY_ID, COACH_PULL_CHANCE, COACHES, coachesOfMachine, coachRun, PASSIVE_ICON, passiveText as coachPassiveText, type CoachDef } from '../data/coaches';
 import { clashWith } from '../systems/identity';
 import { applyGtsLedger, canLeave, gtsBanned, gtsError, gtsSlots, gtsSpare, type GtsRow } from '../systems/gts';
-import { accountId, adminBugReports, adminMetrics, adminPlayerStats, adminUpdateBug, amIAdmin, consumeAuthRedirect, deleteAccount, deleteMyBugReports, deleteShot, myBugReports, notifyBug, shotUrl, submitBugReport, uploadShot, getCloudSave, leaderboard, myPosition, profileBanners, profileFrames, publicProfile, type PublicProfile, myProfile, onlineConfigured, putCloudSave, reserveUsername, resetMyProgress, signedEmail, signedIn, signInWithGoogle, signOut, submitScore, usernameAvailable, type BoardQuery, type BoardRow, type BugFilter, type BugRow, type CloudSave } from '../online/client';
+import { accountId, adminBugReports, adminMetrics, adminPlayerStats, adminUpdateBug, amIAdmin, consumeAuthRedirect, deleteAccount, deleteMyBugReports, deleteShot, myBugReports, notifyBug, shotUrl, submitBugReport, uploadShot, getCloudSave, leaderboard, myPosition, passHolders, profileBanners, profileFrames, publicProfile, type PublicProfile, myProfile, onlineConfigured, putCloudSave, reserveUsername, resetMyProgress, signedEmail, signedIn, signInWithGoogle, signOut, submitScore, usernameAvailable, type BoardQuery, type BoardRow, type BugFilter, type BugRow, type CloudSave } from '../online/client';
 import { backup, linkPlan, progressOf, summarize, type SaveSummary } from '../online/cloudSync';
 import { epochOf, freshProgress, resetSummary } from '../systems/resetProgress';
 import { scoreOf, localBoard, mapMult, recordBest } from '../systems/leaderboard';
@@ -1947,7 +1947,7 @@ export class App {
       return `<div class="rank-row${pos <= 3 ? ` top${pos}` : ''}${mine ? ' mine' : ''}${rb ? ' has-pn' : ''}" style="--d:${Math.min(pos, 15) * 40}ms"${onlineConfigured() ? ` data-user="${esc(name)}" title="Ver el perfil de ${esc(name)}"` : ''}>
         ${rb}<span class="rk-pos">${pos <= 3 ? ['🥇', '🥈', '🥉'][pos - 1] : `#${pos}`}</span>
         ${this.framed(`<span class="rk-av${p ? ` r-${p.rarity}` : ''}${this.champLevel(name, captain) ? ' champ' : ''}">${p ? this.mug(p.id, 48) : ''}</span>`, this.frameOf(name))}
-        <span class="rk-name"><b>${esc(name)}</b>${this.clanBadge(name)}${this.champTag(name, captain)}<small>${esc(mapName(map))}</small></span>
+        <span class="rk-name"><b class="${this.goldName(name).trim()}">${esc(name)}</b>${this.clanBadge(name)}${this.champTag(name, captain)}<small>${esc(mapName(map))}</small></span>
         ${crest && this.emblemOf(crest) ? `<img class="rk-crest" src="${this.emblemOf(crest)}" alt="">` : '<span class="rk-crest"></span>'}
         <span class="rank-btn r-${rank} rk-r">${rankMark(rank)}</span>
         <span class="rk-num rk-pts${q.order === 'score' || q.order === 'rank' ? ' on' : ''}"><b>${pts.toLocaleString('es')}</b><small>puntos</small></span>
@@ -1998,6 +1998,7 @@ export class App {
     await Promise.all([
       profileBanners(want).then((got) => { for (const n of want) this.flagCache.delete(n.toLowerCase()); for (const r of got) if (PENNANT_BY_ID.has(r.banner)) this.flagCache.set(r.username.toLowerCase(), r.banner); }).catch(() => { /* the board shows without banners */ }),
       profileFrames(want).then((got) => { for (const n of want) this.frameCache.delete(n.toLowerCase()); for (const r of got) if (isFrame(PENNANT_BY_ID.get(r.frame))) this.frameCache.set(r.username.toLowerCase(), r.frame); }).catch(() => { /* without frames */ }),
+      passHolders(want).then((got) => { for (const n of want) this.goldCache.delete(n.toLowerCase()); for (const r of got) this.goldCache.add(r.username.toLowerCase()); }).catch(() => { /* names in white (the function may not be on the server yet) */ }), // 2.11
       clanOf(want).then((got) => { for (const n of want) this.clanCache.delete(n.toLowerCase()); for (const r of got) this.clanCache.set(r.username.toLowerCase(), { name: r.clan, crest: r.crest }); }).catch(() => { /* without clans */ }), // 1.93
     ]);
   }
@@ -2050,10 +2051,17 @@ export class App {
     const id = me ? equippedPennant(this.save)?.id : this.flagCache.get(name.toLowerCase());
     return id ? pennantRibbon(id) : '';
   }
+  /** 2.11 (author): the names of whoever holds this season's Llave dorada go in gold on the boards; mine from my save */
+  private goldCache = new Set<string>();
+  private goldName(name: string) {
+    const me = (this.save.onlineName ?? this.save.profile.name).toLowerCase() === name.toLowerCase();
+    const def = me ? activeSeason(serverNow()) : null;
+    return (me ? !!def && this.save.season?.id === def.id && this.save.season.gold : this.goldCache.has(name.toLowerCase())) ? ' pass-gold' : '';
+  }
   /** a podium name on its banner ribbon (author: banners across, Clash Royale style) */
   private namePlate(cls: string, name: string) {
     const rb = this.flagMini(name);
-    return `<b class="${cls}${rb ? ' pn-plate' : ''}">${rb}<span>${esc(name)}</span></b>`;
+    return `<b class="${cls}${rb ? ' pn-plate' : ''}${this.goldName(name)}">${rb}<span>${esc(name)}</span></b>`;
   }
   private pennantCard(def: PennantDef, extra = '', attrs = '') {
     return `<div class="pn-card r-${def.rarity}" style="--rc:${RARITY_COLOR[def.rarity]}" ${attrs} title="${esc(def.tagline)}">${isFrame(def) ? `<span class="fr-prev">${this.framed(this.frameFace(), def.id)}</span>` : `<span class="pn-prev">${pennantRibbon(def)}</span>`}<b>${esc(def.name)}</b><small>${RARITY_LABEL[def.rarity]}</small>${extra}</div>`;
@@ -3399,7 +3407,7 @@ export class App {
       const row = (r: BoardRow, me = false) => {
         const p = cap(r.captain_id), rb = this.flagMini(r.username);
         return `<div class="wr-row${me ? ' me' : ''}${rb ? ' has-pn' : ''}" data-user="${esc(r.username)}" title="Ver el perfil de ${esc(r.username)}">${rb}<span class="wr-pos">#${r.pos}</span>${this.framed(`<span class="wr-mini">${p ? this.mug(p.id, 40) : ''}</span>`, this.frameOf(r.username))}
-          <span class="wr-who"><b>${esc(r.username)}</b>${this.clanBadge(r.username)}${this.champTag(r.username, r.captain_id)}<small>${p ? esc(p.name) : ''}</small></span>${crest(r.crest)}
+          <span class="wr-who"><b class="${this.goldName(r.username).trim()}">${esc(r.username)}</b>${this.clanBadge(r.username)}${this.champTag(r.username, r.captain_id)}<small>${p ? esc(p.name) : ''}</small></span>${crest(r.crest)}
           <span class="rank-btn r-${r.rank}">${rankMark(r.rank)}</span><span class="wr-num"><b>${pts(r).toLocaleString('es')} pts</b><small>${fmtTime(r.time_sec)} · ${Number(r.damage).toLocaleString('es')} daño</small></span></div>`;
       };
       el.innerHTML = top.length
@@ -4203,9 +4211,22 @@ export class App {
       const done = (track === 'normal' ? st.claimedNormal : st.claimedPremium).includes(level);
       const open = rowOpen(st, track), reached = level <= lv, can = canClaimLevel(st, track, level);
       const big = r.kind === 'jugador' || r.kind === 'banner' || r.kind === 'marco';
-      return `<button class="sp-cell ${track}${done ? ' done' : can ? ' can' : ''}${reached ? '' : ' far'}${open ? '' : ' shut'}${big ? ' big' : ''}" ${can ? `data-claim="${track}:${level}"` : 'tabindex="-1"'}
-        style="${rar ? `--rc:${RARITY_COLOR[rar]}` : ''}" title="${esc(label)}">${art}<small>${esc(label)}</small>${done ? '<i class="sp-ok">✔</i>' : !open ? '<i class="sp-lock">🔒</i>' : ''}</button>`;
+      // 2.11: amounts big with their unit under them; prizes say their rarity; a shut row shows its key, not a padlock
+      const words = r.kind === 'monedas' ? `<b class="sp-amt coin">${r.n.toLocaleString('es')}</b><small>monedas</small>`
+        : r.kind === 'fichas' ? `<b class="sp-amt tok">${r.n}</b><small>fichas</small>`
+        : r.kind === 'eg' ? `<b class="sp-amt eg">${r.n}</b><small>Ficha${r.n > 1 ? 's' : ''} EG</small>`
+        : r.kind === 'multi' ? `<small class="sp-nm">Tirada ×10</small>`
+        : `<small class="sp-nm">${esc(label.replace(/^(Banner|Marco): /, ''))}</small>${rar ? `<em class="sp-tag">${r.kind === 'jugador' ? RARITY_LABEL[rar] : r.kind === 'marco' ? 'Marco' : 'Banner'}</em>` : ''}`;
+      const key = keys?.[track === 'normal' ? 'normal' : 'dorada'];
+      return `<button class="sp-cell ${track} k-${r.kind}${done ? ' done' : can ? ' can' : ''}${reached ? '' : ' far'}${open ? '' : ' shut'}${big ? ' big' : ''}" ${can ? `data-claim="${track}:${level}"` : 'tabindex="-1"'}
+        style="${rar ? `--rc:${RARITY_COLOR[rar]}` : ''}" title="${esc(label)}">${art}${words}${done ? '<i class="sp-ok">✔</i>' : !open ? `<i class="sp-lock">${key ? `<img src="${key}" alt="">` : '🔒'}</i>` : ''}</button>`;
     };
+    // the next big prize ahead (a footballer, banner or frame), to have something to aim at
+    const next = Array.from({ length: LEVELS - lv }, (_, k) => lv + 1 + k).flatMap((n) => (['premium', 'normal'] as SeasonTrack[]).map((t) => [t, n] as [SeasonTrack, number]))
+      .find(([t, n]) => ['jugador', 'banner', 'marco'].includes((t === 'normal' ? def.normal : def.premium)[n - 1].kind));
+    const nextTxt = next ? (() => { const { label } = this.seasonRewardArt((next[0] === 'normal' ? def.normal : def.premium)[next[1] - 1]);
+      return `Próximo gran premio: <b>${esc(label)}</b> · nivel ${next[1]} ${next[0] === 'premium' ? '(premium)' : ''} · faltan ${next[1] - lv}`; })() : '¡Todos los grandes premios alcanzados!';
+    const finale = def.premium[LEVELS - 1]?.kind === 'jugador' ? (def.premium[LEVELS - 1] as { id: number }).id : null;
     const keyCard = (kind: 'normal' | 'dorada') => {
       const has = kind === 'normal' ? st.normal : st.gold, img = keys?.[kind];
       return `<div class="sp-key ${kind}${has ? ' has' : ''}">${img ? `<img src="${img}" alt="">` : ''}<span><b>${kind === 'normal' ? 'Llave normal' : 'Llave dorada'}</b>
@@ -4221,16 +4242,16 @@ export class App {
     }).join('');
     const showcase = `<span class="sp-show-t">PREMIOS ESTRELLA</span>${stars}`;
     this.show(`<div class="screen sp-screen">${this.titlebar('Pase de temporada', 'Menú')}
-      <section class="sp-head"><div class="sp-lv"><small>NIVEL</small><b>${lv}</b><em>/ ${LEVELS}</em></div>
+      <section class="sp-head">${finale != null ? `<span class="sp-hero" aria-hidden="true">${this.mug(finale, 160)}</span>` : ''}<div class="sp-lv"><small>NIVEL</small><b>${lv}</b><em>/ ${LEVELS}</em></div>
         <div class="sp-info"><small>${esc(def.name.toUpperCase())} · TERMINA EN ${esc(this.leftText(left))}</small><b>${esc(def.subtitle)}</b>
           <div class="sp-xp"><i style="width:${(levelProgress(st.xp) * 100).toFixed(1)}%"></i><span>${lv >= LEVELS ? '¡Pase completo!' : `${st.xp % LEVEL_XP} / ${LEVEL_XP} EXP`}</span></div>
           <span class="sp-how">EXP por minuto jugado (${XP_PER_MIN}/min) × rango: ${(['C', 'B', 'A', 'S', 'X', 'Z'] as Rank[]).map((k) => `${k} ×${RANK_XP[k].toLocaleString('es')}`).join(' · ')}</span></div>
         <div class="sp-keys">${keyCard('normal')}${keyCard('dorada')}</div></section>
       <section class="sp-show">${showcase}</section>
-      <div class="sp-bar"><span>Fila normal arriba · fila premium abajo</span><button class="btn small" id="spall" ${ready ? '' : 'disabled'}>Reclamar todo${ready ? ` (${ready})` : ''}</button></div>
+      <div class="sp-bar"><span class="sp-next">${nextTxt}</span><button class="btn small" id="spall" ${ready ? '' : 'disabled'}>Reclamar todo${ready ? ` (${ready})` : ''}</button></div>
       <div class="sp-wrap"><div class="sp-rows" aria-hidden="true"><span class="sp-rl"></span><span class="sp-rl normal">${keys ? `<img src="${keys.normal}" alt="">` : ''}<b>NORMAL</b></span><span class="sp-rl premium">${keys ? `<img src="${keys.dorada}" alt="">` : ''}<b>PREMIUM</b></span></div>
       <div class="sp-track" id="sptrack">${Array.from({ length: LEVELS }, (_, k) => k + 1).map((n) => `<div class="sp-col${n <= lv ? ' got' : ''}${n === lv ? ' now' : ''}${n % 10 === 0 ? ' ten' : ''}" data-lv="${n}">
-        <span class="sp-n">${n}</span>${cell('normal', n)}${cell('premium', n)}</div>`).join('')}</div></div>
+        <span class="sp-n">${n}${n === lv ? '<i class="sp-you">TÚ</i>' : ''}</span>${cell('normal', n)}${cell('premium', n)}</div>`).join('')}</div></div>
       <p class="note">Las llaves y los niveles son de esta temporada: cuando termine, empieza una nueva con su propio pase. La EXP cuenta aunque no tengas llave: al abrir una fila puedes reclamar todo lo que ya hayas alcanzado.</p></div>`);
     this.on('[data-back]', 'click', () => this.mainMenu());
     const track = document.getElementById('sptrack')!;

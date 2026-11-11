@@ -185,6 +185,8 @@ export const publicProfile = (username: string) => rpc<PublicProfile | null>('pu
 /** v1.65: the banners shown by these names (profile_banners.sql); names without one are left out */
 export const profileBanners = (usernames: string[]) => rpc<{ username: string; banner: string }[]>('profile_banners', { p_usernames: usernames.slice(0, 60) }, false);
 export const profileFrames = (usernames: string[]) => rpc<{ username: string; frame: string }[]>('profile_frames', { p_usernames: usernames.slice(0, 60) }, false);
+/** 2.11: which of these names hold the Llave dorada of the season open now (pass_holders.sql) */
+export const passHolders = (usernames: string[]) => rpc<{ username: string }[]>('pass_holders', { p_usernames: usernames.slice(0, 60) }, false);
 export const myPosition = async (q: BoardQuery) => (await rpc<BoardRow[]>('my_position', { p_map: q.map, p_rank: q.rank, p_order: q.order }))[0] ?? null;
 
 export const submitScore = (runId: string, map: string, rank: string, timeSec: number, damage: number, captainId: number) =>

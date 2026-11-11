@@ -1,8 +1,15 @@
 /* 2.1 Pase de temporada (app.seasonScreen, systems/seasonPass.ts). Only transform/opacity animations (no animated
    shadows or filters: they repaint every frame). */
 .sp-screen { --sp-gold: #ffcc2a; --sp-blue: #5fd8ff; }
-.sp-head { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 14px; align-items: center; padding: 12px 14px; margin-bottom: 10px; border-radius: 16px;
+.sp-head { position: relative; overflow: hidden; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 14px; align-items: center; padding: 12px 14px; margin-bottom: 10px; border-radius: 16px;
   background: radial-gradient(120% 140% at 0% 0%, #4a3200 0%, #1a1004 45%, #070b1e 100%); border: 1px solid #ffcc2a55; box-shadow: inset 0 0 0 1px #ffffff10, 0 8px 22px #0009; }
+.sp-head > :not(.sp-hero) { position: relative; z-index: 1; }
+/* 2.11: the season's last prize looks over the header, and still rays behind (no animation: it is a big area) */
+.sp-head::before { content: ''; position: absolute; left: 50%; top: 50%; width: 1400px; height: 1400px; margin: -700px 0 0 -700px; pointer-events: none;
+  background: repeating-conic-gradient(from 0deg, #ffcc2a0d 0 6deg, transparent 6deg 15deg); }
+.sp-hero { position: absolute; right: 300px; bottom: -26px; z-index: 0; opacity: .38; pointer-events: none; line-height: 0;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 40%, #000 60%, transparent); mask-image: linear-gradient(90deg, transparent, #000 40%, #000 60%, transparent); }
+.sp-hero .mug { display: block; }
 .sp-lv { display: grid; place-items: center; width: 92px; height: 92px; border-radius: 50%; text-align: center; line-height: 1;
   background: radial-gradient(circle at 35% 30%, #fff6c8, var(--sp-gold) 45%, #8a5a00 100%); color: #2a1800; box-shadow: 0 0 0 4px #2a1800, 0 0 22px #ffcc2a88; }
 .sp-lv small { font-size: 7px; letter-spacing: 2px; margin-top: 14px; }
@@ -23,6 +30,7 @@
 .sp-key.dorada { border-color: #ffcc2a66; background: linear-gradient(90deg, #3a2600d9, #0a1438d9); }
 .sp-key.has { border-color: #8fffa066; } .sp-key.has small { color: #8fffa0; }
 .sp-has { font-style: normal; color: #8fffa0; font-size: 14px; }
+.sp-next b { font-weight: normal; color: var(--sp-gold); }
 .sp-bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 4px 2px 8px; font-size: 8px; color: var(--muted); }
 
 .sp-show { display: flex; align-items: stretch; gap: 8px; margin-bottom: 10px; overflow-x: auto; padding-bottom: 2px; }
@@ -38,8 +46,7 @@
 .sp-star small { font-size: 7px; color: var(--muted); }
 .sp-star.done { opacity: .7; }
 .sp-star .sp-mug { box-shadow: 0 0 0 2px var(--rc), 0 0 14px color-mix(in srgb, var(--rc) 60%, transparent); }
-.sp-star .sp-fr { flex: none; margin: 0 18px 0 16px; }
-.sp-star .sp-fr, .sp-star .sp-fr > * { width: 50px !important; height: 50px !important; }
+.sp-star .sp-fr { flex: none; zoom: .9; margin: 0 16px 0 14px; }
 .sp-wrap { display: flex; align-items: stretch; }
 .sp-rows { flex: none; display: flex; flex-direction: column; gap: 6px; padding: 6px 0 12px; margin-right: 6px; }
 .sp-rl { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; width: 64px; border-radius: 10px; font-size: 7px; letter-spacing: 1px; }
@@ -52,23 +59,36 @@
 .sp-track { flex: 1; min-width: 0; display: flex; gap: 6px; overflow-x: auto; overflow-y: hidden; padding: 6px 4px 12px; scroll-behavior: smooth; scrollbar-color: #ffcc2a66 transparent; }
 .sp-screen { --sp-cell: 120px; }
 .sp-col { flex: none; width: 100px; display: flex; flex-direction: column; gap: 6px; align-items: stretch; }
-.sp-n { text-align: center; font-size: 9px; color: var(--muted); padding: 3px 0; border-radius: 6px; background: #ffffff0d; }
+.sp-n { position: relative; text-align: center; font-size: 9px; color: var(--muted); padding: 3px 0; border-radius: 6px; background: #ffffff0d; }
+.sp-n::before { content: ''; position: absolute; right: 100%; top: 50%; width: 6px; height: 3px; margin-top: -1.5px; background: #ffffff14; }
+.sp-col:first-child .sp-n::before { display: none; }
+.sp-col.got .sp-n::before { background: var(--sp-gold); }
+.sp-you { font-style: normal; font-size: 6px; margin-left: 4px; padding: 1px 3px; border-radius: 3px; background: var(--sp-gold); color: #2a1800; vertical-align: 1px; }
 .sp-col.got .sp-n { color: #2a1800; background: var(--sp-gold); }
 .sp-col.now .sp-n { background: #fff; color: #2a1800; box-shadow: 0 0 0 2px var(--sp-gold); }
 .sp-col.ten .sp-n { font-size: 11px; letter-spacing: 1px; }
 .sp-cell.big .sp-mug .mug { transform: scale(1.12); }
 .sp-cell { font: inherit; color: #fff; position: relative; height: var(--sp-cell); padding: 6px 4px; border-radius: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
   background: #0c1a44; border: 1px solid #ffffff1c; cursor: default; text-align: center; overflow: hidden; }
-.sp-cell.premium { background: linear-gradient(180deg, #3a2600, #120c02); border-color: #ffcc2a55; }
+.sp-cell.normal { background: linear-gradient(180deg, #13265e, #0a1438); }
+.sp-cell.premium { background: repeating-linear-gradient(135deg, #ffcc2a08 0 8px, transparent 8px 16px), linear-gradient(180deg, #4a3100, #160e02); border-color: #ffcc2a66; }
+.sp-cell.big .sp-mug { box-shadow: 0 0 0 2px var(--rc, #fff), 0 0 16px color-mix(in srgb, var(--rc, #ffcc2a) 70%, transparent); }
+.sp-cell.big .sp-pn { filter: drop-shadow(0 0 6px color-mix(in srgb, var(--rc, #ffcc2a) 70%, transparent)); }
 .sp-cell.big { border-color: var(--rc, #ffcc2a); box-shadow: inset 0 0 0 1px var(--rc, #ffcc2a), inset 0 0 18px color-mix(in srgb, var(--rc, #ffcc2a) 35%, transparent); }
 .sp-cell small { font-size: 6.5px; line-height: 1.35; color: #dbe6ff; max-height: 3.9em; overflow: hidden; }
-.sp-cell.far { opacity: .55; }
-.sp-cell.shut::after { content: ''; position: absolute; inset: 0; background: #02061aa8; }
+.sp-amt { font-weight: normal; font-size: 12px; line-height: 1; margin-bottom: -3px; text-shadow: 1px 1px 0 #000; }
+.sp-amt.coin { color: #ffd23f; } .sp-amt.tok { color: #7fd3ff; } .sp-amt.eg { color: #d8a8ff; } .sp-amt.multi { color: #ff9ae0; }
+.sp-cell .sp-nm { color: #fff; max-width: 100%; }
+.sp-tag { font-style: normal; font-size: 5.5px; letter-spacing: 1px; text-transform: uppercase; padding: 2px 4px; border-radius: 3px; margin-top: -2px;
+  background: var(--rc, #ffcc2a); color: #10061a; }
+.sp-cell.far { opacity: .7; }
+.sp-cell.shut::after { content: ''; position: absolute; inset: 0; z-index: 1; background: #02061a80; }
 .sp-cell.done { opacity: .6; }
 .sp-cell.can { cursor: pointer; border-color: #8fffa0; box-shadow: 0 0 0 2px #8fffa0, 0 0 14px #8fffa077; }
 .sp-cell.can::before { content: '¡RECLAMAR!'; position: absolute; top: 3px; left: 50%; transform: translateX(-50%); font-size: 6px; color: #04140a; background: #8fffa0; border-radius: 4px; padding: 1px 4px; z-index: 1; }
 .sp-cell.can:hover { transform: translateY(-2px); }
-.sp-ok, .sp-lock { position: absolute; z-index: 2; right: 5px; bottom: 4px; font-style: normal; font-size: 12px; }
+.sp-ok, .sp-lock { position: absolute !important; z-index: 2; right: 5px; bottom: 4px; font-style: normal; font-size: 12px; line-height: 0; }
+.sp-lock img { width: 18px; height: 18px; image-rendering: pixelated; filter: drop-shadow(0 1px 0 #000); }
 .sp-ok { color: #8fffa0; }
 .sp-ic { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; font-size: 18px; position: relative; }
 .sp-coin { color: #ffd23f; background: radial-gradient(circle, #5a3a00, #1a1000); box-shadow: inset 0 0 0 2px #ffd23f88; }
@@ -79,8 +99,8 @@
 .sp-mug { display: block; border-radius: 8px; overflow: hidden; box-shadow: 0 0 0 2px var(--rc, #fff); }
 .sp-mug .mug { display: block; }
 .sp-pn svg { display: block; }
-.sp-fr { position: relative; width: 40px; height: 40px; display: block; }
-.sp-fr > * { width: 40px !important; height: 40px !important; }
+.sp-fr { position: relative; display: block; flex: none; line-height: 0; }
+.sp-cell .sp-fr { zoom: .62; margin: 10px 0 6px; }
 .sp-shopimg { width: 64px; height: 64px; image-rendering: pixelated; margin: auto; display: block; }
 
 /* in a run: the Llave dorada */
@@ -134,7 +154,12 @@
   .sp-star { min-width: 150px; padding: 6px 8px; gap: 8px; }
   .sp-star b { white-space: normal; font-size: 8px; line-height: 1.35; }
   .sp-star .sp-mug .mug { width: 44px !important; height: 44px !important; }
-  .sp-star .sp-fr { margin: 0 12px 0 10px; } .sp-star .sp-fr, .sp-star .sp-fr > * { width: 38px !important; height: 38px !important; }
+  .sp-star .sp-fr { zoom: .7; margin: 0 12px 0 10px; }
+  .sp-cell .sp-fr { zoom: .54; }
+  .sp-hero { right: -20px; opacity: .2; }
+  /* the star prizes stand up on a phone: picture on top, words under it (side by side they squashed the names) */
+  .sp-star { flex-direction: column; text-align: center; min-width: 128px; justify-content: flex-start; }
+  .sp-star > span:last-child { align-items: center; }
   .sp-bar { flex-wrap: wrap; }
 }
 @media (max-height: 520px) and (orientation: landscape) {
@@ -142,6 +167,7 @@
   .sp-head { padding: 8px 10px; } .sp-lv { width: 60px; height: 60px; } .sp-lv b { font-size: 22px; } .sp-lv small, .sp-lv em { display: none; }
   .sp-how { display: none; }
   .sp-show { display: none; }
+  .sp-tag { display: none; } .sp-cell .sp-fr { zoom: .46; margin: 6px 0 2px; } .sp-cell { gap: 4px; }
 }
 @media (min-height: 860px) and (min-width: 1100px) { .sp-screen { --sp-cell: 140px; } .sp-col { width: 112px; } }
 @media (prefers-reduced-motion: reduce) { .gk-rays, .gk-u-rays, .m5-key { animation: none; } }
@@ -172,7 +198,11 @@
 .rs-gifts b { font-weight: normal; color: #ffe94a; }
 .rs-extra { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 10px; animation: gkPop .5s ease-out .9s both; }
 .rs-pn { display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 7px; color: #dbe6ff; }
-.rs-pn .fr-host, .rs-pn > span:first-child { width: 48px; height: 48px; }
+.rs-pn > svg { width: 48px; height: 48px; }
+.rs-pn > .fr-host { zoom: .86; margin: 6px 0; } /* a frame keeps its face's size (the overlay is sized from it) and is zoomed whole */
 @media (max-width: 620px) {
   .rs-tier { grid-template-columns: 1fr; gap: 4px; }
 }
+
+/* 2.11 (author): names in gold on the boards for whoever holds this season's Llave dorada (app.goldName) */
+.pass-gold, .pass-gold > span { color: #ffd84a !important; text-shadow: 1px 1px 0 #5a3a00, 0 0 8px #ffcc2a99 !important; }

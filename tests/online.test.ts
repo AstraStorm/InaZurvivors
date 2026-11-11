@@ -806,3 +806,23 @@ describe('clans (1.93)', () => {
     expect(await mine('cira')).toBeNull();
   });
 });
+
+describe('2.11 pass holders (database)', () => {
+  it('only the gold key of the season open now counts; anyone can ask and only names come back', async () => {
+    const who = [['Oro_T1', '{"season":{"id":"T1","gold":true,"normal":true}}'], ['Normal_T1', '{"season":{"id":"T1","gold":false,"normal":true}}'],
+      ['Oro_Viejo', '{"season":{"id":"T0","gold":true}}'], ['Sin_Pase', '{}']];
+    for (const [i, [name, data]] of who.entries()) {
+      const id = `00000000-0000-0000-0000-0000000011${i}0`;
+      await db.query('insert into auth.users (id, email) values ($1, $2)', [id, `${name}@example.test`]);
+      await db.query('insert into public.profiles (id, username) values ($1, $2)', [id, name]);
+      await db.query('insert into public.saves (user_id, data) values ($1, $2::jsonb)', [id, data]);
+    }
+    await db.exec(`insert into private.seasons (id, starts_at, ends_at) values ('T0', now() - interval '60 days', now() - interval '30 days') on conflict (id) do nothing;
+      update private.seasons set starts_at = now() - interval '1 day', ends_at = now() + interval '1 day' where id = 'T1'`);
+    const ask = async (user: string) => (await api(user, `select * from public.pass_holders(array['Oro_T1', 'Normal_T1', 'Oro_Viejo', 'Sin_Pase', 'nadie'])`)).rows;
+    expect(await ask('')).toEqual([{ username: 'Oro_T1' }]); // signed out too (the board sends the names as it got them)
+    expect(await ask('carla')).toEqual([{ username: 'Oro_T1' }]);
+    await db.exec(`update private.seasons set starts_at = now() + interval '1 day', ends_at = now() + interval '30 days' where id = 'T1'`);
+    expect(await ask('')).toEqual([]); // between seasons nobody has it
+  });
+});
