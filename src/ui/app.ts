@@ -104,6 +104,8 @@ const starIcon = (cls: string) => `<svg class="${cls}" viewBox="0 0 24 24"><path
   + `<path class="s-f" d="M12 1.8l3.1 6.6 7.2.8L12 12zM1.7 9.2l7.2-.8L12 12z"/><circle class="s-g" cx="9.4" cy="7.6" r="1.3"/></svg>`;
 /** pre-2.0: what a player shows of himself in a co-op room */
 interface CoopProfile { coach?: string | null; name: string; icon: { kind: 'emblem' | 'player' | 'coach'; id: number } | null; crest: string; kit: string; pennant: string | null; frame: string | null; wins: number; squad: { id: number; r: string; st: number; hero: boolean }[] }
+/** the author's other games (Créditos and the menu bar): a controller */
+const GAMEPAD_SVG = '<svg class="dg-pad" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7h10a5 5 0 0 1 4.8 6.4l-1.2 4A2.8 2.8 0 0 1 15.9 18l-1.6-2H9.7l-1.6 2a2.8 2.8 0 0 1-4.7-.6l-1.2-4A5 5 0 0 1 7 7Zm0 3v1.5H5.5v1.5H7v1.5h1.5V13H10v-1.5H8.5V10H7Zm9.3.2a1.1 1.1 0 1 0 0 2.2 1.1 1.1 0 0 0 0-2.2Zm-2 2.3a1.1 1.1 0 1 0 0 2.2 1.1 1.1 0 0 0 0-2.2Z"/></svg>';
 const fmtTime = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const RARITY_COLOR: Record<Rarity, string> = { comun: '#9fb0c8', raro: '#4fb3ff', epico: '#b36bff', legendario: '#ffb020', mitico: '#ff4f8b', leyenda: '#fff6c8' };
@@ -1090,6 +1092,7 @@ export class App {
         <span class="spacer"></span>
         <div class="m4-wallet"><span class="tokens" title="Fichas de Fichaje">${this.save.tokens}</span><span class="coins" title="Monedas">${this.save.coins}</span><span class="egt" title="Fichas EG">${this.egIcon(16)}${egTokens(this.save)}</span></div>
         <nav class="m4-tools">${this.tiktokLink()}
+          <a class="m4-tool m4-itch" href="${CREATOR_GAMES_URL}" target="_blank" rel="noopener noreferrer" title="Otros juegos del creador" aria-label="Otros juegos del creador (se abre en una pestaña nueva)">${GAMEPAD_SVG}</a>
           <button class="m4-tool" data-go="devlog" title="Noticias">${uiIcon('news')}<span>Noticias</span>${unseenLog ? '<i class="m4-dot"></i>' : ''}</button>
           <button class="m4-tool" data-go="options" title="Ajustes">${uiIcon('cog')}<span>Ajustes</span></button>
           <button class="m4-tool" id="mute" title="Sonido" aria-pressed="${!this.save.settings.muted}">${uiIcon(this.save.settings.muted ? 'soundOff' : 'soundOn')}</button>
@@ -6148,7 +6151,7 @@ export class App {
       </ul>
       <h3>Redes sociales</h3><p>${this.tiktokLink('Síguenos en TikTok')}</p>
       <h3>Sobre el desarrollador</h3><p>AstraStorm también ha creado otros videojuegos.</p>
-      <p><a class="btn small blue dev-games" id="devgames" href="${CREATOR_GAMES_URL}" target="_blank" rel="noopener noreferrer" aria-label="Otros juegos del creador (se abre en una pestaña nueva)"><svg class="dg-pad" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7h10a5 5 0 0 1 4.8 6.4l-1.2 4A2.8 2.8 0 0 1 15.9 18l-1.6-2H9.7l-1.6 2a2.8 2.8 0 0 1-4.7-.6l-1.2-4A5 5 0 0 1 7 7Zm0 3v1.5H5.5v1.5H7v1.5h1.5V13H10v-1.5H8.5V10H7Zm9.3.2a1.1 1.1 0 1 0 0 2.2 1.1 1.1 0 0 0 0-2.2Zm-2 2.3a1.1 1.1 0 1 0 0 2.2 1.1 1.1 0 0 0 0-2.2Z"/></svg><span>Otros juegos del creador</span><svg class="dg-ext" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h6v6h-2V7.4l-7.3 7.3-1.4-1.4L16.6 6H14V4ZM5 6h6v2H6v10h10v-5h2v7H4V6h1Z"/></svg></a></p>
+      <p><a class="btn small blue dev-games" id="devgames" href="${CREATOR_GAMES_URL}" target="_blank" rel="noopener noreferrer" aria-label="Otros juegos del creador (se abre en una pestaña nueva)">${GAMEPAD_SVG}<span>Otros juegos del creador</span><svg class="dg-ext" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h6v6h-2V7.4l-7.3 7.3-1.4-1.4L16.6 6H14V4ZM5 6h6v2H6v10h10v-5h2v7H4V6h1Z"/></svg></a></p>
       <h3>Enlaces oficiales</h3><p>${link('https://www.level5.co.jp/', 'LEVEL-5')} · ${link('https://www.inazuma.jp/', 'Inazuma Eleven')}</p>
       <h3>Privacidad</h3><p>Sin cuenta, InaZurvivors no recopila datos personales: tu progreso se guarda solo en este navegador. Con cuenta online (Google) se guardan tu correo de Google (privado), tu nombre, tus marcas y tu guardado. <a href="privacidad.html" target="_blank" rel="noopener">Privacidad y condiciones</a></p>
       <p class="note">${esc(VERSION_LABEL)} · compilación interna ${esc(BUILD)}</p></div></div>`);

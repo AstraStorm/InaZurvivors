@@ -38,6 +38,9 @@
 .m4-tool[aria-pressed="false"] { color: #ff8a8a; }
 .m4-dot { position: absolute; top: -3px; right: -3px; width: 10px; height: 10px; border-radius: 50%; background: var(--bad); border: 2px solid #0a1022; }
 .m4-tools .tiktok svg { width: 34px; height: 34px; border-radius: 8px; border-width: 1px; }
+.m4-itch { text-decoration: none; } .m4-itch svg { width: 18px; height: 18px; fill: currentColor; }
+/* the bar has no room for it on narrower screens (it stays in Créditos) */
+@media (max-width: 960px) { .m4-itch { display: none; } }
 
 /* ---------------------------------------------------------------- main menu: stage */
 .m4-stage { flex: 1 0 auto; min-height: calc(100vh - 150px); display: grid; grid-template-columns: minmax(0, 530px) minmax(0, 1fr) minmax(0, 270px); gap: 18px; align-items: center; }
@@ -201,7 +204,7 @@
 @media (max-width: 480px) {
   .m4-right { grid-template-columns: 1fr; }
   .m4-wallet .tokens, .m4-wallet .coins { padding: 4px 8px; font-size: 9px; }
-  .m4-tools .tiktok, .m4-crest { display: none; }
+  .m4-tools .tiktok, .m4-itch, .m4-crest { display: none; }
   .m4-main { grid-template-columns: 1fr; }
   .m4-team { flex-direction: row; align-items: center; }
 }
@@ -210,7 +213,7 @@
   .menu-root.m4 { gap: 6px; padding: 6px 10px; }
   .m4-top { padding: 3px 6px 3px 3px; border-radius: 8px; }
   .m4-profile .avatar { width: 32px !important; height: 32px !important; }
-  .m4-profile small, .m4-tools .tiktok, .m4-crest { display: none; }
+  .m4-profile small, .m4-tools .tiktok, .m4-itch, .m4-crest { display: none; }
   .m4-tool { height: 28px; min-width: 28px; }
   .m4-stage { grid-template-columns: minmax(0, 300px) minmax(0, 1fr); min-height: 0; align-items: start; gap: 10px; }
   .m4-left { display: contents; }
@@ -560,7 +563,7 @@ select { border-radius: 7px; }
 @media (max-width: 700px) { .m4-stage { grid-template-columns: 1fr; } }
 @media (max-width: 560px) {
   .m4-top { flex-wrap: wrap; row-gap: 6px; } .m4-top .spacer { display: none; }
-  .m4-profile { flex: 1 1 100%; } .m4-wallet { flex: 1; } .m4-tools .tiktok { display: none; }
+  .m4-profile { flex: 1 1 100%; } .m4-wallet { flex: 1; } .m4-tools .tiktok, .m4-itch { display: none; }
   .m4 .menu-logo h1 { font-size: 26px; } .m4 .menu-logo .sub { font-size: 7px; letter-spacing: 2px; }
   .m4-tile small { display: none; } .m4-tile { padding: 8px 6px; }
 }
