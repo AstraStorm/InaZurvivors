@@ -51,15 +51,15 @@ export const AUTHOR_NEWS: NewsItem[] = [
       ] },
       { h: 'Qué hay dentro', icon: '🎁' },
       { list: [
-        '**Dos futbolistas nuevos**: uno **Legendario** nada más abrir la fila premium y uno **Leyenda** en el nivel 100. Del 105 al 125, **una copia más del Leyenda cada 5 niveles** para ascenderlo. ¿Quiénes serán? Míralos en silueta en el menú.',
+        '**Dos futbolistas nuevos**: uno **Legendario** nada más abrir la fila premium y uno **Leyenda** en el nivel 100. El pase trae también **copias de los dos para ascenderlos**: todas menos la última, que es para el **top 1 del ranking**. ¿Quiénes serán? Míralos en silueta en el menú.',
         'Fila normal: monedas, fichas, tiradas, **jugadores de un equipo nuevo para tu club**, dos **banners** de perfil y un **marco**.',
         'Fila premium: **mucho oro**, fichas, **tiradas ×10**, **Fichas EG**, un **banner** y un **marco Legendarios** exclusivos de la temporada.',
       ] },
       { h: 'El ranking, por temporadas', icon: '🏆' },
       { list: [
         'El ranking también va por temporadas y termina con el pase, el **12 de diciembre a las 15:00**. Cuenta tu mejor marca en la clasificación general; después empieza de cero.',
-        '**Top 1**: 2.500 fichas, 300.000 monedas, 15 Fichas EG, **el futbolista Leyenda del pase** y el banner y el marco **Míticos** de campeón.',
-        '**Top 2-3**: 1.500 fichas, 180.000 monedas, 10 Fichas EG, **el futbolista Legendario del pase** y el banner y el marco **Legendarios** del podio.',
+        '**Top 1**: 2.500 fichas, 300.000 monedas, 15 Fichas EG, **los dos futbolistas del pase** (la copia que el pase no da: solo el campeón puede ascenderlos al máximo) y el banner y el marco **Míticos** de campeón.',
+        '**Top 2-3**: 1.500 fichas, 180.000 monedas, 15 Fichas EG y el banner y el marco **Legendarios** del podio.',
         '**Top 4-8**: 900 fichas, 100.000 monedas, 6 Fichas EG y un banner **Épico**. **Top 9-15**: 600 fichas, 60.000 monedas, 4 Fichas EG y un banner **Raro**.',
         '**Todos los demás con marca**: 250 fichas, 25.000 monedas y 2 Fichas EG. Los premios te llegan al entrar en el juego después del cierre.',
       ] },

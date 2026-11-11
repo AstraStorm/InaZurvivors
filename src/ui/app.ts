@@ -4078,10 +4078,10 @@ export class App {
     for (const r of rows) {
       const got = payRankPrize(this.save, r, this.byId);
       this.persist();
-      this.seasonPrizeModal(r, got.player);
+      this.seasonPrizeModal(r, got.players.map((x) => x.player));
     }
   }
-  private seasonPrizeModal(r: { season: string; pos: number; tokens: number; coins: number; eg: number; pennants: string[] }, player?: RosterEntry) {
+  private seasonPrizeModal(r: { season: string; pos: number; tokens: number; coins: number; eg: number; pennants: string[] }, players: RosterEntry[] = []) {
     const def = SEASONS.find((d) => d.id === r.season);
     sfx(r.pos <= 3 ? 'legend' : 'buy');
     if (r.pos <= 15 && this.save.settings.particles !== 'desactivado') confetti(r.pos <= 3 ? 160 : 90);
@@ -4090,7 +4090,7 @@ export class App {
       <span class="gk-u-rays"></span><span class="rs-medal${r.pos <= 3 ? ' top' : ''}">${medal}</span>
       <small>${esc((def?.name ?? r.season).toUpperCase())} · RANKING FINAL</small><b>${r.pos <= 15 ? `¡Puesto ${r.pos} del mundo!` : `Puesto ${r.pos}`}</b>
       <div class="rs-gifts"><span><b>${r.tokens.toLocaleString('es')}</b> fichas</span><span><b>${r.coins.toLocaleString('es')}</b> monedas</span><span>${this.egIcon(18)}<b>${r.eg}</b> Fichas EG</span></div>
-      ${player || r.pennants.length ? `<div class="rs-extra">${player ? `<span class="gk-u-star">${this.mug(player.id, 64)}<span><em>${RARITY_LABEL[player.rarity].toUpperCase()}</em>${esc(player.name)}</span></span>` : ''}
+      ${players.length || r.pennants.length ? `<div class="rs-extra">${players.map((player) => `<span class="gk-u-star">${this.mug(player.id, 64)}<span><em>${RARITY_LABEL[player.rarity].toUpperCase()}</em>${esc(player.name)}</span></span>`).join('')}
         ${r.pennants.map((id) => PENNANT_BY_ID.get(id)).filter((d): d is PennantDef => !!d).map((d) => `<span class="rs-pn">${isFrame(d) ? this.framed(this.frameFace(), d.id) : pennantSvg(d, 40)}<small>${esc(d.name)}</small></span>`).join('')}</div>` : ''}
       <p class="note">El ranking empieza de cero en la nueva temporada. ¡A por el siguiente!</p>
       <div class="gk-u-btns"><button class="btn" id="rsok">¡Genial!</button></div></div></div>`);
@@ -4103,9 +4103,9 @@ export class App {
     if (!d) return '';
     const prizes = RANK_PRIZES.map((p) => {
       const pn = p.pennants(d.id).map((id) => PENNANT_BY_ID.get(id)).filter((x): x is PennantDef => !!x);
-      const pl = p.player ? this.byId.get(p.player) : undefined;
+      const pl = p.players.map((id) => this.byId.get(id));
       return `<div class="rs-tier t-${p.tier}"><span class="rs-tl">${p.tier === 'top1' ? '🥇' : p.tier === 'top3' ? '🥈🥉' : ''}<b>${esc(p.label)}</b></span>
-        <span class="rs-tg">${p.fichas.toLocaleString('es')} fichas · ${p.monedas.toLocaleString('es')} ◉ · ${p.eg} Fichas EG${pl ? ` · <em>${esc(pl.name)}</em>` : p.player ? ' · <em>¿?</em>' : ''}</span>
+        <span class="rs-tg">${p.fichas.toLocaleString('es')} fichas · ${p.monedas.toLocaleString('es')} ◉ · ${p.eg} Fichas EG${pl.map((x) => ` · <em>${x ? esc(x.name) : '¿?'}</em>`).join('')}</span>
         <span class="rs-tp">${pn.map((x) => isFrame(x) ? `<span class="rs-fr${x.wings ? ' w' : ''}" title="${esc(x.name)}">${frameSvg(x)}</span>` : `<span title="${esc(x.name)}">${pennantSvg(x, 22)}</span>`).join('')}</span></div>`;
     }).join('');
     return `<details class="rs-strip" ${def ? '' : 'open'}><summary><span class="rs-sic">${uiIcon('trophy')}</span><span><small>${def ? `${esc(def.name.toUpperCase())} · TERMINA EN ${esc(this.leftText(seasonEnd(def) - +now))}` : `EMPIEZA EL ${new Date(seasonStart(d)).toLocaleString('es', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Madrid' }).toUpperCase()}`}</small>

@@ -6,7 +6,8 @@
  *   fila premium  opened with the Llave dorada, which only drops in a run: 0,005% for every rival knocked out (×2 in
  *                 co-op); its level 1 is Cronus (Legendario) and its level 100 Super Zanark (Leyenda). 2.1 (author): levels
  *                 101-125 give a copy of Super Zanark every 5 levels — enough for CAMPEÓN+, one short of CAMPEÓN++, which only
- *                 the ranking's top 1 reaches (his prize is one more copy)
+ *                 the ranking's top 1 reaches (his prize is one more copy). Cronus the same way: 17 copies along the row,
+ *                 HÉROE ★★ and one short of the last star (2 ascenso + 4 HÉROE + 3 × 4 stars = 18); the top 1 gets him too
  *
  * EXP is earned with or without keys: opening a row lets the player claim every level already reached. What a row pays
  * stays inside the per-level limits the server allows for a claimed level (economy_cap, migration season_pass), so
@@ -57,6 +58,8 @@ export const LEVEL_MAX = { fichas: 120, monedas: 6000 };
 export const CRONUS_ID = 900400;
 export const SUPER_ZANARK_ID = 900401;
 /** the Zanark Domain footballers of the normal row (comun/raro ids of the team) */
+/** 2.1 (author): Cronus's copies on the premium row, away from the multiples of 5 (pulls, Fichas EG, the star prizes) */
+export const CRONUS_COPY_LEVELS = [4, 8, 14, 18, 24, 28, 34, 38, 44, 48, 54, 58, 64, 68, 74, 78, 84];
 const ZANARK_DOMAIN = [100949, 100912, 100464, 100517, 100726, 101512, 100457, 100781, 100947, 101591, 102114, 102134, 100485, 100776, 102170];
 
 function season1(): Pick<SeasonDef, 'normal' | 'premium'> {
@@ -71,6 +74,7 @@ function season1(): Pick<SeasonDef, 'normal' | 'premium'> {
     75: { kind: 'marco', id: 'marco-todopoderoso' }, 100: { kind: 'jugador', id: SUPER_ZANARK_ID },
     // his duplicates for the Campeón ascension (1 + 2 = CAMPEÓN+ with two to spare; the ranking's top 1 adds the last one for ++)
     ...Object.fromEntries([105, 110, 115, 120, 125].map((lv) => [lv, { kind: 'jugador', id: SUPER_ZANARK_ID } as SeasonReward])),
+    ...Object.fromEntries(CRONUS_COPY_LEVELS.map((lv) => [lv, { kind: 'jugador', id: CRONUS_ID } as SeasonReward])),
   };
   for (let lv = 1; lv <= LEVELS; lv++) {
     normal.push(normalSpecial[lv] ?? (domainAt.has(lv) ? { kind: 'jugador', id: domainAt.get(lv)! }
@@ -101,25 +105,25 @@ export function seasonOf(s: SaveData, def: SeasonDef): SeasonSave {
 }
 
 /** 2.1 (author: «haz recompensas buenas»): what the final ranking of a season pays (migration ranking_season, same numbers) */
-export interface RankPrize { tier: 'top1' | 'top3' | 'top8' | 'top15' | 'resto'; label: string; from: number; to: number | null; fichas: number; monedas: number; eg: number; pennants: (season: string) => string[]; player: number | null }
+export interface RankPrize { tier: 'top1' | 'top3' | 'top8' | 'top15' | 'resto'; label: string; from: number; to: number | null; fichas: number; monedas: number; eg: number; pennants: (season: string) => string[]; players: number[] }
 export const RANK_PRIZES: RankPrize[] = [
-  { tier: 'top1', label: 'Top 1', from: 1, to: 1, fichas: 2500, monedas: 300_000, eg: 15, pennants: (s) => [`${s.toLowerCase()}-campeon`, `marco-${s.toLowerCase()}-campeon`], player: SUPER_ZANARK_ID },
-  { tier: 'top3', label: 'Top 2-3', from: 2, to: 3, fichas: 1500, monedas: 180_000, eg: 10, pennants: (s) => [`${s.toLowerCase()}-podio`, `marco-${s.toLowerCase()}-podio`], player: CRONUS_ID },
-  { tier: 'top8', label: 'Top 4-8', from: 4, to: 8, fichas: 900, monedas: 100_000, eg: 6, pennants: (s) => [`${s.toLowerCase()}-top8`], player: null },
-  { tier: 'top15', label: 'Top 9-15', from: 9, to: 15, fichas: 600, monedas: 60_000, eg: 4, pennants: (s) => [`${s.toLowerCase()}-top15`], player: null },
-  { tier: 'resto', label: 'Resto con marca', from: 16, to: null, fichas: 250, monedas: 25_000, eg: 2, pennants: () => [], player: null },
+  { tier: 'top1', label: 'Top 1', from: 1, to: 1, fichas: 2500, monedas: 300_000, eg: 15, pennants: (s) => [`${s.toLowerCase()}-campeon`, `marco-${s.toLowerCase()}-campeon`], players: [SUPER_ZANARK_ID, CRONUS_ID] },
+  { tier: 'top3', label: 'Top 2-3', from: 2, to: 3, fichas: 1500, monedas: 180_000, eg: 15, pennants: (s) => [`${s.toLowerCase()}-podio`, `marco-${s.toLowerCase()}-podio`], players: [] },
+  { tier: 'top8', label: 'Top 4-8', from: 4, to: 8, fichas: 900, monedas: 100_000, eg: 6, pennants: (s) => [`${s.toLowerCase()}-top8`], players: [] },
+  { tier: 'top15', label: 'Top 9-15', from: 9, to: 15, fichas: 600, monedas: 60_000, eg: 4, pennants: (s) => [`${s.toLowerCase()}-top15`], players: [] },
+  { tier: 'resto', label: 'Resto con marca', from: 16, to: null, fichas: 250, monedas: 25_000, eg: 2, pennants: () => [], players: [] },
 ];
 /** a season prize handed over by the server (claim_season_rewards) */
-export interface SeasonResult { season: string; pos: number; score: number; tier: string; tokens: number; coins: number; eg: number; pennants: string[]; player: number | null }
-/** pays it into the save; the footballer goes as a copy (a duplicate when already owned) */
-export function payRankPrize(s: SaveData, r: SeasonResult, byId: Map<number, RosterEntry>): { player?: RosterEntry; isNew?: boolean } {
+export interface SeasonResult { season: string; pos: number; score: number; tier: string; tokens: number; coins: number; eg: number; pennants: string[]; players?: number[]; player?: number | null }
+/** pays it into the save; each footballer goes as a copy (a duplicate when already owned) */
+export function payRankPrize(s: SaveData, r: SeasonResult, byId: Map<number, RosterEntry>): { players: { player: RosterEntry; isNew: boolean }[] } {
   s.tokens += Math.max(0, Math.floor(r.tokens));
   s.coins += Math.max(0, Math.floor(r.coins));
   s.egTokens = (s.egTokens ?? 0) + Math.max(0, Math.floor(r.eg));
   for (const id of r.pennants ?? []) givePennant(s, id);
-  const p = r.player ? byId.get(r.player) : undefined;
-  if (!p) return {};
-  return { player: p, isNew: addCopy(s, p).isNew };
+  const ids = r.players ?? (r.player ? [r.player] : []);
+  const players = ids.map((id) => byId.get(id)).filter((p): p is RosterEntry => !!p).map((p) => ({ player: p, isNew: addCopy(s, p).isNew }));
+  return { players };
 }
 /** pass footballers stay hidden only until the first season opens (afterwards the ranking can give them too) */
 export const passPlayersHidden = (now: number | Date) => !SEASONS.some((d) => +now >= seasonStart(d));

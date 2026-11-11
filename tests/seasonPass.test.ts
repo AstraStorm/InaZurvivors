@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { activeSeason, addRunXp, buyNormalKey, claimable, claimLevel, giveGoldKey, goldKeyChance, LEVEL_MAX, LEVEL_XP, LEVELS, levelOf, MULTI_FICHAS, NORMAL_KEY_PRICE, runXp, SEASONS, seasonOf, upcomingSeason, GOLD_KEY_CHANCE, CRONUS_ID, SUPER_ZANARK_ID } from '../src/systems/seasonPass';
+import { CRONUS_COPY_LEVELS, activeSeason, addRunXp, buyNormalKey, claimable, claimLevel, giveGoldKey, goldKeyChance, LEVEL_MAX, LEVEL_XP, LEVELS, levelOf, MULTI_FICHAS, NORMAL_KEY_PRICE, runXp, SEASONS, seasonOf, upcomingSeason, GOLD_KEY_CHANCE, CRONUS_ID, SUPER_ZANARK_ID } from '../src/systems/seasonPass';
 import { sanitizeSeason, type SaveData } from '../src/systems/save';
 import { PENNANT_BY_ID } from '../src/data/pennants';
 
@@ -42,6 +42,9 @@ describe('2.1 season pass', () => {
     // 2.1 (author): his copies every 5 levels after 100: CAMPEÓN+ (1 + 2) with two to spare, one short of ++ (3)
     expect(T1.premium.slice(100).filter((r) => r.kind === 'jugador' && r.id === SUPER_ZANARK_ID)).toHaveLength(5);
     expect(LEVELS).toBe(125);
+    // Cronus: 18 copies take a Legendario to HÉROE ★★★ (2 + 4 + 3 × 4); the pass gives him and 17 more → one short
+    expect(T1.premium.filter((r) => r.kind === 'jugador' && r.id === CRONUS_ID)).toHaveLength(18);
+    expect(CRONUS_COPY_LEVELS.every((lv) => lv % 5 !== 0)).toBe(true);
     expect(T1.normal.filter((r) => r.kind === 'jugador')).toHaveLength(15); // the Zanark Domain
     expect(T1.normal.filter((r) => r.kind === 'banner')).toHaveLength(2);
     expect(T1.normal.filter((r) => r.kind === 'marco')).toHaveLength(1);
@@ -89,20 +92,21 @@ describe('2.1 ranking by seasons', () => {
   it('the prizes shown in the game are the ones the server stores (migration ranking_season)', async () => {
     const { RANK_PRIZES } = await import('../src/systems/seasonPass');
     const fs = await import('node:fs');
-    const sql = fs.readFileSync('supabase/migrations/20261111000200_ranking_season.sql', 'utf8');
+    const sql = fs.readFileSync('supabase/migrations/20261111000400_ranking_two_players.sql', 'utf8'); // the latest close_due_seasons
     const nums = [...sql.matchAll(/case when b\.pos = 1 then (\d+) when b\.pos <= 3 then (\d+) when b\.pos <= 8 then (\d+) when b\.pos <= 15 then (\d+) else (\d+) end/g)].map((m) => m.slice(1).map(Number));
     expect(nums).toEqual([RANK_PRIZES.map((p) => p.fichas), RANK_PRIZES.map((p) => p.monedas), RANK_PRIZES.map((p) => p.eg)]);
     for (const p of RANK_PRIZES) for (const id of p.pennants('T1')) expect(PENNANT_BY_ID.get(id)?.source, id).toBe('temporada');
-    expect(RANK_PRIZES[0].player).toBe(SUPER_ZANARK_ID);
-    expect(RANK_PRIZES[1].player).toBe(CRONUS_ID);
+    expect(RANK_PRIZES[0].players).toEqual([SUPER_ZANARK_ID, CRONUS_ID]);
+    expect(RANK_PRIZES.slice(1).every((p) => !p.players.length)).toBe(true);
+    expect(sql).toContain('case when b.pos = 1 then array[900401, 900400] else'); // only the top 1
   });
   it('a claimed prize pays fichas, coins, EG, its pennants and the footballer', async () => {
     const { payRankPrize } = await import('../src/systems/seasonPass');
     const s = save();
-    const got = payRankPrize(s, { season: 'T1', pos: 1, score: 1, tier: 'top1', tokens: 2500, coins: 300000, eg: 15, pennants: ['t1-campeon', 'marco-t1-campeon'], player: SUPER_ZANARK_ID }, byId);
+    const got = payRankPrize(s, { season: 'T1', pos: 1, score: 1, tier: 'top1', tokens: 2500, coins: 300000, eg: 15, pennants: ['t1-campeon', 'marco-t1-campeon'], players: [SUPER_ZANARK_ID, CRONUS_ID] }, byId);
     expect([s.tokens, s.coins, s.egTokens]).toEqual([2500, 300000, 15]);
     expect(s.pennants?.owned).toEqual(['t1-campeon', 'marco-t1-campeon']);
-    expect(got.player?.id).toBe(SUPER_ZANARK_ID);
-    expect(s.owned[String(SUPER_ZANARK_ID)]).toBeTruthy();
+    expect(got.players.map((x) => x.player.id)).toEqual([SUPER_ZANARK_ID, CRONUS_ID]);
+    expect(s.owned[String(SUPER_ZANARK_ID)] && s.owned[String(CRONUS_ID)]).toBeTruthy();
   });
 });
