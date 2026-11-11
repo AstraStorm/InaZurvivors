@@ -96,6 +96,30 @@ export function seasonOf(s: SaveData, def: SeasonDef): SeasonSave {
   return s.season;
 }
 
+/** 2.1 (author: «haz recompensas buenas»): what the final ranking of a season pays (migration ranking_season, same numbers) */
+export interface RankPrize { tier: 'top1' | 'top3' | 'top8' | 'top15' | 'resto'; label: string; from: number; to: number | null; fichas: number; monedas: number; eg: number; pennants: (season: string) => string[]; player: number | null }
+export const RANK_PRIZES: RankPrize[] = [
+  { tier: 'top1', label: 'Top 1', from: 1, to: 1, fichas: 2500, monedas: 300_000, eg: 15, pennants: (s) => [`${s.toLowerCase()}-campeon`, `marco-${s.toLowerCase()}-campeon`], player: SUPER_ZANARK_ID },
+  { tier: 'top3', label: 'Top 2-3', from: 2, to: 3, fichas: 1500, monedas: 180_000, eg: 10, pennants: (s) => [`${s.toLowerCase()}-podio`, `marco-${s.toLowerCase()}-podio`], player: CRONUS_ID },
+  { tier: 'top8', label: 'Top 4-8', from: 4, to: 8, fichas: 900, monedas: 100_000, eg: 6, pennants: (s) => [`${s.toLowerCase()}-top8`], player: null },
+  { tier: 'top15', label: 'Top 9-15', from: 9, to: 15, fichas: 600, monedas: 60_000, eg: 4, pennants: (s) => [`${s.toLowerCase()}-top15`], player: null },
+  { tier: 'resto', label: 'Resto con marca', from: 16, to: null, fichas: 250, monedas: 25_000, eg: 2, pennants: () => [], player: null },
+];
+/** a season prize handed over by the server (claim_season_rewards) */
+export interface SeasonResult { season: string; pos: number; score: number; tier: string; tokens: number; coins: number; eg: number; pennants: string[]; player: number | null }
+/** pays it into the save; the footballer goes as a copy (a duplicate when already owned) */
+export function payRankPrize(s: SaveData, r: SeasonResult, byId: Map<number, RosterEntry>): { player?: RosterEntry; isNew?: boolean } {
+  s.tokens += Math.max(0, Math.floor(r.tokens));
+  s.coins += Math.max(0, Math.floor(r.coins));
+  s.egTokens = (s.egTokens ?? 0) + Math.max(0, Math.floor(r.eg));
+  for (const id of r.pennants ?? []) givePennant(s, id);
+  const p = r.player ? byId.get(r.player) : undefined;
+  if (!p) return {};
+  return { player: p, isNew: addCopy(s, p).isNew };
+}
+/** pass footballers stay hidden only until the first season opens (afterwards the ranking can give them too) */
+export const passPlayersHidden = (now: number | Date) => !SEASONS.some((d) => +now >= seasonStart(d));
+
 export const levelOf = (xp: number) => Math.min(LEVELS, Math.floor(Math.max(0, xp) / LEVEL_XP));
 /** EXP into the current level, 0..LEVEL_XP (full at the top) */
 export const levelProgress = (xp: number) => levelOf(xp) >= LEVELS ? 1 : (Math.max(0, xp) % LEVEL_XP) / LEVEL_XP;

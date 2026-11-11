@@ -6,7 +6,7 @@
  */
 import type { Rarity } from './manifest';
 
-export type PennantSource = 'tienda' | 'logro' | 'evento' | 'codigo' | 'clan' | 'colab' | 'pase';
+export type PennantSource = 'tienda' | 'logro' | 'evento' | 'codigo' | 'clan' | 'colab' | 'pase' | 'temporada';
 export type PennantPattern = 'franjas' | 'diagonal' | 'llamas' | 'estrellas' | 'arcoiris' | 'cuadros' | 'tiza' | 'olas' | 'rayos' | 'copos' | 'espiral' | 'nebulosa' | 'rejilla' | 'huracan';
 export type PennantEmblem = 'balon' | 'rayo' | 'llama' | 'caravana' | 'corona' | 'neumatico' | 'pizarra' | 'olas' | 'viento' | 'copo' | 'espiral' | 'mano' | 'reloj' | 'planeta' | 'ojo' | 'bluelock' | 'cuernos' | 'todopoderoso';
 
@@ -55,6 +55,11 @@ export const PENNANTS: PennantDef[] = [
   { id: 'pase-dominio', name: 'Dominio de Zanark', rarity: 'raro', source: 'pase', how: 'Pase de la Temporada 1, nivel 20', c1: '#0f6a72', c2: '#021a1e', accent: '#ff3a5a', pattern: 'diagonal', emblem: 'cuernos', tagline: 'El territorio de Zanark: aquí manda él.' },
   { id: 'pase-cuernos', name: 'Furia del Dominio', rarity: 'epico', source: 'pase', how: 'Pase de la Temporada 1, nivel 40', c1: '#2a1a5a', c2: '#06021a', accent: '#5fe8f0', pattern: 'rayos', emblem: 'cuernos', tagline: 'Cuernos al viento y ojos rojos: el Dominio de Zanark entra en el campo.' },
   { id: 'todopoderoso', name: 'Soy todopoderoso', rarity: 'legendario', source: 'pase', how: 'Pase premium de la Temporada 1, nivel 25', c1: '#ffcc2a', c2: '#4a2a00', accent: '#ffe94a', pattern: 'huracan', emblem: 'todopoderoso', tagline: 'Una tormenta de oro con truenos azules: así tira Zanark.' },
+  // ---- 2.1 (author): the final ranking of Temporada 1 (migration ranking_season); hidden until owned
+  { id: 't1-campeon', name: 'Campeón de la Temporada 1', rarity: 'mitico', source: 'temporada', how: 'Top 1 del ranking de la Temporada 1', c1: '#ffd23f', c2: '#5a1a00', accent: '#fff6c8', pattern: 'huracan', emblem: 'corona', tagline: 'El número uno del mundo en la Temporada 1. Solo hay uno.' },
+  { id: 't1-podio', name: 'Podio de la Temporada 1', rarity: 'legendario', source: 'temporada', how: 'Top 3 del ranking de la Temporada 1', c1: '#e8ecff', c2: '#2a3060', accent: '#ffcc2a', pattern: 'estrellas', emblem: 'corona', tagline: 'Plata y estrellas: subiste al podio de la Temporada 1.' },
+  { id: 't1-top8', name: 'Top 8 de la Temporada 1', rarity: 'epico', source: 'temporada', how: 'Top 8 del ranking de la Temporada 1', c1: '#5a2ad8', c2: '#100430', accent: '#ffcc2a', pattern: 'rayos', emblem: 'rayo', tagline: 'Entre los ocho mejores del mundo en la Temporada 1.' },
+  { id: 't1-top15', name: 'Top 15 de la Temporada 1', rarity: 'raro', source: 'temporada', how: 'Top 15 del ranking de la Temporada 1', c1: '#1a5ad8', c2: '#041030', accent: '#7fd3ff', pattern: 'diagonal', emblem: 'balon', tagline: 'En la tabla de honor de la Temporada 1.' },
   { id: 'clan-cerezo', name: 'Banderín del Cerezo', rarity: 'epico', source: 'clan', how: 'Tienda del clan', c1: '#ffb8d8', c2: '#7a1a4a', accent: '#ffffff', pattern: 'copos', emblem: 'balon', tagline: 'Pétalos sobre el balón: la Colina de los Cerezos.' },
 ];
 
@@ -87,6 +92,9 @@ export const FRAMES: PennantDef[] = [
   // ---- 2.1 (author): the season pass, Temporada 1
   { id: 'marco-dominio', kind: 'marco', name: 'Marco del Dominio', rarity: 'epico', source: 'pase', how: 'Pase de la Temporada 1, nivel 60', c1: '#0f6a72', c2: '#021a1e', accent: '#ff3a5a', pattern: 'diagonal', emblem: 'cuernos', tagline: 'Rayos rojos alrededor del retrato, como los ojos de Zanark.' },
   { id: 'marco-todopoderoso', kind: 'marco', name: 'Marco Todopoderoso', rarity: 'legendario', source: 'pase', how: 'Pase premium de la Temporada 1, nivel 75', wings: true, c1: '#ffcc2a', c2: '#4a2a00', accent: '#ffe94a', pattern: 'huracan', emblem: 'todopoderoso', tagline: 'Huracanes amarillos y electricidad azul girando alrededor.' },
+  // ---- 2.1 (author): the final ranking of Temporada 1
+  { id: 'marco-t1-campeon', kind: 'marco', name: 'Marco del Campeón (T1)', rarity: 'mitico', source: 'temporada', how: 'Top 1 del ranking de la Temporada 1', wings: true, c1: '#ffd23f', c2: '#5a1a00', accent: '#fff6c8', pattern: 'huracan', emblem: 'corona', tagline: 'Alas de oro y una corona: el campeón de la Temporada 1.' },
+  { id: 'marco-t1-podio', kind: 'marco', name: 'Marco del Podio (T1)', rarity: 'legendario', source: 'temporada', how: 'Top 3 del ranking de la Temporada 1', wings: true, c1: '#e8ecff', c2: '#2a3060', accent: '#ffcc2a', pattern: 'estrellas', emblem: 'corona', tagline: 'Alas de plata para el podio de la Temporada 1.' },
   // ---- (author) InaZurvivors x BlueLock: for whoever has both its footballers
   { id: 'marco-bluelock', kind: 'marco', name: 'Marco BlueLock', rarity: 'mitico', source: 'colab', how: 'ficha a Nagi y a Isagi', wings: true, c1: '#1f5bff', c2: '#02061a', accent: '#5fd8ff', pattern: 'rejilla', emblem: 'bluelock', tagline: 'Cadenas azules y alas: Nagi e Isagi ya juegan en tu club.' },
   // ---- 1.81 (author): only through the code INA483

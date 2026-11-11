@@ -81,3 +81,25 @@ describe('2.1 season pass', () => {
     expect(sanitizeSeason({ id: 'otra' })).toBeUndefined();
   });
 });
+
+describe('2.1 ranking by seasons', () => {
+  it('the prizes shown in the game are the ones the server stores (migration ranking_season)', async () => {
+    const { RANK_PRIZES } = await import('../src/systems/seasonPass');
+    const fs = await import('node:fs');
+    const sql = fs.readFileSync('supabase/migrations/20261111000200_ranking_season.sql', 'utf8');
+    const nums = [...sql.matchAll(/case when b\.pos = 1 then (\d+) when b\.pos <= 3 then (\d+) when b\.pos <= 8 then (\d+) when b\.pos <= 15 then (\d+) else (\d+) end/g)].map((m) => m.slice(1).map(Number));
+    expect(nums).toEqual([RANK_PRIZES.map((p) => p.fichas), RANK_PRIZES.map((p) => p.monedas), RANK_PRIZES.map((p) => p.eg)]);
+    for (const p of RANK_PRIZES) for (const id of p.pennants('T1')) expect(PENNANT_BY_ID.get(id)?.source, id).toBe('temporada');
+    expect(RANK_PRIZES[0].player).toBe(SUPER_ZANARK_ID);
+    expect(RANK_PRIZES[1].player).toBe(CRONUS_ID);
+  });
+  it('a claimed prize pays fichas, coins, EG, its pennants and the footballer', async () => {
+    const { payRankPrize } = await import('../src/systems/seasonPass');
+    const s = save();
+    const got = payRankPrize(s, { season: 'T1', pos: 1, score: 1, tier: 'top1', tokens: 2500, coins: 300000, eg: 15, pennants: ['t1-campeon', 'marco-t1-campeon'], player: SUPER_ZANARK_ID }, byId);
+    expect([s.tokens, s.coins, s.egTokens]).toEqual([2500, 300000, 15]);
+    expect(s.pennants?.owned).toEqual(['t1-campeon', 'marco-t1-campeon']);
+    expect(got.player?.id).toBe(SUPER_ZANARK_ID);
+    expect(s.owned[String(SUPER_ZANARK_ID)]).toBeTruthy();
+  });
+});

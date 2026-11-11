@@ -273,6 +273,8 @@ export async function deleteReplays(paths: string[]) {
   if (!paths.length) return;
   await fetch(`${URL_}/storage/v1/object/${REPLAYS}`, { method: 'DELETE', headers: { apikey: KEY, Authorization: `Bearer ${await token()}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ prefixes: paths }) });
 }
+/** 2.1: prizes of closed ranking seasons, handed over once (migration ranking_season) */
+export const claimSeasonRewards = () => rpc<import('../systems/seasonPass').SeasonResult[]>('claim_season_rewards', {});
 /** 2.02 Métricas: the active spirit of a finished run (migration 20261111000000_spirit_stats.sql) */
 export const recordSpiritRun = (spirit: string, casts: number, damage: number) => rpc<null>('record_spirit_run', { p_spirit: spirit, p_casts: Math.floor(casts), p_damage: Math.floor(damage) });
 export interface SpiritStat { spirit: string; runs: number; casts: number; damage: number }

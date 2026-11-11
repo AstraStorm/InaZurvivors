@@ -10,7 +10,8 @@ import { serverNow, syncServerTime, timeSource, trustedClock } from '../online/s
 import { PASS, PASS_TOTAL, claimPass, passStatus, type PassReward } from '../systems/weeklyPass';
 import { applyReward, codePlayer, hasRedeemed, INA483_ODDS, normalizeCode, redeemLocal, type CodeReward } from '../systems/promo';
 import { activeSeason, addRunXp, buyNormalKey, canClaim as canClaimLevel, claimable, claimLevel, daysTo, giveGoldKey, goldKeyChance, levelOf, levelProgress, rowOpen, seasonEnd, seasonOf, seasonStart, upcomingSeason,
-  GOLD_KEY_CHANCE, GOLD_KEY_COOP, LEVEL_XP, LEVELS, MULTI_FICHAS, NORMAL_KEY_PRICE, RANK_XP, XP_PER_MIN, type Granted, type SeasonReward, type SeasonTrack } from '../systems/seasonPass';
+  GOLD_KEY_CHANCE, GOLD_KEY_COOP, LEVEL_XP, LEVELS, MULTI_FICHAS, NORMAL_KEY_PRICE, RANK_PRIZES, RANK_XP, SEASONS, XP_PER_MIN, passPlayersHidden, payRankPrize, type Granted, type SeasonReward, type SeasonTrack } from '../systems/seasonPass';
+import { claimSeasonRewards } from '../online/client';
 import { clearRoad, compensateJaden202, jadenProgress, JADEN_EVERY, JADEN_FIRST, JADEN_ID, ROAD_BY_ID, ROAD_DIFFS, ROAD_SQUAD, roadEligible, roadMatchSec, roadOf, type RoadDiff } from '../systems/road';
 import { BANNERS, BANNER_ORDER, bannerPool, bannerPrice, eraOf, featured, featuredMachine, FEATURED_BOOST, perPlayerOdds, rarityOdds, teamChoices, type BannerId } from '../systems/banners';
 import { exportSave, importSave, remapIds, remapTechSlots, storeSave, type SaveData, type ParticleLevel, type Rank } from '../systems/save';
@@ -223,7 +224,7 @@ export class App {
     // 2.02 (author): «próximamente» footballers are a secret: nowhere in the game until they are owned
     m.roster = m.roster.filter((p) => p.exclusive !== 'proximamente' || !!save.owned[String(p.id)]);
     // 2.1: the season pass footballers are a surprise until the season opens (the teaser shows them in silhouette)
-    if (!activeSeason(serverNow())) m.roster = m.roster.filter((p) => p.exclusive !== 'pase' || !!save.owned[String(p.id)]);
+    if (passPlayersHidden(serverNow())) m.roster = m.roster.filter((p) => p.exclusive !== 'pase' || !!save.owned[String(p.id)]);
     this.byId = new Map(m.roster.map((p) => [p.id, p]));
     setElementArt(m.elements); // author: the original element icons, in every menu from the start
     // the loading screen's runners: their sprites in the cache before the first run (ui/runLoader.ts)
@@ -1226,6 +1227,7 @@ export class App {
     if (onlineConfigured()) { this.tierFeedCache = null; void this.fillTierFeed('menutier', 1, 24); } // 1.9
     this.wirePromo(promo); // 1.9
     this.goldKeyUnlock(); // 2.1: the Llave dorada's unlock, once
+    void this.seasonPrizes(); // 2.1: the final ranking of a season that ended
     void this.fillMenuClan(); // 1.93: the clan chip and the weekly clan prizes
     void this.claimBugBounty(); // 1.85: rewards for fixed bug reports
     this.notiBar(); // 1.88
@@ -1919,6 +1921,7 @@ export class App {
       <div class="rk-hero"><span class="rk-hero-ic">${uiIcon('crown')}</span><div><b>${online ? 'RANKING MUNDIAL' : 'TUS MARCAS'}</b>
         <small>${online ? 'Top 15 de todos los jugadores, cada uno con su mejor marca.' : 'El servicio online no está activado en esta versión: solo aparecen las marcas de este dispositivo.'}</small></div>
         <details class="rk-how"><summary>${uiIcon('help')}¿Cómo se calculan los puntos?</summary><div>Puntos = (segundos × 10 + √daño × 2) × rango × arena. El rango es lo que más cuenta: C ×1, B ×1,6, A ×2,4, S ×3,4, X ×4,8 y Z ×7. La arena suma un 5% por cada etapa del camino, también las nuevas: ${this.m.maps.map((mp) => `${esc(mp.name)} ${multTxt(mp.id)}`).join(' · ')}.</div></details></div>
+      ${online ? this.rankSeasonStrip() : ''}
       <div class="rk-filters">
         <div class="rk-fg"><small>${uiIcon('target')}Ordenar</small>${chips('order', [['score', 'Puntos'], ['rank', 'Rango'], ['time', 'Tiempo'], ['damage', 'Daño']], q.order)}</div>
         <div class="rk-fg"><small>${uiIcon('crown')}Rango</small>${chips('rank', [['', 'Todos'], ...RANK_ORDER.map((r) => [r, r] as [string, string])], q.rank ?? '')}</div>
@@ -4060,6 +4063,54 @@ export class App {
         <div class="ap-table"><div class="ap-row ap-head"><span>Usuario</span><span>Última vez</span><span>Partidas</span><span>Ranking</span><span>Mejor tiempo</span><span>Colección</span><span>Alta</span></div>
         ${s.players.map((p) => `<div class="ap-row"><b>${esc(p.username ?? '(sin nombre)')}</b><span>${ago(p.last_seen)}</span><span>${p.runs}</span><span>${p.ranked_runs}</span><span>${Math.floor(p.best_time / 60)}:${String(p.best_time % 60).padStart(2, '0')}</span><span>${p.owned}</span><span>${new Date(p.created_at).toLocaleDateString('es')}</span></div>`).join('')}</div>`;
     } catch (e) { box.textContent = /forbidden/.test((e as Error).message) ? 'No tienes permiso para ver este panel.' : `No se pudo cargar: ${(e as Error).message}`; }
+  }
+
+  // ---- 2.1 (author): the ranking by seasons — its strip on the ranking screen and the final prizes on the menu
+  private seasonPrizesAt = 0;
+  /** the prizes of a ranking season that ended: asked at most every 10 minutes from the menu, shown once */
+  private async seasonPrizes() {
+    if (!onlineConfigured() || !signedIn() || !SEASONS.some((d) => +serverNow() >= seasonEnd(d))) return;
+    if (Date.now() - this.seasonPrizesAt < 600_000) return;
+    this.seasonPrizesAt = Date.now();
+    let rows: Awaited<ReturnType<typeof claimSeasonRewards>>;
+    try { rows = await claimSeasonRewards(); } catch { this.seasonPrizesAt = 0; return; }
+    if (!rows?.length) return;
+    for (const r of rows) {
+      const got = payRankPrize(this.save, r, this.byId);
+      this.persist();
+      this.seasonPrizeModal(r, got.player);
+    }
+  }
+  private seasonPrizeModal(r: { season: string; pos: number; tokens: number; coins: number; eg: number; pennants: string[] }, player?: RosterEntry) {
+    const def = SEASONS.find((d) => d.id === r.season);
+    sfx(r.pos <= 3 ? 'legend' : 'buy');
+    if (r.pos <= 15 && this.save.settings.particles !== 'desactivado') confetti(r.pos <= 3 ? 160 : 90);
+    const medal = r.pos === 1 ? '🥇' : r.pos === 2 ? '🥈' : r.pos === 3 ? '🥉' : `#${r.pos}`;
+    document.body.insertAdjacentHTML('beforeend', `<div class="gk-unlock rs-end" id="rsend"><div class="gk-u-in">
+      <span class="gk-u-rays"></span><span class="rs-medal${r.pos <= 3 ? ' top' : ''}">${medal}</span>
+      <small>${esc((def?.name ?? r.season).toUpperCase())} · RANKING FINAL</small><b>${r.pos <= 15 ? `¡Puesto ${r.pos} del mundo!` : `Puesto ${r.pos}`}</b>
+      <div class="rs-gifts"><span><b>${r.tokens.toLocaleString('es')}</b> fichas</span><span><b>${r.coins.toLocaleString('es')}</b> monedas</span><span>${this.egIcon(18)}<b>${r.eg}</b> Fichas EG</span></div>
+      ${player || r.pennants.length ? `<div class="rs-extra">${player ? `<span class="gk-u-star">${this.mug(player.id, 64)}<span><em>${RARITY_LABEL[player.rarity].toUpperCase()}</em>${esc(player.name)}</span></span>` : ''}
+        ${r.pennants.map((id) => PENNANT_BY_ID.get(id)).filter((d): d is PennantDef => !!d).map((d) => `<span class="rs-pn">${isFrame(d) ? this.framed(this.frameFace(), d.id) : pennantSvg(d, 40)}<small>${esc(d.name)}</small></span>`).join('')}</div>` : ''}
+      <p class="note">El ranking empieza de cero en la nueva temporada. ¡A por el siguiente!</p>
+      <div class="gk-u-btns"><button class="btn" id="rsok">¡Genial!</button></div></div></div>`);
+    document.getElementById('rsok')!.addEventListener('click', () => document.getElementById('rsend')?.remove());
+  }
+  /** the ranking screen: the season under way, its time left and what each place wins */
+  private rankSeasonStrip() {
+    const now = serverNow(), def = activeSeason(now), next = upcomingSeason(now);
+    const d = def ?? next;
+    if (!d) return '';
+    const prizes = RANK_PRIZES.map((p) => {
+      const pn = p.pennants(d.id).map((id) => PENNANT_BY_ID.get(id)).filter((x): x is PennantDef => !!x);
+      const pl = p.player ? this.byId.get(p.player) : undefined;
+      return `<div class="rs-tier t-${p.tier}"><span class="rs-tl">${p.tier === 'top1' ? '🥇' : p.tier === 'top3' ? '🥈🥉' : ''}<b>${esc(p.label)}</b></span>
+        <span class="rs-tg">${p.fichas.toLocaleString('es')} fichas · ${p.monedas.toLocaleString('es')} ◉ · ${p.eg} Fichas EG${pl ? ` · <em>${esc(pl.name)}</em>` : p.player ? ' · <em>¿?</em>' : ''}</span>
+        <span class="rs-tp">${pn.map((x) => isFrame(x) ? `<span class="rs-fr${x.wings ? ' w' : ''}" title="${esc(x.name)}">${frameSvg(x)}</span>` : `<span title="${esc(x.name)}">${pennantSvg(x, 22)}</span>`).join('')}</span></div>`;
+    }).join('');
+    return `<details class="rs-strip" ${def ? '' : 'open'}><summary><span class="rs-sic">${uiIcon('trophy')}</span><span><small>${def ? `${esc(def.name.toUpperCase())} · TERMINA EN ${esc(this.leftText(seasonEnd(def) - +now))}` : `EMPIEZA EL ${new Date(seasonStart(d)).toLocaleString('es', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Madrid' }).toUpperCase()}`}</small>
+      <b>Ranking por temporadas · premios al terminar</b></span><em class="rs-more">Ver premios</em></summary>
+      <div class="rs-tiers">${prizes}</div><p class="note">Cuenta tu mejor marca en la clasificación general (por puntos). Al terminar la temporada, los premios te llegan al entrar en el juego y el ranking empieza de cero.</p></details>`;
   }
 
   // ---- 2.1 (author): the season pass (systems/seasonPass.ts)

@@ -57,7 +57,11 @@ export const AUTHOR_NEWS: NewsItem[] = [
       ] },
       { h: 'El ranking, por temporadas', icon: '🏆' },
       { list: [
-        'El ranking también va por temporadas y termina con el pase. Al acabar habrá **premios para el top 1, el top 3, el top 8, el top 15 y para todos los demás**, y empezará de cero.',
+        'El ranking también va por temporadas y termina con el pase, el **12 de diciembre a las 15:00**. Cuenta tu mejor marca en la clasificación general; después empieza de cero.',
+        '**Top 1**: 2.500 fichas, 300.000 monedas, 15 Fichas EG, **el futbolista Leyenda del pase** y el banner y el marco **Míticos** de campeón.',
+        '**Top 2-3**: 1.500 fichas, 180.000 monedas, 10 Fichas EG, **el futbolista Legendario del pase** y el banner y el marco **Legendarios** del podio.',
+        '**Top 4-8**: 900 fichas, 100.000 monedas, 6 Fichas EG y un banner **Épico**. **Top 9-15**: 600 fichas, 60.000 monedas, 4 Fichas EG y un banner **Raro**.',
+        '**Todos los demás con marca**: 250 fichas, 25.000 monedas y 2 Fichas EG. Los premios te llegan al entrar en el juego después del cierre.',
       ] },
     ],
   },
