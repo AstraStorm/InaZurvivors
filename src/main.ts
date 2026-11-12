@@ -39,6 +39,8 @@ import { tr } from './i18n/i18n';
 // keeps the last crash so a run that stops unexpectedly can be diagnosed
 const remember = (m: unknown) => { try { localStorage.setItem('ie-survivors-last-error', `${new Date().toISOString()} ${String(m)}`); } catch { /* storage full */ } };
 window.addEventListener('error', (e) => remember(e.error?.stack ?? e.message));
+// 2.3: iOS Safari only applies :active (the pressed look of buttons and tiles) when the page listens to touches
+document.addEventListener('touchstart', () => undefined, { passive: true });
 window.addEventListener('unhandledrejection', (e) => remember(e.reason?.stack ?? e.reason));
 
 const bar = document.getElementById('boot-bar');

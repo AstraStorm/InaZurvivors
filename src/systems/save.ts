@@ -217,6 +217,8 @@ export interface Settings {
   shareReplays?: boolean;
   /** 2.3: the language chosen in Ajustes; absent or '' = the browser's (i18n.ts resolveLang) */
   lang?: '' | 'es' | 'en';
+  /** 2.3: vibration on phones at the key moments of a run (game/haptics.ts); absent = yes */
+  vibration?: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = { volume: 0.5, musicVolume: 0.45, muted: false, menuTrack: '', battleTrack: '', particles: 'completo',

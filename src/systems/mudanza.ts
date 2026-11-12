@@ -101,6 +101,7 @@ export function mudanzaNotice(now = Date.now()) {
     if (now > MUDANZA_UNTIL || localStorage.getItem('inazurivors-session') || localStorage.getItem(DONE) || localStorage.getItem(SEEN)) return;
   } catch { return; }
   const bar = document.createElement('div');
+  bar.id = 'mudanza-bar'; // 2.3: compact on phones (styleMobile20.css)
   bar.style.cssText = 'position:fixed;left:50%;bottom:12px;transform:translateX(-50%);z-index:9000;display:flex;gap:10px;align-items:center;max-width:calc(100vw - 32px);padding:10px 12px 10px 14px;border-radius:12px;background:#13254f;border:2px solid #ffe24a;color:#fff;font:13px/1.35 system-ui,sans-serif;box-shadow:0 6px 24px rgba(0,0,0,.5)';
   bar.innerHTML = `<span>${tr('¿Jugabas como invitado en la dirección antigua (astrastorm.github.io)?')} <a href="${MUDANZA_PAGE}" style="color:#ffe24a;font-weight:700">${tr('Recupera tu partida')}</a> ${tr('(hasta el 13 de noviembre)')}</span>
     <button aria-label="${tr('Cerrar')}" style="flex:none;border:0;background:transparent;color:#fff;font-size:18px;cursor:pointer">✕</button>`;

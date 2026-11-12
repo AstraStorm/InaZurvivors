@@ -88,6 +88,7 @@ import { mapTextureKeys, swapRunTextures } from './runTextures';
 import type { Elem, SectorRun } from '../systems/sector';
 import { tr } from '../i18n/i18n';
 import { tTech } from '../i18n/data';
+import { HAPTIC } from './haptics';
 
 export interface HudTech { name: string; type: Technique['type']; level: number; evolution: string; cd: number; /** v1.5: inherited from the Aura */ aura?: boolean; /** v1.7: combined technique that needs this one higher */ combo?: string; /** 1.83: the level it needs */ comboNeed?: number }
 export interface HudMember { id: number; techs: (HudTech | null)[]; /** v1.5 */ aura?: { id: number; name: string } | null }
@@ -1006,6 +1007,7 @@ export class ArenaScene extends Phaser.Scene {
       this.castSlot(m, ULT, 0, m.f.x, m.f.y - 10);
       const fired = m.cds[ULT] > 200 || (m.windup as Member['windup'])?.i === ULT; // a shot winds up first
       m.cds[ULT] = fired ? this.ultCdMs() : 0;
+      if (fired) HAPTIC.ult();
       m.maxCd[ULT] = fired ? m.cds[ULT] : 1;
       // (author: «el banner debería salir antes de la animación, no al final») every ultimate opens with its banner
       const k = m.entry.keshin && KESHIN_BY_ID.get(m.entry.keshin.id);
@@ -2668,6 +2670,7 @@ export class ArenaScene extends Phaser.Scene {
     if (this.cfg.settings.flashes) target.f.flash();
     if (this.cfg.settings.damageNumbers) this.fx.label(target.f.x, target.f.y - 30, `-${dmg}`, '#ff6a6a');
     sfx('hurt');
+    HAPTIC.hurt();
     return true;
   }
 
@@ -3070,6 +3073,7 @@ export class ArenaScene extends Phaser.Scene {
     this.fx.burst('fuego', x, y, 26, 120, true);
     if (this.cfg.settings.flashes) this.cameras.main.flash(180, 255, 60, 40, true);
     this.rec?.event(this.runTime, { k: 'boss', name: b.unit.name });
+    HAPTIC.boss();
     if (this.cfg.hooks.bossIntro) this.cfg.hooks.bossIntro({ name: b.unit.name, title: kit.title, again });
     else this.banner(again ? tr('¡{unitName} regresa!', { unitName: b.unit.name }) : `¡${b.unit.name}!`, '#ff5a5a');
   }
@@ -3508,6 +3512,7 @@ export class ArenaScene extends Phaser.Scene {
     if (this.ended) return;
     this.xp -= this.xpNext();
     this.level++;
+    HAPTIC.levelUp();
     this.coop?.xp(this.xp, this.level, this.kills, true);
     this.coop?.levelUp(this.level);
     sfx('levelup');
@@ -3958,6 +3963,7 @@ export class ArenaScene extends Phaser.Scene {
     this.shots = []; this.hazards = []; this.shocks = [];
     this.pushHud();
     const lost = !(victory || this.endless);
+    if (!this.cfg.training) (lost ? HAPTIC.lose : HAPTIC.win)();
     this.cfg.hooks.end({ death: (lost || (this.endless && this.hp <= 0)) && this.lastHit ? { ...this.lastHit } : undefined, mapId: this.cfg.map.id, rank: this.rank.id, victory: victory || !!this.endless, endlessSec: this.endless ? this.runTime - this.endless.since : 0, endlessPhase: this.endless ? endlessPhase(this.endlessMin()).name : undefined, endlessBosses: this.endless?.bosses ?? 0, endlessCoins: this.endless?.coins ?? 0, endlessTokens: this.endless?.tokens ?? 0, altars: this.altarsDone, damage: Math.round(this.damageDealt), runId: this.runId, captainId: this.members[0].entry.id, teamIds: this.members.map((m) => m.entry.id), timeSec: this.runTime, kills: this.kills, level: this.level,
       minibosses: this.minibossesKilled, bossDefeated: (victory || !!this.endless) && this.bossSpawned, reachedBoss: this.bossSpawned, bonusCoins: this.bonusCoins, bonusTokens: this.bonusTokens,
       formation: this.formation, techUses: this.techUses, techById: this.techById, auraTechUses: this.auraTechUses, auraCombos: this.auraCombos, withAuras: this.members.some((m) => !!m.entry.aura),

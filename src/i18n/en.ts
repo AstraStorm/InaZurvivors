@@ -3879,4 +3879,9 @@ export const EN: Record<string, string> = {
   "¿Padre e hijo? Jaden lleva el apellido de Mark adulto y juega con su mismo corazón. Nadie lo ha confirmado.": "Father and son? Jaden carries adult Mark's surname and plays with the same heart. Nobody has confirmed it.",
   "Los Evans: el cuaderno de entrenamiento de David llega hasta Jaden.": "The Evanses: David's training notebook reaches all the way to Jaden.",
   "Silvia lo cuida como cuidó al Raimon de Mark… y dicen que Jaden tiene su misma mirada. ¿Será su madre?": "Silvia looks after him as she looked after Mark's Raimon… and they say Jaden has her eyes. Could she be his mother?",
+  "Vibración (móvil)": "Vibration (mobile)",
+  "Activada": "On",
+  "Desactivada": "Off",
+  "Más vivo en el móvil": "Livelier on mobile",
+  "El móvil vibra al recibir un golpe, al subir de nivel, con las definitivas, al llegar el jefe y al fichar un Legendario o mejor (se quita en Ajustes). Los botones responden al tocarlos y los avisos ya no tapan la partida.": "Your phone vibrates when you take a hit, level up, unleash ultimates, when the boss arrives and when you sign a Legendary or better (you can turn it off in Settings). Buttons react when tapped and notices no longer cover the run.",
 };

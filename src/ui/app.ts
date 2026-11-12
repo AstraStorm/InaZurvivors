@@ -74,6 +74,7 @@ import { clashWith } from '../systems/identity';
 import { applyGtsLedger, canLeave, gtsBanned, gtsError, gtsSlots, gtsSpare, type GtsRow } from '../systems/gts';
 import { fmtNum, getLang, LANGS, locale, resolveLang, setLang, tr } from '../i18n/i18n';
 import { tEl, tTech } from '../i18n/data';
+import { buzz, HAPTIC, setHaptics } from '../game/haptics';
 import { accountId, adminBugReports, adminMetrics, adminPlayerStats, adminUpdateBug, amIAdmin, consumeAuthRedirect, deleteAccount, deleteMyBugReports, deleteShot, myBugReports, notifyBug, shotUrl, submitBugReport, uploadShot, getCloudSave, leaderboard, myPosition, passHolders, sectorSides, profileBanners, profileFrames, sectorClaim, sectorCredit, sectorJoin, sectorStatus, type SectorPrize, type SectorStatus, publicProfile, type PublicProfile, myProfile, onlineConfigured, putCloudSave, reserveUsername, resetMyProgress, signedEmail, signedIn, signInWithGoogle, signOut, submitScore, usernameAvailable, type BoardQuery, type BoardRow, type BugFilter, type BugRow, type CloudSave } from '../online/client';
 import { backup, linkPlan, progressOf, summarize, type SaveSummary } from '../online/cloudSync';
 import { epochOf, freshProgress, resetSummary } from '../systems/resetProgress';
@@ -596,6 +597,7 @@ export class App {
   private owned(id: number) { return this.save.owned[String(id)]; }
   private unlockedRoster() { return this.m.roster.filter((p) => this.owned(p.id)); }
   private applyAudio() {
+    setHaptics(this.save.settings.vibration !== false); // 2.3: applied with the rest of the settings
     setVolume(this.save.settings.muted ? 0 : this.save.settings.volume);
     setMusicVolume(this.save.settings.musicVolume, this.save.settings.muted);
   }
@@ -739,6 +741,7 @@ export class App {
     const same = key === this.screenKey;
     const top = same ? this.root.querySelector('.screen, .menu-root')?.scrollTop ?? 0 : 0;
     if (!same) document.querySelectorAll('.toast.screen-bound').forEach((t) => t.remove());
+    if (!same) document.getElementById('zabel')?.remove(); // 2.3: Zabel's notice belongs to the screen that opened it (it stayed over the run on phones)
     this.screenKey = key;
     this.root.innerHTML = html.replace(/<img /g, '<img decoding="sync" ');
     // Fix 1.22: looping effects (card glows, sheens...) are anchored to the document clock, so a repaint (selecting a card
@@ -6193,6 +6196,7 @@ export class App {
         ${has ? '<img class="cap-sprite" id="capimg" alt="">' : `<div class="capsule" style="--c:${RARITY_COLOR[p.rarity]}"><div class="top"></div><div class="bot"></div></div>`}
         <div class="flash"></div><button class="btn small blue skip">${multi ? tr('Saltar todo') : 'Saltar'}</button>${multi ? `<button class="btn small speed${this.revealSpeed > 1 ? ' on' : ''}">×2</button>` : ''}`;
       this.root.appendChild(ov);
+      if (special) HAPTIC.legend(); // 2.3: a Legendario or better buzzes as it is revealed
       let done = false;
       const finish = (skipAll: boolean) => { if (done) return; done = true; window.removeEventListener('keydown', keys, true); ov.remove(); resolve(skipAll); };
       let skipAnim = false;
@@ -6654,6 +6658,7 @@ export class App {
       <div class="opt-row"><span>${tr('Sacudida de cámara')}</span><input type="range" id="shake" min="0" max="1" step="0.05" value="${s.shake}"></div>
       <div class="opt-row"><span>${tr('Destellos')}</span>${seg('flashes', [['1', tr('Activados')], ['0', tr('Desactivados')]], s.flashes ? '1' : '0')}</div>
       <div class="opt-row"><span>${tr('Reducir movimiento')}</span>${seg('reducedMotion', [['0', tr('No')], ['1', tr('Sí')]], s.reducedMotion ? '1' : '0')}</div>
+      <div class="opt-row"><span>${tr('Vibración (móvil)')}</span>${seg('vibration', [['1', tr('Activada')], ['0', tr('Desactivada')]], s.vibration === false ? '0' : '1')}</div>
       <div class="opt-row"><span>${tr('Números de daño')}</span>${seg('damageNumbers', [['1', tr('Visibles')], ['0', tr('Ocultos')]], s.damageNumbers ? '1' : '0')}</div>
       <div class="opt-row"><span>${tr('Calidad gráfica')}</span>${seg('quality', [['alta', tr('Alta')], ['media', tr('Media')], ['baja', tr('Baja')]], s.quality)}</div>
       <h3 style="margin-top:12px">${tr('Pantalla y controles')}</h3>
@@ -6724,6 +6729,7 @@ export class App {
       if (key === 'particles') s.particles = v as ParticleLevel;
       if (key === 'flashes') s.flashes = v === '1';
       if (key === 'damageNumbers') s.damageNumbers = v === '1';
+      if (key === 'vibration') { s.vibration = v === '1'; if (s.vibration) buzz(40); }
       if (key === 'shareReplays') s.shareReplays = v === '1';
       if (key === 'muted') s.muted = v === '1';
       if (key === 'reducedMotion') { s.reducedMotion = v === '1'; this.applyMotion(); }
