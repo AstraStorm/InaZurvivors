@@ -7,7 +7,7 @@
  */
 import type { Rarity, RosterEntry } from '../data/manifest';
 import { grantCopy } from './gacha';
-import { givePennant } from './pennants';
+import { givePennant, hasPennant } from './pennants';
 import { addCopy } from './gacha';
 import { giveGoldKey } from './seasonPass';
 import type { SaveData } from './save';
@@ -20,6 +20,15 @@ export type RedeemStatus = 'ok' | 'used' | 'invalid' | 'error';
 /** 1.81: INA483's guaranteed footballer (the server migration 20261106000200_ina483.sql uses the same odds) */
 export const INA483_ODDS: Partial<Record<Rarity, number>> = { legendario: 80, mitico: 17, leyenda: 3 };
 
+/** 2.3 (author): the content creators' banner and frame (INA303), also for everyone with INA483 */
+export const CREATOR_PENNANTS = ['creador', 'marco-creador'];
+/** whoever redeemed INA483 before 2.3 gets them on load (it reads redeemedCodes, so it runs only until owned) */
+export function creatorGiftINA483(s: SaveData): boolean {
+  if (!hasRedeemed(s, 'INA483') || CREATOR_PENNANTS.every((id) => hasPennant(s, id))) return false;
+  for (const id of CREATOR_PENNANTS) givePennant(s, id);
+  return true;
+}
+
 /** Codes a guest can redeem without a connection (the same reward the server gives). */
 export const LOCAL_CODES: Record<string, { tokens: number; coins: number; legendary: boolean; label: string; eventTokens?: number; egTokens?: number;
   /** 1.81: chance of each rarity (percent) for the guaranteed footballer; without it, a Legendario */ odds?: Partial<Record<Rarity, number>>;
@@ -29,13 +38,13 @@ export const LOCAL_CODES: Record<string, { tokens: number; coins: number; legend
   // (author) 1.81: 5 ×10 of the Banner de agradecimiento (750 fichas de evento), 20.000 coins, a Legendario or higher
   // for sure (Legendario 80 / Mítico 17 / Leyenda 3, never an event-only footballer), 5 normal ×10 (500 fichas) and its
   // own banner and frame, which nobody without the code ever sees
-  INA483: { tokens: 500, coins: 20000, eventTokens: 750, legendary: true, odds: INA483_ODDS, pennants: ['inazuma', 'marco-inazuma'],
+  INA483: { tokens: 500, coins: 20000, eventTokens: 750, legendary: true, odds: INA483_ODDS, pennants: ['inazuma', 'marco-inazuma', ...CREATOR_PENNANTS],
     label: tr('5 tiradas ×10 del Banner de agradecimiento, 5 tiradas ×10 normales, 20.000 monedas, un Legendario o superior y un banner y un marco exclusivos') },
   ASTRA17: { tokens: 72, coins: 500, legendary: true, label: tr('Regalo de bienvenida: 10 tiradas, un Legendario y 500 monedas') },
   // (author) 2.3: content creators. Their banner and frame, 1.500 fichas de evento (the collab banners), 3.000 fichas, the
   // Llave dorada of the season pass, one of each footballer of the Banner de agradecimiento (Axel Encapuchado, Mikasa,
   // Eren, Armin, Escanor, Meliodas, Ban), 300.000 coins and 9 Fichas EG
-  INA303: { tokens: 3000, coins: 300000, eventTokens: 1500, egTokens: 9, legendary: false, pennants: ['creador', 'marco-creador'], goldKey: true,
+  INA303: { tokens: 3000, coins: 300000, eventTokens: 1500, egTokens: 9, legendary: false, pennants: CREATOR_PENNANTS, goldKey: true,
     players: [1085, 900003, 900002, 900004, 900007, 900006, 900008],
     label: tr('Creadores de contenido: banner y marco propios, 1.500 fichas de colaboración, 3.000 fichas, la Llave dorada, los 7 del Banner de agradecimiento, 300.000 monedas y 9 Fichas EG') },
   // (author) 2.0: 3 Fichas EG, once (typed EGu3rr3r0; codes are case-insensitive)

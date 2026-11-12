@@ -8,7 +8,7 @@ import { uiIcon, type UiIconName } from './uiIcons';
 import { deathCause } from '../systems/deathCause';
 import { serverNow, syncServerTime, timeSource, trustedClock } from '../online/serverTime';
 import { PASS, PASS_TOTAL, claimPass, passStatus, type PassReward } from '../systems/weeklyPass';
-import { applyReward, codePlayer, hasRedeemed, INA483_ODDS, normalizeCode, redeemLocal, type CodeReward } from '../systems/promo';
+import { applyReward, codePlayer, creatorGiftINA483, hasRedeemed, INA483_ODDS, normalizeCode, redeemLocal, type CodeReward } from '../systems/promo';
 import { LOSE_PRIZE, matchDecree, paySectorPrize, REBEL_ENEMY_HP, REBEL_POINTS, SECTOR_START, sectorOf, sectorOpen, sectorRun, sectorWeek, sectorWeekEnd, SIDES, weeklyDecree, WIN_PRIZE, type MatchDecree, type SectorRun, type SideId } from '../systems/sector';
 import { activeSeason, addRunXp, buyNormalKey, canClaim as canClaimLevel, claimable, claimLevel, daysTo, giveGoldKey, goldKeyChance, levelOf, levelProgress, rowOpen, seasonEnd, seasonOf, seasonStart, upcomingSeason,
   GOLD_KEY_CHANCE, GOLD_KEY_COOP, LEVEL_XP, LEVELS, MULTI_FICHAS, NORMAL_KEY_PRICE, RANK_PRIZES, RANK_XP, SEASONS, XP_PER_MIN, passPlayersHidden, payRankPrize, type Granted, type SeasonReward, type SeasonTrack } from '../systems/seasonPass';
@@ -252,6 +252,7 @@ export class App {
     if (restoreHeroStars188(save, m.roster)) storeSave(save); // 1.88: the HÉROE hero stars come back
     if (resetStars185(save, m.roster)) storeSave(save); // 1.85: everyone's stars start again under the coin rules
     if (compensateDrakul153(save)) storeSave(save); // Fix 1.53: 3 copies of Drakul for whoever ascended him
+    if (creatorGiftINA483(save)) storeSave(save); // 2.3: INA483 also gives the content creators' banner and frame
     this.jadenNotice(compensateJaden202(save, this.byId.get(JADEN_ID))); // 2.02: Jaden at 3 clears, a copy every 5
     if (save.jaden202) storeSave(save);
     if (save.auras && sanitizeAuras(save, new Map(m.roster.map((p) => [p.id, p])))) storeSave(save); // v1.5: Auras no longer valid are dropped
@@ -3789,6 +3790,7 @@ export class App {
     restoreHeroStars188(this.save, this.m.roster); // 1.88
     resetStars185(this.save, this.m.roster); // 1.85
     compensateDrakul153(this.save);
+    creatorGiftINA483(this.save); // 2.3
     this.jadenNotice(compensateJaden202(this.save, this.byId.get(JADEN_ID))); // 2.02
     if (this.save.auras) sanitizeAuras(this.save, this.byId); // v1.5
     this.trimAllTraining(this.save, this.m.roster);

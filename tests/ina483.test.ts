@@ -1,6 +1,6 @@
 /** 1.81 (author): the code INA483 and its banner and frame, which nobody without the code sees. */
 import { describe, expect, it } from 'vitest';
-import { codePlayer, redeemLocal } from '../src/systems/promo';
+import { codePlayer, creatorGiftINA483, redeemLocal } from '../src/systems/promo';
 import { newSave } from '../src/systems/save';
 import { hasPennant, visiblePennant } from '../src/systems/pennants';
 import { PENNANT_BY_ID } from '../src/data/pennants';
@@ -20,7 +20,16 @@ describe('INA483', () => {
     expect((s.eventTokens ?? 0) - before.e).toBe(750);
     expect([3, 4, 5]).toContain(r.reward!.player);
     expect(hasPennant(s, 'inazuma') && hasPennant(s, 'marco-inazuma')).toBe(true);
+    expect(hasPennant(s, 'creador') && hasPennant(s, 'marco-creador')).toBe(true); // 2.3
     expect(redeemLocal(s, 'INA483', roster).status).toBe('used');
+  });
+  it('2.3: whoever redeemed it before gets the content creators\' banner and frame on load, once', () => {
+    const s = newSave([10], 10);
+    expect(creatorGiftINA483(s)).toBe(false);
+    s.redeemedCodes = ['INA483'];
+    expect(creatorGiftINA483(s)).toBe(true);
+    expect(hasPennant(s, 'creador') && hasPennant(s, 'marco-creador')).toBe(true);
+    expect(creatorGiftINA483(s)).toBe(false);
   });
   it('the footballer follows the odds and is never event-only', () => {
     const odds = { legendario: 80, mitico: 17, leyenda: 3 };
