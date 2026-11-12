@@ -10,10 +10,17 @@ import type { Rarity } from '../data/manifest';
 const RARITY_COLOR: Record<Rarity, string> = { comun: '#9fb0c8', raro: '#4fb3ff', epico: '#b36bff', legendario: '#ffb020', mitico: '#ff4f8b', leyenda: '#fff6c8' };
 
 let uid = 0;
-/** the BlueLock logo, relative like every generated asset (works under the GitHub Pages path too) */
-const BL_LOGO = 'generated/collab/bluelock.webp';
+/** the BlueLock logo, relative like every generated asset (works under the GitHub Pages path too). The published build
+ *  renames every resource (a/<hash>), so the app hands over the manifest's paths with setPennantLogos (2.2: before, the
+ *  logo 404'd on the web) */
+let BL_LOGO = 'generated/collab/bluelock.webp';
 /** 2.2: the two sides' logos (tools/sector_logos.py, from the author's files) */
 const SIDE_LOGO = { sector: 'generated/sector/sector_quinto.png', resistencia: 'generated/sector/resistencia.png' };
+export function setPennantLogos(p: { bluelock?: string; sector?: string; resistencia?: string }) {
+  if (p.bluelock) BL_LOGO = p.bluelock;
+  if (p.sector) SIDE_LOGO.sector = p.sector;
+  if (p.resistencia) SIDE_LOGO.resistencia = p.resistencia;
+}
 const W = 100, H = 132;
 const CLOTH = 'M8,10 H92 V112 L50,96 L8,112 Z';
 

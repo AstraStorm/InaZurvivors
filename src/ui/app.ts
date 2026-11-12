@@ -81,7 +81,7 @@ import { INTRO } from './cinematics';
 import { SIGNATURE } from '../data/signatures';
 import { bindStick, initGamepad } from './gamepad';
 import { confetti, countUp, flyTo } from './rewardFx';
-import { frameSvg, pennantEmblem, pennantRibbon, pennantSvg } from './pennantArt';
+import { frameSvg, pennantEmblem, pennantRibbon, pennantSvg, setPennantLogos } from './pennantArt';
 import { FRAMES, isFrame, PENNANTS, PENNANT_BY_ID, PENNANT_EVENT, type PennantDef } from '../data/pennants';
 import { buyPennant, equipFrame, equippedFrame, equipPennant, equippedPennant, eventActive, eventLeftMs, eventOdds, givePennant, grantAchievementPennants, hasPennant, pullEvent, visiblePennant, type PennantPull } from '../systems/pennants';
 import { MASTERY_BONUS, MASTERY_USES, masteryLevel, recordMastery } from '../systems/mastery';
@@ -219,6 +219,8 @@ export class App {
 
   constructor(private game: Phaser.Game, private m: Manifest, private save: SaveData,
     private mugFrames: Frames, private iconFrames: Frames) {
+    // 2.2: the logos inside banners and frames, by the manifest's paths (the published build renames every file)
+    setPennantLogos({ bluelock: m.collab?.bluelock, sector: m.sector?.sector, resistencia: m.sector?.resistencia });
     // author: InaZurvivors x BlueLock is a surprise until it opens — its footballers stay out of the encyclopedia, lists
     // and searches (unless already owned, e.g. the QA accounts); the menu teaser only shows their silhouettes
     if (bluelockUpcoming(serverNow())) m.roster = m.roster.filter((p) => p.exclusive !== 'bluelock' || !!save.owned[String(p.id)]);
