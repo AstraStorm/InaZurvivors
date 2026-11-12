@@ -67,9 +67,14 @@ export class Footballer {
     this.container.setDepth(this.container.y);
   }
 
-  /** Small jump used as anticipation before a shot. */
+  private hopTween: Phaser.Tweens.Tween | null = null;
+  /** Small jump used as anticipation before a shot. A new one cuts the previous at the ground (author: chained ultimates
+   *  started a hop mid-air, it came back to that height and the sprite stayed lifted over its bar). */
   hop(scene: Phaser.Scene, height = 6, ms = 160) {
-    scene.tweens.add({ targets: [this.body, this.head], y: -height, duration: ms / 2, yoyo: true, ease: 'Quad.easeOut' });
+    this.hopTween?.stop();
+    this.body.y = this.head.y = 0;
+    this.hopTween = scene.tweens.add({ targets: [this.body, this.head], y: { from: 0, to: -height }, duration: ms / 2, yoyo: true, ease: 'Quad.easeOut',
+      onComplete: () => { this.body.y = this.head.y = 0; this.hopTween = null; } });
   }
 
   flash(color = 0xff9090) {
