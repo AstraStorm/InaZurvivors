@@ -85,6 +85,7 @@ import { COMBOS, COMBOS_BY_PRIORITY, COMBO_MAX_LEVEL, comboCast, comboDamage, co
 import { AURA_ELEMENT_BONUS, AURA_TECH_DAMAGE } from '../systems/auras';
 import type { Rank } from '../systems/save';
 import { mapTextureKeys, swapRunTextures } from './runTextures';
+import type { Elem, SectorRun } from '../systems/sector';
 
 export interface HudTech { name: string; type: Technique['type']; level: number; evolution: string; cd: number; /** v1.5: inherited from the Aura */ aura?: boolean; /** v1.7: combined technique that needs this one higher */ combo?: string; /** 1.83: the level it needs */ comboNeed?: number }
 export interface HudMember { id: number; techs: (HudTech | null)[]; /** v1.5 */ aura?: { id: number; name: string } | null }
@@ -180,6 +181,8 @@ export interface ArenaInit {
   goldKey?: { chance: number; texture: string | null };
   /** 2.02: record the run (replay.ts) with this kit and game version in its header; the app uploads it at the end */
   record?: { kit: string | null; version: string };
+  /** 2.2: the Sector Quinto event (sector.ts sectorRun): decrees by element, damage taken, tougher rivals, SEED */
+  sector?: SectorRun | null;
 }
 
 /** v1.6: what the training field puts on the pitch: each footballer's active techniques with their levels, and combos */
@@ -189,6 +192,9 @@ export interface TrainingSetup {
 }
 /** 1.76: the saves of a Leyenda keeper hit like shots (base parada damage is 0.2 of the power, a shot 0.5) and heal more */
 const LEGEND_SAVE_DAMAGE = 2.4;
+/** 2.2: the Sector Quinto's SEED: the Sector's blue, an elite's toughness and a little more */
+const SEED_TINT = 0x7f9cff;
+const SEED_HP = 1.25;
 const LEGEND_SAVE_HEAL = 1.5;
 /** rivals kept on the pitch while training */
 const TRAINING_RIVALS = 22;
@@ -690,7 +696,8 @@ export class ArenaScene extends Phaser.Scene {
     const talent = 1 + (fx.type[t.type] ?? 0) + (fx.element[String(t.element)] ?? 0) + (this.hp < this.maxHp * 0.3 ? Math.min(CAP_LAST_STAND, fx.lastStand) : 0);
     // v1.5: affinity with the Aura's element (one multiplier, the carrier keeps his own element for every other rule)
     const affinity = (m.entry.aura && t.element && t.element === m.entry.aura.element ? 1 + AURA_ELEMENT_BONUS : 1) * (t.aura !== undefined ? AURA_TECH_DAMAGE : 1)
-      * (this.cfg.coach?.element && String(t.element) === this.cfg.coach.element.element ? 1 + this.cfg.coach.element.damage : 1); // pre-2.0: the coach's affinity
+      * (this.cfg.coach?.element && String(t.element) === this.cfg.coach.element.element ? 1 + this.cfg.coach.element.damage : 1) // pre-2.0: the coach's affinity
+      * (this.cfg.sector ? (this.cfg.sector.elementMult[String(t.element) as Elem] ?? 1) * this.cfg.sector.allMult : 1); // 2.2: the Sector's decrees
     const build = softCap(m.damageMult * boost * talent * affinity * this.mods.damage * (1 + this.cfg.perks.synergy * allies) * this.teamDamageBonus() * this.heroAura()
       * chemistry(this.cfg.kitTeam ?? '', this.members.map((x) => x.entry)));
     const s = techStats(t, this.techLevel(m, i), build * statDamage(m.entry, t.type) * (this.buffOn('dano') ? 1 + (this.cfg.perks.damageBuff ?? 0.5) : 1) * this.formationDamage() * (t.type === 'parada' ? 1 + fx.keeper : 1));
@@ -2456,9 +2463,12 @@ export class ArenaScene extends Phaser.Scene {
     // plain rivals can come as elites (tough, golden, better drop) or runners (fast, fragile, icy tint)
     const roll = kind === 'enemy' || kind === 'creature' ? this.rng.frac() : 1;
     const ramp = variantRamp(this.runTime);
-    let variant: Enemy['variant'];
+    // 2.2: a SEED of the Sector Quinto: a plain rival that comes as an elite in the Sector's blue (many more against a rebel)
+    const sc = this.cfg.sector;
+    const seed = !!sc && !this.cfg.training && (kind === 'enemy' || kind === 'creature') && this.rng.frac() < sc.seedChance;
+    let variant: Enemy['variant'] = seed ? 'elite' : undefined;
     let bar = 0;
-    for (const [id, chance] of [['elite', (R.elite + (this.endless ? endlessPhase(this.endlessMin()).elite : 0)) * ramp], ['runner', R.runner * Math.min(1, this.runTime / 40)], ['shooter', R.shooter * ramp], ['flanker', R.flanker * ramp], ['bomber', R.bomber * ramp], ['tank', R.tank * ramp]] as [NonNullable<Enemy['variant']>, number][]) {
+    if (!seed) for (const [id, chance] of [['elite', (R.elite + (this.endless ? endlessPhase(this.endlessMin()).elite : 0)) * ramp], ['runner', R.runner * Math.min(1, this.runTime / 40)], ['shooter', R.shooter * ramp], ['flanker', R.flanker * ramp], ['bomber', R.bomber * ramp], ['tank', R.tank * ramp]] as [NonNullable<Enemy['variant']>, number][]) {
       bar += chance;
       if (roll < bar) { variant = id; break; }
     }
@@ -2469,12 +2479,14 @@ export class ArenaScene extends Phaser.Scene {
     if (tint !== undefined) sprite.setTint(tint);
     if (variant === 'elite') sprite.setScale(scale * 1.18);
     if (variant === 'tank') sprite.setScale(scale * 1.3);
+    if (seed) sprite.setTint(SEED_TINT).setScale(scale * 1.22);
     const scaling = this.endlessScaleNow();
     const stretch = finalStretch(kind === 'boss' ? 0 : this.runTime / this.cfg.map.durationSec); // the boss keeps its own balance
     const baseHp = 8 + ((st.body ?? 30) + (st.guts ?? 30)) / 14;
     // Fix 1.24: health grows faster as the minutes pass (quadratic term), so the rivals of the last minutes are much tougher
     const tier = mapTierScale(this.cfg.map.tier); // v1.7: later arenas on the map path have tougher rivals
-    const hp = Math.round(baseHp * (1 + minutes * 0.6 + minutes * minutes * 0.07) * hpMult * R.hp * vHp * scaling.hp * stretch.hp * tier.hp);
+    const hp = Math.round(baseHp * (1 + minutes * 0.6 + minutes * minutes * 0.07) * hpMult * R.hp * vHp * scaling.hp * stretch.hp * tier.hp
+      * (seed ? SEED_HP : 1) * (sc && kind !== 'boss' ? sc.enemyHp : 1)); // 2.2: SEED, and a rebel's tougher rivals
     const e: Enemy = {
       sprite, unit, kind, hp, maxHp: hp, speed: (28 + (st.speed ?? 30) * 0.22) * (kind === 'boss' ? 0.8 : 1) * R.speed * vSpeed * scaling.speed,
       // Fix 1.13: rivals hit about 55% harder and keep growing until minute 12, so health is something to look after
@@ -2618,6 +2630,7 @@ export class ArenaScene extends Phaser.Scene {
     if (this.buffOn('apuesta')) raw *= 1.25;
     taken *= this.formationTactic().taken;
     if (this.cfg.coach?.formation?.id === this.formation) taken *= 1 - this.cfg.coach.formation.taken; // pre-2.0: his formation
+    if (this.cfg.sector) taken *= this.cfg.sector.takenMult; // 2.2: an accepted «muro» decree
     this.invulnUntil = this.runTime + 0.3;
     const gloves = this.members.some((m) => m.entry.position === 'GK') ? 1 - this.cfg.perks.gloveReduction : 1;
     const scaled = raw * capTaken((1 - shield) * gloves * statTaken(target.entry) * (1 + this.talents().taken) * this.cfg.perks.damageTakenMult * (this.buffOn('escudo') ? 1 - SHIELD_REDUCTION : 1)) * taken;

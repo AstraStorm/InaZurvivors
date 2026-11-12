@@ -277,6 +277,21 @@ export async function deleteReplays(paths: string[]) {
 }
 /** 2.1: prizes of closed ranking seasons, handed over once (migration ranking_season) */
 export const claimSeasonRewards = () => rpc<import('../systems/seasonPass').SeasonResult[]>('claim_season_rewards', {});
+/** 2.2 Sector Quinto (migration sector_quinto): the event as the server sees it */
+export interface SectorStatus {
+  start: string; end: string; week: number | null; weekEnd: string | null; side: 'sector' | 'resistencia' | null;
+  members: Record<'sector' | 'resistencia', number>; canJoin: Record<'sector' | 'resistencia', boolean>;
+  avg: Record<'sector' | 'resistencia', number>; active: Record<'sector' | 'resistencia', number>; myPoints: number;
+  results: { week: number; winner: 'sector' | 'resistencia' | 'empate'; sector: number; resistencia: number }[];
+}
+export interface SectorPrize { week: number; side: 'sector' | 'resistencia'; won: boolean; winner: 'sector' | 'resistencia' | 'empate'; tokens: number; coins: number }
+/** signed out: the public view (no side, no own points) */
+export const sectorStatus = () => rpc<SectorStatus>('sector_status', {}, signedIn());
+/** for good: 'side_full' when that side is ahead, 'already_in_side' if already chosen */
+export const sectorJoin = (side: 'sector' | 'resistencia') => rpc<string>('sector_join', { p_side: side });
+/** a finished run's server points to the side (×1.5 when rebelling); 0 when it does not count */
+export const sectorCredit = (runId: string, rebel: boolean) => rpc<number>('sector_credit', { p_run_id: runId, p_rebel: rebel });
+export const sectorClaim = () => rpc<SectorPrize[]>('sector_claim', {});
 /** 2.02 Métricas: the active spirit of a finished run (migration 20261111000000_spirit_stats.sql) */
 export const recordSpiritRun = (spirit: string, casts: number, damage: number) => rpc<null>('record_spirit_run', { p_spirit: spirit, p_casts: Math.floor(casts), p_damage: Math.floor(damage) });
 export interface SpiritStat { spirit: string; runs: number; casts: number; damage: number }

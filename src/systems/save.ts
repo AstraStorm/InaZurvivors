@@ -95,6 +95,8 @@ export interface SaveData {
   jaden202?: boolean;
   /** 2.1: the season pass of the current season (seasonPass.ts); another season's is replaced when it is read */
   season?: SeasonSave;
+  /** 2.2: the Sector Quinto event (sector.ts): the side as the server last said, intro seen, weeks already collected */
+  sector?: { side?: 'sector' | 'resistencia' | null; introSeen?: boolean; weekSeen?: number; claimed?: number[] };
   /** v1.65: profile banners owned and the one shown (pennants.ts) */
   pennants?: { owned: string[]; equipped?: string; frame?: string };
   /** pre-2.0: coaches owned and the one on the bench (coaches.ts) */
@@ -355,6 +357,13 @@ export function validate(s: SaveData): SaveData {
   s.egTokens = Math.max(0, Math.floor(num(s.egTokens, 0)));
   const season = sanitizeSeason(s.season);
   if (season) s.season = season; else delete s.season;
+  // 2.2: the Sector Quinto side (only the two names), weeks collected as small integers
+  if (s.sector && typeof s.sector === 'object') {
+    const o = s.sector as Record<string, unknown>;
+    s.sector = { side: o.side === 'sector' || o.side === 'resistencia' ? o.side : null, introSeen: o.introSeen === true,
+      weekSeen: Number.isInteger(o.weekSeen) ? (o.weekSeen as number) : undefined,
+      claimed: (Array.isArray(o.claimed) ? o.claimed : []).map(Number).filter((n) => Number.isInteger(n) && n >= 0 && n < 10) };
+  } else delete s.sector;
   s.blWins = Math.max(0, Math.floor(num(s.blWins, 0)));
   if (!s.blWins) delete s.blWins;
   // 2.0: spirit levels 1-6 by footballer id (which footballers really have one is checked where it is used, keshin.ts)

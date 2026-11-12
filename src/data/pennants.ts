@@ -6,9 +6,9 @@
  */
 import type { Rarity } from './manifest';
 
-export type PennantSource = 'tienda' | 'logro' | 'evento' | 'codigo' | 'clan' | 'colab' | 'pase' | 'temporada';
+export type PennantSource = 'tienda' | 'logro' | 'evento' | 'codigo' | 'clan' | 'colab' | 'pase' | 'temporada' | 'sector';
 export type PennantPattern = 'franjas' | 'diagonal' | 'llamas' | 'estrellas' | 'arcoiris' | 'cuadros' | 'tiza' | 'olas' | 'rayos' | 'copos' | 'espiral' | 'nebulosa' | 'rejilla' | 'huracan';
-export type PennantEmblem = 'balon' | 'rayo' | 'llama' | 'caravana' | 'corona' | 'neumatico' | 'pizarra' | 'olas' | 'viento' | 'copo' | 'espiral' | 'mano' | 'reloj' | 'planeta' | 'ojo' | 'bluelock' | 'cuernos' | 'todopoderoso';
+export type PennantEmblem = 'balon' | 'rayo' | 'llama' | 'caravana' | 'corona' | 'neumatico' | 'pizarra' | 'olas' | 'viento' | 'copo' | 'espiral' | 'mano' | 'reloj' | 'planeta' | 'ojo' | 'bluelock' | 'cuernos' | 'todopoderoso' | 'sector' | 'resistencia';
 
 export interface PennantDef {
   id: string; name: string; rarity: Rarity; source: PennantSource;
@@ -93,6 +93,9 @@ export const FRAMES: PennantDef[] = [
   { id: 'marco-dominio', kind: 'marco', name: 'Marco del Dominio', rarity: 'epico', source: 'pase', how: 'Pase de la Temporada 1, nivel 60', c1: '#0f6a72', c2: '#021a1e', accent: '#ff3a5a', pattern: 'diagonal', emblem: 'cuernos', tagline: 'Rayos rojos alrededor del retrato, como los ojos de Zanark.' },
   { id: 'marco-todopoderoso', kind: 'marco', name: 'Marco Todopoderoso', rarity: 'legendario', source: 'pase', how: 'Pase premium de la Temporada 1, nivel 75', c1: '#ffcc2a', c2: '#4a2a00', accent: '#ffe94a', pattern: 'huracan', emblem: 'corona', tagline: 'Rizos de huracán amarillos y electricidad azul por todo el borde, con una corona arriba.' }, // author's sketch: no wings, a crown on top
   // ---- 2.1 (author): the final ranking of Temporada 1
+  // 2.2 Sector Quinto: each side's frame, for its members the first week their side wins (sector.ts SIDES)
+  { id: 'marco-sector-quinto', kind: 'marco', name: 'Marco del Sector Quinto', rarity: 'legendario', source: 'sector', how: 'Gana una semana con el Sector Quinto', wings: true, c1: '#2a4dff', c2: '#04083a', accent: '#e8f0ff', pattern: 'rejilla', emblem: 'sector', tagline: 'Alas blancas sobre azul: el fútbol, bajo control.' },
+  { id: 'marco-resistencia', kind: 'marco', name: 'Marco de la Resistencia', rarity: 'legendario', source: 'sector', how: 'Gana una semana con la Resistencia', wings: true, c1: '#ffb020', c2: '#5a2a00', accent: '#ffe94a', pattern: 'rayos', emblem: 'resistencia', tagline: 'Un rayo sobre el escudo: el fútbol es libre.' },
   { id: 'marco-t1-campeon', kind: 'marco', name: 'Marco del Campeón (T1)', rarity: 'mitico', source: 'temporada', how: 'Top 1 del ranking de la Temporada 1', wings: true, c1: '#ffd23f', c2: '#5a1a00', accent: '#fff6c8', pattern: 'huracan', emblem: 'corona', tagline: 'Alas de oro y una corona: el campeón de la Temporada 1.' },
   { id: 'marco-t1-podio', kind: 'marco', name: 'Marco del Podio (T1)', rarity: 'legendario', source: 'temporada', how: 'Top 3 del ranking de la Temporada 1', wings: true, c1: '#e8ecff', c2: '#2a3060', accent: '#ffcc2a', pattern: 'estrellas', emblem: 'corona', tagline: 'Alas de plata para el podio de la Temporada 1.' },
   // ---- (author) InaZurvivors x BlueLock: for whoever has both its footballers

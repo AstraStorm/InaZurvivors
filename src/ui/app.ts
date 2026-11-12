@@ -9,6 +9,7 @@ import { deathCause } from '../systems/deathCause';
 import { serverNow, syncServerTime, timeSource, trustedClock } from '../online/serverTime';
 import { PASS, PASS_TOTAL, claimPass, passStatus, type PassReward } from '../systems/weeklyPass';
 import { applyReward, codePlayer, hasRedeemed, INA483_ODDS, normalizeCode, redeemLocal, type CodeReward } from '../systems/promo';
+import { LOSE_PRIZE, matchDecree, paySectorPrize, REBEL_ENEMY_HP, REBEL_POINTS, SECTOR_START, sectorOf, sectorOpen, sectorRun, sectorWeek, sectorWeekEnd, SIDES, weeklyDecree, WIN_PRIZE, type MatchDecree, type SectorRun, type SideId } from '../systems/sector';
 import { activeSeason, addRunXp, buyNormalKey, canClaim as canClaimLevel, claimable, claimLevel, daysTo, giveGoldKey, goldKeyChance, levelOf, levelProgress, rowOpen, seasonEnd, seasonOf, seasonStart, upcomingSeason,
   GOLD_KEY_CHANCE, GOLD_KEY_COOP, LEVEL_XP, LEVELS, MULTI_FICHAS, NORMAL_KEY_PRICE, RANK_PRIZES, RANK_XP, SEASONS, XP_PER_MIN, passPlayersHidden, payRankPrize, type Granted, type SeasonReward, type SeasonTrack } from '../systems/seasonPass';
 import { claimSeasonRewards } from '../online/client';
@@ -71,7 +72,7 @@ import type { CoopRun } from '../game/coopArena';
 import { applyCoachPerks, COACH_BY_ID, COACH_PULL_CHANCE, COACHES, coachesOfMachine, coachRun, PASSIVE_ICON, passiveText as coachPassiveText, type CoachDef } from '../data/coaches';
 import { clashWith } from '../systems/identity';
 import { applyGtsLedger, canLeave, gtsBanned, gtsError, gtsSlots, gtsSpare, type GtsRow } from '../systems/gts';
-import { accountId, adminBugReports, adminMetrics, adminPlayerStats, adminUpdateBug, amIAdmin, consumeAuthRedirect, deleteAccount, deleteMyBugReports, deleteShot, myBugReports, notifyBug, shotUrl, submitBugReport, uploadShot, getCloudSave, leaderboard, myPosition, passHolders, profileBanners, profileFrames, publicProfile, type PublicProfile, myProfile, onlineConfigured, putCloudSave, reserveUsername, resetMyProgress, signedEmail, signedIn, signInWithGoogle, signOut, submitScore, usernameAvailable, type BoardQuery, type BoardRow, type BugFilter, type BugRow, type CloudSave } from '../online/client';
+import { accountId, adminBugReports, adminMetrics, adminPlayerStats, adminUpdateBug, amIAdmin, consumeAuthRedirect, deleteAccount, deleteMyBugReports, deleteShot, myBugReports, notifyBug, shotUrl, submitBugReport, uploadShot, getCloudSave, leaderboard, myPosition, passHolders, profileBanners, profileFrames, sectorClaim, sectorCredit, sectorJoin, sectorStatus, type SectorPrize, type SectorStatus, publicProfile, type PublicProfile, myProfile, onlineConfigured, putCloudSave, reserveUsername, resetMyProgress, signedEmail, signedIn, signInWithGoogle, signOut, submitScore, usernameAvailable, type BoardQuery, type BoardRow, type BugFilter, type BugRow, type CloudSave } from '../online/client';
 import { backup, linkPlan, progressOf, summarize, type SaveSummary } from '../online/cloudSync';
 import { epochOf, freshProgress, resetSummary } from '../systems/resetProgress';
 import { scoreOf, localBoard, mapMult, recordBest } from '../systems/leaderboard';
@@ -1228,6 +1229,7 @@ export class App {
     this.wirePromo(promo); // 1.9
     this.goldKeyUnlock(); // 2.1: the Llave dorada's unlock, once
     void this.seasonPrizes(); // 2.1: the final ranking of a season that ended
+    void this.sectorSync(); // 2.2: the side, the weeks to collect and the week's decree
     void this.fillMenuClan(); // 1.93: the clan chip and the weekly clan prizes
     void this.claimBugBounty(); // 1.85: rewards for fixed bug reports
     this.notiBar(); // 1.88
@@ -1291,9 +1293,22 @@ export class App {
     // 2.0 (author): the first slide of the menu explains the update and opens its news
     slides.unshift({ kicker: 'NUEVA VERSIÓN', title: 'InaZurvivors 2.0 · Espíritus Guerreros', text: '19 espíritus con definitiva (R), Rango Z, 6 arenas nuevas, técnicas combinadas de leyenda y Fichas EG en clanes y códigos. Toca para verlo todo.',
       cta: 'Ver novedades', color: '#c45aff', tag: '2.0', art: `<span class="m5-big m5-v2">2.0</span>`, act: () => this.devlog('version-2-0-espiritus') });
+    // 2.2 (author): the Sector Quinto, first: choose a side for good; afterwards, the side's week
+    if (sectorOpen(now)) {
+      const sd = this.save.sector?.side, wk = weeklyDecree(now);
+      const logos = this.m.sector ? `<span class="m5-sq"><img src="${this.m.sector.sector}" alt=""><b>${this.uiPiece('vs') || 'VS'}</b><img src="${this.m.sector.resistencia}" alt=""></span>` : '';
+      slides.unshift(sd
+        ? { kicker: `SECTOR QUINTO · SEMANA ${(sectorWeek(now) ?? 0) + 1}`, title: `Tu bando: ${SIDES[sd].name}`, text: `${wk ? `${wk.element} +20 % esta semana. ` : ''}Cada victoria suma para tu bando; el jueves a las 12:00 se cuenta la semana.`,
+          cta: 'Ver la semana', color: SIDES[sd].color, tag: 'SEMANA', art: logos, act: () => void this.sectorScreen() }
+        : { kicker: 'NUEVO · SECTOR QUINTO', title: '¿Sector Quinto o Resistencia?', text: 'Elige tu bando para toda la temporada. Cada semana gana el que mejor juegue: marco, fichas, monedas y copias de sus tres estrellas.',
+          cta: 'Elegir bando', color: '#3f6bff', tag: 'NUEVO', art: logos, act: () => void this.sectorScreen() });
+    }
     // 2.1 (author): the season pass (or its teaser) leads the carousel
     const sp = slides.findIndex((x) => x.kicker === 'PRÓXIMO PASE' || x.kicker.endsWith(' · PASE'));
     if (sp > 0) slides.unshift(...slides.splice(sp, 1));
+    // 2.2: until the player has a side, «elige tu bando» goes before the pass; afterwards right behind it
+    const sq = slides.findIndex((x) => x.kicker.includes('SECTOR QUINTO'));
+    if (sq > 0) slides.splice(this.save.sector?.side ? 1 : 0, 0, ...slides.splice(sq, 1));
     return slides;
   }
   private promoHtml(slides: ReturnType<App['promoSlides']>) {
@@ -4283,6 +4298,152 @@ export class App {
     }));
   }
 
+  // ------------------------------------------------------------- 2.2 Sector Quinto
+  /** the decree chosen for the match about to start, the run's changes, and whether a won run credits the side */
+  private sectorChoice: { decree: MatchDecree; rebel: boolean } | null = null;
+  private runSector: SectorRun | null = null;
+  private runSectorCredit: { rebel: boolean } | null = null;
+  private sectorAt = 0;
+  private sectorLast: SectorStatus | null = null;
+
+  /** Zabel speaks: his bust and a box with his words; `extra` goes under them; each button resolves with its value */
+  private zabelSay(o: { kicker: string; lines: string[]; extra?: string; buttons: [string, string, string][] }): Promise<string> {
+    return new Promise((resolve) => {
+      document.getElementById('zabel')?.remove();
+      const z = this.m.goCoaches?.find((c) => c.id === 'zabel'), logo = this.m.sector?.sector;
+      document.body.insertAdjacentHTML('beforeend', `<div class="zb-wrap" id="zabel"><div class="zb-in">
+        ${z ? `<img class="zb-bust" src="${z.bust}" alt="">` : ''}
+        <div class="zb-box">${logo ? `<img class="zb-logo" src="${logo}" alt="">` : ''}<small>${esc(o.kicker)}</small><b class="zb-name">Zabel · Emperador Sagrado</b>
+          ${o.lines.map((l, i) => `<p style="--i:${i}">${esc(l)}</p>`).join('')}${o.extra ?? ''}
+          <div class="zb-btns">${o.buttons.map(([l, c, v]) => `<button class="btn ${c}" data-zb="${esc(v)}">${l}</button>`).join('')}</div></div></div></div>`);
+      document.querySelectorAll<HTMLElement>('#zabel [data-zb]').forEach((b) => b.addEventListener('click', () => { sfx('click'); document.getElementById('zabel')?.remove(); resolve(b.dataset.zb!); }));
+    });
+  }
+
+  /** before a plain match of a side's member: the Sector's decree, accepted or defied */
+  private zabelDecree(d: MatchDecree, go: (rebel: boolean) => void) {
+    const wk = weeklyDecree(serverNow());
+    sfx('bossdrop');
+    void this.zabelSay({ kicker: 'DECRETO DEL SECTOR QUINTO', lines: [d.line],
+      extra: `<div class="zb-dec"><b>${esc(d.title)}</b>${wk ? `<small>Y para todos esta semana: ${esc(wk.element)} +${Math.round(wk.bonus * 100)} %</small>` : ''}</div>
+        <div class="zb-opts"><span><b>Acatar</b>Se aplica el decreto. Puntos normales para tu bando.</span>
+          <span class="rb"><b>Rebelarse</b>Sin decreto, pero el Sector envía a sus SEED: rivales +${Math.round((REBEL_ENEMY_HP - 1) * 100)} % de vida y muchos más SEED. Puntos ×${String(REBEL_POINTS).replace('.', ',')}.</span></div>`,
+      buttons: [['Acatar', 'blue', 'a'], [`¡Rebelarse! ×${String(REBEL_POINTS).replace('.', ',')}`, 'sq-rebel', 'r'], ['Volver', 'small ghost', 'x']] })
+      .then((v) => { if (v !== 'x') go(v === 'r'); });
+  }
+
+  /** the side as the server says (every 5 minutes from the menu), the weeks to collect (shown once) and, once a week,
+   *  Zabel's new weekly decree */
+  private async sectorSync(force = false): Promise<SectorStatus | null> {
+    const now = serverNow();
+    if (!onlineConfigured() || +now < Date.parse(SECTOR_START)) return null;
+    if (!force && Date.now() - this.sectorAt < 300_000) return this.sectorLast;
+    this.sectorAt = Date.now();
+    try { this.sectorLast = await sectorStatus(); } catch { this.sectorAt = 0; return null; }
+    const st = sectorOf(this.save);
+    if (signedIn() && (st.side ?? null) !== this.sectorLast.side) { st.side = this.sectorLast.side; this.persist(); }
+    if (signedIn() && this.sectorLast.side) {
+      try {
+        for (const r of await sectorClaim()) {
+          const got = paySectorPrize(this.save, r, this.byId);
+          if (got.paid) { this.persist(); this.sectorPrizeModal(r, got); }
+        }
+      } catch { /* collected next time */ }
+    }
+    const w = sectorWeek(now), wk = weeklyDecree(now);
+    if (w !== null && wk && st.weekSeen !== w && this.screenKey === 'menu-mode' && !document.getElementById('zabel')) {
+      st.weekSeen = w;
+      this.persist();
+      void this.zabelSay({ kicker: `SECTOR QUINTO · SEMANA ${w + 1}`, lines: [wk.line], extra: `<div class="zb-dec"><b>${esc(wk.title)}</b><small>Para todos, hasta el jueves a las 12:00</small></div>`,
+        buttons: [['Entendido', 'blue', 'ok'], ['Ver el Sector', '', 'go']] }).then((v) => { if (v === 'go') void this.sectorScreen(); });
+    }
+    return this.sectorLast;
+  }
+
+  /** a collected week: who won, what came in */
+  private sectorPrizeModal(r: SectorPrize, got: ReturnType<typeof paySectorPrize>) {
+    const side = SIDES[r.side], other = SIDES[r.side === 'sector' ? 'resistencia' : 'sector'], logo = this.m.sector?.[r.winner === 'empate' ? r.side : r.winner];
+    sfx(r.won ? 'legend' : 'buy');
+    if (r.won && this.save.settings.particles !== 'desactivado') confetti(120);
+    const title = r.winner === 'empate' ? '¡Empate! Los dos bandos ganan la semana' : r.won ? `¡${side.name} gana la semana!` : `Esta semana gana ${other.name}`;
+    document.body.insertAdjacentHTML('beforeend', `<div class="gk-unlock rs-end sq-end" id="sqend"><div class="gk-u-in">
+      <span class="gk-u-rays"></span>${logo ? `<img class="sq-end-logo" src="${logo}" alt="">` : ''}
+      <small>SECTOR QUINTO · SEMANA ${r.week + 1} · TU BANDO: ${esc(side.name.toUpperCase())}</small><b>${esc(title)}</b>
+      <div class="rs-gifts"><span><b>${r.tokens}</b> fichas</span><span><b>${r.coins.toLocaleString('es')}</b> ◉</span>
+        ${got.players.map((x) => `<span>${this.mug(x.player.id, 32)}<b>${esc(x.player.name)}</b>${x.isNew ? ' ¡nuevo!' : ' +1 copia'}</span>`).join('')}</div>
+      ${got.frame ? `<div class="rs-extra"><span class="rs-pn">${this.framed(this.frameFace(), side.frame)}<small>${esc(PENNANT_BY_ID.get(side.frame)?.name ?? '')}</small></span></div>` : ''}
+      ${r.won ? '' : '<p class="note">Por jugar con tu bando esta semana. ¡A por la siguiente!</p>'}
+      <div class="gk-u-btns"><button class="btn" id="sqok">¡Vamos!</button></div></div></div>`);
+    document.getElementById('sqok')!.addEventListener('click', () => document.getElementById('sqend')?.remove());
+  }
+
+  /** the event's screen: the week's decree, the two sides and their standing, the prizes, past weeks, joining */
+  async sectorScreen() {
+    setMusicContext('menu');
+    this.show(`<div class="screen sq-screen">${this.titlebar('Sector Quinto', 'Menú')}<div id="sqbody"><div class="note">Cargando…</div></div></div>`);
+    this.on('[data-back]', 'click', () => this.mainMenu());
+    const st = sectorOf(this.save);
+    if (!st.introSeen) {
+      st.introSeen = true;
+      this.persist();
+      await this.zabelSay({ kicker: 'SECTOR QUINTO', lines: ['El fútbol necesita orden. A partir de hoy, el Sector Quinto decide cómo se juega cada partido.',
+        'Únete a nosotros… o intenta resistir. Cada semana veremos qué bando juega mejor.'], buttons: [['Continuar', 'blue', 'ok']] });
+    }
+    const s = await this.sectorSync(true);
+    const body = document.getElementById('sqbody');
+    if (!body) return;
+    const now = serverNow(), w = sectorWeek(now), wk = weeklyDecree(now), logos = this.m.sector;
+    const mine = s?.side ?? st.side ?? null;
+    const z = this.m.goCoaches?.find((c) => c.id === 'zabel');
+    const card = (id: SideId) => {
+      const d = SIDES[id], can = s?.canJoin[id] ?? false;
+      const join = mine ? (mine === id ? '<em class="sq-you">TU BANDO</em>' : '') : !signedIn() ? ''
+        : `<button class="btn${can ? '' : ' off'}" data-join="${id}" ${can ? '' : 'disabled'}>${can ? `Unirme a ${esc(d.short)}` : 'Va por delante: entra en el otro'}</button>`;
+      return `<div class="sq-side s-${id}${mine === id ? ' mine' : ''}" style="--sc:${d.color}">${logos ? `<img class="sq-logo" src="${logos[id]}" alt="">` : ''}
+        <b>${esc(d.name)}</b><small>${esc(d.motto)}</small><span class="sq-n">${s ? `${s.members[id]} miembro${s.members[id] === 1 ? '' : 's'}` : ''}</span>
+        <div class="sq-stars">${d.players.map((pid) => { const p = this.byId.get(pid); return p ? `<span class="r-${p.rarity}" title="${esc(p.name)}">${this.mug(pid, 44)}</span>` : ''; }).join('')}</div>${join}</div>`;
+    };
+    const a = { sector: s?.avg.sector ?? 0, resistencia: s?.avg.resistencia ?? 0 }, tot = Math.max(1, a.sector + a.resistencia);
+    const left = w !== null ? this.leftText(sectorWeekEnd(w) - +now) : '';
+    const frame = (id: SideId) => `<span class="sq-fr">${this.framed(this.frameFace(), SIDES[id].frame)}</span>`;
+    body.innerHTML = `
+      ${wk ? `<section class="sq-dec">${z ? `<img class="sq-zb" src="${z.face}" alt="">` : ''}<div><small>DECRETO DE LA SEMANA ${(w ?? 0) + 1} · SE CUENTA EN ${esc(left.toUpperCase())}</small>
+        <b>${esc(wk.title.replace('Decreto semanal: ', ''))}</b><p>«${esc(wk.line)}»</p></div></section>` : '<p class="note">El Sector Quinto ha terminado esta temporada.</p>'}
+      <section class="sq-sides">${card('sector')}<span class="sq-vs">${this.uiPiece('vs') || 'VS'}</span>${card('resistencia')}</section>
+      ${s && w !== null ? `<section class="sq-stand"><small>ESTA SEMANA · MEDIA POR JUGADOR ACTIVO</small>
+        <div class="sq-bar"><i class="b-sector" style="width:${(a.sector / tot * 100).toFixed(1)}%"></i><i class="b-resistencia" style="width:${(a.resistencia / tot * 100).toFixed(1)}%"></i></div>
+        <div class="sq-nums"><span><b>${a.sector.toLocaleString('es')}</b> · ${s.active.sector} activos</span><span>${s.active.resistencia} activos · <b>${a.resistencia.toLocaleString('es')}</b></span></div>
+        ${mine ? `<p class="sq-me">Tus puntos esta semana: <b>${s.myPoints.toLocaleString('es')}</b> · suma ganando partidas (rebelarte da ×${String(REBEL_POINTS).replace('.', ',')})</p>` : ''}</section>` : ''}
+      <section class="sq-prizes"><small>PREMIOS DE CADA SEMANA</small>
+        <div><b>Bando ganador</b><span>${WIN_PRIZE.tokens} fichas · ${WIN_PRIZE.coins.toLocaleString('es')} ◉ · una copia de sus tres estrellas · el marco del bando (la primera vez)</span>${mine ? frame(mine) : `${frame('sector')}${frame('resistencia')}`}</div>
+        <div><b>Bando perdedor</b><span>${LOSE_PRIZE.tokens} fichas · ${LOSE_PRIZE.coins.toLocaleString('es')} ◉ si jugaste esa semana</span></div></section>
+      ${s?.results.length ? `<section class="sq-hist"><small>SEMANAS ANTERIORES</small>${s.results.map((r) => `<div><b>Semana ${r.week + 1}</b><span>${r.winner === 'empate' ? 'Empate' : `Gana ${esc(SIDES[r.winner].name)}`}</span><em>${r.sector.toLocaleString('es')} – ${r.resistencia.toLocaleString('es')}</em></div>`).join('')}</section>` : ''}
+      <p class="note">${!signedIn() ? 'Para elegir bando necesitas conectar tu cuenta (Perfil): los bandos se cuentan en el servidor. ' : ''}El bando es para toda la temporada y no se puede cambiar. Para que la lucha sea justa, el bando que vaya por delante en miembros no admite a nadie más hasta que el otro lo alcance. Cuentan las victorias de partidas normales (sin cooperativo, Road, clan ni entrenamiento).</p>`;
+    this.on('[data-join]', 'click', (_e, el) => void this.sectorJoinFlow(el.dataset.join as SideId));
+  }
+
+  private async sectorJoinFlow(id: SideId) {
+    const d = SIDES[id];
+    const ok = await this.zabelSay({ kicker: 'UNA DECISIÓN PARA TODA LA TEMPORADA', lines: [`¿${d.name}? Piénsalo bien: no podrás cambiar de bando hasta que termine la temporada.`],
+      buttons: [[`Sí, ${esc(d.short)}`, 'blue', 'ok'], ['Pensarlo', 'small ghost', 'no']] });
+    if (ok !== 'ok') return;
+    try {
+      await sectorJoin(id);
+      sectorOf(this.save).side = id;
+      this.persist();
+      sfx('legend');
+      await this.zabelSay({ kicker: d.name.toUpperCase(), lines: id === 'sector'
+        ? ['Bienvenido al Sector Quinto. Aquí el fútbol se juega como yo digo.', 'Acata mis decretos y tu bando ganará.']
+        : ['La Resistencia… Veremos cuánto aguanta vuestro viento.', 'Rebélate si quieres: el Sector Quinto también sabe jugar duro.'], buttons: [['¡A jugar!', 'blue', 'ok']] });
+    } catch (e) {
+      const m = (e as Error).message;
+      this.toast(/side_full/.test(m) ? `${d.name} va por delante en miembros: ahora solo se puede entrar en el otro bando.`
+        : /already_in_side/.test(m) ? 'Ya tienes bando.' : /no_username/.test(m) ? 'Primero reserva tu nombre en Perfil.' : /sector_closed/.test(m) ? 'El Sector Quinto no está abierto ahora.' : 'No se pudo unir al bando. Inténtalo de nuevo.', 5000);
+    }
+    this.sectorAt = 0;
+    void this.sectorScreen();
+  }
+
   /** 2.02: the Jadens given for clears made under the old Road rule, said once the menu is up */
   private jadenNotice(n: number) {
     if (n > 0) window.setTimeout(() => this.toast(`Road to Fútbol Frontier: ahora Jaden sale a las 3 victorias en Máxima y otra copia cada 5. Por tus victorias recibes ${n === 1 ? 'a Jaden Evans' : `${n} Jaden Evans (él y sus copias)`}.`, 7000), 2500);
@@ -6667,6 +6828,19 @@ export class App {
   /** 2.1: the last run was on the training field (no pass EXP) */
   private lastRunTraining = false;
   startRun(mapId: string, team: RosterEntry[], candidates: RosterEntry[] = team, training?: TrainingSetup, coop?: CoopRun & { rank: Rank }) {
+    // 2.2 Sector Quinto: in a plain solo match of the event, a member of a side meets Zabel's decree first (accept or
+    // rebel); every plain match of the event gets the weekly decree and SEED rivals
+    const plain = !training && !coop && !this.roadMatch && !this.clanMatch;
+    const side = this.save.sector?.side;
+    if (plain && side && sectorOpen(serverNow()) && !this.sectorChoice) {
+      const decree = matchDecree(Date.now());
+      this.zabelDecree(decree, (rebel) => { this.sectorChoice = { decree, rebel }; this.startRun(mapId, team, candidates, training, coop); });
+      return;
+    }
+    const choice = this.sectorChoice;
+    this.sectorChoice = null;
+    this.runSector = plain ? sectorRun(serverNow(), choice?.decree ?? null, choice?.rebel ?? false) : null;
+    this.runSectorCredit = plain && !!side && !!this.runSector ? { rebel: choice?.rebel ?? false } : null;
     this.lastRunTraining = !!training;
     const found = this.m.maps.find((x) => x.id === mapId) ?? (this.clanMap?.id === mapId ? this.clanMap : undefined)!;
     const kitKey = this.clanMatch ? (this.clanData?.kit ?? '') : this.save.kit; // 1.93: the Juegos del Clan are played in the clan's kit
@@ -6728,6 +6902,7 @@ export class App {
       coach: coachRun(this.benchCoach()), // pre-2.0: his formation and element
       // 2.1: the season pass's Llave dorada (×2 in co-op), only while a season is open and the key isn't owned
       goldKey: training ? undefined : { chance: goldKeyChance(this.save, serverNow(), !!coop), texture: this.m.pase?.dorada ?? null },
+      sector: this.runSector, // 2.2
       // 2.02: recorded for the author (Ajustes > «Compartir mis partidas»); the upload happens in results()
       record: !training && !coop && this.save.settings.shareReplays !== false && onlineConfigured() && signedIn() ? { kit: kitKey || null, version: PUBLIC_VERSION } : undefined,
       kitTeam: kitKey || 'Raimon', shop: this.save.shop, mastery: this.save.mastery, loadout: this.validLoadout(), training, kit: this.m.kits?.[kitKey] ?? null, formation: (this.save.formation as FormationId) in FORMATIONS ? this.save.formation as FormationId : 'equilibrada',
@@ -7453,8 +7628,16 @@ export class App {
       time: Math.floor(r.timeSec), kills: r.kills, damage: r.damage ?? 0, endless: Math.floor(r.endlessSec ?? 0) });
     this.persist();
     if (r.victory && !coopRun && onlineConfigured() && signedIn() && this.save.onlineName) {
+      const credit = this.runSectorCredit;
       submitScore(runId, r.mapId, r.rank ?? 'C', r.timeSec, r.damage ?? 0, r.captainId ?? 0)
-        .then((res) => this.toast(res === 'duplicate' ? 'Esta partida ya estaba en el ranking' : 'Marca enviada al ranking global'))
+        .then((res) => {
+          this.toast(res === 'duplicate' ? 'Esta partida ya estaba en el ranking' : 'Marca enviada al ranking global');
+          // 2.2: the run's server points go to the player's side (×1.5 after rebelling)
+          if (res === 'ok' && credit) void sectorCredit(runId, credit.rebel).then((pts) => {
+            const sd = this.save.sector?.side;
+            if (pts > 0 && sd) window.setTimeout(() => this.toast(`${SIDES[sd].name}: +${pts.toLocaleString('es')} puntos para tu bando${credit.rebel ? ' (rebelde ×1,5)' : ''}`, 4000), 2600);
+          }).catch((e) => console.warn('[sector]', e));
+        })
         .catch((err: Error) => this.toast(`Ranking: ${err.message}`, 4000));
     }
     this.persist();

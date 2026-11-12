@@ -12,6 +12,8 @@ const RARITY_COLOR: Record<Rarity, string> = { comun: '#9fb0c8', raro: '#4fb3ff'
 let uid = 0;
 /** the BlueLock logo, relative like every generated asset (works under the GitHub Pages path too) */
 const BL_LOGO = 'generated/collab/bluelock.webp';
+/** 2.2: the two sides' logos (tools/sector_logos.py, from the author's files) */
+const SIDE_LOGO = { sector: 'generated/sector/sector_quinto.png', resistencia: 'generated/sector/resistencia.png' };
 const W = 100, H = 132;
 const CLOTH = 'M8,10 H92 V112 L50,96 L8,112 Z';
 
@@ -71,6 +73,9 @@ function emblem(e: PennantEmblem, a: string, C = 'translate(50 52)'): string {
     case 'cuernos': return `<g transform="${C}"><path d="M-8,-6 C-14,-14 -22,-18 -30,-16 C-24,-12 -18,-6 -16,2 Z M8,-6 C14,-14 22,-18 30,-16 C24,-12 18,-6 16,2 Z" fill="#f4f0e0" stroke="#1a1a1a" stroke-width="1.6" stroke-linejoin="round"/><path d="M-6,-14 L0,-26 L6,-14 Z" fill="#0e3a40" stroke="#1a1a1a" stroke-width="1.6" stroke-linejoin="round"/><path d="M-17,-8 Q0,-16 17,-8 L15,12 Q0,24 -15,12 Z" fill="#0e3a40" stroke="#1a1a1a" stroke-width="2"/><path d="M-11,0 L-3,3 L-11,5 Z M11,0 L3,3 L11,5 Z" fill="${a}"/></g>`;
     // 2.1: «Soy todopoderoso»: the ball inside a golden storm sphere, blue lightning around
     case 'todopoderoso': return `<g transform="${C}"><circle r="28" fill="#ffe94a" opacity=".25"/><circle r="22" fill="#2a1400"/><circle r="20" fill="#c8500a"/><circle r="17.5" fill="#ff8a1a"/>${[[8, 0.2, 2.6], [12, 2.3, 3], [15, 4.1, 2.4], [6, 3.6, 2.2]].map(([rr, st, sw]) => `<path d="M${(Math.cos(st) * rr).toFixed(1)},${(Math.sin(st) * rr).toFixed(1)} A${rr},${rr} 0 0,1 ${(Math.cos(st + 1.8) * rr).toFixed(1)},${(Math.sin(st + 1.8) * rr).toFixed(1)}" stroke="#ffe94a" stroke-width="${sw}" fill="none" stroke-linecap="round"/>`).join('')}<circle cx="-5" cy="-6" r="6" fill="#fff6c8" opacity=".45"/><circle r="7.5" fill="#fff" stroke="#2a1400" stroke-width="1.6"/><path d="M0,-3 L2.9,-.9 L1.8,2.5 L-1.8,2.5 L-2.9,-.9 Z" fill="#2a1400"/>${bolt(-30, -6, 30, 8, 1.8)}${bolt(-16, 24, 6, 30, 1.3)}</g>`;
+    // 2.2: the sides of the Sector Quinto, their logos as they are (the Sector's is a wide shield)
+    case 'sector': return `<g transform="${C}"><image href="${SIDE_LOGO.sector}" x="-30" y="-18" width="60" height="36" preserveAspectRatio="xMidYMid meet"/></g>`;
+    case 'resistencia': return `<g transform="${C}"><image href="${SIDE_LOGO.resistencia}" x="-22" y="-23" width="44" height="46" preserveAspectRatio="xMidYMid meet"/></g>`;
     case 'bluelock': return `<g transform="${C}"><rect x="-34" y="-11" width="68" height="22" rx="4" fill="#eef8ff" stroke="${a}" stroke-width="2.5"/><rect x="-31.5" y="-8.5" width="63" height="17" rx="2.5" fill="none" stroke="#1f5bff" stroke-width="1" opacity=".5"/><image href="${BL_LOGO}" x="-31" y="-7" width="62" height="13.5" preserveAspectRatio="xMidYMid meet"/></g>`;
   }
 }

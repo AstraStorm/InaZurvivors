@@ -67,8 +67,9 @@ describe('banners', () => {
     expect(pullEvent({ ...s, coins: 1500 }, 1, mid, () => 0.48)![0].def.id).toBe('supernova');
   });
   it('frames: fifteen like the banners, worn apart from the banner, each Mítico at 3%', () => {
-    expect(FRAMES).toHaveLength(16);
+    expect(FRAMES).toHaveLength(18);
     expect(FRAMES.filter((p) => p.source === 'clan').map((p) => p.id)).toEqual(['marco-cerezo']);
+    expect(FRAMES.filter((p) => p.source === 'sector').map((p) => p.id)).toEqual(['marco-sector-quinto', 'marco-resistencia']); // 2.2, one per side
     expect(FRAMES.every((f) => f.kind === 'marco')).toBe(true);
     expect(FRAMES.filter((p) => p.source === 'tienda').map((p) => p.rarity)).toEqual(['comun', 'raro', 'epico']);
     const odds = eventOdds();

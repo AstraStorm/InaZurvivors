@@ -826,3 +826,62 @@ describe('2.11 pass holders (database)', () => {
     expect(await ask('')).toEqual([]); // between seasons nobody has it
   });
 });
+
+describe('2.2 Sector Quinto (database)', () => {
+  const users: string[] = [];
+  beforeAll(async () => {
+    // the event opened yesterday (the real dates are tomorrow): every test moves the clock by redefining its start
+    await db.exec(`create or replace function private.sector_start() returns timestamptz language sql stable as $$ select now() - interval '1 day' $$;
+      create or replace function private.sector_end() returns timestamptz language sql stable as $$ select now() + interval '20 days' $$;`);
+    for (let i = 0; i < 14; i++) {
+      const name = `sq_${i}`, id = `00000000-0000-0000-0000-0000000022${String(i).padStart(2, '0')}`;
+      ids[name] = id; users.push(name);
+      await db.query('insert into auth.users (id, email) values ($1, $2)', [id, `${name}@example.test`]);
+      await db.query('insert into public.profiles (id, username) values ($1, $2)', [id, `Sq_${i}`]);
+    }
+  });
+  it('sides stay even: the one ahead by 5 takes nobody else; a side is for good', async () => {
+    for (let i = 0; i < 5; i++) expect((await api(users[i], `select public.sector_join('sector') as s`)).rows[0]).toEqual({ s: 'sector' });
+    await expect(api(users[5], `select public.sector_join('sector')`)).rejects.toThrow(/side_full/);
+    const st = (await api(users[5], `select public.sector_status() as s`)).rows[0] as { s: { canJoin: { sector: boolean; resistencia: boolean }; members: Record<string, number> } };
+    expect(st.s.canJoin).toEqual({ sector: false, resistencia: true });
+    expect(st.s.members).toEqual({ sector: 5, resistencia: 0 });
+    expect((await api(users[5], `select public.sector_join('resistencia') as s`)).rows[0]).toEqual({ s: 'resistencia' });
+    expect((await api(users[6], `select public.sector_join('sector') as s`)).rows[0]).toEqual({ s: 'sector' }); // 5-1: back under the margin
+    await expect(api(users[0], `select public.sector_join('resistencia')`)).rejects.toThrow(/already_in_side/);
+    await expect(api(users[7], `select public.sector_join('otro')`)).rejects.toThrow(/invalid_side/);
+    await expect(api('', `select public.sector_join('sector')`)).rejects.toThrow(/permission denied/);
+    // signed out: the public view (sides and sizes), never an error
+    const pub = (await api('', `select public.sector_status() as s`)).rows[0] as { s: { side: string | null; members: Record<string, number>; myPoints: number } };
+    expect(pub.s).toMatchObject({ side: null, members: { sector: 6, resistencia: 1 }, myPoints: 0 });
+  });
+  it("a run's server points go to the side once, ×1.5 when rebelling; someone else's run gives nothing", async () => {
+    const run = (n: number) => `00000000-0000-0000-0000-00000000ab${String(n).padStart(2, '0')}`;
+    await db.query(`insert into public.submitted_runs (run_id, user_id, points) values ($1, $2, 1000), ($3, $4, 1000), ($5, $6, 400)`,
+      [run(1), ids[users[0]], run(2), ids[users[0]], run(3), ids[users[5]]]);
+    expect((await api(users[0], `select public.sector_credit($1, false) as p`, [run(1)])).rows[0]).toEqual({ p: 1000 });
+    expect((await api(users[0], `select public.sector_credit($1, true) as p`, [run(2)])).rows[0]).toEqual({ p: 1500 });
+    expect((await api(users[0], `select public.sector_credit($1, true) as p`, [run(2)])).rows[0]).toEqual({ p: 0 }); // once
+    expect((await api(users[1], `select public.sector_credit($1, false) as p`, [run(3)])).rows[0]).toEqual({ p: 0 }); // not theirs
+    expect((await api(users[5], `select public.sector_credit($1, false) as p`, [run(3)])).rows[0]).toEqual({ p: 400 });
+    const st = (await api(users[0], `select public.sector_status() as s`)).rows[0] as { s: { myPoints: number; avg: Record<string, number>; active: Record<string, number> } };
+    expect(st.s.myPoints).toBe(2500);
+    expect(st.s.avg).toEqual({ sector: 2500, resistencia: 400 });
+    expect(st.s.active).toEqual({ sector: 1, resistencia: 1 });
+  });
+  it('the week closes on its day: higher average wins; who played collects once, winners more', async () => {
+    // a member of the Sector who played little lowers its average below the Resistencia's
+    await db.query(`insert into private.sector_points (user_id, week, points) values ($1, 0, 100)`, [ids[users[1]]]);
+    await db.exec(`create or replace function private.sector_start() returns timestamptz language sql stable as $$ select now() - interval '8 days' $$`);
+    const st = (await api(users[5], `select public.sector_status() as s`)).rows[0] as { s: { week: number; results: { week: number; winner: string }[] } };
+    expect(st.s.week).toBe(1);
+    expect(st.s.results).toEqual([{ week: 0, winner: 'sector', sector: 1300, resistencia: 400 }]);
+    const won = (await api(users[0], `select public.sector_claim() as c`)).rows[0] as { c: { week: number; won: boolean; tokens: number; coins: number }[] };
+    expect(won.c).toEqual([{ week: 0, side: 'sector', won: true, winner: 'sector', tokens: 300, coins: 15000 }]);
+    expect((await api(users[0], `select public.sector_claim() as c`)).rows[0]).toEqual({ c: [] }); // once
+    const lost = (await api(users[5], `select public.sector_claim() as c`)).rows[0] as { c: { won: boolean; tokens: number }[] };
+    expect(lost.c[0]).toMatchObject({ won: false, tokens: 100, coins: 5000 });
+    expect((await api(users[2], `select public.sector_claim() as c`)).rows[0]).toEqual({ c: [] }); // did not play that week
+    await expect(api(users[0], `select * from private.sector_members`)).rejects.toThrow(/permission denied/);
+  });
+});

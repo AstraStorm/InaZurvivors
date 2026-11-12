@@ -161,6 +161,8 @@ export interface Manifest {
   coaches?: { id: string; name: string; texture: string; source?: string }[];
   /** 2.11: GO-era coaches from the author's portrait sheet (tools/go_coaches.py): 64 px face and the sheet's bust */
   goCoaches?: { id: string; name: string; alias?: string; face: string; bust: string }[];
+  /** 2.2: the Sector Quinto sides' logos (tools/sector_logos.py) */
+  sector?: Record<'sector' | 'resistencia', string> | null;
   /** 2.11: the saga's interface pieces with no text (tools/ui_assets.py): two digit fonts (Phaser bitmap font + the
    *  strip the HUD draws with CSS: x and width of each glyph 0-9) and details */
   ui?: { digits: Record<'naranja' | 'morado', UiDigits>; pieces: Record<'vs' | 'chevron' | 'chevron_azul' | 'rayo_hex' | 'rayo_hex_rojo', string> } | null;

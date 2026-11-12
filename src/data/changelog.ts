@@ -15,6 +15,18 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: '11.1', date: '2026-11-12', title: '2.2 Sector Quinto',
+    features: [
+      'Sector Quinto (autor; systems/sector.ts, migración sector_quinto): 13-11 12:00 → 12-12 15:00, 4 semanas (jueves 12:00). Bando para siempre (sector_join con margen max(5, 10 %)), puntos del servidor por victoria (submit_score guarda submitted_runs.points; sector_credit ×1,5 rebelde), gana la mayor media por miembro activo, cierre perezoso (sector_close_due), premios sector_claim (300/15.000 ganador, 100/5.000 perdedor) contados en economy_cap; el cliente da el marco del bando y una copia de sus tres estrellas (paySectorPrize).',
+      'Decretos: semanal (+20 % a un elemento para todos) y de partida con Zabel (acatar = restricción; rebelarse = rivales +30 % vida y SEED 12 %). SEED (élite azul, 4 % en el evento). Diálogos con el busto de Zabel; nunca se dice quién es.',
+      'Interfaz de la saga (tools/ui_assets.py): números de daño, reloj y contadores; VS en la entrada del jefe y al comparar; chevrón y hexágono con rayo.',
+      'Móvil: runTextures.ts libera el estadio y los rivales anteriores al empezar otra partida, menú, sala o repetición (se acumulaban hasta 320 MB y el navegador cerraba la página).',
+    ],
+    fixes: [],
+    visuals: ['Logos de los bandos (tools/sector_logos.py), marcos del Sector Quinto y de la Resistencia, styleSector.css, styleUiSaga.css.'],
+    balance: [],
+  },
+  {
     version: '11.0', date: '2026-11-11', title: '2.1 Temporadas: pase de temporada',
     features: [
       'Pase de 125 niveles (autor): del 105 al 125 una copia de Super Zanark cada 5 niveles → CAMPEÓN+ y una corta de CAMPEÓN++, que solo alcanza el top 1 del ranking (su premio es otra copia). LEVEL_XP 140 (~19 partidas de 12 min en Z); migración pass_125 (economy_cap hasta 250 niveles reclamados) APLICADA.',

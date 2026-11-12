@@ -92,6 +92,32 @@ export const AUTHOR_NEWS: NewsItem[] = [
     ],
   },
   {
+    // 2.2 (author): never say who Zabel really is
+    id: 'sector-quinto', kind: 'evento', date: '2026-11-13', icon: '⚔️', pinned: true, from: '2026-11-13T12:00:00+01:00',
+    title: 'Sector Quinto: ¿de qué bando eres?',
+    summary: 'Elige Sector Quinto o Resistencia para toda la temporada. Cada semana gana el bando que mejor juegue: marco, fichas, monedas y copias de sus tres estrellas.',
+    blocks: [
+      { callout: 'nuevo', text: 'Desde hoy y hasta el **12 de diciembre a las 15:00**: elige bando en el **carrusel del menú**. Necesitas tu cuenta conectada.' },
+      { h: 'Los bandos', icon: '⚔️' },
+      { list: [
+        '**Sector Quinto** · Victor Blade, Bai Long y Tezcat.',
+        '**Resistencia** · Arion Sherwind, Riccardo Di Rigo y Gabriel Garcia.',
+        'El bando es **para toda la temporada**. El que vaya por delante en miembros no admite a nadie más hasta que el otro lo alcance.',
+      ] },
+      { h: 'Decretos', icon: '📜' },
+      { list: [
+        'Antes de cada partida, **Zabel** impone un decreto del Sector. **Acátalo**, o **rebélate**: sin decreto, pero con rivales más duros y muchos SEED, y tu victoria vale **×1,5**.',
+        'Cada semana, un **decreto semanal** da **+20 %** a un elemento para todo el mundo.',
+      ] },
+      { h: 'Cada jueves a las 12:00', icon: '🏅' },
+      { list: [
+        'Gana el bando con más **puntos de media por jugador activo** (cuentan tus victorias en partidas normales).',
+        'Bando ganador: **300 fichas**, **15.000 monedas**, una **copia de sus tres estrellas** y el **marco del bando** la primera vez.',
+        'Bando perdedor: **100 fichas** y **5.000 monedas** si jugaste esa semana.',
+      ] },
+    ],
+  },
+  {
     id: 'pase-temporada-1-abierto', kind: 'evento', date: '2026-11-12', icon: '👑', pinned: true, from: '2026-11-12T12:00:00+01:00',
     title: '¡Ya está aquí el pase de la Temporada 1: Soy todopoderoso!',
     summary: 'Cronus Fourseasons (Legendario, con Surtur) al conseguir la llave dorada y Super Zanark (Leyenda, con Zodíaco) en el nivel 100, y más copias suyas hasta el 125. Hasta el 12 de diciembre.',

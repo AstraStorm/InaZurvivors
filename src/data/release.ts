@@ -6,7 +6,7 @@
  */
 import { CHANGELOG } from './changelog';
 
-export const PUBLIC_VERSION = '2.1';
+export const PUBLIC_VERSION = '2.2';
 export const BUILD = CHANGELOG[0].version;
 export const RELEASED = true; // (author) 2.0: the «pre» phase is over
 export const VERSION_LABEL = RELEASED ? `v${PUBLIC_VERSION}` : `v${PUBLIC_VERSION} · pre-lanzamiento`;
@@ -30,6 +30,26 @@ export interface PublicRelease {
 
 /** Public news, newest first. Starts at v1.0: the internal versions before it are not part of the public history. */
 export const PUBLIC_RELEASES: PublicRelease[] = [
+  {
+    version: '2.2', date: '2026-11-12',
+    title: 'InaZurvivors 2.2 — Sector Quinto',
+    tagline: '¿Sector Quinto o Resistencia?',
+    intro: 'Desde el 13 de noviembre a las 12:00 y hasta el final de la Temporada 1, elige bando: Sector Quinto o Resistencia. Cada semana gana el bando que mejor juegue.',
+    features: [
+      { icon: '⚔️', title: 'Elige bando', text: 'Sector Quinto o Resistencia, para toda la temporada (no se puede cambiar). Para que sea justo, el bando que va por delante en miembros no admite a nadie más hasta que el otro lo alcance.', online: true },
+      { icon: '📜', title: 'Decretos del Sector', text: 'Antes de cada partida el Sector impone un decreto: acátalo o rebélate. Rebelarse quita el decreto, pero los rivales tienen más vida y aparecen muchos más SEED; a cambio, tu victoria vale ×1,5 para tu bando.' },
+      { icon: '🗓️', title: 'Decreto semanal', text: 'Cada semana un elemento hace +20 % de daño para todo el mundo.' },
+      { icon: '🏅', title: 'Premios cada semana', text: 'El jueves a las 12:00 se cuenta la semana: gana el bando con más puntos de media por jugador activo. El ganador se lleva 300 fichas, 15.000 monedas, una copia de sus tres estrellas y el marco de su bando; el otro, 100 fichas y 5.000 monedas si jugó.', online: true },
+      { icon: '👾', title: 'Rivales SEED', text: 'Durante el evento aparecen SEED del Sector: rivales de élite teñidos de azul.' },
+      { icon: '🔢', title: 'Números de la saga', text: 'Daño, reloj y contadores con los números de los juegos; insignia VS al aparecer el jefe y al comparar futbolistas.' },
+      { icon: '📱', title: 'Móvil más estable', text: 'La partida ya no se reinicia sola en el móvil: cada estadio se libera de la memoria al empezar otra partida.' },
+    ],
+    start: [
+      'Mañana a las 12:00, mira el carrusel del menú: «¿Sector Quinto o Resistencia?».',
+      'Conecta tu cuenta (Perfil) para poder elegir bando.',
+      'Gana partidas para sumar puntos a tu bando; si te atreves, rebélate.',
+    ],
+  },
   {
     version: '2.1', date: '2026-11-11',
     title: 'InaZurvivors 2.1 — Llegan las temporadas',
