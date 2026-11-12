@@ -13,6 +13,7 @@ import { directionFromVector, frameAt } from './rig';
 import { Fx } from './fx';
 import { drawShot } from './shotReplay';
 import { frameAtTime, spawnOf, type Replay, type ReplayEvent, type SpawnInfo } from './replay';
+import { mapTextureKeys, swapRunTextures } from './runTextures';
 
 export interface ReplayTick { t: number; duration: number; hp: number; max: number; playing: boolean; speed: number }
 export interface ReplayInit {
@@ -77,7 +78,9 @@ export class ReplayScene extends Phaser.Scene {
       if (kit.gk && m.bodies.gk) sheet(`kit:${kit.gk}`, { ...m.bodies.gk, texture: kit.gk });
     }
     for (const id of this.memberIds()) { const p = this.cfg.roster.get(id); if (p) sheet(headKey(p.id), p.head); }
-    for (const id of new Set(this.cfg.replay.spawns.map((s) => s.unit))) { const u = this.units.get(id); if (u) sheet(`unit:${id}`, u); }
+    const rivals = [...new Set(this.cfg.replay.spawns.map((s) => s.unit))];
+    swapRunTextures(this, [...mapTextureKeys(map), ...rivals.map((id) => `unit:${id}`)]); // 2.11: as in a run, the last arena goes
+    for (const id of rivals) { const u = this.units.get(id); if (u) sheet(`unit:${id}`, u); }
     for (const t of Object.values(map.textures)) if (!this.textures.exists(t.key)) this.load.image(t.key, t.texture);
     if (map.baked) for (const f of [...map.baked.tiles, ...map.baked.props]) {
       const key = `bk:${map.id}:${f.src}`;

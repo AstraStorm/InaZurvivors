@@ -84,6 +84,7 @@ import { adaptedPassive, CAP_ELEMENTAL, CAP_LAST_STAND, emptyFx, TALENTS, talent
 import { COMBOS, COMBOS_BY_PRIORITY, COMBO_MAX_LEVEL, comboCast, comboDamage, comboGoals, comboHints, comboMembers, comboReady, type ComboDef } from '../systems/combos';
 import { AURA_ELEMENT_BONUS, AURA_TECH_DAMAGE } from '../systems/auras';
 import type { Rank } from '../systems/save';
+import { mapTextureKeys, swapRunTextures } from './runTextures';
 
 export interface HudTech { name: string; type: Technique['type']; level: number; evolution: string; cd: number; /** v1.5: inherited from the Aura */ aura?: boolean; /** v1.7: combined technique that needs this one higher */ combo?: string; /** 1.83: the level it needs */ comboNeed?: number }
 export interface HudMember { id: number; techs: (HudTech | null)[]; /** v1.5 */ aura?: { id: number; name: string } | null }
@@ -417,7 +418,9 @@ export class ArenaScene extends Phaser.Scene {
     const pk = this.cfg.coop?.partner.kit; // pre-2.0: the partner's kit, for his ghosts
     if (pk && m.bodies.field) { sheet(`kit:${pk.field}`, { ...m.bodies.field, texture: pk.field }); if (pk.gk && m.bodies.gk) sheet(`kit:${pk.gk}`, { ...m.bodies.gk, texture: pk.gk }); }
     const units = new Map(m.units.map((u) => [u.id, u]));
-    for (const id of [...map.enemies, ...map.minibosses, ...(map.boss !== null ? [map.boss] : []), ...(m.eventRobot ? [m.eventRobot] : [])]) {
+    const rivals = [...map.enemies, ...map.minibosses, ...(map.boss !== null ? [map.boss] : []), ...(m.eventRobot ? [m.eventRobot] : [])];
+    swapRunTextures(this, [...mapTextureKeys(map), ...rivals.map((id) => `unit:${id}`)]); // 2.11: the last run's arena and rivals go (they piled up until phones killed the page)
+    for (const id of rivals) {
       const u = units.get(id);
       if (u) sheet(`unit:${id}`, u);
     }

@@ -7,6 +7,7 @@ import type { Manifest, RosterEntry } from '../data/manifest';
 import { Arena } from './MapBuilder';
 import { Footballer, bodyKey, headKey } from './Footballer';
 import { skinnedTexture } from './skin';
+import { mapTextureKeys, swapRunTextures } from './runTextures';
 
 /** `kit`: the equipped kit's body sheets; absent = Raimon */
 export interface MenuInit { manifest: Manifest; players: RosterEntry[]; kit?: NonNullable<Manifest['kits']>[string] | null }
@@ -39,6 +40,7 @@ export class MenuScene extends Phaser.Scene {
       if (kit.gk && m.bodies.gk) sheet(`kit:${kit.gk}`, { ...m.bodies.gk, texture: kit.gk });
     }
     for (const p of this.cfg.players) sheet(headKey(p.id), p.head);
+    swapRunTextures(this, mapTextureKeys(map)); // 2.11: the last run's arena goes; this one goes when a run on another arena starts
     for (const t of Object.values(map.textures)) if (!this.textures.exists(t.key)) this.load.image(t.key, t.texture);
     if (map.baked) for (const f of [...map.baked.tiles, ...map.baked.props]) {
       const key = `bk:${map.id}:${f.src}`;

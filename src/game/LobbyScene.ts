@@ -9,6 +9,7 @@ import type { Manifest, RosterEntry } from '../data/manifest';
 import type { Settings } from '../systems/save';
 import { analogMove, heldKeys } from './controls';
 import { Arena } from './MapBuilder';
+import { mapTextureKeys, swapRunTextures } from './runTextures';
 import { Footballer, bodyKey, headKey } from './Footballer';
 import { skinnedTexture } from './skin';
 
@@ -58,6 +59,7 @@ export class LobbyScene extends Phaser.Scene {
       if (kit.gk && m.bodies.gk) sheet(`kit:${kit.gk}`, { ...m.bodies.gk, texture: kit.gk });
     }
     for (const p of this.cfg.players) sheet(headKey(p.captain.id), p.captain.head);
+    swapRunTextures(this, mapTextureKeys(map)); // 2.11: as in the menu
     for (const t of Object.values(map.textures)) if (!this.textures.exists(t.key)) this.load.image(t.key, t.texture);
     if (map.baked) for (const f of [...map.baked.tiles, ...map.baked.props]) {
       const key = `bk:${map.id}:${f.src}`;
