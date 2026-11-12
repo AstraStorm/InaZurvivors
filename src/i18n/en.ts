@@ -3884,4 +3884,12 @@ export const EN: Record<string, string> = {
   "Desactivada": "Off",
   "Más vivo en el móvil": "Livelier on mobile",
   "El móvil vibra al recibir un golpe, al subir de nivel, con las definitivas, al llegar el jefe y al fichar un Legendario o mejor (se quita en Ajustes). Los botones responden al tocarlos y los avisos ya no tapan la partida.": "Your phone vibrates when you take a hit, level up, unleash ultimates, when the boss arrives and when you sign a Legendary or better (you can turn it off in Settings). Buttons react when tapped and notices no longer cover the run.",
+  "la Llave dorada del pase": "the pass's Gold Key",
+  "{n} futbolistas": "{n} footballers",
+  "Creadores de contenido: banner y marco propios, 1.500 fichas de colaboración, 3.000 fichas, la Llave dorada, los 7 del Banner de agradecimiento, 300.000 monedas y 9 Fichas EG": "Content creators: their own banner and frame, 1,500 collab tokens, 3,000 tokens, the Gold Key, the 7 of the Thank-you Banner, 300,000 coins and 9 EG Tokens",
+  "Creador de contenido": "Content Creator",
+  "Código de creadores de contenido": "Content creator code",
+  "Grabas, editas y subes: InaZurvivors llega más lejos gracias a ti.": "You record, edit and upload: InaZurvivors goes further thanks to you.",
+  "Marco de Creador": "Creator Frame",
+  "Un botón de play con alas: el marco de quien graba InaZurvivors.": "A play button with wings: the frame of those who record InaZurvivors.",
 };

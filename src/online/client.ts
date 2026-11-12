@@ -237,7 +237,7 @@ export const deleteMyBugReports = () => rpc<(string | null)[]>('delete_my_bug_re
 export const amIAdmin = () => rpc<boolean>('am_i_admin', {});
 /** Fix 1.12: promotional codes (one per account, decided on the server) */
 export const redeemCode = (code: string, alreadyApplied = false) =>
-  rpc<{ status: 'ok' | 'used' | 'invalid' | 'linked'; reward?: { tokens: number; coins: number; player: number | null; eventTokens?: number; egTokens?: number; pennants?: string[] } }>('redeem_code', { p_code: code, p_already_applied: alreadyApplied });
+  rpc<{ status: 'ok' | 'used' | 'invalid' | 'linked'; reward?: { tokens: number; coins: number; player: number | null; eventTokens?: number; egTokens?: number; pennants?: string[]; players?: number[]; goldKey?: boolean } }>('redeem_code', { p_code: code, p_already_applied: alreadyApplied });
 /** 1.85: bug bounty — rewards for the player's reports the admin marked «corregido», taken once (server marks them claimed) */
 /** 1.88: replies to the player's reports, and reports fixed or discarded, not yet shown (taken once) */
 /** 1.88: recommendations (migration 20261106000600_suggestions.sql) */

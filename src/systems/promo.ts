@@ -8,10 +8,13 @@
 import type { Rarity, RosterEntry } from '../data/manifest';
 import { grantCopy } from './gacha';
 import { givePennant } from './pennants';
+import { addCopy } from './gacha';
+import { giveGoldKey } from './seasonPass';
 import type { SaveData } from './save';
 import { tr } from '../i18n/i18n';
 
-export interface CodeReward { tokens: number; coins: number; player: number | null; eventTokens?: number; /** author: Fichas EG (EGU3RR3R0) */ egTokens?: number; /** 1.81: banners/frames given (hidden to everyone else) */ pennants?: string[] }
+export interface CodeReward { tokens: number; coins: number; player: number | null; eventTokens?: number; /** author: Fichas EG (EGU3RR3R0) */ egTokens?: number; /** 1.81: banners/frames given (hidden to everyone else) */ pennants?: string[];
+  /** 2.3: footballers given for sure, one copy each (INA303) */ players?: number[]; /** 2.3: the Llave dorada of the season open now */ goldKey?: boolean }
 export type RedeemStatus = 'ok' | 'used' | 'invalid' | 'error';
 
 /** 1.81: INA483's guaranteed footballer (the server migration 20261106000200_ina483.sql uses the same odds) */
@@ -20,7 +23,7 @@ export const INA483_ODDS: Partial<Record<Rarity, number>> = { legendario: 80, mi
 /** Codes a guest can redeem without a connection (the same reward the server gives). */
 export const LOCAL_CODES: Record<string, { tokens: number; coins: number; legendary: boolean; label: string; eventTokens?: number; egTokens?: number;
   /** 1.81: chance of each rarity (percent) for the guaranteed footballer; without it, a Legendario */ odds?: Partial<Record<Rarity, number>>;
-  pennants?: string[] }> = {
+  pennants?: string[]; players?: number[]; goldKey?: boolean }> = {
   // (author) 1.75: thanks to the 50+ people playing: a free ×10 of the Banner de agradecimiento and 10.000 coins
   GRACIAS: { tokens: 0, coins: 10000, eventTokens: 150, legendary: false, label: tr('Gracias por jugar: un ×10 gratis del Banner de agradecimiento y 10.000 monedas') },
   // (author) 1.81: 5 ×10 of the Banner de agradecimiento (750 fichas de evento), 20.000 coins, a Legendario or higher
@@ -29,6 +32,12 @@ export const LOCAL_CODES: Record<string, { tokens: number; coins: number; legend
   INA483: { tokens: 500, coins: 20000, eventTokens: 750, legendary: true, odds: INA483_ODDS, pennants: ['inazuma', 'marco-inazuma'],
     label: tr('5 tiradas ×10 del Banner de agradecimiento, 5 tiradas ×10 normales, 20.000 monedas, un Legendario o superior y un banner y un marco exclusivos') },
   ASTRA17: { tokens: 72, coins: 500, legendary: true, label: tr('Regalo de bienvenida: 10 tiradas, un Legendario y 500 monedas') },
+  // (author) 2.3: content creators. Their banner and frame, 1.500 fichas de evento (the collab banners), 3.000 fichas, the
+  // Llave dorada of the season pass, one of each footballer of the Banner de agradecimiento (Axel Encapuchado, Mikasa,
+  // Eren, Armin, Escanor, Meliodas, Ban), 300.000 coins and 9 Fichas EG
+  INA303: { tokens: 3000, coins: 300000, eventTokens: 1500, egTokens: 9, legendary: false, pennants: ['creador', 'marco-creador'], goldKey: true,
+    players: [1085, 900003, 900002, 900004, 900007, 900006, 900008],
+    label: tr('Creadores de contenido: banner y marco propios, 1.500 fichas de colaboración, 3.000 fichas, la Llave dorada, los 7 del Banner de agradecimiento, 300.000 monedas y 9 Fichas EG') },
   // (author) 2.0: 3 Fichas EG, once (typed EGu3rr3r0; codes are case-insensitive)
   EGU3RR3R0: { tokens: 0, coins: 0, egTokens: 3, legendary: false, label: tr('3 Fichas EG para despertar tu primer Espíritu Guerrero') },
 };
@@ -49,13 +58,15 @@ export function codePlayer(roster: RosterEntry[], odds: Partial<Record<Rarity, n
 export const normalizeCode = (c: string) => c.trim().toUpperCase().replace(/\s+/g, '');
 export const hasRedeemed = (s: SaveData, code: string) => (s.redeemedCodes ?? []).includes(normalizeCode(code));
 
-export function applyReward(s: SaveData, code: string, r: CodeReward) {
+export function applyReward(s: SaveData, code: string, r: CodeReward, roster?: Map<number, RosterEntry>, now: number | Date = Date.now()) {
   s.tokens += r.tokens;
   s.coins += r.coins;
   if (r.eventTokens) s.eventTokens = (s.eventTokens ?? 0) + r.eventTokens;
   if (r.egTokens) s.egTokens = (s.egTokens ?? 0) + r.egTokens;
   if (r.player !== null) grantCopy(s, r.player);
   for (const id of r.pennants ?? []) givePennant(s, id);
+  for (const id of r.players ?? []) addCopy(s, { id, rarity: roster?.get(id)?.rarity ?? 'legendario' });
+  if (r.goldKey) giveGoldKey(s, now);
   (s.redeemedCodes ??= []).push(normalizeCode(code));
 }
 
@@ -66,8 +77,9 @@ export function redeemLocal(s: SaveData, code: string, roster: RosterEntry[], rn
   if (hasRedeemed(s, c)) return { status: 'used' };
   const pool = roster.filter((p) => p.rarity === 'legendario');
   const player = !def.legendary ? null : def.odds ? codePlayer(roster, def.odds, rng) : pool.length ? pool[Math.floor(rng() * pool.length)].id : null;
-  const reward: CodeReward = { tokens: def.tokens, coins: def.coins, player, ...(def.eventTokens ? { eventTokens: def.eventTokens } : {}), ...(def.egTokens ? { egTokens: def.egTokens } : {}), ...(def.pennants ? { pennants: def.pennants } : {}) };
-  applyReward(s, c, reward);
+  const reward: CodeReward = { tokens: def.tokens, coins: def.coins, player, ...(def.eventTokens ? { eventTokens: def.eventTokens } : {}), ...(def.egTokens ? { egTokens: def.egTokens } : {}), ...(def.pennants ? { pennants: def.pennants } : {}),
+    ...(def.players ? { players: def.players } : {}), ...(def.goldKey ? { goldKey: true } : {}) };
+  applyReward(s, c, reward, new Map(roster.map((p) => [p.id, p])));
   (s.guestCodes ??= []).push(c);
   return { status: 'ok', reward };
 }

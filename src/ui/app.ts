@@ -521,7 +521,7 @@ export class App {
         if (online) {
           const r = await redeemCode(code);
           status = r.status; reward = r.reward ?? undefined;
-          if (status === 'ok' && reward) applyReward(this.save, code, reward);
+          if (status === 'ok' && reward) applyReward(this.save, code, reward, this.byId, serverNow());
           if (status === 'used' && !hasRedeemed(this.save, code)) (this.save.redeemedCodes ??= []).push(code);
         } else ({ status, reward } = redeemLocal(this.save, code, this.m.roster));
       } catch { status = 'error'; }
@@ -531,13 +531,13 @@ export class App {
       if (status !== 'ok' || !reward) { sfx('error'); return say(tr('Error de conexión. Inténtalo de nuevo.')); }
       this.persist();
       const gifts = (reward.pennants ?? []).map((id) => PENNANT_BY_ID.get(id)).filter((d): d is PennantDef => !!d).map((d) => `${isFrame(d) ? tr('el marco') : tr('el banner')} «${d.name}»`);
-      say(tr('¡Código válido! Recibes {x1}{x2}.', { x1: [reward.tokens ? tr('{tokens} fichas', { tokens: reward.tokens }) : '', reward.eventTokens ? tr('{eventTokens} fichas de evento', { eventTokens: reward.eventTokens }) : '', reward.egTokens ? tr('{egTokens} Fichas EG', { egTokens: reward.egTokens }) : '', reward.coins ? tr('{x1} monedas', { x1: reward.coins.toLocaleString(locale()) }) : '', ...gifts].filter(Boolean).join(', '), x2: reward.player !== null ? tr(' y un futbolista {x1}', { x1: RARITY_LABEL[this.byId.get(reward.player)?.rarity ?? 'legendario'] }) : '' }), true);
+      say(tr('¡Código válido! Recibes {x1}{x2}.', { x1: [reward.tokens ? tr('{tokens} fichas', { tokens: reward.tokens }) : '', reward.eventTokens ? tr('{eventTokens} fichas de evento', { eventTokens: reward.eventTokens }) : '', reward.egTokens ? tr('{egTokens} Fichas EG', { egTokens: reward.egTokens }) : '', reward.coins ? tr('{x1} monedas', { x1: reward.coins.toLocaleString(locale()) }) : '', reward.goldKey ? tr('la Llave dorada del pase') : '', reward.players?.length ? tr('{n} futbolistas', { n: reward.players.length }) : '', ...gifts].filter(Boolean).join(', '), x2: reward.player !== null ? tr(' y un futbolista {x1}', { x1: RARITY_LABEL[this.byId.get(reward.player)?.rarity ?? 'legendario'] }) : '' }), true);
       sfx('legend');
-      const p = reward.player !== null ? this.byId.get(reward.player) : undefined;
-      if (p) {
+      // 2.3: INA303 gives several footballers at once (reward.players), shown together
+      const got = [reward.player, ...(reward.players ?? [])].map((id) => id !== null ? this.byId.get(id) : undefined).filter((x): x is RosterEntry => !!x);
+      if (got.length) {
         box.remove();
-        const o = this.save.owned[String(p.id)];
-        await this.capsuleShow([{ player: p, isNew: o?.copies === 1, stars: o?.stars ?? 0, refund: 0 }], code === 'ASTRA17' ? tr('¡Regalo de bienvenida ASTRA17!') : tr('Código {code}', { code }));
+        await this.capsuleShow(got.map((p) => { const o = this.save.owned[String(p.id)]; return { player: p, isNew: o?.copies === 1, stars: o?.stars ?? 0, refund: 0 }; }), code === 'ASTRA17' ? tr('¡Regalo de bienvenida ASTRA17!') : tr('Código {code}', { code }));
         this.toast(tr('+{tokens} fichas · +{coins} monedas{x1}', { tokens: reward.tokens, coins: reward.coins, x1: gifts.length ? tr(' · banner y marco en tu Perfil') : '' }), 3500);
         this.mainMenu();
       }
