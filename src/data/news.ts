@@ -127,6 +127,7 @@ export const AUTHOR_NEWS: NewsItem[] = [
       { list: [
         '**Cronus Fourseasons** · Fuego · Centrocampista · **Legendario**, con el Espíritu Guerrero **Surtur**: nivel 1 de la fila premium, nada más abrirla.',
         '**Super Zanark** · Montaña · Delantero · **Leyenda**, con el Espíritu Guerrero **Zodíaco**: Golpe cataclismo, Ultratécnica, Carga elemental y **Soy todopoderoso**. Nivel 100 de la fila premium.',
+        'Y a lo largo de la fila premium, copias de **Zanark Avalonic** y de **Zanark + Cao Cao** (Míticos): **11 de cada uno**, una cada 10 niveles.',
       ] },
       { h: 'Cómo va', icon: '🔑' },
       { list: [

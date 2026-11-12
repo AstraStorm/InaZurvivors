@@ -60,6 +60,12 @@ export const SUPER_ZANARK_ID = 900401;
 /** the Zanark Domain footballers of the normal row (comun/raro ids of the team) */
 /** 2.1 (author): Cronus's copies on the premium row, away from the multiples of 5 (pulls, Fichas EG, the star prizes) */
 export const CRONUS_COPY_LEVELS = [4, 8, 14, 18, 24, 28, 34, 38, 44, 48, 54, 58, 64, 68, 74, 78, 84];
+/** 2.2 (author: «que se vayan dando»): Zanark and Zanark + Cao Cao along the premium row, on its 3.000-coin levels.
+ *  Míticos: 11 copies each, one short of HÉROE ★★★ like Cronus (1 + HÉROE 2 + 3×3 stars); Zanark's level 50 is one */
+export const ZANARK_ID = 100242;
+export const ZANARK_CAOCAO_ID = 100952;
+export const ZANARK_COPY_LEVELS = [16, 26, 36, 46, 50, 56, 66, 76, 86, 96, 106];
+export const ZANARK_CAOCAO_COPY_LEVELS = [12, 22, 32, 42, 52, 62, 72, 82, 92, 102, 112];
 const ZANARK_DOMAIN = [100949, 100912, 100464, 100517, 100726, 101512, 100457, 100781, 100947, 101591, 102114, 102134, 100485, 100776, 102170];
 
 function season1(): Pick<SeasonDef, 'normal' | 'premium'> {
@@ -70,11 +76,13 @@ function season1(): Pick<SeasonDef, 'normal' | 'premium'> {
     100: { kind: 'eg', n: 2 }, 125: { kind: 'eg', n: 3 },
   };
   const premiumSpecial: Record<number, SeasonReward> = {
-    1: { kind: 'jugador', id: CRONUS_ID }, 25: { kind: 'banner', id: 'todopoderoso' }, 50: { kind: 'jugador', id: 100242 },
+    1: { kind: 'jugador', id: CRONUS_ID }, 25: { kind: 'banner', id: 'todopoderoso' },
     75: { kind: 'marco', id: 'marco-todopoderoso' }, 100: { kind: 'jugador', id: SUPER_ZANARK_ID },
     // his duplicates for the Campeón ascension (1 + 2 = CAMPEÓN+ with two to spare; the ranking's top 1 adds the last one for ++)
     ...Object.fromEntries([105, 110, 115, 120, 125].map((lv) => [lv, { kind: 'jugador', id: SUPER_ZANARK_ID } as SeasonReward])),
     ...Object.fromEntries(CRONUS_COPY_LEVELS.map((lv) => [lv, { kind: 'jugador', id: CRONUS_ID } as SeasonReward])),
+    ...Object.fromEntries(ZANARK_COPY_LEVELS.map((lv) => [lv, { kind: 'jugador', id: ZANARK_ID } as SeasonReward])),
+    ...Object.fromEntries(ZANARK_CAOCAO_COPY_LEVELS.map((lv) => [lv, { kind: 'jugador', id: ZANARK_CAOCAO_ID } as SeasonReward])),
   };
   for (let lv = 1; lv <= LEVELS; lv++) {
     normal.push(normalSpecial[lv] ?? (domainAt.has(lv) ? { kind: 'jugador', id: domainAt.get(lv)! }

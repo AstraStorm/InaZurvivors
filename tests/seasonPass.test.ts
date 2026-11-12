@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { ZANARK_CAOCAO_COPY_LEVELS, ZANARK_CAOCAO_ID, ZANARK_COPY_LEVELS, ZANARK_ID } from '../src/systems/seasonPass';
 import { CRONUS_COPY_LEVELS, activeSeason, addRunXp, buyNormalKey, claimable, claimLevel, giveGoldKey, goldKeyChance, LEVEL_MAX, LEVEL_XP, LEVELS, levelOf, MULTI_FICHAS, NORMAL_KEY_PRICE, runXp, SEASONS, seasonOf, upcomingSeason, GOLD_KEY_CHANCE, CRONUS_ID, SUPER_ZANARK_ID } from '../src/systems/seasonPass';
 import { sanitizeSeason, type SaveData } from '../src/systems/save';
 import { PENNANT_BY_ID } from '../src/data/pennants';
@@ -108,5 +109,20 @@ describe('2.1 ranking by seasons', () => {
     expect(s.pennants?.owned).toEqual(['t1-campeon', 'marco-t1-campeon']);
     expect(got.players.map((x) => x.player.id)).toEqual([SUPER_ZANARK_ID, CRONUS_ID]);
     expect(s.owned[String(SUPER_ZANARK_ID)] && s.owned[String(CRONUS_ID)]).toBeTruthy();
+  });
+});
+
+describe('2.2 the two Zanarks along the premium row', () => {
+  it('11 copies of each, one short of HÉROE ★★★, on levels that take nothing else away', () => {
+    const prem = SEASONS[0].premium;
+    const at = (id: number) => prem.flatMap((r, i) => (r.kind === 'jugador' && r.id === id ? [i + 1] : []));
+    expect(at(ZANARK_ID)).toEqual(ZANARK_COPY_LEVELS);
+    expect(at(ZANARK_CAOCAO_ID)).toEqual(ZANARK_CAOCAO_COPY_LEVELS);
+    expect(ZANARK_COPY_LEVELS).toHaveLength(11);
+    expect(ZANARK_CAOCAO_COPY_LEVELS).toHaveLength(11);
+    // Cronus and Super Zanark keep all their copies; the multiples of 5 keep pulls, Fichas EG and the star prizes (but Zanark's old 50)
+    expect(at(CRONUS_ID)).toHaveLength(1 + CRONUS_COPY_LEVELS.length);
+    expect(at(SUPER_ZANARK_ID)).toEqual([100, 105, 110, 115, 120, 125]);
+    expect([...ZANARK_COPY_LEVELS, ...ZANARK_CAOCAO_COPY_LEVELS].filter((lv) => lv % 5 === 0)).toEqual([50]);
   });
 });
