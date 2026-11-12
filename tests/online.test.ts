@@ -154,11 +154,11 @@ describe('ranking (database)', () => {
     expect(tiers).toEqual([...tiers].sort((a, b) => b - a));
     await expect(api('', `select private.score_of('X', 1, 1)`)).rejects.toThrow(/permission denied/);
   });
-  it('the email and account ids never appear in the ranking; one call returns at most 100 rows', async () => {
+  it('the email and account ids never appear in the ranking; one call returns at most 1000 rows (2.2: the Sala shows everyone)', async () => {
     const cols = (await db.query(`select * from public.leaderboard(null, null, 'time', 1)`)).fields.map((f) => f.name);
     expect(cols).not.toContain('email');
     expect(cols).not.toContain('user_id');
-    expect((await api('', `select * from public.leaderboard(null, null, 'time', 100000)`)).rows.length).toBeLessThanOrEqual(100);
+    expect((await api('', `select * from public.leaderboard(null, null, 'time', 100000)`)).rows.length).toBeLessThanOrEqual(1000);
     expect((await api('', `select * from public.leaderboard(null, null, 'time', null)`)).rows).toHaveLength(15);
   });
 });
@@ -453,6 +453,12 @@ describe('public profile (1.76)', () => {
     expect(p.p.collection).toEqual({ 10: { stars: 1, hero: true, heroStars: 2, train: { kick: 3 } } });
     expect(p.p.achievements).toEqual(['primera-victoria']);
     expect(JSON.stringify(p.p)).not.toMatch(/coins|copies|example\.test/);
+  });
+  it('2.2: a Campeón shows as one: his level and coin stars in the squad and the collection', async () => {
+    await db.exec(`update public.saves set data = data || '{"owned": {"10": {"copies": 4, "stars": 5, "extraStars": 2, "champion": 3}}, "squad": [10]}'::jsonb where user_id = '${ids.eva}'`);
+    const p = (await api('', `select public.public_profile('Eva_P') as p`)).rows[0] as { p: { squad: Record<string, unknown>[]; collection: Record<string, Record<string, unknown>> } };
+    expect(p.p.squad[0]).toMatchObject({ id: 10, stars: 5, extraStars: 2, champion: 3 });
+    expect(p.p.collection['10']).toMatchObject({ stars: 5, extraStars: 2, champion: 3 });
   });
 });
 describe('GTS (1.8)', () => {

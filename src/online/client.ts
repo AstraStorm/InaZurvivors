@@ -154,17 +154,18 @@ export interface BoardRow { pos: number; username: string; avatar: string; crest
 /** Fix 1.31: order 'score' (points, the default), 'rank', 'time' or 'damage'; map and rank are the categories */
 export interface BoardQuery { map: string | null; rank: string | null; order: 'score' | 'rank' | 'time' | 'damage' }
 
-/** `limit`: 15 on the boards; the server never gives more than 100 (Sala de jugadores) */
+/** `limit`: 15 on the boards; the server never gives more than 1000 (2.2: the Sala de jugadores asks for everyone) */
 export const leaderboard = (q: BoardQuery, limit = 15) => rpc<BoardRow[]>('leaderboard', { p_map: q.map, p_rank: q.rank, p_order: q.order, p_limit: limit }, false);
 /** v1.6: another player's public club (public_profile.sql); null when nobody has that name */
-export interface PublicSquadMember { id: number; stars: number; hero: boolean; heroStars: number; ascRarity: string | null; asc: boolean; aura: string | null }
+/** 2.2: champion (Camino del Campeón 0..3) and extraStars (coin stars) */
+export interface PublicSquadMember { id: number; stars: number; hero: boolean; heroStars: number; ascRarity: string | null; asc: boolean; aura: string | null; champion?: number; extraStars?: number }
 export interface PublicProfile {
   username: string; avatar: string; crest: string; joined: string; favorite: string; kit: string; captain: number | null;
   icon: { kind: 'emblem' | 'player' | 'coach'; id: number } | null;
   stats: { runs: number; wins: number; kills: number; bestTimeSec: number; bestEndless: number; /** 1.76 */ pulls?: number };
   owned: number; heroes: number; squad: PublicSquadMember[];
   /** 1.76: the collection (stars, ascension, HÉROE, training) and the achievements claimed, for the same card as the own Perfil */
-  collection?: Record<string, { stars?: number; hero?: boolean; heroStars?: number; ascMitico?: boolean; ascRarity?: Rarity; train?: Partial<Record<string, number>> }>;
+  collection?: Record<string, { stars?: number; hero?: boolean; heroStars?: number; ascMitico?: boolean; ascRarity?: Rarity; train?: Partial<Record<string, number>>; champion?: number; extraStars?: number }>;
   achievements?: string[];
   /** v1.65: the banner they show (an id; unknown ids are ignored) */
   banner?: string | null;

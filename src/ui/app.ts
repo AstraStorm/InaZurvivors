@@ -3062,13 +3062,30 @@ export class App {
     if (!box.isConnected) return;
     if (!p) { box.innerHTML = `<div class="panel opf-panel"><p>No se pudo cargar el perfil de ${esc(username)}.</p><button class="btn" data-close>Cerrar</button></div>`; box.querySelector('[data-close]')!.addEventListener('click', close); return; }
     const mapName = (id: string) => this.m.maps.find((x) => x.id === id)?.name ?? id;
+    // 2.2 (author): their footballers as they really are: Campeón level, HÉROE stars, ascension, and normal + coin stars
+    const level = (e: RosterEntry, o: { hero?: boolean; heroStars?: number; asc?: boolean; ascMitico?: boolean; ascRarity?: string | null; champion?: number }) => {
+      const ch = Math.max(0, Math.min(CHAMPION_MAX, o.champion ?? 0));
+      if (ch) return { label: CHAMPION_LABEL[ch], color: '#ffd84a', cls: ` champ c${ch}`, rank: 300 + ch };
+      if (o.hero) return { label: `HÉROE${o.heroStars ? ' ' + '★'.repeat(o.heroStars) : ''}`, color: '#ffd84a', cls: ' hero', rank: 200 + (o.heroStars ?? 0) };
+      const r = ((o.asc || o.ascMitico) ? (o.ascRarity ?? 'mitico') : e.rarity) as Rarity;
+      return { label: RARITY_LABEL[r] ?? r, color: RARITY_COLOR[r] ?? '#8a9bbd', cls: '', rank: RARITY_ORDER.indexOf(r) };
+    };
+    const starTxt = (n: number, x: number) => (n || x ? ` · ${'★'.repeat(n)}${x ? `<em class="opf-xs">+${x}★</em>` : ''}` : '');
     const squad = p.squad.filter((s) => this.byId.has(s.id)).map((s) => {
-      const e = this.byId.get(s.id)!, r = (s.hero ? 'heroe' : s.asc ? (s.ascRarity ?? 'mitico') : e.rarity) as string;
+      const e = this.byId.get(s.id)!, lv = level(e, s);
       const aura = s.aura ? this.byId.get(Number(s.aura)) : undefined;
-      return `<div class="opf-pl" style="--rc:${r === 'heroe' ? '#ffd84a' : RARITY_COLOR[r as Rarity] ?? '#8a9bbd'}">${p!.captain === s.id ? '<span class="opf-cap">C</span>' : ''}${this.mug(s.id, 64)}
-        <b>${esc(e.name)}</b><small>${r === 'heroe' ? `HÉROE${s.heroStars ? ' ' + '★'.repeat(s.heroStars) : ''}` : esc(RARITY_LABEL[r as Rarity] ?? r)}${s.stars ? ` · ${'★'.repeat(s.stars)}` : ''}</small>
+      return `<div class="opf-pl${lv.cls}" style="--rc:${lv.color}">${p!.captain === s.id ? '<span class="opf-cap">C</span>' : ''}${this.mug(s.id, 64)}
+        <b>${esc(e.name)}</b><small>${esc(lv.label)}${starTxt(s.stars, s.extraStars ?? 0)}</small>
         ${aura ? `<span class="opf-aura" title="Aura: ${esc(aura.name)}">${this.mug(aura.id, 24)}<em>Aura</em></span>` : ''}</div>`;
     }).join('');
+    // 2.2 (author): «que se puedan ver los jugadores de los demás maxeados»: their Campeones and HÉROES from the whole
+    // collection, highest first (Campeón++ … HÉROE), up to 12
+    const maxed = Object.entries(p.collection ?? {}).flatMap(([id, o]) => {
+      const e = this.byId.get(Number(id));
+      if (!e || !(o.champion || o.hero)) return [];
+      return [{ e, o, lv: level(e, o) }];
+    }).sort((a, b) => b.lv.rank - a.lv.rank || (b.o.stars ?? 0) + (b.o.extraStars ?? 0) - (a.o.stars ?? 0) - (a.o.extraStars ?? 0)).slice(0, 12);
+    const maxedHtml = maxed.map(({ e, o, lv }) => `<div class="opf-pl${lv.cls}" style="--rc:${lv.color}">${this.mug(e.id, 56)}<b>${esc(e.name)}</b><small>${esc(lv.label)}${starTxt(o.stars ?? 0, o.extraStars ?? 0)}</small></div>`).join('');
     // 1.76: the best footballer and his mean, worked out from their collection exactly like the own Perfil does
     const theirs = { owned: p.collection ?? {} } as unknown as SaveData;
     let best: { id: number; mean: number; rarity: Rarity } | null = null;
@@ -3087,6 +3104,7 @@ export class App {
         runs: p.stats.runs, kills: p.stats.kills, bestTimeSec: p.stats.bestTimeSec, pulls: p.stats.pulls ?? null,
         achv: p.achievements ? MISSIONS.filter((d) => d.kind === 'logro' && claimed.has(d.id)).length : null })}
       <h3>${uiIcon('team')}Su equipo</h3><div class="opf-squad">${squad || '<div class="note">Todavía no ha elegido equipo.</div>'}</div>
+      ${maxedHtml ? `<h3>${uiIcon('crown')}Sus futbolistas al máximo</h3><div class="opf-squad opf-maxed">${maxedHtml}</div>` : ''}
       ${p.marks.length ? `<h3>${uiIcon('crown')}Mejores marcas</h3><div class="opf-marks">${p.marks.map((m) => `<span class="opf-mark"><span class="rank-btn r-${esc(m.rank)}">${rankMark(esc(m.rank))}</span>${esc(mapName(m.map))}<b>${fmtTime(m.time_sec)}</b><small>${Number(m.damage).toLocaleString('es')} daño</small></span>`).join('')}</div>` : ''}
     </div>`;
     box.querySelector('[data-close]')!.addEventListener('click', close);
@@ -3452,7 +3470,7 @@ export class App {
   }
 
   /**
-   * Sala de jugadores: everyone on the points ranking (one row per player, their best mark, up to 100) walking about as
+   * Sala de jugadores: everyone on the points ranking (one row per player, their best mark; 2.2: all of them, no longer only the top 100) walking about as
    * the captain of that mark; the own captain is the current one and is walked by hand. Pointer over someone (or, on a
    * touch screen, walking up to them) shows their card: captain's mugshot, name and ranking.
    */
@@ -3473,7 +3491,7 @@ export class App {
     if (onlineConfigured()) {
       try {
         const q: BoardQuery = { map: null, rank: null, order: 'score' };
-        const [top, me] = await Promise.all([leaderboard(q, 100), signedIn() ? myPosition(q).catch(() => null) : Promise.resolve(null)]);
+        const [top, me] = await Promise.all([leaderboard(q, 1000), signedIn() ? myPosition(q).catch(() => null) : Promise.resolve(null)]);
         mine = me;
         for (const r of top) {
           const cap = this.byId.get(r.captain_id);

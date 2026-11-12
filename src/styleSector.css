@@ -85,3 +85,10 @@
   .m5-sq img { height: 44px; }
 }
 @media (prefers-reduced-motion: reduce) { .zb-wrap, .zb-bust, .zb-box, .zb-box p { animation: none; } }
+
+/* 2.2 (author): other players' footballers as they really are (app.otherProfile): Campeones and HÉROES shine, coin stars apart */
+.opf-pl.champ { background: linear-gradient(180deg, #ffd84a26, #ffffff08); box-shadow: inset 0 0 0 2px var(--rc), 0 0 14px #ffd84a55; }
+.opf-pl.champ.c3 { box-shadow: inset 0 0 0 2px var(--rc), 0 0 22px #ffd84a99; }
+.opf-pl.hero { background: linear-gradient(180deg, #ffd84a14, #ffffff08); }
+.opf-pl small .opf-xs { font-style: normal; margin-left: 3px; color: #7fd3ff; }
+.opf-maxed .opf-pl b { font-size: 7.5px; }
