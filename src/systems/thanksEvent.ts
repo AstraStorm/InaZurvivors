@@ -6,10 +6,11 @@
  */
 import type { Rank, SaveData } from './save';
 import { bluelockActive } from './collabEvent';
+import { tr } from '../i18n/i18n';
 
 export const THANKS_EVENT = {
   id: 'agradecimiento',
-  name: 'Banner de agradecimiento',
+  name: tr('Banner de agradecimiento'),
   /** Madrid time; seven days from here (the server's clock decides) */
   start: '2026-11-04T15:00:00+01:00',
   days: 7,

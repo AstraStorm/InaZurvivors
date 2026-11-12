@@ -10,6 +10,7 @@
 import type { RosterEntry } from '../data/manifest';
 import type { SaveData } from './save';
 import { perkLevel } from './perks';
+import { tr } from '../i18n/i18n';
 
 export const GTS_MAX_SLOTS = 5;
 /** deposit slots: 1, +1 per level of the «Ventanilla GTS» upgrade */
@@ -21,8 +22,8 @@ export const gtsSpare = (s: SaveData, id: number) => { const o = s.owned[String(
  * player ascended to HÉROE can: the spare copy travels clean, the HÉROE stays (author, 1.8). */
 export const gtsBanned = (p: Pick<RosterEntry, 'rarity' | 'exclusive'>) => p.rarity === 'leyenda' || !!p.exclusive;
 export function canLeave(s: SaveData, p: Pick<RosterEntry, 'id' | 'rarity' | 'exclusive'>): string | null {
-  if (gtsBanned(p)) return p.rarity === 'leyenda' ? 'Los Leyenda no se pueden dejar en la GTS.' : 'Los futbolistas de evento no se pueden dejar en la GTS.';
-  if (gtsSpare(s, p.id) < 1) return 'Solo puedes dejar copias repetidas: necesitas al menos 2.';
+  if (gtsBanned(p)) return p.rarity === 'leyenda' ? tr('Los Leyenda no se pueden dejar en la GTS.') : tr('Los futbolistas de evento no se pueden dejar en la GTS.');
+  if (gtsSpare(s, p.id) < 1) return tr('Solo puedes dejar copias repetidas: necesitas al menos 2.');
   return null;
 }
 
@@ -60,12 +61,12 @@ export function applyGtsLedger(s: SaveData, rows: GtsRow[]): GtsEvent[] {
 /** Friendly text for the server's refusals */
 export function gtsError(e: unknown): string {
   const m = String((e as Error)?.message ?? e);
-  if (/gts_no_spare/.test(m)) return 'No tienes una copia repetida de ese futbolista (o aún no se ha guardado en la nube).';
-  if (/gts_banned/.test(m)) return 'Los Leyenda y los futbolistas de evento no se pueden cambiar.';
-  if (/gts_slots/.test(m)) return 'No te quedan huecos en la GTS. Mejora la «Ventanilla GTS» en Mejoras para tener más.';
-  if (/gts_repeated/.test(m)) return 'Ese cambio ya lo hiciste (o ya tienes ese depósito): no se puede repetir.';
-  if (/gts_gone/.test(m)) return 'Alguien se te adelantó: ese depósito ya no está.';
-  if (/gts_own/.test(m)) return 'Ese depósito es tuyo.';
-  if (/gts_no_save|not_authenticated/.test(m)) return 'Entra con tu cuenta para usar la GTS.';
-  return 'No se pudo conectar con la GTS. Inténtalo de nuevo.';
+  if (/gts_no_spare/.test(m)) return tr('No tienes una copia repetida de ese futbolista (o aún no se ha guardado en la nube).');
+  if (/gts_banned/.test(m)) return tr('Los Leyenda y los futbolistas de evento no se pueden cambiar.');
+  if (/gts_slots/.test(m)) return tr('No te quedan huecos en la GTS. Mejora la «Ventanilla GTS» en Mejoras para tener más.');
+  if (/gts_repeated/.test(m)) return tr('Ese cambio ya lo hiciste (o ya tienes ese depósito): no se puede repetir.');
+  if (/gts_gone/.test(m)) return tr('Alguien se te adelantó: ese depósito ya no está.');
+  if (/gts_own/.test(m)) return tr('Ese depósito es tuyo.');
+  if (/gts_no_save|not_authenticated/.test(m)) return tr('Entra con tu cuenta para usar la GTS.');
+  return tr('No se pudo conectar con la GTS. Inténtalo de nuevo.');
 }

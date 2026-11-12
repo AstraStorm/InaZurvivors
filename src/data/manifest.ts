@@ -1,4 +1,5 @@
 /** Types of public/generated/manifest.json (written by tools/sync-assets.ts). */
+import { tr } from '../i18n/i18n';
 
 export type Skin = [number, number, number][];
 export type Rarity = 'comun' | 'raro' | 'epico' | 'legendario' | 'mitico' | 'leyenda';
@@ -202,7 +203,7 @@ export interface Manifest {
 }
 
 export const RARITY_LABEL: Record<Rarity, string> = {
-  comun: 'Común', raro: 'Raro', epico: 'Épico', legendario: 'Legendario', mitico: 'Mítico', leyenda: 'Leyenda',
+  comun: tr('Común'), raro: tr('Raro'), epico: tr('Épico'), legendario: tr('Legendario'), mitico: tr('Mítico'), leyenda: tr('Leyenda'),
 };
 export const RARITY_ORDER: Rarity[] = ['comun', 'raro', 'epico', 'legendario', 'mitico', 'leyenda'];
 

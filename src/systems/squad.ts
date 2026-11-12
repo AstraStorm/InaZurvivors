@@ -6,6 +6,7 @@ import { RARITY_ORDER, type RosterEntry } from '../data/manifest';
 import { SQUAD_SLOTS, type SaveData, type SquadPreset } from './save';
 import { carrierOf, releaseAsAura, removeAura } from './auras';
 import { clashWith } from './identity';
+import { tr } from '../i18n/i18n';
 
 export const SQUAD_SIZE = 7;
 const rank = (p: RosterEntry) => RARITY_ORDER.indexOf(p.rarity);
@@ -101,7 +102,7 @@ export function clearSquad(save: SaveData, byId: Map<number, RosterEntry>) {
 /** The five saved teams; the first time, the current team becomes team 1 and the others start empty. */
 export function savedSquads(save: SaveData): SquadPreset[] {
   if (!save.squads?.length) {
-    save.squads = Array.from({ length: SQUAD_SLOTS }, (_, i) => ({ name: `Equipo ${i + 1}`, squad: [] as number[] }));
+    save.squads = Array.from({ length: SQUAD_SLOTS }, (_, i) => ({ name: tr('Equipo {x1}', { x1: i + 1 }), squad: [] as number[] }));
     save.activeSquad = 0;
     storeActive(save);
   }
@@ -135,7 +136,7 @@ export function switchSquad(save: SaveData, i: number) {
 export function renameSquad(save: SaveData, i: number, name: string) {
   const list = savedSquads(save);
   if (!list[i]) return;
-  list[i] = { ...list[i], name: name.trim().slice(0, 16) || `Equipo ${i + 1}` };
+  list[i] = { ...list[i], name: name.trim().slice(0, 16) || tr('Equipo {x1}', { x1: i + 1 }) };
 }
 
 /** Keeps the slot of the live team up to date (called whenever the team is saved). */

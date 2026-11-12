@@ -3,6 +3,7 @@
  * The attacks are mechanics of InaZurvivors; the names shown when they are announced come from each character's story
  * or from their own techniques. Every attack is telegraphed by the scene and can be dodged.
  */
+import { tr } from '../i18n/i18n';
 export type AttackId = 'carga' | 'radial' | 'abanico' | 'espiral' | 'lluvia' | 'onda' | 'invocacion' | 'majin';
 
 export interface BossKit {
@@ -17,15 +18,15 @@ export interface BossKit {
 }
 
 const KITS: Record<string, BossKit> = {
-  'David Samford': { title: 'Emperador del Royal', color: 0x4fa8ff, tempo: [4, 3.2, 2.5],
+  'David Samford': { title: tr('Emperador del Royal'), color: 0x4fa8ff, tempo: [4, 3.2, 2.5],
     phases: [['abanico', 'carga'], ['abanico', 'carga', 'invocacion'], ['abanico', 'invocacion', 'majin', 'espiral']],
-    names: { abanico: 'Pingüino Emperador', invocacion: 'Pingüinos del Royal', carga: 'Sprint imperial', majin: 'Golpe del emperador', espiral: 'Remolino de pingüinos' } },
-  Xene: { title: 'Capitán de Génesis', color: 0xc76bff, tempo: [3.8, 3, 2.3],
+    names: { abanico: tr('Pingüino Emperador'), invocacion: tr('Pingüinos del Royal'), carga: tr('Sprint imperial'), majin: tr('Golpe del emperador'), espiral: tr('Remolino de pingüinos') } },
+  Xene: { title: tr('Capitán de Génesis'), color: 0xc76bff, tempo: [3.8, 3, 2.3],
     phases: [['lluvia', 'radial'], ['lluvia', 'onda', 'espiral'], ['lluvia', 'onda', 'majin', 'invocacion']],
-    names: { lluvia: 'Meteoros alienígenas', radial: 'Disparo galáctico', onda: 'Onda gravitatoria', espiral: 'Espiral cósmica', majin: 'Poder de Génesis', invocacion: 'Soldados de Aliea' } },
-  'Byron Love': { title: 'El Dios de Zeus', color: 0xffe08a, tempo: [3.6, 2.9, 2.2],
+    names: { lluvia: tr('Meteoros alienígenas'), radial: tr('Disparo galáctico'), onda: tr('Onda gravitatoria'), espiral: tr('Espiral cósmica'), majin: tr('Poder de Génesis'), invocacion: tr('Soldados de Aliea') } },
+  'Byron Love': { title: tr('El Dios de Zeus'), color: 0xffe08a, tempo: [3.6, 2.9, 2.2],
     phases: [['espiral', 'onda'], ['espiral', 'onda', 'carga', 'lluvia'], ['onda', 'majin', 'invocacion', 'abanico']],
-    names: { espiral: 'Heaven\'s Time', onda: 'Luz divina', carga: 'Vuelo celestial', lluvia: 'Juicio de los dioses', majin: 'Ira divina', invocacion: 'Discípulos de Zeus', abanico: 'Alas de ángel' } },
+    names: { espiral: tr('Heaven\'s Time'), onda: tr('Luz divina'), carga: tr('Vuelo celestial'), lluvia: tr('Juicio de los dioses'), majin: tr('Ira divina'), invocacion: tr('Discípulos de Zeus'), abanico: tr('Alas de ángel') } },
 };
 
 const BY_ELEMENT: Record<string, Pick<BossKit, 'phases' | 'color'>> = {

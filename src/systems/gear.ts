@@ -2,10 +2,11 @@
 import type { ItemInfo } from '../data/manifest';
 import type { SaveData } from './save';
 import type { PerkEffects } from './perks';
+import { tr } from '../i18n/i18n';
 
 export type GearSlot = 'botas' | 'guantes' | 'accesorio' | 'especial';
 export const GEAR_SLOTS: { id: GearSlot; label: string }[] = [
-  { id: 'botas', label: 'Botas' }, { id: 'guantes', label: 'Guantes' }, { id: 'accesorio', label: 'Pulsera' }, { id: 'especial', label: 'Colgante' },
+  { id: 'botas', label: tr('Botas') }, { id: 'guantes', label: tr('Guantes') }, { id: 'accesorio', label: tr('Pulsera') }, { id: 'especial', label: tr('Colgante') },
 ];
 
 export interface GearItem { id: string; name: string; description: string; icon: number; slot: GearSlot; tier: number; price: number; effect: string; note?: string }
@@ -18,8 +19,8 @@ const ACCESSORY = ['recarga', 'suerte', 'experiencia'] as const;
 function effectText(slot: GearSlot, tier: number, index: number) {
   const n = tier + 1;
   if (slot === 'botas') return `+${n * 3}% velocidad`;
-  if (slot === 'guantes') return `-${n * 3}% daño recibido`;
-  if (slot === 'especial') return `+${n * 4}% vida del capitán`;
+  if (slot === 'guantes') return tr('-{x1}% daño recibido', { x1: n * 3 });
+  if (slot === 'especial') return tr('+{x1}% vida del capitán', { x1: n * 4 });
   const kind = ACCESSORY[index % ACCESSORY.length];
   return kind === 'recarga' ? `-${n * 2}% recarga` : kind === 'suerte' ? `+${n * 4}% suerte` : `+${n * 3}% experiencia`;
 }
@@ -35,7 +36,7 @@ export function buildGear(items: (ItemInfo & { price?: number })[]): GearItem[] 
       const it = pool[Math.floor(k * pool.length / Math.min(PER_SLOT, pool.length))];
       out.push({ id: `${slot}:${it.id}`, name: it.name.trim(), description: it.description.replace(/\s+/g, ' '), icon: it.icon, slot, tier: k,
         price: 150 + k * k * 60 + k * 90, effect: effectText(slot, k, k),
-        note: slot === 'guantes' ? 'Solo con un portero en el equipo' : undefined });
+        note: slot === 'guantes' ? tr('Solo con un portero en el equipo') : undefined });
     }
   }
   return out;

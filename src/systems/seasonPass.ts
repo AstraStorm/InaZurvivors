@@ -18,6 +18,7 @@ import type { RosterEntry } from '../data/manifest';
 import type { Rank, SaveData, SeasonSave } from './save';
 import { addCopy } from './gacha';
 import { givePennant, hasPennant } from './pennants';
+import { tr } from '../i18n/i18n';
 
 const DAY = 86_400_000;
 
@@ -94,7 +95,7 @@ function season1(): Pick<SeasonDef, 'normal' | 'premium'> {
 }
 
 export const SEASONS: SeasonDef[] = [
-  { id: 'T1', name: 'Temporada 1', subtitle: 'Soy todopoderoso', start: '2026-11-12T12:00:00+01:00', end: '2026-12-12T15:00:00+01:00',
+  { id: 'T1', name: tr('Temporada 1'), subtitle: tr('Soy todopoderoso'), start: '2026-11-12T12:00:00+01:00', end: '2026-12-12T15:00:00+01:00',
     ...season1(), stars: [CRONUS_ID, SUPER_ZANARK_ID] },
 ];
 
@@ -115,11 +116,11 @@ export function seasonOf(s: SaveData, def: SeasonDef): SeasonSave {
 /** 2.1 (author: «haz recompensas buenas»): what the final ranking of a season pays (migration ranking_season, same numbers) */
 export interface RankPrize { tier: 'top1' | 'top3' | 'top8' | 'top15' | 'resto'; label: string; from: number; to: number | null; fichas: number; monedas: number; eg: number; pennants: (season: string) => string[]; players: number[] }
 export const RANK_PRIZES: RankPrize[] = [
-  { tier: 'top1', label: 'Top 1', from: 1, to: 1, fichas: 2500, monedas: 300_000, eg: 15, pennants: (s) => [`${s.toLowerCase()}-campeon`, `marco-${s.toLowerCase()}-campeon`], players: [SUPER_ZANARK_ID, CRONUS_ID] },
-  { tier: 'top3', label: 'Top 2-3', from: 2, to: 3, fichas: 1500, monedas: 180_000, eg: 15, pennants: (s) => [`${s.toLowerCase()}-podio`, `marco-${s.toLowerCase()}-podio`], players: [] },
-  { tier: 'top8', label: 'Top 4-8', from: 4, to: 8, fichas: 900, monedas: 100_000, eg: 6, pennants: (s) => [`${s.toLowerCase()}-top8`], players: [] },
-  { tier: 'top15', label: 'Top 9-15', from: 9, to: 15, fichas: 600, monedas: 60_000, eg: 4, pennants: (s) => [`${s.toLowerCase()}-top15`], players: [] },
-  { tier: 'resto', label: 'Resto con marca', from: 16, to: null, fichas: 250, monedas: 25_000, eg: 2, pennants: () => [], players: [] },
+  { tier: 'top1', label: tr('Top 1'), from: 1, to: 1, fichas: 2500, monedas: 300_000, eg: 15, pennants: (s) => [`${s.toLowerCase()}-campeon`, `marco-${s.toLowerCase()}-campeon`], players: [SUPER_ZANARK_ID, CRONUS_ID] },
+  { tier: 'top3', label: tr('Top 2-3'), from: 2, to: 3, fichas: 1500, monedas: 180_000, eg: 15, pennants: (s) => [`${s.toLowerCase()}-podio`, `marco-${s.toLowerCase()}-podio`], players: [] },
+  { tier: 'top8', label: tr('Top 4-8'), from: 4, to: 8, fichas: 900, monedas: 100_000, eg: 6, pennants: (s) => [`${s.toLowerCase()}-top8`], players: [] },
+  { tier: 'top15', label: tr('Top 9-15'), from: 9, to: 15, fichas: 600, monedas: 60_000, eg: 4, pennants: (s) => [`${s.toLowerCase()}-top15`], players: [] },
+  { tier: 'resto', label: tr('Resto con marca'), from: 16, to: null, fichas: 250, monedas: 25_000, eg: 2, pennants: () => [], players: [] },
 ];
 /** a season prize handed over by the server (claim_season_rewards) */
 export interface SeasonResult { season: string; pos: number; score: number; tier: string; tokens: number; coins: number; eg: number; pennants: string[]; players?: number[]; player?: number | null }

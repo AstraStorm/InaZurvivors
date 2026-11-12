@@ -3,6 +3,7 @@
  * underscore, spaces at the ends removed, compared ignoring case. The browser check is only informative: uniqueness is
  * decided by the server's unique index when the name is reserved.
  */
+import { tr } from '../i18n/i18n';
 export const USERNAME_MIN = 3;
 export const USERNAME_MAX = 20;
 const RX = /^[A-Za-z0-9_]+$/;
@@ -11,8 +12,8 @@ export type UsernameCheck = { ok: true; name: string; key: string } | { ok: fals
 
 export function validateUsername(raw: string): UsernameCheck {
   const name = raw.trim();
-  if (name.length < USERNAME_MIN) return { ok: false, reason: `Mínimo ${USERNAME_MIN} caracteres` };
-  if (name.length > USERNAME_MAX) return { ok: false, reason: `Máximo ${USERNAME_MAX} caracteres` };
-  if (!RX.test(name)) return { ok: false, reason: 'Solo letras sin tildes, números y guion bajo' };
+  if (name.length < USERNAME_MIN) return { ok: false, reason: tr('Mínimo {USERNAME_MIN} caracteres', { USERNAME_MIN }) };
+  if (name.length > USERNAME_MAX) return { ok: false, reason: tr('Máximo {USERNAME_MAX} caracteres', { USERNAME_MAX }) };
+  if (!RX.test(name)) return { ok: false, reason: tr('Solo letras sin tildes, números y guion bajo') };
   return { ok: true, name, key: name.toLowerCase() };
 }

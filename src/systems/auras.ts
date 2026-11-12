@@ -23,6 +23,7 @@ import { effectiveRarity, isHero } from './ascension';
 import { STAT_KEYS, playerStats, type StatKey } from './training';
 import type { SaveData } from './save';
 import { clashWith, sameCharacter } from './identity';
+import { tr } from '../i18n/i18n';
 
 export const AURA_PCT = 0.15;
 export { BOND_PCT };
@@ -58,16 +59,16 @@ export function bondOf(a: number, b: number): AuraBond | null {
  *  Aura is not the same character as anyone in the squad or another Aura. */
 export function auraProblem(save: SaveData, carrier: Pick<RosterEntry, 'id'>, aura: Pick<RosterEntry, 'id' | 'rarity' | 'name'>, squad: number[] = [],
   byId?: Map<number, Pick<RosterEntry, 'id' | 'name'>>): string | null {
-  if (!save.owned[String(carrier.id)] || !save.owned[String(aura.id)]) return 'Solo puedes usar futbolistas de tu colección.';
-  if (carrier.id === aura.id) return 'Un futbolista no puede ser su propia Aura.';
-  if (!canBeAura(save, aura)) return 'Solo los Legendarios, Míticos y Leyendas pueden ser Aura.';
-  if (save.auras?.[String(aura.id)] !== undefined) return `${aura.name} ya lleva un Aura: las Auras no se encadenan.`;
-  if (carrierOf(save, carrier.id) !== null) return 'Este futbolista ya es el Aura de otro: no puede llevar una.';
-  if (squad.includes(aura.id) && squad[0] === aura.id) return `${aura.name} es tu capitán: elige otro capitán antes.`;
+  if (!save.owned[String(carrier.id)] || !save.owned[String(aura.id)]) return tr('Solo puedes usar futbolistas de tu colección.');
+  if (carrier.id === aura.id) return tr('Un futbolista no puede ser su propia Aura.');
+  if (!canBeAura(save, aura)) return tr('Solo los Legendarios, Míticos y Leyendas pueden ser Aura.');
+  if (save.auras?.[String(aura.id)] !== undefined) return tr('{auraName} ya lleva un Aura: las Auras no se encadenan.', { auraName: aura.name });
+  if (carrierOf(save, carrier.id) !== null) return tr('Este futbolista ya es el Aura de otro: no puede llevar una.');
+  if (squad.includes(aura.id) && squad[0] === aura.id) return tr('{auraName} es tu capitán: elige otro capitán antes.', { auraName: aura.name });
   if (byId) { // 1.8: no two of the same character, as Auras either
     const others = [...squad.filter((x) => x !== aura.id), ...Object.entries(save.auras ?? {}).filter(([c, a]) => Number(c) !== carrier.id && a !== aura.id).map(([, a]) => a)];
     const clash = clashWith(aura, [carrier.id, ...others].map((x) => byId.get(x)).filter((x): x is Pick<RosterEntry, 'id' | 'name'> => !!x));
-    if (clash) return `${aura.name} es el mismo personaje que ${clash.name}: no pueden estar los dos en tu equipo.`;
+    if (clash) return tr('{auraName} es el mismo personaje que {clashName}: no pueden estar los dos en tu equipo.', { auraName: aura.name, clashName: clash.name });
   }
   return null;
 }

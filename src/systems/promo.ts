@@ -9,6 +9,7 @@ import type { Rarity, RosterEntry } from '../data/manifest';
 import { grantCopy } from './gacha';
 import { givePennant } from './pennants';
 import type { SaveData } from './save';
+import { tr } from '../i18n/i18n';
 
 export interface CodeReward { tokens: number; coins: number; player: number | null; eventTokens?: number; /** author: Fichas EG (EGU3RR3R0) */ egTokens?: number; /** 1.81: banners/frames given (hidden to everyone else) */ pennants?: string[] }
 export type RedeemStatus = 'ok' | 'used' | 'invalid' | 'error';
@@ -21,15 +22,15 @@ export const LOCAL_CODES: Record<string, { tokens: number; coins: number; legend
   /** 1.81: chance of each rarity (percent) for the guaranteed footballer; without it, a Legendario */ odds?: Partial<Record<Rarity, number>>;
   pennants?: string[] }> = {
   // (author) 1.75: thanks to the 50+ people playing: a free ×10 of the Banner de agradecimiento and 10.000 coins
-  GRACIAS: { tokens: 0, coins: 10000, eventTokens: 150, legendary: false, label: 'Gracias por jugar: un ×10 gratis del Banner de agradecimiento y 10.000 monedas' },
+  GRACIAS: { tokens: 0, coins: 10000, eventTokens: 150, legendary: false, label: tr('Gracias por jugar: un ×10 gratis del Banner de agradecimiento y 10.000 monedas') },
   // (author) 1.81: 5 ×10 of the Banner de agradecimiento (750 fichas de evento), 20.000 coins, a Legendario or higher
   // for sure (Legendario 80 / Mítico 17 / Leyenda 3, never an event-only footballer), 5 normal ×10 (500 fichas) and its
   // own banner and frame, which nobody without the code ever sees
   INA483: { tokens: 500, coins: 20000, eventTokens: 750, legendary: true, odds: INA483_ODDS, pennants: ['inazuma', 'marco-inazuma'],
-    label: '5 tiradas ×10 del Banner de agradecimiento, 5 tiradas ×10 normales, 20.000 monedas, un Legendario o superior y un banner y un marco exclusivos' },
-  ASTRA17: { tokens: 72, coins: 500, legendary: true, label: 'Regalo de bienvenida: 10 tiradas, un Legendario y 500 monedas' },
+    label: tr('5 tiradas ×10 del Banner de agradecimiento, 5 tiradas ×10 normales, 20.000 monedas, un Legendario o superior y un banner y un marco exclusivos') },
+  ASTRA17: { tokens: 72, coins: 500, legendary: true, label: tr('Regalo de bienvenida: 10 tiradas, un Legendario y 500 monedas') },
   // (author) 2.0: 3 Fichas EG, once (typed EGu3rr3r0; codes are case-insensitive)
-  EGU3RR3R0: { tokens: 0, coins: 0, egTokens: 3, legendary: false, label: '3 Fichas EG para despertar tu primer Espíritu Guerrero' },
+  EGU3RR3R0: { tokens: 0, coins: 0, egTokens: 3, legendary: false, label: tr('3 Fichas EG para despertar tu primer Espíritu Guerrero') },
 };
 
 /** the footballer a code guarantees: rarity by `odds` (Legendario when absent), never an event-only one */

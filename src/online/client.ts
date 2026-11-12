@@ -3,6 +3,7 @@
  * VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY: the anon key is public by design; no secret ever goes in the browser.
  * Everything that writes goes through the SQL functions in supabase/schema.sql, which check the caller's identity.
  */
+import { tr } from '../i18n/i18n';
 import type { Rarity } from '../data/manifest';
 
 const URL_ = (import.meta.env?.VITE_SUPABASE_URL as string | undefined) ?? '';
@@ -23,25 +24,25 @@ function writeSession(s: Session | null) {
 /** Spanish text for the Supabase Auth / database errors a player can actually hit. Codes the UI matches on (taken,
  * version_conflict, too_fast) stay raw on purpose: the UI words those itself. */
 const ERRORS: Record<string, string> = {
-  over_request_rate_limit: 'Demasiados intentos seguidos. Espera un momento.',
-  flow_state_not_found: 'El inicio de sesión caducó. Vuelve a pulsar «Continuar con Google».',
-  flow_state_expired: 'El inicio de sesión caducó. Vuelve a pulsar «Continuar con Google».',
-  bad_code_verifier: 'El inicio de sesión empezó en otra pestaña o navegador. Vuelve a pulsar «Continuar con Google».',
-  provider_disabled: 'El inicio de sesión con Google no está disponible ahora mismo.',
-  signup_disabled: 'Ahora mismo no se admiten cuentas nuevas.',
-  session_not_found: 'Tu sesión ha caducado. Vuelve a entrar con Google.',
-  invalid_username: 'Nombre no válido: 3-20 letras, números o _.',
-  already_has_username: 'Tu cuenta ya tiene un nombre global.',
-  room_not_found: 'No hay ninguna sala abierta con ese código (o ya caducó).',
-  room_full: 'Esa sala ya tiene dos jugadores.',
-  own_room: 'Esa sala es tuya: pásale el código a tu compañero.',
-  coop_daily_limit: 'Has creado demasiadas salas hoy. Vuelve mañana.',
-  friend_not_found: 'No hay ningún jugador con ese nombre global.',
-  friend_self: 'Ese eres tú.',
-  friend_daily_limit: 'Has enviado muchas solicitudes hoy. Vuelve mañana.',
-  friend_full: 'Tienes 100 amigos: quita alguno para añadir otro.',
-  not_friends: 'Solo puedes invitar a tus amigos.',
-  invite_limit: 'Has enviado muchas invitaciones esta hora.',
+  over_request_rate_limit: tr('Demasiados intentos seguidos. Espera un momento.'),
+  flow_state_not_found: tr('El inicio de sesión caducó. Vuelve a pulsar «Continuar con Google».'),
+  flow_state_expired: tr('El inicio de sesión caducó. Vuelve a pulsar «Continuar con Google».'),
+  bad_code_verifier: tr('El inicio de sesión empezó en otra pestaña o navegador. Vuelve a pulsar «Continuar con Google».'),
+  provider_disabled: tr('El inicio de sesión con Google no está disponible ahora mismo.'),
+  signup_disabled: tr('Ahora mismo no se admiten cuentas nuevas.'),
+  session_not_found: tr('Tu sesión ha caducado. Vuelve a entrar con Google.'),
+  invalid_username: tr('Nombre no válido: 3-20 letras, números o _.'),
+  already_has_username: tr('Tu cuenta ya tiene un nombre global.'),
+  room_not_found: tr('No hay ninguna sala abierta con ese código (o ya caducó).'),
+  room_full: tr('Esa sala ya tiene dos jugadores.'),
+  own_room: tr('Esa sala es tuya: pásale el código a tu compañero.'),
+  coop_daily_limit: tr('Has creado demasiadas salas hoy. Vuelve mañana.'),
+  friend_not_found: tr('No hay ningún jugador con ese nombre global.'),
+  friend_self: tr('Ese eres tú.'),
+  friend_daily_limit: tr('Has enviado muchas solicitudes hoy. Vuelve mañana.'),
+  friend_full: tr('Tienes 100 amigos: quita alguno para añadir otro.'),
+  not_friends: tr('Solo puedes invitar a tus amigos.'),
+  invite_limit: tr('Has enviado muchas invitaciones esta hora.'),
 };
 
 /** Fix 1.32: no call may hang the game: after this many ms it fails with a clear message (the server was saturated) */
@@ -58,7 +59,7 @@ async function http(path: string, body: unknown, token?: string) {
       signal: ctl.signal,
     });
   } catch (e) {
-    throw new Error((e as Error).name === 'AbortError' ? 'El servidor no responde ahora mismo; inténtalo en un rato' : 'Sin conexión con el servidor');
+    throw new Error((e as Error).name === 'AbortError' ? tr('El servidor no responde ahora mismo; inténtalo en un rato') : tr('Sin conexión con el servidor'));
   } finally { clearTimeout(timer); }
   const text = await res.text();
   const data = text ? JSON.parse(text) : null;
@@ -121,7 +122,7 @@ export async function consumeAuthRedirect(): Promise<AuthReturn | null> {
     if (code) {
       let verifier: string | null = null;
       try { verifier = localStorage.getItem(PKCE); localStorage.removeItem(PKCE); } catch { /* blocked */ }
-      if (!verifier) return { signedIn: false, error: 'El inicio de sesión empezó en otra pestaña o navegador. Vuelve a pulsar «Continuar con Google».' };
+      if (!verifier) return { signedIn: false, error: tr('El inicio de sesión empezó en otra pestaña o navegador. Vuelve a pulsar «Continuar con Google».') };
       const r = await http('/auth/v1/token?grant_type=pkce', { auth_code: code, code_verifier: verifier });
       writeSession({ ...r, expires_at: Math.floor(Date.now() / 1000) + r.expires_in });
     } else {
@@ -216,13 +217,13 @@ export function accountId() {
 }
 export async function uploadShot(path: string, blob: Blob) {
   const r = await fetch(`${URL_}/storage/v1/object/${BUCKET}/${path}`, { method: 'POST', headers: { apikey: KEY, Authorization: `Bearer ${await token()}`, 'Content-Type': blob.type }, body: blob });
-  if (r.status === 400 || r.status === 409) { const d = await r.json().catch(() => null); if (/exists|duplicate/i.test(`${d?.error} ${d?.message}`)) return; throw new Error('La captura no se pudo subir.'); }
-  if (!r.ok) throw new Error('La captura no se pudo subir.');
+  if (r.status === 400 || r.status === 409) { const d = await r.json().catch(() => null); if (/exists|duplicate/i.test(`${d?.error} ${d?.message}`)) return; throw new Error(tr('La captura no se pudo subir.')); }
+  if (!r.ok) throw new Error(tr('La captura no se pudo subir.'));
 }
 /** A private screenshot as a local URL: only its owner and the admin get the file. */
 export async function shotUrl(path: string) {
   const r = await fetch(`${URL_}/storage/v1/object/authenticated/${BUCKET}/${path}`, { headers: { apikey: KEY, Authorization: `Bearer ${await token()}` } });
-  if (!r.ok) throw new Error('No se pudo abrir la captura.');
+  if (!r.ok) throw new Error(tr('No se pudo abrir la captura.'));
   return URL.createObjectURL(await r.blob());
 }
 export const deleteShot = async (path: string) => { await fetch(`${URL_}/storage/v1/object/${BUCKET}/${path}`, { method: 'DELETE', headers: { apikey: KEY, Authorization: `Bearer ${await token()}` } }); };
@@ -308,7 +309,7 @@ export async function adminPruneReplays(days = 30) {
 }
 export async function replayFile(path: string) {
   const r = await fetch(`${URL_}/storage/v1/object/authenticated/${REPLAYS}/${path}`, { headers: { apikey: KEY, Authorization: `Bearer ${await token()}` } });
-  if (!r.ok) throw new Error('No se pudo descargar la repetición.');
+  if (!r.ok) throw new Error(tr('No se pudo descargar la repetición.'));
   return r.arrayBuffer();
 }
 export const adminUpdateBug =(code: string, status: string | null, notes: string | null, reply: string | null = null) => rpc<string>('admin_update_bug', { p_code: code, p_status: status, p_notes: notes, p_reply: reply });
@@ -317,7 +318,7 @@ export async function notifyBug(code: string) {
   try {
     const r = await fetch(`${URL_}/functions/v1/notify-bug`, { method: 'POST', headers: { apikey: KEY, Authorization: `Bearer ${await token()}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ code }) });
     return await r.json() as { sent?: boolean; reason?: string };
-  } catch { return { sent: false, reason: 'sin conexión' }; }
+  } catch { return { sent: false, reason: tr('sin conexión') }; }
 }
 
 /** 1.9: tier lists (migration 20261107000400_tierlists.sql): one per account, everyone reads the latest */

@@ -5,6 +5,7 @@
  * card says is what the game does.
  */
 import type { RosterEntry, TechType } from '../data/manifest';
+import { tr } from '../i18n/i18n';
 
 export const STAT_CENTER = 60;
 // v1.5: up to 120 — a stat only goes over 99 with an Aura (auras.ts), and that is still a real, effective value in combat
@@ -15,13 +16,13 @@ export interface StatInfo { key: string; name: string; short: string; what: (v: 
 
 /** Effect of each stat, from its value, as the menus explain it. */
 export const STAT_INFO: StatInfo[] = [
-  { key: 'kick', name: 'Tiro', short: 'TIR', what: (v) => `${signPct(over(v) * 0.006)} daño de sus tiros` },
-  { key: 'control', name: 'Control', short: 'CON', what: (v) => `${signPct(over(v) * 0.006)} daño de sus regates` },
-  { key: 'guard', name: 'Defensa', short: 'DEF', what: (v) => `${signPct(over(v) * 0.006)} daño de sus defensas y paradas; como capitán, ${signPct(-over(v) * 0.004)} daño recibido` },
-  { key: 'body', name: 'Físico', short: 'FÍS', what: (v) => `${signPct(over(v) * 0.005)} vida que aporta al equipo` },
-  { key: 'speed', name: 'Velocidad', short: 'VEL', what: (v) => `como capitán, ${signPct(over(v) * 0.15 / 101)} velocidad de movimiento` },
-  { key: 'guts', name: 'Agallas', short: 'AGA', what: (v) => `${signPct(over(v) * 0.003)} daño de todas sus técnicas` },
-  { key: 'stamina', name: 'Aguante', short: 'AGU', what: (v) => `${signPct(-over(v) * 0.003)} recarga de sus técnicas` },
+  { key: 'kick', name: tr('Tiro'), short: tr('TIR'), what: (v) => tr('{x1} daño de sus tiros', { x1: signPct(over(v) * 0.006) }) },
+  { key: 'control', name: tr('Control'), short: tr('CON'), what: (v) => tr('{x1} daño de sus regates', { x1: signPct(over(v) * 0.006) }) },
+  { key: 'guard', name: tr('Defensa'), short: tr('DEF'), what: (v) => tr('{x1} daño de sus defensas y paradas; como capitán, {x2} daño recibido', { x1: signPct(over(v) * 0.006), x2: signPct(-over(v) * 0.004) }) },
+  { key: 'body', name: tr('Físico'), short: tr('FÍS'), what: (v) => tr('{x1} vida que aporta al equipo', { x1: signPct(over(v) * 0.005) }) },
+  { key: 'speed', name: tr('Velocidad'), short: tr('VEL'), what: (v) => tr('como capitán, {x1} velocidad de movimiento', { x1: signPct(over(v) * 0.15 / 101) }) },
+  { key: 'guts', name: tr('Agallas'), short: tr('AGA'), what: (v) => tr('{x1} daño de todas sus técnicas', { x1: signPct(over(v) * 0.003) }) },
+  { key: 'stamina', name: tr('Aguante'), short: tr('AGU'), what: (v) => tr('{x1} recarga de sus técnicas', { x1: signPct(-over(v) * 0.003) }) },
 ];
 
 function signPct(x: number) {

@@ -77,6 +77,21 @@
       var tips = ['Consejo: el capitán da un bonus a todo el equipo.', 'Consejo: prueba las técnicas en Entrenamiento antes de jugar.',
         'Consejo: tras vencer al jefe, la supervivencia sigue sin fin.', 'Consejo: mejora a tus futbolistas con copias repetidas.',
         'Consejo: entra con Google para guardar tu club en la nube.'];
+      // 2.3: the same language choice as src/i18n/i18n.ts (the saved one, else the browser's first language)
+      var lang = '';
+      try { lang = (JSON.parse(localStorage.getItem('ie-survivors-save') || 'null') || {}).settings.lang || ''; } catch (e) { lang = ''; }
+      if (lang !== 'es' && lang !== 'en') lang = /^en/i.test((navigator.languages && navigator.languages[0]) || navigator.language || '') ? 'en' : 'es';
+      if (lang === 'en') {
+        document.documentElement.lang = 'en';
+        tips = ['Tip: the captain gives a bonus to the whole team.', 'Tip: try techniques in Training before playing.',
+          'Tip: after beating the boss, survival goes on forever.', 'Tip: improve your players with duplicate copies.',
+          'Tip: sign in with Google to save your club in the cloud.'];
+        var set = function (sel, text) { var e = document.querySelector(sel); if (e) e.textContent = text; };
+        set('#boot .tag', 'Football roguelite fangame');
+        set('#boot-msg', 'Loading…');
+        var f = document.querySelector('#boot footer');
+        if (f) f.innerHTML = 'Free, unofficial fangame inspired by Inazuma Eleven (LEVEL-5).<br /><a href="privacidad.html">Privacy</a><a href="terminos.html">Terms</a><a href="https://github.com/AstraStorm/InaZurvivors">GitHub</a>';
+      }
       var el = document.getElementById('boot-tip'), n = Math.floor(Math.random() * tips.length);
       var show = function () { el.textContent = tips[n++ % tips.length]; };
       show();

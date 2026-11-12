@@ -86,6 +86,8 @@ import { AURA_ELEMENT_BONUS, AURA_TECH_DAMAGE } from '../systems/auras';
 import type { Rank } from '../systems/save';
 import { mapTextureKeys, swapRunTextures } from './runTextures';
 import type { Elem, SectorRun } from '../systems/sector';
+import { tr } from '../i18n/i18n';
+import { tTech } from '../i18n/data';
 
 export interface HudTech { name: string; type: Technique['type']; level: number; evolution: string; cd: number; /** v1.5: inherited from the Aura */ aura?: boolean; /** v1.7: combined technique that needs this one higher */ combo?: string; /** 1.83: the level it needs */ comboNeed?: number }
 export interface HudMember { id: number; techs: (HudTech | null)[]; /** v1.5 */ aura?: { id: number; name: string } | null }
@@ -240,8 +242,8 @@ interface Enemy {
 const SHOCK_GAP = 1.1;
 const BOMB_RADIUS = 52;
 /** names of the boss attacks when the character has no own name for them (defeat screen) */
-const ATTACK_LABEL: Record<AttackId, string> = { carga: 'carga', radial: 'disparo en estrella', abanico: 'disparo en abanico', espiral: 'espiral de balones',
-  lluvia: 'lluvia de balones', onda: 'onda de choque', invocacion: 'invocación', majin: 'golpe de la entidad' };
+const ATTACK_LABEL: Record<AttackId, string> = { carga: tr('carga'), radial: tr('disparo en estrella'), abanico: tr('disparo en abanico'), espiral: tr('espiral de balones'),
+  lluvia: tr('lluvia de balones'), onda: tr('onda de choque'), invocacion: tr('invocación'), majin: tr('golpe de la entidad') };
 interface EnemyShot { img: Phaser.GameObjects.Image; x: number; y: number; vx: number; vy: number; life: number; damage: number; src: HitSource }
 /** where a hit on the captain came from, for the defeat screen */
 export interface HitSource { by: string; attack: string; still?: boolean }
@@ -682,7 +684,7 @@ export class ArenaScene extends Phaser.Scene {
 
   /** BUG-D48C193C: the «Daño»/«Recarga» power-up text with the upgrades bought (Potenciador/Turbo), not the base +50%/-40% */
   private boostLabel(id: string): string | undefined {
-    if (id === 'dano') return `Daño +${Math.round((this.cfg.perks.damageBuff ?? 0.5) * 100)}%`;
+    if (id === 'dano') return tr('Daño +{x1}%', { x1: Math.round((this.cfg.perks.damageBuff ?? 0.5) * 100) });
     if (id === 'recarga') return `Recarga -${Math.round((this.cfg.perks.cooldownBuff ?? 0.4) * 100)}%`;
     return undefined;
   }
@@ -757,7 +759,7 @@ export class ArenaScene extends Phaser.Scene {
       this.reviveUsed = true;
       this.healBy(this.maxHp * this.talents().revive); // more with the talent's level (talents.ts)
       this.fx.ring(this.members[0].f.x, this.members[0].f.y - 10, 60, 0x5ee05a, 500, 3);
-      this.banner('¡Resurgir!', '#8fffa0');
+      this.banner(tr('¡Resurgir!'), '#8fffa0');
       sfx('evolve');
     }
     if (regen && !this.down) { // 2.0: the regeneration is shown too, gathered into one number a second
@@ -787,7 +789,7 @@ export class ArenaScene extends Phaser.Scene {
       this.fx.pillar(c.x, c.y + 4, 0x8fe8ff, 10);
       this.fx.ring(c.x, c.y - 10, 90, 0x8fe8ff, 600, 4);
       for (const e of this.enemies) { const [nx, ny] = norm(e.pos.x - c.x, e.pos.y - c.y); e.knockX += nx * 260; e.knockY += ny * 260; }
-      this.banner('¡SEGUNDO ALIENTO!', '#8fe8ff');
+      this.banner(tr('¡SEGUNDO ALIENTO!'), '#8fe8ff');
       sfx('evolve');
     }
     // Revivir (in-run item): one charge, one comeback, a short safety window
@@ -798,7 +800,7 @@ export class ArenaScene extends Phaser.Scene {
       const c = this.members[0].f;
       this.fx.pillar(c.x, c.y + 4, 0xffe27a, 10);
       for (const e of this.enemies) { const [nx, ny] = norm(e.pos.x - c.x, e.pos.y - c.y); e.knockX += nx * 220; e.knockY += ny * 220; }
-      this.banner(`¡REVIVIDO! · quedan ${this.reviveCharges}`, '#ffe27a');
+      this.banner(tr('¡REVIVIDO! · quedan {reviveCharges}', { reviveCharges: this.reviveCharges }), '#ffe27a');
       sfx('evolve');
     }
     if (this.hp <= 0) { if (this.coop) this.coopDown(); else this.finish(false); }
@@ -814,7 +816,7 @@ export class ArenaScene extends Phaser.Scene {
     c.idle(); this.capVx = this.capVy = 0;
     for (const m of this.members) m.f.container.setAlpha(0.5); // the whole team fades while the captain is down
     this.fx.ring(c.x, c.y - 6, 28, 0xff5a5a, 700, 3);
-    this.banner(this.coop?.connected ? `¡Has caído! ${this.coop.partnerName} puede levantarte` : '¡Has caído!', '#ff8a8a');
+    this.banner(this.coop?.connected ? tr('¡Has caído! {partnerName} puede levantarte', { partnerName: this.coop.partnerName }) : tr('¡Has caído!'), '#ff8a8a');
     sfx('hurt');
     if (this.coop && !this.coop.connected) this.finish(false);
   }
@@ -1016,7 +1018,7 @@ export class ArenaScene extends Phaser.Scene {
         this.ultWin = { spirit: k.id, until: this.runTime + ULT_DMG_WINDOW_SEC };
         this.coop?.ult(m.entry.id, k.id); // co-op: the banner is only the caster's; the partner sees the spirit appear
       }
-      if (!fired) this.fx.label(m.f.x, m.f.y - 40, 'Sin rival cerca', '#9fe8ff');
+      if (!fired) this.fx.label(m.f.x, m.f.y - 40, tr('Sin rival cerca'), '#9fe8ff');
       return true;
     }
     return true;
@@ -2099,7 +2101,7 @@ export class ArenaScene extends Phaser.Scene {
     else if (def.effect === 'escena-nocturna') nocturneCharge(this, who.map((m) => ({ x: m.f.x, y: m.f.y })), mx, my, level, wind); // author (fxNocturne.ts)
     else if (lastResort) lastResortCharge(this, lastResort, who.map((m) => ({ x: m.f.x, y: m.f.y })), mx, my, level, wind);
     this.fx.ring(mx, my, 34, c2, 360, 3);
-    this.fx.label(mx, my - 30, def.name, '#ffe24a');
+    this.fx.label(mx, my - 30, tTech(def.name), '#ffe24a');
     sfx('evolve');
     this.time.delayedCall(wind, () => {
       if (this.ended) return;
@@ -2551,10 +2553,10 @@ export class ArenaScene extends Phaser.Scene {
       if (!u) this.finish(true);
     }
     const wave = waveIntensity(this.runTime);
-    if (frac >= FINAL_STRETCH_FROM && !this.stretchAnnounced) { this.stretchAnnounced = true; this.banner('¡RECTA FINAL!', '#ff5a5a'); }
+    if (frac >= FINAL_STRETCH_FROM && !this.stretchAnnounced) { this.stretchAnnounced = true; this.banner(tr('¡RECTA FINAL!'), '#ff5a5a'); }
     if (wave.phase !== this.wavePhase) {
-      if (wave.phase === 'presion' && !this.boss) this.banner('¡OLEADA!', '#ff8a5a');
-      if (wave.phase === 'respiro' && this.wavePhase === 'presion' && !this.boss) this.banner('Respiro', '#8fe8ff');
+      if (wave.phase === 'presion' && !this.boss) this.banner(tr('¡OLEADA!'), '#ff8a5a');
+      if (wave.phase === 'respiro' && this.wavePhase === 'presion' && !this.boss) this.banner(tr('Respiro'), '#8fe8ff');
       this.wavePhase = wave.phase;
     }
     const interval = Math.max(0.15, 1.3 - Math.min(1, frac) * 1.1) * (this.boss ? 2.5 : 1) * this.rank.spawnInterval / wave.rate / this.endlessScaleNow().spawn / (this.boss ? 1 : finalStretch(frac).rate);
@@ -2643,7 +2645,7 @@ export class ArenaScene extends Phaser.Scene {
       this.buffs.delete('barrera');
       this.invulnUntil = this.runTime + 0.3;
       this.fx.ring(target.f.x, target.f.y - 10, 30, 0x8fe8ff, 300, 3);
-      this.fx.label(target.f.x, target.f.y - 30, '¡Bloqueado!', '#8fe8ff');
+      this.fx.label(target.f.x, target.f.y - 30, tr('¡Bloqueado!'), '#8fe8ff');
       return false;
     }
     const bossHit = !['entrada', 'disparo', 'explosión', 'lluvia de balones'].includes(src.attack);
@@ -2885,7 +2887,7 @@ export class ArenaScene extends Phaser.Scene {
     if (Math.hypot(c.x - this.campX, c.y - this.campY) > 46) { this.campX = c.x; this.campY = c.y; this.campSince = this.runTime; this.campWarned = false; }
     if (this.runTime - this.campSince > 6 && this.runTime >= this.nextCampHit && !this.ended) {
       this.nextCampHit = this.runTime + (this.rank.id === 'C' ? 4 : 2.6);
-      if (!this.campWarned) { this.campWarned = true; this.banner('¡No te quedes quieto!', '#ffb050'); }
+      if (!this.campWarned) { this.campWarned = true; this.banner(tr('¡No te quedes quieto!'), '#ffb050'); }
       for (let k = 0; k < 2; k++) {
         const x = c.x + this.rng.between(-14, 14), y = c.y + this.rng.between(-10, 10);
         // pre-2.0: the guest asks the host, who drops it for both screens
@@ -2897,9 +2899,9 @@ export class ArenaScene extends Phaser.Scene {
     // and the host never saw them; the host closes the circle round each captain still standing instead
     if (!this.boss && every && this.runTime >= this.nextSurround && this.runTime > 55 && this.coop?.role !== 'guest') {
       this.nextSurround = this.runTime + every;
-      if (!this.down) { this.surround(c); this.banner('¡Te rodean!', '#ff8a5a'); }
+      if (!this.down) { this.surround(c); this.banner(tr('¡Te rodean!'), '#ff8a5a'); }
       const pc = this.coop?.partnerCaptain();
-      if (pc && (this.down || Math.hypot(pc.x - c.x, pc.y - c.y) > 160)) { this.surround(pc); this.coop?.say('¡Te rodean!', '#ff8a5a'); }
+      if (pc && (this.down || Math.hypot(pc.x - c.x, pc.y - c.y) > 160)) { this.surround(pc); this.coop?.say(tr('¡Te rodean!'), '#ff8a5a'); }
     }
   }
 
@@ -3069,7 +3071,7 @@ export class ArenaScene extends Phaser.Scene {
     if (this.cfg.settings.flashes) this.cameras.main.flash(180, 255, 60, 40, true);
     this.rec?.event(this.runTime, { k: 'boss', name: b.unit.name });
     if (this.cfg.hooks.bossIntro) this.cfg.hooks.bossIntro({ name: b.unit.name, title: kit.title, again });
-    else this.banner(again ? `¡${b.unit.name} regresa!` : `¡${b.unit.name}!`, '#ff5a5a');
+    else this.banner(again ? tr('¡{unitName} regresa!', { unitName: b.unit.name }) : `¡${b.unit.name}!`, '#ff5a5a');
   }
 
   /**
@@ -3094,7 +3096,7 @@ export class ArenaScene extends Phaser.Scene {
     if (!this.cfg.settings.reducedMotion) this.tweens.add({ targets: cam, zoom: z * 1.07, duration: 170, yoyo: true, ease: 'Sine.easeOut', onComplete: () => cam.setZoom(z) });
     if (this.cfg.settings.flashes) cam.flash(200, 255, 80, 60, true);
     sfx('boom'); sfx('bossdrop');
-    if (!this.cfg.hooks.bossIntro) this.banner(`${e.rival ? '¡Se pone serio!' : `FASE ${phase + 1}`}`, '#ff8a5a');
+    if (!this.cfg.hooks.bossIntro) this.banner(e.rival ? tr('¡Se pone serio!') : tr('FASE {x1}', { x1: phase + 1 }), '#ff8a5a');
   }
 
   /**
@@ -3252,7 +3254,7 @@ export class ArenaScene extends Phaser.Scene {
     this.recentKills.push(nowMs);
     if (this.recentKills.length >= 6 && nowMs > this.nextSweepCheer) {
       this.nextSweepCheer = nowMs + 2500;
-      this.fx.label(this.members[0].f.x, this.members[0].f.y - 50, `¡BARRIDA ×${this.recentKills.length}!`, '#ffe24a');
+      this.fx.label(this.members[0].f.x, this.members[0].f.y - 50, tr('¡BARRIDA ×{recentKillsLength}!', { recentKillsLength: this.recentKills.length }), '#ffe24a');
       this.fx.ring(this.members[0].f.x, this.members[0].f.y - 10, 70, 0xffe24a, 420, 3);
       sfx('sweep');
     }
@@ -3323,7 +3325,7 @@ export class ArenaScene extends Phaser.Scene {
     // IDEA-C16CF5D6: the power-up says what it really gives with the upgrades bought
     const boost = d.id === 'dano' ? Math.round((this.cfg.perks.damageBuff ?? 0.5) * 100) : d.id === 'recarga' ? Math.round((this.cfg.perks.cooldownBuff ?? 0.4) * 100) : 0;
     const label = this.boostLabel(d.id) ?? d.label;
-    const info = boost && d.id === 'dano' ? `El equipo hace un ${boost}% más de daño durante 10 s.` : d.info;
+    const info = boost && d.id === 'dano' ? tr('El equipo hace un {boost}% más de daño durante 10 s.', { boost }) : d.info;
     if (info) this.cfg.onPickup?.(d.id, label, info);
     this.fx.ring(c.x, c.y - 10, 24, 0xffffff, 260, 2);
     this.fx.burst('energia', c.x, c.y - 10, 8, 60, true);
@@ -3337,15 +3339,15 @@ export class ArenaScene extends Phaser.Scene {
       this.fx.ring(c.x, c.y - 10, 90, 0xe23a3a, 500, 3);
       this.fx.ring(c.x, c.y - 10, 160, 0xffffff, 700, 2);
       this.fx.rays(c.x, c.y - 10, 12, 110, 0xe23a3a, 420);
-      this.banner('¡IMÁN!', '#ff6a6a');
+      this.banner(tr('¡IMÁN!'), '#ff6a6a');
       sfx('magnet');
     } else if (d.id === 'bolsa') {
       this.bonusCoins += BAG_COINS;
-      this.fx.label(c.x, c.y - 34, `+${BAG_COINS} monedas`);
+      this.fx.label(c.x, c.y - 34, tr('+{BAG_COINS} monedas', { BAG_COINS }));
       sfx('buy');
     } else if (d.id === 'ficha') {
       this.bonusTokens += FICHA_DROP;
-      this.fx.label(c.x, c.y - 34, `+${FICHA_DROP} fichas`, '#8fe8ff');
+      this.fx.label(c.x, c.y - 34, tr('+{FICHA_DROP} fichas', { FICHA_DROP }), '#8fe8ff');
       sfx('evolve');
     } else if (d.id === 'cofretec') {
       this.fx.label(c.x, c.y - 34, d.label);
@@ -3363,11 +3365,11 @@ export class ArenaScene extends Phaser.Scene {
       sfx('magnet');
     } else if (d.id === 'revivir') {
       if (this.reviveCharges < MAX_REVIVES) { this.reviveCharges++; this.banner(`REVIVIR · cargas ${this.reviveCharges}/${MAX_REVIVES}`, '#ffe27a'); }
-      else this.fx.label(c.x, c.y - 34, `Revivir al máximo (${MAX_REVIVES})`);
+      else this.fx.label(c.x, c.y - 34, tr('Revivir al máximo ({MAX_REVIVES})', { MAX_REVIVES }));
       sfx('evolve');
     } else if (d.id === 'cofre') {
       this.bonusCoins += CHEST_COINS;
-      this.fx.label(c.x, c.y - 34, `+${CHEST_COINS} monedas`);
+      this.fx.label(c.x, c.y - 34, tr('+{CHEST_COINS} monedas', { CHEST_COINS }));
       sfx('buy');
     } else {
       const total = (d.seconds ?? 8) * this.cfg.perks.buffMult;
@@ -3415,7 +3417,7 @@ export class ArenaScene extends Phaser.Scene {
     if (this.endless) {
       this.bonusCoins += 60; this.bonusTokens += FICHA_DROP;
       this.endless.coins += 60; this.endless.tokens += FICHA_DROP; this.endless.bosses++;
-      this.fx.label(x, y - 30, `¡Jefe derrotado! +60 monedas +${FICHA_DROP} fichas`, '#8fe8ff');
+      this.fx.label(x, y - 30, tr('¡Jefe derrotado! +60 monedas +{FICHA_DROP} fichas', { FICHA_DROP }), '#8fe8ff');
       sfx('evolve');
       return;
     }
@@ -3429,7 +3431,7 @@ export class ArenaScene extends Phaser.Scene {
       this.nextSurround = this.runTime + 40;
       this.lastCapPos = { x: c.x, y: c.y };
       this.scene.resume();
-      this.banner('¡SUPERVIVENCIA INFINITA!', '#ff8a5a');
+      this.banner(tr('¡SUPERVIVENCIA INFINITA!'), '#ff8a5a');
     });
   }
 
@@ -3449,7 +3451,7 @@ export class ArenaScene extends Phaser.Scene {
     const min = this.endlessMin(), ph = endlessPhase(min);
     if (ph.id > e.phase) {
       e.phase = ph.id;
-      this.banner(ph.id === 4 ? '¡FASE INFERNAL!' : `Fase: ${ph.name}`, ph.id === 4 ? '#ff4040' : '#ff8a5a');
+      this.banner(ph.id === 4 ? tr('¡FASE INFERNAL!') : tr('Fase: {x1}', { x1: tr(ph.name) }), ph.id === 4 ? '#ff4040' : '#ff8a5a');
       const bonus = 25 * (ph.id + 1);
       this.bonusCoins += bonus; e.coins += bonus;
       sfx('boom');
@@ -3461,8 +3463,8 @@ export class ArenaScene extends Phaser.Scene {
         const coins = endlessCoins(e.ticks);
         this.bonusCoins += coins; e.coins += coins;
         if (e.ticks % 2 === 0) { this.bonusTokens += ENDLESS_TOKENS; e.tokens += ENDLESS_TOKENS; }
-        this.banner(`+${coins} monedas${e.ticks % 2 === 0 ? ` +${ENDLESS_TOKENS} fichas` : ''}`, '#ffe24a');
-      } else this.banner('Sin recompensa: juega para ganarla', '#ff9a8a');
+        this.banner(tr('+{coins} monedas{x1}', { coins, x1: e.ticks % 2 === 0 ? tr(' +{ENDLESS_TOKENS} fichas', { ENDLESS_TOKENS }) : '' }), '#ffe24a');
+      } else this.banner(tr('Sin recompensa: juega para ganarla'), '#ff9a8a');
       e.moved = 0; e.killsAtTick = this.kills;
     }
     const units = this.units();
@@ -3513,7 +3515,7 @@ export class ArenaScene extends Phaser.Scene {
     this.fx.ring(lc.x, lc.y - 10, 70, 0xffe24a, 420, 3);
     this.fx.ring(lc.x, lc.y - 10, 40, 0xffffff, 300, 2);
     this.fx.rays(lc.x, lc.y - 10, 12, 70, 0xfff6c0, 420);
-    this.fx.label(lc.x, lc.y - 40, `¡NIVEL ${this.level}!`, '#ffe24a');
+    this.fx.label(lc.x, lc.y - 40, tr('¡NIVEL {level}!', { level: this.level }), '#ffe24a');
     // 350 ms of slow motion so the level-up registers, then the cards (never longer: the run must keep its pace)
     this.slowmoUntil = performance.now() + 350;
     this.levelingUp = true;
@@ -3572,7 +3574,7 @@ export class ArenaScene extends Phaser.Scene {
       this.applyChoice(cards[0]);
       this.afterCards(level, true);
       const lc = this.members[0].f;
-      this.fx.label(lc.x, lc.y - 52, `+${Math.round((cards[0] as { amount: number }).amount * 100)}% vida`, '#8fffa0');
+      this.fx.label(lc.x, lc.y - 52, tr('+{x1}% vida', { x1: Math.round((cards[0] as { amount: number }).amount * 100) }), '#8fffa0');
       sfx('pickup');
       return;
     }
@@ -3606,13 +3608,13 @@ export class ArenaScene extends Phaser.Scene {
       if (!def) return;
       const had = this.combos.get(def.id);
       this.combos.set(def.id, { level: card.toLevel, cd: had?.cd ?? 800 });
-      this.banner(had ? `${def.name} ${comboLabel(def.power, card.toLevel) || `Nv ${card.toLevel}`}` : `¡${def.name.toUpperCase()}!`, '#ffe24a');
+      this.banner(had ? `${tTech(def.name)} ${comboLabel(def.power, card.toLevel) || tr('Nv {x1}', { x1: card.toLevel })}` : tr('¡{x1}!', { x1: tTech(def.name).toUpperCase() }), '#ffe24a');
       sfx('evolve');
       if (!had) { // a brief freeze, the participants' portraits and the name (app.ts)
         this.slowmoUntil = performance.now() + 700;
         this.cfg.hooks.combo?.({ name: def.name, ids: comboMembers(def, this.members).map((m) => m.entry.id) });
         for (const m of comboMembers(def, this.members)) this.fx.ring(m.f.x, m.f.y - 10, 26, 0xffe24a, 600, 3);
-      } else this.fx.label(c.x, c.y - 52, `${def.name}: +daño, -recarga, +1 atraviesa`, '#ffe24a'); // what the level gave
+      } else this.fx.label(c.x, c.y - 52, tr('{defName}: +daño, -recarga, +1 atraviesa', { defName: def.name }), '#ffe24a'); // what the level gave
       return;
     }
     if (card.kind === 'heal') {
@@ -3661,7 +3663,7 @@ export class ArenaScene extends Phaser.Scene {
       m.trajs[slot] = trajectory(t);
       m.recipes[slot] = recipeFor(t, this.fxRarity(m.entry));
       m.cds[slot] = 500;
-      this.fx.label(m.f.x, m.f.y - 30, t.name);
+      this.fx.label(m.f.x, m.f.y - 30, tTech(t.name));
     } else {
       const evo = evolvesAt(t, prev.levels[card.tech] ?? 1);
       if (evo) { this.fx.label(m.f.x, m.f.y - 30, `${t.name} ${evo}`); sfx('evolve'); }
@@ -3670,7 +3672,7 @@ export class ArenaScene extends Phaser.Scene {
         this.fx.pillar(m.f.x, m.f.y + 4, 0xffe24a, 12);
         this.fx.rays(m.f.x, m.f.y - 14, 16, 80, 0xffe27a, 700);
         this.fx.ring(m.f.x, m.f.y - 10, 54, 0xffd84a, 600, 4);
-        this.banner(`${t.name} ¡NIVEL MÁXIMO!`, '#ffe24a');
+        this.banner(tr('{tName} ¡NIVEL MÁXIMO!', { tName: t.name }), '#ffe24a');
         sfx('legend');
       }
     }
@@ -3762,7 +3764,7 @@ export class ArenaScene extends Phaser.Scene {
     if (a.state === 'idle') {
       this.altarWait -= dt / 1000;
       if (this.altarWait <= 0) { this.clearAltar(); return; } // nobody came: it goes away quietly
-      if (this.altarTag) this.altarTag.setText(inside ? `${ALTAR_ICON[a.type]} Pulsa E para aceptar` : `${ALTAR_ICON[a.type]} ${ALTAR_LABEL[a.type]}`);
+      if (this.altarTag) this.altarTag.setText(inside ? tr('{x1} Pulsa E para aceptar', { x1: ALTAR_ICON[a.type] }) : `${ALTAR_ICON[a.type]} ${ALTAR_LABEL[a.type]}`);
       if (Math.floor(this.runTime * 1.4) !== Math.floor((this.runTime - dt / 1000) * 1.4)) this.fx.burst('energia', a.x + this.rng.between(-12, 12), a.y - 30, 2, 24, true);
     }
     // defending a zone only counts while few rivals are inside it
@@ -3827,7 +3829,7 @@ export class ArenaScene extends Phaser.Scene {
     this.fx.pillar(a.x, a.y - 22, 0xffffff, 10);
     this.fx.rays(a.x, a.y - 40, 12, 80, 0xffe24a, 600);
     this.fx.shake(0.005, 200);
-    this.banner(`¡${r.unit.name} te reta!`, '#ffffff');
+    this.banner(tr('¡{unitName} te reta!', { unitName: r.unit.name }), '#ffffff');
     sfx('legend');
   }
 
@@ -3854,7 +3856,7 @@ export class ArenaScene extends Phaser.Scene {
     else if (t === 'despido') this.time.delayedCall(0, () => this.offerDismiss());
     else this.time.delayedCall(0, () => this.offerCards(true));
     this.bonusCoins += coins;
-    this.cfg.hooks.event?.({ ok: true, title: ALTAR_LABEL[a.type], detail: `+${tokens} ${tokens > 1 ? 'fichas' : 'ficha'} · +${coins} monedas · ${ALTAR_REWARD[a.type]}` });
+    this.cfg.hooks.event?.({ ok: true, title: ALTAR_LABEL[a.type], detail: tr('+{tokens} {x1} · +{coins} monedas · {x2}', { tokens, x1: tokens > 1 ? 'fichas' : 'ficha', coins, x2: ALTAR_REWARD[a.type] }) });
   }
 
   /** Altar de despido: the scene waits paused while the player picks who leaves (or nobody). */
@@ -3883,7 +3885,7 @@ export class ArenaScene extends Phaser.Scene {
     this.hp = Math.min(this.hp, this.maxHp);
     const { x, y } = m.f;
     this.fx.implode(x, y - 10, 30, 0xb0b6c8, 300);
-    this.fx.label(x, y - 34, `${m.entry.name} deja el equipo`, '#d0d6e8');
+    this.fx.label(x, y - 34, tr('{entryName} deja el equipo', { entryName: m.entry.name }), '#d0d6e8');
     this.tweens.add({ targets: m.f.container, alpha: 0, y: y - 12, duration: 300, onComplete: () => m.f.destroy() });
     if (this.lastUpgrade?.playerId === id) this.lastUpgrade = null;
     sfx('whoosh');
@@ -4017,7 +4019,7 @@ export class ArenaScene extends Phaser.Scene {
         this.level = level;
         sfx('levelup');
         const c = this.members[0].f;
-        this.fx.label(c.x, c.y - 40, `¡NIVEL ${level}!`, '#ffe24a');
+        this.fx.label(c.x, c.y - 40, tr('¡NIVEL {level}!', { level }), '#ffe24a');
         if (this.levelingUp || this.coopResumePending) { this.coopPendingLevels++; return; }
         this.offerCards(false, level);
       },
@@ -4112,7 +4114,7 @@ export class ArenaScene extends Phaser.Scene {
     this.time.delayedCall(1300, () => g.destroy());
     if (m.k === 'majin') this.time.delayedCall(1050, () => {
       const c = this.members[0].f, rx = c.x - m.x, ry = c.y - 8 - m.y, along = rx * m.dx + ry * m.dy, side = Math.abs(rx * m.dy - ry * m.dx);
-      if (along > 0 && along < 240 && side < 44) this.hurtCaptain(m.dmg * 1.5, { by: m.by, attack: 'golpe de la entidad' });
+      if (along > 0 && along < 240 && side < 44) this.hurtCaptain(m.dmg * 1.5, { by: m.by, attack: tr('golpe de la entidad') });
       this.fx.shake(0.008, 220);
     });
   }

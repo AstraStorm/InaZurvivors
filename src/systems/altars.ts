@@ -3,34 +3,35 @@
  * run's minute (and the rank through the enemies they bring). Placement is the scene's job: always on walkable cells.
  */
 
+import { tr } from '../i18n/i18n';
 export type AltarType = 'entrenamiento' | 'resistencia' | 'elemental' | 'fichaje'
   | 'supervivencia' | 'portal' | 'duelo' | 'contrarreloj' | 'defensa' | 'cofre' | 'minijefe' | 'despido';
 export const ALTAR_TYPES: AltarType[] = ['entrenamiento', 'resistencia', 'elemental', 'fichaje', 'supervivencia', 'portal', 'duelo', 'contrarreloj', 'defensa', 'cofre', 'minijefe', 'despido'];
 export const ALTAR_LABEL: Record<AltarType, string> = {
-  entrenamiento: 'Altar de entrenamiento', resistencia: 'Altar de resistencia', elemental: 'Altar elemental', fichaje: 'Altar de fichaje',
-  supervivencia: 'Desafío de supervivencia', portal: 'Portal de rivales', duelo: 'Desafío de rival', contrarreloj: 'Contrarreloj',
-  defensa: 'Defiende la zona', cofre: 'Cofre especial', minijefe: 'Encuentro con minijefe', despido: 'Altar de despido',
+  entrenamiento: tr('Altar de entrenamiento'), resistencia: tr('Altar de resistencia'), elemental: tr('Altar elemental'), fichaje: tr('Altar de fichaje'),
+  supervivencia: tr('Desafío de supervivencia'), portal: tr('Portal de rivales'), duelo: tr('Desafío de rival'), contrarreloj: tr('Contrarreloj'),
+  defensa: tr('Defiende la zona'), cofre: tr('Cofre especial'), minijefe: tr('Encuentro con minijefe'), despido: tr('Altar de despido'),
 };
 export const ALTAR_TASK: Record<AltarType, string> = {
-  entrenamiento: 'Derrota rivales en el área', resistencia: 'Aguanta dentro del área', elemental: 'Derrota rivales a tiempo', fichaje: 'Supera la oleada',
-  supervivencia: 'Sobrevive a la oleada especial', portal: 'Derrota a los que salen del portal', duelo: 'Derrota al rival',
-  contrarreloj: 'Derrota rivales antes de que acabe el tiempo', defensa: 'Quédate en la zona con pocos rivales dentro', cofre: 'Llega al cofre a tiempo',
-  minijefe: 'Derrota al minijefe', despido: 'Quédate junto al altar',
+  entrenamiento: tr('Derrota rivales en el área'), resistencia: tr('Aguanta dentro del área'), elemental: tr('Derrota rivales a tiempo'), fichaje: tr('Supera la oleada'),
+  supervivencia: tr('Sobrevive a la oleada especial'), portal: tr('Derrota a los que salen del portal'), duelo: tr('Derrota al rival'),
+  contrarreloj: tr('Derrota rivales antes de que acabe el tiempo'), defensa: tr('Quédate en la zona con pocos rivales dentro'), cofre: tr('Llega al cofre a tiempo'),
+  minijefe: tr('Derrota al minijefe'), despido: tr('Quédate junto al altar'),
 };
 /** What the card shows before accepting: what happens, how it can be lost and how hard it is. */
 export const ALTAR_INFO: Record<AltarType, { description: string; fail: string; difficulty: 'Fácil' | 'Media' | 'Difícil' }> = {
-  entrenamiento: { description: 'Derrota rivales cerca del altar antes de que acabe el tiempo.', fail: 'Se acaba el tiempo', difficulty: 'Fácil' },
-  resistencia: { description: 'Quédate dentro del círculo: el tiempo solo cuenta mientras estés dentro.', fail: 'Se acaba el tiempo', difficulty: 'Media' },
-  elemental: { description: 'Derrota muchos rivales en muy poco tiempo, en cualquier lugar.', fail: 'Se acaba el tiempo', difficulty: 'Media' },
-  fichaje: { description: 'Aparece una oleada: derrótala entera para fichar a un jugador.', fail: 'Queda algún rival al acabar el tiempo', difficulty: 'Media' },
-  supervivencia: { description: 'Llega una oleada especial. Solo tienes que seguir vivo.', fail: 'Tu equipo cae', difficulty: 'Media' },
-  portal: { description: 'Del portal salen rivales en grupos: derrótalos a todos.', fail: 'Se acaba el tiempo', difficulty: 'Media' },
-  duelo: { description: 'Un futbolista rival te reta. Derrótalo antes de que se acabe el tiempo.', fail: 'Se acaba el tiempo: el rival se retira', difficulty: 'Difícil' },
-  contrarreloj: { description: 'Derrota el máximo de rivales: el contador corre desde ya.', fail: 'Se acaba el tiempo', difficulty: 'Media' },
-  defensa: { description: 'Quédate en la zona. Si entran 4 rivales o más, el contador se detiene.', fail: 'Se acaba el tiempo', difficulty: 'Difícil' },
-  cofre: { description: 'El cofre se abre si te quedas junto a él un momento.', fail: 'Te alejas hasta que se acaba el tiempo', difficulty: 'Fácil' },
-  minijefe: { description: 'Aparece un minijefe. Derrótalo antes de que se acabe el tiempo.', fail: 'Se acaba el tiempo: el minijefe se va', difficulty: 'Difícil' },
-  despido: { description: 'Quédate un momento junto al altar y elige a un compañero para echarlo del equipo (nunca al capitán). Deja su hueco libre para otro fichaje.', fail: 'Te alejas hasta que se acaba el tiempo', difficulty: 'Fácil' },
+  entrenamiento: { description: tr('Derrota rivales cerca del altar antes de que acabe el tiempo.'), fail: tr('Se acaba el tiempo'), difficulty: 'Fácil' },
+  resistencia: { description: tr('Quédate dentro del círculo: el tiempo solo cuenta mientras estés dentro.'), fail: tr('Se acaba el tiempo'), difficulty: 'Media' },
+  elemental: { description: tr('Derrota muchos rivales en muy poco tiempo, en cualquier lugar.'), fail: tr('Se acaba el tiempo'), difficulty: 'Media' },
+  fichaje: { description: tr('Aparece una oleada: derrótala entera para fichar a un jugador.'), fail: tr('Queda algún rival al acabar el tiempo'), difficulty: 'Media' },
+  supervivencia: { description: tr('Llega una oleada especial. Solo tienes que seguir vivo.'), fail: tr('Tu equipo cae'), difficulty: 'Media' },
+  portal: { description: tr('Del portal salen rivales en grupos: derrótalos a todos.'), fail: tr('Se acaba el tiempo'), difficulty: 'Media' },
+  duelo: { description: tr('Un futbolista rival te reta. Derrótalo antes de que se acabe el tiempo.'), fail: tr('Se acaba el tiempo: el rival se retira'), difficulty: 'Difícil' },
+  contrarreloj: { description: tr('Derrota el máximo de rivales: el contador corre desde ya.'), fail: tr('Se acaba el tiempo'), difficulty: 'Media' },
+  defensa: { description: tr('Quédate en la zona. Si entran 4 rivales o más, el contador se detiene.'), fail: tr('Se acaba el tiempo'), difficulty: 'Difícil' },
+  cofre: { description: tr('El cofre se abre si te quedas junto a él un momento.'), fail: tr('Te alejas hasta que se acaba el tiempo'), difficulty: 'Fácil' },
+  minijefe: { description: tr('Aparece un minijefe. Derrótalo antes de que se acabe el tiempo.'), fail: tr('Se acaba el tiempo: el minijefe se va'), difficulty: 'Difícil' },
+  despido: { description: tr('Quédate un momento junto al altar y elige a un compañero para echarlo del equipo (nunca al capitán). Deja su hueco libre para otro fichaje.'), fail: tr('Te alejas hasta que se acaba el tiempo'), difficulty: 'Fácil' },
 };
 export const ALTAR_ICON: Record<AltarType, string> = {
   entrenamiento: '⚑', resistencia: '⛨', elemental: '✦', fichaje: '✚', supervivencia: '☠', portal: '◉', duelo: '⚔', contrarreloj: '⏱', defensa: '▣', cofre: '✪', minijefe: '♛', despido: '✖',
@@ -39,10 +40,10 @@ export const ALTAR_ICON: Record<AltarType, string> = {
 export const ALTAR_WAIT_SEC = 45;
 
 export const ALTAR_REWARD: Record<AltarType, string> = {
-  entrenamiento: 'Experiencia', resistencia: 'Curación y escudo', elemental: 'Daño aumentado', fichaje: 'Carta de fichaje',
-  supervivencia: 'Monedas y ficha', portal: 'Experiencia y ficha', duelo: 'Ficha y mejora gratis', contrarreloj: 'Recarga rápida',
-  defensa: 'Curación y escudo', cofre: 'Monedas y mejora gratis', minijefe: 'Mucha experiencia y objeto',
-  despido: 'Echa a un compañero de la partida',
+  entrenamiento: tr('Experiencia'), resistencia: tr('Curación y escudo'), elemental: tr('Daño aumentado'), fichaje: tr('Carta de fichaje'),
+  supervivencia: tr('Monedas y ficha'), portal: tr('Experiencia y ficha'), duelo: tr('Ficha y mejora gratis'), contrarreloj: tr('Recarga rápida'),
+  defensa: tr('Curación y escudo'), cofre: tr('Monedas y mejora gratis'), minijefe: tr('Mucha experiencia y objeto'),
+  despido: tr('Echa a un compañero de la partida'),
 };
 export const ALTAR_COLOR: Record<AltarType, number> = {
   entrenamiento: 0xffb020, resistencia: 0x4fb3ff, elemental: 0xff5a1f, fichaje: 0x5ee05a,

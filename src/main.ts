@@ -34,6 +34,7 @@ import { MenuScene } from './game/MenuScene';
 import { loadSave, storeSave } from './systems/save';
 import { mudanzaNotice, mudanzaToast, takeMudanza } from './systems/mudanza';
 import { App } from './ui/app';
+import { tr } from './i18n/i18n';
 
 // keeps the last crash so a run that stops unexpectedly can be diagnosed
 const remember = (m: unknown) => { try { localStorage.setItem('ie-survivors-last-error', `${new Date().toISOString()} ${String(m)}`); } catch { /* storage full */ } };
@@ -75,27 +76,27 @@ if (import.meta.env.PROD && 'serviceWorker' in navigator) void navigator.service
 // pre-2.0: the test build (served from /pruebas/) says so at all times, so nobody mistakes it for the real game
 if (import.meta.env.BASE_URL.includes('/pruebas/')) {
   document.title = `[PRUEBAS] ${document.title}`;
-  document.body.insertAdjacentHTML('beforeend', '<div class="test-build" title="Versión de pruebas del cooperativo: puede fallar. Tu partida es la misma que en la web normal.">PRUEBAS · pre-2.0</div>');
+  document.body.insertAdjacentHTML('beforeend', `<div class="test-build" title="${tr('Versión de pruebas del cooperativo: puede fallar. Tu partida es la misma que en la web normal.')}">${tr('PRUEBAS · pre-2.0')}</div>`);
 }
 
 async function boot() {
   let manifest: Manifest;
   try {
     const version = import.meta.env.VITE_RECURSOS_VERSION;
-    manifest = await fetchJson<Manifest>(`generated/manifest.json${version ? `?v=${version}` : ''}`, (k) => progress(k * 0.7, 'Cargando futbolistas…'), 4_500_000);
+    manifest = await fetchJson<Manifest>(`generated/manifest.json${version ? `?v=${version}` : ''}`, (k) => progress(k * 0.7, tr('Cargando futbolistas…')), 4_500_000);
   } catch {
-    progress(0, 'No se pudieron cargar los datos del juego. Si el problema sigue, esta versión puede no incluir sus recursos.');
+    progress(0, tr('No se pudieron cargar los datos del juego. Si el problema sigue, esta versión puede no incluir sus recursos.'));
     return;
   }
   // quick footballer corrections (rarity, element, techniques) that ship without repackaging resources
   for (const w of applyRosterFixes(manifest)) console.warn('[rosterFixes]', w);
   applyTechFixes(manifest); // 1.76: fixed elements of some techniques
-  progress(0.75, 'Preparando caras y objetos…');
+  progress(0.75, tr('Preparando caras y objetos…'));
   const [mugs, icons] = await Promise.all([
     fetch(manifest.atlases.mugshots.json).then((r) => r.json()),
     fetch(manifest.atlases.items.json).then((r) => r.json()),
   ]);
-  progress(0.92, 'Abriendo el vestuario…');
+  progress(0.92, tr('Abriendo el vestuario…'));
   // new profiles start empty: their first 5 footballers come from the one-time onboarding draft
   const moved = await takeMudanza(); // 2026-11-10: a guest's save brought from the old address (before it is loaded)
   const save = loadSave([], null);
@@ -136,7 +137,7 @@ async function boot() {
   game.scene.add('Replay', ReplayScene, false);
   const app = new App(game, manifest, save, mugs.frames, icons.frames);
   await app.start();
-  progress(1, '¡Listo!');
+  progress(1, tr('¡Listo!'));
   const screen = document.getElementById('boot');
   screen?.classList.add('gone');
   window.setTimeout(() => screen?.remove(), 400);

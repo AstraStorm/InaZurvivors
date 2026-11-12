@@ -1,5 +1,6 @@
 /** Permanent upgrades ("Mejoras") bought with coins in the main menu. Every line is capped; values are provisional balance. */
 import type { SaveData } from './save';
+import { getLang, tr } from '../i18n/i18n';
 
 /** 2.0: an ultimate every 30 s, down to 15 s with all five levels of «Espíritu despierto» */
 export const ULT_BASE_SEC = 30;
@@ -10,7 +11,7 @@ export interface PerkDef { id: string; category: PerkCategory; label: string; de
 export const PERK_CATEGORIES: PerkCategory[] = ['Supervivencia', 'Combate', 'Progresión', 'Economía', 'Equipo'];
 
 const P = (id: string, category: PerkCategory, label: string, description: string, max: number, baseCost: number, step: number): PerkDef =>
-  ({ id, category, label, description, max, baseCost, step });
+  ({ id, category, label: tr(label), description: tr(description), max, baseCost, step });
 
 export const PERKS: PerkDef[] = [
   P('vida', 'Supervivencia', 'Resistencia', '+4% vida del capitán por nivel', 10, 120, 80),
@@ -78,7 +79,7 @@ export function buyPerk(s: SaveData, id: string): boolean {
 /** Levels bought in a category unlock a bonus for that whole category. */
 export const MILESTONES = [10, 25];
 export const CATEGORY_BONUS: Record<PerkCategory, string> = {
-  Supervivencia: '+3% vida del capitán', Combate: '+3% daño', 'Progresión': '+3% experiencia', 'Economía': '+5% monedas', Equipo: '+2% velocidad',
+  Supervivencia: tr('+3% vida del capitán'), Combate: tr('+3% daño'), 'Progresión': tr('+3% experiencia'), 'Economía': tr('+5% monedas'), Equipo: tr('+2% velocidad'),
 };
 
 export const categoryLevels = (s: SaveData, c: PerkCategory) => PERKS.filter((p) => p.category === c).reduce((a, p) => a + perkLevel(s, p.id), 0);
@@ -100,10 +101,10 @@ export function refundPerks(s: SaveData) {
 
 /** Current value of a perk, from the amount in its description ("+6% ..."). */
 export function perkValue(p: PerkDef, level: number) {
-  const m = /([+-]?)([\d,]+)(%?)/.exec(p.description);
+  const m = /([+-]?)(\d+(?:[.,]\d+)?)(%?)/.exec(p.description);
   if (!m) return String(level);
-  const v = parseFloat(m[2].replace(',', '.')) * level;
-  return `${m[1]}${String(Math.round(v * 10) / 10).replace('.', ',')}${m[3]}`;
+  const v = String(Math.round(parseFloat(m[2].replace(',', '.')) * level * 10) / 10);
+  return `${m[1]}${getLang() === 'en' ? v : v.replace('.', ',')}${m[3]}`; // 2.3: the description is in the game's language
 }
 
 export interface PerkEffects {

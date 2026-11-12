@@ -5,6 +5,7 @@
  */
 import type { Rarity, RosterEntry } from '../data/manifest';
 import type { SaveData } from './save';
+import { tr } from '../i18n/i18n';
 
 export const CLAN_COST = 15000;
 export const CLAN_MAX = 20;
@@ -17,32 +18,32 @@ export const CLAN_REWARD_MULT = 1;
 export type ClanTier = 'top1' | 'top3' | 'top8' | 'resto';
 /** weekly prizes (the server records coins and fichas for the save's economy cap: same numbers in clan_prize) */
 export const CLAN_PRIZES: Record<ClanTier, { label: string; coins: number; tokens: number; /** author: Fichas EG */ eg: number; players: { n: number; odds: Partial<Record<Rarity, number>>; label: string }[] }> = {
-  top1: { label: 'TOP 1', coins: 100000, tokens: 500, eg: 12, players: [{ n: 2, odds: { mitico: 85, leyenda: 15 }, label: 'Mítico o más' }] },
-  top3: { label: 'TOP 3', coins: 50000, tokens: 300, eg: 8, players: [{ n: 2, odds: { legendario: 85, mitico: 13, leyenda: 2 }, label: 'Legendario o más' }] },
-  top8: { label: 'TOP 8', coins: 25000, tokens: 300, eg: 5, players: [{ n: 1, odds: { legendario: 85, mitico: 13, leyenda: 2 }, label: 'Legendario o más' }, { n: 2, odds: { epico: 85, legendario: 13, mitico: 2 }, label: 'Épico o más' }] },
-  resto: { label: 'Resto', coins: 10000, tokens: 100, eg: 2, players: [{ n: 1, odds: { epico: 85, legendario: 13, mitico: 2 }, label: 'Épico o más' }] },
+  top1: { label: tr('TOP 1'), coins: 100000, tokens: 500, eg: 12, players: [{ n: 2, odds: { mitico: 85, leyenda: 15 }, label: tr('Mítico o más') }] },
+  top3: { label: tr('TOP 3'), coins: 50000, tokens: 300, eg: 8, players: [{ n: 2, odds: { legendario: 85, mitico: 13, leyenda: 2 }, label: tr('Legendario o más') }] },
+  top8: { label: tr('TOP 8'), coins: 25000, tokens: 300, eg: 5, players: [{ n: 1, odds: { legendario: 85, mitico: 13, leyenda: 2 }, label: tr('Legendario o más') }, { n: 2, odds: { epico: 85, legendario: 13, mitico: 2 }, label: tr('Épico o más') }] },
+  resto: { label: tr('Resto'), coins: 10000, tokens: 100, eg: 2, players: [{ n: 1, odds: { epico: 85, legendario: 13, mitico: 2 }, label: tr('Épico o más') }] },
 };
 export const tierOfPos = (pos: number): ClanTier => (pos === 1 ? 'top1' : pos <= 3 ? 'top3' : pos <= 8 ? 'top8' : 'resto');
 
 /** weekly missions (goals and rewards come from the server; these are the texts) */
 export const CLAN_MISSION_TEXT: Record<string, string> = {
-  partidas: 'Jugad partidas de los Juegos del Clan',
-  victorias: 'Ganad partidas de los Juegos del Clan',
-  rivales: 'Derrotad rivales entre todos',
-  puntos: 'Sumad puntos esta semana',
-  todos: 'Que todo el clan juegue al menos una vez (3 miembros o más)',
-  constancia: 'Jugad en 5 días distintos de la semana',
-  ganadores: 'Que 3 miembros distintos ganen su partida',
+  partidas: tr('Jugad partidas de los Juegos del Clan'),
+  victorias: tr('Ganad partidas de los Juegos del Clan'),
+  rivales: tr('Derrotad rivales entre todos'),
+  puntos: tr('Sumad puntos esta semana'),
+  todos: tr('Que todo el clan juegue al menos una vez (3 miembros o más)'),
+  constancia: tr('Jugad en 5 días distintos de la semana'),
+  ganadores: tr('Que 3 miembros distintos ganen su partida'),
 };
 
 // ---- clan items: ROM objects (icon codes of the items atlas) that drop only in the Juegos del Clan
 export type ClanItemId = 'pinchito' | 'galletas' | 'nectar' | 'chapa' | 'artefacto';
 export const CLAN_ITEMS: { id: ClanItemId; name: string; icon: number; rarity: Rarity; weight: number }[] = [
-  { id: 'pinchito', name: 'Pinchito supremo', icon: 305, rarity: 'comun', weight: 45 },
-  { id: 'galletas', name: 'Galletas de ciervo', icon: 1110, rarity: 'raro', weight: 30 },
+  { id: 'pinchito', name: tr('Pinchito supremo'), icon: 305, rarity: 'comun', weight: 45 },
+  { id: 'galletas', name: tr('Galletas de ciervo'), icon: 1110, rarity: 'raro', weight: 30 },
   { id: 'nectar', name: 'Néctar', icon: 1217, rarity: 'epico', weight: 15 },
-  { id: 'chapa', name: 'Chapa vieja', icon: 1121, rarity: 'legendario', weight: 8 },
-  { id: 'artefacto', name: 'Artefacto raro', icon: 1213, rarity: 'mitico', weight: 2 },
+  { id: 'chapa', name: tr('Chapa vieja'), icon: 1121, rarity: 'legendario', weight: 8 },
+  { id: 'artefacto', name: tr('Artefacto raro'), icon: 1213, rarity: 'mitico', weight: 2 },
 ];
 export const CLAN_ITEM_BY_ID = new Map(CLAN_ITEMS.map((x) => [x.id, x]));
 export type ClanBag = Partial<Record<ClanItemId, number>>;
@@ -119,9 +120,9 @@ export function clanShop(week: string): ClanOffer[] {
     // author: Fichas EG, one per purchase, 6 a week at most
     { id: 'eg', kind: 'eg', egTokens: 1, cost: CLAN_EG_COST, stock: CLAN_EG_STOCK },
     ...clanShopPennants(week).map((id): ClanOffer => ({ id: `pn-${id}`, kind: 'pennant', pennant: id, cost: id.startsWith('marco-') ? PENNANT_COST.marco : PENNANT_COST.banner, stock: 1 })),
-    { id: 'epico', kind: 'jugador', rarity: 'epico', label: 'Épico o más', odds: { epico: 90, legendario: 9, mitico: 1 }, cost: { pinchito: 10, galletas: 5 }, stock: 2 },
-    { id: 'legendario', kind: 'jugador', rarity: 'legendario', label: 'Legendario o más', odds: { legendario: 90, mitico: 9, leyenda: 1 }, cost: { nectar: 5, chapa: 2 }, stock: 1 },
-    { id: 'mitico', kind: 'jugador', rarity: 'mitico', label: 'Mítico o más', odds: { mitico: 92, leyenda: 8 }, cost: { artefacto: 2, chapa: 3 }, stock: 1 },
+    { id: 'epico', kind: 'jugador', rarity: 'epico', label: tr('Épico o más'), odds: { epico: 90, legendario: 9, mitico: 1 }, cost: { pinchito: 10, galletas: 5 }, stock: 2 },
+    { id: 'legendario', kind: 'jugador', rarity: 'legendario', label: tr('Legendario o más'), odds: { legendario: 90, mitico: 9, leyenda: 1 }, cost: { nectar: 5, chapa: 2 }, stock: 1 },
+    { id: 'mitico', kind: 'jugador', rarity: 'mitico', label: tr('Mítico o más'), odds: { mitico: 92, leyenda: 8 }, cost: { artefacto: 2, chapa: 3 }, stock: 1 },
   ];
 }
 /** how many of an offer were bought this week (the counter starts over with each new week) */
@@ -140,27 +141,27 @@ export function payBag(save: SaveData, cost: ClanBag) {
 export const CLAN_NAME_RE = /^[A-Za-z0-9ÁÉÍÓÚÜÑáéíóúüñ _.-]{3,20}$/;
 export function clanNameProblem(name: string): string | null {
   const n = name.trim().replace(/\s+/g, ' ');
-  if (!CLAN_NAME_RE.test(n) || !/[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]/.test(n)) return 'De 3 a 20 letras, números, espacios, puntos o guiones';
+  if (!CLAN_NAME_RE.test(n) || !/[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]/.test(n)) return tr('De 3 a 20 letras, números, espacios, puntos o guiones');
   return null;
 }
 export const CLAN_ERRORS: Record<string, string> = {
-  invalid_clan_name: 'Nombre no válido: de 3 a 20 letras, números, espacios, puntos o guiones.',
-  banned_clan_name: 'Ese nombre no está permitido. Elige otro.',
-  clan_name_taken: 'Ya hay un clan con ese nombre.',
-  already_in_clan: 'Ya estás en un clan.',
-  clan_full: 'Ese clan está lleno (20 miembros).',
-  clan_not_found: 'Ese clan ya no existe.',
-  not_leader: 'Tu rango en el clan no permite hacer eso.',
-  no_username: 'Reserva tu nombre en Perfil antes de entrar en un clan.',
-  clan_daily_limit: 'Ya has jugado tu partida del clan de hoy: vuelve mañana.',
-  not_in_clan: 'No estás en ningún clan.',
-  play_first: 'Juega al menos una partida del clan esta semana para cobrar las misiones.',
-  mission_not_done: 'Esa misión aún no está completa.',
-  already_claimed: 'Ya cobraste esa misión.',
-  too_many_requests: 'Ya tienes 3 solicitudes pendientes: cancela alguna.',
-  invalid_role: 'Rango no válido.',
+  invalid_clan_name: tr('Nombre no válido: de 3 a 20 letras, números, espacios, puntos o guiones.'),
+  banned_clan_name: tr('Ese nombre no está permitido. Elige otro.'),
+  clan_name_taken: tr('Ya hay un clan con ese nombre.'),
+  already_in_clan: tr('Ya estás en un clan.'),
+  clan_full: tr('Ese clan está lleno (20 miembros).'),
+  clan_not_found: tr('Ese clan ya no existe.'),
+  not_leader: tr('Tu rango en el clan no permite hacer eso.'),
+  no_username: tr('Reserva tu nombre en Perfil antes de entrar en un clan.'),
+  clan_daily_limit: tr('Ya has jugado tu partida del clan de hoy: vuelve mañana.'),
+  not_in_clan: tr('No estás en ningún clan.'),
+  play_first: tr('Juega al menos una partida del clan esta semana para cobrar las misiones.'),
+  mission_not_done: tr('Esa misión aún no está completa.'),
+  already_claimed: tr('Ya cobraste esa misión.'),
+  too_many_requests: tr('Ya tienes 3 solicitudes pendientes: cancela alguna.'),
+  invalid_role: tr('Rango no válido.'),
 };
-export const clanError = (m: string) => Object.entries(CLAN_ERRORS).find(([k]) => m.includes(k))?.[1] ?? 'No se pudo hacer ahora. Prueba otra vez.';
+export const clanError = (m: string) => Object.entries(CLAN_ERRORS).find(([k]) => m.includes(k))?.[1] ?? tr('No se pudo hacer ahora. Prueba otra vez.');
 
 /** a random footballer for a clan prize or shop offer (never exclusives) */
 export function clanPlayer(roster: RosterEntry[], odds: Partial<Record<Rarity, number>>, rng: () => number): RosterEntry | null {

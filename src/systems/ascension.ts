@@ -13,6 +13,7 @@
 import type { Rarity, RosterEntry } from '../data/manifest';
 import { RARITY_ORDER } from '../data/manifest';
 import type { SaveData } from './save';
+import { tr } from '../i18n/i18n';
 
 export type AscStep = 'ascenso' | 'heroe' | 'estrella' | 'campeon';
 /** Mítico and Leyenda have no `ascenso`: their first step is the HÉROE (Fix 1.31). `estrella` = each of the 3 hero stars. */
@@ -29,7 +30,7 @@ export const HERO_STARS_MAX = 3;
  */
 export const CHAMPION_COSTS = [1, 2, 3];
 export const CHAMPION_MAX = 3;
-export const CHAMPION_LABEL = ['', 'CAMPEÓN', 'CAMPEÓN+', 'CAMPEÓN++'];
+export const CHAMPION_LABEL = ['', tr('CAMPEÓN'), tr('CAMPEÓN+'), tr('CAMPEÓN++')];
 export const championOf = (save: SaveData, id: number) => Math.max(0, Math.min(CHAMPION_MAX, save.owned[String(id)]?.champion ?? 0));
 /** rarities whose ascension is the HÉROE itself */
 export const isTopRarity = (r: Rarity) => r === 'mitico' || r === 'leyenda';
@@ -37,7 +38,7 @@ export const isTopRarity = (r: Rarity) => r === 'mitico' || r === 'leyenda';
 /** Run bonuses per stage (InaZurvivors balance values); `estrella` applies once per hero star. */
 export const ASC_BONUS = { ascenso: { damage: 1.12, hp: 1.08 }, heroe: { damage: 1.18, hp: 1.12 }, estrella: { damage: 1.05, hp: 1.03 }, campeon: { damage: 1.12, hp: 1.08 } } as const;
 /** Original InaZurvivors passive of a HÉROE on the pitch (not an official technique). */
-export const HERO_AURA = { label: 'Espíritu de héroe', teamDamage: 0.06, description: '+6% de daño a todo el equipo mientras el héroe está en el campo (máximo 2 héroes).' };
+export const HERO_AURA = { label: tr('Espíritu de héroe'), teamDamage: 0.06, description: tr('+6% de daño a todo el equipo mientras el héroe está en el campo (máximo 2 héroes).') };
 
 export const sparesOf = (save: SaveData, id: number) => {
   const o = save.owned[String(id)];

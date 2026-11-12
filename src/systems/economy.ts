@@ -1,6 +1,7 @@
 /** End-of-run rewards (kept on defeat too) and map unlocks. */
 import type { SaveData } from './save';
 import { rankDef, recordRankClear } from './difficulty';
+import { tr } from '../i18n/i18n';
 
 export interface RunResult {
   mapId: string;
@@ -54,14 +55,14 @@ export const COIN_BOOST = 2;
 export function computeRewards(r: RunResult, rewardMult = 1): Reward[] {
   const out: Reward[] = [
     // Fix 1.11 halved the coins and Fix 1.13 took about 20% more, so upgrades take real effort (ECONOMIA_1.11.md)
-    { label: `Eliminaciones (${r.kills})`, coins: Math.floor(r.kills / 4) },
+    { label: tr('Eliminaciones ({kills})', { kills: r.kills }), coins: Math.floor(r.kills / 4) },
     { label: `Supervivencia (${Math.floor(r.timeSec)} s)`, coins: Math.floor(r.timeSec / 5) },
   ];
   if (r.minibosses) out.push({ label: `Minijefes (${r.minibosses})`, coins: 20 * r.minibosses });
-  if (r.reachedBoss) out.push({ label: 'Objetivo: llegar al jefe', coins: 25 });
-  if (r.bossDefeated) out.push({ label: 'Jefe derrotado', coins: Math.round(100 * rewardMult) });
-  if (r.victory) out.push({ label: 'Victoria', coins: Math.round(65 * rewardMult) });
-  if (r.bonusCoins) out.push({ label: 'Cofres', coins: r.bonusCoins });
+  if (r.reachedBoss) out.push({ label: tr('Objetivo: llegar al jefe'), coins: 25 });
+  if (r.bossDefeated) out.push({ label: tr('Jefe derrotado'), coins: Math.round(100 * rewardMult) });
+  if (r.victory) out.push({ label: tr('Victoria'), coins: Math.round(65 * rewardMult) });
+  if (r.bonusCoins) out.push({ label: tr('Cofres'), coins: r.bonusCoins });
   return out.map((x) => ({ ...x, coins: x.coins * COIN_BOOST }));
 }
 
@@ -77,16 +78,16 @@ export const WELCOME_TOKENS = 6;
  */
 export function tokenRewards(r: RunResult, firstClear: boolean, runsBefore = Infinity): Reward[] {
   const active = r.kills >= ACTIVE_KILLS;
-  const out: Reward[] = [{ label: 'Partida jugada', coins: active ? 5 : 1 }];
-  if (active && runsBefore < WELCOME_RUNS) out.push({ label: `Bienvenida (partida ${runsBefore + 1} de ${WELCOME_RUNS})`, coins: WELCOME_TOKENS });
+  const out: Reward[] = [{ label: tr('Partida jugada'), coins: active ? 5 : 1 }];
+  if (active && runsBefore < WELCOME_RUNS) out.push({ label: tr('Bienvenida (partida {x1} de {WELCOME_RUNS})', { x1: runsBefore + 1, WELCOME_RUNS }), coins: WELCOME_TOKENS });
   // Fix 1.23 (player feedback: 13 minutes paid little more than one ×10): time on the pitch and goals of the run pay
   // fichas, so a long run is worth it; a short abandoned one still gives almost nothing
-  if (active) out.push({ label: `Tiempo en el campo (${Math.floor(r.timeSec / 60)} min)`, coins: Math.floor(r.timeSec / 12) });
-  if (active && r.kills >= 40) out.push({ label: `Eliminaciones (${r.kills})`, coins: Math.floor(r.kills / 40) });
-  if (r.bossDefeated) out.push({ label: 'Jefe derrotado', coins: 15 });
-  if (r.victory) out.push({ label: 'Victoria', coins: 15 });
-  if (firstClear) out.push({ label: 'Primera victoria en la arena', coins: 40 });
-  if (r.bonusTokens) out.push({ label: 'Fichas recogidas y altares', coins: r.bonusTokens });
+  if (active) out.push({ label: tr('Tiempo en el campo ({x1} min)', { x1: Math.floor(r.timeSec / 60) }), coins: Math.floor(r.timeSec / 12) });
+  if (active && r.kills >= 40) out.push({ label: tr('Eliminaciones ({kills})', { kills: r.kills }), coins: Math.floor(r.kills / 40) });
+  if (r.bossDefeated) out.push({ label: tr('Jefe derrotado'), coins: 15 });
+  if (r.victory) out.push({ label: tr('Victoria'), coins: 15 });
+  if (firstClear) out.push({ label: tr('Primera victoria en la arena'), coins: 40 });
+  if (r.bonusTokens) out.push({ label: tr('Fichas recogidas y altares'), coins: r.bonusTokens });
   return out;
 }
 
@@ -113,10 +114,10 @@ export function mapTierScale(tier = 1) {
 /** Fix 1.3: Fichas de entrenamiento of a run (training.ts): a victory, the boss, a new rank cleared, endless minutes. */
 export function trainingRewards(r: RunResult, newRankClear: boolean): Reward[] {
   const out: Reward[] = [];
-  if (r.victory) out.push({ label: 'Victoria', coins: 1 });
-  if (r.bossDefeated && (r.rank === 'A' || r.rank === 'S' || r.rank === 'X' || r.rank === 'Z')) out.push({ label: 'Jefe en rango alto', coins: 1 });
-  if (newRankClear) out.push({ label: 'Rango superado por primera vez', coins: 2 });
-  if ((r.endlessSec ?? 0) >= 300) out.push({ label: 'Supervivencia infinita', coins: Math.floor((r.endlessSec ?? 0) / 300) });
+  if (r.victory) out.push({ label: tr('Victoria'), coins: 1 });
+  if (r.bossDefeated && (r.rank === 'A' || r.rank === 'S' || r.rank === 'X' || r.rank === 'Z')) out.push({ label: tr('Jefe en rango alto'), coins: 1 });
+  if (newRankClear) out.push({ label: tr('Rango superado por primera vez'), coins: 2 });
+  if ((r.endlessSec ?? 0) >= 300) out.push({ label: tr('Supervivencia infinita'), coins: Math.floor((r.endlessSec ?? 0) / 300) });
   return out;
 }
 
@@ -127,8 +128,8 @@ export const EG_X_WIN = 1;
 export const EG_Z_WIN = 3;
 export function egRewards(r: RunResult, _newRankClear: boolean): Reward[] {
   if (!r.victory || !r.bossDefeated) return [];
-  if (r.rank === 'Z') return [{ label: 'Mapa superado en rango Z', coins: EG_Z_WIN }];
-  return r.rank === 'X' ? [{ label: 'Mapa superado en rango X', coins: EG_X_WIN }] : [];
+  if (r.rank === 'Z') return [{ label: tr('Mapa superado en rango Z'), coins: EG_Z_WIN }];
+  return r.rank === 'X' ? [{ label: tr('Mapa superado en rango X'), coins: EG_X_WIN }] : [];
 }
 
 export function applyRun(save: SaveData, r: RunResult, coinMult = 1, rewardMult = 1, extraTokens = 0, egChance = 0, rng: () => number = Math.random): { save: SaveData; rewards: Reward[]; total: number; records: string[]; tokens: Reward[]; tokenTotal: number; training: Reward[]; trainTotal: number; eg: Reward[]; egTotal: number } {
@@ -144,9 +145,9 @@ export function applyRun(save: SaveData, r: RunResult, coinMult = 1, rewardMult 
   }
   const total = rewards.reduce((a, x) => a + x.coins, 0);
   const tokens = tokenRewards(r, r.victory && !save.clearedMaps.includes(r.mapId), save.stats.runs);
-  if (extraTokens && r.timeSec >= 180) tokens.push({ label: 'Ojeador', coins: extraTokens });
+  if (extraTokens && r.timeSec >= 180) tokens.push({ label: tr('Ojeador'), coins: extraTokens });
   const newRank = r.victory && recordRankClear(save.clearedRanks ??= {}, r.mapId, rank.id);
-  if (newRank) tokens.push({ label: `Primera victoria en ${rank.label}`, coins: rank.firstClearTokens });
+  if (newRank) tokens.push({ label: tr('Primera victoria en {label}', { label: rank.label }), coins: rank.firstClearTokens });
   // Fix 1.3: the rank multiplies the fichas too, like the coins
   if (rank.reward > 1) {
     const base = tokens.reduce((a, x) => a + x.coins, 0);
@@ -159,7 +160,7 @@ export function applyRun(save: SaveData, r: RunResult, coinMult = 1, rewardMult 
   save.trainTokens = (save.trainTokens ?? 0) + trainTotal;
   const eg = egRewards(r, newRank);
   // «Olfato de espíritu»: a chance of one more Ficha EG, same 3-minute floor as «Ojeador» so quitting at once pays nothing
-  if (egChance > 0 && r.timeSec >= 180 && rng() < egChance) eg.push({ label: 'Olfato de espíritu', coins: 1 });
+  if (egChance > 0 && r.timeSec >= 180 && rng() < egChance) eg.push({ label: tr('Olfato de espíritu'), coins: 1 });
   const egTotal = eg.reduce((a, x) => a + x.coins, 0);
   save.egTokens = (save.egTokens ?? 0) + egTotal;
   const records: string[] = [];

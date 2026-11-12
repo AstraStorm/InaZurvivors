@@ -5,6 +5,7 @@
  * to the right is the run to the left mirrored), one dribbling the ball ahead; under them, the share of the files loaded.
  * It only shows up if the load takes a moment (no flash on quick loads) and fades out once the pitch is drawn.
  */
+import { tr } from '../i18n/i18n';
 import type { Manifest, RosterEntry } from '../data/manifest';
 
 const esc = (s: unknown) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!));
@@ -12,12 +13,12 @@ const esc = (s: unknown) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&
 const RUN_RIGHT = 10; // rig animation 10: moving right (mirrored), Footballer.ts
 const SCALE = 3;
 const TIPS = [
-  'Con la R lanzas la definitiva de tu Espíritu Guerrero.',
-  'Las Auras suman sus estadísticas a quien las lleva.',
-  'Las técnicas combinadas salen solas si tienes a todos sus jugadores en el campo.',
-  'Grito de guerra y Gatas salvajes cuentan también a las Auras.',
-  'Las teclas 1, 2 y 3 cambian de formación en plena partida.',
-  'Las Fichas EG se ganan venciendo arenas en rango A, S y X.',
+  tr('Con la R lanzas la definitiva de tu Espíritu Guerrero.'),
+  tr('Las Auras suman sus estadísticas a quien las lleva.'),
+  tr('Las técnicas combinadas salen solas si tienes a todos sus jugadores en el campo.'),
+  tr('Grito de guerra y Gatas salvajes cuentan también a las Auras.'),
+  tr('Las teclas 1, 2 y 3 cambian de formación en plena partida.'),
+  tr('Las Fichas EG se ganan venciendo arenas en rango A, S y X.'),
 ];
 
 const img = (src: string) => new Promise<HTMLImageElement | null>((res) => { const i = new Image(); i.onload = () => res(i); i.onerror = () => res(null); i.src = src; });
@@ -36,7 +37,7 @@ export function showRunLoader(m: Manifest, team: RosterEntry[], mapName: string,
   box.className = 'rl';
   const tip = TIPS[Math.floor(Math.random() * TIPS.length)];
   box.innerHTML = `<i class="rl-lines"></i>
-    <div class="rl-in"><small>SALTANDO AL CAMPO</small><b>${esc(mapName)}</b>
+    <div class="rl-in"><small>${tr('SALTANDO AL CAMPO')}</small><b>${esc(mapName)}</b>
       <div class="rl-track"><i class="rl-turf"></i></div>
       <div class="rl-bar"><i></i></div><span class="rl-pct">0%</span>
       <p class="rl-tip">💡 ${esc(tip)}</p></div>`;

@@ -6,6 +6,7 @@
  * Two data channels: «ev» ordered and reliable (events: techniques, level-ups, the end), «st» unordered without
  * retransmits (state snapshots: a lost one is replaced by the next). The host simulates, the guest draws.
  */
+import { tr } from '../i18n/i18n';
 import { coopCreate, coopIceServers, coopJoin, coopMark, coopPoll, coopSignal } from './client';
 
 /** public STUN servers (no account): enough for most home networks; the TURN relay (Cloudflare) is added per room */
@@ -49,7 +50,7 @@ export class CoopLink {
   private constructor(readonly role: CoopRole, readonly code: string, public partner: string, relay: RTCIceServer[]) {
     this.pc = new RTCPeerConnection({ iceServers: [...ICE, ...relay] });
     this.pc.addEventListener('connectionstatechange', () => {
-      if (this.pc.connectionState === 'failed' || this.pc.connectionState === 'closed') this.end('conexión perdida');
+      if (this.pc.connectionState === 'failed' || this.pc.connectionState === 'closed') this.end(tr('conexión perdida'));
     });
   }
 
@@ -60,9 +61,9 @@ export class CoopLink {
     const deadline = Date.now() + 15 * 60_000; // the room lives 15 minutes
     for (;;) {
       if (abort?.aborted) { void coopMark(code, 'cerrada').catch(() => undefined); throw new Error('cancelado'); }
-      if (Date.now() > deadline) throw new Error('La sala caducó sin que nadie entrara');
+      if (Date.now() > deadline) throw new Error(tr('La sala caducó sin que nadie entrara'));
       const r = await coopPoll(code).catch(() => null);
-      if (r?.status === 'cerrada') throw new Error('La sala se cerró');
+      if (r?.status === 'cerrada') throw new Error(tr('La sala se cerró'));
       if (r?.offer) {
         const link = new CoopLink('host', code, r.guest_name ?? 'Invitado', await coopIceServers(code));
         const chans = new Promise<void>((done) => {
@@ -94,9 +95,9 @@ export class CoopLink {
     const deadline = Date.now() + CONNECT_TIMEOUT_MS;
     for (;;) {
       if (abort?.aborted) { link.close(); throw new Error('cancelado'); }
-      if (Date.now() > deadline) { link.close(); throw new Error('El anfitrión no respondió'); }
+      if (Date.now() > deadline) { link.close(); throw new Error(tr('El anfitrión no respondió')); }
       const r = await coopPoll(code).catch(() => null);
-      if (r?.status === 'cerrada') { link.close(); throw new Error('La sala se cerró'); }
+      if (r?.status === 'cerrada') { link.close(); throw new Error(tr('La sala se cerró')); }
       if (r?.answer) { await link.pc.setRemoteDescription({ type: 'answer', sdp: r.answer }); break; }
       await wait(POLL_MS);
     }
@@ -113,10 +114,10 @@ export class CoopLink {
         try { m = JSON.parse(String(e.data)); } catch { return; }
         if (m.t === 'ping') { this.send({ t: 'pong', at: m.at }); return; }
         if (m.t === 'pong') { this.rtts.push(performance.now() - Number(m.at)); if (this.rtts.length > 5) this.rtts.shift(); this.rtt = Math.max(1, Math.round([...this.rtts].sort((a, b) => a - b)[this.rtts.length >> 1])); return; }
-        if (m.t === 'bye') { this.end('tu compañero salió'); return; }
+        if (m.t === 'bye') { this.end(tr('tu compañero salió')); return; }
         this.onEvent(m);
       });
-      ch.addEventListener('close', () => this.end('conexión perdida'));
+      ch.addEventListener('close', () => this.end(tr('conexión perdida')));
     } else if (ch.label === 'st') {
       this.st = ch;
       ch.addEventListener('message', (e) => { if (e.data instanceof ArrayBuffer) this.onState(e.data); });
@@ -126,7 +127,7 @@ export class CoopLink {
   /** both channels open within the connect timeout, then pings start */
   private async ready(chans: Promise<void>) {
     let timer = 0;
-    const timeout = new Promise<never>((_, fail) => { timer = window.setTimeout(() => fail(new Error('No se pudo conectar: vuestras redes no se ven (hará falta un servidor de paso)')), CONNECT_TIMEOUT_MS); });
+    const timeout = new Promise<never>((_, fail) => { timer = window.setTimeout(() => fail(new Error(tr('No se pudo conectar: vuestras redes no se ven (hará falta un servidor de paso)'))), CONNECT_TIMEOUT_MS); });
     try { await Promise.race([chans, timeout]); } catch (e) { this.close(); throw e; } finally { clearTimeout(timer); }
     this.pingTimer = window.setInterval(() => this.send({ t: 'ping', at: performance.now() }), PING_MS);
     this.send({ t: 'ping', at: performance.now() });

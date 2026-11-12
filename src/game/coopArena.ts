@@ -7,6 +7,7 @@
  *   event channel (reliable):  spawn / kill / drop / gone / gift / xp / lvl / resume / eshot / hazard / shock / end (host)
  *                              hit / take / picked (guest) and fx / ult / down / up (both)
  */
+import { tr } from '../i18n/i18n';
 import type Phaser from 'phaser';
 import type { CoopLink, CoopMsg } from '../online/coop';
 import type { Manifest, RosterEntry } from '../data/manifest';
@@ -109,7 +110,7 @@ export class CoopSession {
     link.onClose = (why) => {
       if (this.lost) return;
       this.lost = true;
-      this.port.banner(`Tu compañero se ha desconectado (${why})`, '#ff9a8a');
+      this.port.banner(tr('Tu compañero se ha desconectado ({why})', { why }), '#ff9a8a');
       // the host keeps playing alone; the guest's world was the host's: his run ends with what he has
       if (this.role === 'guest') this.port.end(false);
     };
@@ -161,7 +162,7 @@ export class CoopSession {
       const p = this.partnerCaptain(), c = this.port.captain();
       if (p && Math.hypot(p.x - c.x, p.y - c.y) < REVIVE_RADIUS) {
         this.reviveT += dt / 1000;
-        if (this.reviveT >= REVIVE_SEC) { this.reviveT = 0; this.port.setDown(false); this.send({ t: 'up' }); this.port.banner('¡Tu compañero te ha levantado!', '#8fffa0'); }
+        if (this.reviveT >= REVIVE_SEC) { this.reviveT = 0; this.port.setDown(false); this.send({ t: 'up' }); this.port.banner(tr('¡Tu compañero te ha levantado!'), '#8fffa0'); }
       } else this.reviveT = Math.max(0, this.reviveT - dt / 2000);
     } else this.reviveT = 0;
     this.drawRevive();
@@ -216,7 +217,7 @@ export class CoopSession {
       this.partnerRevive = Number(s.rv ?? 0);
       const wasDown = this.partnerDown;
       this.partnerDown = !!s.down;
-      if (this.partnerDown && !wasDown) this.port.banner(`¡${this.partnerName} ha caído! Ponte a su lado para levantarlo`, '#ff9a8a');
+      if (this.partnerDown && !wasDown) this.port.banner(tr('¡{partnerName} ha caído! Ponte a su lado para levantarlo', { partnerName: this.partnerName }), '#ff9a8a');
       const now = this.port.runTime();
       for (const [id, x, y, vx, vy] of s.m) {
         let g = this.ghosts.get(id);
@@ -325,7 +326,7 @@ export class CoopSession {
   /** host: resolves once the partner has picked (or straight away if he is gone) */
   waitPartner(): Promise<void> {
     if (this.role !== 'host' || this.partnerPicked || this.lost) return Promise.resolve();
-    this.port.banner(`Esperando a que ${this.partnerName} elija…`, '#8fe8ff');
+    this.port.banner(tr('Esperando a que {partnerName} elija…', { partnerName: this.partnerName }), '#8fe8ff');
     return new Promise((r) => {
       this.resumeWait = r;
       setTimeout(() => { if (this.resumeWait === r) { this.resumeWait = null; r(); } }, 20000); // never stuck on a partner who left

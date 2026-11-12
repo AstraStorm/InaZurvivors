@@ -3,6 +3,7 @@
  * nothing to moderate but the order). The server checks the same rules (migration 20261107000400_tierlists.sql).
  */
 import type { RosterEntry } from '../data/manifest';
+import { tr } from '../i18n/i18n';
 
 export const TIERS = ['S', 'A', 'B', 'C', 'D'] as const;
 export type Tier = (typeof TIERS)[number];
@@ -11,12 +12,12 @@ export const TIER_COLOR: Record<Tier, string> = { S: '#ff4f6a', A: '#ff9a3a', B:
 
 export type TierTopic = 'general' | 'delanteros' | 'medios' | 'defensas' | 'porteros' | 'favoritos';
 export const TIER_TOPICS: { id: TierTopic; label: string; pos: RosterEntry['position'] | null }[] = [
-  { id: 'general', label: 'Los mejores', pos: null },
-  { id: 'delanteros', label: 'Delanteros', pos: 'FW' },
-  { id: 'medios', label: 'Centrocampistas', pos: 'MF' },
-  { id: 'defensas', label: 'Defensas', pos: 'DF' },
-  { id: 'porteros', label: 'Porteros', pos: 'GK' },
-  { id: 'favoritos', label: 'Mis favoritos', pos: null },
+  { id: 'general', label: tr('Los mejores'), pos: null },
+  { id: 'delanteros', label: tr('Delanteros'), pos: 'FW' },
+  { id: 'medios', label: tr('Centrocampistas'), pos: 'MF' },
+  { id: 'defensas', label: tr('Defensas'), pos: 'DF' },
+  { id: 'porteros', label: tr('Porteros'), pos: 'GK' },
+  { id: 'favoritos', label: tr('Mis favoritos'), pos: null },
 ];
 export const topicLabel = (t: string) => TIER_TOPICS.find((x) => x.id === t)?.label ?? 'Tierlist';
 

@@ -8,6 +8,7 @@ import type { Rarity, RosterEntry } from '../data/manifest';
 import { RARITY_ORDER } from '../data/manifest';
 import { sagaOf } from '../data/sagas';
 import { RARITY_WEIGHTS } from './gacha';
+import { tr } from '../i18n/i18n';
 
 // Fix 1.31: one machine per SAGA (author's request), priced by how likely its stars are; the eras stay for missions
 export type BannerId = 'evento' | 'bluelock' | 'ff' | 'alius' | 'ffi' | 'go' | 'chrono' | 'galaxy' | 'ares' | 'orion' | 'fichatron' | 'equipo';
@@ -17,18 +18,18 @@ export interface BannerDef { id: BannerId; label: string; tagline: string; cost:
 export const BANNERS: Record<BannerId, BannerDef> = {
   // (author) the special banner: every exclusive footballer (data/special_players.json) plus Común/Raro/Épico filler
   // (author) InaZurvivors x BlueLock: Nagi and Isagi, the same Fichas de evento (systems/collabEvent.ts)
-  bluelock: { id: 'bluelock', label: 'InaZurvivors x BlueLock', tagline: 'Seishiro Nagi y Yoichi Isagi, solo aquí y por tiempo limitado', cost: 15, multiCost: 150, color: '#2a5ad8' },
-  evento: { id: 'evento', label: 'Banner de agradecimiento', tagline: 'Ataque a los Titanes, Los Siete Pecados Capitales y Axel Encapuchado', cost: 15, multiCost: 150, color: '#c45aff' },
-  ff: { id: 'ff', label: 'Fútbol Frontier', tagline: 'Inazuma Eleven 1', cost: 10, multiCost: 100, color: '#ff8a2a' },
-  alius: { id: 'alius', label: 'Invasión Alius', tagline: 'Inazuma Eleven 2 y el viaje por Japón', cost: 10, multiCost: 100, color: '#ff4f6a' },
-  ffi: { id: 'ffi', label: 'Mundial FFI', tagline: 'Inazuma Eleven 3 y las selecciones', cost: 10, multiCost: 100, color: '#4f8bff' },
-  go: { id: 'go', label: 'Inazuma Eleven GO', tagline: 'Sector Quinto y la Revolución', cost: 10, multiCost: 100, color: '#4fd0ff' },
-  chrono: { id: 'chrono', label: 'Chrono Stone', tagline: 'El Dorado, Protocolo Omega y los Miximax', cost: 10, multiCost: 100, color: '#b36bff' },
-  galaxy: { id: 'galaxy', label: 'Galaxy', tagline: 'Earth Eleven y el Grand Celesta', cost: 10, multiCost: 100, color: '#5af0e0' },
-  ares: { id: 'ares', label: 'Ares', tagline: 'Victory Road: Ares no Tenbin', cost: 10, multiCost: 100, color: '#ffd84a' },
-  orion: { id: 'orion', label: 'Orion', tagline: 'Victory Road: Orion no Kokuin', cost: 10, multiCost: 100, color: '#ff9ad8' },
-  fichatron: { id: 'fichatron', label: 'Fichatrón', tagline: 'Fichajes sueltos de toda la serie', cost: 5, multiCost: 50, color: '#9aa8c8' },
-  equipo: { id: 'equipo', label: 'Por equipo', tagline: 'Elige un equipo: solo sus futbolistas', cost: 15, multiCost: 150, color: '#7dff9a' },
+  bluelock: { id: 'bluelock', label: tr('InaZurvivors x BlueLock'), tagline: tr('Seishiro Nagi y Yoichi Isagi, solo aquí y por tiempo limitado'), cost: 15, multiCost: 150, color: '#2a5ad8' },
+  evento: { id: 'evento', label: tr('Banner de agradecimiento'), tagline: tr('Ataque a los Titanes, Los Siete Pecados Capitales y Axel Encapuchado'), cost: 15, multiCost: 150, color: '#c45aff' },
+  ff: { id: 'ff', label: tr('Fútbol Frontier'), tagline: tr('Inazuma Eleven 1'), cost: 10, multiCost: 100, color: '#ff8a2a' },
+  alius: { id: 'alius', label: tr('Invasión Alius'), tagline: tr('Inazuma Eleven 2 y el viaje por Japón'), cost: 10, multiCost: 100, color: '#ff4f6a' },
+  ffi: { id: 'ffi', label: tr('Mundial FFI'), tagline: tr('Inazuma Eleven 3 y las selecciones'), cost: 10, multiCost: 100, color: '#4f8bff' },
+  go: { id: 'go', label: tr('Inazuma Eleven GO'), tagline: tr('Sector Quinto y la Revolución'), cost: 10, multiCost: 100, color: '#4fd0ff' },
+  chrono: { id: 'chrono', label: tr('Chrono Stone'), tagline: tr('El Dorado, Protocolo Omega y los Miximax'), cost: 10, multiCost: 100, color: '#b36bff' },
+  galaxy: { id: 'galaxy', label: 'Galaxy', tagline: tr('Earth Eleven y el Grand Celesta'), cost: 10, multiCost: 100, color: '#5af0e0' },
+  ares: { id: 'ares', label: 'Ares', tagline: tr('Victory Road: Ares no Tenbin'), cost: 10, multiCost: 100, color: '#ffd84a' },
+  orion: { id: 'orion', label: 'Orion', tagline: tr('Victory Road: Orion no Kokuin'), cost: 10, multiCost: 100, color: '#ff9ad8' },
+  fichatron: { id: 'fichatron', label: tr('Fichatrón'), tagline: tr('Fichajes sueltos de toda la serie'), cost: 5, multiCost: 50, color: '#9aa8c8' },
+  equipo: { id: 'equipo', label: tr('Por equipo'), tagline: tr('Elige un equipo: solo sus futbolistas'), cost: 15, multiCost: 150, color: '#7dff9a' },
 };
 export const BANNER_ORDER: BannerId[] = ['bluelock', 'evento', 'ff', 'alius', 'ffi', 'go', 'chrono', 'galaxy', 'ares', 'orion', 'fichatron', 'equipo'];
 
@@ -46,8 +47,8 @@ export function eraOf(p: Pick<RosterEntry, 'teams'> & { era?: RosterEntry['era']
 }
 
 /** saga of the encyclopedia -> its machine, in story order (a character goes to the earliest one) */
-const SAGA_MACHINE: [string, BannerId][] = [['Fútbol Frontier', 'ff'], ['Invasión Alius', 'alius'], ['Viaje por Japón', 'alius'], ['Mundial FFI', 'ffi'],
-  ['GO', 'go'], ['Chrono Stones', 'chrono'], ['Galaxy', 'galaxy'], ['Ares', 'ares'], ['Orion', 'orion']];
+const SAGA_MACHINE: [string, BannerId][] = [[tr('Fútbol Frontier'), 'ff'], [tr('Invasión Alius'), 'alius'], [tr('Viaje por Japón'), 'alius'], [tr('Mundial FFI'), 'ffi'],
+  ['GO', 'go'], [tr('Chrono Stones'), 'chrono'], ['Galaxy', 'galaxy'], ['Ares', 'ares'], ['Orion', 'orion']];
 /** Miximax forms (sync-assets isMixi): «+» in the name or ending in « MM» — they come from Chrono Stone */
 const isMixi = (name: string) => /\+| MM$/.test(name);
 

@@ -8,13 +8,14 @@
 import type { RosterEntry } from '../data/manifest';
 import type { Rank, SaveData } from './save';
 import { addCopy } from './gacha';
+import { tr } from '../i18n/i18n';
 
 export type RoadDiff = 'facil' | 'normal' | 'maxima';
 export interface RoadDiffDef { id: RoadDiff; label: string; rank: Rank; maps: string[]; coins: number; tokens: number; legendary: boolean }
 export const ROAD_DIFFS: RoadDiffDef[] = [
-  { id: 'facil', label: 'Fácil', rank: 'B', maps: ['raimon', 'royal', 'zeus'], coins: 1000, tokens: 20, legendary: false },
+  { id: 'facil', label: tr('Fácil'), rank: 'B', maps: ['raimon', 'royal', 'zeus'], coins: 1000, tokens: 20, legendary: false },
   { id: 'normal', label: 'Normal', rank: 'A', maps: ['raimon', 'ribera', 'royal', 'zeus'], coins: 2000, tokens: 40, legendary: false },
-  { id: 'maxima', label: 'Máxima', rank: 'S', maps: ['raimon', 'ribera', 'royal', 'nara', 'zeus'], coins: 4000, tokens: 60, legendary: true },
+  { id: 'maxima', label: tr('Máxima'), rank: 'S', maps: ['raimon', 'ribera', 'royal', 'nara', 'zeus'], coins: 4000, tokens: 60, legendary: true },
 ];
 export const ROAD_BY_ID = new Map(ROAD_DIFFS.map((d) => [d.id, d]));
 export const ROAD_SQUAD = 5;

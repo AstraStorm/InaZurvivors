@@ -9,6 +9,8 @@ import type { RosterEntry, Technique } from '../data/manifest';
 import { resonanceBonus } from './mastery';
 import { CLUB_CHEMISTRY } from './kitBonus';
 import { MAX_TEAM } from './cards';
+import { fmtNum, tr } from '../i18n/i18n';
+import { tEl } from '../i18n/data';
 
 export const RESONANCE_STEPS = [{ n: 3, bonus: 0.08 }, { n: 5, bonus: 0.15 }] as const;
 
@@ -33,22 +35,22 @@ export function resonances(activeElements: (string | null | undefined)[]): Syner
   for (const e of activeElements) if (e) count[e] = (count[e] ?? 0) + 1;
   return Object.entries(count).filter(([, n]) => n >= 2).map(([element, n]) => {
     const bonus = resonanceBonus(n), step = RESONANCE_STEPS.find((s) => n < s.n);
-    return { key: `res:${element}`, kind: 'resonancia', label: `Resonancia ${element}`, element, bonus, count: n, goal: step?.n ?? 5, next: step?.bonus,
-      hint: step ? `${n}/${step.n} técnicas de ${element} activas → +${Math.round(step.bonus * 100)}%` : `${n} técnicas de ${element} activas (máximo)` } as Synergy;
+    return { key: `res:${element}`, kind: 'resonancia', label: tr('Resonancia {element}', { element: tEl(element) }), element, bonus, count: n, goal: step?.n ?? 5, next: step?.bonus,
+      hint: step ? tr('{n}/{stepN} técnicas de {element} activas → +{x1}%', { n, stepN: step.n, element: tEl(element), x1: Math.round(step.bonus * 100) }) : tr('{n} técnicas de {element} activas (máximo)', { n, element: tEl(element) }) } as Synergy;
   }).sort((a, b) => b.bonus - a.bonus || b.count - a.count);
 }
 
 export function chemistrySynergy(kitTeam: string, label: string, onPitch: Pick<RosterEntry, 'teams'>[]): Synergy {
   const key = kitTeam || 'Raimon', n = onPitch.filter((p) => p.teams.includes(key)).length;
   const on = n >= CLUB_CHEMISTRY.min;
-  return { key: 'chem', kind: 'quimica', label: `Química de club · ${label}`, bonus: on ? CLUB_CHEMISTRY.damage - 1 : 0, count: n, goal: CLUB_CHEMISTRY.min,
-    next: on ? undefined : CLUB_CHEMISTRY.damage - 1, hint: on ? `${n} de ${label} en el campo: +${Math.round((CLUB_CHEMISTRY.damage - 1) * 100)}% daño` : `${n}/${CLUB_CHEMISTRY.min} de ${label} en el campo → +${Math.round((CLUB_CHEMISTRY.damage - 1) * 100)}% daño` };
+  return { key: 'chem', kind: 'quimica', label: tr('Química de club · {label}', { label }), bonus: on ? CLUB_CHEMISTRY.damage - 1 : 0, count: n, goal: CLUB_CHEMISTRY.min,
+    next: on ? undefined : CLUB_CHEMISTRY.damage - 1, hint: on ? tr('{n} de {label} en el campo: +{x1}% daño', { n, label, x1: Math.round((CLUB_CHEMISTRY.damage - 1) * 100) }) : tr('{n}/{min} de {label} en el campo → +{x1}% daño', { n, min: CLUB_CHEMISTRY.min, label, x1: Math.round((CLUB_CHEMISTRY.damage - 1) * 100) }) };
 }
 
 export function captainSynergy(perPlayer: number, captainElement: string, allies: number): Synergy | null {
   if (perPlayer <= 0) return null;
-  return { key: 'syn', kind: 'sinergia', label: `Sinergia ${captainElement}`, element: captainElement, bonus: perPlayer * allies, count: allies, goal: MAX_TEAM - 1,
-    hint: `${allies} compañero${allies === 1 ? '' : 's'} de ${captainElement} con el capitán: +${(perPlayer * 100).toFixed(1).replace('.', ',')}% cada uno` };
+  return { key: 'syn', kind: 'sinergia', label: tr('Sinergia {element}', { element: tEl(captainElement) }), element: captainElement, bonus: perPlayer * allies, count: allies, goal: MAX_TEAM - 1,
+    hint: tr('{allies} compañero{x1} de {captainElement} con el capitán: +{x2}% cada uno', { allies, x1: allies === 1 ? '' : 's', captainElement: tEl(captainElement), x2: fmtNum(Math.round(perPlayer * 1000) / 10) }) };
 }
 
 /**

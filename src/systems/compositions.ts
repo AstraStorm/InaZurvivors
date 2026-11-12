@@ -2,6 +2,7 @@
  * Original chiptune compositions written for this project (no third-party music). Each one is a seeded, repeatable
  * score: mode, harmony, tempo and motif differ per track, so it is the same piece every time it plays.
  */
+import { tr } from '../i18n/i18n';
 export type MusicContext = 'menu' | 'map' | 'gacha' | 'collection' | 'run' | 'run2' | 'boss';
 export type Part = 'lead' | 'harmony' | 'bass' | 'kick' | 'snare' | 'hat';
 export interface NoteEvent { step: number; len: number; part: Part; freq: number }
@@ -20,18 +21,18 @@ const C = (id: string, title: string, bpm: number, root: number, scale: number[]
   ({ id, title, bpm, root, scale, chords, seed, leadWave, drive });
 
 export const COMPOSITIONS: Composition[] = [
-  C('saque', 'Saque inicial', 132, 62, MAJOR, [0, 4, 5, 3], 11, 'square', 1),
+  C('saque', tr('Saque inicial'), 132, 62, MAJOR, [0, 4, 5, 3], 11, 'square', 1),
   C('vestuario', 'Vestuario', 108, 60, MIXOLYDIAN, [0, 6, 3, 0], 23, 'triangle', 0),
-  C('pizarra', 'La pizarra', 116, 57, DORIAN, [0, 3, 0, 4], 37, 'triangle', 0),
-  C('capsulas', 'Capsulas de la suerte', 124, 65, MAJOR, [0, 3, 4, 3], 41, 'square', 1),
-  C('album', 'Album de cromos', 96, 67, MAJOR, [0, 5, 3, 4], 53, 'sine', 0),
-  C('banda', 'Por la banda', 144, 64, MIXOLYDIAN, [0, 3, 6, 0], 61, 'square', 1),
+  C('pizarra', tr('La pizarra'), 116, 57, DORIAN, [0, 3, 0, 4], 37, 'triangle', 0),
+  C('capsulas', tr('Capsulas de la suerte'), 124, 65, MAJOR, [0, 3, 4, 3], 41, 'square', 1),
+  C('album', tr('Album de cromos'), 96, 67, MAJOR, [0, 5, 3, 4], 53, 'sine', 0),
+  C('banda', tr('Por la banda'), 144, 64, MIXOLYDIAN, [0, 3, 6, 0], 61, 'square', 1),
   C('contra', 'Contraataque', 150, 57, MINOR, [0, 5, 6, 4], 71, 'sawtooth', 1),
-  C('tiki', 'Toque y pase', 138, 62, DORIAN, [0, 3, 4, 3], 83, 'square', 1),
+  C('tiki', tr('Toque y pase'), 138, 62, DORIAN, [0, 3, 4, 3], 83, 'square', 1),
   C('remontada', 'Remontada', 164, 60, MINOR, [0, 6, 5, 4], 97, 'sawtooth', 2),
   C('prorroga', 'Prorroga', 170, 55, DORIAN, [0, 5, 3, 6], 101, 'square', 2),
-  C('rival', 'El rival final', 176, 52, MINOR, [0, 1, 5, 4], 113, 'sawtooth', 2),
-  C('penaltis', 'Tanda de penaltis', 168, 59, MINOR, [0, 5, 1, 4], 127, 'square', 2),
+  C('rival', tr('El rival final'), 176, 52, MINOR, [0, 1, 5, 4], 113, 'sawtooth', 2),
+  C('penaltis', tr('Tanda de penaltis'), 168, 59, MINOR, [0, 5, 1, 4], 127, 'square', 2),
 ];
 
 export const PLAYLISTS: Record<MusicContext, string[]> = {

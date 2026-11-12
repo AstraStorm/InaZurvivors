@@ -10,6 +10,7 @@
  * the active warrior spirit's ultimate a little (onRank, ArenaScene: 4 % per rank step, at most 40 % in one burst) and
  * says so under the meter; every rank also throws a shock ring and shakes the count.
  */
+import { locale, tr } from '../i18n/i18n';
 import Phaser from 'phaser';
 import type { Settings } from '../systems/save';
 import { sfx } from './sfx';
@@ -22,13 +23,13 @@ const FLOOR = 120; // damage per second that never counts as a burst
 const WARMUP_MS = 6000; // the first seconds of hits only learn the pace
 /** ranks by how many seconds of the usual damage the burst made */
 const RANKS: { at: number; label: string; color: string; glow: number }[] = [
-  { at: 0, label: '¡COMBO!', color: '#ffffff', glow: 0x7fd3ff },
-  { at: 6, label: '¡GENIAL!', color: '#7dff9a', glow: 0x3fd07a },
-  { at: 12, label: '¡BRUTAL!', color: '#ffe24a', glow: 0xffb020 },
-  { at: 22, label: '¡IMPARABLE!', color: '#ff8a3a', glow: 0xff5a1f },
-  { at: 40, label: '¡INAZUMA!', color: '#ff5ad8', glow: 0xb36bff },
+  { at: 0, label: tr('¡COMBO!'), color: '#ffffff', glow: 0x7fd3ff },
+  { at: 6, label: tr('¡GENIAL!'), color: '#7dff9a', glow: 0x3fd07a },
+  { at: 12, label: tr('¡BRUTAL!'), color: '#ffe24a', glow: 0xffb020 },
+  { at: 22, label: tr('¡IMPARABLE!'), color: '#ff8a3a', glow: 0xff5a1f },
+  { at: 40, label: tr('¡INAZUMA!'), color: '#ff5ad8', glow: 0xb36bff },
 ];
-const fmt = (n: number) => Math.round(n).toLocaleString('es');
+const fmt = (n: number) => Math.round(n).toLocaleString(locale());
 
 export class ComboMeter {
   private hits = 0;

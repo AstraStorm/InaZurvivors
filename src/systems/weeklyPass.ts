@@ -12,6 +12,7 @@ import { RARITY_ORDER } from '../data/manifest';
 import { MULTI_COST, grantCopy } from './gacha';
 import { dayKey } from './missions';
 import type { SaveData } from './save';
+import { tr } from '../i18n/i18n';
 
 /** what a day gives: fichas, coins and/or a footballer; `kind` is the main one (its art), `tier` marks the big days */
 export interface PassReward {
@@ -29,13 +30,13 @@ export const PASS_LEGEND = { legendario: 85, mitico: 13, leyenda: 2 };
 export const PASS_TEAM = { legendario: 70, mitico: 25, leyenda: 5 };
 
 export const PASS: PassReward[] = [
-  { kind: 'fichas', fichas: MULTI_COST, monedas: 1000, label: 'Tirada ×10 y 1.000 monedas' },
-  { kind: 'jugador', fichas: 0, monedas: 1000, jugador: { odds: PASS_EPIC, team: false, label: 'Épico o superior' }, label: 'Futbolista Épico o superior y 1.000 monedas' },
-  { kind: 'monedas', fichas: 50, monedas: 4000, label: '4.000 monedas y 50 fichas' },
-  { kind: 'fichas', fichas: MULTI_COST * 2, monedas: 0, label: 'Dos tiradas ×10' },
-  { kind: 'jugador', fichas: 0, monedas: 0, jugador: { odds: PASS_LEGEND, team: false, label: 'Legendario o superior' }, label: 'Futbolista Legendario o superior', tier: 'plus' },
-  { kind: 'monedas', fichas: 0, monedas: 6000, label: '6.000 monedas' },
-  { kind: 'jugador', fichas: MULTI_COST, monedas: 5000, jugador: { odds: PASS_TEAM, team: true, label: 'Legendario o superior de tu equipo' }, label: 'Legendario o superior del equipo que elijas, tirada ×10 y 5.000 monedas', tier: 'grand' },
+  { kind: 'fichas', fichas: MULTI_COST, monedas: 1000, label: tr('Tirada ×10 y 1.000 monedas') },
+  { kind: 'jugador', fichas: 0, monedas: 1000, jugador: { odds: PASS_EPIC, team: false, label: tr('Épico o superior') }, label: tr('Futbolista Épico o superior y 1.000 monedas') },
+  { kind: 'monedas', fichas: 50, monedas: 4000, label: tr('4.000 monedas y 50 fichas') },
+  { kind: 'fichas', fichas: MULTI_COST * 2, monedas: 0, label: tr('Dos tiradas ×10') },
+  { kind: 'jugador', fichas: 0, monedas: 0, jugador: { odds: PASS_LEGEND, team: false, label: tr('Legendario o superior') }, label: tr('Futbolista Legendario o superior'), tier: 'plus' },
+  { kind: 'monedas', fichas: 0, monedas: 6000, label: tr('6.000 monedas') },
+  { kind: 'jugador', fichas: MULTI_COST, monedas: 5000, jugador: { odds: PASS_TEAM, team: true, label: tr('Legendario o superior de tu equipo') }, label: tr('Legendario o superior del equipo que elijas, tirada ×10 y 5.000 monedas'), tier: 'grand' },
 ];
 /** what a whole cycle gives */
 export const PASS_TOTAL = { fichas: PASS.reduce((a, r) => a + r.fichas, 0), monedas: PASS.reduce((a, r) => a + r.monedas, 0), jugadores: PASS.filter((r) => r.jugador).length };

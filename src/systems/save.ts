@@ -215,6 +215,8 @@ export interface Settings {
   camera: 'cerca' | 'normal' | 'lejos';
   /** 2.02: finished runs are recorded and sent for the author to watch (signed-in players only); absent = yes */
   shareReplays?: boolean;
+  /** 2.3: the language chosen in Ajustes; absent or '' = the browser's (i18n.ts resolveLang) */
+  lang?: '' | 'es' | 'en';
 }
 
 export const DEFAULT_SETTINGS: Settings = { volume: 0.5, musicVolume: 0.45, muted: false, menuTrack: '', battleTrack: '', particles: 'completo',

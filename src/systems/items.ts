@@ -1,5 +1,6 @@
 /** Combat pickups: experience tiers, magnet, timed buffs and rewards. All values are configurable balance. */
 
+import { tr } from '../i18n/i18n';
 export const XP_TIERS = [
   { id: 'normal', value: 1, texture: 'fx:orb0', chance: 1 },
   { id: 'mejorado', value: 5, texture: 'fx:orb1', chance: 0.07 },
@@ -23,28 +24,28 @@ export const SPECIAL_DROPS: DropId[] = ['revivir', 'barrera', 'proteccion', 'caz
 export interface DropDef { id: DropId; label: string; chance: number; texture: string; seconds?: number; info?: string }
 
 export const DROPS: DropDef[] = [
-  { id: 'arroz', label: 'Bola de arroz', chance: 0.012, texture: 'items:206', info: 'Recupera un 15% de la vida del capitán.' },
-  { id: 'chocolate', label: 'Chocolate', chance: 0.0025, texture: 'items:303', info: 'Recupera un 40% de la vida del capitán.' },
-  { id: 'iman', label: 'Imán', chance: 0.0012, texture: 'fx:magnet', info: 'Atrae toda la experiencia del campo.' },
-  { id: 'escudo', label: 'Escudo', chance: 0.0025, texture: 'fx:pk_shield', seconds: 8, info: 'Reduce el daño recibido a la mitad durante 8 s.' },
-  { id: 'xp', label: 'Experiencia ×2', chance: 0.002, texture: 'fx:pk_xp', seconds: 12, info: 'Duplica la experiencia durante 12 s.' },
-  { id: 'dano', label: 'Daño +50%', chance: 0.002, texture: 'fx:pk_dmg', seconds: 10, info: 'El equipo hace un 50% más de daño durante 10 s.' },
-  { id: 'recarga', label: 'Recarga -40%', chance: 0.002, texture: 'fx:pk_cd', seconds: 10, info: 'Las técnicas se recargan más rápido durante 10 s.' },
-  { id: 'velocidad', label: 'Velocidad +30%', chance: 0.002, texture: 'fx:pk_speed', seconds: 10, info: 'Corres un 30% más rápido durante 10 s.' },
-  { id: 'cofre', label: 'Cofre', chance: 0.0015, texture: 'fx:pk_chest', info: 'Monedas extra al terminar la partida.' },
-  { id: 'cofretec', label: 'Cofre de técnica', chance: 0.0008, texture: 'fx:pk_tech', info: 'Abre una elección de mejora gratis.' },
-  { id: 'bolsa', label: 'Bolsa de monedas', chance: 0.004, texture: 'fx:pk_coins', info: 'Monedas para gastar después de la partida.' },
+  { id: 'arroz', label: tr('Bola de arroz'), chance: 0.012, texture: 'items:206', info: tr('Recupera un 15% de la vida del capitán.') },
+  { id: 'chocolate', label: 'Chocolate', chance: 0.0025, texture: 'items:303', info: tr('Recupera un 40% de la vida del capitán.') },
+  { id: 'iman', label: tr('Imán'), chance: 0.0012, texture: 'fx:magnet', info: tr('Atrae toda la experiencia del campo.') },
+  { id: 'escudo', label: tr('Escudo'), chance: 0.0025, texture: 'fx:pk_shield', seconds: 8, info: tr('Reduce el daño recibido a la mitad durante 8 s.') },
+  { id: 'xp', label: tr('Experiencia ×2'), chance: 0.002, texture: 'fx:pk_xp', seconds: 12, info: tr('Duplica la experiencia durante 12 s.') },
+  { id: 'dano', label: tr('Daño +50%'), chance: 0.002, texture: 'fx:pk_dmg', seconds: 10, info: tr('El equipo hace un 50% más de daño durante 10 s.') },
+  { id: 'recarga', label: tr('Recarga -40%'), chance: 0.002, texture: 'fx:pk_cd', seconds: 10, info: tr('Las técnicas se recargan más rápido durante 10 s.') },
+  { id: 'velocidad', label: tr('Velocidad +30%'), chance: 0.002, texture: 'fx:pk_speed', seconds: 10, info: tr('Corres un 30% más rápido durante 10 s.') },
+  { id: 'cofre', label: tr('Cofre'), chance: 0.0015, texture: 'fx:pk_chest', info: tr('Monedas extra al terminar la partida.') },
+  { id: 'cofretec', label: tr('Cofre de técnica'), chance: 0.0008, texture: 'fx:pk_tech', info: tr('Abre una elección de mejora gratis.') },
+  { id: 'bolsa', label: tr('Bolsa de monedas'), chance: 0.004, texture: 'fx:pk_coins', info: tr('Monedas para gastar después de la partida.') },
   // Fix 1.31: a drop worth noticing next to the new prices (5 fichas = one Fichatrón pull), a little rarer
-  { id: 'ficha', label: 'Fichas de Fichaje', chance: 0.0008, texture: 'fx:pk_token', info: '5 Fichas de Fichaje para la máquina de cápsulas.' },
-  { id: 'senuelo', label: 'Señuelo', chance: 0.0012, texture: 'fx:pk_lure', seconds: 5, info: 'Los rivales persiguen el señuelo durante 5 s.' },
-  { id: 'hielo', label: 'Congelación', chance: 0.001, texture: 'fx:pk_ice', seconds: 3, info: 'Congela a todos los rivales durante 3 s.' },
+  { id: 'ficha', label: tr('Fichas de Fichaje'), chance: 0.0008, texture: 'fx:pk_token', info: tr('5 Fichas de Fichaje para la máquina de cápsulas.') },
+  { id: 'senuelo', label: tr('Señuelo'), chance: 0.0012, texture: 'fx:pk_lure', seconds: 5, info: tr('Los rivales persiguen el señuelo durante 5 s.') },
+  { id: 'hielo', label: tr('Congelación'), chance: 0.001, texture: 'fx:pk_ice', seconds: 3, info: tr('Congela a todos los rivales durante 3 s.') },
   // Fix 1.11
-  { id: 'revivir', label: 'Revivir', chance: 0.00035, texture: 'fx:pk_revive', info: 'Una carga: si tu capitán cae, se levanta con un 40% de vida y 2,5 s de invulnerabilidad. Máximo 2 cargas.' },
-  { id: 'barrera', label: 'Barrera', chance: 0.0012, texture: 'fx:pk_barrier', seconds: 12, info: 'Anula por completo el siguiente golpe que reciba el capitán (dura 12 s).' },
-  { id: 'proteccion', label: 'Protección elemental', chance: 0.001, texture: 'fx:pk_elem', seconds: 12, info: 'Los ataques de jefes y minijefes hacen un 40% menos de daño durante 12 s.' },
-  { id: 'cazador', label: 'Cazador de élites', chance: 0.001, texture: 'fx:pk_elite', seconds: 15, info: '+40% de daño contra élites, minijefes y jefes durante 15 s.' },
-  { id: 'amplio', label: 'Balón amplio', chance: 0.001, texture: 'fx:pk_area', seconds: 12, info: '+20% de área de las técnicas durante 12 s.' },
-  { id: 'apuesta', label: 'Apuesta arriesgada', chance: 0.0008, texture: 'fx:pk_gamble', seconds: 15, info: '+35% de daño, pero el capitán recibe un 25% más de daño durante 15 s.' },
+  { id: 'revivir', label: tr('Revivir'), chance: 0.00035, texture: 'fx:pk_revive', info: tr('Una carga: si tu capitán cae, se levanta con un 40% de vida y 2,5 s de invulnerabilidad. Máximo 2 cargas.') },
+  { id: 'barrera', label: tr('Barrera'), chance: 0.0012, texture: 'fx:pk_barrier', seconds: 12, info: tr('Anula por completo el siguiente golpe que reciba el capitán (dura 12 s).') },
+  { id: 'proteccion', label: tr('Protección elemental'), chance: 0.001, texture: 'fx:pk_elem', seconds: 12, info: tr('Los ataques de jefes y minijefes hacen un 40% menos de daño durante 12 s.') },
+  { id: 'cazador', label: tr('Cazador de élites'), chance: 0.001, texture: 'fx:pk_elite', seconds: 15, info: tr('+40% de daño contra élites, minijefes y jefes durante 15 s.') },
+  { id: 'amplio', label: tr('Balón amplio'), chance: 0.001, texture: 'fx:pk_area', seconds: 12, info: tr('+20% de área de las técnicas durante 12 s.') },
+  { id: 'apuesta', label: tr('Apuesta arriesgada'), chance: 0.0008, texture: 'fx:pk_gamble', seconds: 15, info: tr('+35% de daño, pero el capitán recibe un 25% más de daño durante 15 s.') },
 ];
 
 export const CHEST_COINS = 40;

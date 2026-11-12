@@ -5,6 +5,7 @@
 import type { RosterEntry } from '../data/manifest';
 import { teamNames } from '../data/sagas';
 import type { SaveData } from './save';
+import { tr } from '../i18n/i18n';
 
 /** The crest everybody has (Raimon, the first one exported). */
 export const DEFAULT_EMBLEM = 1;
@@ -22,14 +23,14 @@ export function coachRequirement(save: SaveData, roster: RosterEntry[], index: n
   const wins = (map: string) => save.clearedMaps.includes(map);
   const anyRank = (r: string) => Object.values(save.clearedRanks ?? {}).some((l) => l.includes(r as never));
   switch (index) {
-    case 0: return { ok: true, label: 'Disponible desde el principio' };
-    case 1: return { ok: wins('raimon'), label: 'Supera el Instituto Raimon' };
-    case 2: return { ok: wins('royal'), label: 'Supera la Royal Academy' };
-    case 3: return { ok: ownedIn(save, roster, /alpino/i) >= 3, label: 'Ten 3 futbolistas del Alpino' };
-    case 4: return { ok: ownedIn(save, roster, /claustro/i) >= 3, label: 'Ten 3 futbolistas del Claustro Sagrado' };
-    case 5: return { ok: ownedIn(save, roster, /fauxshore/i) >= 3, label: 'Ten 3 futbolistas del Fauxshore' };
-    case 6: return { ok: ownedIn(save, roster, /mary/i) >= 3, label: 'Ten 3 futbolistas del Mary Times' };
-    default: return { ok: anyRank('A') || anyRank('S') || anyRank('X') || anyRank('Z'), label: 'Gana una arena en rango A o superior' };
+    case 0: return { ok: true, label: tr('Disponible desde el principio') };
+    case 1: return { ok: wins('raimon'), label: tr('Supera el Instituto Raimon') };
+    case 2: return { ok: wins('royal'), label: tr('Supera la Royal Academy') };
+    case 3: return { ok: ownedIn(save, roster, /alpino/i) >= 3, label: tr('Ten 3 futbolistas del Alpino') };
+    case 4: return { ok: ownedIn(save, roster, /claustro/i) >= 3, label: tr('Ten 3 futbolistas del Claustro Sagrado') };
+    case 5: return { ok: ownedIn(save, roster, /fauxshore/i) >= 3, label: tr('Ten 3 futbolistas del Fauxshore') };
+    case 6: return { ok: ownedIn(save, roster, /mary/i) >= 3, label: tr('Ten 3 futbolistas del Mary Times') };
+    default: return { ok: anyRank('A') || anyRank('S') || anyRank('X') || anyRank('Z'), label: tr('Gana una arena en rango A o superior') };
   }
 }
 

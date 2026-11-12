@@ -45,7 +45,7 @@ const newsText = (t: string) => esc(t).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
 /** «Hoy», «Ayer», «Hace 3 días» or «2 nov» */
 function newsRelDate(d: string) {
   const days = Math.round((new Date().setHours(12, 0, 0, 0) - new Date(`${d}T12:00:00`).getTime()) / 86400000);
-  return days <= 0 ? 'Hoy' : days === 1 ? 'Ayer' : days < 7 ? `Hace ${days} días` : new Date(`${d}T12:00:00`).toLocaleDateString('es', { day: 'numeric', month: 'short' });
+  return days <= 0 ? tr('Hoy') : days === 1 ? tr('Ayer') : days < 7 ? tr('Hace {days} días', { days }) : new Date(`${d}T12:00:00`).toLocaleDateString(locale(), { day: 'numeric', month: 'short' });
 }
 import { buildMeta, CATEGORIES, SEVERITIES, SHOT_MAX_BYTES, SHOT_MAX_SIDE, SHOT_TYPES, STATUS_LABEL, TECH_FIELDS, validateBug, validateShot } from '../systems/bugReport';
 import { elementIcon, setElementArt } from './elements';
@@ -72,6 +72,8 @@ import type { CoopRun } from '../game/coopArena';
 import { applyCoachPerks, COACH_BY_ID, COACH_PULL_CHANCE, COACHES, coachesOfMachine, coachRun, PASSIVE_ICON, passiveText as coachPassiveText, type CoachDef } from '../data/coaches';
 import { clashWith } from '../systems/identity';
 import { applyGtsLedger, canLeave, gtsBanned, gtsError, gtsSlots, gtsSpare, type GtsRow } from '../systems/gts';
+import { fmtNum, getLang, LANGS, locale, resolveLang, setLang, tr } from '../i18n/i18n';
+import { tEl, tTech } from '../i18n/data';
 import { accountId, adminBugReports, adminMetrics, adminPlayerStats, adminUpdateBug, amIAdmin, consumeAuthRedirect, deleteAccount, deleteMyBugReports, deleteShot, myBugReports, notifyBug, shotUrl, submitBugReport, uploadShot, getCloudSave, leaderboard, myPosition, passHolders, sectorSides, profileBanners, profileFrames, sectorClaim, sectorCredit, sectorJoin, sectorStatus, type SectorPrize, type SectorStatus, publicProfile, type PublicProfile, myProfile, onlineConfigured, putCloudSave, reserveUsername, resetMyProgress, signedEmail, signedIn, signInWithGoogle, signOut, submitScore, usernameAvailable, type BoardQuery, type BoardRow, type BugFilter, type BugRow, type CloudSave } from '../online/client';
 import { backup, linkPlan, progressOf, summarize, type SaveSummary } from '../online/cloudSync';
 import { epochOf, freshProgress, resetSummary } from '../systems/resetProgress';
@@ -114,7 +116,8 @@ const fmtTime = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const RARITY_COLOR: Record<Rarity, string> = { comun: '#9fb0c8', raro: '#4fb3ff', epico: '#b36bff', legendario: '#ffb020', mitico: '#ff4f8b', leyenda: '#fff6c8' };
 const ELEMENT_COLOR: Record<string, string> = { Fuego: '#ff6a2a', Aire: '#6ad8ff', Bosque: '#5ee05a', 'Montaña': '#d9a440', Neutro: '#c45aff' };
-const POS_LABEL: Record<string, string> = { GK: 'POR', DF: 'DEF', MF: 'MED', FW: 'DEL' };
+// 2.3: not tr(): «DEF» is also the Guard stat (GRD)
+const POS_LABEL: Record<string, string> = getLang() === 'en' ? { GK: 'GK', DF: 'DF', MF: 'MF', FW: 'FW' } : { GK: 'POR', DF: 'DEF', MF: 'MED', FW: 'DEL' };
 const FORMATION_ICON = (f: FormationId, size = 46) => {
   const F = FORMATIONS[f];
   const dots = F.slots.map(([x, y]) => `<circle cx="${23 + x * 0.27}" cy="${24 - y * 0.27}" r="3.4" fill="#7fd3ff" stroke="#0a1d48"/>`).join('');
@@ -130,7 +133,7 @@ const newsKey = () => `noticias-${latestNewsId(serverNow())}`;
  * The interface was laid out for screens about 460 px on their short side; a phone is smaller (≈330 px tall in landscape),
  * so on touch screens it shrinks to fit, never under 60%. The player's own scale setting multiplies this.
  */
-const STAT_SHORT: Record<string, string> = { kick: 'TIR', body: 'FÍS', guard: 'DEF', control: 'CON', speed: 'VEL', guts: 'AGA', stamina: 'AGU' };
+const STAT_SHORT: Record<string, string> = { kick: tr('TIR'), body: tr('FÍS'), guard: tr('DEF'), control: tr('CON'), speed: tr('VEL'), guts: tr('AGA'), stamina: tr('AGU') };
 /** Mean of a footballer's stats, rounded: the number shown on the cards. */
 export const statMean = (stats: Record<string, number>) => { const v = Object.values(stats); return v.length ? Math.round(v.reduce((a, b) => a + b, 0) / v.length) : 0; };
 /** Fix 1.22: the pixel football of the matches (makeFxTextures in fx.ts), as a data URL for the gacha scene. */
@@ -164,7 +167,7 @@ export function statRadar(stats: Record<string, number>, names: Record<string, s
   }).join('');
   const base = `<polygon points="${poly((i) => R * Math.min(top, stats[keys[i]]) / top)}" class="rv" style="--rc:${color}"/>`;
   const extra = hasAura ? `<polygon points="${poly((i) => R * eff(keys[i]) / top)}" class="rv-aura"/>` : '';
-  return `<svg viewBox="-30 0 260 180" role="img" aria-label="Estadísticas${hasAura ? ' (en cian, lo que aporta el Aura)' : ''}">${grid}${axes}${extra}${base}${labels}</svg>`;
+  return `<svg viewBox="-30 0 260 180" role="img" aria-label="${tr('Estadísticas{x1}', { x1: hasAura ? tr(' (en cian, lo que aporta el Aura)') : '' })}">${grid}${axes}${extra}${base}${labels}</svg>`;
 }
 export function autoUiScale() {
   const touch = window.matchMedia?.('(pointer: coarse)').matches || 'ontouchstart' in window;
@@ -182,7 +185,7 @@ async function shrinkShot(src: Blob | HTMLImageElement): Promise<Blob> {
     const b = await new Promise<Blob | null>((r) => c.toBlob(r, 'image/webp', q));
     if (b && b.size <= SHOT_MAX_BYTES) return b;
   }
-  throw new Error('La imagen es demasiado pesada incluso reducida. Prueba con otra.');
+  throw new Error(tr('La imagen es demasiado pesada incluso reducida. Prueba con otra.'));
 }
 
 export class App {
@@ -285,6 +288,7 @@ export class App {
         card.style.setProperty('--gy', `${Math.round(y * 100)}%`);
       });
     }, { passive: true });
+    setLang(resolveLang(save.settings.lang)); // 2.3: before anything is drawn
     setTeamLabels(m.teamLabels);
     setPreviewKit(m.kits?.[save.kit] ?? null);
     initMusic(m.music?.tracks ?? [], m.music?.contexts);
@@ -315,14 +319,14 @@ export class App {
     let after: (() => void) | null = null;
     if (onlineConfigured()) {
       const ret = await consumeAuthRedirect();
-      if (ret?.error) window.setTimeout(() => this.toast(`No se pudo entrar con Google: ${ret.error}`, 5000), 600);
+      if (ret?.error) window.setTimeout(() => this.toast(tr('No se pudo entrar con Google: {error}', { error: ret.error }), 5000), 600);
       // Fix 1.32: the game never waits long for the server: after 6 s it opens and the account resolves in the background
       if (signedIn()) {
         const acct = this.resolveAccount();
         after = await Promise.race([acct, new Promise<null>((ok) => window.setTimeout(() => ok(null), 6000))]);
         if (!after) void acct.then((fn) => fn?.()).catch(() => undefined);
       }
-      if (ret?.signedIn && !after) window.setTimeout(() => this.toast(this.save.onlineName ? `¡Hola de nuevo, ${this.save.onlineName}!` : '¡Conectado con Google!', 3500), 600);
+      if (ret?.signedIn && !after) window.setTimeout(() => this.toast(this.save.onlineName ? tr('¡Hola de nuevo, {onlineName}!', { onlineName: this.save.onlineName }) : tr('¡Conectado con Google!'), 3500), 600);
     }
     const returning = this.save.onboardingDone;
     void this.intro(this.save.introSeen).then(() => {
@@ -344,7 +348,7 @@ export class App {
     let fresh = false;
     try { fresh = localStorage.getItem('iz-intro-version') !== PUBLIC_VERSION; localStorage.setItem('iz-intro-version', PUBLIC_VERSION); } catch { /* private window: just the stamp */ }
     const [major, minor = '0'] = PUBLIC_VERSION.split('-')[0].split('.'); // 1.91-pre2.0: the stamp shows 1.91
-    return `<div class="vs4${fresh ? ' fresh' : ''}"><i class="vs4-ring"></i><small>VERSIÓN</small><b><span class="vs4-maj">${esc(major)}</span><em>.</em><span class="vs4-min">${esc(minor)}</span></b>${fresh ? '<span class="vs4-new">¡NUEVA VERSIÓN!</span>' : ''}</div>`;
+    return `<div class="vs4${fresh ? ' fresh' : ''}"><i class="vs4-ring"></i><small>${tr('VERSIÓN')}</small><b><span class="vs4-maj">${esc(major)}</span><em>.</em><span class="vs4-min">${esc(minor)}</span></b>${fresh ? `<span class="vs4-new">${tr('¡NUEVA VERSIÓN!')}</span>` : ''}</div>`;
   }
 
   /** v1.4: the backdrop of the intro and the title: a night stadium, its sweeping lights, speed lines and floating dust. */
@@ -357,10 +361,10 @@ export class App {
     const name = this.save.onlineName ?? this.save.profile.name;
     const guest = onlineConfigured() && !signedIn();
     this.show(`<div class="cine cine4 title-screen">${this.cineStage()}<div class="cine-shot in"><div class="logo cine-logo ib-logo4 idle"><h1><span class="p1">INA</span><span class="bolt p2">Z</span><span class="p3">URVIVORS</span><i class="ib-shine"></i><span class="ib-pre ib-v2">2.0</span></h1>
-      <div class="sub">ROGUELITE DE FÚTBOL · FANGAME</div></div>
-      <p class="cine-text">¡Hola de nuevo, ${esc(name)}!</p>
-      <p class="wiz-next"><button class="btn big" id="tscont">Continuar ▶</button></p>
-      ${guest ? '<p class="wiz-next"><button class="btn google-btn" id="tsgoogle"><span class="g-logo">G</span> Entrar con Google</button></p><p class="note">Ahora juegas como invitado: tu progreso está en este navegador.</p>' : ''}
+      <div class="sub">${tr('ROGUELITE DE FÚTBOL · FANGAME')}</div></div>
+      <p class="cine-text">${tr('¡Hola de nuevo, {name}!', { name: esc(name) })}</p>
+      <p class="wiz-next"><button class="btn big" id="tscont">${tr('Continuar ▶')}</button></p>
+      ${guest ? `<p class="wiz-next"><button class="btn google-btn" id="tsgoogle"><span class="g-logo">G</span> ${tr('Entrar con Google')}</button></p><p class="note">${tr('Ahora juegas como invitado: tu progreso está en este navegador.')}</p>` : ''}
       </div></div>`, 'title');
     let gone = false;
     // v1.5 (author): a real exit instead of a cut — the logo charges at the camera, the rest drops away, a flash of light
@@ -405,7 +409,7 @@ export class App {
       this.save.onlineName = profile.username;
       const cloud = await getCloudSave();
       // progress restarted on another device: this browser's copy is older than the reset and never wins
-      if (cloud && epochOf(cloud.data) > epochOf(this.save)) { this.adoptCloud(cloud, this.save.onboardingDone, 'Tu progreso se reinició: empiezas de nuevo con tu cuenta (la copia anterior de este navegador queda como respaldo).'); return null; }
+      if (cloud && epochOf(cloud.data) > epochOf(this.save)) { this.adoptCloud(cloud, this.save.onboardingDone, tr('Tu progreso se reinició: empiezas de nuevo con tu cuenta (la copia anterior de este navegador queda como respaldo).')); return null; }
       const local = summarize(this.save), remote = cloud ? summarize(cloud.data as SaveData) : null;
       const plan = linkPlan(this.save.onboardingDone ? local : null, remote);
       if (plan === 'bajar-nube' && cloud) this.adoptCloud(cloud, this.save.onboardingDone);
@@ -445,7 +449,7 @@ export class App {
     const box = document.createElement('div');
     box.className = 'combo-unlock';
     box.style.cssText = 'left:-3000px;top:-3000px;animation:none';
-    box.innerHTML = `<div class="cu-mugs">${squadOf(this.save, this.byId).slice(0, 7).map((p) => `<span>${this.mug(p.id, 64)}</span>`).join('')}</div><small>¡NUEVA TÉCNICA COMBINADA!</small><b>Fuego cruzado</b>`;
+    box.innerHTML = `<div class="cu-mugs">${squadOf(this.save, this.byId).slice(0, 7).map((p) => `<span>${this.mug(p.id, 64)}</span>`).join('')}</div><small>${tr('¡NUEVA TÉCNICA COMBINADA!')}</small><b>${tr('Fuego cruzado')}</b>`;
     document.body.appendChild(box);
     window.setTimeout(() => box.remove(), 600);
   }
@@ -477,7 +481,7 @@ export class App {
     box.style.setProperty('--ec', ELEMENT_COLOR[def?.element ?? ''] ?? '#ffd23f');
     box.innerHTML = `<div class="cu2-band"><i class="cu2-stripes"></i>
       <div class="cu2-mugs">${c.ids.map((id, i) => `<span class="cu2-mug" style="--i:${i}" data-id="${id}"><i></i><small>${esc(this.byId.get(id)?.name.split(' ')[0] ?? '')}</small></span>`).join('')}</div>
-      <div class="cu2-tx"><small>¡NUEVA TÉCNICA COMBINADA!</small><b>${esc(c.name)}</b>${def ? `<span class="cu2-meta">${elementIcon(def.element, 12)} ${esc(def.element)} · Poder ${def.power}</span>` : ''}</div></div>`;
+      <div class="cu2-tx"><small>${tr('¡NUEVA TÉCNICA COMBINADA!')}</small><b>${esc(c.name)}</b>${def ? `<span class="cu2-meta">${tr('{elementIcon} {element} · Poder {power}', { elementIcon: elementIcon(def.element, 12), element: esc(def.element), power: def.power })}</span>` : ''}</div></div>`;
     for (const slot of box.querySelectorAll<HTMLElement>('.cu2-mug')) {
       const id = Number(slot.dataset.id), cv = this.mugCanvas(id);
       if (cv) slot.querySelector('i')!.replaceWith(cv); else slot.querySelector('i')!.outerHTML = this.mug(id, 64);
@@ -495,11 +499,11 @@ export class App {
     const box = document.createElement('div');
     box.className = 'tut-modal codes-modal';
     const online = onlineConfigured() && signedIn();
-    box.innerHTML = `<div class="panel codes-panel"><h2>✉ Canjear código</h2>
-      <p class="note">${online ? 'Cada código se canjea una sola vez por cuenta, en cualquier dispositivo.' : 'Como invitado el código se canjea en este navegador. Al entrar con Google tu cuenta quedará marcada y no podrás canjearlo otra vez.'}</p>
-      <div class="codes-row"><input id="code-in" maxlength="32" autocomplete="off" spellcheck="false" placeholder="CÓDIGO"><button class="btn" id="code-go">Canjear</button></div>
+    box.innerHTML = `<div class="panel codes-panel"><h2>${tr('✉ Canjear código')}</h2>
+      <p class="note">${online ? tr('Cada código se canjea una sola vez por cuenta, en cualquier dispositivo.') : tr('Como invitado el código se canjea en este navegador. Al entrar con Google tu cuenta quedará marcada y no podrás canjearlo otra vez.')}</p>
+      <div class="codes-row"><input id="code-in" maxlength="32" autocomplete="off" spellcheck="false" placeholder="${tr('CÓDIGO')}"><button class="btn" id="code-go">${tr('Canjear')}</button></div>
       <p id="code-msg" class="code-msg" aria-live="polite"></p>
-      <div class="tut-nav"><span class="spacer"></span><button class="btn small blue" id="code-close">Cerrar</button></div></div>`;
+      <div class="tut-nav"><span class="spacer"></span><button class="btn small blue" id="code-close">${tr('Cerrar')}</button></div></div>`;
     document.body.appendChild(box);
     const input = box.querySelector('#code-in') as HTMLInputElement, msg = box.querySelector('#code-msg') as HTMLElement, go = box.querySelector('#code-go') as HTMLButtonElement;
     const say = (text: string, ok = false) => { msg.textContent = text; msg.className = `code-msg ${ok ? 'ok' : 'bad'}`; };
@@ -521,19 +525,19 @@ export class App {
         } else ({ status, reward } = redeemLocal(this.save, code, this.m.roster));
       } catch { status = 'error'; }
       go.disabled = false;
-      if (status === 'invalid') { sfx('error'); return say('Ese código no existe.'); }
-      if (status === 'used') { sfx('error'); return say('Ya has canjeado este código.'); }
-      if (status !== 'ok' || !reward) { sfx('error'); return say('Error de conexión. Inténtalo de nuevo.'); }
+      if (status === 'invalid') { sfx('error'); return say(tr('Ese código no existe.')); }
+      if (status === 'used') { sfx('error'); return say(tr('Ya has canjeado este código.')); }
+      if (status !== 'ok' || !reward) { sfx('error'); return say(tr('Error de conexión. Inténtalo de nuevo.')); }
       this.persist();
-      const gifts = (reward.pennants ?? []).map((id) => PENNANT_BY_ID.get(id)).filter((d): d is PennantDef => !!d).map((d) => `${isFrame(d) ? 'el marco' : 'el banner'} «${d.name}»`);
-      say(`¡Código válido! Recibes ${[reward.tokens ? `${reward.tokens} fichas` : '', reward.eventTokens ? `${reward.eventTokens} fichas de evento` : '', reward.egTokens ? `${reward.egTokens} Fichas EG` : '', reward.coins ? `${reward.coins.toLocaleString('es')} monedas` : '', ...gifts].filter(Boolean).join(', ')}${reward.player !== null ? ` y un futbolista ${RARITY_LABEL[this.byId.get(reward.player)?.rarity ?? 'legendario']}` : ''}.`, true);
+      const gifts = (reward.pennants ?? []).map((id) => PENNANT_BY_ID.get(id)).filter((d): d is PennantDef => !!d).map((d) => `${isFrame(d) ? tr('el marco') : tr('el banner')} «${d.name}»`);
+      say(tr('¡Código válido! Recibes {x1}{x2}.', { x1: [reward.tokens ? tr('{tokens} fichas', { tokens: reward.tokens }) : '', reward.eventTokens ? tr('{eventTokens} fichas de evento', { eventTokens: reward.eventTokens }) : '', reward.egTokens ? tr('{egTokens} Fichas EG', { egTokens: reward.egTokens }) : '', reward.coins ? tr('{x1} monedas', { x1: reward.coins.toLocaleString(locale()) }) : '', ...gifts].filter(Boolean).join(', '), x2: reward.player !== null ? tr(' y un futbolista {x1}', { x1: RARITY_LABEL[this.byId.get(reward.player)?.rarity ?? 'legendario'] }) : '' }), true);
       sfx('legend');
       const p = reward.player !== null ? this.byId.get(reward.player) : undefined;
       if (p) {
         box.remove();
         const o = this.save.owned[String(p.id)];
-        await this.capsuleShow([{ player: p, isNew: o?.copies === 1, stars: o?.stars ?? 0, refund: 0 }], code === 'ASTRA17' ? '¡Regalo de bienvenida ASTRA17!' : `Código ${code}`);
-        this.toast(`+${reward.tokens} fichas · +${reward.coins} monedas${gifts.length ? ' · banner y marco en tu Perfil' : ''}`, 3500);
+        await this.capsuleShow([{ player: p, isNew: o?.copies === 1, stars: o?.stars ?? 0, refund: 0 }], code === 'ASTRA17' ? tr('¡Regalo de bienvenida ASTRA17!') : tr('Código {code}', { code }));
+        this.toast(tr('+{tokens} fichas · +{coins} monedas{x1}', { tokens: reward.tokens, coins: reward.coins, x1: gifts.length ? tr(' · banner y marco en tu Perfil') : '' }), 3500);
         this.mainMenu();
       }
     });
@@ -551,21 +555,21 @@ export class App {
     if (document.querySelector('.welcome-online')) return;
     const box = document.createElement('div');
     box.className = 'tut-modal welcome-online';
-    box.innerHTML = `<div class="panel" style="max-width:520px"><h2>¡Bienvenido a InaZurvivors online!</h2>
-      <p class="note">Es la primera vez que entras con esta cuenta de Google. Reserva tu nombre en todo el mundo: aparecerá en el ranking y es <b>permanente</b>. Después tu progreso de este navegador se guardará en la nube.</p>
+    box.innerHTML = `<div class="panel" style="max-width:520px"><h2>${tr('¡Bienvenido a InaZurvivors online!')}</h2>
+      <p class="note">${tr('Es la primera vez que entras con esta cuenta de Google. Reserva tu nombre en todo el mundo: aparecerá en el ranking y es <b>permanente</b>. Después tu progreso de este navegador se guardará en la nube.')}</p>
       <div class="filters"><input id="wo-name" maxlength="${USERNAME_MAX}" autocomplete="off" spellcheck="false" value="${esc(this.save.profile.name)}"><span id="wo-check" class="pcheck"></span></div>
-      <div class="tut-nav"><button class="btn small blue" id="wo-later">Ahora no</button><span class="spacer"></span><button class="btn" id="wo-ok">Reservar nombre y guardar en la nube</button></div></div>`;
+      <div class="tut-nav"><button class="btn small blue" id="wo-later">${tr('Ahora no')}</button><span class="spacer"></span><button class="btn" id="wo-ok">${tr('Reservar nombre y guardar en la nube')}</button></div></div>`;
     document.body.appendChild(box);
     const input = box.querySelector('#wo-name') as HTMLInputElement, out = box.querySelector('#wo-check') as HTMLElement, ok = box.querySelector('#wo-ok') as HTMLButtonElement;
     this.liveNameCheck(input, out, ok);
-    box.querySelector('#wo-later')!.addEventListener('click', () => { box.remove(); this.toast('Puedes reservar tu nombre cuando quieras en Perfil.', 3500); });
+    box.querySelector('#wo-later')!.addEventListener('click', () => { box.remove(); this.toast(tr('Puedes reservar tu nombre cuando quieras en Perfil.'), 3500); });
     ok.addEventListener('click', () => {
       const v = validateUsername(input.value);
       if (!v.ok) { this.toast(v.reason); return; }
       ok.disabled = true;
       reserveUsername(v.name, String(this.save.profile.icon.id), this.save.crest)
-        .then(async (n) => { this.save.onlineName = n; this.claimName(); storeSave(this.save); box.remove(); await this.linkCloud(); this.toast(`Nombre «${n}» reservado. Tu progreso ya está en la nube.`, 4000); this.mainMenu(); })
-        .catch((e: Error) => { ok.disabled = false; this.toast(/taken/.test(e.message) ? 'Ese nombre ya está ocupado: prueba otro' : e.message, 3500); });
+        .then(async (n) => { this.save.onlineName = n; this.claimName(); storeSave(this.save); box.remove(); await this.linkCloud(); this.toast(tr('Nombre «{n}» reservado. Tu progreso ya está en la nube.', { n }), 4000); this.mainMenu(); })
+        .catch((e: Error) => { ok.disabled = false; this.toast(/taken/.test(e.message) ? tr('Ese nombre ya está ocupado: prueba otro') : e.message, 3500); });
     });
   }
 
@@ -581,7 +585,7 @@ export class App {
       timer = window.setTimeout(() => usernameAvailable(v.name).then((free) => {
         if (mine !== seq) return;
         out.className = `pcheck ${free ? 'ok' : 'bad'}`; out.textContent = free ? 'Disponible' : 'Ocupado'; if (button) button.disabled = !free;
-      }).catch(() => { if (mine === seq) { out.className = 'pcheck'; out.textContent = 'No se pudo comprobar ahora'; if (button) button.disabled = false; } }), 450);
+      }).catch(() => { if (mine === seq) { out.className = 'pcheck'; out.textContent = tr('No se pudo comprobar ahora'); if (button) button.disabled = false; } }), 450);
     };
     input.addEventListener('input', check);
     check();
@@ -694,12 +698,12 @@ export class App {
     return `<div class="pf-card${pn ? ' has-pn' : ''}">${pennantRibbon(pn, false)}<i class="rw-rays"></i>
         <div class="pf-avatar">${this.framed(v.icon, v.frame, true)}${v.crest && this.emblemOf(v.crest) ? `<img class="pf-crest" src="${this.emblemOf(v.crest)}" alt="">` : ''}</div>
         <div class="pf-main"><small>${v.tag}</small><b class="pf-name">${esc(v.name)}</b>
-          <div class="pf-tags"><span class="pf-tag">${uiIcon('trophy')}${v.wins} ${v.wins === 1 ? 'victoria' : 'victorias'}</span><span class="pf-tag">${uiIcon('cards')}${v.owned}/${this.m.roster.length}</span>${v.heroes ? `<span class="pf-tag hero">★ ${v.heroes} HÉROE</span>` : ''}</div>
+          <div class="pf-tags"><span class="pf-tag">${uiIcon('trophy')}${v.wins} ${v.wins === 1 ? 'victoria' : 'victorias'}</span><span class="pf-tag">${uiIcon('cards')}${v.owned}/${this.m.roster.length}</span>${v.heroes ? `<span class="pf-tag hero">${tr('★ {heroes} HÉROE', { heroes: v.heroes })}</span>` : ''}</div>
           <div class="pf-fav">${v.fav}</div></div>
         ${pn ? `<div class="pf-flag" title="${esc(PENNANT_BY_ID.get(pn)!.name)}">${pennantEmblem(pn)}</div>` : ''}
-        ${v.best ? `<div class="pf-best" style="--rc:${RARITY_COLOR[v.best.rarity]}"><small>${v.bestLabel}</small>${this.mug(v.best.id, 72)}<b>${esc(this.byId.get(v.best.id)?.name ?? '')}</b><span>Media ${v.best.mean}</span></div>` : ''}</div>
-      <div class="pf-stats">${tile('pitch', 'Partidas', v.runs)}${tile('trophy', 'Victorias', v.wins, 'gold')}${tile('fire', 'Eliminaciones', v.kills.toLocaleString('es'))}${tile('clock', 'Mejor tiempo', fmtTime(v.bestTimeSec))}
-        ${tile('capsule', 'Fichajes', v.pulls ?? '—')}${tile('cards', 'Colección', `${v.owned}/${this.m.roster.length}`)}${tile('crown', 'Logros', v.achv === null ? '—' : `${v.achv}/${achvAll}`)}${tile('perks', 'Héroes', v.heroes)}</div>`;
+        ${v.best ? `<div class="pf-best" style="--rc:${RARITY_COLOR[v.best.rarity]}"><small>${v.bestLabel}</small>${this.mug(v.best.id, 72)}<b>${esc(this.byId.get(v.best.id)?.name ?? '')}</b><span>${tr('Media {mean}', { mean: v.best.mean })}</span></div>` : ''}</div>
+      <div class="pf-stats">${tile('pitch', 'Partidas', v.runs)}${tile('trophy', 'Victorias', v.wins, 'gold')}${tile('fire', 'Eliminaciones', v.kills.toLocaleString(locale()))}${tile('clock', tr('Mejor tiempo'), fmtTime(v.bestTimeSec))}
+        ${tile('capsule', tr('Fichajes'), v.pulls ?? '—')}${tile('cards', tr('Colección'), `${v.owned}/${this.m.roster.length}`)}${tile('crown', tr('Logros'), v.achv === null ? '—' : `${v.achv}/${achvAll}`)}${tile('perks', 'Héroes', v.heroes)}</div>`;
   }
   /** Fix 1.3: the stats the game really uses (rarity band, ascension, HÉROE, training: training.ts); null without data. */
   private statsOf(p: RosterEntry): Record<string, number> | null {
@@ -712,7 +716,7 @@ export class App {
     const ch = championOf(this.save, p.id);
     if (ch) return `<span class="rar heroe campeon c${ch}">${CHAMPION_LABEL[ch]}</span>`;
     // Fix 1.31: a HÉROE is shown as HÉROE (with its hero stars), not as the rarity it came from
-    if (isHero(this.save, p.id)) { const hs = this.owned(p.id)?.heroStars ?? 0; return `<span class="rar heroe">HÉROE${hs ? ` ${'★'.repeat(hs)}` : ''}</span>`; }
+    if (isHero(this.save, p.id)) { const hs = this.owned(p.id)?.heroStars ?? 0; return `<span class="rar heroe">${tr('HÉROE{x1}', { x1: hs ? ` ${'★'.repeat(hs)}` : '' })}</span>`; }
     return `<span class="rar ${r}">${RARITY_LABEL[r].toUpperCase()}</span>`;
   }
   /** Type icon (generic manual of its category) framed in the element colour, plus element and category chips. */
@@ -721,7 +725,7 @@ export class App {
     return `<span class="lv-techicon" style="--ec:${ELEMENT_COLOR[e] ?? '#8a9bbd'}">${this.icon(ICON.manual[t.type], scale)}<span class="lv-elic">${elementIcon(t.element, 10 + scale * 4)}</span></span>`;
   }
   private techChips(t: Technique) {
-    const e = t.element ?? 'Sin elemento';
+    const e = t.element ?? tr('Sin elemento');
     return `<div class="tchips"><span class="tcat">${TYPE_LABEL[t.type]}</span><span class="elem" style="--ec:${ELEMENT_COLOR[e] ?? '#ccc'}">${elementIcon(t.element, 12)}${esc(e)}</span></div>`;
   }
   private elem(p: RosterEntry) {
@@ -779,7 +783,7 @@ export class App {
     if (el.dataset.armed) { fn(); return; }
     el.dataset.armed = '1';
     const label = el.innerHTML; // v1.4: buttons can hold icons and price chips
-    el.textContent = '¿Confirmar?';
+    el.textContent = tr('¿Confirmar?');
     el.classList.add('arm');
     window.setTimeout(() => {
       if (!el.isConnected) return;
@@ -828,15 +832,15 @@ export class App {
     this.save.loadout[String(id)] = i;
     this.persist();
     sfx('click');
-    this.toast(`${p.name} empezará con ${p.techniques[i].name}`, 1800);
+    this.toast(tr('{pName} empezará con {x1}', { pName: p.name, x1: p.techniques[i].name }), 1800);
   }
   private titlebar(title: string, back?: string) {
-    return `<div class="titlebar">${back ? `<button class="tb-back" data-back><span>‹</span>${esc(back)}</button>` : ''}
-      <h2>${esc(title)}</h2><span class="spacer"></span><span class="tb-wallet"><span class="tokens" title="Fichas de Fichaje">${this.save.tokens}</span><span class="coins" title="Monedas">${this.save.coins}</span></span></div>`;
+    return `<div class="titlebar">${back ? `<button class="tb-back" data-back><span>‹</span>${esc(tr(back))}</button>` : ''}
+      <h2>${esc(tr(title))}</h2><span class="spacer"></span><span class="tb-wallet"><span class="tokens" title="${tr('Fichas de Fichaje')}">${this.save.tokens}</span><span class="coins" title="${tr('Monedas')}">${this.save.coins}</span></span></div>`;
   }
   private techHtml(t: Technique) {
-    return `<div class="tech">${this.icon(ICON.manual[t.type], 2)}<div><div class="tn">${esc(t.name)}</div>
-      <div class="td">${t.type === 'talento' ? `Talento pasivo · ${esc(talentText(t.id, 1) || 'sin efecto')}` : `${TYPE_LABEL[t.type]} · ${esc(t.element ?? '—')} · poder ${t.power}`}</div><div class="td">${esc(t.description)}</div></div></div>`;
+    return `<div class="tech">${this.icon(ICON.manual[t.type], 2)}<div><div class="tn">${esc(tTech(t.name))}</div>
+      <div class="td">${t.type === 'talento' ? `Talento pasivo · ${esc(talentText(t.id, 1) || tr('sin efecto'))}` : `${TYPE_LABEL[t.type]} · ${esc(t.element ? tEl(t.element) : '—')} · poder ${t.power}`}</div><div class="td">${esc(t.description)}</div></div></div>`;
   }
   /** Player card: bodyshot (torso + head portrait) first, animated minisprite as a corner detail. */
   private pcard(p: RosterEntry, opts: { locked?: boolean; sel?: boolean; badge?: string; captain?: boolean; anim?: number; big?: boolean } = {}) {
@@ -854,14 +858,14 @@ export class App {
     // 1.84: the 3 extra stars of a HÉROE (crimson) or a Campeón (prismatic)
     const xs = !locked && o && hasExtraStars(this.save, p) ? extraStarsOf(this.save, p.id) : -1;
     // 1.88: the coin extra stars (violet) and, apart, the HÉROE hero stars (crimson, paid with duplicates) as before
-    const extra = xs > 0 ? `<span class="hero-stars champ" title="${xs} de ${EXTRA_STARS_MAX} estrellas extra">${Array.from({ length: xs }, () => starSvg('hst on')).join('')}</span>` : '';
+    const extra = xs > 0 ? `<span class="hero-stars champ" title="${tr('{xs} de {EXTRA_STARS_MAX} estrellas extra', { xs, EXTRA_STARS_MAX })}">${Array.from({ length: xs }, () => starSvg('hst on')).join('')}</span>` : '';
     const hsN = hero ? Math.min(HERO_STARS_MAX, o?.heroStars ?? 0) : 0;
-    const heroStars = extra + (hero ? `<span class="hero-stars" title="${hsN} de ${HERO_STARS_MAX} estrellas de héroe">${Array.from({ length: HERO_STARS_MAX }, (_, i) => starSvg(`hst${i < hsN ? ' on' : ''}`)).join('')}</span>` : '');
-    const stars = !locked && o ? `<div class="stars" title="${o.stars} de ${MAX_STARS} estrellas">${Array.from({ length: MAX_STARS }, (_, i) => starSvg(`st${i < o.stars ? ' on' : ''}`)).join('')}${heroStars}</div>` : '<div class="stars"></div>';
+    const heroStars = extra + (hero ? `<span class="hero-stars" title="${tr('{hsN} de {HERO_STARS_MAX} estrellas de héroe', { hsN, HERO_STARS_MAX })}">${Array.from({ length: HERO_STARS_MAX }, (_, i) => starSvg(`hst${i < hsN ? ' on' : ''}`)).join('')}</span>` : '');
+    const stars = !locked && o ? `<div class="stars" title="${tr('{stars} de {MAX_STARS} estrellas', { stars: o.stars, MAX_STARS })}">${Array.from({ length: MAX_STARS }, (_, i) => starSvg(`st${i < o.stars ? ' on' : ''}`)).join('')}${heroStars}</div>` : '<div class="stars"></div>';
     const spare = !locked && o ? sparesOf(this.save, p.id) : 0, step = !locked && o ? nextStep(this.save, p) : null;
     const canAsc = !!step && spare >= step.cost;
-    const dup = canAsc ? `<span class="card-dup can-asc" title="¡Puedes ascender! (${spare} duplicados)">${this.uiPiece('chevron', 'up') || '▲'} ${spare}</span>`
-      : spare ? `<span class="card-dup" title="Duplicados sin usar${step ? ` (${step.step === 'heroe' ? 'HÉROE' : step.step === 'estrella' ? 'estrella de héroe' : step.step === 'campeon' ? CHAMPION_LABEL[championOf(this.save, p.id) + 1] : 'ascenso'}: ${step.cost})` : ''}">+${spare}${step ? ` <i>${spare}/${step.cost}</i>` : ''}</span>` : '<span></span>';
+    const dup = canAsc ? `<span class="card-dup can-asc" title="${tr('¡Puedes ascender! ({spare} duplicados)', { spare })}">${this.uiPiece('chevron', 'up') || '▲'} ${spare}</span>`
+      : spare ? `<span class="card-dup" title="${tr('Duplicados sin usar{x1}', { x1: step ? ` (${step.step === 'heroe' ? tr('HÉROE') : step.step === 'estrella' ? tr('estrella de héroe') : step.step === 'campeon' ? CHAMPION_LABEL[championOf(this.save, p.id) + 1] : 'ascenso'}: ${step.cost})` : '' })}">+${spare}${step ? ` <i>${spare}/${step.cost}</i>` : ''}</span>` : '<span></span>';
     const top = `${opts.badge ? `<span class="badge">${esc(opts.badge)}</span>` : ''}${opts.captain ? '<span class="captain-badge">C</span>' : ''}`;
     const st = !locked && p.stats ? this.statsOf(p) : null;
     const e = String(p.element ?? '');
@@ -877,7 +881,7 @@ export class App {
           <div class="cc-art${locked ? ' dark' : ''}">${crest ? `<img class="cc-crest" src="${crest}" alt="">` : ''}<i class="cc-rays"></i>
             ${this.mug(p.id, opts.big ? 152 : 112)}${locked ? '<span class="qmark">?</span><span class="lock-tag">Bloqueado</span>' : opts.big || opts.anim !== undefined ? `<span class="minisprite">${charCanvas(p.id, 2, opts.anim ?? 4)}</span>` : ''}
             <div class="cc-gem" title="${esc(e)}">${locked ? '' : elementIcon(e, 16)}</div>${this.egBadge(p.id, 'cc-eg')}
-            ${st ? `<div class="cc-ovr" title="Media de estadísticas"><b>${statMean(st)}</b><small>${POS_LABEL[p.position] ?? p.position}</small></div>` : `<div class="cc-ovr pos"><small>${POS_LABEL[p.position] ?? p.position}</small></div>`}
+            ${st ? `<div class="cc-ovr" title="${tr('Media de estadísticas')}"><b>${statMean(st)}</b><small>${POS_LABEL[p.position] ?? p.position}</small></div>` : `<div class="cc-ovr pos"><small>${POS_LABEL[p.position] ?? p.position}</small></div>`}
             <div class="cc-name"><span>${locked ? '???' : esc(p.name)}</span></div></div>
           <div class="cc-rar">${locked ? `<span class="rar ${er}">${RARITY_LABEL[er].toUpperCase()}</span>` : this.rar(p)}</div>
           ${bars}
@@ -895,7 +899,7 @@ export class App {
     const cast = [...this.m.roster].sort((a, b) => RARITY_ORDER.indexOf(b.rarity) - RARITY_ORDER.indexOf(a.rarity)).slice(0, 5);
     return new Promise((resolve) => {
       // its own screen key: with an empty key show() took it for a repeat of the empty start screen and froze its animations
-      this.show(`<div class="cine cine4">${this.cineStage()}<div class="cine-shot" id="shot"></div><i class="cine-bar top"></i><i class="cine-bar bot"></i><button class="btn small blue cine-skip" id="skip">Saltar ▶▶</button></div>`, 'intro');
+      this.show(`<div class="cine cine4">${this.cineStage()}<div class="cine-shot" id="shot"></div><i class="cine-bar top"></i><i class="cine-bar bot"></i><button class="btn small blue cine-skip" id="skip">${tr('Saltar ▶▶')}</button></div>`, 'intro');
       let i = 0, timer = 0, done = false;
       const finish = () => {
         if (done) return;
@@ -920,7 +924,7 @@ export class App {
           const balls = Array.from({ length: 6 }, (_, k) => `<i class="ib-ball" style="--y:${15 + k * 13}%;--d:${0.4 + k * 0.18}s">⚽</i>`).join('');
           const sparks = Array.from({ length: 18 }, (_, k) => `<i class="ib-spark" style="--a:${k * 20}deg;--r:${120 + (k % 3) * 60}px;--d:${0.95 + (k % 4) * 0.03}s"></i>`).join('');
           box.innerHTML = `<div class="intro-burst">${bolts}${balls}<div class="ib-orbit">${orbs}</div><i class="ib-flash"></i><i class="ib-ring"></i><i class="ib-ring r2"></i>${sparks}
-            <div class="logo cine-logo ib-logo4"><h1><span class="p1">INA</span><span class="bolt p2">Z</span><span class="p3">URVIVORS</span><i class="ib-shine"></i><span class="ib-pre ib-v2">2.0</span></h1><div class="sub">${words('ROGUELITE DE FÚTBOL · FANGAME', 1300)}</div><span class="ver-badge ib-ver">${esc(VERSION_LABEL)}</span></div>${this.versionStamp()}</div>`;
+            <div class="logo cine-logo ib-logo4"><h1><span class="p1">INA</span><span class="bolt p2">Z</span><span class="p3">URVIVORS</span><i class="ib-shine"></i><span class="ib-pre ib-v2">2.0</span></h1><div class="sub">${words(tr('ROGUELITE DE FÚTBOL · FANGAME'), 1300)}</div><span class="ver-badge ib-ver">${esc(VERSION_LABEL)}</span></div>${this.versionStamp()}</div>`;
           if (!this.save.settings.reducedMotion) window.setTimeout(() => { sfx('boom'); if (this.save.settings.shake <= 0) return; document.querySelector('.cine4')?.classList.add('shake'); window.setTimeout(() => document.querySelector('.cine4')?.classList.remove('shake'), 420); }, 950);
           if (!this.save.settings.reducedMotion) sfx('legend');
         }
@@ -943,47 +947,46 @@ export class App {
     const teams = eligibleTeams(this.m.roster).filter((t) => mainTeams.has(t) && !!this.emblemOf(t));
     const fullKit = (t: string) => !!this.m.kits?.[t];
     const emblems = (this.m.profile?.emblems ?? []).filter((e, i, a) => e.name !== '???' && a.findIndex((x) => x.name === e.name) === i).slice(0, 36);
-    const steps = ['Nombre', 'Avatar', 'Equipo favorito', 'Confirmar'];
+    const steps = ['Nombre', 'Avatar', tr('Equipo favorito'), 'Confirmar'];
     const dots = step === 0 ? '' : steps.map((t, i) => `<span class="${i + 1 === step ? 'on' : i + 1 < step ? 'done' : ''}">${i + 1}. ${t}</span>`).join('');
     let body = '';
     const nameOk = validateUsername(draft.name).ok;
     const fixedName = this.save.onlineName; // a Google account that already reserved its name keeps it
     if (fixedName) draft.name = fixedName;
     if (step === 0) {
-      body = `<h3>¡Bienvenido, entrenador!</h3>
-        <p>Entra con Google para reservar tu nombre en todo el mundo, aparecer en el ranking mundial y guardar tu progreso en la nube. Si ya jugaste en otro dispositivo, recuperas tu club.</p>
-        <p class="wiz-next"><button class="btn big google-btn" id="google"><span class="g-logo">G</span> Continuar con Google</button></p>
-        <p class="wiz-next"><button class="btn blue" id="guest">Jugar como invitado</button></p>
-        <p class="note">Como invitado tu progreso se guarda solo en este navegador; puedes entrar con Google más tarde desde Perfil sin perderlo.
-          <a href="privacidad.html" target="_blank" rel="noopener">Privacidad y condiciones</a></p>`;
+      body = `<h3>${tr('¡Bienvenido, entrenador!')}</h3>
+        <p>${tr('Entra con Google para reservar tu nombre en todo el mundo, aparecer en el ranking mundial y guardar tu progreso en la nube. Si ya jugaste en otro dispositivo, recuperas tu club.')}</p>
+        <p class="wiz-next"><button class="btn big google-btn" id="google"><span class="g-logo">G</span> ${tr('Continuar con Google')}</button></p>
+        <p class="wiz-next"><button class="btn blue" id="guest">${tr('Jugar como invitado')}</button></p>
+        <p class="note">${tr('Como invitado tu progreso se guarda solo en este navegador; puedes entrar con Google más tarde desde Perfil sin perderlo.')}
+          <a href="privacidad.html" target="_blank" rel="noopener">${tr('Privacidad y condiciones')}</a></p>`;
     } else if (step === 1 && fixedName) {
-      body = `<h3>¡Hola de nuevo! Tu nombre global ya está reservado</h3>
+      body = `<h3>${tr('¡Hola de nuevo! Tu nombre global ya está reservado')}</h3>
         <div class="name-field"><b class="fixed-name">${esc(fixedName)}</b></div>
-        <p class="note">Es permanente y es el que aparece en el ranking.</p>
-        <p class="wiz-next"><button class="btn big" id="next">Siguiente ▶</button></p>`;
+        <p class="note">${tr('Es permanente y es el que aparece en el ranking.')}</p>
+        <p class="wiz-next"><button class="btn big" id="next">${tr('Siguiente ▶')}</button></p>`;
     } else if (step === 1) {
-      body = `<h3>¡Bienvenido, entrenador! ¿Cómo se llama el capitán de este club?</h3>
-        <div class="name-field"><input id="pname" maxlength="${USERNAME_MAX}" autocomplete="off" spellcheck="false" value="${esc(draft.name)}" placeholder="Tu nombre de usuario"><span id="pcheck" class="pcheck"></span></div>
-        <p class="note">3-20 caracteres: letras sin tildes, números y _. <b>El nombre es permanente</b>: no se podrá cambiar después.
-          ${!onlineConfigured() ? 'Ranking online sin conectar: el nombre es solo de este navegador.' : signedIn() ? 'Se reserva en todo el mundo para tu cuenta de Google al crear el perfil.' : 'Como invitado es solo de este navegador; al entrar con Google se reserva en todo el mundo si está libre.'}</p>
-        <p class="wiz-next"><button class="btn big" id="next" ${nameOk ? '' : 'disabled'}>Siguiente ▶</button></p>`;
+      body = `<h3>${tr('¡Bienvenido, entrenador! ¿Cómo se llama el capitán de este club?')}</h3>
+        <div class="name-field"><input id="pname" maxlength="${USERNAME_MAX}" autocomplete="off" spellcheck="false" value="${esc(draft.name)}" placeholder="${tr('Tu nombre de usuario')}"><span id="pcheck" class="pcheck"></span></div>
+        <p class="note">${tr('{x1} <b>{x2}</b>: no se podrá cambiar después. {x3}', { x1: tr('3-20 caracteres: letras sin tildes, números y _.'), x2: tr('El nombre es permanente'), x3: !onlineConfigured() ? tr('Ranking online sin conectar: el nombre es solo de este navegador.') : signedIn() ? tr('Se reserva en todo el mundo para tu cuenta de Google al crear el perfil.') : tr('Como invitado es solo de este navegador; al entrar con Google se reserva en todo el mundo si está libre.') })}</p>
+        <p class="wiz-next"><button class="btn big" id="next" ${nameOk ? '' : 'disabled'}>${tr('Siguiente ▶')}</button></p>`;
     } else if (step === 2) {
-      body = `<h3>Elige el escudo de tu avatar</h3>
+      body = `<h3>${tr('Elige el escudo de tu avatar')}</h3>
         <div class="crest-pick">${emblems.map((e) => `<button class="crest-btn${e.teamId === draft.emblem ? ' on' : ''}" data-e="${e.teamId}" title="${esc(e.name)}"><img src="${e.texture}" alt=""><small>${esc(e.name)}</small></button>`).join('')}</div>
-        <p class="wiz-next"><button class="btn blue" id="prev">◀ Atrás</button> <button class="btn big" id="next">Siguiente ▶</button></p>`;
+        <p class="wiz-next"><button class="btn blue" id="prev">${tr('◀ Atrás')}</button> <button class="btn big" id="next">${tr('Siguiente ▶')}</button></p>`;
     } else if (step === 3) {
-      body = `<h3>¿Cuál es tu equipo favorito?</h3><p class="note">Empiezas con su escudo y, si está disponible, su equipación ya puesta. Uno de tus 5 primeros fichajes será de este equipo, con rareza Épica o superior.</p>
-        <div class="team-picks">${SAGAS.map((sg) => { const list = teams.filter((t) => sagaOf(t) === sg); return list.length ? `<h4>${sg}</h4><div class="team-grid">${list.map((t) => `<button class="team-card${t === draft.team ? ' on' : ''}" data-t="${esc(t)}">${this.emblemOf(t) ? `<img src="${this.emblemOf(t)}" alt="">` : '<span class="noemblem">⚽</span>'}<span>${esc(teamLabel(t))}</span><small class="fav-tag ${fullKit(t) ? 'full' : ''}">${fullKit(t) ? 'Escudo y equipación' : 'Solo escudo'}</small></button>`).join('')}</div>` : ''; }).join('')}</div>
-        <p class="wiz-next"><button class="btn blue" id="prev">◀ Atrás</button> <button class="btn big" id="next" ${draft.team ? '' : 'disabled'}>Siguiente ▶</button></p>`;
+      body = `<h3>${tr('¿Cuál es tu equipo favorito?')}</h3><p class="note">${tr('Empiezas con su escudo y, si está disponible, su equipación ya puesta. Uno de tus 5 primeros fichajes será de este equipo, con rareza Épica o superior.')}</p>
+        <div class="team-picks">${SAGAS.map((sg) => { const list = teams.filter((t) => sagaOf(t) === sg); return list.length ? `<h4>${tr(sg)}</h4><div class="team-grid">${list.map((t) => `<button class="team-card${t === draft.team ? ' on' : ''}" data-t="${esc(t)}">${this.emblemOf(t) ? `<img src="${this.emblemOf(t)}" alt="">` : '<span class="noemblem">⚽</span>'}<span>${esc(teamLabel(t))}</span><small class="fav-tag ${fullKit(t) ? 'full' : ''}">${fullKit(t) ? tr('Escudo y equipación') : tr('Solo escudo')}</small></button>`).join('')}</div>` : ''; }).join('')}</div>
+        <p class="wiz-next"><button class="btn blue" id="prev">${tr('◀ Atrás')}</button> <button class="btn big" id="next" ${draft.team ? '' : 'disabled'}>${tr('Siguiente ▶')}</button></p>`;
     } else {
       const em = this.m.profile?.emblems.find((e) => e.teamId === draft.emblem);
-      body = `<h3>Confirma tu club</h3>
-        <div class="club-card">${em ? `<img src="${em.texture}" alt="">` : ''}<div><b>${esc(draft.name)}</b><small>Entrenador · nombre permanente</small>
-          <span>Equipo favorito: ${this.emblemOf(draft.team) ? `<img class="mini-crest" src="${this.emblemOf(draft.team)}" alt="">` : ''}${esc(teamLabel(draft.team))}</span></div></div>
-        <p>${this.m.kits?.[draft.team] ? `Empiezas con la equipación y el escudo de ${esc(teamLabel(draft.team))}.` : `Empiezas con el escudo de ${esc(teamLabel(draft.team))}; este equipo aún no tiene equipación de combate disponible.`} La máquina te dará <b>5 futbolistas distintos</b>, y al menos uno será de ${esc(teamLabel(draft.team))} con rareza Épica o superior. Este regalo solo ocurre una vez.</p>
-        <p class="wiz-next"><button class="btn blue" id="prev">◀ Atrás</button> <button class="btn big" id="go">Crear perfil y abrir mis 5 cápsulas ▶</button></p>`;
+      body = `<h3>${tr('Confirma tu club')}</h3>
+        <div class="club-card">${em ? `<img src="${em.texture}" alt="">` : ''}<div><b>${esc(draft.name)}</b><small>${tr('Entrenador · nombre permanente')}</small>
+          <span>${tr('Equipo favorito: {x1}{x2}', { x1: this.emblemOf(draft.team) ? `<img class="mini-crest" src="${this.emblemOf(draft.team)}" alt="">` : '', x2: esc(teamLabel(draft.team)) })}</span></div></div>
+        <p>${tr('{x1} La máquina te dará <b>{x2}</b>, y al menos uno será de {x3} con rareza Épica o superior. Este regalo solo ocurre una vez.', { x1: this.m.kits?.[draft.team] ? tr('Empiezas con la equipación y el escudo de {x1}.', { x1: esc(teamLabel(draft.team)) }) : tr('Empiezas con el escudo de {x1}; este equipo aún no tiene equipación de combate disponible.', { x1: esc(teamLabel(draft.team)) }), x2: tr('5 futbolistas distintos'), x3: esc(teamLabel(draft.team)) })}</p>
+        <p class="wiz-next"><button class="btn blue" id="prev">${tr('◀ Atrás')}</button> <button class="btn big" id="go">${tr('Crear perfil y abrir mis 5 cápsulas ▶')}</button></p>`;
     }
-    this.show(`<div class="screen center"><div class="logo"><h1>INA<span class="bolt">Z</span>URVIVORS</h1><div class="sub">ROGUELITE DE FÚTBOL · FANGAME</div></div>
+    this.show(`<div class="screen center"><div class="logo"><h1>INA<span class="bolt">Z</span>URVIVORS</h1><div class="sub">${tr('ROGUELITE DE FÚTBOL · FANGAME')}</div></div>
       <div class="panel welcome"><div class="wiz-steps">${dots}</div>${body}</div></div>`);
     const keepName = () => { const n = (document.getElementById('pname') as HTMLInputElement | null)?.value.trim(); if (n) draft.name = n; };
     this.on('[data-e]', 'click', (_e, el) => {
@@ -1011,7 +1014,7 @@ export class App {
           usernameAvailable(v.name).then((free) => {
             if (mine !== seq) return;
             out.className = `pcheck ${free ? 'ok' : 'bad'}`; out.textContent = free ? 'Disponible' : 'Ocupado'; next.disabled = !free;
-          }).catch(() => { if (mine === seq) { out.className = 'pcheck'; out.textContent = 'No se pudo comprobar ahora'; next.disabled = false; } });
+          }).catch(() => { if (mine === seq) { out.className = 'pcheck'; out.textContent = tr('No se pudo comprobar ahora'); next.disabled = false; } });
         }, 450);
       };
       input.addEventListener('input', check);
@@ -1027,7 +1030,7 @@ export class App {
       if (onlineConfigured() && signedIn() && !this.save.onlineName) {
         try { this.save.onlineName = await reserveUsername(draft.name.trim(), String(draft.emblem), ''); } catch (err) {
           const m = (err as Error).message;
-          this.toast(/taken/.test(m) ? 'Alguien acaba de reservar ese nombre: elige otro' : m, 4000);
+          this.toast(/taken/.test(m) ? tr('Alguien acaba de reservar ese nombre: elige otro') : m, 4000);
           if (/taken|invalid_username/.test(m)) this.createProfile(1, draft); else btn.disabled = false;
           return;
         }
@@ -1047,17 +1050,16 @@ export class App {
       this.captainId = this.save.captainId;
       this.persist();
       if (onlineConfigured() && signedIn() && this.save.onlineName) void this.linkCloud(); // the new club goes up to the cloud
-      await this.capsuleShow(got.map((p) => ({ player: p, isNew: true, stars: 0, refund: 0 })), 'Tus primeros fichajes');
+      await this.capsuleShow(got.map((p) => ({ player: p, isNew: true, stars: 0, refund: 0 })), tr('Tus primeros fichajes'));
       this.onboardingSummary(got);
     });
   }
 
   private onboardingSummary(got: RosterEntry[]) {
-    this.show(`<div class="screen">${this.titlebar('¡Tu equipo inicial!')}
-      <div class="panel" style="margin-bottom:12px"><p>Estos ${got.length} futbolistas ya forman parte de tu colección. En cada partida empiezas con tu capitán
-      y fichas compañeros al subir de nivel (máximo ${MAX_TEAM}). Consigue más en la máquina de fichajes.</p></div>
+    this.show(`<div class="screen">${this.titlebar(tr('¡Tu equipo inicial!'))}
+      <div class="panel" style="margin-bottom:12px"><p>${tr('Estos {gotLength} futbolistas ya forman parte de tu colección. En cada partida empiezas con tu capitán y fichas compañeros al subir de nivel (máximo {MAX_TEAM}). Consigue más en la máquina de fichajes.', { gotLength: got.length, MAX_TEAM })}</p></div>
       <div class="grid">${got.map((p, i) => this.pcard(p, { captain: i === 0, anim: 12, big: true })).join('')}</div>
-      <p style="text-align:center;margin-top:16px"><button class="btn big" id="menu">Ir al menú ▶</button></p></div>`);
+      <p style="text-align:center;margin-top:16px"><button class="btn big" id="menu">${tr('Ir al menú ▶')}</button></p></div>`);
     document.getElementById('menu')!.addEventListener('click', () => this.mainMenu());
   }
 
@@ -1096,65 +1098,65 @@ export class App {
     this.show(`<div class="menu-root m4"><div class="menu-lights"><i></i><i></i><i></i><b></b><b></b><b></b></div>
       <header class="m4-top">
         <button class="m4-profile" data-go="profile">${this.profileIcon(46)}${this.save.crest && this.emblemOf(this.save.crest) ? `<img class="m4-crest" src="${this.emblemOf(this.save.crest)}" alt="">` : ''}
-          <span><b>${esc(this.save.profile.name)}</b><small>${owned.length}/${this.m.roster.length} futbolistas · ${this.save.stats.wins} victorias</small></span></button>
+          <span><b>${esc(this.save.profile.name)}</b><small>${tr('{ownedLength}/{rosterLength} futbolistas · {wins} victorias', { ownedLength: owned.length, rosterLength: this.m.roster.length, wins: this.save.stats.wins })}</small></span></button>
         <button class="m4-clanchip" id="m4clan" data-go="clan">${this.clanChipHtml()}</button>
         <span class="spacer"></span>
-        <div class="m4-wallet"><span class="tokens" title="Fichas de Fichaje">${this.save.tokens}</span><span class="coins" title="Monedas">${this.save.coins}</span><span class="egt" title="Fichas EG">${this.egIcon(16)}${egTokens(this.save)}</span></div>
+        <div class="m4-wallet"><span class="tokens" title="${tr('Fichas de Fichaje')}">${this.save.tokens}</span><span class="coins" title="${tr('Monedas')}">${this.save.coins}</span><span class="egt" title="${tr('Fichas EG')}">${this.egIcon(16)}${egTokens(this.save)}</span></div>
         <nav class="m4-tools">${this.tiktokLink()}
-          <a class="m4-tool m4-itch" href="${CREATOR_GAMES_URL}" target="_blank" rel="noopener noreferrer" title="Otros juegos del creador" aria-label="Otros juegos del creador (se abre en una pestaña nueva)">${GAMEPAD_SVG}</a>
-          <button class="m4-tool" data-go="devlog" title="Noticias">${uiIcon('news')}<span>Noticias</span>${unseenLog ? '<i class="m4-dot"></i>' : ''}</button>
-          <button class="m4-tool" data-go="options" title="Ajustes">${uiIcon('cog')}<span>Ajustes</span></button>
-          <button class="m4-tool" id="mute" title="Sonido" aria-pressed="${!this.save.settings.muted}">${uiIcon(this.save.settings.muted ? 'soundOff' : 'soundOn')}</button>
-          <button class="m4-tool" id="menubug" title="Reportar un bug">${uiIcon('bug')}</button></nav>
+          <a class="m4-tool m4-itch" href="${CREATOR_GAMES_URL}" target="_blank" rel="noopener noreferrer" title="${tr('Otros juegos del creador')}" aria-label="${tr('Otros juegos del creador (se abre en una pestaña nueva)')}">${GAMEPAD_SVG}</a>
+          <button class="m4-tool" data-go="devlog" title="${tr('Noticias')}">${uiIcon('news')}<span>${tr('Noticias')}</span>${unseenLog ? '<i class="m4-dot"></i>' : ''}</button>
+          <button class="m4-tool" data-go="options" title="${tr('Ajustes')}">${uiIcon('cog')}<span>${tr('Ajustes')}</span></button>
+          <button class="m4-tool" id="mute" title="${tr('Sonido')}" aria-pressed="${!this.save.settings.muted}">${uiIcon(this.save.settings.muted ? 'soundOff' : 'soundOn')}</button>
+          <button class="m4-tool" id="menubug" title="${tr('Reportar un bug')}">${uiIcon('bug')}</button></nav>
       </header>
       <div class="m4-stage">
         <section class="m4-left">
           ${this.promoHtml(promo)}
           <div class="logo menu-logo brand"><svg class="logo-bolt" viewBox="0 0 60 100"><polygon points="38,0 6,56 26,56 16,100 56,38 34,38"/></svg>
-            <h1 aria-label="InaZurvivors"><span class="b1">Ina</span><span class="bz">Z</span><span class="b2">urvivors</span></h1><div class="sub">ROGUELITE DE FÚTBOL · FANGAME <span class="ver-badge">${esc(VERSION_LABEL)}</span></div></div>
+            <h1 aria-label="InaZurvivors"><span class="b1">Ina</span><span class="bz">Z</span><span class="b2">urvivors</span></h1><div class="sub">${tr('ROGUELITE DE FÚTBOL · FANGAME')} <span class="ver-badge">${esc(VERSION_LABEL)}</span></div></div>
           <div class="m4-main">
             <button class="m4-play" data-go="play"><i class="m4-shine"></i><span class="m4-play-ic">${uiIcon('play')}</span>
-              <span class="m4-tx"><b>JUGAR</b><small>${squad[0] ? `Capitán: ${esc(squad[0].name)} · Rango ${this.save.difficulty}` : 'Prepara tu equipo'}</small></span></button>
-            <button class="m4-team" data-go="squad"><span class="m4-tx"><b>MI EQUIPO</b><small>${squad.length}/${SQUAD_SIZE} candidatos</small></span>
+              <span class="m4-tx"><b>${tr('JUGAR')}</b><small>${squad[0] ? tr('Capitán: {x1} · Rango {difficulty}', { x1: esc(squad[0].name), difficulty: this.save.difficulty }) : tr('Prepara tu equipo')}</small></span></button>
+            <button class="m4-team" data-go="squad"><span class="m4-tx"><b>${tr('MI EQUIPO')}</b><small>${tr('{squadLength}/{SQUAD_SIZE} candidatos', { squadLength: squad.length, SQUAD_SIZE })}</small></span>
               <span class="m4-faces">${squad.length ? this.teamFaces(squad) : uiIcon('team')}</span></button>
           </div>
-          ${group('g-club', 'team', 'TU CLUB', tile('collection', 'cards', 'COLECCIÓN', claims ? '¡Recompensas!' : `${owned.length} de ${this.m.roster.length}`, claims, !!claims)
-            + `<button class="m4-tile hot eg-tile" data-go="keshin"><span class="m4-ic">${this.m.eg ? `<img src="${this.m.eg.insignia}" alt="">` : uiIcon('fire')}</span><span class="m4-tx"><b>ESPÍRITUS</b><small>${egTokens(this.save)} Fichas EG</small></span><em class="eg-new">2.0</em></button>`
-            + tile('perks', 'perks', 'MEJORAS', 'Potencia permanente') + tile('shop', 'bolt', 'TÉCNICAS', 'Manuales')
-            + tile('training', 'target', 'ENTRENAMIENTO', 'Prueba técnicas') + tile('coaches', 'crown', 'ENTRENADORES', `${this.save.coaches?.owned.length ?? 0} de ${COACHES.length}`) + tile('kits', 'shirt', 'EQUIPACIONES', 'Uniforme y escudo') + tile('gear', 'boot', 'EQUIPAMIENTO', 'Botas y accesorios') + tile('hall', 'trophy', 'SALÓN', `${(this.save.hall ?? []).length} victorias`))}
-          ${group('g-sign', 'capsule', 'FICHAJES', tile('gacha', 'capsule', 'FICHAJES', `${this.save.tokens} fichas`, 0, true) + (thanksActive(serverNow()) ? tile('thanksev', 'gift', 'AGRADECIMIENTO', `${this.save.eventTokens ?? 0} fichas de evento`, 0, true) : '') + (eventActive(serverNow()) ? tile('pnevent', 'gift', 'EVENTO', 'Banners de leyenda', 0, true) : '') + tile('daily', 'shop', 'TIENDA', 'Ofertas del día') + tile('gts', 'gts', 'GTS', 'Intercambios online') + tile('codes', 'gift', 'CÓDIGOS', 'Canjea regalos'))}
-          ${group('g-comp', 'crown', 'COMPETICIÓN', tile('missions', 'missions', 'MISIONES', pending ? '¡Por recoger!' : 'Recompensas', pending, !!pending)
+          ${group('g-club', 'team', tr('TU CLUB'), tile('collection', 'cards', tr('COLECCIÓN'), claims ? tr('¡Recompensas!') : tr('{ownedLength} de {rosterLength}', { ownedLength: owned.length, rosterLength: this.m.roster.length }), claims, !!claims)
+            + `<button class="m4-tile hot eg-tile" data-go="keshin"><span class="m4-ic">${this.m.eg ? `<img src="${this.m.eg.insignia}" alt="">` : uiIcon('fire')}</span><span class="m4-tx"><b>${tr('ESPÍRITUS')}</b><small>${tr('{egTokens} Fichas EG', { egTokens: egTokens(this.save) })}</small></span><em class="eg-new">2.0</em></button>`
+            + tile('perks', 'perks', tr('MEJORAS'), tr('Potencia permanente')) + tile('shop', 'bolt', tr('TÉCNICAS'), tr('Manuales'))
+            + tile('training', 'target', tr('ENTRENAMIENTO'), tr('Prueba técnicas')) + tile('coaches', 'crown', tr('ENTRENADORES'), tr('{x1} de {COACHESLength}', { x1: this.save.coaches?.owned.length ?? 0, COACHESLength: COACHES.length })) + tile('kits', 'shirt', tr('EQUIPACIONES'), tr('Uniforme y escudo')) + tile('gear', 'boot', tr('EQUIPAMIENTO'), tr('Botas y accesorios')) + tile('hall', 'trophy', tr('SALÓN'), tr('{x1} victorias', { x1: (this.save.hall ?? []).length })))}
+          ${group('g-sign', 'capsule', tr('FICHAJES'), tile('gacha', 'capsule', tr('FICHAJES'), tr('{tokens} fichas', { tokens: this.save.tokens }), 0, true) + (thanksActive(serverNow()) ? tile('thanksev', 'gift', tr('AGRADECIMIENTO'), tr('{x1} fichas de evento', { x1: this.save.eventTokens ?? 0 }), 0, true) : '') + (eventActive(serverNow()) ? tile('pnevent', 'gift', tr('EVENTO'), tr('Banners de leyenda'), 0, true) : '') + tile('daily', 'shop', tr('TIENDA'), tr('Ofertas del día')) + tile('gts', 'gts', tr('GTS'), tr('Intercambios online')) + tile('codes', 'gift', tr('CÓDIGOS'), tr('Canjea regalos')))}
+          ${group('g-comp', 'crown', tr('COMPETICIÓN'), tile('missions', 'missions', tr('MISIONES'), pending ? tr('¡Por recoger!') : tr('Recompensas'), pending, !!pending)
             + (seasonNow ? (() => { const st = seasonOf(this.save, seasonNow), n = claimable(st, 'normal').length + claimable(st, 'premium').length;
-              return tile('season', 'crown', 'TEMPORADA', n ? '¡Premios por reclamar!' : `Pase · nivel ${levelOf(st.xp)}`, n, true); })() : '')
-            + tile('pass', 'ticket', 'PASE', pass.available ? '¡Recompensa lista!' : 'Vuelve mañana', pass.available ? 1 : 0, pass.available) + tile('ranking', 'crown', 'RANKING', onlineConfigured() ? 'Global' : 'Tus marcas') + tile('lobby', 'team', 'SALA', 'Todos los jugadores', 0, true)
-            + tile('road', 'trophy', 'ROAD TO FF', this.save.road?.active ? `Partido ${this.save.road.active.level + 1} en juego` : 'Nuevo modo', 0, true) + tile('clan', 'team', 'CLANES', this.save.clanSeen ? esc(this.save.clanSeen.name) : 'Juegos del Clan', 0, true) + tile('tierlist', 'cards', 'TIERLISTS', 'Crea y comparte', 0, true) + tile('coop', 'team', 'COOP', 'pre-2.0 · en pruebas', 0, true) + tile('friends', 'gift', 'AMIGOS', 'Invita al coop'))}
+              return tile('season', 'crown', tr('TEMPORADA'), n ? tr('¡Premios por reclamar!') : tr('Pase · nivel {levelOf}', { levelOf: levelOf(st.xp) }), n, true); })() : '')
+            + tile('pass', 'ticket', tr('PASE'), pass.available ? tr('¡Recompensa lista!') : tr('Vuelve mañana'), pass.available ? 1 : 0, pass.available) + tile('ranking', 'crown', tr('RANKING'), onlineConfigured() ? tr('Global') : tr('Tus marcas')) + tile('lobby', 'team', tr('SALA'), tr('Todos los jugadores'), 0, true)
+            + tile('road', 'trophy', tr('ROAD TO FF'), this.save.road?.active ? tr('Partido {x1} en juego', { x1: this.save.road.active.level + 1 }) : tr('Nuevo modo'), 0, true) + tile('clan', 'team', tr('CLANES'), this.save.clanSeen ? esc(this.save.clanSeen.name) : tr('Juegos del Clan'), 0, true) + tile('tierlist', 'cards', tr('TIERLISTS'), tr('Crea y comparte'), 0, true) + tile('coop', 'team', tr('COOP'), tr('pre-2.0 · en pruebas'), 0, true) + tile('friends', 'gift', tr('AMIGOS'), tr('Invita al coop')))}
         </section>
         ${feat ? `<section class="m4-hero" data-go="squad" style="--rc:${RARITY_COLOR[featR]}"><div class="m4-aura"></div><div class="m4-ring"></div>
           <div class="m4-hero-art">${this.mug(feat.id, 256)}<span class="m4-hero-sprite">${charCanvas(feat.id, 3, 12)}</span></div>
-          <div class="m4-plate"><small>${this.captainId === feat.id ? 'TU CAPITÁN' : 'TU ESTRELLA'}</small><b>${esc(feat.name)}</b><div class="m4-tags">${this.rar(feat)} ${this.elem(feat)}</div>
-            ${featStats ? `<div class="m4-hstats"><span class="m4-ovr"><small>MEDIA</small>${statMean(featStats)}</span><div class="hero-stats">${statRadar(featStats, STAT_SHORT, RARITY_COLOR[featR])}</div></div>
-            <button class="btn small blue" data-sheet="${feat.id}">Ver ficha</button>` : ''}</div></section>` : '<span class="m4-hero"></span>'}
+          <div class="m4-plate"><small>${this.captainId === feat.id ? tr('TU CAPITÁN') : tr('TU ESTRELLA')}</small><b>${esc(feat.name)}</b><div class="m4-tags">${this.rar(feat)} ${this.elem(feat)}</div>
+            ${featStats ? `<div class="m4-hstats"><span class="m4-ovr"><small>${tr('MEDIA')}</small>${statMean(featStats)}</span><div class="hero-stats">${statRadar(featStats, STAT_SHORT, RARITY_COLOR[featR])}</div></div>
+            <button class="btn small blue" data-sheet="${feat.id}">${tr('Ver ficha')}</button>` : ''}</div></section>` : '<span class="m4-hero"></span>'}
         <aside class="m4-right">
-          <button class="m4-news" data-go="devlog"><span class="m4-news-head">${uiIcon('news')}NOTICIAS${unseenLog ? '<em>NUEVO</em>' : ''}</span>
-            <b>${esc(news?.title ?? CURRENT_PUBLIC.title)}</b><span>${esc(news?.summary ?? CURRENT_PUBLIC.tagline)}</span><small>${esc(VERSION_LABEL)} · Leer más ›</small></button>
-          <div class="m4-card"><h3>${uiIcon('target')}Desafíos</h3>${challenges.map((d) => { const pc = Math.min(100, Math.round(missionProgress(this.save, d) / d.goal * 100)); return `<div class="m4-chal"><span>${esc(d.label)}</span><em>${pc}%</em><i style="--p:${pc}%"></i></div>`; }).join('') || '<div class="note">¡Todo completado por hoy!</div>'}</div>
-          <div class="m4-card"><h3>${uiIcon('pitch')}Arenas</h3>${this.m.maps.map((mp) => { const ok = this.save.clearedMaps.includes(mp.id); return `<div class="m4-arena${ok ? ' ok' : ''}"><span class="m4-chk">${ok ? '✔' : ''}</span><span>${esc(mp.name)}</span><span class="m4-ranks">${RANK_ORDER.map((r) => `<i class="${(this.save.clearedRanks[mp.id] ?? []).includes(r) ? 'on' : ''}">${r}</i>`).join('')}</span></div>`; }).join('')}
-            <div class="m4-best">${uiIcon('clock')}Mejor tiempo <b>${fmtTime(this.save.stats.bestTimeSec)}</b> · <b>${this.save.stats.kills}</b> eliminaciones</div></div>
-          <div class="m4-card m4-tier" data-go="tierlist"><h3>${uiIcon('cards')}Tierlists de la comunidad</h3><div id="menutier">${onlineConfigured() ? '<div class="note">Cargando…</div>' : '<div class="note">Disponible con el servicio online.</div>'}</div></div>
-          <div class="m4-card m4-gts" data-go="gts"><h3>${uiIcon('gts')}GTS · Intercambios</h3><div id="menugts">${onlineConfigured() ? '<div class="note">Cargando…</div>' : '<div class="note">Disponible con el servicio online.</div>'}</div></div>
-          <button class="m4-help" data-go="tutorial">${uiIcon('help')}¿Cómo se juega?</button>
+          <button class="m4-news" data-go="devlog"><span class="m4-news-head">${tr('{x1}NOTICIAS{x2}', { x1: uiIcon('news'), x2: unseenLog ? '<em>NUEVO</em>' : '' })}</span>
+            <b>${esc(news?.title ?? CURRENT_PUBLIC.title)}</b><span>${esc(news?.summary ?? CURRENT_PUBLIC.tagline)}</span><small>${tr('{VERSION_LABEL} · Leer más ›', { VERSION_LABEL: esc(VERSION_LABEL) })}</small></button>
+          <div class="m4-card"><h3>${tr('{x1}Desafíos', { x1: uiIcon('target') })}</h3>${challenges.map((d) => { const pc = Math.min(100, Math.round(missionProgress(this.save, d) / d.goal * 100)); return `<div class="m4-chal"><span>${esc(d.label)}</span><em>${pc}%</em><i style="--p:${pc}%"></i></div>`; }).join('') || `<div class="note">${tr('¡Todo completado por hoy!')}</div>`}</div>
+          <div class="m4-card"><h3>${tr('{x1}Arenas', { x1: uiIcon('pitch') })}</h3>${this.m.maps.map((mp) => { const ok = this.save.clearedMaps.includes(mp.id); return `<div class="m4-arena${ok ? ' ok' : ''}"><span class="m4-chk">${ok ? '✔' : ''}</span><span>${esc(mp.name)}</span><span class="m4-ranks">${RANK_ORDER.map((r) => `<i class="${(this.save.clearedRanks[mp.id] ?? []).includes(r) ? 'on' : ''}">${r}</i>`).join('')}</span></div>`; }).join('')}
+            <div class="m4-best">${tr('{x1}Mejor tiempo <b>{bestTimeSec}</b> · <b>{kills}</b> {x2}', { x1: uiIcon('clock'), bestTimeSec: fmtTime(this.save.stats.bestTimeSec), kills: this.save.stats.kills, x2: tr('eliminaciones') })}</div></div>
+          <div class="m4-card m4-tier" data-go="tierlist"><h3>${tr('{x1}Tierlists de la comunidad', { x1: uiIcon('cards') })}</h3><div id="menutier">${onlineConfigured() ? '<div class="note">Cargando…</div>' : `<div class="note">${tr('Disponible con el servicio online.')}</div>`}</div></div>
+          <div class="m4-card m4-gts" data-go="gts"><h3>${tr('{x1}GTS · Intercambios', { x1: uiIcon('gts') })}</h3><div id="menugts">${onlineConfigured() ? '<div class="note">Cargando…</div>' : `<div class="note">${tr('Disponible con el servicio online.')}</div>`}</div></div>
+          <button class="m4-help" data-go="tutorial">${tr('{x1}¿Cómo se juega?', { x1: uiIcon('help') })}</button>
         </aside>
       </div>
       <section class="m4-wide">
-        <div class="m4-card wide-rank"><div class="wide-head"><h3>${uiIcon('crown')}Ranking mundial</h3><button class="btn small" data-go="ranking">Ver todo</button></div>
-          <div id="menurank">${onlineConfigured() ? '<div class="note">Cargando…</div>' : '<div class="note">Disponible cuando se active el servicio online.</div>'}</div></div>
+        <div class="m4-card wide-rank"><div class="wide-head"><h3>${tr('{x1}Ranking mundial', { x1: uiIcon('crown') })}</h3><button class="btn small" data-go="ranking">${tr('Ver todo')}</button></div>
+          <div id="menurank">${onlineConfigured() ? '<div class="note">Cargando…</div>' : `<div class="note">${tr('Disponible cuando se active el servicio online.')}</div>`}</div></div>
         <div class="m4-card wide-pass" id="widepass">${this.passWidget()}</div>
       </section>
-      <footer class="menu-foot legal-foot"><span>Fangame gratuito, sin ánimo de lucro y no oficial, creado por AstraStorm17. Inazuma Eleven y todos sus derechos pertenecen a LEVEL-5 y sus respectivos titulares. Este proyecto no está afiliado, patrocinado ni aprobado por LEVEL-5. · <button id="credits" class="legal-link">Aviso legal</button> · ${esc(VERSION_LABEL)}</span></footer>
-      ${musicUnlocked() ? '' : '<div class="audio-hint">Haz clic en cualquier parte para activar la música</div>'}</div>`, 'menu-mode');
+      <footer class="menu-foot legal-foot"><span>${tr('Fangame gratuito, sin ánimo de lucro y no oficial, creado por AstraStorm17. Inazuma Eleven y todos sus derechos pertenecen a LEVEL-5 y sus respectivos titulares. Este proyecto no está afiliado, patrocinado ni aprobado por LEVEL-5. ·')} <button id="credits" class="legal-link">${tr('Aviso legal')}</button> · ${esc(VERSION_LABEL)}</span></footer>
+      ${musicUnlocked() ? '' : `<div class="audio-hint">${tr('Haz clic en cualquier parte para activar la música')}</div>`}</div>`, 'menu-mode');
     this.on('[data-sheet]', 'click', (e, el) => { e.stopPropagation(); this.collection(Number(el.dataset.sheet)); });
     // Fix 1.31: notice when the Colección has something new to collect (once per new reward, not on every visit)
-    if (claims > Math.max(0, this.claimsAnnounced)) window.setTimeout(() => { if (this.screenKey === 'menu-mode') this.claimNotice(this.teamClaimList(), '¡Para recoger en la Colección!'); }, 400);
+    if (claims > Math.max(0, this.claimsAnnounced)) window.setTimeout(() => { if (this.screenKey === 'menu-mode') this.claimNotice(this.teamClaimList(), tr('¡Para recoger en la Colección!')); }, 400);
     this.claimsAnnounced = claims;
     // 2.0 (author): the launch intro, once per browser, before anything else of the menu
     if (this.launch20Pending()) window.setTimeout(() => { if (this.screenKey === 'menu-mode' && !this.game.scene.isActive('Arena')) this.launch20(); }, 300);
@@ -1168,7 +1170,7 @@ export class App {
     // v1.5: an achievement just completed is announced once, with its medal (the claim itself stays in Recompensas)
     recordCollection(this.save, this.m.roster, this.m.mainTeams ?? [], this.auraMaxStat());
     const newFlags = grantAchievementPennants(this.save, this.m.roster); // v1.65: 200 footballers, a Leyenda
-    if (newFlags.length) { this.persist(); window.setTimeout(() => this.toast(`¡Logro! ${newFlags.map((f) => /^(Marco|Banner|Banderín) /.test(f.name) ? f.name : `${isFrame(f) ? 'Marco' : 'Banner'} ${f.name}`).join(', ')}. Póntelo en tu Perfil.`, 5000), 1500); }
+    if (newFlags.length) { this.persist(); window.setTimeout(() => this.toast(tr('¡Logro! {x1}. Póntelo en tu Perfil.', { x1: newFlags.map((f) => /^(Marco|Banner|Banderín) /.test(f.name) ? f.name : `${isFrame(f) ? 'Marco' : 'Banner'} ${f.name}`).join(', ') }), 5000), 1500); }
     const shown = new Set(this.save.achShown ?? []);
     const fresh = MISSIONS.filter((d) => d.kind === 'logro' && isClaimable(this.save, d) && !shown.has(d.id));
     if (fresh.length) {
@@ -1253,63 +1255,63 @@ export class App {
     const news = allNews(true, serverNow())[0];
     if (thanksActive(now)) {
       const pool = bannerPool(this.m.roster, 'evento').filter((p) => p.exclusive);
-      slides.push({ kicker: 'BANNER ESPECIAL', title: BANNERS.evento.label, text: BANNERS.evento.tagline, cta: '¡Fichar ahora!', color: BANNERS.evento.color, tag: 'LIMITADO',
+      slides.push({ kicker: tr('BANNER ESPECIAL'), title: BANNERS.evento.label, text: BANNERS.evento.tagline, cta: tr('¡Fichar ahora!'), color: BANNERS.evento.color, tag: tr('LIMITADO'),
         art: art(featured(pool, 3).map((p) => p.id)), act: () => { this.gachaBanner = 'evento'; this.gacha(); } });
     }
     // author: InaZurvivors x BlueLock — once open, its slide; before, «Próximamente» with the days left and only silhouettes
-    if (bluelockActive(now)) slides.push({ kicker: 'COLABORACIÓN · LIMITADO', title: 'InaZurvivors x BlueLock', text: `Nagi e Isagi, solo en su banner. Termina en ${this.leftText(bluelockLeftMs(now))}.`, cta: '¡Fichar ahora!', color: BANNERS.bluelock.color, tag: 'NUEVO',
+    if (bluelockActive(now)) slides.push({ kicker: tr('COLABORACIÓN · LIMITADO'), title: tr('InaZurvivors x BlueLock'), text: tr('Nagi e Isagi, solo en su banner. Termina en {x1}.', { x1: this.leftText(bluelockLeftMs(now)) }), cta: tr('¡Fichar ahora!'), color: BANNERS.bluelock.color, tag: tr('NUEVO'),
       art: `<span class="m5-bl">${this.blLogo()}<span class="m5-bl-who">${art(BLUELOCK_EVENT.players)}</span></span>`, act: () => { this.gachaBanner = 'bluelock'; this.gacha(); } });
     else if (bluelockUpcoming(now)) {
       const d = bluelockDaysToStart(now);
-      slides.unshift({ kicker: 'PRÓXIMAMENTE', title: 'Nueva colaboración', text: d > 1 ? `Faltan ${d} días. ¿Quiénes serán?` : '¡Mañana! ¿Quiénes serán?', cta: `${d > 1 ? `${d} días` : 'Mañana'}`, color: '#2a5ad8', tag: d > 1 ? `${d} DÍAS` : 'MAÑANA',
-        art: `<span class="m5-soon"><span class="m5-sil">${art(BLUELOCK_EVENT.players)}</span><b class="m5-q">?</b></span>`, act: () => this.toast(d > 1 ? `La nueva colaboración llega en ${d} días` : 'La nueva colaboración llega mañana') });
+      slides.unshift({ kicker: tr('PRÓXIMAMENTE'), title: tr('Nueva colaboración'), text: d > 1 ? tr('Faltan {d} días. ¿Quiénes serán?', { d }) : tr('¡Mañana! ¿Quiénes serán?'), cta: `${d > 1 ? tr('{d} días', { d }) : 'Mañana'}`, color: '#2a5ad8', tag: d > 1 ? tr('{d} DÍAS', { d }) : tr('MAÑANA'),
+        art: `<span class="m5-soon"><span class="m5-sil">${art(BLUELOCK_EVENT.players)}</span><b class="m5-q">?</b></span>`, act: () => this.toast(d > 1 ? tr('La nueva colaboración llega en {d} días', { d }) : tr('La nueva colaboración llega mañana')) });
     }
     // 2.1 (author): the season pass — once open, its slide; before, «Próximo pase» with its date and the two stars in silhouette
     const sOpen = activeSeason(now), sNext = upcomingSeason(now);
-    if (sOpen) slides.unshift({ kicker: `${sOpen.name.toUpperCase()} · PASE`, title: sOpen.subtitle, text: `${LEVELS} niveles jugando partidas. Llave normal en la tienda, llave dorada en los rivales: Cronus al instante y Super Zanark en el nivel 100. Termina en ${this.leftText(seasonEnd(sOpen) - +now)}.`,
-      cta: 'Ver el pase', color: '#ffcc2a', tag: 'NUEVO', art: `<span class="m5-sp">${this.m.pase ? `<img class="m5-key" src="${this.m.pase.dorada}" alt="">` : ''}${art(sOpen.stars)}</span>`, act: () => this.seasonScreen() });
+    if (sOpen) slides.unshift({ kicker: tr('{x1} · PASE', { x1: sOpen.name.toUpperCase() }), title: sOpen.subtitle, text: tr('{LEVELS} niveles jugando partidas. Llave normal en la tienda, llave dorada en los rivales: Cronus al instante y Super Zanark en el nivel 100. Termina en {x1}.', { LEVELS, x1: this.leftText(seasonEnd(sOpen) - +now) }),
+      cta: tr('Ver el pase'), color: '#ffcc2a', tag: tr('NUEVO'), art: `<span class="m5-sp">${this.m.pase ? `<img class="m5-key" src="${this.m.pase.dorada}" alt="">` : ''}${art(sOpen.stars)}</span>`, act: () => this.seasonScreen() });
     else if (sNext) {
-      const d = daysTo(seasonStart(sNext), now), when = new Date(seasonStart(sNext)).toLocaleString('es', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Madrid' });
-      slides.unshift({ kicker: 'PRÓXIMO PASE', title: `${sNext.name}: ${sNext.subtitle}`, text: `Llega el ${when}: ${LEVELS} niveles, una llave normal y una dorada, y dos futbolistas nuevos. ¿Quiénes serán?`,
-        cta: d > 1 ? `${d} días` : 'Mañana', color: '#ffcc2a', tag: d > 1 ? `${d} DÍAS` : 'MAÑANA',
+      const d = daysTo(seasonStart(sNext), now), when = new Date(seasonStart(sNext)).toLocaleString(locale(), { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Madrid' });
+      slides.unshift({ kicker: tr('PRÓXIMO PASE'), title: `${sNext.name}: ${sNext.subtitle}`, text: tr('Llega el {when}: {LEVELS} niveles, una llave normal y una dorada, y dos futbolistas nuevos. ¿Quiénes serán?', { when, LEVELS }),
+        cta: d > 1 ? tr('{d} días', { d }) : 'Mañana', color: '#ffcc2a', tag: d > 1 ? tr('{d} DÍAS', { d }) : tr('MAÑANA'),
         art: `<span class="m5-soon"><span class="m5-sil">${art(sNext.stars)}</span><b class="m5-q">?</b></span>`, act: () => this.devlog('pase-temporada-1') });
     }
     // (author) Rango Z: the Tuesday update at 12:00; before it, the days left, then a week of «Nuevo»
-    if (!rankZOpen(now)) slides.unshift({ kicker: 'PRÓXIMAMENTE · MARTES 12:00', title: 'Rango Z', text: `Más allá del X: más difícil que nada, más puntos en el ranking y las mejores recompensas. ${this.rankZCountdown(true)}.`,
-      cta: this.rankZCountdown(), color: '#ff2a45', tag: rankZDaysLeft(now) > 1 ? `${rankZDaysLeft(now)} DÍAS` : 'MAÑANA', art: `<span class="m5-big m5-rz">${zEmblem()}</span>`, act: () => this.toast(`El Rango Z llega el martes 10 a las 12:00 · ${this.rankZCountdown(true)}`) });
-    else if (rankZLeftMs(now) === 0 && +now - Date.parse('2026-11-10T12:00:00+01:00') < 7 * 86_400_000) slides.unshift({ kicker: 'NUEVO RANGO', title: 'Rango Z', text: 'Más allá del X. Recompensas ×3,2, 60 fichas la primera victoria por arena, 3 Fichas EG por mapa y ×7 de puntos en el ranking.',
-      cta: '¡Atrévete!', color: '#ff2a45', tag: 'NUEVO', art: `<span class="m5-big m5-rz">${zEmblem()}</span>`, act: () => { this.save.difficulty = 'Z'; this.persist(); this.mapSelect(); } });
+    if (!rankZOpen(now)) slides.unshift({ kicker: tr('PRÓXIMAMENTE · MARTES 12:00'), title: tr('Rango Z'), text: tr('Más allá del X: más difícil que nada, más puntos en el ranking y las mejores recompensas. {rankZCountdown}.', { rankZCountdown: this.rankZCountdown(true) }),
+      cta: this.rankZCountdown(), color: '#ff2a45', tag: rankZDaysLeft(now) > 1 ? tr('{rankZDaysLeft} DÍAS', { rankZDaysLeft: rankZDaysLeft(now) }) : tr('MAÑANA'), art: `<span class="m5-big m5-rz">${zEmblem()}</span>`, act: () => this.toast(tr('El Rango Z llega el martes 10 a las 12:00 · {rankZCountdown}', { rankZCountdown: this.rankZCountdown(true) })) });
+    else if (rankZLeftMs(now) === 0 && +now - Date.parse('2026-11-10T12:00:00+01:00') < 7 * 86_400_000) slides.unshift({ kicker: tr('NUEVO RANGO'), title: tr('Rango Z'), text: tr('Más allá del X. Recompensas ×3,2, 60 fichas la primera victoria por arena, 3 Fichas EG por mapa y ×7 de puntos en el ranking.'),
+      cta: tr('¡Atrévete!'), color: '#ff2a45', tag: tr('NUEVO'), art: `<span class="m5-big m5-rz">${zEmblem()}</span>`, act: () => { this.save.difficulty = 'Z'; this.persist(); this.mapSelect(); } });
     // a saga machine in the spotlight, a different one each day
     const b = featuredMachine(now); // (author) and its good rarities are likelier today (banners.FEATURED_BOOST)
-    slides.push({ kicker: 'MÁQUINA DESTACADA DE HOY', title: BANNERS[b].label, text: BANNERS[b].tagline, cta: '¡A fichar!', color: BANNERS[b].color, tag: 'HOY',
+    slides.push({ kicker: tr('MÁQUINA DESTACADA DE HOY'), title: BANNERS[b].label, text: BANNERS[b].tagline, cta: tr('¡A fichar!'), color: BANNERS[b].color, tag: tr('HOY'),
       art: art(featured(bannerPool(this.m.roster, b), 3).map((p) => p.id)), act: () => { this.gachaBanner = b; this.gacha(); } });
-    if (eventActive(now)) slides.push({ kicker: 'EVENTO', title: 'Banners de leyenda', text: 'Banners y marcos de perfil por tiempo limitado.', cta: 'Ver el evento', color: '#ffd84a', tag: 'EVENTO', art: `<span class="m5-big">${uiIcon('gift')}</span>`, act: () => this.pennantEvent() });
-    if (this.byId.has(JADEN_ID)) slides.push({ kicker: 'MODO DESAFÍO', title: 'Road to Fútbol Frontier', text: 'Gana en Máxima y llévate a Jaden Evans.', cta: 'Jugar el camino', color: '#ff8a2a', tag: 'EXCLUSIVO',
+    if (eventActive(now)) slides.push({ kicker: tr('EVENTO'), title: tr('Banners de leyenda'), text: tr('Banners y marcos de perfil por tiempo limitado.'), cta: tr('Ver el evento'), color: '#ffd84a', tag: tr('EVENTO'), art: `<span class="m5-big">${uiIcon('gift')}</span>`, act: () => this.pennantEvent() });
+    if (this.byId.has(JADEN_ID)) slides.push({ kicker: tr('MODO DESAFÍO'), title: tr('Road to Fútbol Frontier'), text: tr('Gana en Máxima y llévate a Jaden Evans.'), cta: tr('Jugar el camino'), color: '#ff8a2a', tag: tr('EXCLUSIVO'),
       art: art([JADEN_ID], 160), act: () => this.roadScreen() });
-    slides.push({ kicker: 'NUEVO · CLANES', title: 'Juegos del Clan', text: this.save.clanSeen ? `${this.save.clanSeen.name}: 1 partida al día en la Colina de los Cerezos. Premios cada lunes.` : 'Funda o únete a un clan, jugad 1 partida al día cada uno y ganad premios cada semana.',
-      cta: this.save.clanSeen ? 'Jugar por el clan' : 'Ver los clanes', color: '#3fd07a', tag: 'NUEVO', art: `<span class="m5-big">${uiIcon('team')}</span>`, act: () => void this.clanScreen(this.save.clanSeen ? 'juegos' : undefined) });
-    slides.push({ kicker: 'NUEVO · COMUNIDAD', title: 'Crea tu tierlist', text: 'Ordena a tus futbolistas favoritos de S a D y publícala: todo el mundo la verá en el menú.', cta: 'Crear la mía', color: '#ff4f6a', tag: 'NUEVO',
+    slides.push({ kicker: tr('NUEVO · CLANES'), title: tr('Juegos del Clan'), text: this.save.clanSeen ? tr('{clanSeenName}: 1 partida al día en la Colina de los Cerezos. Premios cada lunes.', { clanSeenName: this.save.clanSeen.name }) : tr('Funda o únete a un clan, jugad 1 partida al día cada uno y ganad premios cada semana.'),
+      cta: this.save.clanSeen ? tr('Jugar por el clan') : tr('Ver los clanes'), color: '#3fd07a', tag: tr('NUEVO'), art: `<span class="m5-big">${uiIcon('team')}</span>`, act: () => void this.clanScreen(this.save.clanSeen ? 'juegos' : undefined) });
+    slides.push({ kicker: tr('NUEVO · COMUNIDAD'), title: tr('Crea tu tierlist'), text: tr('Ordena a tus futbolistas favoritos de S a D y publícala: todo el mundo la verá en el menú.'), cta: tr('Crear la mía'), color: '#ff4f6a', tag: tr('NUEVO'),
       art: `<span class="m5-tiers">${TIERS.map((k) => `<i style="--tc:${TIER_COLOR[k]}">${k}</i>`).join('')}</span>`, act: () => { this.tierTab = 'crear'; this.tierlistScreen(); } });
-    if (news) slides.push({ kicker: `NOTICIAS · ${VERSION_LABEL}`, title: news.title, text: news.summary, cta: 'Leer más', color: '#4fb3ff', tag: this.save.devlogSeen !== newsKey() ? 'NUEVO' : undefined,
+    if (news) slides.push({ kicker: `NOTICIAS · ${VERSION_LABEL}`, title: news.title, text: news.summary, cta: tr('Leer más'), color: '#4fb3ff', tag: this.save.devlogSeen !== newsKey() ? tr('NUEVO') : undefined,
       art: `<span class="m5-big">${uiIcon('news')}</span>`, act: () => this.devlog() });
     // 2.0 (author): the first slide of the menu explains the update and opens its news
-    slides.unshift({ kicker: 'NUEVA VERSIÓN', title: 'InaZurvivors 2.0 · Espíritus Guerreros', text: '19 espíritus con definitiva (R), Rango Z, 6 arenas nuevas, técnicas combinadas de leyenda y Fichas EG en clanes y códigos. Toca para verlo todo.',
-      cta: 'Ver novedades', color: '#c45aff', tag: '2.0', art: `<span class="m5-big m5-v2">2.0</span>`, act: () => this.devlog('version-2-0-espiritus') });
+    slides.unshift({ kicker: tr('NUEVA VERSIÓN'), title: tr('InaZurvivors 2.0 · Espíritus Guerreros'), text: tr('19 espíritus con definitiva (R), Rango Z, 6 arenas nuevas, técnicas combinadas de leyenda y Fichas EG en clanes y códigos. Toca para verlo todo.'),
+      cta: tr('Ver novedades'), color: '#c45aff', tag: '2.0', art: `<span class="m5-big m5-v2">2.0</span>`, act: () => this.devlog('version-2-0-espiritus') });
     // 2.2 (author): the Sector Quinto, first: choose a side for good; afterwards, the side's week
     if (sectorOpen(now)) {
       const sd = this.save.sector?.side, wk = weeklyDecree(now);
       const logos = this.m.sector ? `<span class="m5-sq"><img src="${this.m.sector.sector}" alt=""><b>${this.uiPiece('vs') || 'VS'}</b><img src="${this.m.sector.resistencia}" alt=""></span>` : '';
       slides.unshift(sd
-        ? { kicker: `SECTOR QUINTO · SEMANA ${(sectorWeek(now) ?? 0) + 1}`, title: `Tu bando: ${SIDES[sd].name}`, text: `${wk ? `${wk.element} +20 % esta semana. ` : ''}Cada victoria suma para tu bando; el jueves a las 12:00 se cuenta la semana.`,
-          cta: 'Ver la semana', color: SIDES[sd].color, tag: 'SEMANA', art: logos, act: () => void this.sectorScreen() }
-        : { kicker: 'NUEVO · SECTOR QUINTO', title: '¿Sector Quinto o Resistencia?', text: 'Elige tu bando para toda la temporada. Cada semana gana el que mejor juegue: marco, fichas, monedas y copias de sus tres estrellas.',
-          cta: 'Elegir bando', color: '#3f6bff', tag: 'NUEVO', art: logos, act: () => void this.sectorScreen() });
+        ? { kicker: tr('SECTOR QUINTO · SEMANA {x1}', { x1: (sectorWeek(now) ?? 0) + 1 }), title: tr('Tu bando: {x1}', { x1: SIDES[sd].name }), text: tr('{x1}Cada victoria suma para tu bando; el jueves a las 12:00 se cuenta la semana.', { x1: wk ? tr('{element} +20 % esta semana. ', { element: wk.element }) : '' }),
+          cta: tr('Ver la semana'), color: SIDES[sd].color, tag: tr('SEMANA'), art: logos, act: () => void this.sectorScreen() }
+        : { kicker: tr('NUEVO · SECTOR QUINTO'), title: tr('¿Sector Quinto o Resistencia?'), text: tr('Elige tu bando para toda la temporada. Cada semana gana el que mejor juegue: marco, fichas, monedas y copias de sus tres estrellas.'),
+          cta: tr('Elegir bando'), color: '#3f6bff', tag: tr('NUEVO'), art: logos, act: () => void this.sectorScreen() });
     }
     // 2.1 (author): the season pass (or its teaser) leads the carousel
-    const sp = slides.findIndex((x) => x.kicker === 'PRÓXIMO PASE' || x.kicker.endsWith(' · PASE'));
+    const sp = slides.findIndex((x) => x.kicker === tr('PRÓXIMO PASE') || x.kicker.endsWith(tr('{x1} · PASE', { x1: '' }))); // 2.3: the kickers are translated
     if (sp > 0) slides.unshift(...slides.splice(sp, 1));
     // 2.2: until the player has a side, «elige tu bando» goes before the pass; afterwards right behind it
-    const sq = slides.findIndex((x) => x.kicker.includes('SECTOR QUINTO'));
+    const sq = slides.findIndex((x) => x.kicker.includes(tr('SECTOR QUINTO')));
     if (sq > 0) slides.splice(this.save.sector?.side ? 1 : 0, 0, ...slides.splice(sq, 1));
     return slides;
   }
@@ -1319,7 +1321,7 @@ export class App {
         <span class="m5-bg"></span><i class="m5-shine"></i><span class="m5-art">${s.art}</span>
         <span class="m5-txt"><small>${esc(s.kicker)}</small><b>${esc(s.title)}</b><span>${esc(s.text)}</span><em class="m5-cta">${esc(s.cta)} ›</em></span>${s.tag ? `<span class="m5-tag">${esc(s.tag)}</span>` : ''}</button>`).join('')}</div>
       <div class="m5-dots">${slides.map((_s, k) => `<i class="${k === i ? 'on' : ''}" data-pdot="${k}"></i>`).join('')}</div>
-      <button class="m5-arrow l" data-pmove="-1" aria-label="Anterior">‹</button><button class="m5-arrow r" data-pmove="1" aria-label="Siguiente">›</button></section>`;
+      <button class="m5-arrow l" data-pmove="-1" aria-label="${tr('Anterior')}">‹</button><button class="m5-arrow r" data-pmove="1" aria-label="${tr('Siguiente')}">›</button></section>`;
   }
   private wirePromo(slides: ReturnType<App['promoSlides']>) {
     const box = document.getElementById('m5promo');
@@ -1367,8 +1369,8 @@ export class App {
   }
   private clanChipHtml() {
     const c = this.save.clanSeen;
-    return c ? `${this.clanCrest(c.crest, 26)}<span><small>MI CLAN</small><b>${esc(c.name)}</b><em>${c.pos ? `#${c.pos} · ` : ''}${c.points.toLocaleString('es')} pts</em></span>`
-      : `<span class="cl-crest" style="width:26px;height:26px">${uiIcon('team')}</span><span><small>CLANES</small><b>Únete a un clan</b><em>Juegos del Clan</em></span>`;
+    return c ? `${this.clanCrest(c.crest, 26)}<span><small>${tr('MI CLAN')}</small><b>${esc(c.name)}</b><em>${tr('{x1}{x2} pts', { x1: c.pos ? `#${c.pos} · ` : '', x2: c.points.toLocaleString(locale()) })}</em></span>`
+      : `<span class="cl-crest" style="width:26px;height:26px">${uiIcon('team')}</span><span><small>${tr('CLANES')}</small><b>${tr('Únete a un clan')}</b><em>${tr('Juegos del Clan')}</em></span>`;
   }
   private clanCrestChoices() { return [...new Set(this.m.mainTeams ?? [])].filter((t) => this.emblemOf(t)); }
   private clanKitChoices() { return ['', ...Object.keys(this.m.kits ?? {})]; }
@@ -1378,15 +1380,15 @@ export class App {
     if (tab) this.clanTab = tab;
     setMusicContext('menu');
     if (!onlineConfigured() || !signedIn()) {
-      this.show(`<div class="screen clan-screen">${this.titlebar('Clanes', 'Menú')}<div class="panel cl-intro"><h3>${uiIcon('team')}Clanes</h3>
-        <p>Crea un clan o únete a uno, jugad los <b>Juegos del Clan</b> en la Colina de los Cerezos y competid cada semana por premios: fichas para varios ×10, monedas y futbolistas Míticos, Legendarios y Épicos.</p>
-        <p class="note">Para entrar en un clan conéctate con tu cuenta y reserva tu nombre en Perfil.</p><button class="btn big" id="clprof">Ir a Perfil</button></div></div>`);
+      this.show(`<div class="screen clan-screen">${this.titlebar(tr('Clanes'), tr('Menú'))}<div class="panel cl-intro"><h3>${tr('{x1}Clanes', { x1: uiIcon('team') })}</h3>
+        <p>${tr('Crea un clan o únete a uno, jugad los <b>Juegos del Clan</b> en la Colina de los Cerezos y competid cada semana por premios: fichas para varios ×10, monedas y futbolistas Míticos, Legendarios y Épicos.')}</p>
+        <p class="note">${tr('Para entrar en un clan conéctate con tu cuenta y reserva tu nombre en Perfil.')}</p><button class="btn big" id="clprof">${tr('Ir a Perfil')}</button></div></div>`);
       this.on('[data-back]', 'click', () => this.mainMenu());
       document.getElementById('clprof')!.addEventListener('click', () => this.profile());
       return;
     }
-    if (this.clanData === undefined) this.show(`<div class="screen clan-screen">${this.titlebar('Clanes', 'Menú')}<div class="panel"><div class="note">Cargando tu clan…</div></div></div>`);
-    try { this.clanData = await myClan(); } catch { if (this.clanData === undefined) { this.toast('Los clanes no responden ahora'); this.mainMenu(); return; } }
+    if (this.clanData === undefined) this.show(`<div class="screen clan-screen">${this.titlebar(tr('Clanes'), tr('Menú'))}<div class="panel"><div class="note">${tr('Cargando tu clan…')}</div></div></div>`);
+    try { this.clanData = await myClan(); } catch { if (this.clanData === undefined) { this.toast(tr('Los clanes no responden ahora')); this.mainMenu(); return; } }
     this.rememberClan();
     if (this.clanData) this.clanHome(); else void this.clanJoinScreen();
   }
@@ -1400,18 +1402,18 @@ export class App {
   private async clanJoinScreen() {
     const crests = this.clanCrestChoices(), kits = this.clanKitChoices();
     const sample = this.unlockedRoster()[0];
-    this.show(`<div class="screen clan-screen">${this.titlebar('Clanes', 'Menú')}
+    this.show(`<div class="screen clan-screen">${this.titlebar(tr('Clanes'), tr('Menú'))}
       <div class="cl-grid">
-        <div class="panel cl-create"><h3>${uiIcon('crown')}Fundar un clan <small>${CLAN_COST.toLocaleString('es')} ◉</small></h3>
-          <label class="cl-field">Nombre<input id="clname" maxlength="20" placeholder="De 3 a 20 caracteres"></label><small class="cl-err" id="clnameerr"></small>
-          <div class="cl-field">Escudo<div class="cl-crests" id="clcrests">${crests.map((t, i) => `<button class="iconpick${i === 0 ? ' on' : ''}" data-ccrest="${esc(t)}" title="${esc(teamLabel(t))}"><img src="${this.emblemOf(t)}" alt=""></button>`).join('')}</div></div>
-          <label class="cl-field">Equipación<select id="clkit">${kits.map((k) => `<option value="${esc(k)}">${esc(k ? teamLabel(k) : 'Raimon')}</option>`).join('')}</select></label>
+        <div class="panel cl-create"><h3>${tr('{x1}Fundar un clan', { x1: uiIcon('crown') })} <small>${CLAN_COST.toLocaleString(locale())} ◉</small></h3>
+          <label class="cl-field">${tr('Nombre')}<input id="clname" maxlength="20" placeholder="${tr('De 3 a 20 caracteres')}"></label><small class="cl-err" id="clnameerr"></small>
+          <div class="cl-field">${tr('Escudo')}<div class="cl-crests" id="clcrests">${crests.map((t, i) => `<button class="iconpick${i === 0 ? ' on' : ''}" data-ccrest="${esc(t)}" title="${esc(teamLabel(t))}"><img src="${this.emblemOf(t)}" alt=""></button>`).join('')}</div></div>
+          <label class="cl-field">${tr('Equipación')}<select id="clkit">${kits.map((k) => `<option value="${esc(k)}">${esc(k ? teamLabel(k) : 'Raimon')}</option>`).join('')}</select></label>
           <div class="cl-kitprev" id="clkitprev">${sample ? charCanvas(sample.id, 3, 12, '', '') : ''}</div>
-          <button class="btn big" id="clcreate" ${this.save.coins >= CLAN_COST ? '' : 'disabled'}>${this.save.coins >= CLAN_COST ? `Fundar por ${CLAN_COST.toLocaleString('es')} ◉` : `Necesitas ${CLAN_COST.toLocaleString('es')} ◉`}</button>
-          <p class="note">Tus compañeros jugarán los Juegos del Clan con esta equipación. El nombre pasa un filtro de palabras prohibidas.</p></div>
-        <div class="panel cl-find"><h3>${uiIcon('target')}Buscar clan</h3>
-          <div class="filters"><input id="clq" placeholder="Nombre del clan" value="${esc(this.clanQuery)}"><button class="btn small blue" id="clqgo">Buscar</button></div>
-          <div id="clmyreq"></div><div class="cl-list" id="cllist"><div class="note">Cargando…</div></div></div>
+          <button class="btn big" id="clcreate" ${this.save.coins >= CLAN_COST ? '' : 'disabled'}>${this.save.coins >= CLAN_COST ? tr('Fundar por {x1} ◉', { x1: CLAN_COST.toLocaleString(locale()) }) : `Necesitas ${CLAN_COST.toLocaleString(locale())} ◉`}</button>
+          <p class="note">${tr('Tus compañeros jugarán los Juegos del Clan con esta equipación. El nombre pasa un filtro de palabras prohibidas.')}</p></div>
+        <div class="panel cl-find"><h3>${tr('{x1}Buscar clan', { x1: uiIcon('target') })}</h3>
+          <div class="filters"><input id="clq" placeholder="${tr('Nombre del clan')}" value="${esc(this.clanQuery)}"><button class="btn small blue" id="clqgo">${tr('Buscar')}</button></div>
+          <div id="clmyreq"></div><div class="cl-list" id="cllist"><div class="note">${tr('Cargando…')}</div></div></div>
       </div></div>`);
     mountPreviews();
     this.on('[data-back]', 'click', () => this.mainMenu());
@@ -1431,7 +1433,7 @@ export class App {
         await clanCreate(nameIn.value.trim().replace(/\s+/g, ' '), crest, kitSel.value);
         this.save.coins -= CLAN_COST; this.persist();
         sfx('legend'); if (this.save.settings.particles !== 'desactivado') confetti(80);
-        this.toast(`¡Clan ${nameIn.value.trim()} fundado!`);
+        this.toast(tr('¡Clan {trim} fundado!', { trim: nameIn.value.trim() }));
         this.clanTab = 'clan'; void this.clanScreen();
       } catch (err) { document.getElementById('clnameerr')!.textContent = clanError(String((err as Error)?.message ?? err)); b.disabled = false; }
     });
@@ -1442,21 +1444,21 @@ export class App {
         const [rows, mine] = await Promise.all([clanSearch(this.clanQuery), myClanRequests().catch(() => [])]);
         if (!document.body.contains(box)) return;
         const asked = new Set(mine.map((r) => r.id));
-        document.getElementById('clmyreq')!.innerHTML = mine.length ? `<div class="cl-myreq"><small>TUS SOLICITUDES</small>${mine.map((r) => `<span>${this.clanCrest(r.crest, 20)}${esc(r.name)}<button class="btn small blue" data-clcancel="${r.id}">Cancelar</button></span>`).join('')}</div>` : '';
-        box.innerHTML = rows.map((c) => `<div class="cl-row"><span class="cl-tap cl-row-main" data-clanid="${c.id}" title="Ver el clan">${this.clanCrest(c.crest, 36)}<span class="cl-row-tx"><b>${esc(c.name)}</b><small>${c.members}/${CLAN_MAX} miembros · ${Number(c.week_points ?? 0).toLocaleString('es')} pts esta semana · ${c.mode === 'abierto' ? 'Abierto' : 'Con solicitud'}</small></span></span>
+        document.getElementById('clmyreq')!.innerHTML = mine.length ? `<div class="cl-myreq"><small>${tr('TUS SOLICITUDES')}</small>${mine.map((r) => `<span>${this.clanCrest(r.crest, 20)}${esc(r.name)}<button class="btn small blue" data-clcancel="${r.id}">${tr('Cancelar')}</button></span>`).join('')}</div>` : '';
+        box.innerHTML = rows.map((c) => `<div class="cl-row"><span class="cl-tap cl-row-main" data-clanid="${c.id}" title="${tr('Ver el clan')}">${this.clanCrest(c.crest, 36)}<span class="cl-row-tx"><b>${esc(c.name)}</b><small>${tr('{members}/{CLAN_MAX} miembros · {x1} pts esta semana · {x2}', { members: c.members, CLAN_MAX, x1: Number(c.week_points ?? 0).toLocaleString(locale()), x2: c.mode === 'abierto' ? 'Abierto' : tr('Con solicitud') })}</small></span></span>
           ${asked.has(c.id) ? '<em class="cl-pend">Solicitud enviada</em>' : c.members >= CLAN_MAX ? '<em class="cl-pend">Lleno</em>' : `<button class="btn small" data-cljoin="${c.id}">${c.mode === 'abierto' ? 'Unirse' : 'Solicitar'}</button>`}</div>`).join('')
-          || '<div class="note">No hay clanes con ese nombre. ¡Funda el tuyo!</div>';
+          || `<div class="note">${tr('No hay clanes con ese nombre. ¡Funda el tuyo!')}</div>`;
         this.on('[data-cljoin]', 'click', async (_e, el) => {
           (el as HTMLButtonElement).disabled = true;
           try {
             const r = await clanRequest(Number(el.dataset.cljoin));
-            if (r === 'joined') { sfx('evolve'); this.toast('¡Ya eres del clan!'); void this.clanScreen('clan'); }
-            else { sfx('click'); this.toast('Solicitud enviada: el líder o un oficial la aceptará'); void search(); }
+            if (r === 'joined') { sfx('evolve'); this.toast(tr('¡Ya eres del clan!')); void this.clanScreen('clan'); }
+            else { sfx('click'); this.toast(tr('Solicitud enviada: el líder o un oficial la aceptará')); void search(); }
           } catch (err) { this.toast(clanError(String((err as Error)?.message ?? err))); (el as HTMLButtonElement).disabled = false; }
         }, box);
         this.bindClans(box);
         this.on('[data-clcancel]', 'click', async (_e, el) => { await clanCancelRequest(Number(el.dataset.clcancel)).catch(() => undefined); void search(); });
-      } catch { box.innerHTML = '<div class="note">La búsqueda no responde ahora.</div>'; }
+      } catch { box.innerHTML = `<div class="note">${tr('La búsqueda no responde ahora.')}</div>`; }
     };
     const q = document.getElementById('clq') as HTMLInputElement;
     document.getElementById('clqgo')!.addEventListener('click', () => { this.clanQuery = q.value; void search(); });
@@ -1470,13 +1472,13 @@ export class App {
     const manager = c.me === 'lider' || c.me === 'oficial';
     if (this.clanTab === 'admin' && !manager) this.clanTab = 'clan';
     const left = Math.max(0, CLAN_RUNS_PER_DAY - c.runsToday);
-    const tabs: [App['clanTab'], string, number][] = [['clan', 'Clan', 0], ['juegos', 'Juegos del Clan', left], ['ranking', 'Ranking', 0], ['tienda', 'Tienda', 0], ...(manager ? [['admin', 'Administrar', c.requests] as [App['clanTab'], string, number]] : [])];
+    const tabs: [App['clanTab'], string, number][] = [['clan', 'Clan', 0], ['juegos', tr('Juegos del Clan'), left], ['ranking', 'Ranking', 0], ['tienda', 'Tienda', 0], ...(manager ? [['admin', 'Administrar', c.requests] as [App['clanTab'], string, number]] : [])];
     const sample = this.unlockedRoster()[0];
-    this.show(`<div class="screen clan-screen">${this.titlebar('Mi clan', 'Menú')}
+    this.show(`<div class="screen clan-screen">${this.titlebar(tr('Mi clan'), 'Menú')}
       <div class="cl-head"><div class="cl-head-art">${this.clanCrest(c.crest, 84)}${sample ? `<span class="cl-head-kit">${charCanvas(sample.id, 3, 12, '', c.kit)}</span>` : ''}</div>
-        <div class="cl-head-tx"><small>CLAN · ${c.mode === 'abierto' ? 'ABIERTO' : 'CON SOLICITUD'}</small><b>${esc(c.name)}</b>
+        <div class="cl-head-tx"><small>${tr('CLAN · {x1}', { x1: c.mode === 'abierto' ? tr('ABIERTO') : tr('CON SOLICITUD') })}</small><b>${esc(c.name)}</b>
           <span class="cl-head-tags">${this.clanTag(c.me)}<span>${uiIcon('team')}${c.members}/${CLAN_MAX}</span><span>${uiIcon('shirt')}${esc(c.kit ? teamLabel(c.kit) : 'Raimon')}</span></span></div>
-        <div class="cl-head-score"><small>ESTA SEMANA</small><b>${Number(c.weekPoints).toLocaleString('es')}</b><em>${c.pos ? `Puesto ${c.pos} de ${c.clans}` : 'Sin puntos aún'}</em><i>Cierra en ${this.leftText(clanWeekLeftMs(serverNow()))}</i></div></div>
+        <div class="cl-head-score"><small>${tr('ESTA SEMANA')}</small><b>${Number(c.weekPoints).toLocaleString(locale())}</b><em>${c.pos ? tr('Puesto {pos} de {clans}', { pos: c.pos, clans: c.clans }) : tr('Sin puntos aún')}</em><i>${tr('Cierra en {x1}', { x1: this.leftText(clanWeekLeftMs(serverNow())) })}</i></div></div>
       <div class="tl-tabs cl-tabs">${tabs.map(([id, label, n]) => `<button class="tab${this.clanTab === id ? ' on' : ''}" data-cltab="${id}">${label}${n ? `<span class="m4-badge">${n}</span>` : ''}</button>`).join('')}</div>
       <div id="clbody"></div></div>`);
     mountPreviews();
@@ -1495,25 +1497,25 @@ export class App {
     const done = (m: ClanMission) => Number(m.progress) >= Number(m.goal);
     const played = c.roster.some((m) => m.username === this.save.onlineName && m.week > 0);
     body.innerHTML = `<div class="cl-grid">
-      <div class="panel"><h3>${uiIcon('team')}Miembros <small>${c.members}/${CLAN_MAX}</small></h3><div class="cl-members">${c.roster.map((m) => `<div class="cl-mem${m.username === this.save.onlineName ? ' me' : ''}">
-          ${this.clanTag(m.role)}<b>${esc(m.username)}</b><span class="cl-dots" title="Partidas de hoy">${Array.from({ length: CLAN_RUNS_PER_DAY }, (_x, i) => `<i class="${i < m.today ? 'on' : ''}"></i>`).join('')}</span><em>${Number(m.week).toLocaleString('es')} pts</em></div>`).join('')}</div>
-        <button class="btn small blue cl-leave" id="clleave">Salir del clan</button></div>
-      <div class="panel"><h3>${uiIcon('missions')}Misiones del clan <small>semanales</small></h3><div class="cl-missions">${c.missions.map((m) => { const pc = Math.min(100, Math.round(Number(m.progress) / Math.max(1, Number(m.goal)) * 100));
-          return `<div class="cl-mis${done(m) ? ' done' : ''}${m.claimed ? ' claimed' : ''}"><span class="cl-mis-tx"><b>${esc(CLAN_MISSION_TEXT[m.id] ?? m.id)}</b><small>${Number(m.progress).toLocaleString('es')} / ${Number(m.goal).toLocaleString('es')}</small><i class="cl-bar"><i style="width:${pc}%"></i></i></span>
-          <span class="cl-mis-rw">${m.coins ? `${m.coins.toLocaleString('es')} ◉` : ''}${m.tokens ? ` · ${m.tokens} fichas` : ''}</span>
-          ${m.claimed ? '<em class="cl-pend">Cobrada</em>' : `<button class="btn small" data-clmis="${m.id}" ${done(m) && played ? '' : 'disabled'}>Cobrar</button>`}</div>`; }).join('')}</div>
-        <p class="note">Cobra cada miembro que haya jugado al menos una partida del clan esta semana. Se reinician los lunes.</p></div></div>`;
+      <div class="panel"><h3>${tr('{x1}Miembros', { x1: uiIcon('team') })} <small>${c.members}/${CLAN_MAX}</small></h3><div class="cl-members">${c.roster.map((m) => `<div class="cl-mem${m.username === this.save.onlineName ? ' me' : ''}">
+          ${this.clanTag(m.role)}<b>${esc(m.username)}</b><span class="cl-dots" title="${tr('Partidas de hoy')}">${Array.from({ length: CLAN_RUNS_PER_DAY }, (_x, i) => `<i class="${i < m.today ? 'on' : ''}"></i>`).join('')}</span><em>${tr('{x1} pts', { x1: Number(m.week).toLocaleString(locale()) })}</em></div>`).join('')}</div>
+        <button class="btn small blue cl-leave" id="clleave">${tr('Salir del clan')}</button></div>
+      <div class="panel"><h3>${tr('{x1}Misiones del clan', { x1: uiIcon('missions') })} <small>${tr('semanales')}</small></h3><div class="cl-missions">${c.missions.map((m) => { const pc = Math.min(100, Math.round(Number(m.progress) / Math.max(1, Number(m.goal)) * 100));
+          return `<div class="cl-mis${done(m) ? ' done' : ''}${m.claimed ? ' claimed' : ''}"><span class="cl-mis-tx"><b>${esc(CLAN_MISSION_TEXT[m.id] ?? m.id)}</b><small>${Number(m.progress).toLocaleString(locale())} / ${Number(m.goal).toLocaleString(locale())}</small><i class="cl-bar"><i style="width:${pc}%"></i></i></span>
+          <span class="cl-mis-rw">${m.coins ? `${m.coins.toLocaleString(locale())} ◉` : ''}${m.tokens ? tr(' · {tokens} fichas', { tokens: m.tokens }) : ''}</span>
+          ${m.claimed ? '<em class="cl-pend">Cobrada</em>' : `<button class="btn small" data-clmis="${m.id}" ${done(m) && played ? '' : 'disabled'}>${tr('Cobrar')}</button>`}</div>`; }).join('')}</div>
+        <p class="note">${tr('Cobra cada miembro que haya jugado al menos una partida del clan esta semana. Se reinician los lunes.')}</p></div></div>`;
     this.on('[data-clmis]', 'click', async (_e, el) => {
       (el as HTMLButtonElement).disabled = true;
       try {
         const r = await clanClaimMission(el.dataset.clmis!);
         this.save.coins += r.coins; this.save.tokens += r.tokens; this.persist();
-        sfx('powerup'); this.toast(`+${r.coins.toLocaleString('es')} ◉ · +${r.tokens} fichas`);
+        sfx('powerup'); this.toast(tr('+{x1} ◉ · +{tokens} fichas', { x1: r.coins.toLocaleString(locale()), tokens: r.tokens }));
         void this.clanScreen();
       } catch (err) { this.toast(clanError(String((err as Error)?.message ?? err))); }
     }, body);
     document.getElementById('clleave')!.addEventListener('click', (e) => this.armed(e.currentTarget as HTMLElement, async () => {
-      try { await clanLeave(); this.clanData = null; this.rememberClan(); this.toast('Has salido del clan'); void this.clanScreen(); } catch (err) { this.toast(clanError(String((err as Error)?.message ?? err))); }
+      try { await clanLeave(); this.clanData = null; this.rememberClan(); this.toast(tr('Has salido del clan')); void this.clanScreen(); } catch (err) { this.toast(clanError(String((err as Error)?.message ?? err))); }
     }));
   }
 
@@ -1523,32 +1525,32 @@ export class App {
     const squad = squadOf(this.save, this.byId);
     const mp = this.clanMap;
     body.innerHTML = `<div class="cl-grid">
-      <div class="panel cl-games"><div class="cl-games-art">${mp?.minimapTexture ? `<img src="${mp.minimapTexture}" alt="">` : ''}<span><small>ARENA EXCLUSIVA DE CLANES</small><b>${esc(mp?.name ?? 'Juegos del Clan')}</b></span></div>
-        <p>${esc(mp?.blurb ?? '')} Juegas con <b>la equipación del clan</b> (${esc(c.kit ? teamLabel(c.kit) : 'Raimon')}) y tu Rango actual (<b>${this.save.difficulty}</b>): cuanto más alto, más puntos.</p>
-        <div class="cl-left"><span class="cl-dots big">${Array.from({ length: CLAN_RUNS_PER_DAY }, (_x, i) => `<i class="${i < c.runsToday ? 'on' : ''}"></i>`).join('')}</span><b>${left ? 'Te queda tu partida de hoy' : 'Ya has jugado tu partida de hoy: vuelve mañana'}</b></div>
-        <button class="btn big cl-play" id="clplay" ${left && squad.length && mp ? '' : 'disabled'}>${uiIcon('play')}¡Jugar por el clan!</button>
-        <p class="note">Puntos: rivales derrotados, tiempo aguantado, daño y +300 por ganar, por el Rango (C ×1 · B ×1,25 · A ×1,5 · S ×1,8 · X ×2,2 · Z ×2,8). La partida da sus monedas y fichas normales y, además, objetos del clan.</p></div>
-      <div class="panel"><h3>${uiIcon('gift')}Objetos del clan</h3><div class="cl-bag">${CLAN_ITEMS.map((it) => `<span class="cl-item big r-${it.rarity}" title="${esc(it.name)}">${this.icon(it.icon, 2.5)}<b>${this.save.clanItems?.[it.id] ?? 0}</b><small>${esc(it.name)}</small></span>`).join('')}</div>
-        <p class="note">Caen en los Juegos del Clan: 3 cada 60 rivales, 9 más si ganas y más cuanto más alto el Rango. Se gastan en la Tienda del clan.</p>
-        <button class="btn blue" id="clshop">Ir a la tienda</button></div></div>`;
+      <div class="panel cl-games"><div class="cl-games-art">${mp?.minimapTexture ? `<img src="${mp.minimapTexture}" alt="">` : ''}<span><small>${tr('ARENA EXCLUSIVA DE CLANES')}</small><b>${esc(mp?.name ?? tr('Juegos del Clan'))}</b></span></div>
+        <p>${tr('{x1} Juegas con <b>{x2}</b> ({x3}) y tu Rango actual (<b>{difficulty}</b>{x4}', { x1: esc(mp?.blurb ?? ''), x2: tr('la equipación del clan'), x3: esc(c.kit ? teamLabel(c.kit) : 'Raimon'), difficulty: this.save.difficulty, x4: tr('): cuanto más alto, más puntos.') })}</p>
+        <div class="cl-left"><span class="cl-dots big">${Array.from({ length: CLAN_RUNS_PER_DAY }, (_x, i) => `<i class="${i < c.runsToday ? 'on' : ''}"></i>`).join('')}</span><b>${left ? tr('Te queda tu partida de hoy') : tr('Ya has jugado tu partida de hoy: vuelve mañana')}</b></div>
+        <button class="btn big cl-play" id="clplay" ${left && squad.length && mp ? '' : 'disabled'}>${tr('{x1}¡Jugar por el clan!', { x1: uiIcon('play') })}</button>
+        <p class="note">${tr('Puntos: rivales derrotados, tiempo aguantado, daño y +300 por ganar, por el Rango (C ×1 · B ×1,25 · A ×1,5 · S ×1,8 · X ×2,2 · Z ×2,8). La partida da sus monedas y fichas normales y, además, objetos del clan.')}</p></div>
+      <div class="panel"><h3>${tr('{x1}Objetos del clan', { x1: uiIcon('gift') })}</h3><div class="cl-bag">${CLAN_ITEMS.map((it) => `<span class="cl-item big r-${it.rarity}" title="${esc(it.name)}">${this.icon(it.icon, 2.5)}<b>${this.save.clanItems?.[it.id] ?? 0}</b><small>${esc(it.name)}</small></span>`).join('')}</div>
+        <p class="note">${tr('Caen en los Juegos del Clan: 3 cada 60 rivales, 9 más si ganas y más cuanto más alto el Rango. Se gastan en la Tienda del clan.')}</p>
+        <button class="btn blue" id="clshop">${tr('Ir a la tienda')}</button></div></div>`;
     document.getElementById('clplay')?.addEventListener('click', () => this.clanPlay());
     document.getElementById('clshop')!.addEventListener('click', () => { this.clanTab = 'tienda'; this.clanHome(); });
   }
 
   private async clanTabRanking(body: HTMLElement) {
     const c = this.clanData!;
-    const prizes = (Object.entries(CLAN_PRIZES) as [ClanTier, (typeof CLAN_PRIZES)[ClanTier]][]).map(([t, p]) => `<div class="cl-prize t-${t}"><b>${p.label}</b><span>${p.tokens} fichas · ${p.eg} Fichas EG · ${p.coins.toLocaleString('es')} ◉</span><small>${p.players.map((x) => `${x.n} ${x.label}`).join(' · ')}</small></div>`).join('');
-    body.innerHTML = `<div class="cl-grid"><div class="panel"><h3>${uiIcon('crown')}Ranking de la semana</h3><div id="clrank" class="cl-list"><div class="note">Cargando…</div></div></div>
-      <div class="panel"><h3>${uiIcon('trophy')}Premios del lunes</h3><div class="cl-prizes">${prizes}</div><p class="note">Los recibe cada miembro que jugó al menos una partida por el clan esa semana (TOP 1 el primero, TOP 3 hasta el 3.º, TOP 8 hasta el 8.º, el resto si sumó puntos). Se cobran al entrar al menú.</p>
-        <h3>${uiIcon('clock')}La semana pasada</h3><div id="cllast" class="cl-list"><div class="note">Cargando…</div></div></div></div>`;
+    const prizes = (Object.entries(CLAN_PRIZES) as [ClanTier, (typeof CLAN_PRIZES)[ClanTier]][]).map(([t, p]) => `<div class="cl-prize t-${t}"><b>${p.label}</b><span>${tr('{tokens} fichas · {eg} Fichas EG · {x1} ◉', { tokens: p.tokens, eg: p.eg, x1: p.coins.toLocaleString(locale()) })}</span><small>${p.players.map((x) => `${x.n} ${x.label}`).join(' · ')}</small></div>`).join('');
+    body.innerHTML = `<div class="cl-grid"><div class="panel"><h3>${tr('{x1}Ranking de la semana', { x1: uiIcon('crown') })}</h3><div id="clrank" class="cl-list"><div class="note">${tr('Cargando…')}</div></div></div>
+      <div class="panel"><h3>${tr('{x1}Premios del lunes', { x1: uiIcon('trophy') })}</h3><div class="cl-prizes">${prizes}</div><p class="note">${tr('Los recibe cada miembro que jugó al menos una partida por el clan esa semana (TOP 1 el primero, TOP 3 hasta el 3.º, TOP 8 hasta el 8.º, el resto si sumó puntos). Se cobran al entrar al menú.')}</p>
+        <h3>${tr('{x1}La semana pasada', { x1: uiIcon('clock') })}</h3><div id="cllast" class="cl-list"><div class="note">${tr('Cargando…')}</div></div></div></div>`;
     try {
       const [rows, last] = await Promise.all([clanRanking(), clanLastWeek()]);
       const box = document.getElementById('clrank'), lb = document.getElementById('cllast');
       if (!box || !lb) return;
-      box.innerHTML = rows.map((r) => `<div class="cl-row cl-tap${r.id === c.id ? ' me' : ''}" data-clanid="${r.id}" title="Ver el clan"><span class="cl-pos t-${tierOfPos(Number(r.pos))}">${r.pos}</span>${this.clanCrest(r.crest, 30)}<span class="cl-row-tx"><b>${esc(r.name)}</b><small>${r.members} miembros</small></span><em>${Number(r.points).toLocaleString('es')} pts</em></div>`).join('') || '<div class="note">Nadie ha jugado aún esta semana.</div>';
-      lb.innerHTML = last.map((r) => `<div class="cl-row cl-tap" data-clan="${esc(r.name)}" title="Ver el clan"><span class="cl-pos t-${r.tier}">${r.pos}</span><span class="cl-row-tx"><b>${esc(r.name)}</b></span><em>${Number(r.points).toLocaleString('es')} pts</em></div>`).join('') || '<div class="note">Aún no hay semanas cerradas.</div>';
+      box.innerHTML = rows.map((r) => `<div class="cl-row cl-tap${r.id === c.id ? ' me' : ''}" data-clanid="${r.id}" title="${tr('Ver el clan')}"><span class="cl-pos t-${tierOfPos(Number(r.pos))}">${r.pos}</span>${this.clanCrest(r.crest, 30)}<span class="cl-row-tx"><b>${esc(r.name)}</b><small>${tr('{members} miembros', { members: r.members })}</small></span><em>${tr('{x1} pts', { x1: Number(r.points).toLocaleString(locale()) })}</em></div>`).join('') || `<div class="note">${tr('Nadie ha jugado aún esta semana.')}</div>`;
+      lb.innerHTML = last.map((r) => `<div class="cl-row cl-tap" data-clan="${esc(r.name)}" title="${tr('Ver el clan')}"><span class="cl-pos t-${r.tier}">${r.pos}</span><span class="cl-row-tx"><b>${esc(r.name)}</b></span><em>${tr('{x1} pts', { x1: Number(r.points).toLocaleString(locale()) })}</em></div>`).join('') || `<div class="note">${tr('Aún no hay semanas cerradas.')}</div>`;
       this.bindClans(box); this.bindClans(lb); // 2.01: tap a clan to see its card
-    } catch { const box = document.getElementById('clrank'); if (box) box.innerHTML = '<div class="note">El ranking no responde ahora.</div>'; }
+    } catch { const box = document.getElementById('clrank'); if (box) box.innerHTML = `<div class="note">${tr('El ranking no responde ahora.')}</div>`; }
   }
 
   private clanTabShop(body: HTMLElement) {
@@ -1556,28 +1558,28 @@ export class App {
     const offers = clanShop(week);
     const bag = this.save.clanItems ?? {};
     const costHtml = (cost: ClanBag) => CLAN_ITEMS.filter((it) => cost[it.id]).map((it) => `<span class="cl-item${(bag[it.id] ?? 0) >= (cost[it.id] ?? 0) ? '' : ' short'}" title="${esc(it.name)}">${this.icon(it.icon, 1.25)}<b>${cost[it.id]}</b></span>`).join('');
-    const art = (o: ClanOffer) => o.kind === 'monedas' ? `<span class="cl-off-ic coins">◉</span><b>${o.coins.toLocaleString('es')} monedas</b>`
-      : o.kind === 'fichas' ? `<span class="cl-off-ic tokens">${uiIcon('capsule')}</span><b>${o.tokens} fichas</b><small>un ×10</small>`
-      : o.kind === 'eg' ? `<span class="cl-off-ic eg">EG</span><b>${o.egTokens} Ficha EG</b><small>Espíritus Guerreros</small>`
-      : o.kind === 'pennant' ? (() => { const d = PENNANT_BY_ID.get(o.pennant)!; return `${isFrame(d) ? `<span class="fr-prev">${this.framed(this.frameFace(), d.id)}</span>` : `<span class="pn-prev">${pennantRibbon(d)}</span>`}<b>${esc(d.name)}</b><small>${isFrame(d) ? 'Marco' : 'Banner'} exclusivo</small>`; })()
-      : `<span class="cl-off-ic r-${o.rarity}" style="--rc:${RARITY_COLOR[o.rarity]}">${uiIcon('cards')}</span><b>Futbolista</b><small>${esc(o.label)}</small>`;
-    body.innerHTML = `<div class="panel cl-shop"><h3>${uiIcon('shop')}Tienda del clan <small>se renueva en ${this.leftText(clanWeekLeftMs(serverNow()))}</small></h3>
-      <div class="cl-bag small">${this.clanBagHtml(bag, '<span class="note">Aún no tienes objetos: juega los Juegos del Clan.</span>')}</div>
+    const art = (o: ClanOffer) => o.kind === 'monedas' ? `<span class="cl-off-ic coins">◉</span><b>${tr('{x1} monedas', { x1: o.coins.toLocaleString(locale()) })}</b>`
+      : o.kind === 'fichas' ? `<span class="cl-off-ic tokens">${uiIcon('capsule')}</span><b>${tr('{tokens} fichas', { tokens: o.tokens })}</b><small>${tr('un ×10')}</small>`
+      : o.kind === 'eg' ? `<span class="cl-off-ic eg">${tr('EG')}</span><b>${tr('{egTokens} Ficha EG', { egTokens: o.egTokens })}</b><small>${tr('Espíritus Guerreros')}</small>`
+      : o.kind === 'pennant' ? (() => { const d = PENNANT_BY_ID.get(o.pennant)!; return `${isFrame(d) ? `<span class="fr-prev">${this.framed(this.frameFace(), d.id)}</span>` : `<span class="pn-prev">${pennantRibbon(d)}</span>`}<b>${esc(d.name)}</b><small>${tr('{x1} exclusivo', { x1: isFrame(d) ? 'Marco' : 'Banner' })}</small>`; })()
+      : `<span class="cl-off-ic r-${o.rarity}" style="--rc:${RARITY_COLOR[o.rarity]}">${uiIcon('cards')}</span><b>${tr('Futbolista')}</b><small>${esc(o.label)}</small>`;
+    body.innerHTML = `<div class="panel cl-shop"><h3>${tr('{x1}Tienda del clan', { x1: uiIcon('shop') })} <small>${tr('se renueva en {x1}', { x1: this.leftText(clanWeekLeftMs(serverNow())) })}</small></h3>
+      <div class="cl-bag small">${this.clanBagHtml(bag, `<span class="note">${tr('Aún no tienes objetos: juega los Juegos del Clan.')}</span>`)}</div>
       <div class="cl-offers">${offers.map((o) => { const left = o.stock - boughtThisWeek(this.save, week, o.id); const owned = o.kind === 'pennant' && hasPennant(this.save, o.pennant);
-        return `<div class="cl-off${left <= 0 || owned ? ' out' : ''}">${art(o)}<div class="cl-off-cost">${costHtml(o.cost)}</div><small class="cl-stock">${owned ? 'Ya lo tienes' : `Quedan ${left}/${o.stock}`}</small>
-          <button class="btn small" data-cloff="${o.id}" ${left > 0 && !owned && canPay(this.save, o.cost) ? '' : 'disabled'}>Canjear</button></div>`; }).join('')}</div></div>`;
+        return `<div class="cl-off${left <= 0 || owned ? ' out' : ''}">${art(o)}<div class="cl-off-cost">${costHtml(o.cost)}</div><small class="cl-stock">${owned ? tr('Ya lo tienes') : `Quedan ${left}/${o.stock}`}</small>
+          <button class="btn small" data-cloff="${o.id}" ${left > 0 && !owned && canPay(this.save, o.cost) ? '' : 'disabled'}>${tr('Canjear')}</button></div>`; }).join('')}</div></div>`;
     this.on('[data-cloff]', 'click', (_e, el) => {
       const o = offers.find((x) => x.id === el.dataset.cloff);
       if (!o || !canPay(this.save, o.cost) || boughtThisWeek(this.save, week, o.id) >= o.stock) return;
       payBag(this.save, o.cost); recordBuy(this.save, week, o.id);
-      if (o.kind === 'monedas') { this.save.coins += o.coins; this.toast(`+${o.coins.toLocaleString('es')} ◉`); }
-      else if (o.kind === 'fichas') { this.save.tokens += o.tokens; this.toast(`+${o.tokens} fichas`); }
-      else if (o.kind === 'eg') { this.save.egTokens = (this.save.egTokens ?? 0) + o.egTokens; this.toast(`+${o.egTokens} Ficha EG`); }
-      else if (o.kind === 'pennant') { givePennant(this.save, o.pennant); this.toast(`¡${PENNANT_BY_ID.get(o.pennant)?.name}! Póntelo en tu Perfil.`); }
+      if (o.kind === 'monedas') { this.save.coins += o.coins; this.toast(`+${o.coins.toLocaleString(locale())} ◉`); }
+      else if (o.kind === 'fichas') { this.save.tokens += o.tokens; this.toast(tr('+{tokens} fichas', { tokens: o.tokens })); }
+      else if (o.kind === 'eg') { this.save.egTokens = (this.save.egTokens ?? 0) + o.egTokens; this.toast(tr('+{egTokens} Ficha EG', { egTokens: o.egTokens })); }
+      else if (o.kind === 'pennant') { givePennant(this.save, o.pennant); this.toast(tr('¡{x1}! Póntelo en tu Perfil.', { x1: PENNANT_BY_ID.get(o.pennant)?.name })); }
       this.persist(); sfx('powerup');
       if (o.kind === 'jugador') {
         const p = clanPlayer(this.m.roster, o.odds, Math.random);
-        if (p) { const res = addCopy(this.save, p); this.persist(); void this.capsuleShow([{ player: p, ...res }], 'Tienda del clan').then(() => void this.clanScreen('tienda')); return; }
+        if (p) { const res = addCopy(this.save, p); this.persist(); void this.capsuleShow([{ player: p, ...res }], tr('Tienda del clan')).then(() => void this.clanScreen('tienda')); return; }
       }
       this.clanHome();
     }, body);
@@ -1588,24 +1590,24 @@ export class App {
     const lead = c.me === 'lider';
     const crests = this.clanCrestChoices(), kits = this.clanKitChoices();
     const act = (m: ClanMember) => {
-      if (m.username === this.save.onlineName) return '<em class="cl-pend">Tú</em>';
+      if (m.username === this.save.onlineName) return `<em class="cl-pend">${tr('Tú')}</em>`;
       const b: string[] = [];
-      if (lead && m.role === 'miembro') b.push(`<button class="btn small" data-clrole="${esc(m.username)}" data-r="oficial">Ascender a oficial</button>`);
-      if (lead && m.role === 'oficial') b.push(`<button class="btn small blue" data-clrole="${esc(m.username)}" data-r="miembro">Quitar oficial</button>`);
-      if (lead) b.push(`<button class="btn small blue" data-clrole="${esc(m.username)}" data-r="lider">Ceder liderazgo</button>`);
-      if (lead || m.role === 'miembro') b.push(`<button class="btn small danger" data-clkick="${esc(m.username)}">Expulsar</button>`);
+      if (lead && m.role === 'miembro') b.push(`<button class="btn small" data-clrole="${esc(m.username)}" data-r="oficial">${tr('Ascender a oficial')}</button>`);
+      if (lead && m.role === 'oficial') b.push(`<button class="btn small blue" data-clrole="${esc(m.username)}" data-r="miembro">${tr('Quitar oficial')}</button>`);
+      if (lead) b.push(`<button class="btn small blue" data-clrole="${esc(m.username)}" data-r="lider">${tr('Ceder liderazgo')}</button>`);
+      if (lead || m.role === 'miembro') b.push(`<button class="btn small danger" data-clkick="${esc(m.username)}">${tr('Expulsar')}</button>`);
       return b.join('');
     };
     body.innerHTML = `<div class="cl-grid">
-      <div class="panel"><h3>${uiIcon('gift')}Solicitudes <small>${c.requests}</small></h3><div id="clreqs" class="cl-list"><div class="note">Cargando…</div></div></div>
-      <div class="panel"><h3>${uiIcon('team')}Miembros y rangos</h3><div class="cl-members admin">${c.roster.map((m) => `<div class="cl-mem${m.username === this.save.onlineName ? ' me' : ''}">${this.clanTag(m.role)}<b>${esc(m.username)}</b><span class="cl-acts">${act(m)}</span></div>`).join('')}</div>
-        <p class="note">El líder lo gestiona todo. Los oficiales aceptan solicitudes y pueden expulsar a miembros.</p></div>
-      ${lead ? `<div class="panel cl-edit"><h3>${uiIcon('cog')}Ajustes del clan</h3>
-        <label class="cl-field">Nombre<input id="clename" maxlength="20" value="${esc(c.name)}"></label><small class="cl-err" id="cleerr"></small>
-        <div class="cl-field">Escudo<div class="cl-crests">${crests.map((t) => `<button class="iconpick${c.crest === t ? ' on' : ''}" data-ecrest="${esc(t)}" title="${esc(teamLabel(t))}"><img src="${this.emblemOf(t)}" alt=""></button>`).join('')}</div></div>
-        <label class="cl-field">Equipación<select id="clekit">${kits.map((k) => `<option value="${esc(k)}" ${k === c.kit ? 'selected' : ''}>${esc(k ? teamLabel(k) : 'Raimon')}</option>`).join('')}</select></label>
-        <label class="cl-field">Entrada<select id="clemode"><option value="solicitud" ${c.mode === 'solicitud' ? 'selected' : ''}>Con solicitud (aceptáis vosotros)</option><option value="abierto" ${c.mode === 'abierto' ? 'selected' : ''}>Abierto (entra cualquiera)</option></select></label>
-        <button class="btn big" id="clesave">Guardar cambios</button></div>` : ''}</div>`;
+      <div class="panel"><h3>${tr('{x1}Solicitudes', { x1: uiIcon('gift') })} <small>${c.requests}</small></h3><div id="clreqs" class="cl-list"><div class="note">${tr('Cargando…')}</div></div></div>
+      <div class="panel"><h3>${tr('{x1}Miembros y rangos', { x1: uiIcon('team') })}</h3><div class="cl-members admin">${c.roster.map((m) => `<div class="cl-mem${m.username === this.save.onlineName ? ' me' : ''}">${this.clanTag(m.role)}<b>${esc(m.username)}</b><span class="cl-acts">${act(m)}</span></div>`).join('')}</div>
+        <p class="note">${tr('El líder lo gestiona todo. Los oficiales aceptan solicitudes y pueden expulsar a miembros.')}</p></div>
+      ${lead ? `<div class="panel cl-edit"><h3>${tr('{x1}Ajustes del clan', { x1: uiIcon('cog') })}</h3>
+        <label class="cl-field">${tr('Nombre')}<input id="clename" maxlength="20" value="${esc(c.name)}"></label><small class="cl-err" id="cleerr"></small>
+        <div class="cl-field">${tr('Escudo')}<div class="cl-crests">${crests.map((t) => `<button class="iconpick${c.crest === t ? ' on' : ''}" data-ecrest="${esc(t)}" title="${esc(teamLabel(t))}"><img src="${this.emblemOf(t)}" alt=""></button>`).join('')}</div></div>
+        <label class="cl-field">${tr('Equipación')}<select id="clekit">${kits.map((k) => `<option value="${esc(k)}" ${k === c.kit ? 'selected' : ''}>${esc(k ? teamLabel(k) : 'Raimon')}</option>`).join('')}</select></label>
+        <label class="cl-field">${tr('Entrada')}<select id="clemode"><option value="solicitud" ${c.mode === 'solicitud' ? 'selected' : ''}>${tr('Con solicitud (aceptáis vosotros)')}</option><option value="abierto" ${c.mode === 'abierto' ? 'selected' : ''}>${tr('Abierto (entra cualquiera)')}</option></select></label>
+        <button class="btn big" id="clesave">${tr('Guardar cambios')}</button></div>` : ''}</div>`;
     const err = (e: unknown) => this.toast(clanError(String((e as Error)?.message ?? e)));
     this.on('[data-clrole]', 'click', (_e, el) => this.armed(el, async () => { try { await clanSetRole(el.dataset.clrole!, el.dataset.r as ClanRole); sfx('click'); void this.clanScreen('admin'); } catch (e) { err(e); } }), body);
     this.on('[data-clkick]', 'click', (_e, el) => this.armed(el, async () => { try { await clanKick(el.dataset.clkick!); void this.clanScreen('admin'); } catch (e) { err(e); } }), body);
@@ -1618,15 +1620,15 @@ export class App {
       (e.currentTarget as HTMLButtonElement).disabled = true;
       try {
         await clanUpdate(name !== c.name ? name : null, crest, (document.getElementById('clekit') as HTMLSelectElement).value, (document.getElementById('clemode') as HTMLSelectElement).value as 'abierto' | 'solicitud');
-        sfx('powerup'); this.toast('Clan actualizado'); void this.clanScreen('admin');
+        sfx('powerup'); this.toast(tr('Clan actualizado')); void this.clanScreen('admin');
       } catch (x) { document.getElementById('cleerr')!.textContent = clanError(String((x as Error)?.message ?? x)); (e.currentTarget as HTMLButtonElement).disabled = false; }
     });
     try {
       const reqs = await clanRequests();
       const box = document.getElementById('clreqs');
       if (!box) return;
-      box.innerHTML = reqs.map((r) => `<div class="cl-row"><span class="cl-row-tx"><b>${esc(r.username)}</b><small>${new Date(r.created_at).toLocaleString('es')}</small></span>
-        <button class="btn small" data-clans="${esc(r.username)}" data-ok="1">Aceptar</button><button class="btn small blue" data-clans="${esc(r.username)}" data-ok="">Rechazar</button></div>`).join('') || '<div class="note">No hay solicitudes pendientes.</div>';
+      box.innerHTML = reqs.map((r) => `<div class="cl-row"><span class="cl-row-tx"><b>${esc(r.username)}</b><small>${new Date(r.created_at).toLocaleString(locale())}</small></span>
+        <button class="btn small" data-clans="${esc(r.username)}" data-ok="1">${tr('Aceptar')}</button><button class="btn small blue" data-clans="${esc(r.username)}" data-ok="">${tr('Rechazar')}</button></div>`).join('') || `<div class="note">${tr('No hay solicitudes pendientes.')}</div>`;
       this.on('[data-clans]', 'click', async (_e, el) => {
         (el as HTMLButtonElement).disabled = true;
         try { await clanAnswer(el.dataset.clans!, !!el.dataset.ok); sfx(el.dataset.ok ? 'evolve' : 'click'); void this.clanScreen('admin'); } catch (e) { err(e); void this.clanScreen('admin'); }
@@ -1656,20 +1658,20 @@ export class App {
     const box = document.createElement('div');
     box.className = 'modal clan-end';
     const draw = (score: string) => {
-      box.innerHTML = `<div class="panel cl-end-card"><small>JUEGOS DEL CLAN · ${esc(this.clanData?.name ?? '')}</small><h2>${r.victory ? '¡Victoria para el clan!' : 'Partida del clan'}</h2>
-        <div class="cl-end-score">${score}</div><h3>Objetos encontrados</h3><div class="cl-bag">${this.clanBagHtml(bag, '<span class="note">Esta vez no ha caído nada.</span>')}</div>
-        <div class="cp-actions"><button class="btn big" id="clendok">Ver el clan</button><button class="btn blue" id="clendx">Cerrar</button></div></div>`;
+      box.innerHTML = `<div class="panel cl-end-card"><small>${tr('JUEGOS DEL CLAN · {x1}', { x1: esc(this.clanData?.name ?? '') })}</small><h2>${r.victory ? tr('¡Victoria para el clan!') : tr('Partida del clan')}</h2>
+        <div class="cl-end-score">${score}</div><h3>${tr('Objetos encontrados')}</h3><div class="cl-bag">${this.clanBagHtml(bag, `<span class="note">${tr('Esta vez no ha caído nada.')}</span>`)}</div>
+        <div class="cp-actions"><button class="btn big" id="clendok">${tr('Ver el clan')}</button><button class="btn blue" id="clendx">${tr('Cerrar')}</button></div></div>`;
       box.querySelector('#clendok')!.addEventListener('click', () => { box.remove(); void this.clanScreen('juegos'); });
       box.querySelector('#clendx')!.addEventListener('click', () => box.remove());
     };
-    draw('<div class="note">Enviando los puntos…</div>');
+    draw(`<div class="note">${tr('Enviando los puntos…')}</div>`);
     (document.body.querySelector('#ui') ?? this.root).appendChild(box);
     clanSubmitRun(r.runId, r.kills, r.timeSec, r.damage ?? 0, r.rank ?? 'C', r.victory)
       .then((res) => {
         if (this.clanData) { this.clanData.runsToday += 1; this.clanData.weekPoints = Number(res.weekPoints); }
         this.save.clanSeen = this.save.clanSeen ? { ...this.save.clanSeen, points: Number(res.weekPoints) } : this.save.clanSeen; this.persist();
         sfx('powerup');
-        draw(`<b class="cl-pts">+${res.points.toLocaleString('es')} pts</b><span>El clan suma <b>${Number(res.weekPoints).toLocaleString('es')}</b> esta semana · te quedan <b>${res.left}</b> partidas hoy</span>`);
+        draw(`<b class="cl-pts">${tr('+{x1} pts', { x1: res.points.toLocaleString(locale()) })}</b><span>${tr('El clan suma')} <b>${Number(res.weekPoints).toLocaleString(locale())}</b> ${tr('esta semana · te quedan')} <b>${res.left}</b> ${tr('partidas hoy')}</span>`);
       })
       .catch((err) => draw(`<div class="note">${esc(clanError(String((err as Error)?.message ?? err)))}</div>`));
   }
@@ -1699,12 +1701,12 @@ export class App {
     this.persist();
     const box = document.createElement('div');
     box.className = 'modal clan-end';
-    box.innerHTML = `<div class="panel cl-end-card"><small>PREMIOS DE CLAN</small><h2>¡Cierre de la semana!</h2>${prizes.map((z) => `<div class="cl-prize t-${z.tier}"><b>${CLAN_PRIZES[z.tier]?.label ?? z.tier} · puesto ${z.pos}</b><span>${esc(z.clan)}</span><small>+${z.tokens} fichas · +${CLAN_PRIZES[z.tier]?.eg ?? 0} Fichas EG · +${z.coins.toLocaleString('es')} ◉ · ${(CLAN_PRIZES[z.tier]?.players ?? []).map((g) => `${g.n} ${g.label}`).join(' · ')}</small></div>`).join('')}
-      <div class="cp-actions"><button class="btn big" id="clprok">${won.length ? '¡Abrir los fichajes!' : 'Genial'}</button></div></div>`;
+    box.innerHTML = `<div class="panel cl-end-card"><small>${tr('PREMIOS DE CLAN')}</small><h2>${tr('¡Cierre de la semana!')}</h2>${prizes.map((z) => `<div class="cl-prize t-${z.tier}"><b>${tr('{x1} · puesto {pos}', { x1: CLAN_PRIZES[z.tier]?.label ?? z.tier, pos: z.pos })}</b><span>${esc(z.clan)}</span><small>${tr('+{tokens} fichas · +{x1} Fichas EG · +{x2} ◉ · {x3}', { tokens: z.tokens, x1: CLAN_PRIZES[z.tier]?.eg ?? 0, x2: z.coins.toLocaleString(locale()), x3: (CLAN_PRIZES[z.tier]?.players ?? []).map((g) => `${g.n} ${g.label}`).join(' · ') })}</small></div>`).join('')}
+      <div class="cp-actions"><button class="btn big" id="clprok">${won.length ? tr('¡Abrir los fichajes!') : 'Genial'}</button></div></div>`;
     (document.body.querySelector('#ui') ?? this.root).appendChild(box);
     if (this.save.settings.particles !== 'desactivado') confetti(120);
     sfx('legend');
-    box.querySelector('#clprok')!.addEventListener('click', () => { box.remove(); if (won.length) void this.capsuleShow(won, 'Premios de clan').then(() => this.mainMenu()); });
+    box.querySelector('#clprok')!.addEventListener('click', () => { box.remove(); if (won.length) void this.capsuleShow(won, tr('Premios de clan')).then(() => this.mainMenu()); });
   }
 
   // ---- 1.9 (author): tier lists — make your own, publish it, everyone sees the latest ones in the menu
@@ -1718,11 +1720,11 @@ export class App {
   private tierBoard(tiers: Tiers, size = 40, edit = false) {
     return `<div class="tl-board${edit ? ' edit' : ''}">${TIERS.map((k) => `<div class="tl-row" data-tier="${k}" style="--tc:${TIER_COLOR[k]}"><b class="tl-lab">${k}</b>
       <div class="tl-cells">${(tiers[k] ?? []).filter((id) => this.byId.has(id)).map((id) => `<span class="tl-p${this.tierPick === id ? ' on' : ''}" data-tp="${id}" ${edit ? 'draggable="true"' : ''} title="${esc(this.byId.get(id)!.name)}">${this.mug(id, size as 64)}</span>`).join('')
-        || (edit ? '<em class="tl-empty">Toca un futbolista y luego esta fila</em>' : '')}</div></div>`).join('')}</div>`;
+        || (edit ? `<em class="tl-empty">${tr('Toca un futbolista y luego esta fila')}</em>` : '')}</div></div>`).join('')}</div>`;
   }
   private tierCard(r: TierlistRow, size = 32) {
     const tiers = cleanTiers(r.tiers, (id) => this.byId.has(id));
-    return `<div class="tl-card"><div class="tl-card-head"><b>${esc(topicLabel(r.topic))}</b><small>de <b>${esc(r.username)}</b> · ${new Date(r.updated_at).toLocaleDateString('es')}</small></div>${this.tierBoard(tiers, size)}</div>`;
+    return `<div class="tl-card"><div class="tl-card-head"><b>${esc(topicLabel(r.topic))}</b><small>${tr('de')} <b>${esc(r.username)}</b> · ${new Date(r.updated_at).toLocaleDateString(locale())}</small></div>${this.tierBoard(tiers, size)}</div>`;
   }
 
   tierlistScreen() {
@@ -1738,16 +1740,16 @@ export class App {
     const n = tierCount(tiers);
     const online = onlineConfigured() && signedIn();
     const body = this.tierTab === 'comunidad'
-      ? `<div class="panel"><h3>${uiIcon('crown')}Tierlists de la comunidad <small>las últimas publicadas</small></h3><div id="tlfeed" class="tl-feed">${onlineConfigured() ? '<div class="note">Cargando…</div>' : '<div class="note">Disponible con el servicio online.</div>'}</div></div>`
+      ? `<div class="panel"><h3>${tr('{x1}Tierlists de la comunidad', { x1: uiIcon('crown') })} <small>${tr('las últimas publicadas')}</small></h3><div id="tlfeed" class="tl-feed">${onlineConfigured() ? '<div class="note">Cargando…</div>' : `<div class="note">${tr('Disponible con el servicio online.')}</div>`}</div></div>`
       : `<div class="panel tl-editor"><div class="tl-topics">${TIER_TOPICS.map((t) => `<button class="pill${t.id === topic.id ? ' on' : ''}" data-ttopic="${t.id}">${esc(t.label)}</button>`).join('')}</div>
-          <div class="tl-shot" id="tlshot"><div class="tl-card-head"><b>${esc(topic.label)}</b><small>de <b>${esc(this.save.profile.name)}</b> · ${n}/${TIER_MAX}</small></div>${this.tierBoard(tiers, 44, true)}</div>
-          <div class="cp-actions"><button class="btn big" id="tlpub" ${n >= TIER_MIN ? '' : 'disabled'}>${n >= TIER_MIN ? 'Publicar para todos ▶' : `Coloca al menos ${TIER_MIN}`}</button><button class="btn blue" id="tlclear" ${n ? '' : 'disabled'}>Vaciar</button></div>
-          ${online ? '' : '<p class="note">Para publicarla conéctate con tu cuenta (Perfil). Mientras, se guarda aquí.</p>'}</div>
-        <div class="panel"><h3>${uiIcon('team')}Futbolistas <small>${this.tierPick ? `<b>${esc(this.byId.get(this.tierPick)?.name ?? '')}</b> elegido: toca una fila` : 'toca uno y luego una fila, o arrástralo'}</small></h3>
-          <div class="filters"><input id="tlq" placeholder="Buscar futbolista" value="${esc(this.tierQuery)}"><button class="pill${this.tierOwnedOnly ? ' on' : ''}" id="tlowned">Solo los míos</button></div>
-          <div class="tl-pool">${pool.map((p) => `<span class="tl-p${this.tierPick === p.id ? ' on' : ''}${owned.has(p.id) ? '' : ' nown'}" data-tp="${p.id}" draggable="true" title="${esc(p.name)}">${this.mug(p.id, 44)}<small>${esc(p.name)}</small></span>`).join('') || '<div class="note">Nadie con ese nombre.</div>'}</div></div>`;
-    this.show(`<div class="screen tierlist-screen">${this.titlebar('Tierlists', 'Menú')}
-      <div class="tl-tabs"><button class="tab${this.tierTab === 'comunidad' ? ' on' : ''}" data-ttab="comunidad">${uiIcon('crown')}Comunidad</button><button class="tab${this.tierTab === 'crear' ? ' on' : ''}" data-ttab="crear">${uiIcon('cards')}Crear la mía</button></div>
+          <div class="tl-shot" id="tlshot"><div class="tl-card-head"><b>${esc(topic.label)}</b><small>${tr('de <b>{profileName}</b> · {n}/{TIER_MAX}', { profileName: esc(this.save.profile.name), n, TIER_MAX })}</small></div>${this.tierBoard(tiers, 44, true)}</div>
+          <div class="cp-actions"><button class="btn big" id="tlpub" ${n >= TIER_MIN ? '' : 'disabled'}>${n >= TIER_MIN ? tr('Publicar para todos ▶') : tr('Coloca al menos {TIER_MIN}', { TIER_MIN })}</button><button class="btn blue" id="tlclear" ${n ? '' : 'disabled'}>${tr('Vaciar')}</button></div>
+          ${online ? '' : `<p class="note">${tr('Para publicarla conéctate con tu cuenta (Perfil). Mientras, se guarda aquí.')}</p>`}</div>
+        <div class="panel"><h3>${tr('{x1}Futbolistas', { x1: uiIcon('team') })} <small>${this.tierPick ? `<b>${esc(this.byId.get(this.tierPick)?.name ?? '')}</b> ${tr('elegido: toca una fila')}` : tr('toca uno y luego una fila, o arrástralo')}</small></h3>
+          <div class="filters"><input id="tlq" placeholder="${tr('Buscar futbolista')}" value="${esc(this.tierQuery)}"><button class="pill${this.tierOwnedOnly ? ' on' : ''}" id="tlowned">${tr('Solo los míos')}</button></div>
+          <div class="tl-pool">${pool.map((p) => `<span class="tl-p${this.tierPick === p.id ? ' on' : ''}${owned.has(p.id) ? '' : ' nown'}" data-tp="${p.id}" draggable="true" title="${esc(p.name)}">${this.mug(p.id, 44)}<small>${esc(p.name)}</small></span>`).join('') || `<div class="note">${tr('Nadie con ese nombre.')}</div>`}</div></div>`;
+    this.show(`<div class="screen tierlist-screen">${this.titlebar(tr('Tierlists'), tr('Menú'))}
+      <div class="tl-tabs"><button class="tab${this.tierTab === 'comunidad' ? ' on' : ''}" data-ttab="comunidad">${tr('{x1}Comunidad', { x1: uiIcon('crown') })}</button><button class="tab${this.tierTab === 'crear' ? ' on' : ''}" data-ttab="crear">${tr('{x1}Crear la mía', { x1: uiIcon('cards') })}</button></div>
       ${body}</div>`);
     this.on('[data-back]', 'click', () => this.mainMenu());
     this.on('[data-ttab]', 'click', (_e, el) => { this.tierTab = el.dataset.ttab as 'comunidad' | 'crear'; sfx('click'); this.tierlistScreen(); });
@@ -1783,16 +1785,16 @@ export class App {
     document.getElementById('tlowned')!.addEventListener('click', () => { this.tierOwnedOnly = !this.tierOwnedOnly; this.tierlistScreen(); });
     document.getElementById('tlclear')!.addEventListener('click', () => { saveDraft({}); this.tierPick = null; this.tierlistScreen(); });
     document.getElementById('tlpub')!.addEventListener('click', async (e) => {
-      if (!onlineConfigured() || !signedIn()) { this.toast('Conéctate con tu cuenta en Perfil para publicarla'); return; }
+      if (!onlineConfigured() || !signedIn()) { this.toast(tr('Conéctate con tu cuenta en Perfil para publicarla')); return; }
       const b = e.currentTarget as HTMLButtonElement;
       b.disabled = true;
       try {
         await submitTierlist(topic.id, tiers as Record<string, number[]>);
-        sfx('evolve'); this.toast('¡Publicada! Ya sale en el menú de todos');
+        sfx('evolve'); this.toast(tr('¡Publicada! Ya sale en el menú de todos'));
         this.tierFeedCache = null; this.tierTab = 'comunidad'; this.tierlistScreen();
       } catch (err) {
         const m = String((err as Error)?.message ?? err);
-        this.toast(/too_fast/.test(m) ? 'Acabas de publicar: espera un minuto' : /no_username/.test(m) ? 'Reserva tu nombre en Perfil para publicar' : /invalid_tiers/.test(m) ? 'La lista no es válida' : 'No se pudo publicar ahora');
+        this.toast(/too_fast/.test(m) ? tr('Acabas de publicar: espera un minuto') : /no_username/.test(m) ? tr('Reserva tu nombre en Perfil para publicar') : /invalid_tiers/.test(m) ? tr('La lista no es válida') : tr('No se pudo publicar ahora'));
         b.disabled = false;
       }
     });
@@ -1805,8 +1807,8 @@ export class App {
       const rows = this.tierFeedCache ?? (this.tierFeedCache = await tierlistFeed(20));
       if (!document.body.contains(box)) return;
       const shown = rows.filter((r) => tierCount(cleanTiers(r.tiers, (id) => this.byId.has(id))) >= TIER_MIN).slice(0, limit);
-      box.innerHTML = shown.map((r) => this.tierCard(r, size)).join('') || '<div class="note">Aún no hay ninguna. ¡Publica la primera!</div>';
-    } catch { box.innerHTML = '<div class="note">Las tierlists no responden ahora.</div>'; }
+      box.innerHTML = shown.map((r) => this.tierCard(r, size)).join('') || `<div class="note">${tr('Aún no hay ninguna. ¡Publica la primera!')}</div>`;
+    } catch { box.innerHTML = `<div class="note">${tr('Las tierlists no responden ahora.')}</div>`; }
   }
 
   /** Fix 1.31: training points that no stat can use (it already reaches 99) go back to the player, on load. */
@@ -1829,33 +1831,33 @@ export class App {
     const hs = this.owned(id)?.heroStars ?? 0;
     // Fix 1.51: the next rarity counts from the one he already reached (an Épico ascended to Legendario goes on to Mítico)
     const ch = championOf(this.save, id);
-    const up = rarityUp(curR), label = next?.step === 'ascenso' ? `${RARITY_LABEL[up].toUpperCase()}${up === curR ? ' +' : ''}` : next?.step === 'estrella' ? `HÉROE ${'★'.repeat(hs + 1)}` : next?.step === 'campeon' ? CHAMPION_LABEL[ch + 1] : 'HÉROE';
+    const up = rarityUp(curR), label = next?.step === 'ascenso' ? `${RARITY_LABEL[up].toUpperCase()}${up === curR ? ' +' : ''}` : next?.step === 'estrella' ? tr('HÉROE {x1}', { x1: '★'.repeat(hs + 1) }) : next?.step === 'campeon' ? CHAMPION_LABEL[ch + 1] : tr('HÉROE');
     const pct = (v: number) => `+${Math.round((v - 1) * 100)}%`;
-    const starUnlocks = [`Estrella de héroe ${hs + 1} de ${HERO_STARS_MAX}: +${Math.round((ASC_BONUS.estrella.damage - 1) * 100)}% daño, +${Math.round((ASC_BONUS.estrella.hp - 1) * 100)}% vida y +1 a todas sus estadísticas`];
+    const starUnlocks = [tr('Estrella de héroe {x1} de {HERO_STARS_MAX}: +{x2}% daño, +{x3}% vida y +1 a todas sus estadísticas', { x1: hs + 1, HERO_STARS_MAX, x2: Math.round((ASC_BONUS.estrella.damage - 1) * 100), x3: Math.round((ASC_BONUS.estrella.hp - 1) * 100) })];
     // 1.8: what each Campeón level brings
-    const champUnlocks = [`${CHAMPION_LABEL[ch + 1]}: el límite de sus estadísticas sube de ${statCapOf(this.save, p)} a ${statCapOf(this.save, p) + CHAMPION_CAP}`,
-      `+${CHAMPION_STATS} a todas sus estadísticas y +${CHAMPION_TRAIN} puntos de entrenamiento para repartir`,
-      `+${Math.round((ASC_BONUS.campeon.damage - 1) * 100)}% daño y +${Math.round((ASC_BONUS.campeon.hp - 1) * 100)}% vida en partida`,
-      ch + 1 < CHAMPION_MAX ? `Después: ${CHAMPION_LABEL[ch + 2]} (${CHAMPION_COSTS[ch + 1]} duplicados)` : 'Es el último nivel: Campeón++'];
-    const unlocks = next?.step === 'campeon' ? champUnlocks : !next && ch ? [`${CHAMPION_LABEL[ch]}: estadísticas hasta ${statCapOf(this.save, p)} y ${trainMaxOf(this.save, id)} puntos de entrenamiento`]
+    const champUnlocks = [tr('{x1}: el límite de sus estadísticas sube de {x2} a {x3}', { x1: CHAMPION_LABEL[ch + 1], x2: statCapOf(this.save, p), x3: statCapOf(this.save, p) + CHAMPION_CAP }),
+      tr('+{CHAMPION_STATS} a todas sus estadísticas y +{CHAMPION_TRAIN} puntos de entrenamiento para repartir', { CHAMPION_STATS, CHAMPION_TRAIN }),
+      tr('+{x1}% daño y +{x2}% vida en partida', { x1: Math.round((ASC_BONUS.campeon.damage - 1) * 100), x2: Math.round((ASC_BONUS.campeon.hp - 1) * 100) }),
+      ch + 1 < CHAMPION_MAX ? tr('Después: {x1} ({x2} duplicados)', { x1: CHAMPION_LABEL[ch + 2], x2: CHAMPION_COSTS[ch + 1] }) : tr('Es el último nivel: Campeón++')];
+    const unlocks = next?.step === 'campeon' ? champUnlocks : !next && ch ? [tr('{x1}: estadísticas hasta {x2} y {x3} puntos de entrenamiento', { x1: CHAMPION_LABEL[ch], x2: statCapOf(this.save, p), x3: trainMaxOf(this.save, id) })]
       : next?.step === 'estrella' ? starUnlocks : next?.step === 'heroe' || (!next && isHero(this.save, id))
-      ? [`Técnica de HÉROE: ${p.heroTech ? p.heroTech.name : 'ninguna documentada para este jugador'}`, `${HERO_AURA.label} (habilidad original de InaZurvivors): ${HERO_AURA.description}`, 'Marco dorado e insignia HÉROE en la colección']
-      : [up === curR ? `Ascendido: sigue siendo ${RARITY_LABEL[up]}, con la bonificación de ascensión` : `Rareza ${RARITY_LABEL[up]} (sin cambiar de personaje): sus estadísticas suben a las de un ${RARITY_LABEL[up]}`,
-        isTopRarity(up) ? `Después, la ascensión HÉROE (${(ASC_COSTS[p.rarity] ?? ASC_COSTS.legendario).heroe} duplicados)` : `Después, la siguiente ascensión: ${RARITY_LABEL[rarityUp(up)]} (${ASC_COSTS[up].ascenso} duplicados)`];
+      ? [tr('Técnica de HÉROE: {x1}', { x1: p.heroTech ? tTech(p.heroTech.name) : tr('ninguna documentada para este jugador') }), tr('{label} (habilidad original de InaZurvivors): {description}', { label: HERO_AURA.label, description: HERO_AURA.description }), tr('Marco dorado e insignia HÉROE en la colección')]
+      : [up === curR ? tr('Ascendido: sigue siendo {x1}, con la bonificación de ascensión', { x1: RARITY_LABEL[up] }) : tr('Rareza {x1} (sin cambiar de personaje): sus estadísticas suben a las de un {x2}', { x1: RARITY_LABEL[up], x2: RARITY_LABEL[up] }),
+        isTopRarity(up) ? tr('Después, la ascensión HÉROE ({x1} duplicados)', { x1: (ASC_COSTS[p.rarity] ?? ASC_COSTS.legendario).heroe }) : tr('Después, la siguiente ascensión: {x1} ({x2} duplicados)', { x1: RARITY_LABEL[rarityUp(up)], x2: ASC_COSTS[up].ascenso })];
     const box = document.createElement('div');
     box.className = 'tut-modal asc-modal';
     box.innerHTML = `<div class="panel asc-card${isHero(this.save, id) ? ' is-hero' : ''}" style="--rc:${RARITY_COLOR[curR]}">
-      <h2>${next ? (next.step === 'estrella' ? 'Estrellas de héroe' : next.step === 'campeon' ? 'Camino del Campeón' : 'Ascensión') : ch ? `¡${CHAMPION_LABEL[ch]}!` : `¡HÉROE ${'★'.repeat(hs)}!`}</h2>
+      <h2>${next ? (next.step === 'estrella' ? tr('Estrellas de héroe') : next.step === 'campeon' ? tr('Camino del Campeón') : 'Ascensión') : ch ? `¡${CHAMPION_LABEL[ch]}!` : tr('¡HÉROE {x1}!', { x1: '★'.repeat(hs) })}</h2>
       <div class="asc-row"><div class="asc-art">${this.mug(id, 128)}${charCanvas(id, 3, 12)}</div>
         <div class="asc-info"><b>${esc(p.name)}</b>
           <div class="asc-step">${this.rar(p)}${next ? ` <em>»</em> <span class="rar ${next.step === 'ascenso' ? up : 'heroe'}">${label}</span>` : ''}</div>
-          ${next ? `<div class="asc-cost${spares >= next.cost ? ' ok' : ''}">Duplicados: <b>${spares}/${next.cost}</b>${spares >= next.cost ? '' : ` · te faltan ${next.cost - spares}`}</div>` : ''}
-          <div class="asc-stats"><span>Daño en partida</span><b>${pct(now.damage)}</b>${next ? `<em>»</em><b class="up">${pct(after.damage)}</b>` : ''}
-            <span>Vida aportada</span><b>${pct(now.hp)}</b>${next ? `<em>»</em><b class="up">${pct(after.hp)}</b>` : ''}</div>
+          ${next ? `<div class="asc-cost${spares >= next.cost ? ' ok' : ''}">${tr('Duplicados:')} <b>${spares}/${next.cost}</b>${spares >= next.cost ? '' : ` · te faltan ${next.cost - spares}`}</div>` : ''}
+          <div class="asc-stats"><span>${tr('Daño en partida')}</span><b>${pct(now.damage)}</b>${next ? `<em>»</em><b class="up">${pct(after.damage)}</b>` : ''}
+            <span>${tr('Vida aportada')}</span><b>${pct(now.hp)}</b>${next ? `<em>»</em><b class="up">${pct(after.hp)}</b>` : ''}</div>
           <ul class="gi-list">${unlocks.map((u) => `<li>${esc(u)}</li>`).join('')}</ul>
-          <div class="note">Los duplicados se consumen; las estrellas ya ganadas se conservan.</div></div></div>
-      <div class="tut-nav"><button class="btn small blue" id="ascclose">Cerrar</button><span class="spacer"></span>
-        ${next ? `<button class="btn big" id="ascgo" ${spares >= next.cost ? '' : 'disabled'}>Ascender (${next.cost} duplicados)</button>` : ''}</div></div>`;
+          <div class="note">${tr('Los duplicados se consumen; las estrellas ya ganadas se conservan.')}</div></div></div>
+      <div class="tut-nav"><button class="btn small blue" id="ascclose">${tr('Cerrar')}</button><span class="spacer"></span>
+        ${next ? `<button class="btn big" id="ascgo" ${spares >= next.cost ? '' : 'disabled'}>${tr('Ascender ({cost} duplicados)', { cost: next.cost })}</button>` : ''}</div></div>`;
     document.body.appendChild(box);
     mountPreviews();
     const close = () => { box.remove(); back(); };
@@ -1868,7 +1870,7 @@ export class App {
       // Fix 1.31: training points the new stats can't use any more come back
       const returned = trimTraining(this.save, p, effectiveRarity(this.save, p), isHero(this.save, p.id));
       this.persist();
-      if (returned) window.setTimeout(() => this.toast(`Te devolvemos ${returned} ${returned === 1 ? 'punto' : 'puntos'} de entrenamiento: esas estadísticas ya llegan a su máximo`, 4500), 1600);
+      if (returned) window.setTimeout(() => this.toast(tr('Te devolvemos {returned} {x1} de entrenamiento: esas estadísticas ya llegan a su máximo', { returned, x1: returned === 1 ? 'punto' : 'puntos' }), 4500), 1600);
       box.querySelector('.asc-card')!.classList.add('transform');
       sfx('legend');
       if (this.save.settings.particles !== 'desactivado') confetti(step === 'ascenso' ? 50 : 90);
@@ -1883,14 +1885,14 @@ export class App {
   private ascensionCard(p: RosterEntry, step: AscStep) {
     return new Promise<void>((resolve) => {
       const r = effectiveRarity(this.save, p), hero = step !== 'ascenso';
-      const heroLabel = step === 'campeon' ? CHAMPION_LABEL[championOf(this.save, p.id)] : step === 'estrella' ? `HÉROE ${'★'.repeat(this.owned(p.id)?.heroStars ?? 1)}` : 'HÉROE';
+      const heroLabel = step === 'campeon' ? CHAMPION_LABEL[championOf(this.save, p.id)] : step === 'estrella' ? tr('HÉROE {x1}', { x1: '★'.repeat(this.owned(p.id)?.heroStars ?? 1) }) : tr('HÉROE');
       const tier = r === 'leyenda' || hero ? 3 : r === 'mitico' ? 2 : r === 'legendario' ? 1 : 0;
       const ov = document.createElement('div');
       ov.className = `reveal asc-reveal${tier >= 1 ? ' legend' : ''}${tier >= 2 ? ' myth' : ''}${hero ? ' leyenda' : ''}`;
       ov.style.setProperty('--rc', `${RARITY_COLOR[r]}55`);
       ov.innerHTML = `<div class="rays"></div><div class="flash go"></div>
         <div class="reveal-card from-scene"><div class="rarity-big t${tier}" style="color:${hero ? '#ffd21f' : RARITY_COLOR[r]}">${hero ? heroLabel : RARITY_LABEL[r].toUpperCase()}</div>
-          ${this.pcard(p, { anim: 12, big: true })}<div class="newtag">${step === 'campeon' ? `¡${CHAMPION_LABEL[championOf(this.save, p.id)]}!` : step === 'estrella' ? '¡NUEVA ESTRELLA DE HÉROE!' : hero ? '¡HÉROE!' : '¡ASCENDIDO!'}</div><button class="btn big">Aceptar</button></div>`;
+          ${this.pcard(p, { anim: 12, big: true })}<div class="newtag">${step === 'campeon' ? `¡${CHAMPION_LABEL[championOf(this.save, p.id)]}!` : step === 'estrella' ? tr('¡NUEVA ESTRELLA DE HÉROE!') : hero ? tr('¡HÉROE!') : tr('¡ASCENDIDO!')}</div><button class="btn big">${tr('Aceptar')}</button></div>`;
       document.body.appendChild(ov);
       mountPreviews();
       sfx(hero ? 'leyenda' : tier >= 2 ? 'myth' : 'legend');
@@ -1910,16 +1912,16 @@ export class App {
     const champs = championsTable(this.save).slice(0, 10).filter((c) => this.byId.has(c.id));
     const top = champs.map((c, i) => { const p = this.byId.get(c.id)!; return `<div class="hof-champ${i < 3 ? ` top${i + 1}` : ''}" style="--rc:${RARITY_COLOR[p.rarity]};--d:${i * 50}ms">
       <span class="rk-pos">${i < 3 ? ['🥇', '🥈', '🥉'][i] : `#${i + 1}`}</span>${this.mug(p.id, 64)}<b>${esc(p.name)}</b>
-      <small>${c.wins} ${c.wins === 1 ? 'victoria' : 'victorias'} · ${c.captain} de capitán · mejor rango ${c.best}</small></div>`; }).join('');
+      <small>${tr('{wins} {x1} · {captain} de capitán · mejor rango {best}', { wins: c.wins, x1: c.wins === 1 ? 'victoria' : 'victorias', captain: c.captain, best: c.best })}</small></div>`; }).join('');
     const rows = hall.slice(0, 60).map((t, i) => `<div class="hof-run" style="--d:${Math.min(i, 15) * 40}ms">
       <span class="rank-btn r-${t.rank} rk-r">${rankMark(t.rank)}</span>
-      <span class="hof-meta"><b>${esc(mapName(t.map))}</b><small>${new Date(t.at).toLocaleDateString('es')} · ${fmtTime(t.time)} · ${t.kills} eliminaciones · ${t.damage.toLocaleString('es')} daño${t.endless ? ` · ∞ ${fmtTime(t.endless)}` : ''}</small></span>
+      <span class="hof-meta"><b>${esc(mapName(t.map))}</b><small>${tr('{x1} · {time} · {kills} eliminaciones · {x2} daño{x3}', { x1: new Date(t.at).toLocaleDateString(locale()), time: fmtTime(t.time), kills: t.kills, x2: t.damage.toLocaleString(locale()), x3: t.endless ? ` · ∞ ${fmtTime(t.endless)}` : '' })}</small></span>
       <span class="hof-team">${t.team.filter((id) => this.byId.has(id)).map((id, k) => `<span class="hof-p${k === 0 ? ' cap' : ''}" title="${esc(this.byId.get(id)!.name)}">${this.mug(id, 44)}${k === 0 ? '<i>C</i>' : ''}</span>`).join('')}</span></div>`).join('');
     const byMap = this.m.maps.map((mp) => `${esc(mp.name)}: ${hall.filter((t) => t.map === mp.id).length}`).join(' · ');
-    this.show(`<div class="screen">${this.titlebar('Salón de la fama', 'Menú')}
-      <div class="panel"><b class="hof-total">${hall.length} ${hall.length === 1 ? 'victoria' : 'victorias'}</b><div class="note">${byMap}${this.save.stats.bestEndless ? ` · Récord infinito ${fmtTime(this.save.stats.bestEndless)}` : ''}</div></div>
-      ${champs.length ? `<div class="panel"><h3>Leyendas de tu club</h3><div class="hof-champs">${top}</div></div>` : ''}
-      <div class="panel"><h3>Victorias</h3><div class="hof-list">${rows || '<div class="note">Aún no has ganado ninguna partida. ¡La primera victoria quedará aquí con tu equipo!</div>'}</div></div></div>`);
+    this.show(`<div class="screen">${this.titlebar(tr('Salón de la fama'), 'Menú')}
+      <div class="panel"><b class="hof-total">${hall.length} ${hall.length === 1 ? 'victoria' : 'victorias'}</b><div class="note">${byMap}${this.save.stats.bestEndless ? tr(' · Récord infinito {bestEndless}', { bestEndless: fmtTime(this.save.stats.bestEndless) }) : ''}</div></div>
+      ${champs.length ? `<div class="panel"><h3>${tr('Leyendas de tu club')}</h3><div class="hof-champs">${top}</div></div>` : ''}
+      <div class="panel"><h3>${tr('Victorias')}</h3><div class="hof-list">${rows || `<div class="note">${tr('Aún no has ganado ninguna partida. ¡La primera victoria quedará aquí con tu equipo!')}</div>`}</div></div></div>`);
     this.on('[data-back]', 'click', () => this.mainMenu());
   }
 
@@ -1934,16 +1936,16 @@ export class App {
     // v1.4: the filters are chips (one tap) instead of drop-down lists
     const multTxt = (id: string) => `×${String(+mapMult(id).toFixed(2)).replace('.', ',')}`; // 2.01: the arena's difficulty, visible
     const chips = (key: 'map' | 'rank' | 'order', opts: [string, string][], cur: string) => `<div class="rk-chips" data-rq="${key}">${opts.map(([v, l]) => `<button class="rk-chip${cur === v ? ' on' : ''}" data-v="${v}">${esc(l)}</button>`).join('')}</div>`;
-    this.show(`<div class="screen rk-screen">${this.titlebar('Ranking', 'Menú')}
-      <div class="rk-hero"><span class="rk-hero-ic">${uiIcon('crown')}</span><div><b>${online ? 'RANKING MUNDIAL' : 'TUS MARCAS'}</b>
-        <small>${online ? 'Top 15 de todos los jugadores, cada uno con su mejor marca.' : 'El servicio online no está activado en esta versión: solo aparecen las marcas de este dispositivo.'}</small></div>
-        <details class="rk-how"><summary>${uiIcon('help')}¿Cómo se calculan los puntos?</summary><div>Puntos = (segundos × 10 + √daño × 2) × rango × arena. El rango es lo que más cuenta: C ×1, B ×1,6, A ×2,4, S ×3,4, X ×4,8 y Z ×7. La arena suma un 5% por cada etapa del camino, también las nuevas: ${this.m.maps.map((mp) => `${esc(mp.name)} ${multTxt(mp.id)}`).join(' · ')}.</div></details></div>
+    this.show(`<div class="screen rk-screen">${this.titlebar(tr('Ranking'), tr('Menú'))}
+      <div class="rk-hero"><span class="rk-hero-ic">${uiIcon('crown')}</span><div><b>${online ? tr('RANKING MUNDIAL') : tr('TUS MARCAS')}</b>
+        <small>${online ? tr('Top 15 de todos los jugadores, cada uno con su mejor marca.') : tr('El servicio online no está activado en esta versión: solo aparecen las marcas de este dispositivo.')}</small></div>
+        <details class="rk-how"><summary>${tr('{x1}¿Cómo se calculan los puntos?', { x1: uiIcon('help') })}</summary><div>${tr('Puntos = (segundos × 10 + √daño × 2) × rango × arena. El rango es lo que más cuenta: C ×1, B ×1,6, A ×2,4, S ×3,4, X ×4,8 y Z ×7. La arena suma un 5% por cada etapa del camino, también las nuevas: {x1}.', { x1: this.m.maps.map((mp) => `${esc(mp.name)} ${multTxt(mp.id)}`).join(' · ') })}</div></details></div>
       ${online ? this.rankSeasonStrip() : ''}
       <div class="rk-filters">
-        <div class="rk-fg"><small>${uiIcon('target')}Ordenar</small>${chips('order', [['score', 'Puntos'], ['rank', 'Rango'], ['time', 'Tiempo'], ['damage', 'Daño']], q.order)}</div>
-        <div class="rk-fg"><small>${uiIcon('crown')}Rango</small>${chips('rank', [['', 'Todos'], ...RANK_ORDER.map((r) => [r, r] as [string, string])], q.rank ?? '')}</div>
-        <div class="rk-fg wide"><small>${uiIcon('pitch')}Arena</small>${chips('map', [['', 'Todas'], ...this.m.maps.map((mp) => [mp.id, `${mp.name} ${multTxt(mp.id)}`] as [string, string])], q.map ?? '')}</div></div>
-      <div class="rank-list" id="rlist"><div class="note">Cargando…</div></div><div id="rme" class="rk-me"></div></div>`);
+        <div class="rk-fg"><small>${tr('{x1}Ordenar', { x1: uiIcon('target') })}</small>${chips('order', [['score', tr('Puntos')], ['rank', tr('Rango')], ['time', tr('Tiempo')], ['damage', tr('Daño')]], q.order)}</div>
+        <div class="rk-fg"><small>${tr('{x1}Rango', { x1: uiIcon('crown') })}</small>${chips('rank', [['', tr('Todos')], ...RANK_ORDER.map((r) => [r, r] as [string, string])], q.rank ?? '')}</div>
+        <div class="rk-fg wide"><small>${tr('{x1}Arena', { x1: uiIcon('pitch') })}</small>${chips('map', [['', tr('Todas')], ...this.m.maps.map((mp) => [mp.id, `${mp.name} ${multTxt(mp.id)}`] as [string, string])], q.map ?? '')}</div></div>
+      <div class="rank-list" id="rlist"><div class="note">${tr('Cargando…')}</div></div><div id="rme" class="rk-me"></div></div>`);
     this.on('[data-back]', 'click', () => this.mainMenu());
     this.on('.rk-chip', 'click', (_e, el) => {
       const key = (el.parentElement as HTMLElement).dataset.rq as 'map' | 'rank' | 'order', v = el.dataset.v ?? '';
@@ -1961,31 +1963,31 @@ export class App {
     const mapName = (id: string) => `${this.m.maps.find((x) => x.id === id)?.name ?? id} · ×${String(+mapMult(id).toFixed(2)).replace('.', ',')}`; // 2.01: with the arena's multiplier
     const row = (pos: number, name: string, captain: number, crest: string, map: string, rank: string, time: number, damage: number, mine = false, score?: number) => {
       const p = this.byId.get(captain), pts = score ?? scoreOf({ map, rank, time, damage }), rb = this.flagMini(name);
-      return `<div class="rank-row${pos <= 3 ? ` top${pos}` : ''}${mine ? ' mine' : ''}${rb ? ' has-pn' : ''}" style="--d:${Math.min(pos, 15) * 40}ms"${onlineConfigured() ? ` data-user="${esc(name)}" title="Ver el perfil de ${esc(name)}"` : ''}>
+      return `<div class="rank-row${pos <= 3 ? ` top${pos}` : ''}${mine ? ' mine' : ''}${rb ? ' has-pn' : ''}" style="--d:${Math.min(pos, 15) * 40}ms"${onlineConfigured() ? ` data-user="${esc(name)}" title="${tr('Ver el perfil de {name}', { name: esc(name) })}"` : ''}>
         ${rb}<span class="rk-pos">${pos <= 3 ? ['🥇', '🥈', '🥉'][pos - 1] : `#${pos}`}</span>
         ${this.framed(`<span class="rk-av${p ? ` r-${p.rarity}` : ''}${this.champLevel(name, captain) ? ' champ' : ''}">${p ? this.mug(p.id, 48) : ''}</span>`, this.frameOf(name))}
         <span class="rk-name"><b class="${this.goldName(name).trim()}">${esc(name)}</b>${this.clanBadge(name)}${this.sideBadge(name)}${this.champTag(name, captain)}<small>${esc(mapName(map))}</small></span>
         ${crest && this.emblemOf(crest) ? `<img class="rk-crest" src="${this.emblemOf(crest)}" alt="">` : '<span class="rk-crest"></span>'}
         <span class="rank-btn r-${rank} rk-r">${rankMark(rank)}</span>
-        <span class="rk-num rk-pts${q.order === 'score' || q.order === 'rank' ? ' on' : ''}"><b>${pts.toLocaleString('es')}</b><small>puntos</small></span>
-        <span class="rk-num${q.order === 'time' ? ' on' : ''}"><b>${fmtTime(time)}</b><small>tiempo</small></span><span class="rk-num${q.order === 'damage' ? ' on' : ''}"><b>${damage.toLocaleString('es')}</b><small>daño</small></span></div>`;
+        <span class="rk-num rk-pts${q.order === 'score' || q.order === 'rank' ? ' on' : ''}"><b>${pts.toLocaleString(locale())}</b><small>${tr('puntos')}</small></span>
+        <span class="rk-num${q.order === 'time' ? ' on' : ''}"><b>${fmtTime(time)}</b><small>${tr('tiempo')}</small></span><span class="rk-num${q.order === 'damage' ? ' on' : ''}"><b>${damage.toLocaleString(locale())}</b><small>${tr('daño')}</small></span></div>`;
     };
     type RowArgs = readonly [number, string, number, string, string, string, number, number, boolean, number | undefined];
-    const metric = (time: number, damage: number, pts: number) => q.order === 'time' ? [fmtTime(time), 'tiempo'] : q.order === 'damage' ? [damage.toLocaleString('es'), 'daño'] : [pts.toLocaleString('es'), 'puntos'];
+    const metric = (time: number, damage: number, pts: number) => q.order === 'time' ? [fmtTime(time), 'tiempo'] : q.order === 'damage' ? [damage.toLocaleString(locale()), 'daño'] : [pts.toLocaleString(locale()), 'puntos'];
     const podium = (top: readonly RowArgs[]) => `<div class="rk-podium">${top.map(([pos, name, captain, crest, map, rank, time, damage, , score]) => {
       const p = this.byId.get(captain), pts = score ?? scoreOf({ map, rank, time, damage }), [big, unit] = metric(time, damage, pts);
-      return `<div class="rk-pod p${pos}" style="--d:${pos * 90}ms"${onlineConfigured() ? ` data-user="${esc(name)}" title="Ver el perfil de ${esc(name)}"` : ''}><span class="rk-medal">${pos}</span>
+      return `<div class="rk-pod p${pos}" style="--d:${pos * 90}ms"${onlineConfigured() ? ` data-user="${esc(name)}" title="${tr('Ver el perfil de {name}', { name: esc(name) })}"` : ''}><span class="rk-medal">${pos}</span>
         ${this.framed(`<span class="rk-pmug${p ? ` r-${p.rarity}` : ''}${this.champLevel(name, captain) ? ' champ' : ''}">${p ? this.mug(p.id, pos === 1 ? 112 : 88) : ''}</span>`, this.frameOf(name))}
         ${this.namePlate('rk-pname', name)}${this.clanBadge(name)}${this.sideBadge(name)}${this.champTag(name, captain)}<small>${p ? esc(p.name) : ''} · ${esc(mapName(map))}</small>
         <div class="rk-pbig"><b>${big}</b><small>${unit}</small></div>
         <div class="rk-pmeta">${crest && this.emblemOf(crest) ? `<img class="rk-crest" src="${this.emblemOf(crest)}" alt="">` : ''}<span class="rank-btn r-${rank}">${rankMark(rank)}</span>
-          <span><b>${fmtTime(time)}</b><small>tiempo</small></span><span><b>${damage.toLocaleString('es')}</b><small>daño</small></span></div>
+          <span><b>${fmtTime(time)}</b><small>${tr('tiempo')}</small></span><span><b>${damage.toLocaleString(locale())}</b><small>${tr('daño')}</small></span></div>
         <i class="rk-step"><b>${pos}</b></i></div>`;
     }).join('')}</div>`;
     if (!onlineConfigured()) {
       const rows = localBoard(this.save, q.map, q.rank, q.order);
       const all = rows.slice(0, 15).map((m) => [m.pos, this.save.profile.name, m.captainId, this.save.crest, m.map, m.rank, m.time, m.damage, true, m.score] as const);
-      list.innerHTML = all.length ? podium(all.slice(0, 3)) + all.slice(3).map((r) => row(...r)).join('') : '<div class="note">Aún no hay marcas: termina una partida.</div>';
+      list.innerHTML = all.length ? podium(all.slice(0, 3)) + all.slice(3).map((r) => row(...r)).join('') : `<div class="note">${tr('Aún no hay marcas: termina una partida.')}</div>`;
       me.innerHTML = '';
       return;
     }
@@ -1993,15 +1995,15 @@ export class App {
       const rows = await leaderboard(q);
       await Promise.all([this.loadFlags(rows.map((r) => r.username)), this.loadChamps(rows.map((r) => ({ username: r.username, captain: r.captain_id })))]); // v1.65; 2.0 champions
       const all = rows.map((r) => [Number(r.pos), r.username, r.captain_id, r.crest, r.map, r.rank, r.time_sec, Number(r.damage), false, r.score == null ? undefined : Number(r.score)] as const);
-      list.innerHTML = all.length ? podium(all.slice(0, 3)) + all.slice(3).map((r) => row(...r)).join('') : '<div class="note">Nadie ha jugado este tablero todavía.</div>';
+      list.innerHTML = all.length ? podium(all.slice(0, 3)) + all.slice(3).map((r) => row(...r)).join('') : `<div class="note">${tr('Nadie ha jugado este tablero todavía.')}</div>`;
       const mine = signedIn() ? await myPosition(q) : null;
-      me.innerHTML = mine ? `<h3>${uiIcon('target')}Mi posición</h3>${row(Number(mine.pos), mine.username, mine.captain_id, mine.crest, mine.map, mine.rank, mine.time_sec, Number(mine.damage), true, mine.score == null ? undefined : Number(mine.score))}`
-        : `<div class="note">${signedIn() ? 'Aún no tienes marca en este tablero.' : 'Conecta tu cuenta en Perfil para aparecer aquí.'}</div>`;
+      me.innerHTML = mine ? `<h3>${tr('{x1}Mi posición', { x1: uiIcon('target') })}</h3>${row(Number(mine.pos), mine.username, mine.captain_id, mine.crest, mine.map, mine.rank, mine.time_sec, Number(mine.damage), true, mine.score == null ? undefined : Number(mine.score))}`
+        : `<div class="note">${signedIn() ? tr('Aún no tienes marca en este tablero.') : tr('Conecta tu cuenta en Perfil para aparecer aquí.')}</div>`;
       this.bindUsers(list); this.bindUsers(me);
     } catch (err) {
       // Fix 1.32: a clear message and a retry instead of the server's raw text
       void err;
-      list.innerHTML = `<div class="panel rank-down"><b>El ranking no está disponible ahora mismo</b><div class="note">El servidor está saturado o no hay conexión. Tu partida y tus marcas no se pierden.</div><button class="btn small" id="rretry">Reintentar</button></div>`;
+      list.innerHTML = `<div class="panel rank-down"><b>${tr('El ranking no está disponible ahora mismo')}</b><div class="note">${tr('El servidor está saturado o no hay conexión. Tu partida y tus marcas no se pierden.')}</div><button class="btn small" id="rretry">${tr('Reintentar')}</button></div>`;
       document.getElementById('rretry')?.addEventListener('click', () => { list.innerHTML = '<div class="note">Cargando…</div>'; void this.fillRanking(); });
     }
   }
@@ -2037,14 +2039,14 @@ export class App {
   }
   private champTag(name: string, captain: number) {
     const c = this.champLevel(name, captain);
-    return c ? `<span class="rk-champ c${c}" title="Su capitán es ${CHAMPION_LABEL[c]}">♛ ${CHAMPION_LABEL[c]}</span>` : '';
+    return c ? `<span class="rk-champ c${c}" title="${tr('Su capitán es {x1}', { x1: CHAMPION_LABEL[c] })}">♛ ${CHAMPION_LABEL[c]}</span>` : '';
   }
   /** 1.93: the clan of each name on the ranking (lowercase name → clan) */
   private clanCache = new Map<string, { name: string; crest: string }>();
   private clanBadge(name: string) {
     const me = (this.save.onlineName ?? this.save.profile.name).toLowerCase() === name.toLowerCase();
     const c = me && this.save.clanSeen ? { name: this.save.clanSeen.name, crest: this.save.clanSeen.crest } : this.clanCache.get(name.toLowerCase());
-    return c ? `<span class="rk-clan" data-clan="${esc(c.name)}" title="Ver el clan ${esc(c.name)}">${c.crest && this.emblemOf(c.crest) ? `<img src="${this.emblemOf(c.crest)}" alt="">` : uiIcon('team')}<em>${esc(c.name)}</em></span>` : '';
+    return c ? `<span class="rk-clan" data-clan="${esc(c.name)}" title="${tr('Ver el clan {cName}', { cName: esc(c.name) })}">${c.crest && this.emblemOf(c.crest) ? `<img src="${this.emblemOf(c.crest)}" alt="">` : uiIcon('team')}<em>${esc(c.name)}</em></span>` : '';
   }
   /** 2.2 (author: «que se vea en el ranking el bando»): Sector Quinto or Resistencia next to the name (lowercase name → side) */
   private sideCache = new Map<string, SideId>();
@@ -2052,7 +2054,7 @@ export class App {
     const me = (this.save.onlineName ?? this.save.profile.name).toLowerCase() === name.toLowerCase();
     const id = me && signedIn() ? sectorOf(this.save).side ?? this.sideCache.get(name.toLowerCase()) : this.sideCache.get(name.toLowerCase());
     const s = id ? SIDES[id] : null, logo = id ? this.m.sector?.[id] : null;
-    return s ? `<span class="rk-side sd-${s.id}" title="Bando: ${esc(s.name)}">${logo ? `<img src="${logo}" alt="">` : ''}<em>${esc(s.name)}</em></span>` : '';
+    return s ? `<span class="rk-side sd-${s.id}" title="${tr('Bando: {sName}', { sName: esc(s.name) })}">${logo ? `<img src="${logo}" alt="">` : ''}<em>${esc(s.name)}</em></span>` : '';
   }
   /** v1.65: avatar frame of each name on the ranking (lowercase name → id) */
   private frameCache = new Map<string, string>();
@@ -2113,9 +2115,9 @@ export class App {
     // 1.81: a code's banner is only listed for whoever owns it
     const list = PENNANTS.filter((d) => visiblePennant(this.save, d));
     const eq = this.save.pennants?.equipped, owned = list.filter((d) => hasPennant(this.save, d.id)).length;
-    const how = (d: PennantDef) => d.source === 'tienda' ? `Tienda · ${d.price?.toLocaleString('es')} ◉` : d.source === 'logro' ? `Logro: ${d.how}` : d.source === 'codigo' ? (d.how ?? 'Código') : d.source === 'clan' ? 'Tienda del clan' : d.source === 'colab' ? `Colaboración BlueLock: ${d.how}${d.id === 'colab-bluelock' && !hasPennant(this.save, d.id) ? ` (${Math.min(this.save.blWins ?? 0, BLUELOCK_WINS_FOR_BANNER)}/${BLUELOCK_WINS_FOR_BANNER})` : ''}` : 'Evento por tiempo limitado';
-    return `<div class="panel pf-pennants"><h3>${uiIcon('crown')}Banners <small>${owned}/${list.length}</small></h3>
-      <p class="note">Tu banner sale junto a tu nombre en el ranking y en tu perfil, también cuando otros lo abren.</p>
+    const how = (d: PennantDef) => d.source === 'tienda' ? `Tienda · ${d.price?.toLocaleString(locale())} ◉` : d.source === 'logro' ? `Logro: ${d.how}` : d.source === 'codigo' ? (d.how ?? 'Código') : d.source === 'clan' ? tr('Tienda del clan') : d.source === 'colab' ? tr('Colaboración BlueLock: {how}{x1}', { how: d.how, x1: d.id === 'colab-bluelock' && !hasPennant(this.save, d.id) ? ` (${Math.min(this.save.blWins ?? 0, BLUELOCK_WINS_FOR_BANNER)}/${BLUELOCK_WINS_FOR_BANNER})` : '' }) : tr('Evento por tiempo limitado');
+    return `<div class="panel pf-pennants"><h3>${tr('{x1}Banners', { x1: uiIcon('crown') })} <small>${owned}/${list.length}</small></h3>
+      <p class="note">${tr('Tu banner sale junto a tu nombre en el ranking y en tu perfil, también cuando otros lo abren.')}</p>
       <div class="pn-grid">${list.map((d) => { const own = hasPennant(this.save, d.id);
         return `<button class="pn-pick${own ? '' : ' locked'}${eq === d.id ? ' on' : ''}" data-pn="${d.id}">${this.pennantCard(d, `<span class="pn-how">${own ? (eq === d.id ? '★ Equipado' : 'Equipar') : esc(how(d))}</span>`)}</button>`; }).join('')}</div></div>
       ${this.framePanel(how)}`;
@@ -2124,8 +2126,8 @@ export class App {
   private framePanel(how: (d: PennantDef) => string) {
     const list = FRAMES.filter((d) => visiblePennant(this.save, d));
     const eq = this.save.pennants?.frame, owned = list.filter((d) => hasPennant(this.save, d.id)).length;
-    return `<div class="panel pf-pennants pf-frames"><h3>${uiIcon('crown')}Marcos <small>${owned}/${list.length}</small></h3>
-      <p class="note">Tu marco rodea tu icono en el ranking y en tu perfil, también cuando otros lo abren.</p>
+    return `<div class="panel pf-pennants pf-frames"><h3>${tr('{x1}Marcos', { x1: uiIcon('crown') })} <small>${owned}/${list.length}</small></h3>
+      <p class="note">${tr('Tu marco rodea tu icono en el ranking y en tu perfil, también cuando otros lo abren.')}</p>
       <div class="pn-grid">${list.map((d) => { const own = hasPennant(this.save, d.id);
         return `<button class="pn-pick${own ? '' : ' locked'}${eq === d.id ? ' on' : ''}" data-fr="${d.id}">${this.pennantCard(d, `<span class="pn-how">${own ? (eq === d.id ? '★ Equipado' : 'Equipar') : esc(how(d))}</span>`)}</button>`; }).join('')}</div></div>`;
   }
@@ -2146,23 +2148,23 @@ export class App {
     setMusicContext('gacha');
     const now = serverNow(), open = eventActive(now), c = this.save.coins;
     const odds = eventOdds();
-    const res = results ? `<div class="panel pn-results"><h3>${results.some((r) => r.isNew) ? '¡Premios nuevos!' : 'Resultado'}</h3><div class="pn-grid pn-reveal">${results.map((r, k) =>
-      this.pennantCard(r.def, r.isNew ? '<em class="pn-new">¡NUEVO!</em>' : `<em class="pn-dup">Repetido · +${r.refund} ◉</em>`, `data-k="${k}" style="--rc:${RARITY_COLOR[r.def.rarity]};--k:${k}"`)).join('')}</div></div>` : '';
-    this.show(`<div class="screen pn-screen">${this.titlebar(PENNANT_EVENT.name, 'Menú')}
+    const res = results ? `<div class="panel pn-results"><h3>${results.some((r) => r.isNew) ? tr('¡Premios nuevos!') : 'Resultado'}</h3><div class="pn-grid pn-reveal">${results.map((r, k) =>
+      this.pennantCard(r.def, r.isNew ? `<em class="pn-new">${tr('¡NUEVO!')}</em>` : `<em class="pn-dup">${tr('Repetido · +{refund} ◉', { refund: r.refund })}</em>`, `data-k="${k}" style="--rc:${RARITY_COLOR[r.def.rarity]};--k:${k}"`)).join('')}</div></div>` : '';
+    this.show(`<div class="screen pn-screen">${this.titlebar(PENNANT_EVENT.name, tr('Menú'))}
       <div class="panel pn-hero"><div class="pn-hero-art">${pennantRibbon('supernova')}</div>
-        <div class="pn-hero-tx"><small>EVENTO POR TIEMPO LIMITADO</small><b>Banners y marcos de leyenda</b>
-          <p>Diez banners y diez marcos nuevos para tu perfil, del Neumático de Entrenamiento a La Tierra. Los dos <b>Míticos Supernova Oscura</b> (banner y marco) solo salen aquí, con un 3% cada uno. Si te sale uno que ya tienes, recuperas monedas.</p>
-          <div class="pn-left">${open ? `Termina en <b>${this.eventLeftText(now)}</b>` : +now < Date.parse(PENNANT_EVENT.start) ? 'Todavía no ha empezado' : 'El evento ha terminado'}</div>
-          <div class="pn-buy"><button class="btn big" id="pn1" ${!open || c < PENNANT_EVENT.cost ? 'disabled' : ''}>Tirada · ${PENNANT_EVENT.cost.toLocaleString('es')} ◉</button>
-            <button class="btn big blue" id="pn10" ${!open || c < PENNANT_EVENT.multiCost ? 'disabled' : ''}>×10 · ${PENNANT_EVENT.multiCost.toLocaleString('es')} ◉</button></div>
-          <small class="note">Tienes ${c.toLocaleString('es')} ◉</small></div></div>
+        <div class="pn-hero-tx"><small>${tr('EVENTO POR TIEMPO LIMITADO')}</small><b>${tr('Banners y marcos de leyenda')}</b>
+          <p>${tr('Diez banners y diez marcos nuevos para tu perfil, del Neumático de Entrenamiento a La Tierra. Los dos <b>Míticos Supernova Oscura</b> (banner y marco) solo salen aquí, con un 3% cada uno. Si te sale uno que ya tienes, recuperas monedas.')}</p>
+          <div class="pn-left">${open ? `${tr('Termina en <b>{eventLeftText}</b>', { eventLeftText: this.eventLeftText(now) })}` : +now < Date.parse(PENNANT_EVENT.start) ? tr('Todavía no ha empezado') : tr('El evento ha terminado')}</div>
+          <div class="pn-buy"><button class="btn big" id="pn1" ${!open || c < PENNANT_EVENT.cost ? 'disabled' : ''}>${tr('Tirada · {x1} ◉', { x1: PENNANT_EVENT.cost.toLocaleString(locale()) })}</button>
+            <button class="btn big blue" id="pn10" ${!open || c < PENNANT_EVENT.multiCost ? 'disabled' : ''}>×10 · ${PENNANT_EVENT.multiCost.toLocaleString(locale())} ◉</button></div>
+          <small class="note">${tr('Tienes {x1} ◉', { x1: c.toLocaleString(locale()) })}</small></div></div>
       ${res}
-      <div class="panel"><h3>${uiIcon('capsule')}Banners y marcos del evento</h3><div class="pn-grid">${odds.map((o) =>
+      <div class="panel"><h3>${tr('{x1}Banners y marcos del evento', { x1: uiIcon('capsule') })}</h3><div class="pn-grid">${odds.map((o) =>
         this.pennantCard(o.def, `<span class="pn-odds">${+o.pct.toFixed(2)}%</span>${hasPennant(this.save, o.def.id) ? '<span class="pn-own">✔ Tuyo</span>' : ''}`)).join('')}</div></div></div>`);
     this.on('[data-back]', 'click', () => this.mainMenu());
     const pull = (n: 1 | 10) => {
       const r = pullEvent(this.save, n, serverNow());
-      if (!r) { sfx('error'); this.toast(eventActive(serverNow()) ? 'No tienes monedas suficientes' : 'El evento no está activo'); return; }
+      if (!r) { sfx('error'); this.toast(eventActive(serverNow()) ? tr('No tienes monedas suficientes') : tr('El evento no está activo')); return; }
       this.persist();
       const best = r.some((x) => x.def.rarity === 'mitico' || x.def.rarity === 'legendario');
       sfx(best ? 'legend' : 'buy');
@@ -2187,10 +2189,10 @@ export class App {
     const jaden = this.byId.get(JADEN_ID);
     const box = document.createElement('div');
     box.className = 'modal road-intro';
-    box.innerHTML = `<div class="panel road-intro-card"><small>¡NUEVO MODO!</small><h2>Road to Fútbol Frontier</h2>
-      <p>Elige a <b>5 futbolistas del Raimon o de Inazuma Japan</b> (sin Auras; tu entrenador sí cuenta) y supera <b>3, 4 o 5 partidos seguidos</b> hasta la final del Estadio Zeus. Si pierdes uno, se acaba el camino.</p>
-      <ul><li>En <b>Máxima</b>, un <b>Legendario o mejor</b> asegurado al completarlo.</li><li>Complétalo en Máxima <b>${JADEN_FIRST} veces</b> y ficharás a la Leyenda <b>Jaden Evans</b>${jaden ? ` <span class="road-jmug">${this.mug(JADEN_ID, 40)}</span>` : ''}; cada ${JADEN_EVERY} más, otra copia suya.</li><li>Nuevos logros en Misiones.</li></ul>
-      <div class="cp-actions"><button class="btn big" id="rdgo">¡Vamos!</button><button class="btn blue" id="rdlater">Más tarde</button></div></div>`;
+    box.innerHTML = `<div class="panel road-intro-card"><small>${tr('¡NUEVO MODO!')}</small><h2>${tr('Road to Fútbol Frontier')}</h2>
+      <p>${tr('Elige a <b>5 futbolistas del Raimon o de Inazuma Japan</b> (sin Auras; tu entrenador sí cuenta) y supera <b>3, 4 o 5 partidos seguidos</b> hasta la final del Estadio Zeus. Si pierdes uno, se acaba el camino.')}</p>
+      <ul><li>${tr('En <b>Máxima</b>, un <b>Legendario o mejor</b> asegurado al completarlo.')}</li><li>${tr('{x1} <b>{x2}</b> {x3} <b>{x4}</b>{x5}; cada {JADEN_EVERY} más, otra copia suya.', { x1: tr('Complétalo en Máxima'), x2: tr('{JADEN_FIRST} veces', { JADEN_FIRST }), x3: tr('y ficharás a la Leyenda'), x4: tr('Jaden Evans'), x5: jaden ? ` <span class="road-jmug">${this.mug(JADEN_ID, 40)}</span>` : '', JADEN_EVERY })}</li><li>${tr('Nuevos logros en Misiones.')}</li></ul>
+      <div class="cp-actions"><button class="btn big" id="rdgo">${tr('¡Vamos!')}</button><button class="btn blue" id="rdlater">${tr('Más tarde')}</button></div></div>`;
     this.root.appendChild(box);
     const done = () => { box.remove(); this.save.roadIntroSeen = true; this.persist(); };
     box.querySelector('#rdgo')!.addEventListener('click', () => { done(); this.roadScreen(); });
@@ -2208,27 +2210,27 @@ export class App {
     const ownsJaden = !!this.save.owned[String(JADEN_ID)];
     const mapName = (id: string) => this.m.maps.find((m) => m.id === id)?.name ?? id;
     const diffs = ROAD_DIFFS.map((d) => `<button class="rd-diff${d.id === this.roadDiff ? ' on' : ''} d-${d.id}" data-rdiff="${d.id}" ${active ? 'disabled' : ''}>
-        <small>${d.maps.length} PARTIDOS · RANGO ${d.rank}</small><b>${d.label}</b>
+        <small>${tr('{mapsLength} PARTIDOS · RANGO {rank}', { mapsLength: d.maps.length, rank: d.rank })}</small><b>${d.label}</b>
         <span class="rd-path">${d.maps.map((m, i) => `<i title="${esc(mapName(m))}">${i + 1}</i>`).join('<em></em>')}</span>
-        <span class="rd-prize">${d.coins.toLocaleString('es')} ◉ · ${d.tokens} fichas${d.legendary ? ' · <b>Legendario+ asegurado</b>' : ''}</span>
-        <span class="rd-clears">Completado ${road.clears[d.id] ?? 0} ${(road.clears[d.id] ?? 0) === 1 ? 'vez' : 'veces'}</span></button>`).join('');
+        <span class="rd-prize">${tr('{x1} ◉ · {tokens} fichas{x2}', { x1: d.coins.toLocaleString(locale()), tokens: d.tokens, x2: d.legendary ? ' · <b>Legendario+ asegurado</b>' : '' })}</span>
+        <span class="rd-clears">${tr('Completado {x1} {x2}', { x1: road.clears[d.id] ?? 0, x2: (road.clears[d.id] ?? 0) === 1 ? 'vez' : 'veces' })}</span></button>`).join('');
     const slots = Array.from({ length: ROAD_SQUAD }, (_, i) => { const p = this.byId.get(this.roadPick[i]); return `<span class="rd-slot${p ? ' full' : ''}${i === 0 ? ' cap' : ''}">${p ? `${this.mug(p.id, 48)}<small>${esc(p.name)}</small>` : `<b>${i + 1}</b>`}${i === 0 ? '<em>C</em>' : ''}</span>`; }).join('');
     const grid = pool.map((p) => { const r = effectiveRarity(this.save, p), on = this.roadPick.includes(p.id);
       return `<button class="rd-pick r-${r}${on ? ' on' : ''}" data-rpick="${p.id}" style="--rc:${RARITY_COLOR[r]}">${this.mug(p.id, 40)}<span><b>${esc(p.name)}</b><small>${esc(teamLabel(p.teams.find((t) => t.includes('Inazuma') || t.includes('Raimon')) ?? ''))}</small></span></button>`; }).join('');
     const act = active ? ROAD_BY_ID.get(active.diff)! : null;
-    this.show(`<div class="screen road-screen">${this.titlebar('Road to Fútbol Frontier', 'Menú')}
-      <div class="rd-hero"><div><small>MODO DESAFÍO</small><b>Road to Fútbol Frontier</b><span>5 futbolistas del Raimon o de Inazuma Japan, sin Auras, partido tras partido hasta la final del Estadio Zeus. Si pierdes uno, se acaba el camino.</span></div>
-        <div class="rd-jaden${ownsJaden ? ' own' : ''}"><span class="rd-jart">${this.mug(JADEN_ID, 80)}${ownsJaden ? '' : '<i class="rd-lock">🔒</i>'}</span><span><small>${ownsJaden ? 'OTRA COPIA DE JADEN EN' : 'JADEN EVANS EN'}</small><b>${toJaden} ${toJaden === 1 ? 'victoria' : 'victorias'} en Máxima</b><i style="width:${jadenFrac * 100}%"></i></span></div></div>
-      ${active && act ? `<div class="panel rd-active"><h3>${uiIcon('trophy')}Camino en curso · ${act.label}</h3>
+    this.show(`<div class="screen road-screen">${this.titlebar(tr('Road to Fútbol Frontier'), 'Menú')}
+      <div class="rd-hero"><div><small>${tr('MODO DESAFÍO')}</small><b>${tr('Road to Fútbol Frontier')}</b><span>${tr('5 futbolistas del Raimon o de Inazuma Japan, sin Auras, partido tras partido hasta la final del Estadio Zeus. Si pierdes uno, se acaba el camino.')}</span></div>
+        <div class="rd-jaden${ownsJaden ? ' own' : ''}"><span class="rd-jart">${this.mug(JADEN_ID, 80)}${ownsJaden ? '' : '<i class="rd-lock">🔒</i>'}</span><span><small>${ownsJaden ? tr('OTRA COPIA DE JADEN EN') : tr('JADEN EVANS EN')}</small><b>${tr('{toJaden} {x1} en Máxima', { toJaden, x1: toJaden === 1 ? 'victoria' : 'victorias' })}</b><i style="width:${jadenFrac * 100}%"></i></span></div></div>
+      ${active && act ? `<div class="panel rd-active"><h3>${tr('{x1}Camino en curso · {label}', { x1: uiIcon('trophy'), label: act.label })}</h3>
           <span class="rd-path big">${act.maps.map((m, i) => `<i class="${i < active.level ? 'done' : i === active.level ? 'now' : ''}" title="${esc(mapName(m))}">${i < active.level ? '✔' : i + 1}</i>`).join('<em></em>')}</span>
-          <p class="note">Siguiente: <b>${esc(mapName(act.maps[active.level]))}</b> (partido ${active.level + 1} de ${act.maps.length}, ${active.level + 1} min).</p>
+          <p class="note">${tr('{x1} <b>{x2}</b> (partido {x3} de {mapsLength}, {x4} min).', { x1: tr('Siguiente:'), x2: esc(mapName(act.maps[active.level])), x3: active.level + 1, mapsLength: act.maps.length, x4: active.level + 1 })}</p>
           <div class="rd-squad">${active.squad.map((id, i) => `<span class="rd-slot full${i === 0 ? ' cap' : ''}">${this.mug(id, 48)}<small>${esc(this.byId.get(id)?.name ?? '?')}</small>${i === 0 ? '<em>C</em>' : ''}</span>`).join('')}</div>
-          <div class="cp-actions"><button class="btn big" id="rdnext">Jugar el partido ${active.level + 1} ▶</button><button class="btn blue" id="rdquit">Abandonar el camino</button></div></div>`
-        : `<div class="panel"><h3>${uiIcon('target')}Dificultad</h3><div class="rd-diffs">${diffs}</div></div>
-      <div class="panel"><h3>${uiIcon('team')}Tus 5 <small>${this.roadPick.length}/${ROAD_SQUAD} · el primero es el capitán · sin Auras</small></h3><div class="rd-squad">${slots}</div>
-        <div class="rd-coach">${coach ? `${this.coachArt(coach, 40)}<span><small>ENTRENADOR</small><b>${esc(coach.name)}</b></span>` : '<span class="note">Sin entrenador en el banquillo.</span>'}<button class="btn small blue" id="rdcoach">${coach ? 'Cambiar' : 'Elegir entrenador'}</button></div>
-        <button class="btn big rd-start" id="rdstart" ${this.roadPick.length === ROAD_SQUAD ? '' : 'disabled'}>${this.roadPick.length === ROAD_SQUAD ? `¡Empezar en ${ROAD_BY_ID.get(this.roadDiff)!.label}! ▶` : `Elige ${ROAD_SQUAD - this.roadPick.length} más`}</button></div>
-      <div class="panel"><h3>${uiIcon('cards')}Raimon e Inazuma Japan <small>${pool.length} en tu colección</small></h3>${pool.length ? `<div class="rd-grid">${grid}</div>` : '<p class="note">Aún no tienes futbolistas del Raimon o de Inazuma Japan: consíguelos en la máquina Fútbol Frontier o Mundial FFI.</p>'}</div>`}
+          <div class="cp-actions"><button class="btn big" id="rdnext">${tr('Jugar el partido {x1} ▶', { x1: active.level + 1 })}</button><button class="btn blue" id="rdquit">${tr('Abandonar el camino')}</button></div></div>`
+        : `<div class="panel"><h3>${tr('{x1}Dificultad', { x1: uiIcon('target') })}</h3><div class="rd-diffs">${diffs}</div></div>
+      <div class="panel"><h3>${tr('{x1}Tus 5', { x1: uiIcon('team') })} <small>${tr('{roadPickLength}/{ROAD_SQUAD} · el primero es el capitán · sin Auras', { roadPickLength: this.roadPick.length, ROAD_SQUAD })}</small></h3><div class="rd-squad">${slots}</div>
+        <div class="rd-coach">${coach ? `${this.coachArt(coach, 40)}<span><small>${tr('ENTRENADOR')}</small><b>${esc(coach.name)}</b></span>` : `<span class="note">${tr('Sin entrenador en el banquillo.')}</span>`}<button class="btn small blue" id="rdcoach">${coach ? 'Cambiar' : tr('Elegir entrenador')}</button></div>
+        <button class="btn big rd-start" id="rdstart" ${this.roadPick.length === ROAD_SQUAD ? '' : 'disabled'}>${this.roadPick.length === ROAD_SQUAD ? tr('¡Empezar en {x1}! ▶', { x1: ROAD_BY_ID.get(this.roadDiff)!.label }) : tr('Elige {x1} más', { x1: ROAD_SQUAD - this.roadPick.length })}</button></div>
+      <div class="panel"><h3>${tr('{x1}Raimon e Inazuma Japan', { x1: uiIcon('cards') })} <small>${tr('{poolLength} en tu colección', { poolLength: pool.length })}</small></h3>${pool.length ? `<div class="rd-grid">${grid}</div>` : `<p class="note">${tr('Aún no tienes futbolistas del Raimon o de Inazuma Japan: consíguelos en la máquina Fútbol Frontier o Mundial FFI.')}</p>`}</div>`}
     </div>`);
     this.on('[data-back]', 'click', () => this.mainMenu());
     this.on('[data-rdiff]', 'click', (_e, el) => { this.roadDiff = el.dataset.rdiff as RoadDiff; this.roadScreen(); });
@@ -2236,7 +2238,7 @@ export class App {
       const id = Number(el.dataset.rpick);
       if (this.roadPick.includes(id)) this.roadPick = this.roadPick.filter((x) => x !== id);
       else if (this.roadPick.length < ROAD_SQUAD) this.roadPick.push(id);
-      else { sfx('error'); this.toast('Ya tienes 5: quita uno para cambiarlo'); return; }
+      else { sfx('error'); this.toast(tr('Ya tienes 5: quita uno para cambiarlo')); return; }
       sfx('click'); this.roadScreen();
     });
     document.getElementById('rdcoach')?.addEventListener('click', () => this.coachesScreen('road'));
@@ -2254,7 +2256,7 @@ export class App {
   private roadPlay() {
     const a = this.save.road?.active, d = a ? ROAD_BY_ID.get(a.diff) : undefined;
     const squad = (a?.squad ?? []).map((id) => this.byId.get(id)!).filter((p) => p && this.owned(p.id));
-    if (!a || !d || squad.length !== ROAD_SQUAD) { this.toast('No se pudo empezar el partido'); return; }
+    if (!a || !d || squad.length !== ROAD_SQUAD) { this.toast(tr('No se pudo empezar el partido')); return; }
     this.roadMatch = { diff: a.diff, level: a.level };
     this.startRun(d.maps[a.level], [squad[0]], squad);
   }
@@ -2276,16 +2278,16 @@ export class App {
     };
     if (!r.victory) {
       delete road.active; this.persist();
-      finish(`<small>ROAD TO FÚTBOL FRONTIER · ${d.label.toUpperCase()}</small><h2>Eliminados</h2><p>Caísteis en el partido <b>${m.level + 1} de ${d.maps.length}</b> (${esc(mapName(d.maps[m.level]))}). El camino vuelve a empezar.</p>`,
-        () => this.roadScreen(), 'Volver a intentarlo', '<button class="btn blue" id="rdlater">Cerrar</button>');
+      finish(`<small>${tr('ROAD TO FÚTBOL FRONTIER · {toUpperCase}', { toUpperCase: d.label.toUpperCase() })}</small><h2>${tr('Eliminados')}</h2><p>${tr('{x1} <b>{x2} de {mapsLength}</b> ({x3}). El camino vuelve a empezar.', { x1: tr('Caísteis en el partido'), x2: m.level + 1, mapsLength: d.maps.length, x3: esc(mapName(d.maps[m.level])) })}</p>`,
+        () => this.roadScreen(), tr('Volver a intentarlo'), '<button class="btn blue" id="rdlater">Cerrar</button>');
       return;
     }
     const level = m.level + 1;
     if (level < d.maps.length) {
       road.active = { ...road.active!, level }; this.persist();
-      finish(`<small>ROAD TO FÚTBOL FRONTIER · ${d.label.toUpperCase()}</small><h2>¡Partido ${level} superado!</h2>
+      finish(`<small>${tr('ROAD TO FÚTBOL FRONTIER · {toUpperCase}', { toUpperCase: d.label.toUpperCase() })}</small><h2>${tr('¡Partido {level} superado!', { level })}</h2>
         <span class="rd-path big">${d.maps.map((_x, i) => `<i class="${i < level ? 'done' : i === level ? 'now' : ''}">${i < level ? '✔' : i + 1}</i>`).join('<em></em>')}</span>
-        <p>Siguiente: <b>${esc(mapName(d.maps[level]))}</b>.</p>`, () => this.roadPlay(), `Jugar el partido ${level + 1} ▶`, '<button class="btn blue" id="rdlater">Más tarde</button>');
+        <p>${tr('Siguiente:')} <b>${esc(mapName(d.maps[level]))}</b>.</p>`, () => this.roadPlay(), tr('Jugar el partido {x1} ▶', { x1: level + 1 }), `<button class="btn blue" id="rdlater">${tr('Más tarde')}</button>`);
       return;
     }
     // the road is cleared
@@ -2302,11 +2304,11 @@ export class App {
     this.persist();
     if (this.save.settings.particles !== 'desactivado') confetti(120);
     sfx('legend');
-    finish(`<small>ROAD TO FÚTBOL FRONTIER · ${d.label.toUpperCase()}</small><h2>¡Camino completado!</h2>
-      <p>Habéis ganado los ${d.maps.length} partidos hasta la final del Estadio Zeus. Completado <b>${clears} ${clears === 1 ? 'vez' : 'veces'}</b> en ${d.label}.</p>
-      <p class="rd-prize big">+${d.coins.toLocaleString('es')} ◉ · +${d.tokens} fichas${d.legendary ? ' · un Legendario o mejor' : ''}${jaden ? ` · ${jaden === 'new' ? '¡JADEN EVANS!' : 'otra copia de Jaden Evans'}` : ''}</p>
-      ${m.diff === 'maxima' && !jaden ? `<p class="note">${this.save.owned[String(JADEN_ID)] ? 'Otra copia de Jaden Evans' : 'Jaden Evans'} en ${jadenProgress(clears).left} victorias más en Máxima.</p>` : ''}`,
-      () => { if (prizes.length) void this.capsuleShow(prizes, 'Road to Fútbol Frontier').then(() => this.roadScreen()); else this.roadScreen(); }, prizes.length ? '¡Abrir premios!' : 'Genial');
+    finish(`<small>${tr('ROAD TO FÚTBOL FRONTIER · {toUpperCase}', { toUpperCase: d.label.toUpperCase() })}</small><h2>${tr('¡Camino completado!')}</h2>
+      <p>${tr('Habéis ganado los {mapsLength} partidos hasta la final del Estadio Zeus. Completado', { mapsLength: d.maps.length })} <b>${clears} ${clears === 1 ? 'vez' : 'veces'}</b> ${tr('en {label}.', { label: d.label })}</p>
+      <p class="rd-prize big">${tr('+{x1} ◉ · +{tokens} fichas{x2}{x3}', { x1: d.coins.toLocaleString(locale()), tokens: d.tokens, x2: d.legendary ? tr(' · un Legendario o mejor') : '', x3: jaden ? ` · ${jaden === 'new' ? tr('¡JADEN EVANS!') : tr('otra copia de Jaden Evans')}` : '' })}</p>
+      ${m.diff === 'maxima' && !jaden ? `<p class="note">${tr('{x1} en {left} victorias más en Máxima.', { x1: this.save.owned[String(JADEN_ID)] ? tr('Otra copia de Jaden Evans') : tr('Jaden Evans'), left: jadenProgress(clears).left })}</p>` : ''}`,
+      () => { if (prizes.length) void this.capsuleShow(prizes, tr('Road to Fútbol Frontier')).then(() => this.roadScreen()); else this.roadScreen(); }, prizes.length ? tr('¡Abrir premios!') : 'Genial');
   }
 
   // ------------------------------------------------------------- pre-2.0 coaches
@@ -2345,7 +2347,7 @@ export class App {
     const list = coachesOfMachine(m as never);
     if (!list.length) return '';
     const owned = new Set(this.save.coaches?.owned ?? []);
-    return `<div class="feat-row co-row"><small>ENTRENADORES · ${Math.round(COACH_PULL_CHANCE * 100)}% por cápsula</small><div>${list.map((c) => `<span class="co-feat${owned.has(c.id) ? ' own' : ''}" title="${esc(c.name)}${owned.has(c.id) ? ' (ya lo tienes)' : ''}">${this.coachArt(c, 44, !owned.has(c.id))}<small>${esc(c.name)}</small></span>`).join('')}</div></div>`;
+    return `<div class="feat-row co-row"><small>${tr('ENTRENADORES · {x1}% por cápsula', { x1: Math.round(COACH_PULL_CHANCE * 100) })}</small><div>${list.map((c) => `<span class="co-feat${owned.has(c.id) ? ' own' : ''}" title="${esc(c.name)}${owned.has(c.id) ? tr(' (ya lo tienes)') : ''}">${this.coachArt(c, 44, !owned.has(c.id))}<small>${esc(c.name)}</small></span>`).join('')}</div></div>`;
   }
 
   /** a new coach: his card, big, with his passives */
@@ -2354,9 +2356,9 @@ export class App {
     if (this.save.settings.particles !== 'desactivado') confetti(60);
     const box = document.createElement('div');
     box.className = 'modal co-reveal';
-    box.innerHTML = `<div class="panel co-reveal-card r-${c.rarity}" style="--rc:${RARITY_COLOR[c.rarity]}"><small>¡NUEVO ENTRENADOR!</small>${this.coachArt(c, 160)}
+    box.innerHTML = `<div class="panel co-reveal-card r-${c.rarity}" style="--rc:${RARITY_COLOR[c.rarity]}"><small>${tr('¡NUEVO ENTRENADOR!')}</small>${this.coachArt(c, 160)}
       <h2>${esc(c.name)}</h2><span class="rar ${c.rarity}">${RARITY_LABEL[c.rarity].toUpperCase()}</span><em>${esc(c.team)}</em><p class="co-quote">«${esc(c.quote)}»</p>${this.coachPassives(c)}
-      <p class="note">${this.save.coaches?.bench === c.id ? 'Ya está en tu banquillo.' : 'Ponlo en el banquillo en Mi Equipo o en Entrenadores.'}</p><button class="btn big">¡Genial!</button></div>`;
+      <p class="note">${this.save.coaches?.bench === c.id ? tr('Ya está en tu banquillo.') : tr('Ponlo en el banquillo en Mi Equipo o en Entrenadores.')}</p><button class="btn big">${tr('¡Genial!')}</button></div>`;
     this.root.appendChild(box);
     box.querySelector('.btn')!.addEventListener('click', () => box.remove());
   }
@@ -2365,10 +2367,10 @@ export class App {
   private benchPanel() {
     const c = this.benchCoach(), n = this.save.coaches?.owned.length ?? 0;
     return `<div class="panel bench-panel${c ? ` r-${c.rarity}` : ' empty'}" ${c ? `style="--rc:${RARITY_COLOR[c.rarity]}"` : ''}>
-      <div class="bench-tag">BANQUILLO</div>
-      ${c ? `${this.coachArt(c, 96)}<div class="bench-tx"><small>ENTRENADOR · ${esc(c.team)}</small><b>${esc(c.name)}</b><span class="rar ${c.rarity}">${RARITY_LABEL[c.rarity].toUpperCase()}</span>${this.coachPassives(c)}</div>`
-        : `<span class="co-art empty-art"><b>?</b></span><div class="bench-tx"><small>ENTRENADOR</small><b>Banquillo vacío</b><p class="note">${n ? 'Elige a uno de tus entrenadores.' : `Los entrenadores salen en las máquinas de fichajes de su saga (${Math.round(COACH_PULL_CHANCE * 100)}% por cápsula). Cada uno da pasivas a todo el equipo.`}</p></div>`}
-      <button class="btn small blue" data-go-coaches>${c ? 'Cambiar' : 'Ver entrenadores'}</button></div>`;
+      <div class="bench-tag">${tr('BANQUILLO')}</div>
+      ${c ? `${this.coachArt(c, 96)}<div class="bench-tx"><small>${tr('ENTRENADOR · {team}', { team: esc(c.team) })}</small><b>${esc(c.name)}</b><span class="rar ${c.rarity}">${RARITY_LABEL[c.rarity].toUpperCase()}</span>${this.coachPassives(c)}</div>`
+        : `<span class="co-art empty-art"><b>?</b></span><div class="bench-tx"><small>${tr('ENTRENADOR')}</small><b>${tr('Banquillo vacío')}</b><p class="note">${n ? tr('Elige a uno de tus entrenadores.') : tr('Los entrenadores salen en las máquinas de fichajes de su saga ({x1}% por cápsula). Cada uno da pasivas a todo el equipo.', { x1: Math.round(COACH_PULL_CHANCE * 100) })}</p></div>`}
+      <button class="btn small blue" data-go-coaches>${c ? 'Cambiar' : tr('Ver entrenadores')}</button></div>`;
   }
 
   /** pre-2.0: every coach — owned ones can go on the bench, the rest say where they come from */
@@ -2381,11 +2383,11 @@ export class App {
       return `<div class="co-card r-${c.rarity}${own ? '' : ' locked'}${bench === c.id ? ' on' : ''}" style="--rc:${RARITY_COLOR[c.rarity]}">
         ${this.coachArt(c, 112, !own)}<div class="co-card-tx"><small>${esc(c.team)}</small><b>${own ? esc(c.name) : '???'}</b><span class="rar ${c.rarity}">${RARITY_LABEL[c.rarity].toUpperCase()}</span>
         ${own ? `<p class="co-quote">«${esc(c.quote)}»</p>` : ''}${this.coachPassives(c)}
-        ${own ? `<button class="btn small${bench === c.id ? ' blue' : ''}" data-bench="${c.id}">${bench === c.id ? '✔ En el banquillo' : 'Al banquillo'}</button>`
-          : `<p class="co-where">🔒 Sale en la máquina <b>${esc(this.machineLabel(c.machine))}</b> (${Math.round(COACH_PULL_CHANCE * 100)}% por cápsula)</p>`}</div></div>`;
+        ${own ? `<button class="btn small${bench === c.id ? ' blue' : ''}" data-bench="${c.id}">${bench === c.id ? tr('✔ En el banquillo') : tr('Al banquillo')}</button>`
+          : `<p class="co-where">${tr('{x1} <b>{x2}</b> ({x3}% por cápsula)', { x1: tr('🔒 Sale en la máquina'), x2: esc(this.machineLabel(c.machine)), x3: Math.round(COACH_PULL_CHANCE * 100) })}</p>`}</div></div>`;
     }).join('');
-    this.show(`<div class="screen coaches-screen">${this.titlebar('Entrenadores', back === 'squad' ? 'Mi Equipo' : back === 'road' ? 'Road to FF' : 'Menú')}
-      <div class="panel co-head"><b>${owned.size} de ${COACHES.length} entrenadores</b><p class="note">Uno se sienta en el <b>banquillo</b> y da sus pasivas a todo el equipo durante la partida: su formación, objetos raros, afinidad con un elemento, daño, defensa o técnicas combinadas.</p></div>
+    this.show(`<div class="screen coaches-screen">${this.titlebar('Entrenadores', back === 'squad' ? tr('Mi Equipo') : back === 'road' ? tr('Road to FF') : 'Menú')}
+      <div class="panel co-head"><b>${tr('{size} de {COACHESLength} entrenadores', { size: owned.size, COACHESLength: COACHES.length })}</b><p class="note">${tr('Uno se sienta en el <b>banquillo</b> y da sus pasivas a todo el equipo durante la partida: su formación, objetos raros, afinidad con un elemento, daño, defensa o técnicas combinadas.')}</p></div>
       <div class="co-grid">${cards}</div></div>`);
     this.on('[data-back]', 'click', () => (back === 'squad' ? this.captainSelect() : back === 'road' ? this.roadScreen() : this.mainMenu()));
     this.on('[data-bench]', 'click', (_e, el) => {
@@ -2401,19 +2403,19 @@ export class App {
   private blRewards() {
     const wins = Math.min(this.save.blWins ?? 0, BLUELOCK_WINS_FOR_BANNER);
     const item = (art: string, label: string, done: boolean, prog: string) =>
-      `<span class="bl-rw${done ? ' done' : ''}"><span class="bl-rw-art">${art}</span><span><b>${label}</b><em>${done ? '¡Conseguido! Póntelo en tu Perfil' : prog}</em></span></span>`;
-    return `<div class="bl-rewards"><small>RECOMPENSAS DE LA COLABORACIÓN</small><div>
-      ${item(pennantSvg('colab-bluelock', 30), 'Banner InaZurvivors x BlueLock', hasPennant(this.save, 'colab-bluelock'), `Gana ${BLUELOCK_WINS_FOR_BANNER} partidas · ${wins}/${BLUELOCK_WINS_FOR_BANNER}`)}
-      ${item(`<span class="bl-rw-fr">${frameSvg('marco-bluelock')}</span>`, 'Marco BlueLock', hasPennant(this.save, 'marco-bluelock'), `Ficha a Nagi y a Isagi · ${BLUELOCK_EVENT.players.filter((id) => this.save.owned[String(id)]).length}/2`)}
+      `<span class="bl-rw${done ? ' done' : ''}"><span class="bl-rw-art">${art}</span><span><b>${label}</b><em>${done ? tr('¡Conseguido! Póntelo en tu Perfil') : prog}</em></span></span>`;
+    return `<div class="bl-rewards"><small>${tr('RECOMPENSAS DE LA COLABORACIÓN')}</small><div>
+      ${item(pennantSvg('colab-bluelock', 30), tr('Banner InaZurvivors x BlueLock'), hasPennant(this.save, 'colab-bluelock'), tr('Gana {BLUELOCK_WINS_FOR_BANNER} partidas · {wins}/{BLUELOCK_WINS_FOR_BANNER}', { BLUELOCK_WINS_FOR_BANNER, wins }))}
+      ${item(`<span class="bl-rw-fr">${frameSvg('marco-bluelock')}</span>`, tr('Marco BlueLock'), hasPennant(this.save, 'marco-bluelock'), tr('Ficha a Nagi y a Isagi · {x1}/2', { x1: BLUELOCK_EVENT.players.filter((id) => this.save.owned[String(id)]).length }))}
     </div></div>`;
   }
 
   /** author: «InaZurvivors x BlueLock» — the game's name, an x and the BlueLock logo */
   private blLogo() {
     const logo = this.m.collab?.bluelock;
-    return `<span class="bl-logo"><b class="bl-iz">InaZurvivors</b><i class="bl-x">×</i>${logo ? `<img src="${logo}" alt="BlueLock">` : '<b>BlueLock</b>'}</span>`;
+    return `<span class="bl-logo"><b class="bl-iz">InaZurvivors</b><i class="bl-x">×</i>${logo ? `<img src="${logo}" alt="${tr('BlueLock')}">` : '<b>BlueLock</b>'}</span>`;
   }
-  private egIcon(size = 18) { const src = this.m.eg?.ficha; return src ? `<img class="eg-fic" src="${src}" alt="Ficha EG" style="width:${size}px;height:${size}px">` : '<b class="eg-fic">EG</b>'; }
+  private egIcon(size = 18) { const src = this.m.eg?.ficha; return src ? `<img class="eg-fic" src="${src}" alt="${tr('Ficha EG')}" style="width:${size}px;height:${size}px">` : '<b class="eg-fic">EG</b>'; }
   /** the symbol of a spirit level: II…Ω are drawn; level I has none */
   private egLevel(lv: number, h = 26) {
     const src = this.m.eg?.levels[String(lv)];
@@ -2441,8 +2443,8 @@ export class App {
     const box = document.createElement('div');
     box.className = 'ult-toast';
     box.style.setProperty('--kc', k.color);
-    box.innerHTML = `<i class="ut-rays"></i><span class="ut-art">${this.egArt(k)}</span><div class="ut-tx"><small>¡DEFINITIVA LISTA!</small><b>${esc(tech)}</b>
-      <em>${pad ? 'Pulsa <kbd>Y</kbd>' : touch ? 'Toca su botón' : 'Pulsa <kbd>R</kbd>'}</em></div>`;
+    box.innerHTML = `<i class="ut-rays"></i><span class="ut-art">${this.egArt(k)}</span><div class="ut-tx"><small>${tr('¡DEFINITIVA LISTA!')}</small><b>${esc(tech)}</b>
+      <em>${pad ? `${tr('Pulsa')} <kbd>Y</kbd>` : touch ? tr('Toca su botón') : 'Pulsa <kbd>R</kbd>'}</em></div>`;
     document.getElementById('hud')?.appendChild(box);
     setTimeout(() => box.classList.add('out'), 1500);
     setTimeout(() => box.remove(), 1900);
@@ -2459,8 +2461,8 @@ export class App {
     box.innerHTML = `<i class="ej-flash"></i><i class="ej-rays"></i>
       <div class="ej-card"><span class="ej-art">${this.egArt(k)}${lv >= 2 ? `<span class="ej-lv">${this.egLevel(lv, 22)}</span>` : ''}
           <span class="ej-mug">${this.mug(p.id, 72)}<small>${esc(p.name)}</small></span></span>
-        <div class="ej-tx"><small>¡FICHAJE! ${esc(p.name.toUpperCase())} TRAE SU</small><em>ESPÍRITU GUERRERO</em><b>${esc(k.name)}</b>
-          <span class="ej-role">${e.active ? `★ ACTIVO · Definitiva <i>${esc(techFor(k, lv).name)}</i> con R` : `PASIVA · ${esc(k.passive.name)}: ${esc(keshinPassiveText(k, lv))}`}</span></div></div>`;
+        <div class="ej-tx"><small>${tr('¡FICHAJE! {x1} TRAE SU', { x1: esc(p.name.toUpperCase()) })}</small><em>${tr('ESPÍRITU GUERRERO')}</em><b>${esc(k.name)}</b>
+          <span class="ej-role">${e.active ? `${tr('★ ACTIVO · Definitiva')} <i>${esc(tTech(techFor(k, lv).name))}</i> ${tr('con R')}` : `PASIVA · ${esc(k.passive.name)}: ${esc(keshinPassiveText(k, lv))}`}</span></div></div>`;
     document.getElementById('hud')?.appendChild(box);
     sfx('legend');
     setTimeout(() => box.classList.add('out'), 2300);
@@ -2508,9 +2510,9 @@ export class App {
     kb.hidden = !key;
     const t = dock.querySelector<HTMLElement>('.ult-t')!, txt = ready ? '' : String(Math.ceil(u.left));
     if (t.textContent !== txt) t.textContent = txt;
-    const pc = dock.querySelector<HTMLElement>('.ult-pc')!, pcTxt = ready ? '¡YA!' : `${Math.floor((1 - u.cd) * 100)}%`;
+    const pc = dock.querySelector<HTMLElement>('.ult-pc')!, pcTxt = ready ? tr('¡YA!') : `${Math.floor((1 - u.cd) * 100)}%`;
     if (pc.textContent !== pcTxt) pc.textContent = pcTxt;
-    const st = dock.querySelector<HTMLElement>('.ult-state')!, stTxt = ready ? (pad ? '¡LISTA! Pulsa Y' : touch ? '¡LISTA! Tócala' : '¡LISTA! Pulsa R') : `Cargando ${Math.round((1 - u.cd) * 100)}%`;
+    const st = dock.querySelector<HTMLElement>('.ult-state')!, stTxt = ready ? (pad ? tr('¡LISTA! Pulsa Y') : touch ? tr('¡LISTA! Tócala') : tr('¡LISTA! Pulsa R')) : `Cargando ${Math.round((1 - u.cd) * 100)}%`;
     if (st.textContent !== stTxt) st.textContent = stTxt;
   }
   private egArt(k: KeshinDef, cls = '') { const src = this.m.eg?.spirits[k.id]; return src ? `<img class="eg-art-img ${cls}" src="${src}" alt="${esc(k.name)}">` : `<b class="eg-art-img ${cls}">${esc(k.name[0])}</b>`; }
@@ -2520,14 +2522,14 @@ export class App {
     const lv = keshinLevel(this.save, id);
     // (author: «que los EGs se vean más grandes»): the spirit's own portrait, with the EG badge on its corner
     const k = keshinOf(id)!;
-    return `<span class="eg-badge ${cls}${lv ? ' on' : ''}" style="--kc:${k.color}" title="${esc(k.name)}${lv ? ` · nivel ${KESHIN_LABEL[lv]}` : ' · sin despertar'}"><span class="eg-bart">${this.egArt(k)}</span><img class="eg-bins" src="${this.m.eg.insignia}" alt="EG">${lv >= 2 ? this.egLevel(lv, 14) : ''}</span>`;
+    return `<span class="eg-badge ${cls}${lv ? ' on' : ''}" style="--kc:${k.color}" title="${esc(k.name)}${lv ? tr(' · nivel {x1}', { x1: KESHIN_LABEL[lv] }) : tr(' · sin despertar')}"><span class="eg-bart">${this.egArt(k)}</span><img class="eg-bins" src="${this.m.eg.insignia}" alt="${tr('EG')}">${lv >= 2 ? this.egLevel(lv, 14) : ''}</span>`;
   }
   /** the spirit's portrait beside a footballer's face in Mi Equipo (grey until it is awakened) */
   private egMedal(id: number) {
     const k = keshinOf(id);
     if (!k || !this.m.eg) return '';
     const lv = keshinLevel(this.save, id);
-    return `<span class="sq-eg${lv ? ' on' : ''}" style="--kc:${k.color}" title="${esc(k.name)}${lv ? ` · nivel ${KESHIN_LABEL[lv]}` : ' · sin despertar'}"><span class="sq-eg-art">${this.egArt(k)}</span>${lv >= 2 ? this.egLevel(lv, 14) : ''}</span>`;
+    return `<span class="sq-eg${lv ? ' on' : ''}" style="--kc:${k.color}" title="${esc(k.name)}${lv ? tr(' · nivel {x1}', { x1: KESHIN_LABEL[lv] }) : tr(' · sin despertar')}"><span class="sq-eg-art">${this.egArt(k)}</span>${lv >= 2 ? this.egLevel(lv, 14) : ''}</span>`;
   }
   private egTypeLabel(k: KeshinDef) { return k.type === 'parada' ? 'Parada' : k.type === 'regate' ? 'Regate' : k.type === 'defensa' ? 'Defensa' : 'Tiro'; }
 
@@ -2541,12 +2543,12 @@ export class App {
       if (!p) return '';
       const own = !!this.owned(h.id), lv = keshinLevel(this.save, h.id), cost = nextCost(this.save, h.id), why = canLevel(this.save, h.id);
       const b = statBonus(k, Math.max(1, lv));
-      const btn = !own ? '<span class="eg-need">🔒 Consíguelo en Fichajes</span>'
-        : cost === null ? `<span class="eg-max">${this.egLevel(KESHIN_MAX, 22)} MÁXIMO</span>`
+      const btn = !own ? `<span class="eg-need">${tr('🔒 Consíguelo en Fichajes')}</span>`
+        : cost === null ? `<span class="eg-max">${tr('{egLevel} MÁXIMO', { egLevel: this.egLevel(KESHIN_MAX, 22) })}</span>`
         : `<button class="btn small eg-buy${why === 'ok' ? ' can' : ''}" data-eglv="${h.id}" ${why === 'ok' ? '' : 'disabled'}>${lv ? `Subir a ${KESHIN_LABEL[lv + 1]}` : 'Desbloquear'} · ${this.egIcon(14)} ${cost}</button>`;
       return `<div class="eg-holder${own ? '' : ' off'}${lv ? ' lit' : ''}${focus === h.id ? ' focus' : ''}" data-egh="${h.id}">
         <span class="eg-hmug">${this.mug(h.id, 44)}</span>
-        <div class="eg-htx"><b>${esc(p.name)}</b>${lv ? `<span class="eg-hlv">${this.egLevel(lv, 18) || '<em>Nivel I</em>'}<small>+${Math.round(b.pct * 100)}% ${STAT_SHORT[b.key]}</small></span>` : `<small class="note">${own ? 'Sin despertar' : 'No está en tu colección'}</small>`}
+        <div class="eg-htx"><b>${esc(p.name)}</b>${lv ? `<span class="eg-hlv">${this.egLevel(lv, 18) || `<em>${tr('Nivel I')}</em>`}<small>+${Math.round(b.pct * 100)}% ${STAT_SHORT[b.key]}</small></span>` : `<small class="note">${own ? tr('Sin despertar') : tr('No está en tu colección')}</small>`}
           ${pips(lv)}</div>${btn}</div>`;
     };
     const cards = KESHINS.map((k) => {
@@ -2554,33 +2556,33 @@ export class App {
       const shown = Math.max(1, best);
       const t = techFor(k, shown);
       return `<article class="eg-card ${keshinElClass(k)}${best ? ' awake' : ''}${best >= KESHIN_MAX ? ' omega' : ''}" style="--kc:${k.color};--ec:${ELEMENT_COLOR[k.element]}" data-egcard="${k.id}">
-        <div class="eg-stage" data-egview="${k.id}" title="Ver la carta"><i class="eg-rays"></i><i class="eg-ring"></i><i class="eg-embers"></i>${this.egArt(k)}<span class="eg-zoom">VER CARTA</span>
+        <div class="eg-stage" data-egview="${k.id}" title="${tr('Ver la carta')}"><i class="eg-rays"></i><i class="eg-ring"></i><i class="eg-embers"></i>${this.egArt(k)}<span class="eg-zoom">${tr('VER CARTA')}</span>
           <span class="eg-elem">${elementIcon(k.element, 18)}</span>${best >= 2 ? `<span class="eg-best">${this.egLevel(best, 30)}</span>` : ''}</div>
         <div class="eg-body"><small class="eg-title">${esc(k.title)}</small><h3>${esc(k.name)}</h3>
-          <div class="eg-chips"><span class="eg-chip el">${esc(k.element)}</span><span class="eg-chip">${this.egTypeLabel(k)}</span><span class="eg-chip st">+${STAT_SHORT[statBonus(k, 1).key]}</span></div>
-          <div class="eg-tech"><span class="eg-k">DEFINITIVA · tecla R</span><b>${esc(t.name)}</b><small>Potencia ${t.power}${best ? '' : ' (nivel I)'} · la lanzas tú con R o su botón (cada ${perkEffects(this.save).ultCooldownSec} s; mejórala en Mejoras · «Espíritu despierto»)</small></div>
-          <div class="eg-pas"><span class="eg-k">PASIVA · ${esc(k.passive.name)}</span><p>${esc(keshinPassiveText(k, shown))}${best ? '' : ' <small>(nivel I)</small>'}</p><small class="eg-game">En GO: «${esc(k.passive.game)}»</small></div>
+          <div class="eg-chips"><span class="eg-chip el">${esc(tEl(k.element))}</span><span class="eg-chip">${this.egTypeLabel(k)}</span><span class="eg-chip st">+${STAT_SHORT[statBonus(k, 1).key]}</span></div>
+          <div class="eg-tech"><span class="eg-k">${tr('DEFINITIVA · tecla R')}</span><b>${esc(tTech(t.name))}</b><small>${tr('Potencia {power}{x1} · la lanzas tú con R o su botón (cada {ultCooldownSec} s; mejórala en Mejoras · «Espíritu despierto»)', { power: t.power, x1: best ? '' : tr(' (nivel I)'), ultCooldownSec: perkEffects(this.save).ultCooldownSec })}</small></div>
+          <div class="eg-pas"><span class="eg-k">${tr('PASIVA · {passiveName}', { passiveName: esc(k.passive.name) })}</span><p>${esc(keshinPassiveText(k, shown))}${best ? '' : ` <small>${tr('(nivel I)')}</small>`}</p><small class="eg-game">${tr('En GO: «{game}»', { game: esc(k.passive.game) })}</small></div>
           <div class="eg-holders">${k.holders.map((h) => holderRow(k, h)).join('')}</div></div>${this.egFrame(best)}</article>`;
     }).join('');
     const awake = Object.keys(this.save.keshin ?? {}).filter((id) => keshinOf(Number(id))).length;
     const total = KESHINS.reduce((n, k) => n + k.holders.filter((h) => this.byId.has(h.id)).length, 0);
-    this.show(`<div class="screen eg-screen">${this.titlebar('Espíritus Guerreros', back === 'menu' ? 'Menú' : 'Colección')}
+    this.show(`<div class="screen eg-screen">${this.titlebar(tr('Espíritus Guerreros'), back === 'menu' ? 'Menú' : 'Colección')}
       <header class="eg-head"><i class="eg-head-glow"></i>
-        <div class="eg-logo"><small>INAZURVIVORS 2.0</small><b>ESPÍRITUS GUERREROS</b><span>Despierta el espíritu que llevan dentro tus futbolistas</span></div>
-        <div class="eg-wallet" title="Fichas EG">${this.egIcon(30)}<span><small>FICHAS EG</small><b>${have}</b></span></div>
+        <div class="eg-logo"><small>${tr('INAZURVIVORS 2.0')}</small><b>${tr('ESPÍRITUS GUERREROS')}</b><span>${tr('Despierta el espíritu que llevan dentro tus futbolistas')}</span></div>
+        <div class="eg-wallet" title="${tr('Fichas EG')}">${this.egIcon(30)}<span><small>${tr('FICHAS EG')}</small><b>${have}</b></span></div>
         <div class="eg-howto">
-          <div><b>${awake}/${total}</b><small>despertados</small></div>
-          <div><b>Despertar</b><small>${this.egIcon(12)} ${keshinStepCost(1)}</small></div>
-          <div><b>Subir nivel</b><small>II ${this.egIcon(12)}1 · III 2 · IV 3 · V 4 · Ω 5</small></div>
+          <div><b>${awake}/${total}</b><small>${tr('despertados')}</small></div>
+          <div><b>${tr('Despertar')}</b><small>${this.egIcon(12)} ${keshinStepCost(1)}</small></div>
+          <div><b>${tr('Subir nivel')}</b><small>${tr('II {egIcon}1 · III 2 · IV 3 · V 4 · Ω 5', { egIcon: this.egIcon(12) })}</small></div>
           <div class="eg-levels">${[2, 3, 4, 5, 6].map((l) => this.egLevel(l, 22)).join('')}</div>
-          <p class="note">Mientras su futbolista juega, el espíritu da su <b>pasiva a todo el equipo</b>, sube un <b>% la estadística</b> de su técnica (se acumula con cada nivel) y le enseña su <b>supertécnica</b>. Las Fichas EG se ganan venciendo arenas en rango A, S y X, superando rangos por primera vez y aguantando en el infinito.</p></div>
+          <p class="note">${tr('Mientras su futbolista juega, el espíritu da su <b>pasiva a todo el equipo</b>, sube un <b>% la estadística</b> de su técnica (se acumula con cada nivel) y le enseña su <b>supertécnica</b>. Las Fichas EG se ganan venciendo arenas en rango A, S y X, superando rangos por primera vez y aguantando en el infinito.')}</p></div>
       </header>
       <div class="eg-grid">${cards}</div></div>`);
     this.on('[data-back]', 'click', () => (back === 'menu' ? this.mainMenu() : this.collection(back)));
     this.on('[data-eglv]', 'click', (_e, el) => {
       const id = Number(el.dataset.eglv), k = keshinOf(id)!, before = keshinLevel(this.save, id);
       const r = levelKeshin(this.save, id);
-      if (typeof r !== 'number') { sfx('error'); this.toast(r === 'poor' ? 'Te faltan Fichas EG' : 'No se puede ahora'); return; }
+      if (typeof r !== 'number') { sfx('error'); this.toast(r === 'poor' ? tr('Te faltan Fichas EG') : tr('No se puede ahora')); return; }
       this.persist();
       const y = window.scrollY;
       this.keshinSummon(k, id, before, r, () => { this.keshinScreen(back, id); window.scrollTo(0, y); });
@@ -2607,33 +2609,33 @@ export class App {
       const best = Math.max(0, ...k.holders.map((h) => keshinLevel(this.save, h.id))), shown = Math.max(1, best), t = techFor(k, shown), sb = statBonus(k, 1).key;
       const holders = k.holders.filter((h) => this.byId.has(h.id)).map((h) => {
         const lv = keshinLevel(this.save, h.id), own = !!this.owned(h.id);
-        return `<div class="egx-h${own ? '' : ' off'}${lv ? ' lit' : ''}">${this.mug(h.id, 40)}<b>${esc(this.byId.get(h.id)!.name)}</b><span>${lv ? (this.egLevel(lv, 18) || 'Nivel I') : own ? 'Sin despertar' : 'No lo tienes'}</span></div>`;
+        return `<div class="egx-h${own ? '' : ' off'}${lv ? ' lit' : ''}">${this.mug(h.id, 40)}<b>${esc(this.byId.get(h.id)!.name)}</b><span>${lv ? (this.egLevel(lv, 18) || tr('Nivel I')) : own ? tr('Sin despertar') : tr('No lo tienes')}</span></div>`;
       }).join('');
       const rows = Array.from({ length: KESHIN_MAX }, (_, n) => n + 1).map((lv) => `<tr class="${lv <= best ? 'on' : ''}${lv === KESHIN_MAX ? ' om' : ''}"><th>${lv >= 2 ? this.egLevel(lv, 16) : 'I'}</th><td>+${Math.round(statBonus(k, lv).pct * 100)}% ${STAT_SHORT[sb]}</td><td>${techFor(k, lv).power}</td><td>${esc((keshinPassiveText(k, lv).match(/[+-]\d+(?:,\d+)?%/g) ?? []).join(' ') || '—')}</td></tr>`).join('');
       box.className = `egx ${keshinElClass(k)}${best ? ' awake' : ''}${best >= KESHIN_MAX ? ' omega' : ''}`;
       box.style.setProperty('--kc', k.color);
       box.style.setProperty('--ec', ELEMENT_COLOR[k.element]);
       box.innerHTML = `<i class="egx-bg"></i><i class="egx-rays"></i>
-        <button class="egx-nav prev" aria-label="Anterior">‹</button>
+        <button class="egx-nav prev" aria-label="${tr('Anterior')}">‹</button>
         <div class="egx-scene"><div class="egx-card in">
           <div class="egx-face egx-front"><i class="egx-foil"></i>
             <div class="egx-top">${elementIcon(k.element, 26)}<small>${esc(k.title)}</small>${best >= 2 ? `<span class="egx-lv">${this.egLevel(best, 34)}</span>` : ''}</div>
-            <div class="egx-art"><i class="egx-art-rays"></i>${this.egArt(k)}${best ? '' : '<span class="egx-sleep">SIN DESPERTAR</span>'}</div>
+            <div class="egx-art"><i class="egx-art-rays"></i>${this.egArt(k)}${best ? '' : `<span class="egx-sleep">${tr('SIN DESPERTAR')}</span>`}</div>
             <h2>${esc(k.name)}</h2>
-            <div class="egx-chips"><span>${esc(k.element)}</span><span>${this.egTypeLabel(k)}</span><span>+${STAT_SHORT[sb]}</span></div>
-            <div class="egx-box"><small>DEFINITIVA · R</small><b>${esc(t.name)}</b><em>Potencia ${t.power}</em></div>
-            <div class="egx-box pas"><small>PASIVA · ${esc(k.passive.name)}</small><p>${esc(keshinPassiveText(k, shown))}</p></div>
-            <div class="egx-foot"><span>${this.m.eg ? `<img src="${this.m.eg.insignia}" alt="">` : ''}ESPÍRITU GUERRERO</span><span>${idx + 1}/${KESHINS.length}</span></div>
+            <div class="egx-chips"><span>${esc(tEl(k.element))}</span><span>${this.egTypeLabel(k)}</span><span>+${STAT_SHORT[sb]}</span></div>
+            <div class="egx-box"><small>${tr('DEFINITIVA · R')}</small><b>${esc(tTech(t.name))}</b><em>${tr('Potencia {power}', { power: t.power })}</em></div>
+            <div class="egx-box pas"><small>${tr('PASIVA · {passiveName}', { passiveName: esc(k.passive.name) })}</small><p>${esc(keshinPassiveText(k, shown))}</p></div>
+            <div class="egx-foot"><span>${tr('{x1}ESPÍRITU GUERRERO', { x1: this.m.eg ? `<img src="${this.m.eg.insignia}" alt="">` : '' })}</span><span>${idx + 1}/${KESHINS.length}</span></div>
             <i class="egx-glare"></i>${this.egFrame(best)}</div>
           <div class="egx-face egx-back"><i class="egx-foil"></i>
-            <div class="egx-back-logo">${this.m.eg ? `<img src="${this.m.eg.insignia}" alt="">` : ''}<b>${esc(k.name)}</b><small>En GO: «${esc(k.passive.game)}»</small></div>
-            <h3>Lo despiertan</h3><div class="egx-hs">${holders}</div>
-            <h3>Por nivel</h3><p class="egx-pt">${esc(k.passive.name)}: ${esc(keshinPassiveText(k, 1).replace(/^[+-]\d+(?:,\d+)?%\s*/, ''))}</p><table class="egx-t"><tr><th></th><th>Estad.</th><th>Pot.</th><th>${esc(k.passive.name)}</th></tr>${rows}</table>
+            <div class="egx-back-logo">${this.m.eg ? `<img src="${this.m.eg.insignia}" alt="">` : ''}<b>${esc(k.name)}</b><small>${tr('En GO: «{game}»', { game: esc(k.passive.game) })}</small></div>
+            <h3>${tr('Lo despiertan')}</h3><div class="egx-hs">${holders}</div>
+            <h3>${tr('Por nivel')}</h3><p class="egx-pt">${esc(k.passive.name)}: ${esc(keshinPassiveText(k, 1).replace(/^[+-]\d+(?:,\d+)?%\s*/, ''))}</p><table class="egx-t"><tr><th></th><th>${tr('Estad.')}</th><th>${tr('Pot.')}</th><th>${esc(k.passive.name)}</th></tr>${rows}</table>
             <i class="egx-glare"></i></div>
         </div></div>
-        <button class="egx-nav next" aria-label="Siguiente">›</button>
-        <div class="egx-hint">Mueve el ratón o arrastra para girarla · tócala para darle la vuelta · ← → otro espíritu · Esc para cerrar</div>
-        <button class="btn small egx-close">Cerrar</button>`;
+        <button class="egx-nav next" aria-label="${tr('Siguiente')}">›</button>
+        <div class="egx-hint">${tr('Mueve el ratón o arrastra para girarla · tócala para darle la vuelta · ← → otro espíritu · Esc para cerrar')}</div>
+        <button class="btn small egx-close">${tr('Cerrar')}</button>`;
       const card = box.querySelector<HTMLElement>('.egx-card')!;
       box.querySelector('.prev')!.addEventListener('click', (e) => { e.stopPropagation(); go(-1); });
       box.querySelector('.next')!.addEventListener('click', (e) => { e.stopPropagation(); go(1); });
@@ -2687,10 +2689,10 @@ export class App {
     box.style.setProperty('--ec', ELEMENT_COLOR[k.element]);
     box.innerHTML = `<i class="es-dark"></i><i class="es-burst"></i><i class="es-rays"></i><i class="es-ring r1"></i><i class="es-ring r2"></i><i class="es-sparks">${Array.from({ length: 18 }, (_, i) => `<b style="--a:${i * 20}deg;--d:${(i % 6) * 70}ms"></b>`).join('')}</i>
       <div class="es-center"><div class="es-fw"><div class="es-spirit">${this.egArt(k, 'es-img')}</div>${this.egFrame(from || to)}</div><div class="es-player">${this.mug(id, 64)}</div></div>
-      <div class="es-text"><small>${from ? '¡EL ESPÍRITU CRECE!' : '¡ESPÍRITU GUERRERO DESPERTADO!'}</small><b>${esc(k.name)}</b><span>${esc(p.name)} · ${esc(k.title)}</span>
-        <div class="es-lv">${to >= 2 ? this.egLevel(to, 64) : '<em>NIVEL I</em>'}</div>
-        <ul class="es-gain"><li>+${Math.round(b.pct * 100)}% ${STAT_SHORT[b.key]}</li><li>${esc(k.passive.name)}: ${esc(keshinPassiveText(k, to))}</li><li>Definitiva (R): ${esc(t.name)} · potencia ${t.power}</li></ul>
-        <button class="btn big es-ok">¡Genial!</button></div>`;
+      <div class="es-text"><small>${from ? tr('¡EL ESPÍRITU CRECE!') : tr('¡ESPÍRITU GUERRERO DESPERTADO!')}</small><b>${esc(k.name)}</b><span>${esc(p.name)} · ${esc(k.title)}</span>
+        <div class="es-lv">${to >= 2 ? this.egLevel(to, 64) : `<em>${tr('NIVEL I')}</em>`}</div>
+        <ul class="es-gain"><li>+${Math.round(b.pct * 100)}% ${STAT_SHORT[b.key]}</li><li>${esc(k.passive.name)}: ${esc(keshinPassiveText(k, to))}</li><li>${tr('Definitiva (R): {tName} · potencia {power}', { tName: esc(tTech(t.name)), power: t.power })}</li></ul>
+        <button class="btn big es-ok">${tr('¡Genial!')}</button></div>`;
     document.body.appendChild(box);
     egAwaken(k.element, to >= KESHIN_MAX ? 'omega' : from ? 'up' : 'first'); // 2.1 (author): epic, and by its affinity
     if (from) window.setTimeout(() => { // (author) a level up makes the frame burst and grow
@@ -2717,9 +2719,9 @@ export class App {
     const lv = keshinLevel(this.save, d.id), b = statBonus(k, Math.max(1, lv));
     return `<div class="eg-panel ${keshinElClass(k)}${lv ? ' lit' : ''}" style="--kc:${k.color};--ec:${ELEMENT_COLOR[k.element]}">${this.egFrame(lv)}
       <span class="eg-pimg">${this.egArt(k)}</span>
-      <div class="eg-ptx"><small>ESPÍRITU GUERRERO</small><b>${esc(k.name)} ${lv >= 2 ? this.egLevel(lv, 20) : lv ? '<em>Nivel I</em>' : ''}</b>
-        <span>${lv ? `+${Math.round(b.pct * 100)}% ${STAT_SHORT[b.key]} · ${esc(k.passive.name)} · ${esc(techFor(k, lv).name)}` : `Sin despertar · ${esc(k.passive.name)} y ${esc(k.tech.name)}`}</span></div>
-      <button class="btn small${lv ? ' blue' : ''}" data-keshin="${d.id}">${lv ? 'Ver espíritu' : `Despertar · ${this.egIcon(14)} ${nextCost(this.save, d.id)}`}</button></div>`;
+      <div class="eg-ptx"><small>${tr('ESPÍRITU GUERRERO')}</small><b>${esc(k.name)} ${lv >= 2 ? this.egLevel(lv, 20) : lv ? `<em>${tr('Nivel I')}</em>` : ''}</b>
+        <span>${lv ? `+${Math.round(b.pct * 100)}% ${STAT_SHORT[b.key]} · ${esc(k.passive.name)} · ${esc(tTech(techFor(k, lv).name))}` : tr('Sin despertar · {passiveName} y {techName}', { passiveName: esc(k.passive.name), techName: esc(k.tech.name) })}</span></div>
+      <button class="btn small${lv ? ' blue' : ''}" data-keshin="${d.id}">${lv ? tr('Ver espíritu') : `Despertar · ${this.egIcon(14)} ${nextCost(this.save, d.id)}`}</button></div>`;
   }
 
   /** 2.0 launch notice: the gift of Fichas EG (once) */
@@ -2775,10 +2777,10 @@ export class App {
     const ring = KESHINS.map((k, i) => `<span style="--d:${i * 60}ms;--kc:${k.color}">${this.egArt(k)}</span>`).join('');
     const feats = rel.features.slice(0, 10).map((f, i) => `<b style="--d:${i * 110}ms">${f.icon} ${esc(f.title)}</b>`).join('');
     box.innerHTML = `<i class="l2-rays"></i><i class="l2-glow"></i><i class="l2-shock"></i><i class="l2-bolt"></i><i class="l2-flash"></i>
-      <div class="l2-main"><div class="l2-logo">INAZURVIVORS</div><div class="l2-vw"><div class="l2-ring">${ring}</div><div class="l2-v">2.0</div></div><div class="l2-sub">ESPÍRITUS GUERREROS</div>
+      <div class="l2-main"><div class="l2-logo">INAZURVIVORS</div><div class="l2-vw"><div class="l2-ring">${ring}</div><div class="l2-v">2.0</div></div><div class="l2-sub">${tr('ESPÍRITUS GUERREROS')}</div>
         <div class="l2-feats">${feats}</div>
-        <div class="l2-btns"><button class="btn big blue" data-l2news>Ver todas las novedades</button><button class="btn big" data-l2go>¡A jugar! ▶</button></div></div>
-      <button class="l2-skip" data-l2go>Saltar</button>`;
+        <div class="l2-btns"><button class="btn big blue" data-l2news>${tr('Ver todas las novedades')}</button><button class="btn big" data-l2go>${tr('¡A jugar! ▶')}</button></div></div>
+      <button class="l2-skip" data-l2go>${tr('Saltar')}</button>`;
     document.body.appendChild(box);
     this.launchOrbit(box);
     window.setTimeout(() => sfx('boom'), 150);
@@ -2801,11 +2803,11 @@ export class App {
   private keshinIntro() {
     const box = document.createElement('div');
     box.className = 'eg-intro';
-    box.innerHTML = `<div class="eg-intro-card"><i class="eg-head-glow"></i><small>INAZURVIVORS 2.0</small><b>¡Llegan los Espíritus Guerreros!</b>
+    box.innerHTML = `<div class="eg-intro-card"><i class="eg-head-glow"></i><small>${tr('INAZURVIVORS 2.0')}</small><b>${tr('¡Llegan los Espíritus Guerreros!')}</b>
       <div class="eg-intro-row">${KESHINS.map((k, i) => `<span style="--kc:${k.color};--d:${i * 70}ms">${this.egArt(k)}</span>`).join('')}</div>
-      <p>Algunos futbolistas llevan dentro un espíritu guerrero. Despiértalo con <b>Fichas EG</b> para darle su pasiva, más estadísticas y su supertécnica. Los que lo tienen llevan esta insignia: ${this.m.eg ? `<img class="eg-inline" src="${this.m.eg.insignia}" alt="">` : ''}</p>
-      <div class="eg-gift">${this.egIcon(34)}<small>Fichas EG: <b>1</b> por mapa en rango X y <b>3</b> en rango Z · <b>3</b> con el código EGu3rr3r0 · hasta <b>6</b> por semana en la tienda del clan · <b>12 / 8 / 5 / 2</b> en los premios semanales del clan</small></div>
-      <p class="tut-nav"><button class="btn blue" data-close>Luego</button><span class="spacer"></span><button class="btn big" data-go-eg>Ver espíritus ▶</button></p></div>`;
+      <p>${tr('{x1} <b>{x2}</b> para darle su pasiva, más estadísticas y su supertécnica. Los que lo tienen llevan esta insignia: {x3}', { x1: tr('Algunos futbolistas llevan dentro un espíritu guerrero. Despiértalo con'), x2: tr('Fichas EG'), x3: this.m.eg ? `<img class="eg-inline" src="${this.m.eg.insignia}" alt="">` : '' })}</p>
+      <div class="eg-gift">${this.egIcon(34)}<small>${tr('Fichas EG: <b>1</b> por mapa en rango X y <b>3</b> en rango Z · <b>3</b> con el código EGu3rr3r0 · hasta <b>6</b> por semana en la tienda del clan · <b>12 / 8 / 5 / 2</b> en los premios semanales del clan')}</small></div>
+      <p class="tut-nav"><button class="btn blue" data-close>${tr('Luego')}</button><span class="spacer"></span><button class="btn big" data-go-eg>${tr('Ver espíritus ▶')}</button></p></div>`;
     document.body.appendChild(box);
     sfx('legend');
     box.querySelector('[data-close]')!.addEventListener('click', () => box.remove());
@@ -2844,11 +2846,11 @@ export class App {
     return `<div class="cp-pc${mine ? ' me' : ' them'}">
       <div class="cp-ribbon">${p.pennant ? pennantRibbon(p.pennant) : '<i class="cp-noribbon"></i>'}</div>
       <div class="cp-id">${this.framed(this.profileIcon(72, p.icon), p.frame)}
-        <div class="cp-who"><small>${mine ? 'TÚ' : 'TU COMPAÑERO'}</small><b>${esc(p.name)}</b>
-          <span>${emblem ? `<img src="${emblem}" alt="">` : ''}${esc(p.crest ? teamLabel(p.crest) : 'Sin escudo')} · ${p.wins} victorias</span></div></div>
-      <div class="cp-capline"><span>${cap ? `Capitán: <b>${esc(cap.name)}</b>` : 'Sin capitán'}</span><span>${p.squad.length} en el equipo</span></div>
-      <div class="cp-squad">${squad || '<span class="note">Sin equipo todavía</span>'}</div>
-      ${(() => { const co = p.coach ? COACH_BY_ID.get(p.coach) : undefined; return co ? `<div class="cp-coach">${this.coachArt(co, 34)}<span><small>ENTRENADOR</small><b>${esc(co.name)}</b></span></div>` : ''; })()}</div>`;
+        <div class="cp-who"><small>${mine ? 'TÚ' : tr('TU COMPAÑERO')}</small><b>${esc(p.name)}</b>
+          <span>${tr('{x1}{x2} · {wins} victorias', { x1: emblem ? `<img src="${emblem}" alt="">` : '', x2: esc(p.crest ? teamLabel(p.crest) : tr('Sin escudo')), wins: p.wins })}</span></div></div>
+      <div class="cp-capline"><span>${cap ? `${tr('Capitán: <b>{capName}</b>', { capName: esc(cap.name) })}` : tr('Sin capitán')}</span><span>${tr('{squadLength} en el equipo', { squadLength: p.squad.length })}</span></div>
+      <div class="cp-squad">${squad || `<span class="note">${tr('Sin equipo todavía')}</span>`}</div>
+      ${(() => { const co = p.coach ? COACH_BY_ID.get(p.coach) : undefined; return co ? `<div class="cp-coach">${this.coachArt(co, 34)}<span><small>${tr('ENTRENADOR')}</small><b>${esc(co.name)}</b></span></div>` : ''; })()}</div>`;
   }
 
   /**
@@ -2859,56 +2861,56 @@ export class App {
     setMusicContext('menu');
     const link = this.coop?.open ? this.coop : null;
     const ok = onlineConfigured() && signedIn();
-    const hero = `<div class="cp-hero"><div class="cp-hero-tx"><small>MODO COOPERATIVO</small><b>Juega con un amigo</b>
-        <span>Cada uno con su equipo, los mismos rivales y una sola barra de experiencia. Si uno cae, el otro lo levanta.</span>${activeSeason(serverNow()) && !this.save.season?.gold ? `<span class="cp-gold">${this.m.pase ? `<img src="${this.m.pase.dorada}" alt="">` : ''}Llave dorada ×${GOLD_KEY_COOP} en cooperativo: ${(GOLD_KEY_CHANCE * GOLD_KEY_COOP * 100).toLocaleString('es', { maximumFractionDigits: 3 })}% por rival</span>` : ''}</div>
-      <span class="cp-test" title="Puede tener fallos: si ves alguno, repórtalo desde el 🐞">EN PRUEBAS</span></div>`;
+    const hero = `<div class="cp-hero"><div class="cp-hero-tx"><small>${tr('MODO COOPERATIVO')}</small><b>${tr('Juega con un amigo')}</b>
+        <span>${tr('Cada uno con su equipo, los mismos rivales y una sola barra de experiencia. Si uno cae, el otro lo levanta.')}</span>${activeSeason(serverNow()) && !this.save.season?.gold ? `<span class="cp-gold">${tr('{x1}Llave dorada ×{GOLD_KEY_COOP} en cooperativo: {x2}% por rival', { x1: this.m.pase ? `<img src="${this.m.pase.dorada}" alt="">` : '', GOLD_KEY_COOP, x2: (GOLD_KEY_CHANCE * GOLD_KEY_COOP * 100).toLocaleString(locale(), { maximumFractionDigits: 3 }) })}</span>` : ''}</div>
+      <span class="cp-test" title="${tr('Puede tener fallos: si ves alguno, repórtalo desde el 🐞')}">${tr('EN PRUEBAS')}</span></div>`;
     let body: string;
-    if (!ok) body = `<div class="panel cp-panel"><p class="note">El cooperativo necesita una cuenta: entra con Google en Ajustes.</p></div>`;
+    if (!ok) body = `<div class="panel cp-panel"><p class="note">${tr('El cooperativo necesita una cuenta: entra con Google en Ajustes.')}</p></div>`;
     else if (link) {
       const me = this.coopMe(), pa = this.coopPartner;
       const maps = this.m.maps.filter((mp) => isMapUnlocked(mp, this.save));
       if (!maps.some((mp) => mp.id === this.coopMap)) this.coopMap = maps[0]?.id ?? '';
       body = `<div class="cp-room">
         <div class="cp-vs">${this.coopCard(me, true)}
-          <div class="cp-mid"><b class="cp-hands">${uiIcon('team')}</b><span class="cp-chip" id="cpping">Ping…</span><span class="cp-chip" id="cproute"></span><small>Sala ${esc(link.code)}</small></div>
-          ${pa ? this.coopCard(pa, false) : `<div class="cp-pc them wait"><i class="cp-dots"><b></b><b></b><b></b></i><span>Preparando a ${esc(link.partner)}…</span></div>`}</div>
-        ${link.role === 'host' ? `<div class="panel cp-panel"><h3>${uiIcon('pitch')}Elige la arena <small>con tu rango ${esc(this.save.difficulty)}</small></h3>
+          <div class="cp-mid"><b class="cp-hands">${uiIcon('team')}</b><span class="cp-chip" id="cpping">${tr('Ping…')}</span><span class="cp-chip" id="cproute"></span><small>${tr('Sala {code}', { code: esc(link.code) })}</small></div>
+          ${pa ? this.coopCard(pa, false) : `<div class="cp-pc them wait"><i class="cp-dots"><b></b><b></b><b></b></i><span>${tr('Preparando a {partner}…', { partner: esc(link.partner) })}</span></div>`}</div>
+        ${link.role === 'host' ? `<div class="panel cp-panel"><h3>${tr('{x1}Elige la arena', { x1: uiIcon('pitch') })} <small>${tr('con tu rango {difficulty}', { difficulty: esc(this.save.difficulty) })}</small></h3>
             <div class="cp-maps">${maps.map((mp) => `<button class="cp-map-card${mp.id === this.coopMap ? ' on' : ''}" data-cpmap="${esc(mp.id)}"><small>${uiIcon('clock')}${fmtTime(mp.durationSec)}</small><b>${esc(mp.name)}</b>${mp.boss !== null ? `<span class="cp-boss">${this.mug(mp.boss, 40)}</span>` : ''}</button>`).join('')}</div>
-            <button class="btn big cp-go" id="cpgo" ${pa ? '' : 'disabled'}>${pa ? '¡A jugar juntos! ▶' : 'Esperando el equipo de tu compañero…'}</button></div>`
-          : `<div class="panel cp-panel cp-waitpanel"><i class="cp-dots"><b></b><b></b><b></b></i><p>${pa ? `Esperando a que <b>${esc(link.partner)}</b> elija la arena y empiece…` : 'Preparando…'}</p></div>`}
-        <div class="cp-actions"><button class="btn" id="cpleave">Salir de la sala</button></div></div>`;
+            <button class="btn big cp-go" id="cpgo" ${pa ? '' : 'disabled'}>${pa ? tr('¡A jugar juntos! ▶') : tr('Esperando el equipo de tu compañero…')}</button></div>`
+          : `<div class="panel cp-panel cp-waitpanel"><i class="cp-dots"><b></b><b></b><b></b></i><p>${pa ? `${tr('Esperando a que <b>{partner}</b> elija la arena y empiece…', { partner: esc(link.partner) })}` : 'Preparando…'}</p></div>`}
+        <div class="cp-actions"><button class="btn" id="cpleave">${tr('Salir de la sala')}</button></div></div>`;
     } else if (state.code) {
-      body = `<div class="cp-two"><div class="panel cp-panel cp-codebox"><small>CÓDIGO DE LA SALA</small><b class="cp-code">${esc(state.code)}</b>
-          <button class="btn small blue" id="cpcopy">Copiar código</button><p class="note">Pásaselo a tu compañero o invita a un amigo. Esperando a que entre… (la sala dura 15 minutos)</p>
-          <i class="cp-dots"><b></b><b></b><b></b></i><button class="btn" id="cpcancel">Cancelar</button></div>
-        <div class="panel cp-panel"><h3>${uiIcon('team')}Invita a un amigo</h3><div class="cp-friends" id="cpfriends"><p class="note">Cargando amigos…</p></div></div></div>`;
-    } else if (state.busy) body = `<div class="panel cp-panel cp-waitpanel"><i class="cp-dots"><b></b><b></b><b></b></i><p>${esc(state.busy)}</p><button class="btn" id="cpcancel">Cancelar</button></div>`;
+      body = `<div class="cp-two"><div class="panel cp-panel cp-codebox"><small>${tr('CÓDIGO DE LA SALA')}</small><b class="cp-code">${esc(state.code)}</b>
+          <button class="btn small blue" id="cpcopy">${tr('Copiar código')}</button><p class="note">${tr('Pásaselo a tu compañero o invita a un amigo. Esperando a que entre… (la sala dura 15 minutos)')}</p>
+          <i class="cp-dots"><b></b><b></b><b></b></i><button class="btn" id="cpcancel">${tr('Cancelar')}</button></div>
+        <div class="panel cp-panel"><h3>${tr('{x1}Invita a un amigo', { x1: uiIcon('team') })}</h3><div class="cp-friends" id="cpfriends"><p class="note">${tr('Cargando amigos…')}</p></div></div></div>`;
+    } else if (state.busy) body = `<div class="panel cp-panel cp-waitpanel"><i class="cp-dots"><b></b><b></b><b></b></i><p>${esc(state.busy)}</p><button class="btn" id="cpcancel">${tr('Cancelar')}</button></div>`;
     else body = `<div class="cp-two">
-        <div class="panel cp-panel cp-choice"><span class="cp-big-ic">${uiIcon('crown')}</span><b>Crear sala</b><p class="note">Eres el anfitrión: eliges la arena y se juega con tu rango.</p><button class="btn big" id="cpcreate">Crear sala</button></div>
-        <div class="panel cp-panel cp-choice"><span class="cp-big-ic">${uiIcon('team')}</span><b>Unirse</b><p class="note">Escribe el código que te ha pasado tu compañero.</p>
-          <div class="cp-join"><input id="cpcode" maxlength="6" placeholder="CÓDIGO" autocomplete="off" spellcheck="false" value="${esc(state.join ?? '')}"><button class="btn big blue" id="cpjoin">Unirse</button></div></div></div>
-      <div class="panel cp-panel"><h3>${uiIcon('team')}Amigos <button class="btn small blue" id="cpfriendsbtn">Gestionar amigos</button></h3><div class="cp-friends" id="cpfriends"><p class="note">Cargando amigos…</p></div></div>`;
-    this.show(`<div class="screen coop-screen">${this.titlebar('Cooperativo', 'Menú')}${hero}${state.error ? `<p class="cp-err">${esc(state.error)}</p>` : ''}${body}</div>`);
+        <div class="panel cp-panel cp-choice"><span class="cp-big-ic">${uiIcon('crown')}</span><b>${tr('Crear sala')}</b><p class="note">${tr('Eres el anfitrión: eliges la arena y se juega con tu rango.')}</p><button class="btn big" id="cpcreate">${tr('Crear sala')}</button></div>
+        <div class="panel cp-panel cp-choice"><span class="cp-big-ic">${uiIcon('team')}</span><b>${tr('Unirse')}</b><p class="note">${tr('Escribe el código que te ha pasado tu compañero.')}</p>
+          <div class="cp-join"><input id="cpcode" maxlength="6" placeholder="${tr('CÓDIGO')}" autocomplete="off" spellcheck="false" value="${esc(state.join ?? '')}"><button class="btn big blue" id="cpjoin">${tr('Unirse')}</button></div></div></div>
+      <div class="panel cp-panel"><h3>${tr('{x1}Amigos', { x1: uiIcon('team') })} <button class="btn small blue" id="cpfriendsbtn">${tr('Gestionar amigos')}</button></h3><div class="cp-friends" id="cpfriends"><p class="note">${tr('Cargando amigos…')}</p></div></div>`;
+    this.show(`<div class="screen coop-screen">${this.titlebar(tr('Cooperativo'), tr('Menú'))}${hero}${state.error ? `<p class="cp-err">${esc(state.error)}</p>` : ''}${body}</div>`);
     this.on('[data-back]', 'click', () => { this.coopAbort?.abort(); this.mainMenu(); });
     const fail = (e: unknown) => { this.coopAbort = null; if ((e as Error).message !== 'cancelado') this.coopLobby({ error: (e as Error).message }); };
     const adopt = (l: CoopLink) => { this.coopAbort = null; this.coop = l; this.coopPartner = null; this.coopLobby(); };
     const host = () => {
       this.coopAbort = new AbortController();
-      this.coopLobby({ busy: 'Creando la sala…' });
+      this.coopLobby({ busy: tr('Creando la sala…') });
       CoopLink.host((code) => this.coopLobby({ code }), this.coopAbort.signal).then(adopt, fail);
     };
     const join = (raw?: string) => {
       const code = (raw ?? (document.getElementById('cpcode') as HTMLInputElement | null)?.value ?? '').trim().toUpperCase();
-      if (!/^[A-Z2-9]{6}$/.test(code)) { this.coopLobby({ error: 'El código tiene 6 letras y números.', join: code }); return; }
+      if (!/^[A-Z2-9]{6}$/.test(code)) { this.coopLobby({ error: tr('El código tiene 6 letras y números.'), join: code }); return; }
       this.coopAbort = new AbortController();
-      this.coopLobby({ busy: `Entrando en la sala ${code}…` });
+      this.coopLobby({ busy: tr('Entrando en la sala {code}…', { code }) });
       CoopLink.join(code, this.coopAbort.signal).then(adopt, fail);
     };
     document.getElementById('cpcreate')?.addEventListener('click', host);
     document.getElementById('cpjoin')?.addEventListener('click', () => join());
     document.getElementById('cpcode')?.addEventListener('keydown', (e) => { if ((e as KeyboardEvent).key === 'Enter') join(); });
     document.getElementById('cpcancel')?.addEventListener('click', () => { this.coopAbort?.abort(); this.coopAbort = null; this.coopLobby(); });
-    document.getElementById('cpcopy')?.addEventListener('click', () => { void navigator.clipboard?.writeText(state.code ?? '').then(() => this.toast('Código copiado')).catch(() => undefined); });
+    document.getElementById('cpcopy')?.addEventListener('click', () => { void navigator.clipboard?.writeText(state.code ?? '').then(() => this.toast(tr('Código copiado'))).catch(() => undefined); });
     document.getElementById('cpfriendsbtn')?.addEventListener('click', () => this.friendsScreen());
     document.getElementById('cpleave')?.addEventListener('click', () => { this.coop?.close(); this.coop = null; this.coopPartner = null; this.coopLobby(); });
     this.on('[data-cpmap]', 'click', (_e, el) => { this.coopMap = el.dataset.cpmap!; this.root.querySelectorAll('.cp-map-card').forEach((b) => b.classList.toggle('on', b === el)); });
@@ -2923,7 +2925,7 @@ export class App {
     clearInterval(this.coopTick);
     if (link) {
       if (link.onEvent !== this.coopOnEvent) this.coopListen(link); // a new link, or back from a run (it cleared them)
-      void link.route().then((r) => { const el = document.getElementById('cproute'); if (el) el.textContent = r === 'retransmitida' ? 'Por servidor de paso' : 'Conexión directa'; });
+      void link.route().then((r) => { const el = document.getElementById('cproute'); if (el) el.textContent = r === 'retransmitida' ? tr('Por servidor de paso') : tr('Conexión directa'); });
       // one timer per render (cleared above), and the chip only changes when the reading does: no flicker
       const ping = () => {
         const el = document.getElementById('cpping');
@@ -2943,13 +2945,13 @@ export class App {
     try { rows = (await friendList()).filter((f) => f.status === 'amigo'); } catch (e) { const b = box(); if (b) b.innerHTML = `<p class="note">${esc((e as Error).message)}</p>`; return; }
     const b = box();
     if (!b) return;
-    if (!rows.length) { b.innerHTML = '<p class="note">Aún no tienes amigos añadidos. Añádelos en «Gestionar amigos» o desde su perfil en el ranking.</p>'; return; }
-    b.innerHTML = rows.map((f) => `<div class="cp-fr${f.online ? ' on' : ''}">${this.profileIcon(32, this.iconFrom(f.avatar))}<b>${esc(f.username)}</b><span class="cp-dot">${f.online ? 'En línea' : 'Desconectado'}</span>
-      ${code ? `<button class="btn small" data-invite="${esc(f.username)}">Invitar</button>` : ''}</div>`).join('');
+    if (!rows.length) { b.innerHTML = `<p class="note">${tr('Aún no tienes amigos añadidos. Añádelos en «Gestionar amigos» o desde su perfil en el ranking.')}</p>`; return; }
+    b.innerHTML = rows.map((f) => `<div class="cp-fr${f.online ? ' on' : ''}">${this.profileIcon(32, this.iconFrom(f.avatar))}<b>${esc(f.username)}</b><span class="cp-dot">${f.online ? tr('En línea') : 'Desconectado'}</span>
+      ${code ? `<button class="btn small" data-invite="${esc(f.username)}">${tr('Invitar')}</button>` : ''}</div>`).join('');
     this.on('[data-invite]', 'click', (_e, el) => {
       const name = el.dataset.invite!;
       (el as HTMLButtonElement).disabled = true;
-      coopInvite(name, code!).then(() => { el.textContent = 'Invitado ✔'; this.toast(`Invitación enviada a ${name}`); })
+      coopInvite(name, code!).then(() => { el.textContent = tr('Invitado ✔'); this.toast(tr('Invitación enviada a {name}', { name })); })
         .catch((err: Error) => { (el as HTMLButtonElement).disabled = false; this.toast(err.message, 4000); });
     }, b);
   }
@@ -2966,16 +2968,16 @@ export class App {
   async friendsScreen() {
     setMusicContext('menu');
     const ok = onlineConfigured() && signedIn();
-    this.show(`<div class="screen friends-screen">${this.titlebar('Amigos', 'Cooperativo')}
-      <div class="panel cp-panel"><h3>${uiIcon('team')}Añadir amigo</h3>${ok ? `<div class="cp-join"><input id="fradd" maxlength="20" placeholder="Nombre global" autocomplete="off" spellcheck="false"><button class="btn blue" id="fraddgo">Enviar solicitud</button></div>
-        <p class="note">También puedes añadir a alguien desde su perfil en el ranking.</p>` : '<p class="note">Necesitas una cuenta: entra con Google en Ajustes.</p>'}</div>
-      <div id="frlist"><p class="note">Cargando…</p></div></div>`);
+    this.show(`<div class="screen friends-screen">${this.titlebar(tr('Amigos'), tr('Cooperativo'))}
+      <div class="panel cp-panel"><h3>${tr('{x1}Añadir amigo', { x1: uiIcon('team') })}</h3>${ok ? `<div class="cp-join"><input id="fradd" maxlength="20" placeholder="${tr('Nombre global')}" autocomplete="off" spellcheck="false"><button class="btn blue" id="fraddgo">${tr('Enviar solicitud')}</button></div>
+        <p class="note">${tr('También puedes añadir a alguien desde su perfil en el ranking.')}</p>` : `<p class="note">${tr('Necesitas una cuenta: entra con Google en Ajustes.')}</p>`}</div>
+      <div id="frlist"><p class="note">${tr('Cargando…')}</p></div></div>`);
     this.on('[data-back]', 'click', () => this.coopLobby());
     if (!ok) return;
     const send = () => {
       const name = (document.getElementById('fradd') as HTMLInputElement).value.trim();
       if (!name) return;
-      friendRequest(name).then((r) => { this.toast(r === 'aceptada' ? `¡Ahora eres amigo de ${name}!` : r === 'ya_amigos' ? `Ya eres amigo de ${name}` : `Solicitud enviada a ${name}`); void this.friendsScreen(); })
+      friendRequest(name).then((r) => { this.toast(r === 'aceptada' ? tr('¡Ahora eres amigo de {name}!', { name }) : r === 'ya_amigos' ? tr('Ya eres amigo de {name}', { name }) : `Solicitud enviada a ${name}`); void this.friendsScreen(); })
         .catch((e: Error) => this.toast(e.message, 4000));
     };
     document.getElementById('fraddgo')?.addEventListener('click', send);
@@ -2985,14 +2987,14 @@ export class App {
     const list = document.getElementById('frlist');
     if (!list) return;
     const row = (f: FriendRow, actions: string) => `<div class="cp-fr${f.online ? ' on' : ''}">${this.profileIcon(36, this.iconFrom(f.avatar))}<b data-user="${esc(f.username)}">${esc(f.username)}</b>
-      ${f.status === 'amigo' ? `<span class="cp-dot">${f.online ? 'En línea' : 'Desconectado'}</span>` : ''}<span class="spacer"></span>${actions}</div>`;
+      ${f.status === 'amigo' ? `<span class="cp-dot">${f.online ? tr('En línea') : 'Desconectado'}</span>` : ''}<span class="spacer"></span>${actions}</div>`;
     const got = rows.filter((f) => f.status === 'recibida'), mine = rows.filter((f) => f.status === 'amigo'), sent = rows.filter((f) => f.status === 'enviada');
-    list.innerHTML = `${got.length ? `<div class="panel cp-panel"><h3>${uiIcon('gift')}Solicitudes <small>${got.length}</small></h3>${got.map((f) => row(f, `<button class="btn small" data-fra="${esc(f.username)}">Aceptar</button><button class="btn small blue" data-frx="${esc(f.username)}">Rechazar</button>`)).join('')}</div>` : ''}
-      <div class="panel cp-panel"><h3>${uiIcon('team')}Tus amigos <small>${mine.length}/100</small></h3>${mine.length ? mine.map((f) => row(f, `<button class="btn small blue" data-frrm="${esc(f.username)}">Quitar</button>`)).join('') : '<p class="note">Todavía ninguno.</p>'}</div>
-      ${sent.length ? `<div class="panel cp-panel"><h3>${uiIcon('clock')}Enviadas</h3>${sent.map((f) => row(f, `<button class="btn small blue" data-frrm="${esc(f.username)}">Cancelar</button>`)).join('')}</div>` : ''}`;
+    list.innerHTML = `${got.length ? `<div class="panel cp-panel"><h3>${tr('{x1}Solicitudes', { x1: uiIcon('gift') })} <small>${got.length}</small></h3>${got.map((f) => row(f, `<button class="btn small" data-fra="${esc(f.username)}">${tr('Aceptar')}</button><button class="btn small blue" data-frx="${esc(f.username)}">${tr('Rechazar')}</button>`)).join('')}</div>` : ''}
+      <div class="panel cp-panel"><h3>${tr('{x1}Tus amigos', { x1: uiIcon('team') })} <small>${mine.length}/100</small></h3>${mine.length ? mine.map((f) => row(f, `<button class="btn small blue" data-frrm="${esc(f.username)}">${tr('Quitar')}</button>`)).join('') : `<p class="note">${tr('Todavía ninguno.')}</p>`}</div>
+      ${sent.length ? `<div class="panel cp-panel"><h3>${tr('{x1}Enviadas', { x1: uiIcon('clock') })}</h3>${sent.map((f) => row(f, `<button class="btn small blue" data-frrm="${esc(f.username)}">${tr('Cancelar')}</button>`)).join('')}</div>` : ''}`;
     const act = (p: Promise<unknown>, msg: string) => p.then(() => { this.toast(msg); void this.friendsScreen(); }).catch((e: Error) => this.toast(e.message, 4000));
-    this.on('[data-fra]', 'click', (_e, el) => act(friendRespond(el.dataset.fra!, true), `¡Ahora eres amigo de ${el.dataset.fra}!`), list);
-    this.on('[data-frx]', 'click', (_e, el) => act(friendRespond(el.dataset.frx!, false), 'Solicitud rechazada'), list);
+    this.on('[data-fra]', 'click', (_e, el) => act(friendRespond(el.dataset.fra!, true), tr('¡Ahora eres amigo de {fra}!', { fra: el.dataset.fra })), list);
+    this.on('[data-frx]', 'click', (_e, el) => act(friendRespond(el.dataset.frx!, false), tr('Solicitud rechazada')), list);
     this.on('[data-frrm]', 'click', (_e, el) => this.armed(el, () => act(friendRemove(el.dataset.frrm!), 'Hecho')), list);
     this.bindUsers(list);
   }
@@ -3019,9 +3021,9 @@ export class App {
     sfx('reveal');
     const box = document.createElement('div');
     box.className = 'modal coop-invite';
-    box.innerHTML = `<div class="panel cp-panel cp-invite"><span class="cp-big-ic">${uiIcon('team')}</span><h2>¡${esc(from)} te invita!</h2>
-      <p>Quiere jugar contigo en <b>cooperativo</b>. La invitación dura dos minutos.</p>
-      <div class="cp-actions"><button class="btn big" id="cpinvok">Unirme</button><button class="btn blue" id="cpinvno">Ahora no</button></div></div>`;
+    box.innerHTML = `<div class="panel cp-panel cp-invite"><span class="cp-big-ic">${uiIcon('team')}</span><h2>${tr('¡{from} te invita!', { from: esc(from) })}</h2>
+      <p>${tr('Quiere jugar contigo en <b>cooperativo</b>. La invitación dura dos minutos.')}</p>
+      <div class="cp-actions"><button class="btn big" id="cpinvok">${tr('Unirme')}</button><button class="btn blue" id="cpinvno">${tr('Ahora no')}</button></div></div>`;
     this.root.appendChild(box);
     box.querySelector('#cpinvok')!.addEventListener('click', () => { box.remove(); this.coopLobby({ join: code }); });
     box.querySelector('#cpinvno')!.addEventListener('click', () => box.remove());
@@ -3041,10 +3043,10 @@ export class App {
         const before = JSON.stringify(this.coopPartner);
         this.coopPartner = { ...p, squad: (p.squad ?? []).filter((c) => this.byId.has(c.id)) };
         if (!m.reply && !answered) { answered = true; link.send({ t: 'hello', me: this.coopMe(), reply: true }); }
-        if (this.screenKey === 'Cooperativo' && this.coop === link && JSON.stringify(this.coopPartner) !== before) this.coopLobby();
+        if (this.screenKey === tr('Cooperativo') && this.coop === link && JSON.stringify(this.coopPartner) !== before) this.coopLobby();
       } else if (m.t === 'go' && link.role === 'guest') this.coopStart(String(m.map), m.rank as Rank);
     };
-    link.onClose = (why) => { this.coop = null; this.coopPartner = null; if (this.screenKey === 'Cooperativo') this.coopLobby({ error: `Sala cerrada: ${why}` }); };
+    link.onClose = (why) => { this.coop = null; this.coopPartner = null; if (this.screenKey === tr('Cooperativo')) this.coopLobby({ error: `Sala cerrada: ${why}` }); };
     link.send({ t: 'hello', me: this.coopMe() });
   }
 
@@ -3052,7 +3054,7 @@ export class App {
   private coopStart(mapId: string, rank: Rank) {
     const link = this.coop, partner = this.coopPartner;
     const squad = squadOf(this.save, this.byId);
-    if (!link?.open || !partner || !squad.length || !this.m.maps.some((mp) => mp.id === mapId)) { this.toast('No se pudo empezar la partida juntos'); return; }
+    if (!link?.open || !partner || !squad.length || !this.m.maps.some((mp) => mp.id === mapId)) { this.toast(tr('No se pudo empezar la partida juntos')); return; }
     const team = partner.squad.map((c) => this.byId.get(c.id)!).filter(Boolean);
     this.startRun(mapId, [squad[0]], squad, undefined, { role: link.role, link, rank, partner: { name: partner.name || link.partner, team, kit: this.m.kits?.[partner.kit] ?? null } });
   }
@@ -3062,20 +3064,20 @@ export class App {
     const box = document.createElement('div');
     box.className = 'modal';
     box.id = 'opf';
-    box.innerHTML = `<div class="panel opf-panel"><div class="note">Cargando el perfil de ${esc(username)}…</div></div>`;
+    box.innerHTML = `<div class="panel opf-panel"><div class="note">${tr('Cargando el perfil de {username}…', { username: esc(username) })}</div></div>`;
     this.root.appendChild(box);
     const close = () => box.remove();
     box.addEventListener('click', (e) => { if (e.target === box) close(); });
     let p: PublicProfile | null = null;
     try { p = await publicProfile(username); } catch { /* shown below */ }
     if (!box.isConnected) return;
-    if (!p) { box.innerHTML = `<div class="panel opf-panel"><p>No se pudo cargar el perfil de ${esc(username)}.</p><button class="btn" data-close>Cerrar</button></div>`; box.querySelector('[data-close]')!.addEventListener('click', close); return; }
+    if (!p) { box.innerHTML = `<div class="panel opf-panel"><p>${tr('No se pudo cargar el perfil de {username}.', { username: esc(username) })}</p><button class="btn" data-close>${tr('Cerrar')}</button></div>`; box.querySelector('[data-close]')!.addEventListener('click', close); return; }
     const mapName = (id: string) => this.m.maps.find((x) => x.id === id)?.name ?? id;
     // 2.2 (author): their footballers as they really are: Campeón level, HÉROE stars, ascension, and normal + coin stars
     const level = (e: RosterEntry, o: { hero?: boolean; heroStars?: number; asc?: boolean; ascMitico?: boolean; ascRarity?: string | null; champion?: number }) => {
       const ch = Math.max(0, Math.min(CHAMPION_MAX, o.champion ?? 0));
       if (ch) return { label: CHAMPION_LABEL[ch], color: '#ffd84a', cls: ` champ c${ch}`, rank: 300 + ch };
-      if (o.hero) return { label: `HÉROE${o.heroStars ? ' ' + '★'.repeat(o.heroStars) : ''}`, color: '#ffd84a', cls: ' hero', rank: 200 + (o.heroStars ?? 0) };
+      if (o.hero) return { label: tr('HÉROE{x1}', { x1: o.heroStars ? ' ' + '★'.repeat(o.heroStars) : '' }), color: '#ffd84a', cls: ' hero', rank: 200 + (o.heroStars ?? 0) };
       const r = ((o.asc || o.ascMitico) ? (o.ascRarity ?? 'mitico') : e.rarity) as Rarity;
       return { label: RARITY_LABEL[r] ?? r, color: RARITY_COLOR[r] ?? '#8a9bbd', cls: '', rank: RARITY_ORDER.indexOf(r) };
     };
@@ -3085,7 +3087,7 @@ export class App {
       const aura = s.aura ? this.byId.get(Number(s.aura)) : undefined;
       return `<div class="opf-pl${lv.cls}" style="--rc:${lv.color}">${p!.captain === s.id ? '<span class="opf-cap">C</span>' : ''}${this.mug(s.id, 64)}
         <b>${esc(e.name)}</b><small>${esc(lv.label)}${starTxt(s.stars, s.extraStars ?? 0)}</small>
-        ${aura ? `<span class="opf-aura" title="Aura: ${esc(aura.name)}">${this.mug(aura.id, 24)}<em>Aura</em></span>` : ''}</div>`;
+        ${aura ? `<span class="opf-aura" title="${tr('Aura: {auraName}', { auraName: esc(aura.name) })}">${tr('{mug}<em>Aura</em>', { mug: this.mug(aura.id, 24) })}</span>` : ''}</div>`;
     }).join('');
     // 2.2 (author): «que se puedan ver los jugadores de los demás maxeados»: their Campeones and HÉROES from the whole
     // collection, highest first (Campeón++ … HÉROE), up to 12
@@ -3105,24 +3107,24 @@ export class App {
       if (!best || mean > best.mean) best = { id: e.id, mean, rarity: r };
     }
     const claimed = new Set(p.achievements ?? []);
-    const fav = p.favorite ? `${this.emblemOf(p.favorite) ? `<img src="${this.emblemOf(p.favorite)}" alt="">` : ''}<span><small>EQUIPO FAVORITO</small><b>${esc(teamLabel(p.favorite))}</b></span>`
-      : '<span><small>EQUIPO FAVORITO</small><b>Aún sin elegir</b></span>';
+    const fav = p.favorite ? `${this.emblemOf(p.favorite) ? `<img src="${this.emblemOf(p.favorite)}" alt="">` : ''}<span><small>${tr('EQUIPO FAVORITO')}</small><b>${esc(teamLabel(p.favorite))}</b></span>`
+      : `<span><small>${tr('EQUIPO FAVORITO')}</small><b>${tr('Aún sin elegir')}</b></span>`;
     box.innerHTML = `<div class="panel opf-panel opf-full"><button class="btn small blue opf-x" data-close>✕</button>
-      ${this.playerCard({ tag: `PERFIL DE JUGADOR${p.joined ? ` · desde ${esc(new Date(p.joined).toLocaleDateString('es'))}` : ''}`, name: p.username, icon: this.profileIcon(112, p.icon),
-        frame: p.frame, crest: p.crest, pennant: p.banner ?? null, wins: p.stats.wins, owned: p.owned, heroes: p.heroes, fav, best, bestLabel: 'SU MEJOR FUTBOLISTA',
+      ${this.playerCard({ tag: tr('PERFIL DE JUGADOR{x1}', { x1: p.joined ? ` · desde ${esc(new Date(p.joined).toLocaleDateString(locale()))}` : '' }), name: p.username, icon: this.profileIcon(112, p.icon),
+        frame: p.frame, crest: p.crest, pennant: p.banner ?? null, wins: p.stats.wins, owned: p.owned, heroes: p.heroes, fav, best, bestLabel: tr('SU MEJOR FUTBOLISTA'),
         runs: p.stats.runs, kills: p.stats.kills, bestTimeSec: p.stats.bestTimeSec, pulls: p.stats.pulls ?? null,
         achv: p.achievements ? MISSIONS.filter((d) => d.kind === 'logro' && claimed.has(d.id)).length : null })}
-      <h3>${uiIcon('team')}Su equipo</h3><div class="opf-squad">${squad || '<div class="note">Todavía no ha elegido equipo.</div>'}</div>
-      ${maxedHtml ? `<h3>${uiIcon('crown')}Sus futbolistas al máximo</h3><div class="opf-squad opf-maxed">${maxedHtml}</div>` : ''}
-      ${p.marks.length ? `<h3>${uiIcon('crown')}Mejores marcas</h3><div class="opf-marks">${p.marks.map((m) => `<span class="opf-mark"><span class="rank-btn r-${esc(m.rank)}">${rankMark(esc(m.rank))}</span>${esc(mapName(m.map))}<b>${fmtTime(m.time_sec)}</b><small>${Number(m.damage).toLocaleString('es')} daño</small></span>`).join('')}</div>` : ''}
+      <h3>${tr('{x1}Su equipo', { x1: uiIcon('team') })}</h3><div class="opf-squad">${squad || `<div class="note">${tr('Todavía no ha elegido equipo.')}</div>`}</div>
+      ${maxedHtml ? `<h3>${tr('{x1}Sus futbolistas al máximo', { x1: uiIcon('crown') })}</h3><div class="opf-squad opf-maxed">${maxedHtml}</div>` : ''}
+      ${p.marks.length ? `<h3>${tr('{x1}Mejores marcas', { x1: uiIcon('crown') })}</h3><div class="opf-marks">${p.marks.map((m) => `<span class="opf-mark"><span class="rank-btn r-${esc(m.rank)}">${rankMark(esc(m.rank))}</span>${esc(mapName(m.map))}<b>${fmtTime(m.time_sec)}</b><small>${tr('{x1} daño', { x1: Number(m.damage).toLocaleString(locale()) })}</small></span>`).join('')}</div>` : ''}
     </div>`;
     box.querySelector('[data-close]')!.addEventListener('click', close);
     // pre-2.0: add as a friend (for the co-op)
     if (onlineConfigured() && signedIn() && p.username !== this.save.onlineName) {
       const add = document.createElement('button');
       add.className = 'btn small opf-friend';
-      add.textContent = '+ Añadir amigo';
-      add.addEventListener('click', () => { add.disabled = true; friendRequest(p.username).then((r) => { add.textContent = r === 'enviada' ? 'Solicitud enviada ✔' : '¡Ya sois amigos! ✔'; }).catch((e: Error) => { add.disabled = false; this.toast(e.message, 4000); }); });
+      add.textContent = tr('+ Añadir amigo');
+      add.addEventListener('click', () => { add.disabled = true; friendRequest(p.username).then((r) => { add.textContent = r === 'enviada' ? tr('Solicitud enviada ✔') : tr('¡Ya sois amigos! ✔'); }).catch((e: Error) => { add.disabled = false; this.toast(e.message, 4000); }); });
       box.querySelector('.opf-panel')?.insertBefore(add, box.querySelector('.opf-panel h3'));
     }
   }
@@ -3145,7 +3147,7 @@ export class App {
     document.querySelector('.cl-info-modal')?.remove();
     const box = document.createElement('div');
     box.className = 'tut-modal cl-info-modal';
-    box.innerHTML = `<div class="panel cl-info"><button class="cl-info-x" data-x title="Cerrar">✕</button><div class="note">Cargando el clan…</div></div>`;
+    box.innerHTML = `<div class="panel cl-info"><button class="cl-info-x" data-x title="${tr('Cerrar')}">✕</button><div class="note">${tr('Cargando el clan…')}</div></div>`;
     document.body.appendChild(box);
     sfx('click');
     const close = () => { window.removeEventListener('keydown', keys, true); box.remove(); };
@@ -3156,29 +3158,29 @@ export class App {
     try { c = await clanInfo(q); } catch { c = undefined as never; }
     const panel = box.querySelector('.cl-info');
     if (!panel || !document.body.contains(box)) return;
-    if (!c) { panel.innerHTML = `<button class="cl-info-x" data-x title="Cerrar">✕</button><div class="note">${c === null ? 'Ese clan ya no existe.' : 'Los clanes no responden ahora.'}</div>`; return; }
-    const n = (v: number) => Number(v || 0).toLocaleString('es');
+    if (!c) { panel.innerHTML = `<button class="cl-info-x" data-x title="${tr('Cerrar')}">✕</button><div class="note">${c === null ? tr('Ese clan ya no existe.') : tr('Los clanes no responden ahora.')}</div>`; return; }
+    const n = (v: number) => Number(v || 0).toLocaleString(locale());
     const mine = this.save.clanSeen?.name.toLowerCase() === c.name.toLowerCase();
     const canJoin = !this.save.clanSeen && signedIn() && c.members < CLAN_MAX;
     const sample = this.unlockedRoster()[0];
     const top = Math.max(1, ...c.roster.map((m) => Number(m.week)));
     const lw = c.lastWeek;
-    panel.innerHTML = `<button class="cl-info-x" data-x title="Cerrar">✕</button>
+    panel.innerHTML = `<button class="cl-info-x" data-x title="${tr('Cerrar')}">✕</button>
       <div class="cl-head cl-info-head"><div class="cl-head-art">${this.clanCrest(c.crest, 72)}${sample ? `<span class="cl-head-kit">${charCanvas(sample.id, 3, 12, '', c.kit)}</span>` : ''}</div>
-        <div class="cl-head-tx"><small>CLAN · ${c.mode === 'abierto' ? 'ABIERTO' : 'CON SOLICITUD'}${mine ? ' · EL TUYO' : ''}</small><b>${esc(c.name)}</b>
-          <span class="cl-head-tags"><span>${uiIcon('team')}${c.members}/${CLAN_MAX}</span><span>${uiIcon('shirt')}${esc(c.kit ? teamLabel(c.kit) : 'Raimon')}</span>${c.leader ? `<span>${uiIcon('crown')}${esc(c.leader)}</span>` : ''}<span>${uiIcon('clock')}Desde ${new Date(c.created_at).toLocaleDateString('es')}</span></span></div>
-        <div class="cl-head-score"><small>ESTA SEMANA</small><b>${n(c.weekPoints)}</b><em>${c.pos ? `Puesto ${c.pos} de ${c.clans}` : 'Sin puntos aún'}</em></div></div>
+        <div class="cl-head-tx"><small>${tr('CLAN · {x1}{x2}', { x1: c.mode === 'abierto' ? tr('ABIERTO') : tr('CON SOLICITUD'), x2: mine ? tr(' · EL TUYO') : '' })}</small><b>${esc(c.name)}</b>
+          <span class="cl-head-tags"><span>${uiIcon('team')}${c.members}/${CLAN_MAX}</span><span>${uiIcon('shirt')}${esc(c.kit ? teamLabel(c.kit) : 'Raimon')}</span>${c.leader ? `<span>${uiIcon('crown')}${esc(c.leader)}</span>` : ''}<span>${tr('{x1}Desde {x2}', { x1: uiIcon('clock'), x2: new Date(c.created_at).toLocaleDateString(locale()) })}</span></span></div>
+        <div class="cl-head-score"><small>${tr('ESTA SEMANA')}</small><b>${n(c.weekPoints)}</b><em>${c.pos ? tr('Puesto {pos} de {clans}', { pos: c.pos, clans: c.clans }) : tr('Sin puntos aún')}</em></div></div>
       <div class="cl-info-stats">
-        <span><small>Semana pasada</small><b>${lw ? `#${lw.pos}` : '—'}</b><em>${lw ? `${n(lw.points)} pts` : 'sin jugar'}</em></span>
-        <span><small>Mejor puesto</small><b>${c.bestPos ? `#${c.bestPos}` : '—'}</b><em>${c.titles ? `${c.titles} ${c.titles === 1 ? 'semana' : 'semanas'} TOP 1` : 'sin títulos'}</em></span>
-        <span><small>Puntos totales</small><b>${n(c.totalPoints)}</b><em>desde que se fundó</em></span>
-        <span><small>Partidas</small><b>${n(c.runs)}</b><em>${c.runs ? `${Math.round(c.wins / c.runs * 100)}% ganadas` : '—'}</em></span></div>
-      <h3>${uiIcon('team')}Miembros</h3>
-      <div class="cl-members cl-info-mem">${c.roster.map((m) => `<div class="cl-mem${m.username === this.save.onlineName ? ' me' : ''}" data-user="${esc(m.username)}" title="Ver el perfil de ${esc(m.username)}">
+        <span><small>${tr('Semana pasada')}</small><b>${lw ? `#${lw.pos}` : '—'}</b><em>${lw ? `${n(lw.points)} pts` : tr('sin jugar')}</em></span>
+        <span><small>${tr('Mejor puesto')}</small><b>${c.bestPos ? `#${c.bestPos}` : '—'}</b><em>${c.titles ? `${c.titles} ${c.titles === 1 ? 'semana' : 'semanas'} TOP 1` : tr('sin títulos')}</em></span>
+        <span><small>${tr('Puntos totales')}</small><b>${n(c.totalPoints)}</b><em>${tr('desde que se fundó')}</em></span>
+        <span><small>${tr('Partidas')}</small><b>${n(c.runs)}</b><em>${c.runs ? `${Math.round(c.wins / c.runs * 100)}% ganadas` : '—'}</em></span></div>
+      <h3>${tr('{x1}Miembros', { x1: uiIcon('team') })}</h3>
+      <div class="cl-members cl-info-mem">${c.roster.map((m) => `<div class="cl-mem${m.username === this.save.onlineName ? ' me' : ''}" data-user="${esc(m.username)}" title="${tr('Ver el perfil de {username}', { username: esc(m.username) })}">
           ${this.clanTag(m.role)}<b>${esc(m.username)}</b><span class="cl-info-bar"><i style="width:${Math.round(Number(m.week) / top * 100)}%"></i></span>
-          <em>${n(m.week)} pts<small>${n(m.total)} en total</small></em></div>`).join('') || '<div class="note">Sin miembros.</div>'}</div>
-      <div class="cl-info-foot"><small>Puntos de esta semana y del total con este clan. Toca a un miembro para ver su perfil.</small>
-        ${mine ? '<button class="btn small" data-go-clan>Ir a mi clan</button>' : canJoin ? `<button class="btn small" data-join>${c.mode === 'abierto' ? 'Unirse' : 'Solicitar unirse'}</button>` : ''}</div>`;
+          <em>${tr('{n} pts', { n: n(m.week) })}<small>${tr('{n} en total', { n: n(m.total) })}</small></em></div>`).join('') || `<div class="note">${tr('Sin miembros.')}</div>`}</div>
+      <div class="cl-info-foot"><small>${tr('Puntos de esta semana y del total con este clan. Toca a un miembro para ver su perfil.')}</small>
+        ${mine ? '<button class="btn small" data-go-clan>Ir a mi clan</button>' : canJoin ? `<button class="btn small" data-join>${c.mode === 'abierto' ? 'Unirse' : tr('Solicitar unirse')}</button>` : ''}</div>`;
     mountPreviews();
     panel.querySelectorAll<HTMLElement>('[data-user]').forEach((el) => el.addEventListener('click', () => { close(); void this.otherProfile(el.dataset.user!); }));
     panel.querySelector('[data-go-clan]')?.addEventListener('click', () => { close(); void this.clanScreen('clan'); });
@@ -3188,8 +3190,8 @@ export class App {
       try {
         const r = await clanRequest(c!.id);
         close();
-        if (r === 'joined') { sfx('evolve'); this.toast('¡Ya eres del clan!'); void this.clanScreen('clan'); }
-        else { sfx('click'); this.toast('Solicitud enviada: el líder o un oficial la aceptará'); }
+        if (r === 'joined') { sfx('evolve'); this.toast(tr('¡Ya eres del clan!')); void this.clanScreen('clan'); }
+        else { sfx('click'); this.toast(tr('Solicitud enviada: el líder o un oficial la aceptará')); }
       } catch (err) { this.toast(clanError(String((err as Error)?.message ?? err))); b.disabled = false; }
     });
   }
@@ -3212,7 +3214,7 @@ export class App {
     this.gtsRows = await gtsMine();
     const ev = applyGtsLedger(this.save, this.gtsRows);
     if (ev.length) { this.persist(); void this.pushCloud(true); }
-    if (animate) for (const e of ev.filter((x) => x.kind === 'recibido')) await this.gtsAnim('vuelve', e.arrived!, `¡Te han cambiado a ${this.byId.get(e.left!)?.name ?? '?'}! Llega ${this.byId.get(e.arrived!)?.name ?? '?'}${e.other ? ` de ${e.other}` : ''}.`);
+    if (animate) for (const e of ev.filter((x) => x.kind === 'recibido')) await this.gtsAnim('vuelve', e.arrived!, tr('¡Te han cambiado a {x1}! Llega {x2}{x3}.', { x1: this.byId.get(e.left!)?.name ?? '?', x2: this.byId.get(e.arrived!)?.name ?? '?', x3: e.other ? tr(' de {other}', { other: e.other }) : '' }));
     return ev;
   }
 
@@ -3228,7 +3230,7 @@ export class App {
       box.innerHTML = `<div class="gts-stage"><i class="gts-beam"></i><i class="gts-ring"></i><span class="gts-capsule">${uiIcon('capsule')}</span>
         <span class="gts-runner">${charCanvas(id, 4, kind === 'se-va' ? 8 : 4)}</span>
         ${other !== undefined ? `<span class="gts-runner gts-other">${charCanvas(other, 4, 4)}</span>` : ''}</div>
-        <div class="gts-caption"><span class="gts-mug" style="--rc:${p ? RARITY_COLOR[p.rarity] : '#8a9bbd'}">${this.mug(id, 64)}</span><b>${esc(text)}</b><small>Toca para seguir</small></div>`;
+        <div class="gts-caption"><span class="gts-mug" style="--rc:${p ? RARITY_COLOR[p.rarity] : '#8a9bbd'}">${this.mug(id, 64)}</span><b>${esc(text)}</b><small>${tr('Toca para seguir')}</small></div>`;
       this.root.appendChild(box);
       mountPreviews();
       sfx(kind === 'se-va' ? 'whoosh' : 'legend');
@@ -3249,37 +3251,37 @@ export class App {
       const open = this.gtsRows.filter((r) => r.role === 'deposito' && r.status === 'open');
       const name = (id: number) => esc(this.byId.get(id)?.name ?? '?');
       const face = (id: number, size = 48) => { const p = this.byId.get(id); return `<span class="gts-face" style="--rc:${p ? RARITY_COLOR[p.rarity] : '#8a9bbd'}">${this.mug(id, size as 64)}</span>`; };
-      const pair = (give: number, want: number) => `<div class="gts-pair">${face(give)}<span class="gts-arrow">⇄</span>${face(want)}</div><div class="gts-names"><b>${name(give)}</b><span>por</span><b>${name(want)}</b></div>`;
+      const pair = (give: number, want: number) => `<div class="gts-pair">${face(give)}<span class="gts-arrow">⇄</span>${face(want)}</div><div class="gts-names"><b>${name(give)}</b><span>${tr('por')}</span><b>${name(want)}</b></div>`;
       let body = '';
-      if (!online) body = `<div class="panel"><p>La GTS es un banco online de futbolistas: dejas una copia repetida pidiendo otro futbolista a cambio, y cualquiera que tenga el que pides puede cambiártelo aunque no estés conectado.</p>
-        <p class="note">Para usarla tienes que entrar con tu cuenta.</p><p><button class="btn" data-go2="profile">Ir a Perfil para entrar</button></p></div>`;
+      if (!online) body = `<div class="panel"><p>${tr('La GTS es un banco online de futbolistas: dejas una copia repetida pidiendo otro futbolista a cambio, y cualquiera que tenga el que pides puede cambiártelo aunque no estés conectado.')}</p>
+        <p class="note">${tr('Para usarla tienes que entrar con tu cuenta.')}</p><p><button class="btn" data-go2="profile">${tr('Ir a Perfil para entrar')}</button></p></div>`;
       else if (this.gtsTab === 'mios') {
         body = `<div class="gts-slots">${Array.from({ length: 5 }, (_, i) => {
           const r = open[i];
-          if (r) return `<div class="gts-slot on">${pair(r.give_id, r.want_id)}<small>Esperando desde ${new Date(r.created_at).toLocaleDateString('es')}</small><button class="btn small blue" data-withdraw="${r.id}">Recuperar</button></div>`;
-          if (i < slots) return `<button class="gts-slot free" id="${i === open.length ? 'gtsnew' : ''}"><span class="gts-plus">+</span><b>Dejar un futbolista</b><small>Solo copias repetidas</small></button>`;
-          return `<div class="gts-slot locked"><span class="gts-plus">🔒</span><small>Mejora la «Ventanilla GTS» en Mejoras</small></div>`;
+          if (r) return `<div class="gts-slot on">${pair(r.give_id, r.want_id)}<small>${tr('Esperando desde {x1}', { x1: new Date(r.created_at).toLocaleDateString(locale()) })}</small><button class="btn small blue" data-withdraw="${r.id}">${tr('Recuperar')}</button></div>`;
+          if (i < slots) return `<button class="gts-slot free" id="${i === open.length ? 'gtsnew' : ''}"><span class="gts-plus">+</span><b>${tr('Dejar un futbolista')}</b><small>${tr('Solo copias repetidas')}</small></button>`;
+          return `<div class="gts-slot locked"><span class="gts-plus">🔒</span><small>${tr('Mejora la «Ventanilla GTS» en Mejoras')}</small></div>`;
         }).join('')}</div>
-        <p class="note">Huecos: ${open.length}/${slots}. La copia que dejas va sin entrenamiento, estrellas ni ascensión: tu futbolista se queda con todo. Un HÉROE ascendido sí puede dejar sus copias repetidas. No se pueden dejar Leyenda ni futbolistas de evento, ni repetir un cambio.</p>`;
+        <p class="note">${tr('Huecos: {openLength}/{slots}. La copia que dejas va sin entrenamiento, estrellas ni ascensión: tu futbolista se queda con todo. Un HÉROE ascendido sí puede dejar sus copias repetidas. No se pueden dejar Leyenda ni futbolistas de evento, ni repetir un cambio.', { openLength: open.length, slots })}</p>`;
       } else if (this.gtsTab === 'buscar') {
         const q = this.gtsQuery.trim().toLowerCase();
         const offers = (this.gtsOffers ?? []).filter((o) => !q || (this.byId.get(o.give_id)?.name ?? '').toLowerCase().includes(q) || (this.byId.get(o.want_id)?.name ?? '').toLowerCase().includes(q))
           .filter((o) => !this.gtsOnlyMine || gtsSpare(this.save, o.want_id) > 0);
-        body = `<div class="filters"><input id="gtsq" placeholder="Buscar futbolista (el que quieres o el que piden)" value="${esc(this.gtsQuery)}">
-          <label class="note"><input type="checkbox" id="gtsmine" ${this.gtsOnlyMine ? 'checked' : ''}> Solo los que puedo cambiar</label><button class="btn small blue" id="gtsreload">↻ Actualizar</button></div>
+        body = `<div class="filters"><input id="gtsq" placeholder="${tr('Buscar futbolista (el que quieres o el que piden)')}" value="${esc(this.gtsQuery)}">
+          <label class="note"><input type="checkbox" id="gtsmine" ${this.gtsOnlyMine ? 'checked' : ''}> ${tr('Solo los que puedo cambiar')}</label><button class="btn small blue" id="gtsreload">${tr('↻ Actualizar')}</button></div>
           <div class="gts-list">${this.gtsOffers === null ? '<div class="note">Cargando…</div>' : offers.map((o) => {
             const can = gtsSpare(this.save, o.want_id) > 0;
-            return `<div class="gts-offer${can ? ' can' : ''}"><div class="gts-who"><small>${esc(o.username)} deja</small></div>${pair(o.give_id, o.want_id)}
-              <button class="btn small${can ? '' : ' blue'}" data-take="${o.id}" ${can ? '' : 'disabled'} title="${can ? 'Das tu copia repetida y te llevas el suyo' : 'Necesitas una copia repetida del que pide'}">${can ? 'Cambiar' : 'No lo tienes repetido'}</button></div>`;
-          }).join('') || '<div class="note">No hay depósitos que coincidan.</div>'}</div>`;
+            return `<div class="gts-offer${can ? ' can' : ''}"><div class="gts-who"><small>${tr('{username} deja', { username: esc(o.username) })}</small></div>${pair(o.give_id, o.want_id)}
+              <button class="btn small${can ? '' : ' blue'}" data-take="${o.id}" ${can ? '' : 'disabled'} title="${can ? tr('Das tu copia repetida y te llevas el suyo') : tr('Necesitas una copia repetida del que pide')}">${can ? 'Cambiar' : tr('No lo tienes repetido')}</button></div>`;
+          }).join('') || `<div class="note">${tr('No hay depósitos que coincidan.')}</div>`}</div>`;
       } else {
         const hist = this.gtsRows.filter((r) => r.status !== 'open');
-        body = `<div class="gts-list">${hist.map((r) => `<div class="gts-offer"><div class="gts-who"><small>${r.role === 'tomado' ? `Cambiaste con ${esc(r.other ?? '?')}` : r.status === 'traded' ? `${esc(r.other ?? '?')} te lo cambió` : 'Lo recuperaste'}</small></div>
-          ${r.role === 'tomado' ? pair(r.want_id, r.give_id) : pair(r.give_id, r.want_id)}<small>${new Date(r.closed_at ?? r.created_at).toLocaleDateString('es')}</small></div>`).join('') || '<div class="note">Todavía no has hecho ningún cambio.</div>'}</div>`;
+        body = `<div class="gts-list">${hist.map((r) => `<div class="gts-offer"><div class="gts-who"><small>${r.role === 'tomado' ? tr('Cambiaste con {x1}', { x1: esc(r.other ?? '?') }) : r.status === 'traded' ? tr('{x1} te lo cambió', { x1: esc(r.other ?? '?') }) : tr('Lo recuperaste')}</small></div>
+          ${r.role === 'tomado' ? pair(r.want_id, r.give_id) : pair(r.give_id, r.want_id)}<small>${new Date(r.closed_at ?? r.created_at).toLocaleDateString(locale())}</small></div>`).join('') || `<div class="note">${tr('Todavía no has hecho ningún cambio.')}</div>`}</div>`;
       }
-      this.show(`<div class="screen gts-screen">${this.titlebar('GTS · Estación de intercambio', 'Menú')}
-        <div class="gts-hero"><span class="gts-globe">${uiIcon('gts')}</span><div><b>Estación Global de Intercambio</b><small>Deja una copia repetida, pide el futbolista que te falta y recoge tu cambio cuando vuelvas.</small></div></div>
-        ${online ? `<div class="rw-tabs gts-tabs">${([['mios', 'Mis depósitos'], ['buscar', 'Buscar'], ['historial', 'Historial']] as const).map(([k, l]) => `<button class="rw-tab${this.gtsTab === k ? ' on' : ''}" data-gtab="${k}"><span class="rw-tab-tx"><b>${l}</b></span></button>`).join('')}</div>` : ''}
+      this.show(`<div class="screen gts-screen">${this.titlebar(tr('GTS · Estación de intercambio'), 'Menú')}
+        <div class="gts-hero"><span class="gts-globe">${uiIcon('gts')}</span><div><b>${tr('Estación Global de Intercambio')}</b><small>${tr('Deja una copia repetida, pide el futbolista que te falta y recoge tu cambio cuando vuelvas.')}</small></div></div>
+        ${online ? `<div class="rw-tabs gts-tabs">${([['mios', tr('Mis depósitos')], ['buscar', tr('Buscar')], ['historial', tr('Historial')]] as const).map(([k, l]) => `<button class="rw-tab${this.gtsTab === k ? ' on' : ''}" data-gtab="${k}"><span class="rw-tab-tx"><b>${l}</b></span></button>`).join('')}</div>` : ''}
         ${body}</div>`);
       this.on('[data-back]', 'click', () => this.mainMenu());
       this.on('[data-go2]', 'click', () => this.profile());
@@ -3288,10 +3290,10 @@ export class App {
       this.on('[data-withdraw]', 'click', (_e, el) => this.armed(el, async () => {
         try {
           const id = Number(el.dataset.withdraw);
-          if (!(await gtsWithdraw(id))) { this.toast('Ese depósito ya no está: puede que alguien te lo acabe de cambiar.'); await this.gtsSync(); render(); return; }
+          if (!(await gtsWithdraw(id))) { this.toast(tr('Ese depósito ya no está: puede que alguien te lo acabe de cambiar.')); await this.gtsSync(); render(); return; }
           const row = this.gtsRows.find((r) => r.id === id);
           await this.gtsSync(false);
-          if (row) await this.gtsAnim('vuelve', row.give_id, `${this.byId.get(row.give_id)?.name ?? '?'} vuelve a tu club.`);
+          if (row) await this.gtsAnim('vuelve', row.give_id, tr('{x1} vuelve a tu club.', { x1: this.byId.get(row.give_id)?.name ?? '?' }));
           render();
         } catch (e) { this.toast(gtsError(e), 4000); }
       }));
@@ -3302,8 +3304,8 @@ export class App {
           await this.pushCloud(true); // the server checks the spare copy against the cloud save
           await gtsTake(o.id);
           await this.gtsSync(false);
-          await this.gtsAnim('se-va', o.want_id, `${this.byId.get(o.want_id)?.name ?? '?'} se va con ${o.username}…`);
-          await this.gtsAnim('vuelve', o.give_id, `¡Llega ${this.byId.get(o.give_id)?.name ?? '?'}!`);
+          await this.gtsAnim('se-va', o.want_id, tr('{x1} se va con {username}…', { x1: this.byId.get(o.want_id)?.name ?? '?', username: o.username }));
+          await this.gtsAnim('vuelve', o.give_id, tr('¡Llega {x1}!', { x1: this.byId.get(o.give_id)?.name ?? '?' }));
           this.gtsOffers = this.gtsOffers?.filter((x) => x.id !== o.id) ?? null;
           render();
         } catch (e) { this.toast(gtsError(e), 4000); void loadOffers(); }
@@ -3313,7 +3315,7 @@ export class App {
       document.getElementById('gtsreload')?.addEventListener('click', () => void loadOffers());
     };
     const loadOffers = async () => {
-      try { this.gtsOffers = await gtsSearch(null, null); } catch { this.gtsOffers = []; this.toast('No se pudo cargar la GTS.'); }
+      try { this.gtsOffers = await gtsSearch(null, null); } catch { this.gtsOffers = []; this.toast(tr('No se pudo cargar la GTS.')); }
       if (this.screenKey === 'gts' || document.querySelector('.gts-screen')) render();
     };
     render();
@@ -3336,12 +3338,12 @@ export class App {
         ? this.unlockedRoster().filter((p) => !canLeave(this.save, p)).sort((a, b) => RARITY_ORDER.indexOf(b.rarity) - RARITY_ORDER.indexOf(a.rarity) || a.name.localeCompare(b.name, 'es'))
         : this.m.roster.filter((p) => p.id !== give && !gtsBanned(p)).sort((a, b) => RARITY_ORDER.indexOf(b.rarity) - RARITY_ORDER.indexOf(a.rarity) || a.name.localeCompare(b.name, 'es'));
       const shown = list.filter((p) => !ql || p.name.toLowerCase().includes(ql)).slice(0, 120);
-      box.innerHTML = `<div class="panel gts-pick"><div class="gts-pick-head"><b>${give === null ? '1. ¿Qué copia repetida dejas?' : `2. ¿Qué futbolista pides a cambio de ${esc(this.byId.get(give)?.name ?? '')}?`}</b>
+      box.innerHTML = `<div class="panel gts-pick"><div class="gts-pick-head"><b>${give === null ? tr('1. ¿Qué copia repetida dejas?') : tr('2. ¿Qué futbolista pides a cambio de {x1}?', { x1: esc(this.byId.get(give)?.name ?? '') })}</b>
         <button class="btn small blue" id="gpclose">✕</button></div>
-        <input id="gpq" placeholder="Buscar por nombre" value="${esc(q)}">
-        <div class="gts-pick-grid">${shown.map((p) => `<button class="gts-pickcard" data-pick="${p.id}" style="--rc:${RARITY_COLOR[p.rarity]}">${this.mug(p.id, 48)}<b>${esc(p.name)}</b><small>${RARITY_LABEL[p.rarity]}${give === null ? ` · ${gtsSpare(this.save, p.id)} de sobra` : this.save.owned[String(p.id)] ? ' · lo tienes' : ''}</small></button>`).join('')
-          || `<div class="note">${give === null ? 'No tienes copias repetidas que se puedan dejar.' : 'Nadie con ese nombre.'}</div>`}</div>
-        ${give !== null ? '<p><button class="btn small blue" id="gpback">‹ Elegir otra copia</button></p>' : ''}</div>`;
+        <input id="gpq" placeholder="${tr('Buscar por nombre')}" value="${esc(q)}">
+        <div class="gts-pick-grid">${shown.map((p) => `<button class="gts-pickcard" data-pick="${p.id}" style="--rc:${RARITY_COLOR[p.rarity]}">${this.mug(p.id, 48)}<b>${esc(p.name)}</b><small>${RARITY_LABEL[p.rarity]}${give === null ? tr(' · {gtsSpare} de sobra', { gtsSpare: gtsSpare(this.save, p.id) }) : this.save.owned[String(p.id)] ? tr(' · lo tienes') : ''}</small></button>`).join('')
+          || `<div class="note">${give === null ? tr('No tienes copias repetidas que se puedan dejar.') : tr('Nadie con ese nombre.')}</div>`}</div>
+        ${give !== null ? `<p><button class="btn small blue" id="gpback">${tr('‹ Elegir otra copia')}</button></p>` : ''}</div>`;
       box.querySelector('#gpclose')!.addEventListener('click', close);
       box.querySelector('#gpback')?.addEventListener('click', () => { give = null; q = ''; draw(); });
       const inp = box.querySelector('#gpq') as HTMLInputElement;
@@ -3355,7 +3357,7 @@ export class App {
           await this.pushCloud(true);
           await gtsDeposit(left, want);
           await this.gtsSync(false);
-          await this.gtsAnim('se-va', left, `${this.byId.get(left)?.name ?? '?'} se va a la GTS. Pides a ${this.byId.get(want)?.name ?? '?'}.`);
+          await this.gtsAnim('se-va', left, tr('{x1} se va a la GTS. Pides a {x2}.', { x1: this.byId.get(left)?.name ?? '?', x2: this.byId.get(want)?.name ?? '?' }));
         } catch (e) { this.toast(gtsError(e), 4500); }
         after();
       }));
@@ -3393,12 +3395,12 @@ export class App {
     document.querySelector('.bounty-modal')?.remove();
     const box = document.createElement('div');
     box.className = 'tut-modal bounty-modal';
-    box.innerHTML = `<div class="panel bounty-panel"><div class="bn-ic">🐞</div><h2>¡Gracias por ayudar!</h2>
-      <p>${rows.length === 1 ? 'Tu reporte se ha corregido' : `${rows.length} reportes tuyos se han corregido`}:</p>
+    box.innerHTML = `<div class="panel bounty-panel"><div class="bn-ic">🐞</div><h2>${tr('¡Gracias por ayudar!')}</h2>
+      <p>${rows.length === 1 ? tr('Tu reporte se ha corregido') : tr('{rowsLength} reportes tuyos se han corregido', { rowsLength: rows.length })}:</p>
       <ul class="bn-list">${rows.slice(0, 6).map((r) => `<li><b>${esc(r.code)}</b> ${esc(r.title)} <em>+${r.tokens}</em></li>`).join('')}</ul>
-      <div class="bn-total">+${total} fichas</div>
-      <p class="note">Cada bug que reportes y se corrija te da ${100} fichas. Repórtalos desde el 🐞 del menú o en Ajustes.</p>
-      <div class="tut-nav"><span class="spacer"></span><button class="btn" data-close>¡Genial!</button></div></div>`;
+      <div class="bn-total">${tr('+{total} fichas', { total })}</div>
+      <p class="note">${tr('Cada bug que reportes y se corrija te da 100 fichas. Repórtalos desde el 🐞 del menú o en Ajustes.')}</p>
+      <div class="tut-nav"><span class="spacer"></span><button class="btn" data-close>${tr('¡Genial!')}</button></div></div>`;
     document.body.appendChild(box);
     sfx('legend');
     box.querySelector('[data-close]')!.addEventListener('click', () => { box.remove(); this.mainMenu(); });
@@ -3417,10 +3419,10 @@ export class App {
     bar.className = 'notibar';
     bar.innerHTML = inbox.slice(0, 3).map((n, i) => `<div class="nb-item" data-i="${i}">
       <button class="nb-head" data-open="${i}"><span class="nb-ic">${n.status === 'corregido' ? '✅' : n.code.startsWith('IDEA') ? '💡' : '💬'}</span>
-        <span class="nb-tx"><b>${n.status === 'corregido' ? 'Tu reporte se ha corregido' : n.status === 'aceptada' ? '¡Tu recomendación ha sido aceptada!' : n.code.startsWith('IDEA') ? 'Respuesta a tu recomendación' : 'Respuesta a tu reporte'}</b><small>${esc(n.code)} · ${esc(n.title)}</small></span><em>Ver</em></button>
-      <button class="nb-x" data-del="${i}" title="Borrar">✕</button>
-      <div class="nb-body" hidden>${n.reply ? `<p>${esc(n.reply)}</p>` : n.status === 'aceptada' ? '<p>¡Gracias por la idea! La tendremos en cuenta.</p>' : '<p>¡Gracias por avisar! Ya está arreglado.</p>'}</div></div>`).join('')
-      + (inbox.length > 3 ? `<div class="nb-more">+${inbox.length - 3} más</div>` : '');
+        <span class="nb-tx"><b>${n.status === 'corregido' ? tr('Tu reporte se ha corregido') : n.status === 'aceptada' ? tr('¡Tu recomendación ha sido aceptada!') : n.code.startsWith('IDEA') ? tr('Respuesta a tu recomendación') : tr('Respuesta a tu reporte')}</b><small>${esc(n.code)} · ${esc(n.title)}</small></span><em>${tr('Ver')}</em></button>
+      <button class="nb-x" data-del="${i}" title="${tr('Borrar')}">✕</button>
+      <div class="nb-body" hidden>${n.reply ? `<p>${esc(n.reply)}</p>` : n.status === 'aceptada' ? `<p>${tr('¡Gracias por la idea! La tendremos en cuenta.')}</p>` : `<p>${tr('¡Gracias por avisar! Ya está arreglado.')}</p>`}</div></div>`).join('')
+      + (inbox.length > 3 ? `<div class="nb-more">${tr('+{x1} más', { x1: inbox.length - 3 })}</div>` : '');
     document.body.appendChild(bar);
     bar.querySelectorAll<HTMLElement>('[data-open]').forEach((b) => b.addEventListener('click', () => {
       const body = b.parentElement!.querySelector('.nb-body') as HTMLElement;
@@ -3440,8 +3442,8 @@ export class App {
       const rows = (await gtsFeed()).filter((r) => this.byId.has(r.give_id) && this.byId.has(r.want_id)).slice(0, 4);
       if (!document.body.contains(box)) return;
       box.innerHTML = rows.map((r) => `<div class="gts-feed${r.status === 'traded' ? ' done' : ''}">${this.mug(r.give_id, 26 as 64)}<span>${r.status === 'traded' ? '⇄' : '→'}</span>${this.mug(r.want_id, 26 as 64)}
-        <small><b>${esc(r.username)}</b> ${r.status === 'traded' ? 'cambió' : 'deja'} ${esc(this.byId.get(r.give_id)!.name)}</small></div>`).join('') || '<div class="note">Aún no hay intercambios. ¡Sé el primero!</div>';
-    } catch { box.innerHTML = '<div class="note">La GTS no responde ahora.</div>'; }
+        <small><b>${esc(r.username)}</b> ${r.status === 'traded' ? 'cambió' : 'deja'} ${esc(this.byId.get(r.give_id)!.name)}</small></div>`).join('') || `<div class="note">${tr('Aún no hay intercambios. ¡Sé el primero!')}</div>`;
+    } catch { box.innerHTML = `<div class="note">${tr('La GTS no responde ahora.')}</div>`; }
   }
 
   private async fillMenuRank() {
@@ -3458,24 +3460,24 @@ export class App {
       const pts = (r: BoardRow) => r.score == null ? scoreOf({ map: r.map, rank: r.rank, time: r.time_sec, damage: Number(r.damage) }) : Number(r.score);
       const podium = top.slice(0, 3).map((r) => {
         const p = cap(r.captain_id), pos = Number(r.pos);
-        return `<div class="wr-pod p${pos}" data-user="${esc(r.username)}" title="Ver el perfil de ${esc(r.username)}"><span class="wr-medal">${['🥇', '🥈', '🥉'][pos - 1]}</span>
+        return `<div class="wr-pod p${pos}" data-user="${esc(r.username)}" title="${tr('Ver el perfil de {username}', { username: esc(r.username) })}"><span class="wr-medal">${['🥇', '🥈', '🥉'][pos - 1]}</span>
           ${this.framed(`<span class="wr-mug${p ? ` r-${p.rarity}` : ''}${this.champLevel(r.username, r.captain_id) ? ' champ' : ''}">${p ? this.mug(p.id, pos === 1 ? 96 : 80) : ''}</span>`, this.frameOf(r.username))}
           ${this.namePlate('wr-name', r.username)}${this.clanBadge(r.username)}${this.champTag(r.username, r.captain_id)}<small class="wr-cap">${p ? esc(p.name) : ''}</small>
-          <div class="wr-pts"><b>${pts(r).toLocaleString('es')}</b> <small>puntos</small></div>
-          <div class="wr-stats">${crest(r.crest)}<span class="rank-btn r-${r.rank}">${rankMark(r.rank)}</span><span><b>${fmtTime(r.time_sec)}</b><small>tiempo</small></span><span><b>${Number(r.damage).toLocaleString('es')}</b><small>daño</small></span></div></div>`;
+          <div class="wr-pts"><b>${pts(r).toLocaleString(locale())}</b> <small>${tr('puntos')}</small></div>
+          <div class="wr-stats">${crest(r.crest)}<span class="rank-btn r-${r.rank}">${rankMark(r.rank)}</span><span><b>${fmtTime(r.time_sec)}</b><small>${tr('tiempo')}</small></span><span><b>${Number(r.damage).toLocaleString(locale())}</b><small>${tr('daño')}</small></span></div></div>`;
       }).join('');
       const row = (r: BoardRow, me = false) => {
         const p = cap(r.captain_id), rb = this.flagMini(r.username);
-        return `<div class="wr-row${me ? ' me' : ''}${rb ? ' has-pn' : ''}" data-user="${esc(r.username)}" title="Ver el perfil de ${esc(r.username)}">${rb}<span class="wr-pos">#${r.pos}</span>${this.framed(`<span class="wr-mini">${p ? this.mug(p.id, 40) : ''}</span>`, this.frameOf(r.username))}
+        return `<div class="wr-row${me ? ' me' : ''}${rb ? ' has-pn' : ''}" data-user="${esc(r.username)}" title="${tr('Ver el perfil de {username}', { username: esc(r.username) })}">${rb}<span class="wr-pos">#${r.pos}</span>${this.framed(`<span class="wr-mini">${p ? this.mug(p.id, 40) : ''}</span>`, this.frameOf(r.username))}
           <span class="wr-who"><b class="${this.goldName(r.username).trim()}">${esc(r.username)}</b>${this.clanBadge(r.username)}${this.champTag(r.username, r.captain_id)}<small>${p ? esc(p.name) : ''}</small></span>${crest(r.crest)}
-          <span class="rank-btn r-${r.rank}">${rankMark(r.rank)}</span><span class="wr-num"><b>${pts(r).toLocaleString('es')} pts</b><small>${fmtTime(r.time_sec)} · ${Number(r.damage).toLocaleString('es')} daño</small></span></div>`;
+          <span class="rank-btn r-${r.rank}">${rankMark(r.rank)}</span><span class="wr-num"><b>${tr('{x1} pts', { x1: pts(r).toLocaleString(locale()) })}</b><small>${tr('{time_sec} · {x1} daño', { time_sec: fmtTime(r.time_sec), x1: Number(r.damage).toLocaleString(locale()) })}</small></span></div>`;
       };
       el.innerHTML = top.length
         ? `<div class="wr-podium">${podium}</div><div class="wr-list">${top.slice(3, 15).map((r) => row(r)).join('')}</div>`
-          + (mine ? `<div class="wr-mine"><small>Tu posición</small>${row(mine, true)}</div>` : signedIn() ? '<div class="note">Juega una partida para aparecer en el ranking.</div>' : '<div class="note">Entra con Google para aparecer en el ranking.</div>')
-        : '<div class="note">Aún nadie en el ranking: ¡sé el primero!</div>';
+          + (mine ? `<div class="wr-mine"><small>${tr('Tu posición')}</small>${row(mine, true)}</div>` : signedIn() ? `<div class="note">${tr('Juega una partida para aparecer en el ranking.')}</div>` : `<div class="note">${tr('Entra con Google para aparecer en el ranking.')}</div>`)
+        : `<div class="note">${tr('Aún nadie en el ranking: ¡sé el primero!')}</div>`;
       this.bindUsers(el);
-    } catch { const el = document.getElementById('menurank'); if (el) el.innerHTML = '<div class="note">El ranking no está disponible ahora mismo. <button class="linkbtn" id="mrretry">Reintentar</button></div>'; document.getElementById('mrretry')?.addEventListener('click', () => void this.fillMenuRank()); }
+    } catch { const el = document.getElementById('menurank'); if (el) el.innerHTML = `<div class="note">${tr('El ranking no está disponible ahora mismo.')} <button class="linkbtn" id="mrretry">${tr('Reintentar')}</button></div>`; document.getElementById('mrretry')?.addEventListener('click', () => void this.fillMenuRank()); }
   }
 
   /**
@@ -3487,8 +3489,8 @@ export class App {
     this.stopScenes();
     setMusicContext('menu');
     const myCap = this.byId.get(this.save.captainId ?? -1) ?? squadOf(this.save, this.byId)[0] ?? this.unlockedRoster()[0] ?? null;
-    this.show(`<div class="lobby" id="lobby">${this.titlebar('Sala de jugadores', 'Menú')}
-      <div class="lb-info" id="lbinfo">${uiIcon('team')}<span>Cargando jugadores…</span></div><div class="lb-card" id="lbcard" hidden></div><div class="joy" id="joy"><b><i></i></b></div></div>`, 'lobby-mode');
+    this.show(`<div class="lobby" id="lobby">${this.titlebar(tr('Sala de jugadores'), 'Menú')}
+      <div class="lb-info" id="lbinfo">${uiIcon('team')}<span>${tr('Cargando jugadores…')}</span></div><div class="lb-card" id="lbcard" hidden></div><div class="joy" id="joy"><b><i></i></b></div></div>`, 'lobby-mode');
     const key = this.screenKey;
     this.on('[data-back]', 'click', () => this.mainMenu());
     bindStick(document.getElementById('joy')!);
@@ -3506,14 +3508,14 @@ export class App {
           const cap = this.byId.get(r.captain_id);
           if (cap && !(mine && r.username.toLowerCase() === mine.username.toLowerCase())) rows.set(`u:${r.username.toLowerCase()}`, { name: r.username, captain: cap, pos: Number(r.pos), rank: r.rank, pts: pts(r), me: false });
         }
-        note = `${rows.size + (myCap ? 1 : 0)} jugadores en la sala`;
-      } catch { note = 'El ranking no responde ahora: solo estás tú en la sala.'; }
-    } else note = 'El servicio online no está activado en esta versión: solo estás tú en la sala.';
+        note = tr('{x1} jugadores en la sala', { x1: rows.size + (myCap ? 1 : 0) });
+      } catch { note = tr('El ranking no responde ahora: solo estás tú en la sala.'); }
+    } else note = tr('El servicio online no está activado en esta versión: solo estás tú en la sala.');
     if (this.screenKey !== key) return; // left while the players were loading
     if (myCap) rows.set('me', { name: mine?.username ?? this.save.profile.name, captain: myCap, pos: mine ? Number(mine.pos) : null, rank: mine?.rank ?? null, pts: mine ? pts(mine) : null, me: true });
     const touch = document.body.classList.contains('touch');
     const info = document.getElementById('lbinfo');
-    if (info) info.innerHTML = `${uiIcon('team')}<span>${esc(note)}<small>${touch ? 'Muévete con el joystick y acércate a alguien para ver su ficha.' : 'Muévete con WASD o flechas y pasa el ratón por encima de alguien para ver su ficha.'}</small></span>`;
+    if (info) info.innerHTML = `${uiIcon('team')}<span>${esc(note)}<small>${touch ? tr('Muévete con el joystick y acércate a alguien para ver su ficha.') : tr('Muévete con WASD o flechas y pasa el ratón por encima de alguien para ver su ficha.')}</small></span>`;
     const card = document.getElementById('lbcard')!;
     const zoom = parseFloat(getComputedStyle(this.root).zoom) || 1;
     let shown: string | null = null;
@@ -3524,8 +3526,8 @@ export class App {
         shown = k;
         const c = r.captain, rar = r.me ? effectiveRarity(this.save, c) : c.rarity; // the others' ascensions are not public
         card.style.setProperty('--rc', RARITY_COLOR[rar]);
-        card.innerHTML = `<span class="lb-mug r-${rar}">${this.mug(c.id, 72)}</span><div class="lb-txt"><b>${esc(r.name)}</b>${r.me ? '<em>TÚ</em>' : ''}<small>Capitán: ${esc(c.name)}</small>
-          ${r.pos !== null && r.rank ? `<span class="lb-rank"><span class="lb-pos">#${r.pos}</span><span class="rank-btn r-${r.rank}">${rankMark(r.rank)}</span><span class="lb-pts"><b>${r.pts!.toLocaleString('es')}</b> pts</span></span>` : '<span class="lb-rank none">Sin marca en el ranking</span>'}</div>`;
+        card.innerHTML = `<span class="lb-mug r-${rar}">${this.mug(c.id, 72)}</span><div class="lb-txt"><b>${esc(r.name)}</b>${r.me ? '<em>TÚ</em>' : ''}<small>${tr('Capitán: {cName}', { cName: esc(c.name) })}</small>
+          ${r.pos !== null && r.rank ? `<span class="lb-rank"><span class="lb-pos">#${r.pos}</span><span class="rank-btn r-${r.rank}">${rankMark(r.rank)}</span><span class="lb-pts"><b>${r.pts!.toLocaleString(locale())}</b> ${tr('pts')}</span></span>` : `<span class="lb-rank none">${tr('Sin marca en el ranking')}</span>`}</div>`;
         card.hidden = false;
       }
       // over the head; under the feet when the bar would cover it, and never past the sides of the screen
@@ -3552,7 +3554,7 @@ export class App {
   }
   /** 2.0: everything a day gives, as chips (fichas, coins, the footballer) */
   private passItems(r: PassReward) {
-    return `<span class="wp3-items">${r.jugador ? `<i class="wp3-it pl">★ ${esc(r.jugador.label)}</i>` : ''}${r.fichas ? `<i class="wp3-it tk">${this.cap('cap_azul_spin0') ? `<img src="${this.cap('cap_azul_spin0')}" alt="">` : ''}+${r.fichas} fichas</i>` : ''}${r.monedas ? `<i class="wp3-it cn">◉ +${r.monedas.toLocaleString('es')}</i>` : ''}</span>`;
+    return `<span class="wp3-items">${r.jugador ? `<i class="wp3-it pl">★ ${esc(r.jugador.label)}</i>` : ''}${r.fichas ? `<i class="wp3-it tk">${tr('{x1}+{fichas} fichas', { x1: this.cap('cap_azul_spin0') ? `<img src="${this.cap('cap_azul_spin0')}" alt="">` : '', fichas: r.fichas })}</i>` : ''}${r.monedas ? `<i class="wp3-it cn">◉ +${r.monedas.toLocaleString(locale())}</i>` : ''}</span>`;
   }
   /** 2.0: the odds of a footballer reward, as a bar of rarity colours with its legend */
   private passOdds(r: PassReward) {
@@ -3567,42 +3569,42 @@ export class App {
     const now = serverNow(), st = passStatus(this.save, now), left = msToNextDay(now);
     const days = PASS.map((r, i) => {
       const state = i < st.index ? 'reclamado' : i === st.index ? (st.available ? 'disponible' : 'siguiente') : 'bloqueado';
-      return `<div class="wp2-mini ${state}${i === PASS.length - 1 ? ' grand' : ''}" title="Día ${i + 1}: ${esc(r.label)}"><small>${i + 1}</small>${this.passArt(i)}${state === 'reclamado' ? '<i class="wp2-ok">✔</i>' : ''}</div>`;
+      return `<div class="wp2-mini ${state}${i === PASS.length - 1 ? ' grand' : ''}" title="${tr('Día {x1}: {label}', { x1: i + 1, label: esc(r.label) })}"><small>${i + 1}</small>${this.passArt(i)}${state === 'reclamado' ? '<i class="wp2-ok">✔</i>' : ''}</div>`;
     }).join('<i class="wp2-link"></i>');
-    return `<div class="wide-head"><h3>✦ Pase semanal</h3><small>${st.available ? '¡Tienes una recompensa lista!' : `Siguiente en ${this.passCount(left)}`}</small></div>
+    return `<div class="wide-head"><h3>${tr('✦ Pase semanal')}</h3><small>${st.available ? tr('¡Tienes una recompensa lista!') : tr('Siguiente en {passCount}', { passCount: this.passCount(left) })}</small></div>
       <div class="wp2-strip" style="--p:${st.index / (PASS.length - 1)}">${days}</div>
-      <div class="wp-foot"><span>Día ${st.index + 1} de ${PASS.length} · ${esc(PASS[st.index].label)}</span>${st.available ? '<button class="btn" id="wpclaim">Reclamar</button>' : '<button class="btn small" data-go="pass">Ver pase</button>'}</div>`;
+      <div class="wp-foot"><span>${tr('Día {x1} de {PASSLength} · {x2}', { x1: st.index + 1, PASSLength: PASS.length, x2: esc(PASS[st.index].label) })}</span>${st.available ? '<button class="btn" id="wpclaim">Reclamar</button>' : '<button class="btn small" data-go="pass">Ver pase</button>'}</div>`;
   }
 
   /** Claims today's pass reward (team reward: the favourite team, or the one chosen on the pass screen). */
   private claimPassNow(after: () => void) {
     // Fix 1.23: a new day of the pass needs the server's clock (a different date on the device paid it again)
-    if (!trustedClock()) { void syncServerTime(); sfx('error'); this.toast('Necesitas conexión para reclamar el pase (hora del servidor).'); after(); return; }
+    if (!trustedClock()) { void syncServerTime(); sfx('error'); this.toast(tr('Necesitas conexión para reclamar el pase (hora del servidor).')); after(); return; }
     const res = claimPass(this.save, this.m.roster, serverNow(), Math.random, bannerPool(this.m.roster, 'equipo', this.passTeam || this.save.favoriteTeam || ''));
     if (!res) { sfx('error'); after(); return; }
     this.persist();
     sfx('legend');
-    if (res.player) void this.capsuleShow([{ player: res.player, isNew: this.save.owned[String(res.player.id)]?.copies === 1, stars: this.save.owned[String(res.player.id)]?.stars ?? 0, refund: 0 }], 'Pase semanal').then(after);
+    if (res.player) void this.capsuleShow([{ player: res.player, isNew: this.save.owned[String(res.player.id)]?.copies === 1, stars: this.save.owned[String(res.player.id)]?.stars ?? 0, refund: 0 }], tr('Pase semanal')).then(after);
     else { this.toast(`¡${res.reward.label}!`); after(); }
   }
 
   /** Online account box (profile screen). Without a configured service it only says so: nothing pretends to be online. */
   private accountPanel() {
     if (!onlineConfigured()) {
-      return `<div class="panel"><h3>Cuenta online</h3><div class="note">El servicio online no está activado en esta versión. Tu progreso se guarda en este navegador (Ajustes » Exportar/Importar para llevarlo a otro). Con el servicio activo podrás entrar con Google, reservar tu nombre en todo el mundo, aparecer en el ranking global y guardar en la nube.</div></div>`;
+      return `<div class="panel"><h3>${tr('Cuenta online')}</h3><div class="note">${tr('El servicio online no está activado en esta versión. Tu progreso se guarda en este navegador (Ajustes » Exportar/Importar para llevarlo a otro). Con el servicio activo podrás entrar con Google, reservar tu nombre en todo el mundo, aparecer en el ranking global y guardar en la nube.')}</div></div>`;
     }
     if (!signedIn()) {
-      return `<div class="panel account"><h3>Cuenta online</h3><div class="note">Estás jugando como invitado: tu progreso se guarda solo en este navegador. Entra con Google para reservar tu nombre en todo el mundo, aparecer en el ranking y guardar en la nube. Tu correo es privado: nunca aparece en el ranking.</div>
-        <p><button class="btn google-btn" id="acgoogle"><span class="g-logo">G</span> Continuar con Google</button></p>
-        <p class="note"><a href="privacidad.html" target="_blank" rel="noopener">Privacidad y condiciones</a></p></div>`;
+      return `<div class="panel account"><h3>${tr('Cuenta online')}</h3><div class="note">${tr('Estás jugando como invitado: tu progreso se guarda solo en este navegador. Entra con Google para reservar tu nombre en todo el mundo, aparecer en el ranking y guardar en la nube. Tu correo es privado: nunca aparece en el ranking.')}</div>
+        <p><button class="btn google-btn" id="acgoogle"><span class="g-logo">G</span> ${tr('Continuar con Google')}</button></p>
+        <p class="note"><a href="privacidad.html" target="_blank" rel="noopener">${tr('Privacidad y condiciones')}</a></p></div>`;
     }
     const cs = this.cloudState;
-    return `<div class="panel account"><h3>Cuenta online</h3><div class="note">Conectado con Google${signedEmail() ? ` como ${esc(signedEmail())}` : ''} (solo tú lo ves).</div>
-      ${this.save.onlineName ? `<p>Nombre global: <b>${esc(this.save.onlineName)}</b> (permanente)</p>` : `<p class="note">Reserva tu nombre global. Si «${esc(this.save.profile.name)}» ya está ocupado, elige otro: tu progreso no se toca.</p>
-        <div class="filters"><input id="acname" maxlength="${USERNAME_MAX}" value="${esc(this.save.profile.name)}"><span id="acnamecheck" class="pcheck"></span><button class="btn small" id="acreserve">Reservar nombre</button></div>`}
-      <p class="note">Nube: ${cs.status === 'ok' ? `sincronizado (versión ${this.save.cloudVersion ?? 0}${cs.at ? `, ${new Date(cs.at).toLocaleTimeString('es')}` : ''})` : cs.status === 'pendiente' ? 'cambios pendientes de subir…' : cs.status === 'conflicto' ? '<b>conflicto</b>: otro dispositivo guardó una versión más nueva' : cs.status === 'error' ? `error (${esc(cs.msg)})` : 'sin vincular todavía'}</p>
-      <p><button class="btn small" id="aclink">Revisar guardado en la nube</button> <button class="btn small blue" id="acout">Cerrar sesión</button> <button class="btn small" id="acdel">Eliminar cuenta y datos</button></p>
-      <p class="note"><a href="privacidad.html" target="_blank" rel="noopener">Privacidad y condiciones</a></p></div>`;
+    return `<div class="panel account"><h3>${tr('Cuenta online')}</h3><div class="note">${tr('Conectado con Google{x1} (solo tú lo ves).', { x1: signedEmail() ? ` como ${esc(signedEmail())}` : '' })}</div>
+      ${this.save.onlineName ? `<p>${tr('Nombre global: <b>{onlineName}</b> (permanente)', { onlineName: esc(this.save.onlineName) })}</p>` : `<p class="note">${tr('Reserva tu nombre global. Si «{profileName}» ya está ocupado, elige otro: tu progreso no se toca.', { profileName: esc(this.save.profile.name) })}</p>
+        <div class="filters"><input id="acname" maxlength="${USERNAME_MAX}" value="${esc(this.save.profile.name)}"><span id="acnamecheck" class="pcheck"></span><button class="btn small" id="acreserve">${tr('Reservar nombre')}</button></div>`}
+      <p class="note">${tr('Nube: {x1}', { x1: cs.status === 'ok' ? tr('sincronizado (versión {x1}{x2})', { x1: this.save.cloudVersion ?? 0, x2: cs.at ? `, ${new Date(cs.at).toLocaleTimeString(locale())}` : '' }) : cs.status === 'pendiente' ? tr('cambios pendientes de subir…') : cs.status === 'conflicto' ? `<b>${tr('conflicto')}</b>${tr(': otro dispositivo guardó una versión más nueva')}` : cs.status === 'error' ? `error (${esc(cs.msg)})` : tr('sin vincular todavía') })}</p>
+      <p><button class="btn small" id="aclink">${tr('Revisar guardado en la nube')}</button> <button class="btn small blue" id="acout">${tr('Cerrar sesión')}</button> <button class="btn small" id="acdel">${tr('Eliminar cuenta y datos')}</button></p>
+      <p class="note"><a href="privacidad.html" target="_blank" rel="noopener">${tr('Privacidad y condiciones')}</a></p></div>`;
   }
 
   private bindAccount(refresh: () => void) {
@@ -3615,16 +3617,16 @@ export class App {
       const v = validateUsername(val('acname'));
       if (!v.ok) { this.toast(v.reason); return; }
       reserveUsername(v.name, String(this.save.profile.icon.id), this.save.crest)
-        .then(async (n) => { this.save.onlineName = n; this.claimName(); storeSave(this.save); await this.linkCloud(); this.toast('Nombre reservado. Tu progreso ya está en la nube.', 3500); refresh(); })
-        .catch((e: Error) => this.toast(/taken/.test(e.message) ? 'Ese nombre ya está ocupado: prueba otro' : e.message, 3500));
+        .then(async (n) => { this.save.onlineName = n; this.claimName(); storeSave(this.save); await this.linkCloud(); this.toast(tr('Nombre reservado. Tu progreso ya está en la nube.'), 3500); refresh(); })
+        .catch((e: Error) => this.toast(/taken/.test(e.message) ? tr('Ese nombre ya está ocupado: prueba otro') : e.message, 3500));
     });
     document.getElementById('aclink')?.addEventListener('click', () => { void this.linkCloud(true).then(refresh); });
     document.getElementById('acout')?.addEventListener('click', () => {
-      void this.pushCloud(true).finally(() => { signOut(); this.cloudLinked = false; this.cloudState = { status: 'nada', at: 0, msg: '' }; this.toast('Sesión cerrada. Sigues jugando como invitado en este navegador.', 3500); refresh(); });
+      void this.pushCloud(true).finally(() => { signOut(); this.cloudLinked = false; this.cloudState = { status: 'nada', at: 0, msg: '' }; this.toast(tr('Sesión cerrada. Sigues jugando como invitado en este navegador.'), 3500); refresh(); });
     });
     const del = document.getElementById('acdel');
     del?.addEventListener('click', () => this.armed(del, () => {
-      deleteAccount().then(() => { this.save.onlineName = undefined; this.save.cloudVersion = undefined; this.cloudLinked = false; this.persist(); this.toast('Cuenta y datos online eliminados. Tu guardado local sigue aquí.', 4500); refresh(); }).catch(fail);
+      deleteAccount().then(() => { this.save.onlineName = undefined; this.save.cloudVersion = undefined; this.cloudLinked = false; this.persist(); this.toast(tr('Cuenta y datos online eliminados. Tu guardado local sigue aquí.'), 4500); refresh(); }).catch(fail);
     }));
   }
 
@@ -3637,36 +3639,36 @@ export class App {
   private resetProgressModal() {
     if (document.querySelector('.reset-modal')) return;
     const online = onlineConfigured() && signedIn() && !!this.save.onlineName;
-    const word = online ? this.save.onlineName! : 'REINICIAR';
+    const word = online ? this.save.onlineName! : tr('REINICIAR');
     const r = resetSummary(this.save);
     const box = document.createElement('div');
     box.className = 'tut-modal reset-modal';
-    box.innerHTML = `<div class="panel" style="max-width:640px"><h2>Reiniciar progreso</h2>
-      <p>Vuelves a empezar como un jugador nuevo: intro, equipo favorito, tus 5 primeros fichajes y tutorial.</p>
-      <h4>Se borra</h4><ul class="reset-list">
-        <li>Colección: ${r.players} futbolistas, ${r.duplicates} duplicados, ${r.ascended} ascendidos (Mítico/Héroe)</li>
-        <li>${r.coins} monedas y ${r.tokens} fichas</li>
-        <li>Mejoras permanentes (${r.upgrades} niveles), ${r.gear} objetos de equipo, técnicas compradas y maestría</li>
-        <li>Equipaciones y escudos desbloqueados (${r.kits} equipaciones) y recompensas de equipo</li>
-        <li>Misiones (${r.missionsClaimed} cobradas) y tienda del día</li>
-        <li>Estadísticas (${r.runs} partidas, ${r.wins} victorias), ${r.bests} récords, salón de la fama (${r.hall}) y arenas superadas</li>
-        <li>Equipo favorito, Mi Equipo, capitán y onboarding</li>
-        ${online ? '<li>Tus marcas del ranking mundial (las de los demás no se tocan)</li>' : ''}
+    box.innerHTML = `<div class="panel" style="max-width:640px"><h2>${tr('Reiniciar progreso')}</h2>
+      <p>${tr('Vuelves a empezar como un jugador nuevo: intro, equipo favorito, tus 5 primeros fichajes y tutorial.')}</p>
+      <h4>${tr('Se borra')}</h4><ul class="reset-list">
+        <li>${tr('Colección: {players} futbolistas, {duplicates} duplicados, {ascended} ascendidos (Mítico/Héroe)', { players: r.players, duplicates: r.duplicates, ascended: r.ascended })}</li>
+        <li>${tr('{coins} monedas y {tokens} fichas', { coins: r.coins, tokens: r.tokens })}</li>
+        <li>${tr('Mejoras permanentes ({upgrades} niveles), {gear} objetos de equipo, técnicas compradas y maestría', { upgrades: r.upgrades, gear: r.gear })}</li>
+        <li>${tr('Equipaciones y escudos desbloqueados ({kits} equipaciones) y recompensas de equipo', { kits: r.kits })}</li>
+        <li>${tr('Misiones ({missionsClaimed} cobradas) y tienda del día', { missionsClaimed: r.missionsClaimed })}</li>
+        <li>${tr('Estadísticas ({runs} partidas, {wins} victorias), {bests} récords, salón de la fama ({hall}) y arenas superadas', { runs: r.runs, wins: r.wins, bests: r.bests, hall: r.hall })}</li>
+        <li>${tr('Equipo favorito, Mi Equipo, capitán y onboarding')}</li>
+        ${online ? `<li>${tr('Tus marcas del ranking mundial (las de los demás no se tocan)')}</li>` : ''}
       </ul>
-      <h4>Se conserva</h4><ul class="reset-list keep">
-        ${online ? `<li>Tu cuenta de Google y tu nombre global <b>${esc(word)}</b> (sigue siendo tuyo)</li>` : '<li>Nada de cuenta online (juegas como invitado): el nombre lo eliges otra vez, con el actual como sugerencia</li>'}
-        <li>Ajustes de sonido, gráficos y controles</li>
+      <h4>${tr('Se conserva')}</h4><ul class="reset-list keep">
+        ${online ? `<li>${tr('Tu cuenta de Google y tu nombre global <b>{word}</b> (sigue siendo tuyo)', { word: esc(word) })}</li>` : `<li>${tr('Nada de cuenta online (juegas como invitado): el nombre lo eliges otra vez, con el actual como sugerencia')}</li>`}
+        <li>${tr('Ajustes de sonido, gráficos y controles')}</li>
       </ul>
-      <p class="note">Antes de borrar se guarda una copia${online ? ' en el servidor y otra' : ''} en este navegador, por si hubiera que recuperarla. ${online ? 'Los demás dispositivos con tu cuenta también empezarán de cero al conectarse: su copia antigua no puede sobrescribir la nueva.' : ''}</p>
-      <div class="filters"><input id="rs-word" autocomplete="off" spellcheck="false" placeholder="Escribe ${esc(word)} para confirmar"></div>
-      <div class="tut-nav"><button class="btn small blue" id="rs-no">Cancelar</button><span class="spacer"></span><button class="btn" id="rs-ok" disabled>Reiniciar mi progreso</button></div></div>`;
+      <p class="note">${tr('Antes de borrar se guarda una copia{x1} en este navegador, por si hubiera que recuperarla. {x2}', { x1: online ? tr(' en el servidor y otra') : '', x2: online ? tr('Los demás dispositivos con tu cuenta también empezarán de cero al conectarse: su copia antigua no puede sobrescribir la nueva.') : '' })}</p>
+      <div class="filters"><input id="rs-word" autocomplete="off" spellcheck="false" placeholder="${tr('Escribe {word} para confirmar', { word: esc(word) })}"></div>
+      <div class="tut-nav"><button class="btn small blue" id="rs-no">${tr('Cancelar')}</button><span class="spacer"></span><button class="btn" id="rs-ok" disabled>${tr('Reiniciar mi progreso')}</button></div></div>`;
     document.body.appendChild(box);
     const input = box.querySelector('#rs-word') as HTMLInputElement, ok = box.querySelector('#rs-ok') as HTMLButtonElement;
     input.addEventListener('input', () => { ok.disabled = input.value.trim() !== word; });
     box.querySelector('#rs-no')!.addEventListener('click', () => box.remove());
     ok.addEventListener('click', () => {
       ok.disabled = true;
-      this.resetProgress(online).then(() => box.remove()).catch((e: Error) => { ok.disabled = false; this.toast(`No se pudo reiniciar: ${e.message}`, 5000); });
+      this.resetProgress(online).then(() => box.remove()).catch((e: Error) => { ok.disabled = false; this.toast(tr('No se pudo reiniciar: {message}', { message: e.message }), 5000); });
     });
   }
 
@@ -3683,7 +3685,7 @@ export class App {
     this.replaceSave(fresh);
     this.cloudLinked = online;
     this.cloudState = online ? { status: 'ok', at: Date.now(), msg: '' } : { status: 'nada', at: 0, msg: '' };
-    this.toast('Progreso reiniciado. ¡Bienvenido de nuevo, entrenador!', 4000);
+    this.toast(tr('Progreso reiniciado. ¡Bienvenido de nuevo, entrenador!'), 4000);
     void this.intro().then(() => this.afterIntro());
   }
 
@@ -3693,13 +3695,14 @@ export class App {
     Object.assign(this.save, next);
     this.captainId = this.save.captainId;
     setPreviewKit(this.m.kits?.[this.save.kit] ?? null);
+    setLang(resolveLang(this.save.settings.lang)); // 2.3
     this.applyAudio();
     storeSave(this.save);
   }
 
   /** Another device reset the progress: this one drops its stale copy (kept as backup) and starts again too. */
   private reloadAfterReset(cloud: CloudSave) {
-    this.adoptCloud(cloud, true, 'Tu progreso se reinició desde otro dispositivo: empiezas de nuevo (la copia anterior queda como respaldo).');
+    this.adoptCloud(cloud, true, tr('Tu progreso se reinició desde otro dispositivo: empiezas de nuevo (la copia anterior queda como respaldo).'));
     if (!document.getElementById('hud')) this.afterIntro();
   }
 
@@ -3739,6 +3742,7 @@ export class App {
     const name = this.save.onlineName ?? next.onlineName; // the account's name, whatever the copy says
     for (const k of Object.keys(this.save)) delete (this.save as unknown as Record<string, unknown>)[k];
     Object.assign(this.save, next, { cloudVersion: cloud.version, onlineName: name });
+    setLang(resolveLang(this.save.settings.lang)); // 2.3
     remapIds(this.save, this.m.idAliases);
     remapTechSlots(this.save, this.m.techRemaps);
     migrateHeroes131(this.save, this.m.roster);
@@ -3754,19 +3758,19 @@ export class App {
     this.cloudState = { status: 'ok', at: Date.now(), msg: '' };
     this.claimName();
     storeSave(this.save);
-    this.toast(note || (hadLocal ? 'Progreso de la nube cargado (tu copia local anterior se guardó como respaldo).' : 'Progreso recuperado de la nube.'), 4500);
+    this.toast(note || (hadLocal ? tr('Progreso de la nube cargado (tu copia local anterior se guardó como respaldo).') : tr('Progreso recuperado de la nube.')), 4500);
   }
 
   private chooseSave(local: SaveSummary, cloud: SaveSummary, at: string): Promise<'local' | 'nube' | 'cancelar'> {
     return new Promise((resolve) => {
       const row = (t: string, s: SaveSummary, best: boolean) => `<div class="save-pick${best ? ' best' : ''}"><b>${t}</b><span>${esc(s.name)}</span>
-        <small>${s.players} futbolistas · ${s.heroes} héroes · ${s.wins} victorias · ${s.runs} partidas · ${s.coins} monedas · ${s.tokens} fichas</small></div>`;
+        <small>${tr('{players} futbolistas · {heroes} héroes · {wins} victorias · {runs} partidas · {coins} monedas · {tokens} fichas', { players: s.players, heroes: s.heroes, wins: s.wins, runs: s.runs, coins: s.coins, tokens: s.tokens })}</small></div>`;
       const box = document.createElement('div');
       box.className = 'tut-modal';
-      box.innerHTML = `<div class="panel" style="max-width:620px"><h2>¿Qué progreso quieres usar?</h2>
-        <p class="note">Hay un guardado en la nube (${new Date(at).toLocaleString('es')}) distinto del de este navegador. El que no elijas se guarda como respaldo aquí; nada se pierde.</p>
-        ${row('Este navegador', local, progressOf(local) >= progressOf(cloud))}${row('Nube', cloud, progressOf(cloud) > progressOf(local))}
-        <div class="tut-nav"><button class="btn small blue" data-c="cancelar">Ahora no</button><span class="spacer"></span><button class="btn" data-c="local">Usar este navegador</button><button class="btn" data-c="nube">Usar la nube</button></div></div>`;
+      box.innerHTML = `<div class="panel" style="max-width:620px"><h2>${tr('¿Qué progreso quieres usar?')}</h2>
+        <p class="note">${tr('Hay un guardado en la nube ({x1}) distinto del de este navegador. El que no elijas se guarda como respaldo aquí; nada se pierde.', { x1: new Date(at).toLocaleString(locale()) })}</p>
+        ${row(tr('Este navegador'), local, progressOf(local) >= progressOf(cloud))}${row('Nube', cloud, progressOf(cloud) > progressOf(local))}
+        <div class="tut-nav"><button class="btn small blue" data-c="cancelar">${tr('Ahora no')}</button><span class="spacer"></span><button class="btn" data-c="local">${tr('Usar este navegador')}</button><button class="btn" data-c="nube">${tr('Usar la nube')}</button></div></div>`;
       document.body.appendChild(box);
       box.querySelectorAll<HTMLElement>('[data-c]').forEach((b) => b.addEventListener('click', () => { box.remove(); resolve(b.dataset.c as 'local' | 'nube' | 'cancelar'); }));
     });
@@ -3791,7 +3795,7 @@ export class App {
       } catch (e) {
         const m = (e as Error).message;
         if (/progress_reset/.test(m)) { const cloud = await getCloudSave(); if (cloud) this.reloadAfterReset(cloud); }
-        else if (/version_conflict/.test(m)) { this.cloudState = { status: 'conflicto', at: Date.now(), msg: m }; this.cloudLinked = false; this.toast('Otro dispositivo guardó un progreso más nuevo. Revisa Perfil » Vincular.', 5000); }
+        else if (/version_conflict/.test(m)) { this.cloudState = { status: 'conflicto', at: Date.now(), msg: m }; this.cloudLinked = false; this.toast(tr('Otro dispositivo guardó un progreso más nuevo. Revisa Perfil » Vincular.'), 5000); }
         else if (/too_fast/.test(m)) this.cloudTimer = window.setTimeout(() => void go(), 3000);
         else { this.cloudState = { status: 'error', at: Date.now(), msg: m }; this.cloudTimer = window.setTimeout(() => void go(), 30000); } // retry calmly
       } finally {
@@ -3818,12 +3822,12 @@ export class App {
     this.persist();
     const listTop = this.root.querySelector('.nb-list')?.scrollTop ?? 0;
     const list = items.map((n) => `<button class="nb-item k-${n.kind}${n.id === cur?.id ? ' on' : ''}" data-news="${esc(n.id)}">
-        <span class="nb-ic">${this.newsLogo(n)}</span><span class="nb-txt"><span class="nb-meta"><em class="nb-tag">${NEWS_KIND_LABEL[n.kind]}</em>${n.pinned ? '<i class="nb-pin">📌</i>' : ''}<small>${esc(newsRelDate(n.date))}</small>${this.save.newsRead!.includes(n.id) ? '' : '<i class="nb-dot" title="Sin leer"></i>'}</span>
+        <span class="nb-ic">${this.newsLogo(n)}</span><span class="nb-txt"><span class="nb-meta"><em class="nb-tag">${NEWS_KIND_LABEL[n.kind]}</em>${n.pinned ? '<i class="nb-pin">📌</i>' : ''}<small>${esc(newsRelDate(n.date))}</small>${this.save.newsRead!.includes(n.id) ? '' : `<i class="nb-dot" title="${tr('Sin leer')}"></i>`}</span>
         <b>${esc(n.title)}</b><small class="nb-sum">${esc(n.summary)}</small></span></button>`).join('');
-    this.show(`<div class="screen news-board">${this.titlebar('Noticias', 'Menú')}
-      <div class="nb-mast"><svg class="nb-mast-bolt" viewBox="0 0 60 100"><polygon points="38,0 6,56 26,56 16,100 56,38 34,38"/></svg><div><b>LA GACETA <span>INAZURVIVORS</span></b>
-        <small>Noticias, avisos y todas las actualizaciones · ${esc(VERSION_LABEL)}</small></div><span class="nb-mast-n">${items.filter((x) => !this.save.newsRead!.includes(x.id)).length || '✔'}<small>${items.some((x) => !this.save.newsRead!.includes(x.id)) ? 'sin leer' : 'al día'}</small></span></div>
-      <div class="nb"><aside class="nb-list">${list}</aside><article class="nb-detail" id="nbdetail">${cur?.id === 'version-2-0-espiritus' ? '<p class="nb-replay"><button class="btn big" id="newsl2">▶ Ver la presentación de la 2.0</button></p>' : ''}${cur ? this.newsDetail(cur) : ''}</article></div></div>`);
+    this.show(`<div class="screen news-board">${this.titlebar(tr('Noticias'), tr('Menú'))}
+      <div class="nb-mast"><svg class="nb-mast-bolt" viewBox="0 0 60 100"><polygon points="38,0 6,56 26,56 16,100 56,38 34,38"/></svg><div><b>${tr('LA GACETA {x1}', { x1: '<span>INAZURVIVORS</span>' })}</b>
+        <small>${tr('Noticias, avisos y todas las actualizaciones · {VERSION_LABEL}', { VERSION_LABEL: esc(VERSION_LABEL) })}</small></div><span class="nb-mast-n">${items.filter((x) => !this.save.newsRead!.includes(x.id)).length || '✔'}<small>${items.some((x) => !this.save.newsRead!.includes(x.id)) ? tr('sin leer') : tr('al día')}</small></span></div>
+      <div class="nb"><aside class="nb-list">${list}</aside><article class="nb-detail" id="nbdetail">${cur?.id === 'version-2-0-espiritus' ? `<p class="nb-replay"><button class="btn big" id="newsl2">${tr('▶ Ver la presentación de la 2.0')}</button></p>` : ''}${cur ? this.newsDetail(cur) : ''}</article></div></div>`);
     const listEl = this.root.querySelector('.nb-list');
     if (listEl) listEl.scrollTop = listTop; // choosing an item keeps the list where it was
     this.on('[data-back]', 'click', () => this.mainMenu());
@@ -3855,19 +3859,19 @@ export class App {
       if ('h' in b) return `<h3 class="nb-h">${b.icon ? `<span>${esc(b.icon)}</span>` : ''}${newsText(b.h)}</h3>`;
       if ('p' in b) return `<p>${newsText(b.p)}</p>`;
       if ('list' in b) return `<ul class="nb-ul">${b.list.map((x) => `<li>${newsText(x)}</li>`).join('')}</ul>`;
-      if ('callout' in b) return `<div class="nb-box ${b.callout}"><em>${b.callout === 'aviso' ? 'AVISO' : b.callout === 'nuevo' ? 'NUEVO' : 'INFO'}</em><p>${newsText(b.text)}</p></div>`;
+      if ('callout' in b) return `<div class="nb-box ${b.callout}"><em>${b.callout === 'aviso' ? tr('AVISO') : b.callout === 'nuevo' ? tr('NUEVO') : tr('INFO')}</em><p>${newsText(b.text)}</p></div>`;
       return '<hr class="nb-hr">';
     }).join('');
-    const long = new Date(`${n.date}T12:00:00`).toLocaleDateString('es', { day: 'numeric', month: 'long', year: 'numeric' });
+    const long = new Date(`${n.date}T12:00:00`).toLocaleDateString(locale(), { day: 'numeric', month: 'long', year: 'numeric' });
     return `<header class="nb-hero k-${n.kind}"><span class="nb-ic big">${this.newsLogo(n)}</span><div>
         <div class="nb-meta"><em class="nb-tag">${NEWS_KIND_LABEL[n.kind]}</em>${n.pinned ? '<i class="nb-pin">📌 Fijada</i>' : ''}<small>${esc(long)}</small>${n.version ? `<small>· v${esc(n.version)}</small>` : ''}</div>
         <h2>${esc(n.title)}</h2><p>${esc(n.summary)}</p></div></header>
       <div class="nb-body">${body}</div>
-      <footer class="nb-foot"><button class="btn" id="newsplay">▶ Jugar</button><button class="btn blue" id="newsbug">Reportar un bug</button>${this.tiktokLink('Vídeos del desarrollo')}</footer>`;
+      <footer class="nb-foot"><button class="btn" id="newsplay">${tr('▶ Jugar')}</button><button class="btn blue" id="newsbug">${tr('Reportar un bug')}</button>${this.tiktokLink(tr('Vídeos del desarrollo'))}</footer>`;
   }
 
   private tiktokLink(label = '') {
-    return `<a class="tiktok${label ? ' wide' : ''}" href="${TIKTOK_URL}" target="_blank" rel="noopener noreferrer" title="Síguenos en TikTok" aria-label="Síguenos en TikTok"><svg viewBox="0 0 24 24" aria-hidden="true"><path class="tk-a" d="${TIKTOK_PATH}"/><path class="tk-b" d="${TIKTOK_PATH}"/><path d="${TIKTOK_PATH}"/></svg>${label ? `<span>${esc(label)}</span>` : ''}</a>`;
+    return `<a class="tiktok${label ? ' wide' : ''}" href="${TIKTOK_URL}" target="_blank" rel="noopener noreferrer" title="${tr('Síguenos en TikTok')}" aria-label="${tr('Síguenos en TikTok')}"><svg viewBox="0 0 24 24" aria-hidden="true"><path class="tk-a" d="${TIKTOK_PATH}"/><path class="tk-b" d="${TIKTOK_PATH}"/><path d="${TIKTOK_PATH}"/></svg>${label ? `<span>${esc(label)}</span>` : ''}</a>`;
   }
 
   // ------------------------------------------------------------- bug reports
@@ -3883,29 +3887,29 @@ export class App {
     const close = () => { box.remove(); if (kb) kb.preventDefault = hadCapture; };
     const inRun = !!document.getElementById('hud');
     if (!onlineConfigured() || !signedIn()) {
-      box.innerHTML = `<div class="panel bug-card"><h2>Reportar un bug</h2>
-        <p class="note">${onlineConfigured() ? 'Para enviar un reporte necesitas entrar con Google: así evitamos el spam y puedes seguir el estado de tus reportes.' : 'El envío de reportes no está disponible en esta versión.'}${inRun && onlineConfigured() ? ' Termina la partida y entra desde Perfil.' : ''}</p>
-        <div class="tut-nav"><button class="btn small blue" id="bgclose">Cerrar</button><span class="spacer"></span>${onlineConfigured() && !inRun ? '<button class="btn google-btn" id="bggoogle"><span class="g-logo">G</span> Continuar con Google</button>' : ''}</div></div>`;
+      box.innerHTML = `<div class="panel bug-card"><h2>${tr('Reportar un bug')}</h2>
+        <p class="note">${onlineConfigured() ? tr('Para enviar un reporte necesitas entrar con Google: así evitamos el spam y puedes seguir el estado de tus reportes.') : tr('El envío de reportes no está disponible en esta versión.')}${inRun && onlineConfigured() ? tr(' Termina la partida y entra desde Perfil.') : ''}</p>
+        <div class="tut-nav"><button class="btn small blue" id="bgclose">${tr('Cerrar')}</button><span class="spacer"></span>${onlineConfigured() && !inRun ? `<button class="btn google-btn" id="bggoogle"><span class="g-logo">G</span> ${tr('Continuar con Google')}</button>` : ''}</div></div>`;
       box.querySelector('#bgclose')!.addEventListener('click', close);
       box.querySelector('#bggoogle')?.addEventListener('click', () => { void signInWithGoogle(); });
       return;
     }
     const clientId = crypto.randomUUID(); // one form, one report, however many times the button is pressed
     let shot: Blob | null = null, uploadedPath: string | null = null, shotUrlLocal = '';
-    box.innerHTML = `<div class="panel bug-card"><h2>Reportar un bug</h2>
+    box.innerHTML = `<div class="panel bug-card"><h2>${tr('Reportar un bug')}</h2>
       <div class="bug-grid">
-        <label>Categoría<select id="bgcat"><option value="">Elige…</option>${CATEGORIES.map(([k, t]) => `<option value="${k}">${t}</option>`).join('')}</select></label>
-        <label>Gravedad<select id="bgsev"><option value="">Elige…</option>${SEVERITIES.map(([k, t]) => `<option value="${k}">${t}</option>`).join('')}</select></label>
+        <label>${tr('Categoría')}<select id="bgcat"><option value="">${tr('Elige…')}</option>${CATEGORIES.map(([k, t]) => `<option value="${k}">${t}</option>`).join('')}</select></label>
+        <label>${tr('Gravedad')}<select id="bgsev"><option value="">${tr('Elige…')}</option>${SEVERITIES.map(([k, t]) => `<option value="${k}">${t}</option>`).join('')}</select></label>
       </div>
-      <label>Título<input id="bgtitle" maxlength="120" autocomplete="off" placeholder="Resume el problema en una frase"></label>
-      <label>¿Qué ha ocurrido?<textarea id="bgdesc" maxlength="4000" rows="4" placeholder="Qué esperabas y qué ha pasado"></textarea></label>
-      <label>Pasos para reproducirlo (opcional)<textarea id="bgsteps" maxlength="4000" rows="2" placeholder="1. … 2. …"></textarea></label>
-      <div class="bug-shot"><button class="btn small blue" id="bgfile">Adjuntar captura</button>${inRun ? '<button class="btn small blue" id="bgsnap">Usar la pantalla de la partida</button>' : ''}
-        <input id="bgfileinput" type="file" accept="${SHOT_TYPES.join(',')}" hidden><span id="bgshotinfo" class="note">PNG, JPG o WebP. Se reduce a 2 MB como máximo.</span></div>
-      <details class="bug-tech"><summary>Qué información técnica se envía</summary><ul>${TECH_FIELDS.map((t) => `<li>${esc(t)}</li>`).join('')}</ul>
-        <p class="note">Nunca se envían tu correo, tu sesión ni tu partida guardada. Solo tú y el administrador podéis ver el reporte y su captura. <a href="privacidad.html" target="_blank" rel="noopener">Privacidad</a></p></details>
+      <label>${tr('Título')}<input id="bgtitle" maxlength="120" autocomplete="off" placeholder="${tr('Resume el problema en una frase')}"></label>
+      <label>${tr('¿Qué ha ocurrido?')}<textarea id="bgdesc" maxlength="4000" rows="4" placeholder="${tr('Qué esperabas y qué ha pasado')}"></textarea></label>
+      <label>${tr('Pasos para reproducirlo (opcional)')}<textarea id="bgsteps" maxlength="4000" rows="2" placeholder="1. … 2. …"></textarea></label>
+      <div class="bug-shot"><button class="btn small blue" id="bgfile">${tr('Adjuntar captura')}</button>${inRun ? `<button class="btn small blue" id="bgsnap">${tr('Usar la pantalla de la partida')}</button>` : ''}
+        <input id="bgfileinput" type="file" accept="${SHOT_TYPES.join(',')}" hidden><span id="bgshotinfo" class="note">${tr('PNG, JPG o WebP. Se reduce a 2 MB como máximo.')}</span></div>
+      <details class="bug-tech"><summary>${tr('Qué información técnica se envía')}</summary><ul>${TECH_FIELDS.map((t) => `<li>${esc(t)}</li>`).join('')}</ul>
+        <p class="note">${tr('Nunca se envían tu correo, tu sesión ni tu partida guardada. Solo tú y el administrador podéis ver el reporte y su captura.')} <a href="privacidad.html" target="_blank" rel="noopener">${tr('Privacidad')}</a></p></details>
       <div id="bgerr" class="bug-err" role="alert"></div>
-      <div class="tut-nav"><button class="btn small blue" id="bgclose">Cerrar</button><button class="btn small blue" id="bgmine">Mis reportes</button><button class="btn small blue" id="bgidea">💡 Recomendar algo</button><span class="spacer"></span><button class="btn" id="bgsend">Enviar reporte</button></div></div>`;
+      <div class="tut-nav"><button class="btn small blue" id="bgclose">${tr('Cerrar')}</button><button class="btn small blue" id="bgmine">${tr('Mis reportes')}</button><button class="btn small blue" id="bgidea">${tr('💡 Recomendar algo')}</button><span class="spacer"></span><button class="btn" id="bgsend">${tr('Enviar reporte')}</button></div></div>`;
     const $ = <T extends HTMLElement>(id: string) => box.querySelector(`#${id}`) as T;
     const err = (t: string) => { $('bgerr').textContent = t; };
     $('bgidea')?.addEventListener('click', () => { close(); this.suggestionModal(); }); // 1.88
@@ -3915,7 +3919,7 @@ export class App {
         uploadedPath = null;
         if (shotUrlLocal) URL.revokeObjectURL(shotUrlLocal);
         shotUrlLocal = URL.createObjectURL(shot);
-        $('bgshotinfo').innerHTML = `<img class="bug-thumb" src="${shotUrlLocal}" alt="Captura adjunta"> ${Math.ceil(shot.size / 1024)} KB`;
+        $('bgshotinfo').innerHTML = `<img class="bug-thumb" src="${shotUrlLocal}" alt="${tr('Captura adjunta')}"> ${Math.ceil(shot.size / 1024)} KB`;
       } catch (e) { shot = null; err((e as Error).message); }
     };
     $('bgclose').addEventListener('click', close);
@@ -3951,16 +3955,16 @@ export class App {
         const code = await submitBugReport({ clientId, ...form, meta, screenshot: uploadedPath });
         void notifyBug(code);
         sfx('powerup');
-        box.innerHTML = `<div class="panel bug-card bug-ok"><div class="bug-tick">✔</div><h2>¡Reporte enviado!</h2><p>Gracias por ayudar a mejorar InaZurvivors.</p>
-          <p class="bug-code" id="bgcode">${esc(code)}</p><p class="note">Guarda este código. Puedes seguir su estado en «Mis reportes».</p>
-          <div class="tut-nav"><button class="btn small blue" id="bgmine">Mis reportes</button><span class="spacer"></span><button class="btn" id="bgclose">Cerrar</button></div></div>`;
+        box.innerHTML = `<div class="panel bug-card bug-ok"><div class="bug-tick">✔</div><h2>${tr('¡Reporte enviado!')}</h2><p>${tr('Gracias por ayudar a mejorar InaZurvivors.')}</p>
+          <p class="bug-code" id="bgcode">${esc(code)}</p><p class="note">${tr('Guarda este código. Puedes seguir su estado en «Mis reportes».')}</p>
+          <div class="tut-nav"><button class="btn small blue" id="bgmine">${tr('Mis reportes')}</button><span class="spacer"></span><button class="btn" id="bgclose">${tr('Cerrar')}</button></div></div>`;
         $('bgclose').addEventListener('click', close);
         $('bgmine').addEventListener('click', () => { close(); this.myBugsModal(); });
       } catch (e) {
         const m = (e as Error).message;
-        err(/too_fast/.test(m) ? 'Acabas de enviar un reporte: espera un minuto antes del siguiente.' : /daily_limit/.test(m) ? 'Has llegado al límite de 10 reportes al día. ¡Gracias! Vuelve mañana.'
-          : /invalid_screenshot/.test(m) ? 'La captura no se ha podido validar. Vuelve a adjuntarla.' : /Failed to fetch|NetworkError/i.test(m) ? 'Sin conexión con el servidor. Tu texto sigue aquí: prueba otra vez.' : `No se pudo enviar: ${m}`);
-        btn.disabled = false; btn.textContent = 'Enviar reporte';
+        err(/too_fast/.test(m) ? tr('Acabas de enviar un reporte: espera un minuto antes del siguiente.') : /daily_limit/.test(m) ? tr('Has llegado al límite de 10 reportes al día. ¡Gracias! Vuelve mañana.')
+          : /invalid_screenshot/.test(m) ? tr('La captura no se ha podido validar. Vuelve a adjuntarla.') : /Failed to fetch|NetworkError/i.test(m) ? tr('Sin conexión con el servidor. Tu texto sigue aquí: prueba otra vez.') : tr('No se pudo enviar: {m}', { m }));
+        btn.disabled = false; btn.textContent = tr('Enviar reporte');
       }
     });
   }
@@ -3974,16 +3978,16 @@ export class App {
     const list = box.querySelector('#mblist') as HTMLElement;
     try {
       const rows = await myBugReports();
-      list.innerHTML = rows.map((r) => `<div class="bug-row"><code>${esc(r.code)}</code><b>${esc(r.title)}</b><span class="bug-st st-${esc(r.status)}">${esc(STATUS_LABEL[r.status] ?? r.status)}</span><small>${new Date(r.created_at).toLocaleDateString('es')}</small></div>`).join('') || 'Todavía no has enviado ningún reporte.';
+      list.innerHTML = rows.map((r) => `<div class="bug-row"><code>${esc(r.code)}</code><b>${esc(r.title)}</b><span class="bug-st st-${esc(r.status)}">${esc(STATUS_LABEL[r.status] ?? r.status)}</span><small>${new Date(r.created_at).toLocaleDateString(locale())}</small></div>`).join('') || tr('Todavía no has enviado ningún reporte.');
       const del = box.querySelector('#mbdel') as HTMLButtonElement;
       if (rows.length) del.hidden = false;
       del.addEventListener('click', () => this.armed(del, async () => {
         const paths = await deleteMyBugReports();
         await Promise.all(paths.filter((x): x is string => !!x).map((x) => deleteShot(x)));
         box.remove();
-        this.toast('Tus reportes y sus capturas se han borrado.', 3500);
+        this.toast(tr('Tus reportes y sus capturas se han borrado.'), 3500);
       }));
-    } catch (e) { list.textContent = `No se pudieron cargar: ${(e as Error).message}`; }
+    } catch (e) { list.textContent = tr('No se pudieron cargar: {x1}', { x1: (e as Error).message }); }
   }
 
   /**
@@ -4000,36 +4004,36 @@ export class App {
     if (kb) kb.preventDefault = false;
     const close = () => { box.remove(); if (kb) kb.preventDefault = had; };
     if (!onlineConfigured() || !signedIn()) {
-      box.innerHTML = `<div class="panel bug-card"><h2>💡 Recomendaciones</h2><p class="note">${onlineConfigured() ? 'Para enviar una recomendación necesitas entrar con tu cuenta.' : 'No disponible en esta versión.'}</p>
-        <div class="tut-nav"><span class="spacer"></span><button class="btn small blue" data-close>Cerrar</button></div></div>`;
+      box.innerHTML = `<div class="panel bug-card"><h2>${tr('💡 Recomendaciones')}</h2><p class="note">${onlineConfigured() ? tr('Para enviar una recomendación necesitas entrar con tu cuenta.') : tr('No disponible en esta versión.')}</p>
+        <div class="tut-nav"><span class="spacer"></span><button class="btn small blue" data-close>${tr('Cerrar')}</button></div></div>`;
       box.querySelector('[data-close]')!.addEventListener('click', close);
       return;
     }
-    box.innerHTML = `<div class="panel bug-card"><h2>💡 Recomendaciones</h2>
-      <p class="note">¿Una idea para el juego? Cuéntanosla. Verás si la aceptamos en «Mis recomendaciones».</p>
-      <label>Título<input id="idtitle" maxlength="120" autocomplete="off" placeholder="Tu idea en una frase"></label>
-      <label>Cuéntanos más<textarea id="iddesc" maxlength="4000" rows="5" placeholder="Qué te gustaría ver y por qué"></textarea></label>
+    box.innerHTML = `<div class="panel bug-card"><h2>${tr('💡 Recomendaciones')}</h2>
+      <p class="note">${tr('¿Una idea para el juego? Cuéntanosla. Verás si la aceptamos en «Mis recomendaciones».')}</p>
+      <label>${tr('Título')}<input id="idtitle" maxlength="120" autocomplete="off" placeholder="${tr('Tu idea en una frase')}"></label>
+      <label>${tr('Cuéntanos más')}<textarea id="iddesc" maxlength="4000" rows="5" placeholder="${tr('Qué te gustaría ver y por qué')}"></textarea></label>
       <div id="iderr" class="bug-err" role="alert"></div>
-      <div class="tut-nav"><button class="btn small blue" data-close>Cerrar</button><button class="btn small blue" id="idmine">Mis recomendaciones</button><span class="spacer"></span><button class="btn" id="idsend">Enviar</button></div></div>`;
+      <div class="tut-nav"><button class="btn small blue" data-close>${tr('Cerrar')}</button><button class="btn small blue" id="idmine">${tr('Mis recomendaciones')}</button><span class="spacer"></span><button class="btn" id="idsend">${tr('Enviar')}</button></div></div>`;
     box.querySelector('[data-close]')!.addEventListener('click', close);
     box.querySelector('#idmine')!.addEventListener('click', () => { close(); void this.mySuggestionsModal(); });
     const send = box.querySelector('#idsend') as HTMLButtonElement, err = box.querySelector('#iderr') as HTMLElement;
     send.addEventListener('click', async () => {
       const title = (box.querySelector('#idtitle') as HTMLInputElement).value.trim(), desc = (box.querySelector('#iddesc') as HTMLTextAreaElement).value.trim();
-      if (title.length < 4) { err.textContent = 'Ponle un título (4 letras como mínimo).'; return; }
-      if (desc.length < 10) { err.textContent = 'Cuéntanos un poco más (10 letras como mínimo).'; return; }
+      if (title.length < 4) { err.textContent = tr('Ponle un título (4 letras como mínimo).'); return; }
+      if (desc.length < 10) { err.textContent = tr('Cuéntanos un poco más (10 letras como mínimo).'); return; }
       send.disabled = true; err.textContent = '';
       try {
         const code = await submitSuggestion(title, desc);
         sfx('powerup');
-        box.querySelector('.bug-card')!.innerHTML = `<h2>¡Gracias!</h2><p>Hemos recibido tu recomendación.</p><p class="bug-code">${esc(code)}</p>
-          <div class="tut-nav"><button class="btn small blue" id="idmine2">Mis recomendaciones</button><span class="spacer"></span><button class="btn" data-close2>Cerrar</button></div>`;
+        box.querySelector('.bug-card')!.innerHTML = `<h2>${tr('¡Gracias!')}</h2><p>${tr('Hemos recibido tu recomendación.')}</p><p class="bug-code">${esc(code)}</p>
+          <div class="tut-nav"><button class="btn small blue" id="idmine2">${tr('Mis recomendaciones')}</button><span class="spacer"></span><button class="btn" data-close2>${tr('Cerrar')}</button></div>`;
         box.querySelector('[data-close2]')!.addEventListener('click', close);
         box.querySelector('#idmine2')!.addEventListener('click', () => { close(); void this.mySuggestionsModal(); });
       } catch (e) {
         send.disabled = false;
         const m = (e as Error).message;
-        err.textContent = /too_fast/.test(m) ? 'Espera un minuto antes de enviar otra.' : /daily_limit/.test(m) ? 'Has enviado 5 hoy: vuelve mañana.' : `No se pudo enviar: ${m}`;
+        err.textContent = /too_fast/.test(m) ? tr('Espera un minuto antes de enviar otra.') : /daily_limit/.test(m) ? tr('Has enviado 5 hoy: vuelve mañana.') : tr('No se pudo enviar: {m}', { m });
       }
     });
   }
@@ -4043,15 +4047,15 @@ export class App {
     try {
       const rows = await mySuggestions();
       list.className = '';
-      list.innerHTML = rows.length ? rows.map((r) => `<div class="bug-row"><code>${esc(r.code)}</code><b>${esc(r.title)}</b><span class="bug-st idea-${esc(r.status)}">${esc(App.IDEA_STATUS[r.status] ?? r.status)}</span><small>${new Date(r.created_at).toLocaleDateString('es')}</small></div>`).join('')
-        : '<p class="note">Aún no has enviado ninguna.</p>';
-    } catch (e) { list.textContent = `No se pudieron cargar: ${(e as Error).message}`; }
+      list.innerHTML = rows.length ? rows.map((r) => `<div class="bug-row"><code>${esc(r.code)}</code><b>${esc(r.title)}</b><span class="bug-st idea-${esc(r.status)}">${esc(App.IDEA_STATUS[r.status] ?? r.status)}</span><small>${new Date(r.created_at).toLocaleDateString(locale())}</small></div>`).join('')
+        : `<p class="note">${tr('Aún no has enviado ninguna.')}</p>`;
+    } catch (e) { list.textContent = tr('No se pudieron cargar: {x1}', { x1: (e as Error).message }); }
   }
   private async adminSuggestionsPanel(status: string | null = null) {
     setMusicContext('menu');
-    this.show(`<div class="screen">${this.titlebar('Panel de recomendaciones', 'Ajustes')}<div class="panel"><div class="seg" id="idst">
-      ${[['', 'Todas'], ...Object.entries(App.IDEA_STATUS)].map(([k, t]) => `<button data-v="${k}" class="${(status ?? '') === k ? 'on' : ''}">${t}</button>`).join('')}</div>
-      <div id="idlist" class="note">Cargando…</div></div></div>`);
+    this.show(`<div class="screen">${this.titlebar(tr('Panel de recomendaciones'), 'Ajustes')}<div class="panel"><div class="seg" id="idst">
+      ${[['', tr('Todas')], ...Object.entries(App.IDEA_STATUS)].map(([k, t]) => `<button data-v="${k}" class="${(status ?? '') === k ? 'on' : ''}">${t}</button>`).join('')}</div>
+      <div id="idlist" class="note">${tr('Cargando…')}</div></div></div>`);
     this.on('[data-back]', 'click', () => this.options());
     this.on('#idst button', 'click', (_e, el) => { void this.adminSuggestionsPanel(el.dataset.v || null); });
     const list = document.getElementById('idlist')!;
@@ -4059,27 +4063,27 @@ export class App {
       const rows = await adminSuggestions(status);
       if (!document.getElementById('idlist')) return;
       list.className = '';
-      list.innerHTML = rows.length ? rows.map((r, i) => `<button class="bug-row admin" data-i="${i}"><code>${esc(r.code)}</code><b>${esc(r.title)}</b><span class="bug-st idea-${esc(r.status)}">${esc(App.IDEA_STATUS[r.status] ?? r.status)}</span><small>${esc(r.username ?? '')} · ${new Date(r.created_at).toLocaleDateString('es')}</small></button>`).join('')
-        : '<p class="note">No hay recomendaciones.</p>';
+      list.innerHTML = rows.length ? rows.map((r, i) => `<button class="bug-row admin" data-i="${i}"><code>${esc(r.code)}</code><b>${esc(r.title)}</b><span class="bug-st idea-${esc(r.status)}">${esc(App.IDEA_STATUS[r.status] ?? r.status)}</span><small>${esc(r.username ?? '')} · ${new Date(r.created_at).toLocaleDateString(locale())}</small></button>`).join('')
+        : `<p class="note">${tr('No hay recomendaciones.')}</p>`;
       this.on('#idlist .bug-row.admin', 'click', (_e, el) => this.adminSuggestionDetail(rows[Number(el.dataset.i)], status));
-    } catch (e) { list.textContent = /forbidden/.test((e as Error).message) ? 'No tienes permiso para ver este panel.' : `No se pudo cargar: ${(e as Error).message}`; }
+    } catch (e) { list.textContent = /forbidden/.test((e as Error).message) ? tr('No tienes permiso para ver este panel.') : tr('No se pudo cargar: {x1}', { x1: (e as Error).message }); }
   }
   private adminSuggestionDetail(r: SuggestionRow, back: string | null) {
     const box = document.createElement('div');
     box.className = 'tut-modal bug-modal';
-    box.innerHTML = `<div class="panel bug-card wide"><h2>${esc(r.code)}</h2><h3>${esc(r.title)}</h3><p class="note">${esc(r.username ?? '(sin nombre)')} · ${new Date(r.created_at).toLocaleString('es')}</p>
+    box.innerHTML = `<div class="panel bug-card wide"><h2>${esc(r.code)}</h2><h3>${esc(r.title)}</h3><p class="note">${esc(r.username ?? tr('(sin nombre)'))} · ${new Date(r.created_at).toLocaleString(locale())}</p>
       <p class="bug-text">${esc(r.description ?? '')}</p>
-      <h4>Estado</h4><div class="seg" id="sdst">${Object.entries(App.IDEA_STATUS).map(([k, t]) => `<button data-v="${k}" class="${k === r.status ? 'on' : ''}">${t}</button>`).join('')}</div>
-      <h4>Respuesta al jugador</h4><textarea id="sdreply" rows="3" maxlength="2000" placeholder="Opcional: le saldrá como notificación">${esc(r.reply ?? '')}</textarea>
-      <p class="note">Si la aceptas o le respondes, le llega una notificación. Si la descartas, no recibe nada.</p>
-      <div class="tut-nav"><button class="btn small blue" data-close>Cerrar</button><span class="spacer"></span><button class="btn" id="sdsave">Guardar</button></div></div>`;
+      <h4>${tr('Estado')}</h4><div class="seg" id="sdst">${Object.entries(App.IDEA_STATUS).map(([k, t]) => `<button data-v="${k}" class="${k === r.status ? 'on' : ''}">${t}</button>`).join('')}</div>
+      <h4>${tr('Respuesta al jugador')}</h4><textarea id="sdreply" rows="3" maxlength="2000" placeholder="${tr('Opcional: le saldrá como notificación')}">${esc(r.reply ?? '')}</textarea>
+      <p class="note">${tr('Si la aceptas o le respondes, le llega una notificación. Si la descartas, no recibe nada.')}</p>
+      <div class="tut-nav"><button class="btn small blue" data-close>${tr('Cerrar')}</button><span class="spacer"></span><button class="btn" id="sdsave">${tr('Guardar')}</button></div></div>`;
     document.body.appendChild(box);
     let st = r.status;
     box.querySelectorAll<HTMLElement>('#sdst button').forEach((b) => b.addEventListener('click', () => { st = b.dataset.v!; box.querySelectorAll('#sdst button').forEach((x) => x.classList.toggle('on', x === b)); }));
     box.querySelector('[data-close]')!.addEventListener('click', () => box.remove());
     box.querySelector('#sdsave')!.addEventListener('click', () => {
       adminUpdateSuggestion(r.code, st, (box.querySelector('#sdreply') as HTMLTextAreaElement).value)
-        .then(() => { box.remove(); this.toast('Recomendación actualizada'); void this.adminSuggestionsPanel(back); }).catch((e: Error) => this.toast(e.message, 4000));
+        .then(() => { box.remove(); this.toast(tr('Recomendación actualizada')); void this.adminSuggestionsPanel(back); }).catch((e: Error) => this.toast(e.message, 4000));
     });
   }
 
@@ -4087,12 +4091,12 @@ export class App {
   private async adminBugs(filter: BugFilter = { category: null, severity: null, status: null, from: null, to: null, order: 'fecha' }) {
     setMusicContext('menu');
     const opt = (list: readonly (readonly [string, string])[], cur: string | null, all: string) => `<option value="">${all}</option>${list.map(([k, t]) => `<option value="${k}"${k === cur ? ' selected' : ''}>${t.split(' · ')[0]}</option>`).join('')}`;
-    this.show(`<div class="screen">${this.titlebar('Panel de bugs', 'Ajustes')}<div class="panel"><div class="filters">
-      <select id="adcat">${opt(CATEGORIES, filter.category, 'Todas las categorías')}</select><select id="adsev">${opt(SEVERITIES, filter.severity, 'Toda gravedad')}</select>
-      <select id="adst">${opt(Object.entries(STATUS_LABEL), filter.status, 'Todos los estados')}</select>
-      <label class="note">Desde <input id="adfrom" type="date" value="${(filter.from ?? '').slice(0, 10)}"></label><label class="note">Hasta <input id="adto" type="date" value="${(filter.to ?? '').slice(0, 10)}"></label>
-      <select id="adord"><option value="fecha"${filter.order === 'fecha' ? ' selected' : ''}>Más recientes</option><option value="prioridad"${filter.order === 'prioridad' ? ' selected' : ''}>Prioridad</option></select></div>
-      <div id="adlist" class="note">Cargando…</div></div></div>`);
+    this.show(`<div class="screen">${this.titlebar(tr('Panel de bugs'), 'Ajustes')}<div class="panel"><div class="filters">
+      <select id="adcat">${opt(CATEGORIES, filter.category, tr('Todas las categorías'))}</select><select id="adsev">${opt(SEVERITIES, filter.severity, tr('Toda gravedad'))}</select>
+      <select id="adst">${opt(Object.entries(STATUS_LABEL), filter.status, tr('Todos los estados'))}</select>
+      <label class="note">${tr('Desde')} <input id="adfrom" type="date" value="${(filter.from ?? '').slice(0, 10)}"></label><label class="note">${tr('Hasta')} <input id="adto" type="date" value="${(filter.to ?? '').slice(0, 10)}"></label>
+      <select id="adord"><option value="fecha"${filter.order === 'fecha' ? ' selected' : ''}>${tr('Más recientes')}</option><option value="prioridad"${filter.order === 'prioridad' ? ' selected' : ''}>${tr('Prioridad')}</option></select></div>
+      <div id="adlist" class="note">${tr('Cargando…')}</div></div></div>`);
     this.on('[data-back]', 'click', () => this.options());
     const read = (id: string) => (document.getElementById(id) as HTMLInputElement).value || null;
     ['adcat', 'adsev', 'adst', 'adfrom', 'adto', 'adord'].forEach((id) => document.getElementById(id)!.addEventListener('change', () => {
@@ -4103,14 +4107,14 @@ export class App {
     try {
       const rows = await adminBugReports(filter);
       if (!document.getElementById('adlist')) return;
-      list.innerHTML = rows.length ? rows.map((r, i) => `<button class="bug-row admin" data-i="${i}"><code>${esc(r.code)}</code><b>${esc(r.title)}</b><span class="bug-sev sv-${esc(r.severity)}">${esc(r.severity)}</span><span class="bug-st st-${esc(r.status)}">${esc(STATUS_LABEL[r.status] ?? r.status)}</span><small>${esc(r.category)} · v${esc(r.game_version ?? '')} · ${new Date(r.created_at).toLocaleString('es')}${r.screenshot_path ? ' · 📷' : ''}</small></button>`).join('') : 'No hay reportes con estos filtros.';
+      list.innerHTML = rows.length ? rows.map((r, i) => `<button class="bug-row admin" data-i="${i}"><code>${esc(r.code)}</code><b>${esc(r.title)}</b><span class="bug-sev sv-${esc(r.severity)}">${esc(r.severity)}</span><span class="bug-st st-${esc(r.status)}">${esc(STATUS_LABEL[r.status] ?? r.status)}</span><small>${esc(r.category)} · v${esc(r.game_version ?? '')} · ${new Date(r.created_at).toLocaleString(locale())}${r.screenshot_path ? ' · 📷' : ''}</small></button>`).join('') : tr('No hay reportes con estos filtros.');
       this.on('.bug-row.admin', 'click', (_e, el) => this.adminBugDetail(rows[Number(el.dataset.i)], filter));
-    } catch (e) { list.textContent = /forbidden/.test((e as Error).message) ? 'No tienes permiso para ver este panel.' : `No se pudo cargar: ${(e as Error).message}`; }
+    } catch (e) { list.textContent = /forbidden/.test((e as Error).message) ? tr('No tienes permiso para ver este panel.') : tr('No se pudo cargar: {x1}', { x1: (e as Error).message }); }
   }
 
   /** Fix 1.41: how many people play (accounts only: guests never reach the server). The server refuses non-admins. */
   private async adminPlayers(tab: 'players' | 'metrics' | 'replays' = 'players', days = 30) {
-    this.show(`<div class="screen">${this.titlebar('Panel de jugadores', 'Ajustes')}<div class="panel"><div class="seg" id="aptabs"><button data-t="players" class="${tab === 'players' ? 'on' : ''}">Jugadores</button><button data-t="metrics" class="${tab === 'metrics' ? 'on' : ''}">Métricas</button><button data-t="replays" class="${tab === 'replays' ? 'on' : ''}">Repeticiones</button></div><div id="aplist" class="note">Cargando…</div></div></div>`);
+    this.show(`<div class="screen">${this.titlebar(tr('Panel de jugadores'), 'Ajustes')}<div class="panel"><div class="seg" id="aptabs"><button data-t="players" class="${tab === 'players' ? 'on' : ''}">${tr('Jugadores')}</button><button data-t="metrics" class="${tab === 'metrics' ? 'on' : ''}">${tr('Métricas')}</button><button data-t="replays" class="${tab === 'replays' ? 'on' : ''}">${tr('Repeticiones')}</button></div><div id="aplist" class="note">${tr('Cargando…')}</div></div></div>`);
     this.on('[data-back]', 'click', () => this.options());
     this.on('#aptabs button', 'click', (_e, el) => { void this.adminPlayers(el.dataset.t as 'players' | 'metrics' | 'replays', days); });
     if (tab === 'metrics') return this.adminMetricsView(days);
@@ -4124,13 +4128,13 @@ export class App {
     try {
       const s = await adminPlayerStats(200);
       if (!document.getElementById('aplist')) return;
-      const tile = (n: number, t: string) => `<div class="ap-tile"><b>${n.toLocaleString('es')}</b><span>${t}</span></div>`;
+      const tile = (n: number, t: string) => `<div class="ap-tile"><b>${n.toLocaleString(locale())}</b><span>${t}</span></div>`;
       box.className = '';
-      box.innerHTML = `<div class="ap-tiles">${tile(s.accounts, 'cuentas')}${tile(s.played, 'han jugado')}${tile(s.runs, 'partidas')}${tile(s.active_24h, 'activos 24 h')}${tile(s.active_7d, 'activos 7 días')}${tile(s.new_7d, 'nuevos 7 días')}${tile(s.ranked_runs, 'partidas al ranking')}${tile(s.kills, 'rivales derrotados')}</div>
-        <p class="note">Solo cuenta cuentas con sesión iniciada: quien juega como invitado guarda en su navegador y el servidor no sabe de él. ${s.accounts - s.with_name} cuenta(s) aún sin nombre de usuario.</p>
-        <div class="ap-table"><div class="ap-row ap-head"><span>Usuario</span><span>Última vez</span><span>Partidas</span><span>Ranking</span><span>Mejor tiempo</span><span>Colección</span><span>Alta</span></div>
-        ${s.players.map((p) => `<div class="ap-row"><b>${esc(p.username ?? '(sin nombre)')}</b><span>${ago(p.last_seen)}</span><span>${p.runs}</span><span>${p.ranked_runs}</span><span>${Math.floor(p.best_time / 60)}:${String(p.best_time % 60).padStart(2, '0')}</span><span>${p.owned}</span><span>${new Date(p.created_at).toLocaleDateString('es')}</span></div>`).join('')}</div>`;
-    } catch (e) { box.textContent = /forbidden/.test((e as Error).message) ? 'No tienes permiso para ver este panel.' : `No se pudo cargar: ${(e as Error).message}`; }
+      box.innerHTML = `<div class="ap-tiles">${tile(s.accounts, 'cuentas')}${tile(s.played, 'han jugado')}${tile(s.runs, 'partidas')}${tile(s.active_24h, 'activos 24 h')}${tile(s.active_7d, tr('activos 7 días'))}${tile(s.new_7d, tr('nuevos 7 días'))}${tile(s.ranked_runs, tr('partidas al ranking'))}${tile(s.kills, tr('rivales derrotados'))}</div>
+        <p class="note">${tr('Solo cuenta cuentas con sesión iniciada: quien juega como invitado guarda en su navegador y el servidor no sabe de él. {x1} cuenta(s) aún sin nombre de usuario.', { x1: s.accounts - s.with_name })}</p>
+        <div class="ap-table"><div class="ap-row ap-head"><span>${tr('Usuario')}</span><span>${tr('Última vez')}</span><span>${tr('Partidas')}</span><span>${tr('Ranking')}</span><span>${tr('Mejor tiempo')}</span><span>${tr('Colección')}</span><span>${tr('Alta')}</span></div>
+        ${s.players.map((p) => `<div class="ap-row"><b>${esc(p.username ?? tr('(sin nombre)'))}</b><span>${ago(p.last_seen)}</span><span>${p.runs}</span><span>${p.ranked_runs}</span><span>${Math.floor(p.best_time / 60)}:${String(p.best_time % 60).padStart(2, '0')}</span><span>${p.owned}</span><span>${new Date(p.created_at).toLocaleDateString(locale())}</span></div>`).join('')}</div>`;
+    } catch (e) { box.textContent = /forbidden/.test((e as Error).message) ? tr('No tienes permiso para ver este panel.') : tr('No se pudo cargar: {x1}', { x1: (e as Error).message }); }
   }
 
   // ---- 2.1 (author): the ranking by seasons — its strip on the ranking screen and the final prizes on the menu
@@ -4156,12 +4160,12 @@ export class App {
     const medal = r.pos === 1 ? '🥇' : r.pos === 2 ? '🥈' : r.pos === 3 ? '🥉' : `#${r.pos}`;
     document.body.insertAdjacentHTML('beforeend', `<div class="gk-unlock rs-end" id="rsend"><div class="gk-u-in">
       <span class="gk-u-rays"></span><span class="rs-medal${r.pos <= 3 ? ' top' : ''}">${medal}</span>
-      <small>${esc((def?.name ?? r.season).toUpperCase())} · RANKING FINAL</small><b>${r.pos <= 15 ? `¡Puesto ${r.pos} del mundo!` : `Puesto ${r.pos}`}</b>
-      <div class="rs-gifts"><span><b>${r.tokens.toLocaleString('es')}</b> fichas</span><span><b>${r.coins.toLocaleString('es')}</b> monedas</span><span>${this.egIcon(18)}<b>${r.eg}</b> Fichas EG</span></div>
+      <small>${tr('{x1} · RANKING FINAL', { x1: esc((def?.name ?? r.season).toUpperCase()) })}</small><b>${r.pos <= 15 ? tr('¡Puesto {pos} del mundo!', { pos: r.pos }) : `Puesto ${r.pos}`}</b>
+      <div class="rs-gifts"><span><b>${r.tokens.toLocaleString(locale())}</b> ${tr('fichas')}</span><span><b>${r.coins.toLocaleString(locale())}</b> ${tr('monedas')}</span><span>${tr('{egIcon}<b>{eg}</b> Fichas EG', { egIcon: this.egIcon(18), eg: r.eg })}</span></div>
       ${players.length || r.pennants.length ? `<div class="rs-extra">${players.map((player) => `<span class="gk-u-star">${this.mug(player.id, 64)}<span><em>${RARITY_LABEL[player.rarity].toUpperCase()}</em>${esc(player.name)}</span></span>`).join('')}
         ${r.pennants.map((id) => PENNANT_BY_ID.get(id)).filter((d): d is PennantDef => !!d).map((d) => `<span class="rs-pn">${isFrame(d) ? this.framed(this.frameFace(), d.id) : pennantSvg(d, 40)}<small>${esc(d.name)}</small></span>`).join('')}</div>` : ''}
-      <p class="note">El ranking empieza de cero en la nueva temporada. ¡A por el siguiente!</p>
-      <div class="gk-u-btns"><button class="btn" id="rsok">¡Genial!</button></div></div></div>`);
+      <p class="note">${tr('El ranking empieza de cero en la nueva temporada. ¡A por el siguiente!')}</p>
+      <div class="gk-u-btns"><button class="btn" id="rsok">${tr('¡Genial!')}</button></div></div></div>`);
     document.getElementById('rsok')!.addEventListener('click', () => document.getElementById('rsend')?.remove());
   }
   /** the ranking screen: the season under way, its time left and what each place wins */
@@ -4173,12 +4177,12 @@ export class App {
       const pn = p.pennants(d.id).map((id) => PENNANT_BY_ID.get(id)).filter((x): x is PennantDef => !!x);
       const pl = p.players.map((id) => this.byId.get(id));
       return `<div class="rs-tier t-${p.tier}"><span class="rs-tl">${p.tier === 'top1' ? '🥇' : p.tier === 'top3' ? '🥈🥉' : ''}<b>${esc(p.label)}</b></span>
-        <span class="rs-tg">${p.fichas.toLocaleString('es')} fichas · ${p.monedas.toLocaleString('es')} ◉ · ${p.eg} Fichas EG${pl.map((x) => ` · <em>${x ? esc(x.name) : '¿?'}</em>`).join('')}</span>
+        <span class="rs-tg">${tr('{x1} fichas · {x2} ◉ · {eg} Fichas EG{x3}', { x1: p.fichas.toLocaleString(locale()), x2: p.monedas.toLocaleString(locale()), eg: p.eg, x3: pl.map((x) => ` · <em>${x ? esc(x.name) : '¿?'}</em>`).join('') })}</span>
         <span class="rs-tp">${pn.map((x) => isFrame(x) ? `<span class="rs-fr${x.wings ? ' w' : ''}" title="${esc(x.name)}">${frameSvg(x)}</span>` : `<span title="${esc(x.name)}">${pennantSvg(x, 22)}</span>`).join('')}</span></div>`;
     }).join('');
-    return `<details class="rs-strip" ${def ? '' : 'open'}><summary><span class="rs-sic">${uiIcon('trophy')}</span><span><small>${def ? `${esc(def.name.toUpperCase())} · TERMINA EN ${esc(this.leftText(seasonEnd(def) - +now))}` : `EMPIEZA EL ${new Date(seasonStart(d)).toLocaleString('es', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Madrid' }).toUpperCase()}`}</small>
-      <b>Ranking por temporadas · premios al terminar</b></span><em class="rs-more">Ver premios</em></summary>
-      <div class="rs-tiers">${prizes}</div><p class="note">Cuenta tu mejor marca en la clasificación general (por puntos). Al terminar la temporada, los premios te llegan al entrar en el juego y el ranking empieza de cero.</p></details>`;
+    return `<details class="rs-strip" ${def ? '' : 'open'}><summary><span class="rs-sic">${uiIcon('trophy')}</span><span><small>${def ? tr('{x1} · TERMINA EN {x2}', { x1: esc(def.name.toUpperCase()), x2: esc(this.leftText(seasonEnd(def) - +now)) }) : tr('EMPIEZA EL {x1}', { x1: new Date(seasonStart(d)).toLocaleString(locale(), { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Madrid' }).toUpperCase() })}</small>
+      <b>${tr('Ranking por temporadas · premios al terminar')}</b></span><em class="rs-more">${tr('Ver premios')}</em></summary>
+      <div class="rs-tiers">${prizes}</div><p class="note">${tr('Cuenta tu mejor marca en la clasificación general (por puntos). Al terminar la temporada, los premios te llegan al entrar en el juego y el ranking empieza de cero.')}</p></details>`;
   }
 
   // ---- 2.1 (author): the season pass (systems/seasonPass.ts)
@@ -4188,7 +4192,7 @@ export class App {
     const got = addRunXp(this.save, r.timeSec, (r.rank ?? 'C') as Rank, serverNow());
     if (!got || !got.xp) return;
     this.persist();
-    window.setTimeout(() => this.toast(got.to > got.from ? `Pase de temporada: +${got.xp} EXP · ¡nivel ${got.to}!` : `Pase de temporada: +${got.xp} EXP`, 3500), 900);
+    window.setTimeout(() => this.toast(got.to > got.from ? tr('Pase de temporada: +{xp} EXP · ¡nivel {to}!', { xp: got.xp, to: got.to }) : tr('Pase de temporada: +{xp} EXP', { xp: got.xp }), 3500), 900);
   }
 
   /** the Llave dorada dropped in a run: unlocked at once, the big notice over the HUD */
@@ -4197,7 +4201,7 @@ export class App {
     this.persist();
     const key = this.m.pase?.dorada;
     document.getElementById('hud')?.insertAdjacentHTML('beforeend', `<div class="gk-flow" id="gkflow"><span class="gk-rays"></span>${key ? `<img class="gk-key" src="${key}" alt="">` : ''}
-      <span class="gk-tx"><small>LLAVE DORADA</small><b>¡Has obtenido el pase premium!</b><em>Ábrelo en el menú al terminar la partida</em></span></div>`);
+      <span class="gk-tx"><small>${tr('LLAVE DORADA')}</small><b>${tr('¡Has obtenido el pase premium!')}</b><em>${tr('Ábrelo en el menú al terminar la partida')}</em></span></div>`);
     window.setTimeout(() => document.getElementById('gkflow')?.remove(), 4200);
   }
 
@@ -4212,9 +4216,9 @@ export class App {
     const key = this.m.pase?.dorada, star = def.stars[0];
     document.body.insertAdjacentHTML('beforeend', `<div class="gk-unlock" id="gkunlock"><div class="gk-u-in">
       <span class="gk-u-rays"></span><span class="gk-u-lock"><i></i>${key ? `<img class="gk-u-key" src="${key}" alt="">` : ''}</span>
-      <small>${esc(def.name.toUpperCase())} · ${esc(def.subtitle.toUpperCase())}</small><b>PASE PREMIUM DESBLOQUEADO</b>
-      ${star ? `<span class="gk-u-star">${this.mug(star, 96)}<span><em>Nivel 1</em>${esc(this.byId.get(star)?.name ?? '')} ya te espera</span></span>` : ''}
-      <div class="gk-u-btns"><button class="btn" id="gkgo">Ver el pase</button><button class="btn blue" id="gkclose">Cerrar</button></div></div></div>`);
+      <small>${esc(def.name.toUpperCase())} · ${esc(def.subtitle.toUpperCase())}</small><b>${tr('PASE PREMIUM DESBLOQUEADO')}</b>
+      ${star ? `<span class="gk-u-star">${this.mug(star, 96)}<span><em>${tr('Nivel 1')}</em>${tr('{x1} ya te espera', { x1: esc(this.byId.get(star)?.name ?? '') })}</span></span>` : ''}
+      <div class="gk-u-btns"><button class="btn" id="gkgo">${tr('Ver el pase')}</button><button class="btn blue" id="gkclose">${tr('Cerrar')}</button></div></div></div>`);
     const close = () => document.getElementById('gkunlock')?.remove();
     document.getElementById('gkclose')!.addEventListener('click', close);
     document.getElementById('gkgo')!.addEventListener('click', () => { close(); this.seasonScreen(); });
@@ -4223,10 +4227,10 @@ export class App {
   /** a reward's picture and its words */
   private seasonRewardArt(r: SeasonReward, small = false): { art: string; label: string; rar?: Rarity } {
     switch (r.kind) {
-      case 'monedas': return { art: `<span class="sp-ic sp-coin">◉</span>`, label: `${r.n.toLocaleString('es')} monedas` };
-      case 'fichas': return { art: `<span class="sp-ic sp-tok">${uiIcon('capsule')}</span>`, label: `${r.n} fichas` };
-      case 'multi': return { art: `<span class="sp-ic sp-multi">${uiIcon('capsule')}<b>×10</b></span>`, label: `Tirada ×10 (${MULTI_FICHAS} fichas)` };
-      case 'eg': return { art: `<span class="sp-ic sp-eg">${this.egIcon(small ? 22 : 28)}</span>`, label: `${r.n} Ficha${r.n > 1 ? 's' : ''} EG` };
+      case 'monedas': return { art: `<span class="sp-ic sp-coin">◉</span>`, label: tr('{x1} monedas', { x1: r.n.toLocaleString(locale()) }) };
+      case 'fichas': return { art: `<span class="sp-ic sp-tok">${uiIcon('capsule')}</span>`, label: tr('{rN} fichas', { rN: r.n }) };
+      case 'multi': return { art: `<span class="sp-ic sp-multi">${uiIcon('capsule')}<b>×10</b></span>`, label: tr('Tirada ×10 ({MULTI_FICHAS} fichas)', { MULTI_FICHAS }) };
+      case 'eg': return { art: `<span class="sp-ic sp-eg">${this.egIcon(small ? 22 : 28)}</span>`, label: tr('{rN} Ficha{x1} EG', { rN: r.n, x1: r.n > 1 ? 's' : '' }) };
       case 'jugador': { const p = this.byId.get(r.id); return { art: `<span class="sp-mug">${this.mug(r.id, small ? 40 : 56)}</span>`, label: p?.name ?? 'Futbolista', rar: p?.rarity }; }
       case 'banner': { const d = PENNANT_BY_ID.get(r.id); return { art: `<span class="sp-pn">${pennantSvg(r.id, small ? 26 : 34)}</span>`, label: `Banner: ${d?.name ?? r.id}`, rar: d?.rarity }; }
       case 'marco': { const d = PENNANT_BY_ID.get(r.id); return { art: `<span class="sp-fr">${this.framed(this.frameFace(), r.id)}</span>`, label: `Marco: ${d?.name ?? r.id}`, rar: d?.rarity }; }
@@ -4240,7 +4244,7 @@ export class App {
     const got: Granted[] = [];
     let waiting = false;
     for (const [track, lv] of levels) { const g = claimLevel(this.save, def, track, lv, this.byId); if (g) got.push(g); else waiting = true; }
-    if (!got.length) { if (waiting) this.toast('Recarga el juego para recibir este premio.'); sfx('error'); return; }
+    if (!got.length) { if (waiting) this.toast(tr('Recarga el juego para recibir este premio.')); sfx('error'); return; }
     this.persist();
     sfx(got.some((g) => g.player && (g.player.rarity === 'leyenda' || g.player.rarity === 'legendario')) ? 'legend' : 'buy');
     const sum = { monedas: 0, fichas: 0, eg: 0 };
@@ -4250,10 +4254,10 @@ export class App {
       if (g.reward.kind === 'multi') sum.fichas += MULTI_FICHAS;
       if (g.reward.kind === 'eg') sum.eg += g.reward.n;
     }
-    const parts = [sum.monedas && `${sum.monedas.toLocaleString('es')} monedas`, sum.fichas && `${sum.fichas} fichas`, sum.eg && `${sum.eg} Fichas EG`,
+    const parts = [sum.monedas && tr('{x1} monedas', { x1: sum.monedas.toLocaleString(locale()) }), sum.fichas && tr('{fichas} fichas', { fichas: sum.fichas }), sum.eg && tr('{eg} Fichas EG', { eg: sum.eg }),
       ...got.filter((g) => g.player).map((g) => `${g.player!.name}${g.isNew ? ' (¡nuevo!)' : ''}`),
       ...got.filter((g) => g.reward.kind === 'banner' || g.reward.kind === 'marco').map((g) => PENNANT_BY_ID.get((g.reward as { id: string }).id)?.name ?? '')].filter(Boolean);
-    this.toast(`Pase: ${parts.join(' · ')}`, 4500);
+    this.toast(tr('Pase: {x1}', { x1: parts.join(' · ') }), 4500);
     if (got.some((g) => g.player && (g.player.rarity === 'leyenda' || g.player.rarity === 'legendario')) && this.save.settings.particles !== 'desactivado') confetti(90);
     this.seasonScreen();
   }
@@ -4262,7 +4266,7 @@ export class App {
   seasonScreen() {
     setMusicContext('menu');
     const now = serverNow(), def = activeSeason(now);
-    if (!def) { this.toast('El pase de temporada aún no ha empezado.'); this.mainMenu(); return; }
+    if (!def) { this.toast(tr('El pase de temporada aún no ha empezado.')); this.mainMenu(); return; }
     const st = seasonOf(this.save, def), lv = levelOf(st.xp), keys = this.m.pase;
     const ready = (['normal', 'premium'] as SeasonTrack[]).reduce((n, t) => n + claimable(st, t).length, 0);
     const cell = (track: SeasonTrack, level: number) => {
@@ -4272,10 +4276,10 @@ export class App {
       const open = rowOpen(st, track), reached = level <= lv, can = canClaimLevel(st, track, level);
       const big = r.kind === 'jugador' || r.kind === 'banner' || r.kind === 'marco';
       // 2.11: amounts big with their unit under them; prizes say their rarity; a shut row shows its key, not a padlock
-      const words = r.kind === 'monedas' ? `<b class="sp-amt coin">${r.n.toLocaleString('es')}</b><small>monedas</small>`
-        : r.kind === 'fichas' ? `<b class="sp-amt tok">${r.n}</b><small>fichas</small>`
-        : r.kind === 'eg' ? `<b class="sp-amt eg">${r.n}</b><small>Ficha${r.n > 1 ? 's' : ''} EG</small>`
-        : r.kind === 'multi' ? `<small class="sp-nm">Tirada ×10</small>`
+      const words = r.kind === 'monedas' ? `<b class="sp-amt coin">${r.n.toLocaleString(locale())}</b><small>${tr('monedas')}</small>`
+        : r.kind === 'fichas' ? `<b class="sp-amt tok">${r.n}</b><small>${tr('fichas')}</small>`
+        : r.kind === 'eg' ? `<b class="sp-amt eg">${r.n}</b><small>${tr('Ficha{x1} EG', { x1: r.n > 1 ? 's' : '' })}</small>`
+        : r.kind === 'multi' ? `<small class="sp-nm">${tr('Tirada ×10')}</small>`
         : `<small class="sp-nm">${esc(label.replace(/^(Banner|Marco): /, ''))}</small>${rar ? `<em class="sp-tag">${r.kind === 'jugador' ? RARITY_LABEL[rar] : r.kind === 'marco' ? 'Marco' : 'Banner'}</em>` : ''}`;
       const key = keys?.[track === 'normal' ? 'normal' : 'dorada'];
       return `<button class="sp-cell ${track} k-${r.kind}${done ? ' done' : can ? ' can' : ''}${reached ? '' : ' far'}${open ? '' : ' shut'}${big ? ' big' : ''}" ${can ? `data-claim="${track}:${level}"` : 'tabindex="-1"'}
@@ -4285,34 +4289,34 @@ export class App {
     const next = Array.from({ length: LEVELS - lv }, (_, k) => lv + 1 + k).flatMap((n) => (['premium', 'normal'] as SeasonTrack[]).map((t) => [t, n] as [SeasonTrack, number]))
       .find(([t, n]) => ['jugador', 'banner', 'marco'].includes((t === 'normal' ? def.normal : def.premium)[n - 1].kind));
     const nextTxt = next ? (() => { const { label } = this.seasonRewardArt((next[0] === 'normal' ? def.normal : def.premium)[next[1] - 1]);
-      return `Próximo gran premio: <b>${esc(label)}</b> · nivel ${next[1]} ${next[0] === 'premium' ? '(premium)' : ''} · faltan ${next[1] - lv}`; })() : '¡Todos los grandes premios alcanzados!';
+      return `${tr('Próximo gran premio: <b>{label}</b> · nivel {x1} {x2} · faltan {x3}', { label: esc(label), x1: next[1], x2: next[0] === 'premium' ? '(premium)' : '', x3: next[1] - lv })}`; })() : tr('¡Todos los grandes premios alcanzados!');
     const finale = def.premium[LEVELS - 1]?.kind === 'jugador' ? (def.premium[LEVELS - 1] as { id: number }).id : null;
     const keyCard = (kind: 'normal' | 'dorada') => {
       const has = kind === 'normal' ? st.normal : st.gold, img = keys?.[kind];
-      return `<div class="sp-key ${kind}${has ? ' has' : ''}">${img ? `<img src="${img}" alt="">` : ''}<span><b>${kind === 'normal' ? 'Llave normal' : 'Llave dorada'}</b>
-        <small>${kind === 'normal' ? (has ? 'Fila normal abierta' : `Abre la fila normal · Tienda`) : (has ? '¡Fila premium abierta!' : `Cae al derrotar rivales: ${(GOLD_KEY_CHANCE * 100).toLocaleString('es', { maximumFractionDigits: 3 })}% por rival · ×${GOLD_KEY_COOP} en cooperativo`)}</small></span>
-        ${kind === 'normal' && !has ? `<button class="btn small" id="spbuy" ${this.save.coins < NORMAL_KEY_PRICE ? 'disabled' : ''}>${NORMAL_KEY_PRICE.toLocaleString('es')} ◉</button>` : has ? '<em class="sp-has">✔</em>' : ''}</div>`;
+      return `<div class="sp-key ${kind}${has ? ' has' : ''}">${img ? `<img src="${img}" alt="">` : ''}<span><b>${kind === 'normal' ? tr('Llave normal') : tr('Llave dorada')}</b>
+        <small>${kind === 'normal' ? (has ? tr('Fila normal abierta') : tr('Abre la fila normal · Tienda')) : (has ? tr('¡Fila premium abierta!') : tr('Cae al derrotar rivales: {x1}% por rival · ×{GOLD_KEY_COOP} en cooperativo', { x1: (GOLD_KEY_CHANCE * 100).toLocaleString(locale(), { maximumFractionDigits: 3 }), GOLD_KEY_COOP }))}</small></span>
+        ${kind === 'normal' && !has ? `<button class="btn small" id="spbuy" ${this.save.coins < NORMAL_KEY_PRICE ? 'disabled' : ''}>${NORMAL_KEY_PRICE.toLocaleString(locale())} ◉</button>` : has ? '<em class="sp-has">✔</em>' : ''}</div>`;
     };
     const left = seasonEnd(def) - +now;
     // the season's star prizes, up front: where they are and whether they are already yours
     const stars = ([['premium', 1], ['premium', 25], ['premium', 75], ['premium', 100]] as [SeasonTrack, number][]).map(([t, n]) => {
       const r = (t === 'normal' ? def.normal : def.premium)[n - 1], { art, label, rar } = this.seasonRewardArt(r);
       const done = (t === 'normal' ? st.claimedNormal : st.claimedPremium).includes(n);
-      return `<div class="sp-star${done ? ' done' : ''}" style="--rc:${rar ? RARITY_COLOR[rar] : '#ffcc2a'}">${art}<span><em>${rar ? RARITY_LABEL[rar].toUpperCase() : ''}</em><b>${esc(label.replace(/^(Banner|Marco): /, ''))}</b><small>${t === 'premium' ? 'Premium' : 'Normal'} · nivel ${n}${done ? ' · ✔ tuyo' : ''}</small></span></div>`;
+      return `<div class="sp-star${done ? ' done' : ''}" style="--rc:${rar ? RARITY_COLOR[rar] : '#ffcc2a'}">${art}<span><em>${rar ? RARITY_LABEL[rar].toUpperCase() : ''}</em><b>${esc(label.replace(/^(Banner|Marco): /, ''))}</b><small>${tr('{x1} · nivel {n}{x2}', { x1: t === 'premium' ? 'Premium' : 'Normal', n, x2: done ? ' · ✔ tuyo' : '' })}</small></span></div>`;
     }).join('');
-    const showcase = `<span class="sp-show-t">PREMIOS ESTRELLA</span>${stars}`;
-    this.show(`<div class="screen sp-screen">${this.titlebar('Pase de temporada', 'Menú')}
-      <section class="sp-head">${finale != null ? `<span class="sp-hero" aria-hidden="true">${this.mug(finale, 160)}</span>` : ''}<div class="sp-lv"><small>NIVEL</small><b>${lv}</b><em>/ ${LEVELS}</em></div>
-        <div class="sp-info"><small>${esc(def.name.toUpperCase())} · TERMINA EN ${esc(this.leftText(left))}</small><b>${esc(def.subtitle)}</b>
-          <div class="sp-xp"><i style="width:${(levelProgress(st.xp) * 100).toFixed(1)}%"></i><span>${lv >= LEVELS ? '¡Pase completo!' : `${st.xp % LEVEL_XP} / ${LEVEL_XP} EXP`}</span></div>
-          <span class="sp-how">EXP por minuto jugado (${XP_PER_MIN}/min) × rango: ${(['C', 'B', 'A', 'S', 'X', 'Z'] as Rank[]).map((k) => `${k} ×${RANK_XP[k].toLocaleString('es')}`).join(' · ')}</span></div>
+    const showcase = `<span class="sp-show-t">${tr('PREMIOS ESTRELLA')}</span>${stars}`;
+    this.show(`<div class="screen sp-screen">${this.titlebar(tr('Pase de temporada'), 'Menú')}
+      <section class="sp-head">${finale != null ? `<span class="sp-hero" aria-hidden="true">${this.mug(finale, 160)}</span>` : ''}<div class="sp-lv"><small>${tr('NIVEL')}</small><b>${lv}</b><em>/ ${LEVELS}</em></div>
+        <div class="sp-info"><small>${tr('{x1} · TERMINA EN {x2}', { x1: esc(def.name.toUpperCase()), x2: esc(this.leftText(left)) })}</small><b>${esc(def.subtitle)}</b>
+          <div class="sp-xp"><i style="width:${(levelProgress(st.xp) * 100).toFixed(1)}%"></i><span>${lv >= LEVELS ? tr('¡Pase completo!') : `${st.xp % LEVEL_XP} / ${LEVEL_XP} EXP`}</span></div>
+          <span class="sp-how">${tr('EXP por minuto jugado ({XP_PER_MIN}/min) × rango: {x1}', { XP_PER_MIN, x1: (['C', 'B', 'A', 'S', 'X', 'Z'] as Rank[]).map((k) => `${k} ×${RANK_XP[k].toLocaleString(locale())}`).join(' · ') })}</span></div>
         <div class="sp-keys">${keyCard('normal')}${keyCard('dorada')}</div></section>
       <section class="sp-show">${showcase}</section>
-      <div class="sp-bar"><span class="sp-next">${nextTxt}</span><button class="btn small" id="spall" ${ready ? '' : 'disabled'}>Reclamar todo${ready ? ` (${ready})` : ''}</button></div>
-      <div class="sp-wrap"><div class="sp-rows" aria-hidden="true"><span class="sp-rl"></span><span class="sp-rl normal">${keys ? `<img src="${keys.normal}" alt="">` : ''}<b>NORMAL</b></span><span class="sp-rl premium">${keys ? `<img src="${keys.dorada}" alt="">` : ''}<b>PREMIUM</b></span></div>
+      <div class="sp-bar"><span class="sp-next">${nextTxt}</span><button class="btn small" id="spall" ${ready ? '' : 'disabled'}>${tr('Reclamar todo{x1}', { x1: ready ? ` (${ready})` : '' })}</button></div>
+      <div class="sp-wrap"><div class="sp-rows" aria-hidden="true"><span class="sp-rl"></span><span class="sp-rl normal">${keys ? `<img src="${keys.normal}" alt="">` : ''}<b>${tr('NORMAL')}</b></span><span class="sp-rl premium">${keys ? `<img src="${keys.dorada}" alt="">` : ''}<b>${tr('PREMIUM')}</b></span></div>
       <div class="sp-track" id="sptrack">${Array.from({ length: LEVELS }, (_, k) => k + 1).map((n) => `<div class="sp-col${n <= lv ? ' got' : ''}${n === lv ? ' now' : ''}${n % 10 === 0 ? ' ten' : ''}" data-lv="${n}">
-        <span class="sp-n">${n}${n === lv ? '<i class="sp-you">TÚ</i>' : ''}</span>${cell('normal', n)}${cell('premium', n)}</div>`).join('')}</div></div>
-      <p class="note">Las llaves y los niveles son de esta temporada: cuando termine, empieza una nueva con su propio pase. La EXP cuenta aunque no tengas llave: al abrir una fila puedes reclamar todo lo que ya hayas alcanzado.</p></div>`);
+        <span class="sp-n">${n}${n === lv ? `<i class="sp-you">${tr('TÚ')}</i>` : ''}</span>${cell('normal', n)}${cell('premium', n)}</div>`).join('')}</div></div>
+      <p class="note">${tr('Las llaves y los niveles son de esta temporada: cuando termine, empieza una nueva con su propio pase. La EXP cuenta aunque no tengas llave: al abrir una fila puedes reclamar todo lo que ya hayas alcanzado.')}</p></div>`);
     this.on('[data-back]', 'click', () => this.mainMenu());
     const track = document.getElementById('sptrack')!;
     const at = track.querySelector<HTMLElement>(`[data-lv="${Math.max(1, Math.min(LEVELS, lv))}"]`);
@@ -4322,7 +4326,7 @@ export class App {
     document.getElementById('spall')?.addEventListener('click', () => this.seasonClaim((['normal', 'premium'] as SeasonTrack[]).flatMap((t) => claimable(st, t).map((n) => [t, n] as [SeasonTrack, number]))));
     const buy = document.getElementById('spbuy');
     if (buy) buy.addEventListener('click', () => this.armed(buy, () => {
-      if (buyNormalKey(this.save, serverNow())) { this.persist(); sfx('buy'); this.toast('¡Llave normal! La fila normal del pase está abierta.', 3500); } else sfx('error');
+      if (buyNormalKey(this.save, serverNow())) { this.persist(); sfx('buy'); this.toast(tr('¡Llave normal! La fila normal del pase está abierta.'), 3500); } else sfx('error');
       this.seasonScreen();
     }));
   }
@@ -4342,7 +4346,7 @@ export class App {
       const z = this.m.goCoaches?.find((c) => c.id === 'zabel'), logo = this.m.sector?.sector;
       document.body.insertAdjacentHTML('beforeend', `<div class="zb-wrap" id="zabel"><div class="zb-in">
         ${z ? `<img class="zb-bust" src="${z.bust}" alt="">` : ''}
-        <div class="zb-box">${logo ? `<img class="zb-logo" src="${logo}" alt="">` : ''}<small>${esc(o.kicker)}</small><b class="zb-name">Zabel · Emperador Sagrado</b>
+        <div class="zb-box">${logo ? `<img class="zb-logo" src="${logo}" alt="">` : ''}<small>${esc(o.kicker)}</small><b class="zb-name">${tr('Zabel · Emperador Sagrado')}</b>
           ${o.lines.map((l, i) => `<p style="--i:${i}">${esc(l)}</p>`).join('')}${o.extra ?? ''}
           <div class="zb-btns">${o.buttons.map(([l, c, v]) => `<button class="btn ${c}" data-zb="${esc(v)}">${l}</button>`).join('')}</div></div></div></div>`);
       document.querySelectorAll<HTMLElement>('#zabel [data-zb]').forEach((b) => b.addEventListener('click', () => { sfx('click'); document.getElementById('zabel')?.remove(); resolve(b.dataset.zb!); }));
@@ -4353,11 +4357,11 @@ export class App {
   private zabelDecree(d: MatchDecree, go: (rebel: boolean) => void) {
     const wk = weeklyDecree(serverNow());
     sfx('bossdrop');
-    void this.zabelSay({ kicker: 'DECRETO DEL SECTOR QUINTO', lines: [d.line],
-      extra: `<div class="zb-dec"><b>${esc(d.title)}</b>${wk ? `<small>Y para todos esta semana: ${esc(wk.element)} +${Math.round(wk.bonus * 100)} %</small>` : ''}</div>
-        <div class="zb-opts"><span><b>Acatar</b>Se aplica el decreto. Puntos normales para tu bando.</span>
-          <span class="rb"><b>Rebelarse</b>Sin decreto, pero el Sector envía a sus SEED: rivales +${Math.round((REBEL_ENEMY_HP - 1) * 100)} % de vida y muchos más SEED. Puntos ×${String(REBEL_POINTS).replace('.', ',')}.</span></div>`,
-      buttons: [['Acatar', 'blue', 'a'], [`¡Rebelarse! ×${String(REBEL_POINTS).replace('.', ',')}`, 'sq-rebel', 'r'], ['Volver', 'small ghost', 'x']] })
+    void this.zabelSay({ kicker: tr('DECRETO DEL SECTOR QUINTO'), lines: [d.line],
+      extra: `<div class="zb-dec"><b>${esc(d.title)}</b>${wk ? `<small>${tr('Y para todos esta semana: {element} +{x1} %', { element: esc(tEl(wk.element)), x1: Math.round(wk.bonus * 100) })}</small>` : ''}</div>
+        <div class="zb-opts"><span><b>${tr('Acatar')}</b>${tr('Se aplica el decreto. Puntos normales para tu bando.')}</span>
+          <span class="rb"><b>${tr('Rebelarse')}</b>${tr('Sin decreto, pero el Sector envía a sus SEED: rivales +{x1} % de vida y muchos más SEED. Puntos ×{x2}.', { x1: Math.round((REBEL_ENEMY_HP - 1) * 100), x2: String(REBEL_POINTS).replace('.', ',') })}</span></div>`,
+      buttons: [[tr('Acatar'), 'blue', 'a'], [tr('¡Rebelarse! ×{x1}', { x1: fmtNum(REBEL_POINTS) }), 'sq-rebel', 'r'], [tr('Volver'), 'small ghost', 'x']] })
       .then((v) => { if (v !== 'x') go(v === 'r'); });
   }
 
@@ -4383,8 +4387,8 @@ export class App {
     if (w !== null && wk && st.weekSeen !== w && this.screenKey === 'menu-mode' && !document.getElementById('zabel')) {
       st.weekSeen = w;
       this.persist();
-      void this.zabelSay({ kicker: `SECTOR QUINTO · SEMANA ${w + 1}`, lines: [wk.line], extra: `<div class="zb-dec"><b>${esc(wk.title)}</b><small>Para todos, hasta el jueves a las 12:00</small></div>`,
-        buttons: [['Entendido', 'blue', 'ok'], ['Ver el Sector', '', 'go']] }).then((v) => { if (v === 'go') void this.sectorScreen(); });
+      void this.zabelSay({ kicker: tr('SECTOR QUINTO · SEMANA {x1}', { x1: w + 1 }), lines: [wk.line], extra: `<div class="zb-dec"><b>${esc(wk.title)}</b><small>${tr('Para todos, hasta el jueves a las 12:00')}</small></div>`,
+        buttons: [[tr('Entendido'), 'blue', 'ok'], [tr('Ver el Sector'), '', 'go']] }).then((v) => { if (v === 'go') void this.sectorScreen(); });
     }
     return this.sectorLast;
   }
@@ -4394,29 +4398,29 @@ export class App {
     const side = SIDES[r.side], other = SIDES[r.side === 'sector' ? 'resistencia' : 'sector'], logo = this.m.sector?.[r.winner === 'empate' ? r.side : r.winner];
     sfx(r.won ? 'legend' : 'buy');
     if (r.won && this.save.settings.particles !== 'desactivado') confetti(120);
-    const title = r.winner === 'empate' ? '¡Empate! Los dos bandos ganan la semana' : r.won ? `¡${side.name} gana la semana!` : `Esta semana gana ${other.name}`;
+    const title = r.winner === 'empate' ? tr('¡Empate! Los dos bandos ganan la semana') : r.won ? tr('¡{sideName} gana la semana!', { sideName: side.name }) : tr('Esta semana gana {otherName}', { otherName: other.name });
     document.body.insertAdjacentHTML('beforeend', `<div class="gk-unlock rs-end sq-end" id="sqend"><div class="gk-u-in">
       <span class="gk-u-rays"></span>${logo ? `<img class="sq-end-logo" src="${logo}" alt="">` : ''}
-      <small>SECTOR QUINTO · SEMANA ${r.week + 1} · TU BANDO: ${esc(side.name.toUpperCase())}</small><b>${esc(title)}</b>
-      <div class="rs-gifts"><span><b>${r.tokens}</b> fichas</span><span><b>${r.coins.toLocaleString('es')}</b> ◉</span>
-        ${got.players.map((x) => `<span>${this.mug(x.player.id, 32)}<b>${esc(x.player.name)}</b>${x.isNew ? ' ¡nuevo!' : ' +1 copia'}</span>`).join('')}</div>
+      <small>${tr('SECTOR QUINTO · SEMANA {x1} · TU BANDO: {x2}', { x1: r.week + 1, x2: esc(side.name.toUpperCase()) })}</small><b>${esc(title)}</b>
+      <div class="rs-gifts"><span><b>${r.tokens}</b> ${tr('fichas')}</span><span><b>${r.coins.toLocaleString(locale())}</b> ◉</span>
+        ${got.players.map((x) => `<span>${this.mug(x.player.id, 32)}<b>${esc(x.player.name)}</b>${x.isNew ? tr(' ¡nuevo!') : tr(' +1 copia')}</span>`).join('')}</div>
       ${got.frame ? `<div class="rs-extra"><span class="rs-pn">${this.framed(this.frameFace(), side.frame)}<small>${esc(PENNANT_BY_ID.get(side.frame)?.name ?? '')}</small></span></div>` : ''}
-      ${r.won ? '' : '<p class="note">Por jugar con tu bando esta semana. ¡A por la siguiente!</p>'}
-      <div class="gk-u-btns"><button class="btn" id="sqok">¡Vamos!</button></div></div></div>`);
+      ${r.won ? '' : `<p class="note">${tr('Por jugar con tu bando esta semana. ¡A por la siguiente!')}</p>`}
+      <div class="gk-u-btns"><button class="btn" id="sqok">${tr('¡Vamos!')}</button></div></div></div>`);
     document.getElementById('sqok')!.addEventListener('click', () => document.getElementById('sqend')?.remove());
   }
 
   /** the event's screen: the week's decree, the two sides and their standing, the prizes, past weeks, joining */
   async sectorScreen() {
     setMusicContext('menu');
-    this.show(`<div class="screen sq-screen">${this.titlebar('Sector Quinto', 'Menú')}<div id="sqbody"><div class="note">Cargando…</div></div></div>`);
+    this.show(`<div class="screen sq-screen">${this.titlebar(tr('Sector Quinto'), 'Menú')}<div id="sqbody"><div class="note">${tr('Cargando…')}</div></div></div>`);
     this.on('[data-back]', 'click', () => this.mainMenu());
     const st = sectorOf(this.save);
     if (!st.introSeen) {
       st.introSeen = true;
       this.persist();
-      await this.zabelSay({ kicker: 'SECTOR QUINTO', lines: ['El fútbol necesita orden. A partir de hoy, el Sector Quinto decide cómo se juega cada partido.',
-        'Únete a nosotros… o intenta resistir. Cada semana veremos qué bando juega mejor.'], buttons: [['Continuar', 'blue', 'ok']] });
+      await this.zabelSay({ kicker: tr('SECTOR QUINTO'), lines: [tr('El fútbol necesita orden. A partir de hoy, el Sector Quinto decide cómo se juega cada partido.'),
+        tr('Únete a nosotros… o intenta resistir. Cada semana veremos qué bando juega mejor.')], buttons: [[tr('Continuar'), 'blue', 'ok']] });
     }
     const s = await this.sectorSync(true);
     const body = document.getElementById('sqbody');
@@ -4426,8 +4430,8 @@ export class App {
     const z = this.m.goCoaches?.find((c) => c.id === 'zabel');
     const card = (id: SideId) => {
       const d = SIDES[id], can = s?.canJoin[id] ?? false;
-      const join = mine ? (mine === id ? '<em class="sq-you">TU BANDO</em>' : '') : !signedIn() ? ''
-        : `<button class="btn${can ? '' : ' off'}" data-join="${id}" ${can ? '' : 'disabled'}>${can ? `Unirme a ${esc(d.short)}` : 'Va por delante: entra en el otro'}</button>`;
+      const join = mine ? (mine === id ? `<em class="sq-you">${tr('TU BANDO')}</em>` : '') : !signedIn() ? ''
+        : `<button class="btn${can ? '' : ' off'}" data-join="${id}" ${can ? '' : 'disabled'}>${can ? `Unirme a ${esc(d.short)}` : tr('Va por delante: entra en el otro')}</button>`;
       return `<div class="sq-side s-${id}${mine === id ? ' mine' : ''}" style="--sc:${d.color}">${logos ? `<img class="sq-logo" src="${logos[id]}" alt="">` : ''}
         <b>${esc(d.name)}</b><small>${esc(d.motto)}</small><span class="sq-n">${s ? `${s.members[id]} miembro${s.members[id] === 1 ? '' : 's'}` : ''}</span>
         <div class="sq-stars">${d.players.map((pid) => { const p = this.byId.get(pid); return p ? `<span class="r-${p.rarity}" title="${esc(p.name)}">${this.mug(pid, 44)}</span>` : ''; }).join('')}</div>${join}</div>`;
@@ -4436,25 +4440,25 @@ export class App {
     const left = w !== null ? this.leftText(sectorWeekEnd(w) - +now) : '';
     const frame = (id: SideId) => `<span class="sq-fr">${this.framed(this.frameFace(), SIDES[id].frame)}</span>`;
     body.innerHTML = `
-      ${wk ? `<section class="sq-dec">${z ? `<img class="sq-zb" src="${z.face}" alt="">` : ''}<div><small>DECRETO DE LA SEMANA ${(w ?? 0) + 1} · SE CUENTA EN ${esc(left.toUpperCase())}</small>
-        <b>${esc(wk.title.replace('Decreto semanal: ', ''))}</b><p>«${esc(wk.line)}»</p></div></section>` : '<p class="note">El Sector Quinto ha terminado esta temporada.</p>'}
+      ${wk ? `<section class="sq-dec">${z ? `<img class="sq-zb" src="${z.face}" alt="">` : ''}<div><small>${tr('DECRETO DE LA SEMANA {x1} · SE CUENTA EN {x2}', { x1: (w ?? 0) + 1, x2: esc(left.toUpperCase()) })}</small>
+        <b>${esc(wk.title.replace('Decreto semanal: ', ''))}</b><p>«${esc(wk.line)}»</p></div></section>` : `<p class="note">${tr('El Sector Quinto ha terminado esta temporada.')}</p>`}
       <section class="sq-sides">${card('sector')}<span class="sq-vs">${this.uiPiece('vs') || 'VS'}</span>${card('resistencia')}</section>
-      ${s && w !== null ? `<section class="sq-stand"><small>ESTA SEMANA · MEDIA POR JUGADOR ACTIVO</small>
+      ${s && w !== null ? `<section class="sq-stand"><small>${tr('ESTA SEMANA · MEDIA POR JUGADOR ACTIVO')}</small>
         <div class="sq-bar"><i class="b-sector" style="width:${(a.sector / tot * 100).toFixed(1)}%"></i><i class="b-resistencia" style="width:${(a.resistencia / tot * 100).toFixed(1)}%"></i></div>
-        <div class="sq-nums"><span><b>${a.sector.toLocaleString('es')}</b> · ${s.active.sector} activos</span><span>${s.active.resistencia} activos · <b>${a.resistencia.toLocaleString('es')}</b></span></div>
-        ${mine ? `<p class="sq-me">Tus puntos esta semana: <b>${s.myPoints.toLocaleString('es')}</b> · suma ganando partidas (rebelarte da ×${String(REBEL_POINTS).replace('.', ',')})</p>` : ''}</section>` : ''}
-      <section class="sq-prizes"><small>PREMIOS DE CADA SEMANA</small>
-        <div><b>Bando ganador</b><span>${WIN_PRIZE.tokens} fichas · ${WIN_PRIZE.coins.toLocaleString('es')} ◉ · una copia de sus tres estrellas · el marco del bando (la primera vez)</span>${mine ? frame(mine) : `${frame('sector')}${frame('resistencia')}`}</div>
-        <div><b>Bando perdedor</b><span>${LOSE_PRIZE.tokens} fichas · ${LOSE_PRIZE.coins.toLocaleString('es')} ◉ si jugaste esa semana</span></div></section>
-      ${s?.results.length ? `<section class="sq-hist"><small>SEMANAS ANTERIORES</small>${s.results.map((r) => `<div><b>Semana ${r.week + 1}</b><span>${r.winner === 'empate' ? 'Empate' : `Gana ${esc(SIDES[r.winner].name)}`}</span><em>${r.sector.toLocaleString('es')} – ${r.resistencia.toLocaleString('es')}</em></div>`).join('')}</section>` : ''}
-      <p class="note">${!signedIn() ? 'Para elegir bando necesitas conectar tu cuenta (Perfil): los bandos se cuentan en el servidor. ' : ''}El bando es para toda la temporada y no se puede cambiar. Para que la lucha sea justa, el bando que vaya por delante en miembros no admite a nadie más hasta que el otro lo alcance. Cuentan las victorias de partidas normales (sin cooperativo, Road, clan ni entrenamiento).</p>`;
+        <div class="sq-nums"><span><b>${a.sector.toLocaleString(locale())}</b> ${tr('· {sector} activos', { sector: s.active.sector })}</span><span>${tr('{resistencia} activos ·', { resistencia: s.active.resistencia })} <b>${a.resistencia.toLocaleString(locale())}</b></span></div>
+        ${mine ? `<p class="sq-me">${tr('{x1} <b>{x2}</b> · suma ganando partidas (rebelarte da ×{x3})', { x1: tr('Tus puntos esta semana:'), x2: s.myPoints.toLocaleString(locale()), x3: String(REBEL_POINTS).replace('.', ',') })}</p>` : ''}</section>` : ''}
+      <section class="sq-prizes"><small>${tr('PREMIOS DE CADA SEMANA')}</small>
+        <div><b>${tr('Bando ganador')}</b><span>${tr('{tokens} fichas · {x1} ◉ · una copia de sus tres estrellas · el marco del bando (la primera vez)', { tokens: WIN_PRIZE.tokens, x1: WIN_PRIZE.coins.toLocaleString(locale()) })}</span>${mine ? frame(mine) : `${frame('sector')}${frame('resistencia')}`}</div>
+        <div><b>${tr('Bando perdedor')}</b><span>${tr('{tokens} fichas · {x1} ◉ si jugaste esa semana', { tokens: LOSE_PRIZE.tokens, x1: LOSE_PRIZE.coins.toLocaleString(locale()) })}</span></div></section>
+      ${s?.results.length ? `<section class="sq-hist"><small>${tr('SEMANAS ANTERIORES')}</small>${s.results.map((r) => `<div><b>${tr('Semana {x1}', { x1: r.week + 1 })}</b><span>${r.winner === 'empate' ? 'Empate' : `Gana ${esc(SIDES[r.winner].name)}`}</span><em>${r.sector.toLocaleString(locale())} – ${r.resistencia.toLocaleString(locale())}</em></div>`).join('')}</section>` : ''}
+      <p class="note">${tr('{x1}El bando es para toda la temporada y no se puede cambiar. Para que la lucha sea justa, el bando que vaya por delante en miembros no admite a nadie más hasta que el otro lo alcance. Cuentan las victorias de partidas normales (sin cooperativo, Road, clan ni entrenamiento).', { x1: !signedIn() ? tr('Para elegir bando necesitas conectar tu cuenta (Perfil): los bandos se cuentan en el servidor. ') : '' })}</p>`;
     this.on('[data-join]', 'click', (_e, el) => void this.sectorJoinFlow(el.dataset.join as SideId));
   }
 
   private async sectorJoinFlow(id: SideId) {
     const d = SIDES[id];
-    const ok = await this.zabelSay({ kicker: 'UNA DECISIÓN PARA TODA LA TEMPORADA', lines: [`¿${d.name}? Piénsalo bien: no podrás cambiar de bando hasta que termine la temporada.`],
-      buttons: [[`Sí, ${esc(d.short)}`, 'blue', 'ok'], ['Pensarlo', 'small ghost', 'no']] });
+    const ok = await this.zabelSay({ kicker: tr('UNA DECISIÓN PARA TODA LA TEMPORADA'), lines: [tr('¿{x1}? Piénsalo bien: no podrás cambiar de bando hasta que termine la temporada.', { x1: d.name })],
+      buttons: [[tr('Sí, {x1}', { x1: esc(d.short) }), 'blue', 'ok'], [tr('Pensarlo'), 'small ghost', 'no']] });
     if (ok !== 'ok') return;
     try {
       await sectorJoin(id);
@@ -4462,12 +4466,12 @@ export class App {
       this.persist();
       sfx('legend');
       await this.zabelSay({ kicker: d.name.toUpperCase(), lines: id === 'sector'
-        ? ['Bienvenido al Sector Quinto. Aquí el fútbol se juega como yo digo.', 'Acata mis decretos y tu bando ganará.']
-        : ['La Resistencia… Veremos cuánto aguanta vuestro viento.', 'Rebélate si quieres: el Sector Quinto también sabe jugar duro.'], buttons: [['¡A jugar!', 'blue', 'ok']] });
+        ? [tr('Bienvenido al Sector Quinto. Aquí el fútbol se juega como yo digo.'), tr('Acata mis decretos y tu bando ganará.')]
+        : [tr('La Resistencia… Veremos cuánto aguanta vuestro viento.'), tr('Rebélate si quieres: el Sector Quinto también sabe jugar duro.')], buttons: [[tr('¡A jugar!'), 'blue', 'ok']] });
     } catch (e) {
       const m = (e as Error).message;
-      this.toast(/side_full/.test(m) ? `${d.name} va por delante en miembros: ahora solo se puede entrar en el otro bando.`
-        : /already_in_side/.test(m) ? 'Ya tienes bando.' : /no_username/.test(m) ? 'Primero reserva tu nombre en Perfil.' : /sector_closed/.test(m) ? 'El Sector Quinto no está abierto ahora.' : 'No se pudo unir al bando. Inténtalo de nuevo.', 5000);
+      this.toast(/side_full/.test(m) ? tr('{dName} va por delante en miembros: ahora solo se puede entrar en el otro bando.', { dName: d.name })
+        : /already_in_side/.test(m) ? tr('Ya tienes bando.') : /no_username/.test(m) ? tr('Primero reserva tu nombre en Perfil.') : /sector_closed/.test(m) ? tr('El Sector Quinto no está abierto ahora.') : tr('No se pudo unir al bando. Inténtalo de nuevo.'), 5000);
     }
     this.sectorAt = 0;
     void this.sectorScreen();
@@ -4475,7 +4479,7 @@ export class App {
 
   /** 2.02: the Jadens given for clears made under the old Road rule, said once the menu is up */
   private jadenNotice(n: number) {
-    if (n > 0) window.setTimeout(() => this.toast(`Road to Fútbol Frontier: ahora Jaden sale a las 3 victorias en Máxima y otra copia cada 5. Por tus victorias recibes ${n === 1 ? 'a Jaden Evans' : `${n} Jaden Evans (él y sus copias)`}.`, 7000), 2500);
+    if (n > 0) window.setTimeout(() => this.toast(tr('Road to Fútbol Frontier: ahora Jaden sale a las 3 victorias en Máxima y otra copia cada 5. Por tus victorias recibes {x1}.', { x1: n === 1 ? 'a Jaden Evans' : tr('{n} Jaden Evans (él y sus copias)', { n }) }), 7000), 2500);
   }
 
   /** 2.02: the run's recording goes to the server in the background (a failure only loses this replay) */
@@ -4497,36 +4501,36 @@ export class App {
     const box = document.getElementById('aplist');
     if (!box) return;
     box.className = '';
-    box.innerHTML = `<div class="rp-bar"><input id="rpuser" placeholder="Usuario (vacío = todos)" value="${esc(user)}" maxlength="20" autocomplete="off">
-      <button class="btn small blue" id="rpfind">Buscar</button><span class="spacer"></span><button class="btn small" id="rpprune">Borrar las de más de 30 días (no las del ranking)</button></div>
-      <div id="rprows" class="note">Cargando…</div>`;
+    box.innerHTML = `<div class="rp-bar"><input id="rpuser" placeholder="${tr('Usuario (vacío = todos)')}" value="${esc(user)}" maxlength="20" autocomplete="off">
+      <button class="btn small blue" id="rpfind">${tr('Buscar')}</button><span class="spacer"></span><button class="btn small" id="rpprune">${tr('Borrar las de más de 30 días (no las del ranking)')}</button></div>
+      <div id="rprows" class="note">${tr('Cargando…')}</div>`;
     const find = () => { void this.adminReplaysView((document.getElementById('rpuser') as HTMLInputElement).value.trim()); };
     document.getElementById('rpfind')!.addEventListener('click', find);
     document.getElementById('rpuser')!.addEventListener('keydown', (e) => { if ((e as KeyboardEvent).key === 'Enter') find(); });
     const prune = document.getElementById('rpprune') as HTMLButtonElement;
     prune.addEventListener('click', async () => {
-      if (!prune.classList.contains('sure')) { prune.classList.add('sure'); prune.textContent = '¿Seguro? Pulsa otra vez'; return; }
+      if (!prune.classList.contains('sure')) { prune.classList.add('sure'); prune.textContent = tr('¿Seguro? Pulsa otra vez'); return; }
       prune.disabled = true;
-      try { this.toast(`${await adminPruneReplays(30)} repeticiones borradas`); } catch (e) { this.toast((e as Error).message); }
+      try { this.toast(tr('{x1} repeticiones borradas', { x1: await adminPruneReplays(30) })); } catch (e) { this.toast((e as Error).message); }
       void this.adminReplaysView(user);
     });
     const list = document.getElementById('rprows')!;
     try {
       const rows = await adminReplays(user || null, 150);
       if (!document.getElementById('rprows')) return;
-      if (!rows.length) { list.textContent = user ? `No hay repeticiones de ${user}.` : 'Aún no hay repeticiones: se graban las partidas en solitario de quien juega con sesión iniciada.'; return; }
+      if (!rows.length) { list.textContent = user ? tr('No hay repeticiones de {user}.', { user }) : tr('Aún no hay repeticiones: se graban las partidas en solitario de quien juega con sesión iniciada.'); return; }
       const mapName = (id: string) => this.m.maps.find((m) => m.id === id)?.name ?? id;
       const kb = rows.reduce((n, r) => n + r.bytes, 0) / 1024;
       list.className = '';
-      list.innerHTML = `<p class="note">${rows.length} repeticiones · ${kb > 1024 ? `${(kb / 1024).toFixed(1)} MB` : `${Math.round(kb)} KB`} en total. Cada jugador guarda sus 3 últimas y las de sus marcas del ranking.</p>
-        <div class="ap-table rp-table"><div class="ap-row ap-head"><span>Usuario</span><span>Fecha</span><span>Arena</span><span>Rango</span><span>Duración</span><span>Resultado</span><span>Capitán</span><span></span></div>
+      list.innerHTML = `<p class="note">${tr('{rowsLength} repeticiones · {x1} en total. Cada jugador guarda sus 3 últimas y las de sus marcas del ranking.', { rowsLength: rows.length, x1: kb > 1024 ? `${(kb / 1024).toFixed(1)} MB` : `${Math.round(kb)} KB` })}</p>
+        <div class="ap-table rp-table"><div class="ap-row ap-head"><span>${tr('Usuario')}</span><span>${tr('Fecha')}</span><span>${tr('Arena')}</span><span>${tr('Rango')}</span><span>${tr('Duración')}</span><span>${tr('Resultado')}</span><span>${tr('Capitán')}</span><span></span></div>
         ${rows.map((r, i) => { const cap = r.captain_id !== null ? this.byId.get(r.captain_id) : undefined; return `<div class="ap-row">
-          <b>${esc(r.username)}</b><span>${new Date(r.created_at).toLocaleString('es', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
+          <b>${esc(r.username)}</b><span>${new Date(r.created_at).toLocaleString(locale(), { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
           <span>${esc(mapName(r.map))}</span><span><span class="rank-btn r-${esc(r.rank)} rp-rank">${rankMark(r.rank)}</span></span><span>${fmtTime(r.time_sec)}</span>
-          <span class="${r.victory ? 'rp-win' : 'rp-loss'}">${r.victory ? 'Victoria' : 'Derrota'} · Nv ${r.level}</span><span class="rp-cap">${cap ? `${this.mug(cap.id, 24)}${esc(cap.name)}` : '—'}</span>
-          <span><button class="btn small blue" data-rp="${i}">▶ Ver</button></span></div>`; }).join('')}</div>`;
+          <span class="${r.victory ? 'rp-win' : 'rp-loss'}">${tr('{x1} · Nv {level}', { x1: r.victory ? 'Victoria' : 'Derrota', level: r.level })}</span><span class="rp-cap">${cap ? `${this.mug(cap.id, 24)}${esc(cap.name)}` : '—'}</span>
+          <span><button class="btn small blue" data-rp="${i}">${tr('▶ Ver')}</button></span></div>`; }).join('')}</div>`;
       this.on('[data-rp]', 'click', (_e, el) => { void this.replayViewer(rows[Number(el.dataset.rp)], user); }, list);
-    } catch (e) { list.textContent = /forbidden/.test((e as Error).message) ? 'No tienes permiso para ver este panel.' : `No se pudo cargar: ${(e as Error).message}`; }
+    } catch (e) { list.textContent = /forbidden/.test((e as Error).message) ? tr('No tienes permiso para ver este panel.') : tr('No se pudo cargar: {x1}', { x1: (e as Error).message }); }
   }
 
   /** a line of the replay's log, or null for what is not worth a line (shots: they are seen on the pitch) */
@@ -4536,19 +4540,19 @@ export class App {
     switch (e.k) {
       case 'card': {
         const c = e.card as { kind: string; playerId?: number; tech?: number; toLevel?: number; id?: string; amount?: number };
-        const txt = c.kind === 'recruit' ? `Ficha a ${who(c.playerId)}`
+        const txt = c.kind === 'recruit' ? tr('Ficha a {who}', { who: who(c.playerId) })
           : c.kind === 'learn' ? `${who(c.playerId)} aprende ${tech(c.playerId, c.tech)}`
           : c.kind === 'upgrade' ? `${tech(c.playerId, c.tech)} (${who(c.playerId)}) a Nv ${c.toLevel}`
           : c.kind === 'combo' ? `Combinada ${COMBOS.find((x) => x.id === c.id)?.name ?? c.id} Nv ${c.toLevel}`
-          : c.kind === 'heal' ? `+${Math.round((c.amount ?? 0) * 100)}% de vida`
+          : c.kind === 'heal' ? tr('+{x1}% de vida', { x1: Math.round((c.amount ?? 0) * 100) })
           : modDef(String(c.id))?.label ?? String(c.id);
-        return `<b class="rl-card">Nv ${e.lv}</b> ${esc(txt)}`;
+        return `<b class="rl-card">${tr('Nv {lv}', { lv: e.lv })}</b> ${esc(txt)}`;
       }
       case 'hurt': return e.atk === 'entrada' && e.dmg < 15 ? null : `<b class="rl-hurt">−${e.dmg}</b> ${esc(e.by || 'Rival')} · ${esc(e.atk)}`;
-      case 'boss': return `<b class="rl-boss">JEFE</b> ¡Llega ${esc(e.name)}!`;
-      case 'ult': return `<b class="rl-ult">ULTI</b> ${esc(who(e.id))}`;
-      case 'formation': return `<b class="rl-form">Formación</b> ${esc(FORMATIONS[e.f as FormationId]?.label ?? e.f)}`;
-      case 'end': return `<b class="${e.win ? 'rl-win' : 'rl-hurt'}">FIN</b> ${e.win ? 'Victoria' : 'Derrota'} · ${e.kills.toLocaleString('es')} rivales · Nv ${e.level}`;
+      case 'boss': return `<b class="rl-boss">${tr('JEFE')}</b> ${tr('¡Llega {eName}!', { eName: esc(e.name) })}`;
+      case 'ult': return `<b class="rl-ult">${tr('ULTI')}</b> ${esc(who(e.id))}`;
+      case 'formation': return `<b class="rl-form">${tr('Formación')}</b> ${esc(FORMATIONS[e.f as FormationId]?.label ?? e.f)}`;
+      case 'end': return `<b class="${e.win ? 'rl-win' : 'rl-hurt'}">${tr('FIN')}</b> ${tr('{x1} · {x2} rivales · Nv {level}', { x1: e.win ? 'Victoria' : 'Derrota', x2: e.kills.toLocaleString(locale()), level: e.level })}`;
       default: return null;
     }
   }
@@ -4558,16 +4562,16 @@ export class App {
     this.stopScenes();
     const cap = row.captain_id !== null ? this.byId.get(row.captain_id) : undefined;
     const mapName = this.m.maps.find((m) => m.id === row.map)?.name ?? row.map;
-    this.show(`<div class="rplay" id="rplay">${this.titlebar('Repetición', 'Panel')}
-      <div class="rp-info">${cap ? `<span class="rp-mug">${this.mug(cap.id, 40)}</span>` : ''}<span><b>${esc(row.username)}</b><small>${esc(mapName)} · Rango ${esc(row.rank)} · ${new Date(row.created_at).toLocaleString('es')} · v${esc(row.version)}</small></span></div>
+    this.show(`<div class="rplay" id="rplay">${this.titlebar(tr('Repetición'), tr('Panel'))}
+      <div class="rp-info">${cap ? `<span class="rp-mug">${this.mug(cap.id, 40)}</span>` : ''}<span><b>${esc(row.username)}</b><small>${tr('{mapName} · Rango {rank} · {x1} · v{version}', { mapName: esc(mapName), rank: esc(row.rank), x1: new Date(row.created_at).toLocaleString(locale()), version: esc(row.version) })}</small></span></div>
       <div class="rp-log" id="rplog"></div>
-      <div class="rp-load" id="rpload">Descargando la repetición…</div>
+      <div class="rp-load" id="rpload">${tr('Descargando la repetición…')}</div>
       <div class="rp-ctl" id="rpctl" hidden>
-        <button class="btn small blue rp-play" id="rpplay" title="Espacio">❚❚</button>
+        <button class="btn small blue rp-play" id="rpplay" title="${tr('Espacio')}">❚❚</button>
         <span class="rp-time" id="rptime">0:00</span>
         <div class="rp-track"><div class="rp-marks" id="rpmarks"></div><input type="range" id="rpseek" min="0" max="1" step="0.1" value="0"></div>
         <div class="seg rp-speed" id="rpspeed">${[1, 2, 4, 8].map((x) => `<button data-x="${x}" class="${x === 1 ? 'on' : ''}">×${x}</button>`).join('')}</div>
-        <div class="rp-hp" title="Vida del equipo"><i id="rphp"></i></div>
+        <div class="rp-hp" title="${tr('Vida del equipo')}"><i id="rphp"></i></div>
       </div></div>`, 'replay-mode');
     const key = this.screenKey;
     const keys = new AbortController();
@@ -4628,7 +4632,7 @@ export class App {
     try {
       const [m, sp] = await Promise.all([adminMetrics(days), adminSpiritStats(days).catch(() => [] as SpiritStat[])]);
       if (!document.getElementById('aplist')) return;
-      const n = (v: number) => v.toLocaleString('es');
+      const n = (v: number) => v.toLocaleString(locale());
       const pct = (a: number, b: number) => b ? `${Math.round((a / b) * 100)} %` : '—';
       const tile = (v: string, t: string) => `<div class="ap-tile"><b>${v}</b><span>${t}</span></div>`;
       const sum = (k: 'new' | 'players' | 'runs') => m.daily.reduce((a, d) => a + d[k], 0);
@@ -4638,46 +4642,46 @@ export class App {
         const max = Math.max(1, ...vals);
         return `<div class="mt-cols">${vals.map((v, i) => `<div class="mt-col" title="${esc(tips[i])}"><i style="height:${Math.round((v / max) * 100)}%"></i><small>${esc(labels[i])}</small></div>`).join('')}</div>`;
       };
-      const daily = (k: 'new' | 'players' | 'runs', title: string) => `<h4>${title} <small>(máx. ${n(Math.max(0, ...m.daily.map((d) => d[k])))} · total ${n(sum(k))})</small></h4>`
+      const daily = (k: 'new' | 'players' | 'runs', title: string) => `<h4>${title} <small>${tr('(máx. {x1} · total {x2})', { x1: n(Math.max(0, ...m.daily.map((d) => d[k]))), x2: n(sum(k)) })}</small></h4>`
         + cols(m.daily.map((d) => d[k]),
           m.daily.map((d, i) => (m.daily.length - 1 - i) % step === 0 ? `${d.day.slice(8)}/${d.day.slice(5, 7)}` : ''),
-          m.daily.map((d) => `${new Date(d.day + 'T12:00').toLocaleDateString('es', { weekday: 'short', day: 'numeric', month: 'short' })}: ${d[k]}`));
+          m.daily.map((d) => `${new Date(d.day + 'T12:00').toLocaleDateString(locale(), { weekday: 'short', day: 'numeric', month: 'short' })}: ${d[k]}`));
       const rows = (items: { label: string; n: number }[]) => {
         const max = Math.max(1, ...items.map((x) => x.n)), tot = items.reduce((a, x) => a + x.n, 0);
-        return items.length ? `<div class="mt-rows">${items.map((x) => `<div class="mt-row"><span>${esc(x.label)}</span><div><i style="width:${(x.n / max) * 100}%"></i></div><b>${n(x.n)} <small>${pct(x.n, tot)}</small></b></div>`).join('')}</div>` : '<p class="note">Sin datos todavía.</p>';
+        return items.length ? `<div class="mt-rows">${items.map((x) => `<div class="mt-row"><span>${esc(x.label)}</span><div><i style="width:${(x.n / max) * 100}%"></i></div><b>${n(x.n)} <small>${pct(x.n, tot)}</small></b></div>`).join('')}</div>` : `<p class="note">${tr('Sin datos todavía.')}</p>`;
       };
       const mapName = (id: string) => this.m.maps.find((x) => x.id === id)?.name ?? id;
       box.className = '';
-      box.innerHTML = `<div class="seg small" id="mtdays">${[7, 30, 90].map((d) => `<button data-d="${d}" class="${d === days ? 'on' : ''}">${d} días</button>`).join('')}</div>
-        <div class="ap-tiles">${tile(n(m.online_now), 'conectados ahora')}${tile(n(m.online_1h), 'conectados última hora')}${tile(n(today.players), 'han jugado hoy')}${tile(n(today.runs), 'partidas hoy')}${tile(n(today.new), 'cuentas nuevas hoy')}${tile(pct(m.retention.d1, m.retention.d1_base), `vuelven al día siguiente (${m.retention.d1}/${m.retention.d1_base})`)}${tile(pct(m.retention.d7, m.retention.d7_base), `siguen tras 7 días (${m.retention.d7}/${m.retention.d7_base})`)}${tile(pct(m.totals.wins, m.totals.runs), 'partidas ganadas')}${tile(n(m.totals.pulls), 'fichajes en la máquina')}</div>
-        ${daily('players', 'Jugadores por día')}${daily('runs', 'Partidas por día')}${daily('new', 'Cuentas nuevas por día')}
-        <h4>Horas punta <small>(partidas de los últimos ${m.days} días, hora de España)</small></h4>
-        ${cols(m.hours, m.hours.map((_, h) => h % 3 === 0 ? `${h}h` : ''), m.hours.map((v, h) => `${h}:00–${h}:59: ${v} partidas`))}
-        <div class="mt-split"><div><h4>Arenas más jugadas</h4>${rows(m.maps.map((x) => ({ label: mapName(x.map), n: x.n })))}</div>
-        <div><h4>Rangos</h4>${rows(m.ranks.map((x) => ({ label: `Rango ${x.rank}`, n: x.n })))}</div>
-        <div><h4>Capitanes favoritos</h4>${rows(m.captains.map((x) => ({ label: this.byId.get(x.id)?.name ?? `#${x.id}`, n: x.n })))}</div></div>
+      box.innerHTML = `<div class="seg small" id="mtdays">${[7, 30, 90].map((d) => `<button data-d="${d}" class="${d === days ? 'on' : ''}">${tr('{d} días', { d })}</button>`).join('')}</div>
+        <div class="ap-tiles">${tile(n(m.online_now), 'conectados ahora')}${tile(n(m.online_1h), tr('conectados última hora'))}${tile(n(today.players), 'han jugado hoy')}${tile(n(today.runs), tr('partidas hoy'))}${tile(n(today.new), 'cuentas nuevas hoy')}${tile(pct(m.retention.d1, m.retention.d1_base), tr('vuelven al día siguiente ({d1}/{d1_base})', { d1: m.retention.d1, d1_base: m.retention.d1_base }))}${tile(pct(m.retention.d7, m.retention.d7_base), tr('siguen tras 7 días ({d7}/{d7_base})', { d7: m.retention.d7, d7_base: m.retention.d7_base }))}${tile(pct(m.totals.wins, m.totals.runs), tr('partidas ganadas'))}${tile(n(m.totals.pulls), tr('fichajes en la máquina'))}</div>
+        ${daily('players', tr('Jugadores por día'))}${daily('runs', tr('Partidas por día'))}${daily('new', tr('Cuentas nuevas por día'))}
+        <h4>${tr('Horas punta')} <small>${tr('(partidas de los últimos {days} días, hora de España)', { days: m.days })}</small></h4>
+        ${cols(m.hours, m.hours.map((_, h) => h % 3 === 0 ? `${h}h` : ''), m.hours.map((v, h) => tr('{h}:00–{h}:59: {v} partidas', { h, v })))}
+        <div class="mt-split"><div><h4>${tr('Arenas más jugadas')}</h4>${rows(m.maps.map((x) => ({ label: mapName(x.map), n: x.n })))}</div>
+        <div><h4>${tr('Rangos')}</h4>${rows(m.ranks.map((x) => ({ label: tr('Rango {rank}', { rank: x.rank }), n: x.n })))}</div>
+        <div><h4>${tr('Capitanes favoritos')}</h4>${rows(m.captains.map((x) => ({ label: this.byId.get(x.id)?.name ?? `#${x.id}`, n: x.n })))}</div></div>
         ${this.spiritMetrics(sp, days)}
-        <h4>Comunidad</h4><div class="ap-tiles">${tile(n(m.social.friendships), 'amistades')}${tile(n(m.social.clans), 'clanes')}${tile(n(m.social.clan_members), 'miembros de clan')}${tile(n(m.social.coop_7d), 'partidas co-op (7 días)')}${tile(n(m.social.tierlists), 'tierlists')}${tile(n(m.social.bugs_open), 'bugs abiertos')}${tile(n(m.social.ideas_open), 'ideas pendientes')}</div>
-        <p class="note">Partidas por día, horas, arenas, rangos y capitanes salen de las partidas enviadas al ranking (solo cuentas con sesión; los invitados no cuentan). Arenas, rangos y capitanes son de todo el historial.</p>`;
+        <h4>${tr('Comunidad')}</h4><div class="ap-tiles">${tile(n(m.social.friendships), 'amistades')}${tile(n(m.social.clans), 'clanes')}${tile(n(m.social.clan_members), tr('miembros de clan'))}${tile(n(m.social.coop_7d), tr('partidas co-op (7 días)'))}${tile(n(m.social.tierlists), 'tierlists')}${tile(n(m.social.bugs_open), 'bugs abiertos')}${tile(n(m.social.ideas_open), 'ideas pendientes')}</div>
+        <p class="note">${tr('Partidas por día, horas, arenas, rangos y capitanes salen de las partidas enviadas al ranking (solo cuentas con sesión; los invitados no cuentan). Arenas, rangos y capitanes son de todo el historial.')}</p>`;
       this.on('#mtdays button', 'click', (_e, el) => { void this.adminPlayers('metrics', Number(el.dataset.d)); });
-    } catch (e) { box.textContent = /forbidden/.test((e as Error).message) ? 'No tienes permiso para ver este panel.' : `No se pudo cargar: ${(e as Error).message}`; }
+    } catch (e) { box.textContent = /forbidden/.test((e as Error).message) ? tr('No tienes permiso para ver este panel.') : tr('No se pudo cargar: {x1}', { x1: (e as Error).message }); }
   }
 
   /** 2.02 Métricas: the warrior spirits most played and the ones whose ultimates take the most health */
   private spiritMetrics(sp: SpiritStat[], days: number) {
-    if (!sp.length) return `<h4>Espíritus guerreros</h4><p class="note">Sin datos todavía: se cuentan las partidas terminadas desde la 2.02.</p>`;
-    const n = (v: number) => Math.round(v).toLocaleString('es');
+    if (!sp.length) return `<h4>${tr('Espíritus guerreros')}</h4><p class="note">${tr('Sin datos todavía: se cuentan las partidas terminadas desde la 2.02.')}</p>`;
+    const n = (v: number) => Math.round(v).toLocaleString(locale());
     const name = (id: string) => KESHIN_BY_ID.get(id as KeshinId)?.name ?? id;
     const list = (items: { id: string; v: number; sub: string }[]) => {
       const max = Math.max(1, ...items.map((x) => x.v));
       return `<div class="mt-rows">${items.map((x) => `<div class="mt-row"><span>${esc(name(x.id))}</span><div><i style="width:${(x.v / max) * 100}%"></i></div><b>${n(x.v)} <small>${esc(x.sub)}</small></b></div>`).join('')}</div>`;
     };
-    const used = [...sp].sort((a, b) => b.runs - a.runs).map((x) => ({ id: x.spirit, v: x.runs, sub: `partidas · ${n(x.casts)} ultis` }));
+    const used = [...sp].sort((a, b) => b.runs - a.runs).map((x) => ({ id: x.spirit, v: x.runs, sub: tr('partidas · {n} ultis', { n: n(x.casts) }) }));
     const dmg = [...sp].filter((x) => x.casts > 0).sort((a, b) => b.damage / b.casts - a.damage / a.casts)
-      .map((x) => ({ id: x.spirit, v: x.damage / x.casts, sub: `por ulti · ${n(x.damage)} en total` }));
-    return `<div class="mt-split"><div><h4>Espíritus más usados <small>(${days} días)</small></h4>${list(used)}</div>
-      <div><h4>Espíritus que más vida quitan <small>(media por ulti)</small></h4>${dmg.length ? list(dmg) : '<p class="note">Aún nadie ha lanzado una ulti.</p>'}</div></div>
-      <p class="note">Cuenta el espíritu activo del equipo (el primero por la izquierda) en cada partida terminada con sesión iniciada. El daño es el que hace el equipo en los 3 s siguientes a cada ulti.</p>`;
+      .map((x) => ({ id: x.spirit, v: x.damage / x.casts, sub: tr('por ulti · {n} en total', { n: n(x.damage) }) }));
+    return `<div class="mt-split"><div><h4>${tr('Espíritus más usados')} <small>${tr('({days} días)', { days })}</small></h4>${list(used)}</div>
+      <div><h4>${tr('Espíritus que más vida quitan')} <small>${tr('(media por ulti)')}</small></h4>${dmg.length ? list(dmg) : `<p class="note">${tr('Aún nadie ha lanzado una ulti.')}</p>`}</div></div>
+      <p class="note">${tr('Cuenta el espíritu activo del equipo (el primero por la izquierda) en cada partida terminada con sesión iniciada. El daño es el que hace el equipo en los 3 s siguientes a cada ulti.')}</p>`;
   }
 
   private adminBugDetail(r: BugRow, filter: BugFilter) {
@@ -4685,23 +4689,23 @@ export class App {
     box.className = 'tut-modal bug-modal';
     const f = (k: string, v: unknown) => v || v === 0 ? `<div><small>${k}</small>${esc(String(v))}</div>` : '';
     box.innerHTML = `<div class="panel bug-card wide"><h2>${esc(r.code)}</h2><h3>${esc(r.title)}</h3>
-      <div class="bug-facts">${f('Categoría', r.category)}${f('Gravedad', r.severity)}${f('Versión', r.game_version)}${f('Compilación', r.build)}${f('Jugador', r.username)}${f('Navegador', r.browser)}${f('Sistema', r.os)}${f('Pantalla', r.screen)}${f('Arena', r.map)}${f('Dificultad', r.difficulty)}${f('Tiempo (s)', r.run_time_sec)}${f('Fecha', new Date(r.created_at).toLocaleString('es'))}</div>
-      <h4>Qué ha ocurrido</h4><p class="bug-text">${esc(r.description ?? '')}</p>${r.steps ? `<h4>Pasos</h4><p class="bug-text">${esc(r.steps)}</p>` : ''}
-      <div id="adshot" class="note">${r.screenshot_path ? 'Cargando captura…' : 'Sin captura.'}</div>
-      <h4>Estado</h4><div class="seg" id="adstatus">${Object.entries(STATUS_LABEL).map(([k, t]) => `<button data-v="${k}" class="${k === r.status ? 'on' : ''}">${t}</button>`).join('')}</div>
-      <h4>Notas privadas</h4><textarea id="adnotes" rows="3" maxlength="4000">${esc(r.admin_notes ?? '')}</textarea>
-      <h4>Respuesta al jugador</h4><textarea id="adreply" rows="3" maxlength="2000" placeholder="Le saldrá al jugador la próxima vez que abra el juego">${esc(r.reply ?? '')}</textarea>
-      <p class="note">Al responder, o al marcarlo como corregido o descartado, el jugador recibe un aviso. Las notas privadas nunca las ve.</p>
-      <div class="tut-nav"><button class="btn small blue" id="adclose">Cerrar</button><span class="spacer"></span><button class="btn" id="adsave">Guardar</button></div></div>`;
+      <div class="bug-facts">${f('Categoría', r.category)}${f('Gravedad', r.severity)}${f('Versión', r.game_version)}${f('Compilación', r.build)}${f('Jugador', r.username)}${f('Navegador', r.browser)}${f('Sistema', r.os)}${f('Pantalla', r.screen)}${f('Arena', r.map)}${f('Dificultad', r.difficulty)}${f(tr('Tiempo (s)'), r.run_time_sec)}${f('Fecha', new Date(r.created_at).toLocaleString(locale()))}</div>
+      <h4>${tr('Qué ha ocurrido')}</h4><p class="bug-text">${esc(r.description ?? '')}</p>${r.steps ? `<h4>${tr('Pasos')}</h4><p class="bug-text">${esc(r.steps)}</p>` : ''}
+      <div id="adshot" class="note">${r.screenshot_path ? tr('Cargando captura…') : tr('Sin captura.')}</div>
+      <h4>${tr('Estado')}</h4><div class="seg" id="adstatus">${Object.entries(STATUS_LABEL).map(([k, t]) => `<button data-v="${k}" class="${k === r.status ? 'on' : ''}">${t}</button>`).join('')}</div>
+      <h4>${tr('Notas privadas')}</h4><textarea id="adnotes" rows="3" maxlength="4000">${esc(r.admin_notes ?? '')}</textarea>
+      <h4>${tr('Respuesta al jugador')}</h4><textarea id="adreply" rows="3" maxlength="2000" placeholder="${tr('Le saldrá al jugador la próxima vez que abra el juego')}">${esc(r.reply ?? '')}</textarea>
+      <p class="note">${tr('Al responder, o al marcarlo como corregido o descartado, el jugador recibe un aviso. Las notas privadas nunca las ve.')}</p>
+      <div class="tut-nav"><button class="btn small blue" id="adclose">${tr('Cerrar')}</button><span class="spacer"></span><button class="btn" id="adsave">${tr('Guardar')}</button></div></div>`;
     document.body.appendChild(box);
     let status = r.status, url = '';
-    if (r.screenshot_path) shotUrl(r.screenshot_path).then((u) => { url = u; box.querySelector('#adshot')!.innerHTML = `<a href="${u}" target="_blank" rel="noopener"><img class="bug-full" src="${u}" alt="Captura del reporte"></a>`; }).catch((e: Error) => { box.querySelector('#adshot')!.textContent = e.message; });
+    if (r.screenshot_path) shotUrl(r.screenshot_path).then((u) => { url = u; box.querySelector('#adshot')!.innerHTML = `<a href="${u}" target="_blank" rel="noopener"><img class="bug-full" src="${u}" alt="${tr('Captura del reporte')}"></a>`; }).catch((e: Error) => { box.querySelector('#adshot')!.textContent = e.message; });
     const shut = () => { if (url) URL.revokeObjectURL(url); box.remove(); };
     box.querySelectorAll<HTMLElement>('#adstatus button').forEach((b) => b.addEventListener('click', () => { status = b.dataset.v!; box.querySelectorAll('#adstatus button').forEach((x) => x.classList.toggle('on', x === b)); }));
     box.querySelector('#adclose')!.addEventListener('click', shut);
     box.querySelector('#adsave')!.addEventListener('click', () => {
       adminUpdateBug(r.code, status, (box.querySelector('#adnotes') as HTMLTextAreaElement).value, (box.querySelector('#adreply') as HTMLTextAreaElement).value)
-        .then(() => { shut(); this.toast('Reporte actualizado'); void this.adminBugs(filter); }).catch((e: Error) => this.toast(e.message, 4000));
+        .then(() => { shut(); this.toast(tr('Reporte actualizado')); void this.adminBugs(filter); }).catch((e: Error) => this.toast(e.message, 4000));
     });
   }
 
@@ -4711,25 +4715,25 @@ export class App {
     const cap = squadOf(this.save, this.byId)[0] ?? this.unlockedRoster()[0];
     const mugs = squadOf(this.save, this.byId).slice(0, 5).map((p) => this.mug(p.id, 40)).join('');
     const slides: { title: string; text: string; art: string }[] = [
-      { title: 'Sobrevive y gana', text: 'Aguanta las oleadas de rivales hasta que llegue el jefe y derrótalo. Solo tu capitán recibe daño: si su vida llega a cero, pierdes (pero te quedas las monedas).',
+      { title: tr('Sobrevive y gana'), text: tr('Aguanta las oleadas de rivales hasta que llegue el jefe y derrótalo. Solo tu capitán recibe daño: si su vida llega a cero, pierdes (pero te quedas las monedas).'),
         art: cap ? `<div class="tut-hero">${this.mug(cap.id, 96)}${charCanvas(cap.id, 3, 12)}</div>` : '' },
-      { title: 'Muévete', text: 'WASD o flechas (o el joystick táctil / mando). Las técnicas se lanzan solas: tú solo te colocas. ¡Pruébalo aquí!',
+      { title: 'Muévete', text: tr('WASD o flechas (o el joystick táctil / mando). Las técnicas se lanzan solas: tú solo te colocas. ¡Pruébalo aquí!'),
         art: '<div class="tut-pitch" id="tutpitch"><span class="tut-ball" id="tutball">⚽</span></div><div class="keys"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></div>' },
-      { title: 'Vida compartida', text: 'Todo el equipo comparte una barra. Si un rival toca a cualquiera, capitán o compañero, baja para todos.',
+      { title: tr('Vida compartida'), text: tr('Todo el equipo comparte una barra. Si un rival toca a cualquiera, capitán o compañero, baja para todos.'),
         art: `<div class="tut-hp"><i></i></div><div class="tut-row">${mugs}</div>` },
-      { title: 'Ficha en la partida', text: `Empiezas solo con el capitán. Al subir de nivel aparecen cartas para fichar a tus candidatos de Mi Equipo (máximo ${MAX_TEAM} en el campo).`,
-        art: '<div class="tut-row"><span class="tut-card">¡NUEVO FICHAJE!</span><span class="tut-card">MEJORA · TIRO</span><span class="tut-card">OBJETO</span></div>' },
-      { title: 'Supertécnicas', text: 'Tiro, regate, defensa y parada atacan solos; los talentos son pasivos. Mejóralas hasta nivel 10 y evolucionan.',
+      { title: tr('Ficha en la partida'), text: tr('Empiezas solo con el capitán. Al subir de nivel aparecen cartas para fichar a tus candidatos de Mi Equipo (máximo {MAX_TEAM} en el campo).', { MAX_TEAM }),
+        art: `<div class="tut-row"><span class="tut-card">${tr('¡NUEVO FICHAJE!')}</span><span class="tut-card">${tr('MEJORA · TIRO')}</span><span class="tut-card">${tr('OBJETO')}</span></div>` },
+      { title: 'Supertécnicas', text: tr('Tiro, regate, defensa y parada atacan solos; los talentos son pasivos. Mejóralas hasta nivel 10 y evolucionan.'),
         art: `<div class="tut-row">${(['tiro', 'regate', 'defensa', 'parada', 'talento'] as const).map((t) => `<span class="tut-type">${this.icon(ICON.manual[t], 3)}<small>${TYPE_LABEL[t]}</small></span>`).join('')}</div>` },
-      { title: 'Formaciones', text: 'Teclas 1, 2 y 3. Ofensiva: más daño y más riesgo. Equilibrada: neutra. Defensiva: menos daño recibido. Toca una:',
+      { title: 'Formaciones', text: tr('Teclas 1, 2 y 3. Ofensiva: más daño y más riesgo. Equilibrada: neutra. Defensiva: menos daño recibido. Toca una:'),
         art: `<div class="tut-row" id="tutform">${FORMATION_ORDER.map((f) => `<button class="tut-f" data-f="${f}">${FORMATION_ICON(f, 56)}<small>[${FORMATIONS[f].key}] ${FORMATIONS[f].label}</small></button>`).join('')}</div><div class="note" id="tutfdesc"></div>` },
-      { title: 'Objetos y experiencia', text: 'Chispa verde, balón azul y rayo dorado dan experiencia (de menos a más). La comida cura y los objetos especiales te ayudan un rato.',
+      { title: tr('Objetos y experiencia'), text: tr('Chispa verde, balón azul y rayo dorado dan experiencia (de menos a más). La comida cura y los objetos especiales te ayudan un rato.'),
         art: `<div class="tut-row"><span class="orb o0"></span><span class="orb o1"></span><span class="orb o2"></span>${this.icon(206, 3)}${this.icon(303, 3)}</div>` },
-      { title: 'Fichajes y fichas', text: `Las Fichas de Fichaje se ganan jugando y con misiones. En la máquina, ×1 cuesta ${PULL_COST}. Un futbolista nuevo es tuyo para siempre; un duplicado le da estrellas.`,
+      { title: tr('Fichajes y fichas'), text: tr('Las Fichas de Fichaje se ganan jugando y con misiones. En la máquina, ×1 cuesta {PULL_COST}. Un futbolista nuevo es tuyo para siempre; un duplicado le da estrellas.', { PULL_COST }),
         art: this.cap('coin_oro') ? `<img class="tut-img" src="${this.cap('coin_oro')}" alt="">` : '' },
-      { title: 'Mejoras permanentes', text: 'Las monedas compran mejoras que duran para siempre: vida, daño, imán, ranuras de técnica y más.',
-        art: '<div class="tut-row"><span class="tut-card">▲ MEJORAS</span><span class="tut-card">★ TÉCNICAS</span></div>' },
-      { title: 'Prepara tu equipo', text: 'En Mi Equipo eliges 7 candidatos y el capitán. Luego, JUGAR, elige rango (C es el más fácil) y ¡al campo!',
+      { title: tr('Mejoras permanentes'), text: tr('Las monedas compran mejoras que duran para siempre: vida, daño, imán, ranuras de técnica y más.'),
+        art: `<div class="tut-row"><span class="tut-card">${tr('▲ MEJORAS')}</span><span class="tut-card">${tr('★ TÉCNICAS')}</span></div>` },
+      { title: tr('Prepara tu equipo'), text: tr('En Mi Equipo eliges 7 candidatos y el capitán. Luego, JUGAR, elige rango (C es el más fácil) y ¡al campo!'),
         art: `<div class="tut-row">${mugs}</div>` },
     ];
     const s = slides[Math.max(0, Math.min(step, slides.length - 1))];
@@ -4741,8 +4745,8 @@ export class App {
     box.innerHTML = `<div class="tut-card-main panel"><div class="tut-step">${step + 1}/${slides.length}</div><h2>${esc(s.title)}</h2>
       <div class="tut-art">${s.art}</div><p>${esc(s.text)}</p>
       <div class="tut-dots">${slides.map((_, i) => `<i class="${i === step ? 'on' : ''}"></i>`).join('')}</div>
-      <div class="tut-nav"><button class="btn small blue" id="tutskip">Saltar tutorial</button><span class="spacer"></span>
-        ${step ? '<button class="btn small blue" id="tutprev">◀ Atrás</button>' : ''}<button class="btn" id="tutnext">${last ? '¡A jugar!' : 'Siguiente ▶'}</button></div></div>`;
+      <div class="tut-nav"><button class="btn small blue" id="tutskip">${tr('Saltar tutorial')}</button><span class="spacer"></span>
+        ${step ? `<button class="btn small blue" id="tutprev">${tr('◀ Atrás')}</button>` : ''}<button class="btn" id="tutnext">${last ? tr('¡A jugar!') : tr('Siguiente ▶')}</button></div></div>`;
     document.body.appendChild(box);
     mountPreviews();
     const close = (state: 'hecho' | 'omitido') => {
@@ -4789,8 +4793,8 @@ export class App {
     const el = pot.elements.map((x) => {
       const ec = ELEMENT_COLOR[x.element] ?? '#ccc';
       const pips = Array.from({ length: 5 }, (_, i) => `<i class="${i < x.techs ? 'on' : ''}"></i>`).join('');
-      return `<div class="syn-card${x.reach ? ' on' : ''}" style="--ec:${ec}"><span class="syn-ic">${elementIcon(x.element, 26)}</span><div><b>Resonancia ${esc(x.element)}</b>
-        <span class="syn-pips">${pips}</span><small>${x.techs} técnica${x.techs === 1 ? '' : 's'} de ${esc(x.element)} en el equipo · ${x.players} futbolista${x.players === 1 ? '' : 's'}</small></div>
+      return `<div class="syn-card${x.reach ? ' on' : ''}" style="--ec:${ec}"><span class="syn-ic">${elementIcon(x.element, 26)}</span><div><b>${tr('Resonancia {element}', { element: esc(tEl(x.element)) })}</b>
+        <span class="syn-pips">${pips}</span><small>${tr('{techs} técnica{x1} de {element} en el equipo · {players} futbolista{x2}', { techs: x.techs, x1: x.techs === 1 ? '' : 's', element: esc(tEl(x.element)), players: x.players, x2: x.players === 1 ? '' : 's' })}</small></div>
         <em>${x.reach ? `hasta +${Math.round(x.reach * 100)}%` : `${x.techs}/3`}</em></div>`;
     }).join('');
     const ch = pot.chemistry, cap = pot.captain;
@@ -4805,21 +4809,21 @@ export class App {
         const x = squad.find((q) => playsAs(q.name, n.player)) ?? byName.get(n.player);
         const self = squad.some((q) => playsAs(q.name, n.player)), viaKey = !self ? [...carrierOfName.keys()].find((an) => playsAs(an, n.player)) : undefined;
         const via = viaKey ? carrierOfName.get(viaKey) : undefined, here = self || !!via;
-        return `<span class="cb2-who${here ? '' : ' miss'}${via ? ' via-aura' : ''}" title="${esc(n.player)}${n.tech ? ` · ${esc(n.tech)}` : ''} · Nv ${n.level}${via ? ` (Aura de ${esc(via)})` : here ? '' : ' (no está)'}">${x ? this.mug(x.id, 40) : ''}<em>Nv${n.level}</em></span>`;
+        return `<span class="cb2-who${here ? '' : ' miss'}${via ? ' via-aura' : ''}" title="${tr('{player}{x1} · Nv {level}{x2}', { player: esc(n.player), x1: n.tech ? ` · ${esc(n.tech)}` : '', level: n.level, x2: via ? tr(' (Aura de {via})', { via: esc(via) }) : here ? '' : tr(' (no está)') })}">${x ? this.mug(x.id, 40) : ''}<em>${tr('Nv{level}', { level: n.level })}</em></span>`;
       }).join('<i class="cb2-link">🔗</i>');
       // 1.88 (author: less text): name, element, power and one state pill
       return `<div class="cb2${c.ready ? ' ready' : ''}${c.viaAura.length ? ' with-aura' : ''}" style="--ec:${ELEMENT_COLOR[c.combo.element] ?? '#ffe27a'}">
         <div class="cb2-team">${who}</div>
-        <div class="cb2-info"><b>${esc(c.combo.name)}</b><span class="cb2-tags">${elementIcon(c.combo.element, 12)}<i>${this.uiPiece('rayo_hex', 'inl') || '⚡'}${c.combo.power}</i>
-          ${c.ready ? '<em class="cb2-pill ok">¡Lista!</em>' : `<em class="cb2-pill">Falta${c.missing.length > 1 ? 'n' : ''} ${c.missing.length}</em>`}</span></div></div>`;
+        <div class="cb2-info"><b>${esc(tTech(c.combo.name))}</b><span class="cb2-tags">${elementIcon(c.combo.element, 12)}<i>${this.uiPiece('rayo_hex', 'inl') || '⚡'}${c.combo.power}</i>
+          ${c.ready ? `<em class="cb2-pill ok">${tr('¡Lista!')}</em>` : `<em class="cb2-pill">${tr('Falta{x1} {missingLength}', { x1: c.missing.length > 1 ? 'n' : '', missingLength: c.missing.length })}</em>`}</span></div></div>`;
     }).join('');
-    return `<div class="panel syn-panel"><h3>Sinergias del equipo</h3>
-      <div class="note">Resonancia: 3 técnicas activas del mismo elemento dan <b>+8%</b> de daño a esas técnicas, 5 dan <b>+15%</b>. Las técnicas activas se eligen al subir de nivel en la partida.</div>
-      ${combos ? `<h3 class="cb-title">🔗 Técnicas combinadas <small class="cb2-count">${squadCombos(squad, [...carrierOfName.keys()]).filter((c) => c.ready).length} listas</small></h3><div class="cb2-grid">${combos}</div><p class="note cb2-legend">El nivel bajo cada cara es el que necesita su técnica en la partida.</p><h3 class="cb-title">Elementos y química</h3>` : ''}
+    return `<div class="panel syn-panel"><h3>${tr('Sinergias del equipo')}</h3>
+      <div class="note">${tr('Resonancia: 3 técnicas activas del mismo elemento dan <b>+8%</b> de daño a esas técnicas, 5 dan <b>+15%</b>. Las técnicas activas se eligen al subir de nivel en la partida.')}</div>
+      ${combos ? `<h3 class="cb-title">${tr('🔗 Técnicas combinadas')} <small class="cb2-count">${tr('{x1} listas', { x1: squadCombos(squad, [...carrierOfName.keys()]).filter((c) => c.ready).length })}</small></h3><div class="cb2-grid">${combos}</div><p class="note cb2-legend">${tr('El nivel bajo cada cara es el que necesita su técnica en la partida.')}</p><h3 class="cb-title">${tr('Elementos y química')}</h3>` : ''}
       <div class="syn-grid">${el}
-        <div class="syn-card${ch.bonus ? ' on' : ''}" style="--ec:#7dff9a"><span class="syn-ic">♜</span><div><b>Química de club</b><span class="syn-pips">${Array.from({ length: ch.goal }, (_, i) => `<i class="${i < ch.count ? 'on' : ''}"></i>`).join('')}</span><small>${esc(ch.hint)} (equipación ${esc(teamLabel(kit))})</small></div><em>${ch.bonus ? `+${Math.round(ch.bonus * 100)}%` : `${ch.count}/${ch.goal}`}</em></div>
+        <div class="syn-card${ch.bonus ? ' on' : ''}" style="--ec:#7dff9a"><span class="syn-ic">♜</span><div><b>${tr('Química de club')}</b><span class="syn-pips">${Array.from({ length: ch.goal }, (_, i) => `<i class="${i < ch.count ? 'on' : ''}"></i>`).join('')}</span><small>${tr('{hint} (equipación {x1})', { hint: esc(ch.hint), x1: esc(teamLabel(kit)) })}</small></div><em>${ch.bonus ? `+${Math.round(ch.bonus * 100)}%` : `${ch.count}/${ch.goal}`}</em></div>
         ${cap ? `<div class="syn-card${cap.bonus ? ' on' : ''}" style="--ec:${ELEMENT_COLOR[String(cap.element)] ?? '#ffe27a'}"><span class="syn-ic">★</span><div><b>${esc(cap.label)}</b><small>${esc(cap.hint)}</small></div><em>${cap.bonus ? `+${(cap.bonus * 100).toFixed(1).replace('.', ',')}%` : '—'}</em></div>`
-          : '<div class="syn-card"><span class="syn-ic">★</span><div><b>Sinergia elemental</b><small>Compra la mejora «Sinergia elemental»: más daño por cada compañero del elemento del capitán.</small></div><em>—</em></div>'}
+          : `<div class="syn-card"><span class="syn-ic">★</span><div><b>${tr('Sinergia elemental')}</b><small>${tr('Compra la mejora «Sinergia elemental»: más daño por cada compañero del elemento del capitán.')}</small></div><em>—</em></div>`}
       </div></div>`;
   }
 
@@ -4841,11 +4845,11 @@ export class App {
   private auraMini(p: RosterEntry) {
     const ae = this.auraEntryOf(p.id);
     const picking = this.auraPick === p.id ? ' picking' : '';
-    if (!ae) return `<button class="aura-mini empty${picking}" data-aura-slot="${p.id}" title="Equipar un Aura (Legendario, Mítico o Leyenda)"><span class="am-plus">+</span><small>AURA</small></button>`;
+    if (!ae) return `<button class="aura-mini empty${picking}" data-aura-slot="${p.id}" title="${tr('Equipar un Aura (Legendario, Mítico o Leyenda)')}"><span class="am-plus">+</span><small>${tr('AURA')}</small></button>`;
     const er = effectiveRarity(this.save, ae), tier = isHero(this.save, ae.id) ? 'heroe' : er;
     const b = auraBonus(this.save, p.id, ae);
-    return `<button class="aura-mini t-${tier}${b.bond ? ' bond' : ''}${picking}${this.auraLanded === p.id ? ' landed' : ''}" data-aura-slot="${p.id}" data-aura-open="${p.id}" style="--rc:${RARITY_COLOR[er]};--ec:${ELEMENT_COLOR[String(ae.element)] ?? '#8a9bbd'}" title="Aura: ${esc(ae.name)} · pulsa para ver lo que aporta">
-      <span class="am-mug">${this.mug(ae.id, 40)}</span><span class="am-txt"><small>AURA</small><b>${esc(ae.name.split(' ')[0])}</b><em>${b.bond ? '♥ ' : ''}+${Math.round(b.pct * 100)}%</em></span><i class="am-shine"></i></button>`;
+    return `<button class="aura-mini t-${tier}${b.bond ? ' bond' : ''}${picking}${this.auraLanded === p.id ? ' landed' : ''}" data-aura-slot="${p.id}" data-aura-open="${p.id}" style="--rc:${RARITY_COLOR[er]};--ec:${ELEMENT_COLOR[String(ae.element)] ?? '#8a9bbd'}" title="${tr('Aura: {aeName} · pulsa para ver lo que aporta', { aeName: esc(ae.name) })}">
+      <span class="am-mug">${this.mug(ae.id, 40)}</span><span class="am-txt"><small>${tr('AURA')}</small><b>${esc(ae.name.split(' ')[0])}</b><em>${b.bond ? '♥ ' : ''}+${Math.round(b.pct * 100)}%</em></span><i class="am-shine"></i></button>`;
   }
 
   /** Everything an Aura gives its carrier, in a sheet (tap on the small card). */
@@ -4866,22 +4870,22 @@ export class App {
     box.className = 'tut-modal aura-modal';
     box.innerHTML = `<div class="panel aura-sheet" style="--rc:${RARITY_COLOR[er]};--ec:${ELEMENT_COLOR[String(ae.element)] ?? '#8a9bbd'}">
       <div class="ai-head"><div class="ai-cards"><div class="ai-carrier">${this.mug(p.id, 64)}<small>${esc(p.name)}</small></div><i class="ai-link">${b.bond ? '♥' : '✦'}</i><div class="ai-aura t-${isHero(this.save, ae.id) ? 'heroe' : er}">${this.mug(ae.id, 64)}<small>${esc(ae.name)}</small></div></div>
-        <div><h2>Aura: ${esc(ae.name)}</h2><div class="sq-tags">${this.rar(ae)} ${this.elem(ae)} <span class="pos">${esc(ae.teams.slice(0, 2).map(teamLabel).join(' · '))}</span></div>
-        <div class="ai-pct${b.bond ? ' bond' : ''}">${b.bond ? `♥ Compatibles (${esc(BOND_KIND_LABEL[b.bond.kind])}): <b>${Math.round(BOND_PCT * 100)}%</b>` : `Aura normal: <b>${Math.round(AURA_PCT * 100)}%</b>`} de ${b.keys.length >= 7 ? '<b>todas</b> sus estadísticas (Aura legendaria)' : 'sus tres mejores estadísticas'}</div>
-        ${b.bond ? `<p class="note">${esc(b.bond.reason)}</p>` : `<p class="note">Sin vínculo especial con ${esc(p.name)}. Un compañero de historia, familia o técnica conjunta daría ${Math.round(BOND_PCT * 100)}%.</p>`}</div></div>
-      <div class="ai-cols"><div><h3>Estadísticas de ${esc(p.name)}</h3><table class="ai-table"><tr><th></th><th>Propia</th><th>Aura</th><th>Total</th><th></th></tr>${rows}</table>
-        <p class="note">Bonificación = estadística del Aura × ${Math.round(b.pct * 100)}%, redondeada. Lo propio sigue en 99 como máximo; con el Aura, hasta ${EFFECTIVE_STAT_MAX}.</p></div>
+        <div><h2>${tr('Aura: {aeName}', { aeName: esc(ae.name) })}</h2><div class="sq-tags">${this.rar(ae)} ${this.elem(ae)} <span class="pos">${esc(ae.teams.slice(0, 2).map(teamLabel).join(' · '))}</span></div>
+        <div class="ai-pct${b.bond ? ' bond' : ''}">${tr('{x1} de {x2}', { x1: b.bond ? `♥ Compatibles (${esc(BOND_KIND_LABEL[b.bond.kind])}): <b>${Math.round(BOND_PCT * 100)}%</b>` : `Aura normal: <b>${Math.round(AURA_PCT * 100)}%</b>`, x2: b.keys.length >= 7 ? `<b>${tr('todas')}</b> ${tr('sus estadísticas (Aura legendaria)')}` : tr('sus tres mejores estadísticas') })}</div>
+        ${b.bond ? `<p class="note">${esc(b.bond.reason)}</p>` : `<p class="note">${tr('Sin vínculo especial con {pName}. Un compañero de historia, familia o técnica conjunta daría {x1}%.', { pName: esc(p.name), x1: Math.round(BOND_PCT * 100) })}</p>`}</div></div>
+      <div class="ai-cols"><div><h3>${tr('Estadísticas de {pName}', { pName: esc(p.name) })}</h3><table class="ai-table"><tr><th></th><th>${tr('Propia')}</th><th>${tr('Aura')}</th><th>${tr('Total')}</th><th></th></tr>${rows}</table>
+        <p class="note">${tr('Bonificación = estadística del Aura × {x1}%, redondeada. Lo propio sigue en 99 como máximo; con el Aura, hasta {EFFECTIVE_STAT_MAX}.', { x1: Math.round(b.pct * 100), EFFECTIVE_STAT_MAX })}</p></div>
         <div class="stat-radar">${s.own ? statRadar(s.own, STAT_SHORT, RARITY_COLOR[effectiveRarity(this.save, p)], s.add) : ''}</div></div>
-      <h3>✦ Técnicas heredadas</h3><div class="ai-techs">${inh.length ? inh.map((t) => `<span class="ai-tech">${this.icon(ICON.manual[t.type], 1)} ${esc(t.name)} <small>${TYPE_LABEL[t.type]} · ${esc(String(t.element ?? ''))} · poder ${t.power}</small></span>`).join('') : '<span class="note">Ninguna nueva: ya conoce todas las de su Aura.</span>'}</div>
-      <p class="note">La primera empieza la partida en una ranura extra de Aura; la segunda puede aprenderse al subir de nivel. Golpean al ${Math.round(AURA_TECH_DAMAGE * 100)}% (son una técnica activa de más). No sustituyen a las suyas y desaparecen si quitas el Aura.</p>
-      <h3>${elementIcon(String(ae.element), 18)} Afinidad de ${esc(String(ae.element))}</h3><p class="note">Las técnicas de ${esc(p.name)} de elemento ${esc(String(ae.element))} (también las heredadas) hacen <b>+${Math.round(AURA_ELEMENT_BONUS * 100)}%</b> de daño. ${esc(p.name)} sigue siendo de ${esc(String(p.element))} para todo lo demás.</p>
-      ${joint.length ? `<h3>🔗 Técnicas conjuntas</h3><div class="ai-techs">${joint.map((c) => `<span class="ai-tech${c.ready ? ' ready' : ''}"><b>${esc(c.combo.name)}</b> <small>${c.ready ? '¡disponible con este equipo!' : `falta: ${esc(c.missing.join(', '))}`}</small></span>`).join('')}</div>` : ''}
-      <div class="tut-nav"><button class="btn small blue" id="aiclose">Cerrar</button><span class="spacer"></span><button class="btn small blue" id="aichange">Cambiar Aura</button><button class="btn small" id="airemove">Quitar Aura</button></div></div>`;
+      <h3>${tr('✦ Técnicas heredadas')}</h3><div class="ai-techs">${inh.length ? inh.map((t) => `<span class="ai-tech">${this.icon(ICON.manual[t.type], 1)} ${esc(tTech(t.name))} <small>${tr('{x1} · {x2} · poder {power}', { x1: TYPE_LABEL[t.type], x2: esc(String(t.element ?? '')), power: t.power })}</small></span>`).join('') : `<span class="note">${tr('Ninguna nueva: ya conoce todas las de su Aura.')}</span>`}</div>
+      <p class="note">${tr('La primera empieza la partida en una ranura extra de Aura; la segunda puede aprenderse al subir de nivel. Golpean al {x1}% (son una técnica activa de más). No sustituyen a las suyas y desaparecen si quitas el Aura.', { x1: Math.round(AURA_TECH_DAMAGE * 100) })}</p>
+      <h3>${tr('{x1} Afinidad de {x2}', { x1: elementIcon(String(ae.element), 18), x2: esc(String(ae.element)) })}</h3><p class="note">${tr('Las técnicas de {pName} de elemento {x1} (también las heredadas) hacen <b>+{x2}%</b> de daño. {pName} sigue siendo de {x3} para todo lo demás.', { pName: esc(p.name), x1: esc(String(ae.element)), x2: Math.round(AURA_ELEMENT_BONUS * 100), x3: esc(tEl(String(p.element))) })}</p>
+      ${joint.length ? `<h3>${tr('🔗 Técnicas conjuntas')}</h3><div class="ai-techs">${joint.map((c) => `<span class="ai-tech${c.ready ? ' ready' : ''}"><b>${esc(tTech(c.combo.name))}</b> <small>${c.ready ? tr('¡disponible con este equipo!') : `falta: ${esc(c.missing.join(', '))}`}</small></span>`).join('')}</div>` : ''}
+      <div class="tut-nav"><button class="btn small blue" id="aiclose">${tr('Cerrar')}</button><span class="spacer"></span><button class="btn small blue" id="aichange">${tr('Cambiar Aura')}</button><button class="btn small" id="airemove">${tr('Quitar Aura')}</button></div></div>`;
     document.body.appendChild(box);
     const shut = () => box.remove();
     box.addEventListener('click', (e) => { if (e.target === box) shut(); });
     box.querySelector('#aiclose')!.addEventListener('click', shut);
-    box.querySelector('#airemove')!.addEventListener('click', () => { removeAura(this.save, p.id); this.persist(); sfx('click'); shut(); this.toast(`${ae.name} ya no es el Aura de ${p.name}`); this.captainSelect(); });
+    box.querySelector('#airemove')!.addEventListener('click', () => { removeAura(this.save, p.id); this.persist(); sfx('click'); shut(); this.toast(tr('{aeName} ya no es el Aura de {pName}', { aeName: ae.name, pName: p.name })); this.captainSelect(); });
     box.querySelector('#aichange')!.addEventListener('click', () => { shut(); this.startAuraPick(p.id); });
   }
 
@@ -4902,12 +4906,12 @@ export class App {
     const stars = bannerPool(this.m.roster, 'evento').filter((p) => p.exclusive);
     const box = document.createElement('div');
     box.className = 'tut-modal thanks-notice';
-    box.innerHTML = `<div class="panel"><div class="th-big">♥</div><h2>¡Gracias por ser más de 50 personas jugando!</h2>
-      <p>Para celebrarlo abrimos el <b>Banner de agradecimiento</b> durante ${THANKS_EVENT.days} días: Ataque a los Titanes, Los Siete Pecados Capitales y Axel Encapuchado, solo aquí.</p>
+    box.innerHTML = `<div class="panel"><div class="th-big">♥</div><h2>${tr('¡Gracias por ser más de 50 personas jugando!')}</h2>
+      <p>${tr('Para celebrarlo abrimos el <b>Banner de agradecimiento</b> durante {days} días: Ataque a los Titanes, Los Siete Pecados Capitales y Axel Encapuchado, solo aquí.', { days: THANKS_EVENT.days })}</p>
       <div class="th-row">${stars.map((p) => this.mug(p.id, 44)).join('')}</div>
-      <p>Se tira con <b>fichas de evento</b>: cada partida en <b>Rango S o X</b> te da tantas como fichas normales. ${THANKS_EVENT.cost} la tirada, ${THANKS_EVENT.multiCost} el ×10.</p>
-      <p>Y un regalo: canjea el código</p><div class="th-code">GRACIAS</div><p>para un <b>×10 gratis</b> del banner y <b>10.000 monedas</b>.</p>
-      <div class="tut-nav"><button class="btn small blue" id="thclose">Cerrar</button><span class="spacer"></span><button class="btn small blue" id="thcode">Canjear código</button><button class="btn" id="thgo">Ir al banner</button></div></div>`;
+      <p>${tr('Se tira con <b>fichas de evento</b>: cada partida en <b>Rango S o X</b> te da tantas como fichas normales. {cost} la tirada, {multiCost} el ×10.', { cost: THANKS_EVENT.cost, multiCost: THANKS_EVENT.multiCost })}</p>
+      <p>${tr('Y un regalo: canjea el código')}</p><div class="th-code">${tr('GRACIAS')}</div><p>${tr('para un <b>×10 gratis</b> del banner y <b>10.000 monedas</b>.')}</p>
+      <div class="tut-nav"><button class="btn small blue" id="thclose">${tr('Cerrar')}</button><span class="spacer"></span><button class="btn small blue" id="thcode">${tr('Canjear código')}</button><button class="btn" id="thgo">${tr('Ir al banner')}</button></div></div>`;
     const done = () => { box.remove(); this.save.thanksSeen = true; this.persist(); };
     box.querySelector('#thclose')!.addEventListener('click', done);
     box.querySelector('#thcode')!.addEventListener('click', () => { done(); this.codesModal(); });
@@ -4920,14 +4924,14 @@ export class App {
   private auraIntro() {
     if (document.querySelector('.aura-intro')) return;
     const pages = [
-      { ic: '✦', h: '¡Nuevo: Auras!', p: `Cada plaza de tu equipo tiene ahora una <b>carta pequeña</b> debajo: su <b>Aura</b>. Ahí pones a otro futbolista de tu colección para que apoye al de la plaza. El Aura no juega: lo potencia.`,
-        li: ['Solo pueden ser Aura los <b>Legendarios, Míticos y Leyendas</b>.', 'Cualquier futbolista puede llevar una, también un Común.', 'Una por futbolista. No se gasta nada: tu colección no cambia.'] },
-      { ic: '▲', h: 'Estadísticas hasta 120', p: `El Aura suma el <b>${Math.round(AURA_PCT * 100)}%</b> de sus <b>tres mejores estadísticas</b> a las mismas del portador.`,
-        li: ['Ejemplo: Tiro 90 + Aura con Tiro 95 » 90 + 14 = <b>104</b>.', 'Lo propio sigue en 99 como máximo; con el Aura, hasta <b>120</b>, y en el combate se nota.', 'En el radar, lo que aporta el Aura se ve en <b style="color:#7ff6ff">cian</b>.'] },
-      { ic: '♥', h: `Compatibles: ${Math.round(BOND_PCT * 100)}%`, p: `Si los dos tienen historia (técnica conjunta, amistad, familia o rivalidad), el Aura da el <b>${Math.round(BOND_PCT * 100)}%</b>. Al elegir, los compatibles salen primero con <b>♥</b>.`,
-        li: ['Axel y Shawn, Mark y Nathan, Jude y Celia, Arion y Riccardo...', 'Estar en el mismo equipo no basta.'] },
-      { ic: '⚡', h: 'Técnicas y elemento', p: 'El portador hereda <b>dos técnicas</b> del Aura: una empieza la partida en una ranura extra y la otra llega como carta al subir de nivel. No sustituyen a las suyas.',
-        li: [`Sus técnicas del elemento del Aura hacen <b>+${Math.round(AURA_ELEMENT_BONUS * 100)}%</b>.`, 'Con el Aura puede lanzar <b>técnicas conjuntas</b>: Axel con Shawn de Aura, Fuego cruzado.', '<b>Cómo equiparla:</b> toca «+ AURA» y elige en tu colección, o arrastra la carta encima.'] },
+      { ic: '✦', h: tr('¡Nuevo: Auras!'), p: `${tr('Cada plaza de tu equipo tiene ahora una <b>{x1}</b> {x2} <b>{x3}</b>. Ahí pones a otro futbolista de tu colección para que apoye al de la plaza. El Aura no juega: lo potencia.', { x1: tr('carta pequeña'), x2: tr('debajo: su'), x3: tr('Aura') })}`,
+        li: [`${tr('Solo pueden ser Aura los <b>Legendarios, Míticos y Leyendas</b>.')}`, tr('Cualquier futbolista puede llevar una, también un Común.'), tr('Una por futbolista. No se gasta nada: tu colección no cambia.')] },
+      { ic: '▲', h: tr('Estadísticas hasta 120'), p: `${tr('El Aura suma el <b>{x1}%</b> {x2} <b>{x3}</b> a las mismas del portador.', { x1: Math.round(AURA_PCT * 100), x2: tr('de sus'), x3: tr('tres mejores estadísticas') })}`,
+        li: [`${tr('Ejemplo: Tiro 90 + Aura con Tiro 95 » 90 + 14 = <b>104</b>.')}`, `${tr('Lo propio sigue en 99 como máximo; con el Aura, hasta <b>120</b>, y en el combate se nota.')}`, `${tr('En el radar, lo que aporta el Aura se ve en <b style="color:#7ff6ff">cian</b>.')}`] },
+      { ic: '♥', h: `Compatibles: ${Math.round(BOND_PCT * 100)}%`, p: `${tr('Si los dos tienen historia (técnica conjunta, amistad, familia o rivalidad), el Aura da el <b>{x1}%</b>{x2} <b>♥</b>.', { x1: Math.round(BOND_PCT * 100), x2: tr('. Al elegir, los compatibles salen primero con') })}`,
+        li: [tr('Axel y Shawn, Mark y Nathan, Jude y Celia, Arion y Riccardo...'), tr('Estar en el mismo equipo no basta.')] },
+      { ic: '⚡', h: tr('Técnicas y elemento'), p: `${tr('El portador hereda <b>{x1}</b> del Aura: una empieza la partida en una ranura extra y la otra llega como carta al subir de nivel. No sustituyen a las suyas.', { x1: tr('dos técnicas') })}`,
+        li: [`${tr('Sus técnicas del elemento del Aura hacen <b>+{x1}%</b>.', { x1: Math.round(AURA_ELEMENT_BONUS * 100) })}`, `${tr('Con el Aura puede lanzar <b>{x1}</b>: Axel con Shawn de Aura, Fuego cruzado.', { x1: tr('técnicas conjuntas') })}`, `<b>${tr('Cómo equiparla:')}</b> ${tr('toca «+ AURA» y elige en tu colección, o arrastra la carta encima.')}`] },
     ];
     let i = 0;
     const box = document.createElement('div');
@@ -4943,8 +4947,8 @@ export class App {
       const pg = pages[i];
       box.innerHTML = `<div class="panel aura-intro-card"><div class="ain-ic">${pg.ic}</div><h2>${pg.h}</h2><p>${pg.p}</p><ul>${pg.li.map((x) => `<li>${x}</li>`).join('')}</ul>
         <div class="ain-dots">${pages.map((_, k) => `<i class="${k === i ? 'on' : ''}"></i>`).join('')}</div>
-        <div class="tut-nav">${i ? '<button class="btn small blue" id="ainback">‹ Atrás</button>' : '<button class="btn small blue" id="ainskip">Saltar</button>'}<span class="spacer"></span>
-        <button class="btn" id="ainnext">${i < pages.length - 1 ? 'Siguiente ›' : '¡A equipar!'}</button></div></div>`;
+        <div class="tut-nav">${i ? `<button class="btn small blue" id="ainback">${tr('‹ Atrás')}</button>` : '<button class="btn small blue" id="ainskip">Saltar</button>'}<span class="spacer"></span>
+        <button class="btn" id="ainnext">${i < pages.length - 1 ? tr('Siguiente ›') : tr('¡A equipar!')}</button></div></div>`;
       box.querySelector('#ainnext')!.addEventListener('click', () => { if (i < pages.length - 1) { i++; sfx('click'); draw(); } else close(); });
       box.querySelector('#ainback')?.addEventListener('click', () => { i--; sfx('click'); draw(); });
       box.querySelector('#ainskip')?.addEventListener('click', close);
@@ -4959,7 +4963,7 @@ export class App {
     const tier = tokens >= 50 ? 'g' : tokens >= 20 ? 's' : 'b';
     const el = document.createElement('button');
     el.className = `ach-pop t-${tier}`;
-    el.innerHTML = `<span class="ach-medal">🏆</span><span class="ach-tx"><small>¡LOGRO CONSEGUIDO!</small><b>${esc(labels[0])}</b>${labels.length > 1 ? `<em>y ${labels.length - 1} más · recógelos en Recompensas</em>` : '<em>Recógelo en Recompensas</em>'}</span><i class="ach-shine"></i>`;
+    el.innerHTML = `<span class="ach-medal">🏆</span><span class="ach-tx"><small>${tr('¡LOGRO CONSEGUIDO!')}</small><b>${esc(labels[0])}</b>${labels.length > 1 ? `<em>${tr('y {x1} más · recógelos en Recompensas', { x1: labels.length - 1 })}</em>` : `<em>${tr('Recógelo en Recompensas')}</em>`}</span><i class="ach-shine"></i>`;
     el.addEventListener('click', () => { el.remove(); this.missions('logro'); });
     document.body.appendChild(el);
     sfx('legend');
@@ -4985,7 +4989,7 @@ export class App {
     const b = auraBonus(this.save, p.id, ae);
     sfx(b.bond ? 'legend' : 'powerup');
     if (b.bond) confetti(18);
-    this.toast(`${ae.name} es el Aura de ${p.name}${b.bond ? ' · ♥ ¡compatibles! 20%' : ' · 15%'}${r.leftSquad ? ' (sale del equipo)' : ''}${r.movedFrom !== null ? ` (deja a ${this.byId.get(r.movedFrom)?.name ?? 'su portador'})` : ''}`, 3500);
+    this.toast(tr('{aeName} es el Aura de {pName}{x1}{x2}{x3}', { aeName: ae.name, pName: p.name, x1: b.bond ? tr(' · ♥ ¡compatibles! 20%') : ' · 15%', x2: r.leftSquad ? tr(' (sale del equipo)') : '', x3: r.movedFrom !== null ? ` (deja a ${this.byId.get(r.movedFrom)?.name ?? tr('su portador')})` : '' }), 3500);
     this.auraPick = null;
     this.save.achAura = { ...(this.save.achAura ?? {}), equipped: true, bond: this.save.achAura?.bond || !!b.bond };
     return true;
@@ -4998,7 +5002,7 @@ export class App {
       const ids = i === on ? squadOf(this.save, this.byId).map((p) => p.id) : q.squad.filter((id) => this.byId.has(id) && this.owned(id));
       return `<button class="team-tab${i === on ? ' on' : ''}" data-team="${i}">${ids[0] !== undefined ? this.mug(ids[0], 32 as 64) : '<span class="team-empty">+</span>'}
         <span><b>${esc(q.name)}</b><small>${ids.length}/${SQUAD_SIZE}</small></span></button>`;
-    }).join('')}<label class="team-name">✎ <input id="tmname" maxlength="16" value="${esc(list[on].name)}" aria-label="Nombre del equipo"></label></div>`;
+    }).join('')}<label class="team-name">✎ <input id="tmname" maxlength="16" value="${esc(list[on].name)}" aria-label="${tr('Nombre del equipo')}"></label></div>`;
   }
 
   /** "Mi Equipo": seven candidates (captain first), the captain's starting technique and the starting formation. */
@@ -5019,45 +5023,44 @@ export class App {
     const slots = Array.from({ length: SQUAD_SIZE }, (_, i) => {
       const p = squad[i];
       const editing = i === this.squadSlot ? ' editing' : '';
-      if (!p) return `<button class="sq-slot empty${editing}" data-slot="${i}"><span class="sq-plus">+</span><small>${i === 0 ? 'Capitán' : 'Plaza libre'}</small><em>Arrastra aquí</em></button>`;
+      if (!p) return `<button class="sq-slot empty${editing}" data-slot="${i}"><span class="sq-plus">+</span><small>${i === 0 ? 'Capitán' : tr('Plaza libre')}</small><em>${tr('Arrastra aquí')}</em></button>`;
       // Fix 1.32 (author's choice): the slot keeps its radar and techniques, in a frame of its rarity, and can be dragged
       const er = effectiveRarity(this.save, p), split = p.stats ? this.statSplit(p) : null, st = split?.own ?? null;
       const ae = this.auraEntryOf(p.id), inh = ae ? inheritedTechs(p, ae) : [];
       return `<div class="sq-slot ccs${ae ? ' has-aura' : ''} t-${isHero(this.save, p.id) ? 'heroe' : er} rs-${isHero(this.save, p.id) ? 'heroe' : er}${editing}${i === 0 ? ' cap' : ''}${isHero(this.save, p.id) ? ' hero' : ''}${this.squadLanded === i ? ' landed' : ''}" data-slot="${i}" data-drag="${p.id}" style="--rc:${RARITY_COLOR[er]};--ec:${ELEMENT_COLOR[String(p.element)] ?? '#8a9bbd'}">
-        ${i === 0 ? '<span class="captain-badge">C</span>' : `<button class="sq-act" data-captain="${p.id}" title="Hacer capitán">★</button>`}
-        <button class="sq-act x" data-remove="${p.id}" title="Quitar">✕</button>
-        <div class="sq-head">${this.egMedal(p.id)}<div class="sq-mug">${this.mug(p.id, 64)}${st ? `<span class="sq-ovr${ae ? ' aura' : ''}" title="Media${ae ? ' con su Aura' : ''}">${statMean(split!.eff!)}</span>` : ''}</div></div>
+        ${i === 0 ? '<span class="captain-badge">C</span>' : `<button class="sq-act" data-captain="${p.id}" title="${tr('Hacer capitán')}">★</button>`}
+        <button class="sq-act x" data-remove="${p.id}" title="${tr('Quitar')}">✕</button>
+        <div class="sq-head">${this.egMedal(p.id)}<div class="sq-mug">${this.mug(p.id, 64)}${st ? `<span class="sq-ovr${ae ? ' aura' : ''}" title="${tr('Media{x1}', { x1: ae ? tr(' con su Aura') : '' })}">${statMean(split!.eff!)}</span>` : ''}</div></div>
         <b class="sq-name">${esc(p.name)}</b>
         <div class="sq-tags"><span class="pos">${POS_LABEL[p.position] ?? p.position}</span>${this.elem(p)}${this.rar(p)}</div>
-        ${comboOf.get(p.name) ? `<span class="sq-combo" title="Técnica combinada: ${esc(comboOf.get(p.name)!)}">🔗 ${esc(comboOf.get(p.name)!)}</span>` : ''}
+        ${comboOf.get(p.name) ? `<span class="sq-combo" title="${tr('Técnica combinada: {x1}', { x1: esc(comboOf.get(p.name)!) })}">🔗 ${esc(comboOf.get(p.name)!)}</span>` : ''}
         ${st ? `<div class="sq-radar">${statRadar(st, STAT_SHORT, RARITY_COLOR[er], split!.add)}</div>` : ''}
-        <div class="sq-techs"><small>TÉCNICA INICIAL</small>${p.techniques.slice(0, 5).map((t, ti) => { const usable = this.canStartWith(p, ti), on = this.startOf(p) === ti;
-          return `<button class="sq-tech${on ? ' on' : ''}" data-start="${p.id}:${ti}" ${usable ? '' : 'disabled'} title="${esc(t.name)}${usable ? (on ? ' · empieza con esta' : ' · pulsa para empezar con esta') : t.type === 'talento' ? ' · talento pasivo: siempre activo' : ` · bloqueada: ${isLocked(t) ? 'solo se aprende comprándola' : `aparece en partida desde el nivel ${Math.floor(t.unlockLevel / 6)}; cómprala para empezar con ella`} en la tienda de técnicas`}">${this.icon(ICON.manual[t.type], 1)}<span>${esc(t.name)}</span>${on ? '<em>★</em>' : ''}</button>`; }).join('')}</div>
-        ${inh.length ? `<div class="sq-techs aura-techs"><small>✦ DEL AURA</small>${inh.map((t) => `<span class="sq-tech aura" title="${esc(t.name)} · heredada de ${esc(ae!.name)}">${this.icon(ICON.manual[t.type], 1)}<span>${esc(t.name)}</span></span>`).join('')}</div>` : ''}
+        <div class="sq-techs"><small>${tr('TÉCNICA INICIAL')}</small>${p.techniques.slice(0, 5).map((t, ti) => { const usable = this.canStartWith(p, ti), on = this.startOf(p) === ti;
+          return `<button class="sq-tech${on ? ' on' : ''}" data-start="${p.id}:${ti}" ${usable ? '' : 'disabled'} title="${esc(tTech(t.name))}${usable ? (on ? tr(' · empieza con esta') : tr(' · pulsa para empezar con esta')) : t.type === 'talento' ? ' · talento pasivo: siempre activo' : tr(' · bloqueada: {x1} en la tienda de técnicas', { x1: isLocked(t) ? tr('solo se aprende comprándola') : tr('aparece en partida desde el nivel {x1}; cómprala para empezar con ella', { x1: Math.floor(t.unlockLevel / 6) }) })}">${this.icon(ICON.manual[t.type], 1)}<span>${esc(tTech(t.name))}</span>${on ? '<em>★</em>' : ''}</button>`; }).join('')}</div>
+        ${inh.length ? `<div class="sq-techs aura-techs"><small>${tr('✦ DEL AURA')}</small>${inh.map((t) => `<span class="sq-tech aura" title="${tr('{tName} · heredada de {x1}', { tName: esc(tTech(t.name)), x1: esc(ae!.name) })}">${this.icon(ICON.manual[t.type], 1)}<span>${esc(t.name)}</span></span>`).join('')}</div>` : ''}
         ${this.auraMini(p)}
         <i class="cc-sweep"></i><i class="cc-foil"></i><i class="cc-sparks"></i><i class="cc-bevel"></i><i class="cc-crown"></i></div>`;
     }).join('');
-    this.show(`<div class="screen">${this.titlebar('Mi Equipo', 'Menú')}
+    this.show(`<div class="screen">${this.titlebar(tr('Mi Equipo'), 'Menú')}
       ${this.squadSynergyPanel(squad)}
       ${this.benchPanel()}
-      <div class="panel"><div class="note">Tienes <b>5 equipos</b>: cambia entre ellos arriba. Elige <b>7 candidatos</b>. Empiezas solo con el <b>capitán</b>; al subir de nivel podrás fichar a los otros seis (máximo ${MAX_TEAM} en el campo).
-        Pulsa un futbolista de tu colección para añadirlo o quitarlo, pulsa una plaza para cambiarla, o arrastra para colocar e intercambiar. Se guarda solo.</div>
+      <div class="panel"><div class="note">${tr('Tienes <b>5 equipos</b>: cambia entre ellos arriba. Elige <b>7 candidatos</b>. Empiezas solo con el <b>capitán</b>; al subir de nivel podrás fichar a los otros seis (máximo {MAX_TEAM} en el campo). Pulsa un futbolista de tu colección para añadirlo o quitarlo, pulsa una plaza para cambiarla, o arrastra para colocar e intercambiar. Se guarda solo.', { MAX_TEAM })}</div>
         ${this.teamBar()}
         <div class="squad-row">${slots}</div></div>
-      <div class="panel sq-picker"><div class="sq-pick-head"><h3>Tu colección</h3>
-          <span class="note">${this.auraPick !== null ? `<span class="aura-pick-note">✦ Elige el <b>Aura de ${esc(this.byId.get(this.auraPick)?.name ?? '')}</b>: un Legendario, Mítico o Leyenda (♥ = compatible, 20%)</span> · <button class="linkbtn" id="aucancel">cancelar</button>` : this.squadPicked ? `Elige quién va a la <b>plaza ${this.squadSlot + 1}${this.squadSlot === 0 ? ' (capitán)' : ''}</b> · <button class="linkbtn" id="sqcancel">cancelar</button>` : squad.length < SQUAD_SIZE ? 'Pulsa un futbolista para añadirlo o quitarlo · o cógelo y arrástralo a una plaza' : 'Equipo completo: pulsa una plaza para cambiarla, o un futbolista del equipo para quitarlo'}</span>
-          <span class="spacer"></span><button class="btn small" id="sqauto" title="Rellena las plazas libres con tus mejores futbolistas">★ Autocompletar</button><button class="btn small blue" id="sqclear" title="Deja solo al capitán">Vaciar</button></div>
-        <div class="filters"><input id="sqq" placeholder="Buscar nombre o equipo" value="${esc(this.squadFilter.q)}">
-          <div class="sq-rars" id="sqr" title="Rareza con la que salió (aunque haya ascendido)">${RARITY_ORDER.map((r) => `<button class="rar ${r}${this.squadFilter.rarity.split(',').includes(r) ? ' on' : ''}" data-rar="${r}">${RARITY_LABEL[r]}</button>`).join('')}</div>
-          <select id="sqp"><option value="">Posición</option>${Object.entries(POS_LABEL).map(([k, v]) => `<option value="${k}" ${this.squadFilter.pos === k ? 'selected' : ''}>${v}</option>`).join('')}</select>
-          <select id="sqe"><option value="">Elemento</option>${['Fuego', 'Aire', 'Bosque', 'Montaña', 'Neutro'].map((e) => `<option value="${e}" ${this.squadFilter.el === e ? 'selected' : ''}>${e}</option>`).join('')}</select>
-          <select id="sqs">${[['media', 'Ordenar: media'], ['rareza', 'Ordenar: rareza'], ['nombre', 'Ordenar: nombre']].map(([v, l]) => `<option value="${v}" ${this.squadFilter.sort === v ? 'selected' : ''}>${l}</option>`).join('')}</select></div>
+      <div class="panel sq-picker"><div class="sq-pick-head"><h3>${tr('Tu colección')}</h3>
+          <span class="note">${this.auraPick !== null ? `<span class="aura-pick-note">${tr('{x1} <b>Aura de {x2}</b>{x3}', { x1: tr('✦ Elige el'), x2: esc(this.byId.get(this.auraPick)?.name ?? ''), x3: tr(': un Legendario, Mítico o Leyenda (♥ = compatible, 20%)') })}</span> · <button class="linkbtn" id="aucancel">${tr('cancelar')}</button>` : this.squadPicked ? `${tr('Elige quién va a la <b>{x1}</b> ·', { x1: tr('plaza {x1}{x2}', { x1: this.squadSlot + 1, x2: this.squadSlot === 0 ? ' (capitán)' : '' }) })} <button class="linkbtn" id="sqcancel">${tr('cancelar')}</button>` : squad.length < SQUAD_SIZE ? tr('Pulsa un futbolista para añadirlo o quitarlo · o cógelo y arrástralo a una plaza') : tr('Equipo completo: pulsa una plaza para cambiarla, o un futbolista del equipo para quitarlo')}</span>
+          <span class="spacer"></span><button class="btn small" id="sqauto" title="${tr('Rellena las plazas libres con tus mejores futbolistas')}">${tr('★ Autocompletar')}</button><button class="btn small blue" id="sqclear" title="${tr('Deja solo al capitán')}">${tr('Vaciar')}</button></div>
+        <div class="filters"><input id="sqq" placeholder="${tr('Buscar nombre o equipo')}" value="${esc(this.squadFilter.q)}">
+          <div class="sq-rars" id="sqr" title="${tr('Rareza con la que salió (aunque haya ascendido)')}">${RARITY_ORDER.map((r) => `<button class="rar ${r}${this.squadFilter.rarity.split(',').includes(r) ? ' on' : ''}" data-rar="${r}">${RARITY_LABEL[r]}</button>`).join('')}</div>
+          <select id="sqp"><option value="">${tr('Posición')}</option>${Object.entries(POS_LABEL).map(([k, v]) => `<option value="${k}" ${this.squadFilter.pos === k ? 'selected' : ''}>${v}</option>`).join('')}</select>
+          <select id="sqe"><option value="">${tr('Elemento')}</option>${['Fuego', 'Aire', 'Bosque', 'Montaña', 'Neutro'].map((e) => `<option value="${e}" ${this.squadFilter.el === e ? 'selected' : ''}>${e}</option>`).join('')}</select>
+          <select id="sqs">${[['media', tr('Ordenar: media')], ['rareza', tr('Ordenar: rareza')], ['nombre', tr('Ordenar: nombre')]].map(([v, l]) => `<option value="${v}" ${this.squadFilter.sort === v ? 'selected' : ''}>${l}</option>`).join('')}</select></div>
         <div class="grid" id="sqgrid" style="margin-top:10px"></div></div>
       ${cap ? `<div class="panel detail" style="--rc:${RARITY_COLOR[cap.rarity]}"><div class="art">${this.mug(cap.id, 128)}${charCanvas(cap.id, 3, 12)}</div><div>
-        <h3>Capitán: ${esc(cap.name)} ${this.rar(cap)} ${this.elem(cap)}</h3>
-        <div class="note" style="margin-top:6px">★ La <b>técnica inicial</b> de cada futbolista se elige en su plaza, arriba: pulsa la técnica con la que quieres que empiece.</div>
-        <h3 style="margin-top:10px">Formación inicial</h3><div class="formation-pick">${FORMATION_ORDER.map((f) => this.formationCard(f, f === cur)).join('')}</div>
-        <p style="text-align:right"><button class="btn big" id="next">Elegir arena ▶</button></p></div></div>` : (this.unlockedRoster().length ? '<div class="panel"><div class="note">Este equipo está vacío: elige a tus futbolistas en tu colección o pulsa <b>★ Autocompletar</b>.</div></div>' : '<div class="panel"><div class="note">Aún no tienes futbolistas: consíguelos en Fichajes.</div></div>')}
+        <h3>${tr('Capitán: {capName} {rar} {elem}', { capName: esc(cap.name), rar: this.rar(cap), elem: this.elem(cap) })}</h3>
+        <div class="note" style="margin-top:6px">${tr('★ La <b>técnica inicial</b> de cada futbolista se elige en su plaza, arriba: pulsa la técnica con la que quieres que empiece.')}</div>
+        <h3 style="margin-top:10px">${tr('Formación inicial')}</h3><div class="formation-pick">${FORMATION_ORDER.map((f) => this.formationCard(f, f === cur)).join('')}</div>
+        <p style="text-align:right"><button class="btn big" id="next">${tr('Elegir arena ▶')}</button></p></div></div>` : (this.unlockedRoster().length ? `<div class="panel"><div class="note">${tr('Este equipo está vacío: elige a tus futbolistas en tu colección o pulsa <b>★ Autocompletar</b>.')}</div></div>` : `<div class="panel"><div class="note">${tr('Aún no tienes futbolistas: consíguelos en Fichajes.')}</div></div>`)}
 </div>`);
     this.squadGrid();
     this.on('[data-back]', 'click', () => this.mainMenu());
@@ -5075,7 +5078,7 @@ export class App {
       const i = Number(el.dataset.team);
       if (i === (this.save.activeSquad ?? 0)) return;
       switchSquad(this.save, i); this.persist(); sfx('powerup'); this.squadPicked = false; this.auraPick = null;
-      this.toast(`${savedSquads(this.save)[i].name}: ${this.save.squad.length ? 'cargado' : 'vacío, elige a tus futbolistas'}`);
+      this.toast(`${savedSquads(this.save)[i].name}: ${this.save.squad.length ? 'cargado' : tr('vacío, elige a tus futbolistas')}`);
       this.captainSelect(0);
     });
     document.getElementById('tmname')?.addEventListener('change', (e) => { renameSquad(this.save, this.save.activeSquad ?? 0, (e.target as HTMLInputElement).value); this.persist(); this.captainSelect(); });
@@ -5206,7 +5209,7 @@ export class App {
           preview.dataset.for = sock!.dataset.auraSlot;
           preview.className = `aura-mini aura-preview t-${isHero(this.save, p.id) ? 'heroe' : effectiveRarity(this.save, p)}${bond ? ' bond' : ''}`;
           preview.style.cssText = `--rc:${RARITY_COLOR[effectiveRarity(this.save, p)]};--ec:${ELEMENT_COLOR[String(p.element)] ?? '#8a9bbd'}`;
-          preview.innerHTML = `<span class="am-mug">${this.mug(p.id, 40)}</span><span class="am-txt"><small>SOLTAR</small><b>${esc(p.name.split(' ')[0])}</b><em>${bond ? '♥ ' : ''}+${Math.round((bond ? BOND_PCT : AURA_PCT) * 100)}%</em></span>`;
+          preview.innerHTML = `<span class="am-mug">${this.mug(p.id, 40)}</span><span class="am-txt"><small>${tr('SOLTAR')}</small><b>${esc(p.name.split(' ')[0])}</b><em>${bond ? '♥ ' : ''}+${Math.round((bond ? BOND_PCT : AURA_PCT) * 100)}%</em></span>`;
           document.body.appendChild(preview);
         }
         Object.assign(preview.style, { left: `${r.left}px`, top: `${r.top}px`, width: `${r.width}px`, height: `${r.height}px` });
@@ -5268,7 +5271,7 @@ export class App {
         const target = (s0.over.querySelector('.pcard') ?? s0.over).getBoundingClientRect();
         fly(target, () => {
           const clash = placeInSquad(this.save, this.byId, slot, s0.id);
-          if (clash) { this.toast(`${this.byId.get(s0.id)?.name ?? ''} es el mismo personaje que ${clash.name}: no pueden estar los dos en tu equipo.`, 3800); sfx('error'); this.captainSelect(); return; }
+          if (clash) { this.toast(tr('{x1} es el mismo personaje que {clashName}: no pueden estar los dos en tu equipo.', { x1: this.byId.get(s0.id)?.name ?? '', clashName: clash.name }), 3800); sfx('error'); this.captainSelect(); return; }
           this.persist(); sfx('powerup'); this.squadPicked = false; this.squadLanded = slot;
           this.captainSelect(slot);
         });
@@ -5308,13 +5311,13 @@ export class App {
     if (ap !== null) list.sort((a, b) => Number(canBeAura(this.save, b) && b.id !== ap) - Number(canBeAura(this.save, a) && a.id !== ap) || Number(!!bondOf(ap, b.id)) - Number(!!bondOf(ap, a.id)));
     const auraBadge = (p: RosterEntry) => {
       const c = carrierOf(this.save, p.id);
-      if (ap !== null) return !canBeAura(this.save, p) || p.id === ap ? undefined : bondOf(ap, p.id) ? '♥ COMPATIBLE 20%' : c !== null ? `✦ AURA DE ${(this.byId.get(c)?.name ?? '').split(' ')[0].toUpperCase()}` : '✦ AURA 15%';
-      return c !== null ? `✦ AURA DE ${(this.byId.get(c)?.name ?? '').split(' ')[0].toUpperCase()}` : undefined;
+      if (ap !== null) return !canBeAura(this.save, p) || p.id === ap ? undefined : bondOf(ap, p.id) ? '♥ COMPATIBLE 20%' : c !== null ? tr('✦ AURA DE {x1}', { x1: (this.byId.get(c)?.name ?? '').split(' ')[0].toUpperCase() }) : '✦ AURA 15%';
+      return c !== null ? tr('✦ AURA DE {x1}', { x1: (this.byId.get(c)?.name ?? '').split(' ')[0].toUpperCase() }) : undefined;
     };
-    box.innerHTML = list.slice(0, this.squadLimit).map((p) => this.pcard(p, { sel: inSquad.has(p.id), badge: auraBadge(p) ?? (inSquad.has(p.id) ? '✔ EQUIPO' : partners.has(p.name) ? `🔗 ${partners.get(p.name)}` : undefined) })
+    box.innerHTML = list.slice(0, this.squadLimit).map((p) => this.pcard(p, { sel: inSquad.has(p.id), badge: auraBadge(p) ?? (inSquad.has(p.id) ? tr('✔ EQUIPO') : partners.has(p.name) ? `🔗 ${partners.get(p.name)}` : undefined) })
       .replace('<div class="pcard', `<div data-drag="${p.id}" class="pcard${inSquad.has(p.id) ? ' in-squad' : ''}${ap !== null ? (canBeAura(this.save, p) && p.id !== ap ? ' aura-ok' : ' aura-no') : ''}${ap !== null && bondOf(ap, p.id) ? ' aura-bond' : ''}`)).join('')
-      + (list.length > this.squadLimit ? `<button class="btn blue" id="sqmore">Mostrar más (${list.length - this.squadLimit})</button>` : '')
-      + (list.length ? '' : '<div class="note">Nadie coincide con el filtro.</div>');
+      + (list.length > this.squadLimit ? `<button class="btn blue" id="sqmore">${tr('Mostrar más ({x1})', { x1: list.length - this.squadLimit })}</button>` : '')
+      + (list.length ? '' : `<div class="note">${tr('Nadie coincide con el filtro.')}</div>`);
     mountPreviews();
     box.querySelectorAll<HTMLElement>('.pcard[data-id]').forEach((el) => {
       el.addEventListener('click', () => {
@@ -5326,16 +5329,16 @@ export class App {
           return;
         }
         if (inSquad.has(id) && !this.squadPicked) {
-          if (squad.length === 1) { this.toast('Tu equipo necesita al menos al capitán'); sfx('error'); return; }
+          if (squad.length === 1) { this.toast(tr('Tu equipo necesita al menos al capitán')); sfx('error'); return; }
           removeFromSquad(this.save, this.byId, id); sfx('click');
         } else if (this.squadPicked || squad.length < SQUAD_SIZE) {
           const was = carrierOf(this.save, id); // v1.5: an Aura that joins the squad stops being an Aura: say so
           const clash = placeInSquad(this.save, this.byId, this.squadPicked ? this.squadSlot : squad.length, id);
-          if (clash) { this.toast(`${this.byId.get(id)?.name ?? ''} es el mismo personaje que ${clash.name}: no pueden estar los dos en tu equipo.`, 3800); sfx('error'); return; }
+          if (clash) { this.toast(tr('{x1} es el mismo personaje que {clashName}: no pueden estar los dos en tu equipo.', { x1: this.byId.get(id)?.name ?? '', clashName: clash.name }), 3800); sfx('error'); return; }
           sfx('powerup');
-          if (was !== null) this.toast(`${this.byId.get(id)?.name ?? ''} entra en el equipo y deja de ser el Aura de ${this.byId.get(was)?.name ?? ''}`, 3500);
+          if (was !== null) this.toast(tr('{x1} entra en el equipo y deja de ser el Aura de {x2}', { x1: this.byId.get(id)?.name ?? '', x2: this.byId.get(was)?.name ?? '' }), 3500);
         } else {
-          this.toast('Equipo completo: pulsa la plaza que quieres cambiar o quita a alguien'); sfx('error');
+          this.toast(tr('Equipo completo: pulsa la plaza que quieres cambiar o quita a alguien')); sfx('error');
           document.querySelector('.squad-row')?.classList.add('ping'); window.setTimeout(() => document.querySelector('.squad-row')?.classList.remove('ping'), 700);
           return;
         }
@@ -5392,18 +5395,18 @@ export class App {
     const zShut = !rankZOpen(serverNow());
     const ranks = RANK_ORDER.map((id) => {
       const R = RANKS[id], shut = id === 'Z' && zShut;
-      return `<button class="rk4 r-${id}${id === rk ? ' on' : ''}${shut ? ' rk4-shut' : ''}" data-rank="${id}"${shut ? ` title="El Rango Z llega el martes a las 12:00"` : ''}><span class="rk4-l${id === 'Z' && !shut ? ' rk4-z' : ''}">${shut ? '🔒' : id === 'Z' ? zEmblem() : id}</span><small>${shut ? this.rankZCountdown() : `×${R.reward}`}</small></button>`;
+      return `<button class="rk4 r-${id}${id === rk ? ' on' : ''}${shut ? ' rk4-shut' : ''}" data-rank="${id}"${shut ? ` title="${tr('El Rango Z llega el martes a las 12:00')}"` : ''}><span class="rk4-l${id === 'Z' && !shut ? ' rk4-z' : ''}">${shut ? '🔒' : id === 'Z' ? zEmblem() : id}</span><small>${shut ? this.rankZCountdown() : `×${R.reward}`}</small></button>`;
     }).join('');
-    this.show(`<div class="screen ms-screen mp-screen">${this.titlebar('Camino de arenas', 'Mi Equipo')}
-      <div class="ms-diff r-${rk}"><div class="ms-dl"><small>DIFICULTAD</small><b>Rango ${rk === 'Z' ? zEmblem('z-inl') : rk}</b><p>${esc(rankDef(rk).blurb)} Recompensas ×${RANKS[rk].reward}.</p></div><div class="ms-ranks">${ranks}</div></div>
-      <div class="ms-team"><span><small>TU EQUIPO</small><b>${esc(squadOf(this.save, this.byId)[0]?.name ?? '—')} (capitán) · ${squadOf(this.save, this.byId).length}/${SQUAD_SIZE}</b></span>
+    this.show(`<div class="screen ms-screen mp-screen">${this.titlebar(tr('Camino de arenas'), tr('Mi Equipo'))}
+      <div class="ms-diff r-${rk}"><div class="ms-dl"><small>${tr('DIFICULTAD')}</small><b>${tr('Rango {x1}', { x1: rk === 'Z' ? zEmblem('z-inl') : rk })}</b><p>${tr('{x1} Recompensas ×{x2}.', { x1: esc(rankDef(rk).blurb), x2: RANKS[rk].reward })}</p></div><div class="ms-ranks">${ranks}</div></div>
+      <div class="ms-team"><span><small>${tr('TU EQUIPO')}</small><b>${tr('{x1} (capitán) · {squadOfLength}/{SQUAD_SIZE}', { x1: esc(squadOf(this.save, this.byId)[0]?.name ?? '—'), squadOfLength: squadOf(this.save, this.byId).length, SQUAD_SIZE })}</b></span>
         <span class="m4-faces">${squadOf(this.save, this.byId).slice(0, 7).map((p) => { const ae = this.auraEntryOf(p.id); return `<span class="m4-face${ae ? ' with-aura' : ''}" style="--rc:${RARITY_COLOR[effectiveRarity(this.save, p)]}" title="${esc(p.name)}${ae ? ` · Aura: ${esc(ae.name)}` : ''}">${this.mug(p.id, 38)}${ae ? `<i class="ms-aura">${this.mug(ae.id, 40)}</i>` : ''}</span>`; }).join('')}</span>
-        <button class="btn small" id="toteam">${uiIcon('team')} Cambiar equipo</button></div>
+        <button class="btn small" id="toteam">${tr('{x1} Cambiar equipo', { x1: uiIcon('team') })}</button></div>
       <div class="mp-wrap">
         <div class="mp-board">
-          <div class="mp-head"><span><small>TU RECORRIDO</small><b>${cleared}/${maps.length} arenas superadas</b></span>
+          <div class="mp-head"><span><small>${tr('TU RECORRIDO')}</small><b>${tr('{cleared}/{mapsLength} arenas superadas', { cleared, mapsLength: maps.length })}</b></span>
             <span class="mp-prog"><i style="width:${cleared / Math.max(1, maps.length) * 100}%"></i></span>
-            <span class="mp-legend"><i class="e"></i>Fácil<i class="h"></i>Difícil<i class="x"></i>Brutal</span></div>
+            <span class="mp-legend"><i class="e"></i>${tr('Fácil')}<i class="h"></i>${tr('Difícil')}<i class="x"></i>${tr('Brutal')}</span></div>
           <div class="mp-road" style="height:${rows * (per === 2 ? 150 : 168)}px">
             <svg class="mp-svg" viewBox="0 0 1000 1000" preserveAspectRatio="none" aria-hidden="true">${road}</svg>${nodes}</div>
         </div>
@@ -5417,19 +5420,19 @@ export class App {
       const sc = mapTierScale(tier);
       const prev = maps.find((x) => `clear:${x.id}` === mp.unlock);
       const bossName = mp.boss !== null ? this.byId.get(mp.boss)?.name ?? this.m.units.find((u) => u.id === mp.boss)?.name ?? '—' : '—';
-      const label = ['Paseo', 'Fácil', 'Normal', 'Exigente', 'Difícil', 'Muy difícil', 'Brutal', 'Leyenda'][Math.min(7, Math.floor((tier - 1) / maps.length * 8))];
+      const label = ['Paseo', 'Fácil', 'Normal', 'Exigente', 'Difícil', tr('Muy difícil'), 'Brutal', 'Leyenda'][Math.min(7, Math.floor((tier - 1) / maps.length * 8))];
       box.style.setProperty('--tc', this.tierColor(tier));
       box.className = `mp-detail st-${st}`;
       box.innerHTML = `<div class="mp-art">${mp.minimapTexture ? `<img src="${mp.minimapTexture}" alt="">` : ''}
-          <span class="mp-stage">ETAPA ${tier} / ${maps.length}</span>${st === 'cleared' ? '<span class="mc4-ok">✔ SUPERADA</span>' : ''}
-          <h3>${esc(mp.name)}</h3>${st === 'locked' ? `<div class="mc4-lock"><span>🔒</span>Supera ${esc(prev?.name ?? 'la arena anterior')}</div>` : ''}</div>
+          <span class="mp-stage">${tr('ETAPA {tier} / {mapsLength}', { tier, mapsLength: maps.length })}</span>${st === 'cleared' ? '<span class="mc4-ok">✔ SUPERADA</span>' : ''}
+          <h3>${esc(mp.name)}</h3>${st === 'locked' ? `<div class="mc4-lock"><span>🔒</span>${tr('Supera {x1}', { x1: esc(prev?.name ?? tr('la arena anterior')) })}</div>` : ''}</div>
         <div class="mp-body">
-          <div class="mp-diffbar"><small>DIFICULTAD</small><span class="mp-meter">${maps.map((_, k) => `<i class="${k < tier ? 'on' : ''}" style="--tc:${this.tierColor(k + 1)}"></i>`).join('')}</span><b>${label}</b></div>
+          <div class="mp-diffbar"><small>${tr('DIFICULTAD')}</small><span class="mp-meter">${maps.map((_, k) => `<i class="${k < tier ? 'on' : ''}" style="--tc:${this.tierColor(k + 1)}"></i>`).join('')}</span><b>${label}</b></div>
           ${mp.blurb ? `<p class="mp-blurb">${esc(mp.blurb)}</p>` : ''}
-          <div class="mp-boss">${mp.boss !== null ? this.mug(mp.boss, 52) : ''}<div><small>JEFE FINAL</small><b>${esc(bossName)}</b></div></div>
-          <div class="mc4-chips"><span>${uiIcon('clock')}${fmtTime(mp.durationSec)}</span><span>${uiIcon('team')}${mp.enemies.length} rivales</span><span title="Multiplicador de puntos del ranking por la dificultad de la arena">${uiIcon('crown')}Ranking ×${String(+mapMult(mp.id).toFixed(2)).replace('.', ',')}</span>${tier > 1 ? `<span class="hard">${uiIcon('fire')}Rivales +${Math.round((sc.hp - 1) * 100)}% vida · +${Math.round((sc.damage - 1) * 100)}% daño</span>` : ''}</div>
-          <div class="m4-ranks mc4-ranks">${RANK_ORDER.map((id) => `<i class="${done.includes(id) ? 'on' : ''} r-${id}">${id}</i>`).join('')}<small>${done.length}/${RANK_ORDER.length} rangos</small></div>
-          <button class="btn mp-go" data-map="${mp.id}" ${st === 'locked' ? 'disabled' : ''}>${st === 'locked' ? '🔒 Bloqueada' : '¡Saltar al campo! ▶'}</button>
+          <div class="mp-boss">${mp.boss !== null ? this.mug(mp.boss, 52) : ''}<div><small>${tr('JEFE FINAL')}</small><b>${esc(bossName)}</b></div></div>
+          <div class="mc4-chips"><span>${uiIcon('clock')}${fmtTime(mp.durationSec)}</span><span>${tr('{x1}{enemiesLength} rivales', { x1: uiIcon('team'), enemiesLength: mp.enemies.length })}</span><span title="${tr('Multiplicador de puntos del ranking por la dificultad de la arena')}">${tr('{x1}Ranking ×{x2}', { x1: uiIcon('crown'), x2: String(+mapMult(mp.id).toFixed(2)).replace('.', ',') })}</span>${tier > 1 ? `<span class="hard">${tr('{x1}Rivales +{x2}% vida · +{x3}% daño', { x1: uiIcon('fire'), x2: Math.round((sc.hp - 1) * 100), x3: Math.round((sc.damage - 1) * 100) })}</span>` : ''}</div>
+          <div class="m4-ranks mc4-ranks">${RANK_ORDER.map((id) => `<i class="${done.includes(id) ? 'on' : ''} r-${id}">${id}</i>`).join('')}<small>${tr('{doneLength}/{RANK_ORDERLength} rangos', { doneLength: done.length, RANK_ORDERLength: RANK_ORDER.length })}</small></div>
+          <button class="btn mp-go" data-map="${mp.id}" ${st === 'locked' ? 'disabled' : ''}>${st === 'locked' ? '🔒 Bloqueada' : tr('¡Saltar al campo! ▶')}</button>
         </div>`;
       this.on('[data-map]', 'click', () => {
         const squad = squadOf(this.save, this.byId);
@@ -5448,7 +5451,7 @@ export class App {
     document.querySelector('.mp-node.sel')?.scrollIntoView({ block: 'nearest' });
     document.getElementById('toteam')?.addEventListener('click', () => this.captainSelect());
     this.on('[data-rank]', 'click', (_e, el) => {
-      if (el.dataset.rank === 'Z' && !rankZOpen(serverNow())) { this.toast(`El Rango Z llega el martes 10 a las 12:00 · ${this.rankZCountdown(true)}`, 3000); return; }
+      if (el.dataset.rank === 'Z' && !rankZOpen(serverNow())) { this.toast(tr('El Rango Z llega el martes 10 a las 12:00 · {rankZCountdown}', { rankZCountdown: this.rankZCountdown(true) }), 3000); return; }
       this.save.difficulty = el.dataset.rank as Rank; this.persist(); this.mapSelect();
     });
     this.on('[data-back]', 'click', () => this.captainSelect());
@@ -5456,9 +5459,9 @@ export class App {
   /** days (or hours, on the last day) until Rango Z opens; `long` for a sentence */
   private rankZCountdown(long = false) {
     const now = serverNow(), ms = rankZLeftMs(now), d = rankZDaysLeft(now), h = Math.ceil(ms / 3_600_000);
-    if (ms <= 0) return long ? 'Ya está aquí' : 'Abierto';
+    if (ms <= 0) return long ? tr('Ya está aquí') : 'Abierto';
     if (h <= 24) return long ? `Faltan ${h} h` : `${h} h`;
-    return long ? `Faltan ${d} días` : `${d} días`;
+    return long ? tr('Faltan {d} días', { d }) : tr('{d} días', { d });
   }
   /** green for the first arenas, then yellow, red and purple for the last ones */
   private tierColor(tier: number) {
@@ -5479,11 +5482,11 @@ export class App {
   }
   /** «Raimon: escudo y equipación · Royal Academy: duplicado del capitán» */
   private claimText(list: { team: string; kind: TeamRewardKind }[]) {
-    const NAME: Record<TeamRewardKind, string> = { crest: 'escudo', kit: 'equipación', captain: 'duplicado del capitán' };
+    const NAME: Record<TeamRewardKind, string> = { crest: 'escudo', kit: 'equipación', captain: tr('duplicado del capitán') };
     const by = new Map<string, string[]>();
     for (const c of list) by.set(c.team, [...(by.get(c.team) ?? []), NAME[c.kind]]);
     const parts = [...by].map(([t, ks]) => `${teamLabel(t)}: ${ks.length > 1 ? `${ks.slice(0, -1).join(', ')} y ${ks[ks.length - 1]}` : ks[0]}`);
-    return parts.length > 3 ? `${parts.slice(0, 3).join(' · ')} y ${parts.length - 3} equipo(s) más` : parts.join(' · ');
+    return parts.length > 3 ? tr('{x1} y {x2} equipo(s) más', { x1: parts.slice(0, 3).join(' · '), x2: parts.length - 3 }) : parts.join(' · ');
   }
   /** a notice that belongs to the screen it was shown on: it leaves with it, and a tap opens the Colección */
   private claimNotice(list: { team: string; kind: TeamRewardKind }[], lead: string) {
@@ -5521,36 +5524,36 @@ export class App {
     const teams = allTeams.filter((t) => !f.saga || sagaOf(t) === f.saga);
     const teamCards = SAGAS.map((sg) => {
       const list = teams.filter((t) => sagaOf(t) === sg);
-      return list.length ? `<h3 class="saga">${sg}</h3><div class="team-grid">${list.map((t) => {
+      return list.length ? `<h3 class="saga">${tr(sg)}</h3><div class="team-grid">${list.map((t) => {
         const tp = teamProgress(this.save, this.m.roster, t);
         const claimable = (['crest', 'kit', 'captain'] as TeamRewardKind[]).some((k) => rewardOk(t, k) && canClaim(this.save, this.m.roster, t, k));
-        return `<button class="team-card big" data-team="${esc(t)}">${this.emblemOf(t) ? `<img src="${this.emblemOf(t)}" alt="">` : '<span class="noemblem">⚽</span>'}<span class="tc-body"><b>${esc(teamLabel(t))}</b><i class="tc-bar"><i style="width:${tp.owned / Math.max(1, tp.total) * 100}%"></i></i><small>${tp.owned}/${tp.total} futbolistas</small></span>${claimable ? '<span class="notif">!</span>' : ''}</button>`;
+        return `<button class="team-card big" data-team="${esc(t)}">${this.emblemOf(t) ? `<img src="${this.emblemOf(t)}" alt="">` : '<span class="noemblem">⚽</span>'}<span class="tc-body"><b>${esc(teamLabel(t))}</b><i class="tc-bar"><i style="width:${tp.owned / Math.max(1, tp.total) * 100}%"></i></i><small>${tr('{owned}/{total} futbolistas', { owned: tp.owned, total: tp.total })}</small></span>${claimable ? '<span class="notif">!</span>' : ''}</button>`;
       }).join('')}</div>` : '';
     }).join('');
     const list = filtered.slice(0, this.collectionLimit);
     const ownedN = this.m.roster.filter((p) => this.owned(p.id)).length;
-    this.show(`<div class="screen col-screen">${this.titlebar('Enciclopedia', 'Menú')}
-      <div class="col-hero"><span class="col-hero-ic">${uiIcon('cards')}</span><div class="col-hero-tx"><small>TU COLECCIÓN</small><b>${ownedN} <em>de ${this.m.roster.length} futbolistas</em></b>
+    this.show(`<div class="screen col-screen">${this.titlebar(tr('Enciclopedia'), tr('Menú'))}
+      <div class="col-hero"><span class="col-hero-ic">${uiIcon('cards')}</span><div class="col-hero-tx"><small>${tr('TU COLECCIÓN')}</small><b>${ownedN} <em>${tr('de {rosterLength} futbolistas', { rosterLength: this.m.roster.length })}</em></b>
         <i class="col-bar"><i style="width:${ownedN / Math.max(1, this.m.roster.length) * 100}%"></i></i>
         <div class="col-rars">${RARITY_ORDER.map((r) => `<span class="rar ${r}">${RARITY_LABEL[r]} ${this.m.roster.filter((p) => p.rarity === r && this.owned(p.id)).length}/${this.m.roster.filter((p) => p.rarity === r).length}</span>`).join('')}</div></div>
-        ${teamClaims ? `<button class="rw-all" id="teamall"><i class="m4-shine"></i>RECLAMAR TODO<em>${teamClaims}</em></button>` : ''}
-        ${(() => { const n = ascendableCount(this.save, this.m.roster); return n ? `<button class="rw-all asc-all" id="ascall" title="Asciende a todos los que tienen duplicados suficientes"><i class="m4-shine"></i>ASCENDER TODOS<em>${n}</em></button>` : ''; })()}</div>
+        ${teamClaims ? `<button class="rw-all" id="teamall"><i class="m4-shine"></i>${tr('RECLAMAR TODO<em>{teamClaims}</em>', { teamClaims })}</button>` : ''}
+        ${(() => { const n = ascendableCount(this.save, this.m.roster); return n ? `<button class="rw-all asc-all" id="ascall" title="${tr('Asciende a todos los que tienen duplicados suficientes')}"><i class="m4-shine"></i>${tr('ASCENDER TODOS<em>{n}</em>', { n })}</button>` : ''; })()}</div>
       ${d && this.compareWith && this.compareWith !== d.id && this.byId.get(this.compareWith) ? this.compareHtml(this.byId.get(this.compareWith)!, d) : ''}
       ${d ? this.playerDetail(d) : ''}
-      <div class="mis-top"><div class="seg" id="views"><button data-v="equipos" class="${this.collectionView === 'equipos' ? 'on' : ''}">Por equipos</button><button data-v="fichatron" class="${this.collectionView === 'fichatron' ? 'on' : ''}">Fichatrón</button><button data-v="todos" class="${this.collectionView === 'todos' ? 'on' : ''}">Todos</button></div>
-        ${this.collectionView === 'fichatron' ? `<span class="note">Jugadores de Fichatrón / Ojeadores: ${scouts.filter((p) => this.owned(p.id)).length} de ${scouts.length}. No pertenecen a un equipo de la historia, pero juegan igual que los demás.</span>` : ''}
+      <div class="mis-top"><div class="seg" id="views"><button data-v="equipos" class="${this.collectionView === 'equipos' ? 'on' : ''}">${tr('Por equipos')}</button><button data-v="fichatron" class="${this.collectionView === 'fichatron' ? 'on' : ''}">${tr('Fichatrón')}</button><button data-v="todos" class="${this.collectionView === 'todos' ? 'on' : ''}">${tr('Todos')}</button></div>
+        ${this.collectionView === 'fichatron' ? `<span class="note">${tr('Jugadores de Fichatrón / Ojeadores: {x1} de {scoutsLength}. No pertenecen a un equipo de la historia, pero juegan igual que los demás.', { x1: scouts.filter((p) => this.owned(p.id)).length, scoutsLength: scouts.length })}</span>` : ''}
 </div>
-      ${f.team ? `<button class="btn small blue" id="clearteam">◀ Ver equipos</button>${this.teamHeader(f.team)}` : ''}
-      <div class="filters"><input id="fq" placeholder="Buscar futbolista por nombre" value="${esc(f.q)}">
-        ${select('fsa', 'Saga', SAGAS.map((x) => [x, x]), f.saga)}
-        ${select('fr', 'Rareza', RARITY_ORDER.map((r) => [r, RARITY_LABEL[r]]), f.rarity)}
-        ${select('fp', 'Posición', ['GK', 'DF', 'MF', 'FW'].map((x) => [x, POS_LABEL[x]]), f.pos)}
-        ${select('fe', 'Elemento', elements.map((x) => [x, x]), f.element)}
-        <label class="note"><input type="checkbox" id="fo" ${f.owned ? 'checked' : ''}> Solo desbloqueados</label>
-        <label class="note"><input type="checkbox" id="fu" ${f.upgrade ? 'checked' : ''}> Se pueden mejorar (${upgradable})</label>
+      ${f.team ? `<button class="btn small blue" id="clearteam">${tr('◀ Ver equipos')}</button>${this.teamHeader(f.team)}` : ''}
+      <div class="filters"><input id="fq" placeholder="${tr('Buscar futbolista por nombre')}" value="${esc(f.q)}">
+        ${select('fsa', tr('Saga'), SAGAS.map((x) => [x, tr(x)]), f.saga)}
+        ${select('fr', tr('Rareza'), RARITY_ORDER.map((r) => [r, RARITY_LABEL[r]]), f.rarity)}
+        ${select('fp', tr('Posición'), ['GK', 'DF', 'MF', 'FW'].map((x) => [x, POS_LABEL[x]]), f.pos)}
+        ${select('fe', tr('Elemento'), elements.map((x) => [x, tEl(x)]), f.element)}
+        <label class="note"><input type="checkbox" id="fo" ${f.owned ? 'checked' : ''}> ${tr('Solo desbloqueados')}</label>
+        <label class="note"><input type="checkbox" id="fu" ${f.upgrade ? 'checked' : ''}> ${tr('Se pueden mejorar ({upgradable})', { upgradable })}</label>
 </div>
       ${showTeams ? teamCards : `<div class="grid">${list.map((p) => this.pcard(p, { locked: !this.owned(p.id), sel: p.id === detailId })).join('')}</div>
-        ${filtered.length > list.length ? `<p style="text-align:center"><button class="btn blue" id="more">Ver más (${filtered.length - list.length})</button></p>` : ''}`}</div>`);
+        ${filtered.length > list.length ? `<p style="text-align:center"><button class="btn blue" id="more">${tr('Ver más ({x1})', { x1: filtered.length - list.length })}</button></p>` : ''}`}</div>`);
     this.on('[data-back]', 'click', () => this.mainMenu());
     this.on('.pcard[data-id]', 'click', (_e, el) => { if (this.owned(Number(el.dataset.id))) { this.collection(Number(el.dataset.id)); this.root.querySelector('.screen')?.scrollTo(0, 0); } });
     this.on('[data-keshin]', 'click', (_e, el) => this.keshinScreen(Number(el.dataset.keshin), Number(el.dataset.keshin))); // 2.0
@@ -5561,7 +5564,7 @@ export class App {
       if (!done.length) { sfx('error'); return; }
       this.persist(); sfx('legend');
       const steps = done.reduce((a, d) => a + d.steps.length, 0);
-      this.toast(`${done.length} ${done.length === 1 ? 'futbolista ascendido' : 'futbolistas ascendidos'} (${steps} ${steps === 1 ? 'paso' : 'pasos'}): ${done.slice(0, 4).map((d) => this.byId.get(d.id)?.name ?? '').join(', ')}${done.length > 4 ? '…' : ''}`, 4500);
+      this.toast(`${done.length} ${done.length === 1 ? tr('futbolista ascendido') : tr('futbolistas ascendidos')} (${steps} ${steps === 1 ? 'paso' : 'pasos'}): ${done.slice(0, 4).map((d) => this.byId.get(d.id)?.name ?? '').join(', ')}${done.length > 4 ? '…' : ''}`, 4500);
       this.collection();
     }));
     this.on('[data-starpick]', 'click', (_e, el) => this.starStatPicker(Number(el.dataset.starpick), 'pick'));
@@ -5578,7 +5581,7 @@ export class App {
     this.on('[data-aura-info]', 'click', (_e, el) => this.auraInfo(Number(el.dataset.auraInfo))); // v1.5
     this.on('[data-team]', 'click', (_e, el) => { f.team = el.dataset.team!; this.collectionLimit = 36; this.collection(); });
     this.on('[data-reward]', 'click', (_e, el) => {
-      if (claimTeamReward(this.save, this.m.roster, f.team, el.dataset.reward as TeamRewardKind)) { this.persist(); sfx('evolve'); confetti(30); this.toast(`¡${teamLabel(f.team)}: ${({ crest: 'escudo', kit: 'equipación', captain: 'duplicado del capitán' } as Record<string, string>)[el.dataset.reward!]} conseguido!`); }
+      if (claimTeamReward(this.save, this.m.roster, f.team, el.dataset.reward as TeamRewardKind)) { this.persist(); sfx('evolve'); confetti(30); this.toast(tr('¡{x1}: {x2} conseguido!', { x1: teamLabel(f.team), x2: ({ crest: tr('escudo'), kit: tr('equipación'), captain: tr('duplicado del capitán') } as Record<string, string>)[el.dataset.reward!] })); }
       this.collection(detailId);
     });
     document.getElementById('teamall')?.addEventListener('click', () => {
@@ -5589,7 +5592,7 @@ export class App {
       confetti(40);
       const n = (k: TeamRewardKind) => got.filter((g) => g.kind === k).length;
       this.collection(detailId);
-      this.rewardSummary('¡Recompensas de equipo!', [`${n('crest')} escudos`, `${n('kit')} equipaciones`, `${n('captain')} duplicados de capitán`].filter((l) => !l.startsWith('0 ')).concat(this.claimText(got)));
+      this.rewardSummary(tr('¡Recompensas de equipo!'), [`${n('crest')} escudos`, `${n('kit')} equipaciones`, tr('{x1} duplicados de capitán', { x1: n('captain') })].filter((l) => !l.startsWith('0 ')).concat(this.claimText(got)));
     });
     this.on('#views button', 'click', (_e, el) => { this.collectionView = el.dataset.v as 'equipos' | 'todos' | 'fichatron'; f.team = ''; this.collection(); });
     document.getElementById('clearteam')?.addEventListener('click', () => { f.team = ''; this.collectionView = 'equipos'; this.collection(); });
@@ -5630,12 +5633,12 @@ export class App {
   private teamHeader(team: string) {
     const tp = teamProgress(this.save, this.m.roster, team);
     const cap = teamCaptain(teamMembers(this.m.roster, team));
-    const rewards: [TeamRewardKind, string, boolean][] = [['crest', 'Escudo del equipo', true], ['kit', 'Equipación', !!this.m.kits?.[team]], ['captain', `Duplicado de ${this.owned(cap.id) ? cap.name : 'su capitán'}`, true]];
+    const rewards: [TeamRewardKind, string, boolean][] = [['crest', tr('Escudo del equipo'), true], ['kit', 'Equipación', !!this.m.kits?.[team]], ['captain', tr('Duplicado de {x1}', { x1: this.owned(cap.id) ? cap.name : tr('su capitán') }), true]];
     return `<div class="panel team-head">${this.emblemOf(team) ? `<img src="${this.emblemOf(team)}" alt="">` : ''}
-      <div class="th-main"><h3>${esc(teamLabel(team))}</h3><div class="note">${sagaOf(team)} · ${tp.owned}/${tp.total} futbolistas</div><i class="tc-bar wide"><i style="width:${tp.owned / Math.max(1, tp.total) * 100}%"></i></i></div>
+      <div class="th-main"><h3>${esc(teamLabel(team))}</h3><div class="note">${tr('{sagaOf} · {owned}/{total} futbolistas', { sagaOf: tr(sagaOf(team)), owned: tp.owned, total: tp.total })}</div><i class="tc-bar wide"><i style="width:${tp.owned / Math.max(1, tp.total) * 100}%"></i></i></div>
       <div class="th-rewards">${rewards.map(([k, label, ok]) => {
         const got = tp.claimed[k], can = ok && canClaim(this.save, this.m.roster, team, k);
-        return `<div class="th-r${got ? ' got' : ''}"><span>${esc(label)}</span><small>${!ok ? 'Sin recursos' : `${Math.min(tp.owned, tp.goal[k])}/${tp.goal[k]}`}</small><button class="btn small" data-reward="${k}" ${can ? '' : 'disabled'}>${got ? 'Conseguido' : 'Reclamar'}</button></div>`;
+        return `<div class="th-r${got ? ' got' : ''}"><span>${esc(label)}</span><small>${!ok ? tr('Sin recursos') : `${Math.min(tp.owned, tp.goal[k])}/${tp.goal[k]}`}</small><button class="btn small" data-reward="${k}" ${can ? '' : 'disabled'}>${got ? 'Conseguido' : 'Reclamar'}</button></div>`;
       }).join('')}</div></div>`;
   }
 
@@ -5651,7 +5654,7 @@ export class App {
     this.persist();
     const hm = (ms: number) => ms >= 86400000 ? `${Math.floor(ms / 86400000)} d ${Math.floor(ms / 3600000) % 24} h` : `${Math.floor(ms / 3600000)} h ${Math.floor(ms / 60000) % 60} min`;
     const dayLeft = hm(msToNextDay(now)), weekLeft = hm(msToNextWeek(now));
-    const TAG: Record<string, string> = { destacado: '★ DESTACADO', favorito: '♥ TU EQUIPO', semanal: '◆ SEMANAL', diaria: 'DEL DÍA' };
+    const TAG: Record<string, string> = { destacado: '★ DESTACADO', favorito: tr('♥ TU EQUIPO'), semanal: '◆ SEMANAL', diaria: tr('DEL DÍA') };
     const card = (o: Offer) => {
       const p = this.byId.get(o.playerId)!;
       const sold = isOfferBought(this.save, o);
@@ -5663,42 +5666,42 @@ export class App {
         <div class="shop-art">${this.mug(p.id, 96)}</div>
         <b class="shop-name">${esc(p.name)}</b>
         <div class="shop-meta">${this.rar(p)}<small>${esc(team)}</small></div>
-        <div class="shop-state">${sold ? '✔ Comprado' : owned ? 'Ya lo tienes: cuenta como duplicado' : 'Nuevo para tu colección'}</div>
-        <small class="shop-left">${o.tag === 'semanal' ? `Cambia en ${weekLeft}` : `Cambia en ${dayLeft}`}</small>
+        <div class="shop-state">${sold ? '✔ Comprado' : owned ? tr('Ya lo tienes: cuenta como duplicado') : tr('Nuevo para tu colección')}</div>
+        <small class="shop-left">${o.tag === 'semanal' ? tr('Cambia en {weekLeft}', { weekLeft }) : tr('Cambia en {dayLeft}', { dayLeft })}</small>
         <button class="btn small" data-offer="${o.playerId}" ${sold || this.save.coins < o.price ? 'disabled' : ''}>${sold ? 'Comprado' : `${o.discount ? `<s>${PRICE[p.rarity]}</s> ` : ''}${o.price} ◉`}</button>
       </article>`;
     };
     const top = offers.filter((o) => o.tag && o.tag !== 'diaria'), day = offers.filter((o) => !o.tag || o.tag === 'diaria');
     const rars = ['todas', ...RARITY_ORDER.filter((r) => offers.some((o) => this.byId.get(o.playerId)?.rarity === r))];
-    this.show(`<div class="screen shop-screen">${this.titlebar('Tienda', 'Menú')}
-      <div class="shop-head"><span>${offers.length} ofertas · ${timeSource() === 'servidor' ? 'hora del servidor' : 'hora de este dispositivo'}</span><span>Diarias: ${dayLeft} · Semanal: ${weekLeft}</span></div>
-      ${eventActive(serverNow()) ? `<button class="pn-eventcta" id="pnevent"><span class="pn-cta-art">${pennantSvg('supernova', 44)}</span><span><small>EVENTO · TERMINA EN ${this.eventLeftText(serverNow())}</small><b>Banners y marcos de leyenda</b><em>${PENNANT_EVENT.cost.toLocaleString('es')} ◉ la tirada · Míticos al 3%</em></span></button>` : ''}
+    this.show(`<div class="screen shop-screen">${this.titlebar(tr('Tienda'), tr('Menú'))}
+      <div class="shop-head"><span>${tr('{offersLength} ofertas · {x1}', { offersLength: offers.length, x1: timeSource() === 'servidor' ? tr('hora del servidor') : tr('hora de este dispositivo') })}</span><span>${tr('Diarias: {dayLeft} · Semanal: {weekLeft}', { dayLeft, weekLeft })}</span></div>
+      ${eventActive(serverNow()) ? `<button class="pn-eventcta" id="pnevent"><span class="pn-cta-art">${pennantSvg('supernova', 44)}</span><span><small>${tr('EVENTO · TERMINA EN {x1}', { x1: this.eventLeftText(serverNow()) })}</small><b>${tr('Banners y marcos de leyenda')}</b><em>${tr('{x1} ◉ la tirada · Míticos al 3%', { x1: PENNANT_EVENT.cost.toLocaleString(locale()) })}</em></span></button>` : ''}
       ${(() => { const sd = activeSeason(serverNow()); if (!sd) return ''; const has = seasonOf(this.save, sd).normal; // 2.1
-        return `<h3 class="shop-sec">Pase de temporada</h3><div class="shop-grid"><article class="shop-card sp-shopkey r-raro" style="--rc:${RARITY_COLOR.raro}"><div class="shop-art">${this.m.pase ? `<img class="sp-shopimg" src="${this.m.pase.normal}" alt="">` : ''}</div>
-          <b class="shop-name">Llave normal</b><small class="shop-left">Abre la fila normal del pase de ${esc(sd.name)}: monedas, fichas, tiradas, los jugadores del Dominio de Zanark, banners y un marco.</small>
-          <button class="btn small" id="shopkey" ${has || this.save.coins < NORMAL_KEY_PRICE ? 'disabled' : ''}>${has ? '✔ Tuya' : `${NORMAL_KEY_PRICE.toLocaleString('es')} ◉`}</button></article></div>`; })()}
-      ${([['Banners de perfil', PENNANTS], ['Marcos de perfil', FRAMES]] as const).map(([title, list]) => `<h3 class="shop-sec">${title}</h3><div class="shop-grid pn-shop">${list.filter((d) => d.source === 'tienda').map((d) => { const own = hasPennant(this.save, d.id);
+        return `<h3 class="shop-sec">${tr('Pase de temporada')}</h3><div class="shop-grid"><article class="shop-card sp-shopkey r-raro" style="--rc:${RARITY_COLOR.raro}"><div class="shop-art">${this.m.pase ? `<img class="sp-shopimg" src="${this.m.pase.normal}" alt="">` : ''}</div>
+          <b class="shop-name">${tr('Llave normal')}</b><small class="shop-left">${tr('Abre la fila normal del pase de {sdName}: monedas, fichas, tiradas, los jugadores del Dominio de Zanark, banners y un marco.', { sdName: esc(sd.name) })}</small>
+          <button class="btn small" id="shopkey" ${has || this.save.coins < NORMAL_KEY_PRICE ? 'disabled' : ''}>${has ? '✔ Tuya' : `${NORMAL_KEY_PRICE.toLocaleString(locale())} ◉`}</button></article></div>`; })()}
+      ${([[tr('Banners de perfil'), PENNANTS], [tr('Marcos de perfil'), FRAMES]] as const).map(([title, list]) => `<h3 class="shop-sec">${title}</h3><div class="shop-grid pn-shop">${list.filter((d) => d.source === 'tienda').map((d) => { const own = hasPennant(this.save, d.id);
         return `<article class="shop-card pn-shopcard r-${d.rarity}" style="--rc:${RARITY_COLOR[d.rarity]}">${isFrame(d) ? `<div class="shop-art fr-prev">${this.framed(this.frameFace(), d.id)}</div>` : `<div class="shop-art pn-prev">${pennantRibbon(d)}</div>`}<b class="shop-name">${esc(d.name)}</b>
           <div class="shop-meta"><span class="rar ${d.rarity}">${RARITY_LABEL[d.rarity].toUpperCase()}</span></div><small class="shop-left">${esc(d.tagline)}</small>
-          <button class="btn small" data-pnbuy="${d.id}" ${own || this.save.coins < (d.price ?? 0) ? 'disabled' : ''}>${own ? '✔ Tuyo' : `${d.price?.toLocaleString('es')} ◉`}</button></article>`; }).join('')}</div>`).join('')}
-      <h3 class="shop-sec">Destacados</h3><div class="shop-grid shop-top">${top.map(card).join('')}</div>
-      <h3 class="shop-sec">Del día <span class="shop-filters">${rars.map((r) => `<button class="chip${this.shopFilter === r ? ' on' : ''}" data-sf="${r}">${r === 'todas' ? 'Todas' : RARITY_LABEL[r as Rarity]}</button>`).join('')}</span></h3>
-      <div class="shop-grid shop-day">${day.filter((o) => this.shopFilter === 'todas' || this.byId.get(o.playerId)?.rarity === this.shopFilter).map(card).join('') || '<p class="note">Nada de esta rareza hoy.</p>'}</div></div>`);
+          <button class="btn small" data-pnbuy="${d.id}" ${own || this.save.coins < (d.price ?? 0) ? 'disabled' : ''}>${own ? '✔ Tuyo' : `${d.price?.toLocaleString(locale())} ◉`}</button></article>`; }).join('')}</div>`).join('')}
+      <h3 class="shop-sec">${tr('Destacados')}</h3><div class="shop-grid shop-top">${top.map(card).join('')}</div>
+      <h3 class="shop-sec">${tr('Del día')} <span class="shop-filters">${rars.map((r) => `<button class="chip${this.shopFilter === r ? ' on' : ''}" data-sf="${r}">${r === 'todas' ? 'Todas' : RARITY_LABEL[r as Rarity]}</button>`).join('')}</span></h3>
+      <div class="shop-grid shop-day">${day.filter((o) => this.shopFilter === 'todas' || this.byId.get(o.playerId)?.rarity === this.shopFilter).map(card).join('') || `<p class="note">${tr('Nada de esta rareza hoy.')}</p>`}</div></div>`);
     this.on('[data-back]', 'click', () => this.mainMenu());
     this.on('[data-sf]', 'click', (_e, el) => { this.shopFilter = el.dataset.sf ?? 'todas'; this.dailyShop(); });
     document.getElementById('pnevent')?.addEventListener('click', () => this.pennantEvent());
     const sk = document.getElementById('shopkey'); // 2.1
     if (sk) sk.addEventListener('click', () => this.armed(sk, () => {
-      if (buyNormalKey(this.save, serverNow())) { this.persist(); sfx('buy'); this.toast('¡Llave normal! Abre el pase desde Competición > Temporada.', 4000); } else sfx('error');
+      if (buyNormalKey(this.save, serverNow())) { this.persist(); sfx('buy'); this.toast(tr('¡Llave normal! Abre el pase desde Competición > Temporada.'), 4000); } else sfx('error');
       this.dailyShop();
     }));
     this.on('[data-pnbuy]', 'click', (_e, el) => this.armed(el, () => {
       const d = PENNANT_BY_ID.get(el.dataset.pnbuy!);
-      if (d && buyPennant(this.save, d.id)) { this.persist(); sfx('buy'); this.toast(`¡${d.name} es tuyo! Póntelo en tu Perfil.`, 3500); } else sfx('error');
+      if (d && buyPennant(this.save, d.id)) { this.persist(); sfx('buy'); this.toast(tr('¡{dName} es tuyo! Póntelo en tu Perfil.', { dName: d.name }), 3500); } else sfx('error');
       this.dailyShop();
     }));
     this.on('[data-offer]', 'click', (_e, el) => this.armed(el, () => {
-      if (buyOffer(this.save, this.m.roster, Number(el.dataset.offer), serverNow())) { this.persist(); sfx('buy'); this.toast('¡Fichado!'); } else sfx('error');
+      if (buyOffer(this.save, this.m.roster, Number(el.dataset.offer), serverNow())) { this.persist(); sfx('buy'); this.toast(tr('¡Fichado!')); } else sfx('error');
       this.dailyShop();
     }));
   }
@@ -5719,24 +5722,24 @@ export class App {
       const grand = i === PASS.length - 1;
       return `<div class="wp2-day ${state}${grand ? ' grand' : ''}${r.tier === 'plus' ? ' plus' : ''} k-${r.kind}" style="--d:${i * 70}ms">
         <span class="wp2-node">${i + 1}</span>
-        <div class="wp2-card">${grand ? '<i class="wp3-crown">👑</i><i class="wp3-sparks"></i>' : ''}<small>DÍA ${i + 1}${grand ? ' · GRAN PREMIO' : r.tier === 'plus' ? ' · PLUS' : ''}</small>
+        <div class="wp2-card">${grand ? '<i class="wp3-crown">👑</i><i class="wp3-sparks"></i>' : ''}<small>${tr('DÍA {x1}{x2}', { x1: i + 1, x2: grand ? ' · GRAN PREMIO' : r.tier === 'plus' ? ' · PLUS' : '' })}</small>
           <span class="wp2-stage"><i class="wp2-rays"></i>${this.passArt(i)}</span>${this.passItems(r)}${this.passOdds(r)}
-          <em>${state === 'reclamado' ? 'Cobrado' : state === 'disponible' ? '¡HOY!' : state === 'siguiente' ? `En ${this.passCount(left)}` : 'Bloqueado'}</em>
+          <em>${state === 'reclamado' ? 'Cobrado' : state === 'disponible' ? tr('¡HOY!') : state === 'siguiente' ? tr('En {passCount}', { passCount: this.passCount(left) }) : 'Bloqueado'}</em>
           ${state === 'reclamado' ? '<i class="wp2-stamp">COBRADO</i>' : state === 'bloqueado' ? '<i class="wp2-lock">🔒</i>' : ''}</div></div>`;
     }).join('');
     const next = PASS[st.index];
-    const teamPick = next.jugador?.team ? `<label class="team-sel wp2-team">Equipo: <select id="passteam">${teams.map((t) => `<option value="${esc(t.team)}" ${t.team === this.passTeam ? 'selected' : ''}>${esc(teamLabel(t.team))}</option>`).join('')}</select></label>` : '';
-    this.show(`<div class="screen wp2-screen">${this.titlebar('Pase semanal', 'Menú')}
+    const teamPick = next.jugador?.team ? `<label class="team-sel wp2-team">${tr('Equipo:')} <select id="passteam">${teams.map((t) => `<option value="${esc(t.team)}" ${t.team === this.passTeam ? 'selected' : ''}>${esc(teamLabel(t.team))}</option>`).join('')}</select></label>` : '';
+    this.show(`<div class="screen wp2-screen">${this.titlebar(tr('Pase semanal'), 'Menú')}
       <header class="wp2-hero${st.available ? ' hot' : ''}"><i class="wp2-glow"></i>
-        <div class="wp2-title"><small>GRATIS · CICLO DE ${PASS.length} DÍAS</small><b>PASE SEMANAL</b>
-          <span>${st.available ? 'Tu recompensa de hoy te está esperando.' : `Ya has cobrado hoy. La siguiente llega en <em id="pscount">${this.passCount(left)}</em>.`} Si te saltas días no pierdes nada: el pase te espera.</span>
+        <div class="wp2-title"><small>${tr('GRATIS · CICLO DE {PASSLength} DÍAS', { PASSLength: PASS.length })}</small><b>${tr('PASE SEMANAL')}</b>
+          <span>${tr('{x1} Si te saltas días no pierdes nada: el pase te espera.', { x1: st.available ? tr('Tu recompensa de hoy te está esperando.') : `${tr('Ya has cobrado hoy. La siguiente llega en <em id="pscount">{passCount}</em>.', { passCount: this.passCount(left) })}` })}</span>
           <div class="wp2-dots">${PASS.map((_, i) => `<i class="${i < st.index ? 'on' : i === st.index ? 'now' : ''}"></i>`).join('')}<small>${st.index}/${PASS.length}</small></div>
-          <div class="wp3-total"><small>CADA SEMANA</small><span>${this.cap('cap_azul_spin0') ? `<img src="${this.cap('cap_azul_spin0')}" alt="">` : ''}<b>${PASS_TOTAL.fichas}</b> fichas</span><span><b>◉ ${PASS_TOTAL.monedas.toLocaleString('es')}</b> monedas</span><span><b>★ ${PASS_TOTAL.jugadores}</b> futbolistas, hasta Leyenda</span></div></div>
-        <div class="wp2-today${st.available ? '' : ' wait'}"><small>${st.available ? 'RECOMPENSA DE HOY' : 'SIGUIENTE'}</small>
+          <div class="wp3-total"><small>${tr('CADA SEMANA')}</small><span>${this.cap('cap_azul_spin0') ? `<img src="${this.cap('cap_azul_spin0')}" alt="">` : ''}<b>${PASS_TOTAL.fichas}</b> ${tr('fichas')}</span><span><b>◉ ${PASS_TOTAL.monedas.toLocaleString(locale())}</b> ${tr('monedas')}</span><span><b>★ ${PASS_TOTAL.jugadores}</b> ${tr('futbolistas, hasta Leyenda')}</span></div></div>
+        <div class="wp2-today${st.available ? '' : ' wait'}"><small>${st.available ? tr('RECOMPENSA DE HOY') : tr('SIGUIENTE')}</small>
           <span class="wp2-stage big"><i class="wp2-rays"></i>${this.passArt(st.index, 'big')}</span>${this.passItems(next)}${this.passOdds(next)}
-          ${st.available ? `${teamPick}<button class="rw-all wp2-claim" id="passclaim"><i class="m4-shine"></i>¡RECLAMAR!</button>` : `<span class="wp2-wait">${uiIcon('clock')} ${this.passCount(left)}</span>`}</div></header>
+          ${st.available ? `${teamPick}<button class="rw-all wp2-claim" id="passclaim"><i class="m4-shine"></i>${tr('¡RECLAMAR!')}</button>` : `<span class="wp2-wait">${uiIcon('clock')} ${this.passCount(left)}</span>`}</div></header>
       <div class="wp2-road" style="--p:${st.index / (PASS.length - 1)}"><i class="wp2-path"><i></i></i>${days}</div>
-      <div class="ps4-foot">${uiIcon('clock')}${timeSource() === 'servidor' ? 'Hora del servidor' : 'Hora de este dispositivo'} · tras el día ${PASS.length} empieza un ciclo nuevo</div></div>`);
+      <div class="ps4-foot">${tr('{x1}{x2} · tras el día {PASSLength} empieza un ciclo nuevo', { x1: uiIcon('clock'), x2: timeSource() === 'servidor' ? tr('Hora del servidor') : tr('Hora de este dispositivo'), PASSLength: PASS.length })}</div></div>`);
     this.on('[data-back]', 'click', () => this.mainMenu());
     // 2.0: the countdown ticks live while the screen is open
     const tick = window.setInterval(() => {
@@ -5745,7 +5748,7 @@ export class App {
       const t = this.passCount(msToNextDay(serverNow()));
       if (el) el.textContent = t;
       if (w) w.innerHTML = `${uiIcon('clock')} ${t}`;
-      if (n) n.textContent = `En ${t}`;
+      if (n) n.textContent = tr('En {t}', { t });
     }, 1000);
     document.getElementById('passteam')?.addEventListener('change', (e) => { this.passTeam = (e.target as HTMLSelectElement).value; this.weeklyPass(); });
     document.getElementById('passclaim')?.addEventListener('click', (e) => {
@@ -5769,11 +5772,10 @@ export class App {
       const b = kitBonus(team, this.m.roster);
       return `<button class="kit-card${this.save.kit === team ? ' on' : ''}" data-kit="${esc(team)}">${sample ? charCanvas(sample.id, 3, 12, '', team) : ''}<span>${esc(label)}</span><b class="kit-bonus">${esc(b.name)}</b><small class="kit-desc">${esc(b.description)}</small></button>`;
     };
-    this.show(`<div class="screen">${this.titlebar('Equipaciones', 'Menú')}
-      <div class="panel"><div class="note">Elige el uniforme de tu escuadra: cambia el cuerpo y conserva la cabeza original y todas las animaciones. Se consiguen con las recompensas de equipo de la Enciclopedia.
-        <b>Cada equipación da un bonus</b>, y si llevas ${CLUB_CHEMISTRY.min} o más jugadores de ese equipo en el campo, «Química de club»: +${Math.round((CLUB_CHEMISTRY.damage - 1) * 100)}% de daño.</div>
+    this.show(`<div class="screen">${this.titlebar(tr('Equipaciones'), tr('Menú'))}
+      <div class="panel"><div class="note">${tr('{x1} <b>{x2}</b>, y si llevas {min} o más jugadores de ese equipo en el campo, «Química de club»: +{x3}% de daño.', { x1: tr('Elige el uniforme de tu escuadra: cambia el cuerpo y conserva la cabeza original y todas las animaciones. Se consiguen con las recompensas de equipo de la Enciclopedia.'), x2: tr('Cada equipación da un bonus'), min: CLUB_CHEMISTRY.min, x3: Math.round((CLUB_CHEMISTRY.damage - 1) * 100) })}</div>
       <div class="kit-grid">${card('', 'Raimon')}${available.map((t) => card(t, teamLabel(t))).join('')}</div></div>
-      <div class="panel" style="margin-top:10px"><h3>Escudo de perfil</h3><div class="icon-grid">${crests.filter((t) => this.emblemOf(t)).map((t) => `<button class="iconpick${this.save.crest === t ? ' on' : ''}" data-crest="${esc(t)}" title="${esc(teamLabel(t))}"><img src="${this.emblemOf(t)}" alt=""></button>`).join('') || '<div class="note">Aún no tienes escudos: reúne 3 futbolistas de un equipo.</div>'}</div></div></div>`);
+      <div class="panel" style="margin-top:10px"><h3>${tr('Escudo de perfil')}</h3><div class="icon-grid">${crests.filter((t) => this.emblemOf(t)).map((t) => `<button class="iconpick${this.save.crest === t ? ' on' : ''}" data-crest="${esc(t)}" title="${esc(teamLabel(t))}"><img src="${this.emblemOf(t)}" alt=""></button>`).join('') || `<div class="note">${tr('Aún no tienes escudos: reúne 3 futbolistas de un equipo.')}</div>`}</div></div></div>`);
     this.on('[data-back]', 'click', () => this.mainMenu());
     this.on('[data-kit]', 'click', (_e, el) => {
       this.save.kit = el.dataset.kit!;
@@ -5791,14 +5793,14 @@ export class App {
       const va = sa[s.key] ?? 0, vb = sb[s.key] ?? 0, d = vb - va;
       return `<tr><td>${s.name}</td><td>${va}</td><td>${vb}</td><td class="${d > 0 ? 'up' : d < 0 ? 'down' : ''}">${d > 0 ? '+' : ''}${d}</td></tr>`;
     }).join('');
-    const techs = (p: RosterEntry) => p.techniques.map((t) => `<li>${this.icon(ICON.manual[t.type], 1)} ${esc(t.name)} <small>${TYPE_LABEL[t.type]}${t.type === 'talento' ? '' : ` · ${t.power}`}</small></li>`).join('');
+    const techs = (p: RosterEntry) => p.techniques.map((t) => `<li>${this.icon(ICON.manual[t.type], 1)} ${esc(tTech(t.name))} <small>${TYPE_LABEL[t.type]}${t.type === 'talento' ? '' : ` · ${t.power}`}</small></li>`).join('');
     const shared = [...new Set(a.teams.filter((t) => b.teams.includes(t) && (this.m.mainTeams ?? []).includes(t)))].map(teamLabel);
-    const notes = [a.position !== b.position ? `Posiciones distintas (${POS_LABEL[a.position]} / ${POS_LABEL[b.position]}): la comparación es orientativa.` : '',
-      a.element === b.element ? `Mismo elemento (${a.element}): suman resonancia de elemento juntos.` : '',
-      shared.length ? `Comparten equipo: ${esc(shared.slice(0, 3).join(', '))} (química de club con 3 o más en el campo).` : ''].filter(Boolean);
-    return `<div class="panel compare"><h3>Comparación <button class="btn small blue" data-uncompare="1">✕ Cerrar</button></h3>
-      <div class="cmp-head">${[a, b].map((p) => `<div>${this.mug(p.id, 64)}<b>${esc(p.name)}</b>${this.rar(p)}<small>${POS_LABEL[p.position]} · ${esc(String(p.element))}</small></div>`).join(this.uiPiece('vs', 'cmp-vs') || '<span>VS</span>')}</div>
-      <table class="cmp-stats"><tr><th></th><th>${esc(a.nickname || a.name)}</th><th>${esc(b.nickname || b.name)}</th><th>Dif.</th></tr>${rows}</table>
+    const notes = [a.position !== b.position ? tr('Posiciones distintas ({x1} / {x2}): la comparación es orientativa.', { x1: POS_LABEL[a.position], x2: POS_LABEL[b.position] }) : '',
+      a.element === b.element ? tr('Mismo elemento ({element}): suman resonancia de elemento juntos.', { element: a.element }) : '',
+      shared.length ? tr('Comparten equipo: {x1} (química de club con 3 o más en el campo).', { x1: esc(shared.slice(0, 3).join(', ')) }) : ''].filter(Boolean);
+    return `<div class="panel compare"><h3>${tr('Comparación')} <button class="btn small blue" data-uncompare="1">${tr('✕ Cerrar')}</button></h3>
+      <div class="cmp-head">${[a, b].map((p) => `<div>${this.mug(p.id, 64)}<b>${esc(p.name)}</b>${this.rar(p)}<small>${POS_LABEL[p.position]} · ${esc(tEl(String(p.element)))}</small></div>`).join(this.uiPiece('vs', 'cmp-vs') || '<span>VS</span>')}</div>
+      <table class="cmp-stats"><tr><th></th><th>${esc(a.nickname || a.name)}</th><th>${esc(b.nickname || b.name)}</th><th>${tr('Dif.')}</th></tr>${rows}</table>
       <div class="cmp-techs"><ul>${techs(a)}</ul><ul>${techs(b)}</ul></div>
       ${notes.map((n) => `<div class="note">${n}</div>`).join('')}</div>`;
   }
@@ -5814,17 +5816,17 @@ export class App {
     const names: Record<string, string> = Object.fromEntries(STAT_INFO.map((x) => [x.key, x.short]));
     const big = (on: boolean, cls: string) => starIcon(`${cls}${on ? ' on' : ''}`);
     const capList = Object.entries(caps).filter(([, v]) => v).map(([k, v]) => `<span><b>${names[k] ?? k}</b> ${statCapOf(this.save, d, k as StatKey)} <em>+${v}</em></span>`).join('');
-    const why = next && (!next.copiesOk ? `Faltan duplicados: ${Math.max(0, next.copiesNeed - (o.copies - 1))} más` : !next.coinsOk ? `Faltan ${(next.cost - this.save.coins).toLocaleString('es')} monedas` : '');
+    const why = next && (!next.copiesOk ? tr('Faltan duplicados: {x1} más', { x1: Math.max(0, next.copiesNeed - (o.copies - 1)) }) : !next.coinsOk ? tr('Faltan {x1} monedas', { x1: (next.cost - this.save.coins).toLocaleString(locale()) }) : '');
     return `<div class="star-panel${xsOk ? ' has-x' : ''}${isHero(this.save, d.id) ? ' hero' : championOf(this.save, d.id) ? ' champ' : ''}">
       <div class="sp-row"><span class="sp-stars">${Array.from({ length: MAX_STARS }, (_, i) => big(i < o.stars, 'st')).join('')}</span>
         ${xsOk ? `<span class="sp-x">${Array.from({ length: EXTRA_STARS_MAX }, (_, i) => big(i < xs, 'hst')).join('')}</span>` : ''}</div>
-      <div class="sp-info">Estrellas <b>${o.stars}/${MAX_STARS}</b>${xsOk ? ` · extra <b>${xs}/${EXTRA_STARS_MAX}</b>` : ''} · daño ×${starBonus(o.stars).damage.toFixed(2)} · vida ×${starBonus(o.stars).hp.toFixed(2)} · duplicados libres ${sparesOf(this.save, d.id)}</div>
+      <div class="sp-info">${tr('{x1} <b>{stars}/{MAX_STARS}</b>{x2} · daño ×{toFixed} · vida ×{toFixed2} · duplicados libres {sparesOf}', { x1: tr('Estrellas'), stars: o.stars, MAX_STARS, x2: xsOk ? ` · extra <b>${xs}/${EXTRA_STARS_MAX}</b>` : '', toFixed: starBonus(o.stars).damage.toFixed(2), toFixed2: starBonus(o.stars).hp.toFixed(2), sparesOf: sparesOf(this.save, d.id) })}</div>
       ${capList ? `<div class="sp-caps">${capList}</div>` : ''}
-      ${pend ? `<button class="btn small" data-starpick="${d.id}">✦ Elige ${pend === 1 ? 'la mejora' : `${pend} mejoras`} de límite (+${STAR_CAP_STEP})</button>` : ''}
+      ${pend ? `<button class="btn small" data-starpick="${d.id}">${tr('✦ Elige {x1} de límite (+{STAR_CAP_STEP})', { x1: pend === 1 ? tr('la mejora') : `${pend} mejoras`, STAR_CAP_STEP })}</button>` : ''}
       ${next ? `<div class="sp-next"><button class="btn ${next.copiesOk && next.coinsOk ? '' : 'blue'}" data-starbuy="${d.id}" ${next.copiesOk && next.coinsOk ? '' : 'disabled'}>
-          ${next.kind === 'extra' ? 'Estrella extra' : 'Subir estrella'} ${next.kind === 'extra' ? MAX_STARS + next.n : next.n} · ${next.cost.toLocaleString('es')} ◉</button>
-          <small>${why || `+${STAR_CAP_STEP} al límite de la estadística que elijas`}</small></div>`
-        : `<div class="note">${o.stars >= MAX_STARS && !xsOk ? 'Estrellas completas. Hazlo HÉROE (o Campeón si es Leyenda) para desbloquear 3 estrellas extra.' : '¡Todas las estrellas!'}</div>`}
+          ${next.kind === 'extra' ? tr('Estrella extra') : tr('Subir estrella')} ${next.kind === 'extra' ? MAX_STARS + next.n : next.n} · ${next.cost.toLocaleString(locale())} ◉</button>
+          <small>${why || tr('+{STAR_CAP_STEP} al límite de la estadística que elijas', { STAR_CAP_STEP })}</small></div>`
+        : `<div class="note">${o.stars >= MAX_STARS && !xsOk ? tr('Estrellas completas. Hazlo HÉROE (o Campeón si es Leyenda) para desbloquear 3 estrellas extra.') : tr('¡Todas las estrellas!')}</div>`}
     </div>`;
   }
 
@@ -5846,12 +5848,12 @@ export class App {
     const draw = () => {
       const n = order.length, cost = aff.costs.slice(0, n).reduce((a, b) => a + b, 0);
       const count = (k: string) => order.filter((x) => x === k).length;
-      box.innerHTML = `<div class="panel sp-pick"><h2>${mode === 'buy' ? 'Subir estrellas' : 'Mejoras de límite'}</h2>
-        <p class="note">Toca una estadística por cada estrella: su límite sube +${STAR_CAP_STEP}. Puedes repetir la misma.${mode === 'buy' ? ` Te llega para <b>${max}</b> ${max === 1 ? 'estrella' : 'estrellas'}.` : ` Te quedan <b>${max}</b>.`}</p>
+      box.innerHTML = `<div class="panel sp-pick"><h2>${mode === 'buy' ? tr('Subir estrellas') : tr('Mejoras de límite')}</h2>
+        <p class="note">${tr('Toca una estadística por cada estrella: su límite sube +{STAR_CAP_STEP}. Puedes repetir la misma.{x1}', { STAR_CAP_STEP, x1: mode === 'buy' ? ` ${tr('Te llega para <b>{max}</b> {x1}.', { max, x1: max === 1 ? 'estrella' : 'estrellas' })}` : ` Te quedan <b>${max}</b>.` })}</p>
         <div class="sp-grid">${STAT_INFO.map((x) => { const c = count(x.key), cap = statCapOf(this.save, p, x.key as StatKey);
           return `<div class="sp-opt${c ? ' on' : ''}"><button class="sp-add" data-k="${x.key}" ${n >= max ? 'disabled' : ''}><b>${x.short}</b><span>${cap} → <em>${cap + STAR_CAP_STEP * c}</em></span><small>${esc(x.name)}</small></button>${c ? `<button class="sp-rm" data-rm="${x.key}">−${c > 1 ? ` ${c}` : ''}</button>` : ''}</div>`; }).join('')}</div>
-        <div class="tut-nav"><button class="btn small blue" data-close>Cancelar</button><span class="spacer"></span>
-          <button class="btn" data-ok ${n ? '' : 'disabled'}>${mode === 'buy' ? `Subir ${n} ${n === 1 ? 'estrella' : 'estrellas'}${n ? ` · ${cost.toLocaleString('es')} ◉` : ''}` : `Aplicar ${n}`}</button></div></div>`;
+        <div class="tut-nav"><button class="btn small blue" data-close>${tr('Cancelar')}</button><span class="spacer"></span>
+          <button class="btn" data-ok ${n ? '' : 'disabled'}>${mode === 'buy' ? `Subir ${n} ${n === 1 ? 'estrella' : 'estrellas'}${n ? ` · ${cost.toLocaleString(locale())} ◉` : ''}` : `Aplicar ${n}`}</button></div></div>`;
       box.querySelector('[data-close]')!.addEventListener('click', () => box.remove());
       box.querySelectorAll<HTMLElement>('.sp-add').forEach((b) => b.addEventListener('click', () => { if (order.length < max) { order.push(b.dataset.k as StatKey); sfx('click'); draw(); } }));
       box.querySelectorAll<HTMLElement>('.sp-rm').forEach((b) => b.addEventListener('click', () => { const k = order.lastIndexOf(b.dataset.rm as StatKey); if (k >= 0) order.splice(k, 1); draw(); }));
@@ -5860,7 +5862,7 @@ export class App {
         box.remove();
         if (!done) { sfx('error'); return; }
         this.persist(); sfx(mode === 'buy' ? 'legend' : 'powerup');
-        this.toast(mode === 'buy' ? `${p.name}: +${done} ${done === 1 ? 'estrella' : 'estrellas'}` : `${p.name}: ${done} ${done === 1 ? 'mejora' : 'mejoras'} de límite`, 3000);
+        this.toast(mode === 'buy' ? `${p.name}: +${done} ${done === 1 ? 'estrella' : 'estrellas'}` : tr('{pName}: {done} {x1} de límite', { pName: p.name, done, x1: done === 1 ? 'mejora' : 'mejoras' }), 3000);
         this.collection(id);
       });
     };
@@ -5871,15 +5873,15 @@ export class App {
   /** Fix 1.3: training of an owned footballer: up to 20 points, one Ficha de entrenamiento each, freely returned. */
   private trainingHtml(d: RosterEntry) {
     if (!this.owned(d.id)) return '';
-    const used = trainingUsed(this.save, d.id), tr = trainingOf(this.save, d.id), have = this.save.trainTokens ?? 0;
+    const used = trainingUsed(this.save, d.id), trained = trainingOf(this.save, d.id), have = this.save.trainTokens ?? 0;
     const tmax = trainMaxOf(this.save, d.id), cap = statCapOf(this.save, d); // 1.8: a Campeón trains more and higher
     const can = have > 0 && used < tmax;
     const room = d.stats ? trainRoom(this.save, d, effectiveRarity(this.save, d), isHero(this.save, d.id)) : null;
-    return `<div class="train-box"><div class="train-head"><b>Entrenamiento ${used}/${tmax}</b><span>Fichas de entrenamiento: <b>${have}</b></span>
-      ${used ? `<button class="btn small blue" data-trainreset="${d.id}">Devolver puntos</button>` : ''}</div>
+    return `<div class="train-box"><div class="train-head"><b>${tr('Entrenamiento {used}/{tmax}', { used, tmax })}</b><span>${tr('Fichas de entrenamiento: <b>{have}</b>', { have })}</span>
+      ${used ? `<button class="btn small blue" data-trainreset="${d.id}">${tr('Devolver puntos')}</button>` : ''}</div>
       <div class="train-row">${STAT_INFO.map((s) => { const full = (room?.[s.key as StatKey] ?? 1) <= 0; // Fix 1.31: a stat at 99 takes no more points
-        return `<button class="btn small${full ? ' maxed' : ''}" data-train="${s.key}" data-pid="${d.id}" ${can && !full ? '' : 'disabled'} title="${full ? `Al máximo (${cap})` : ''}">${s.short}${tr[s.key as StatKey] ? ` +${tr[s.key as StatKey]}` : ''} ${full ? 'MÁX' : '＋'}</button>`; }).join('')}</div>
-      <div class="note">Cada ficha suma 1 punto a la estadística que elijas (máximo ${tmax} para este futbolista). Se ganan con victorias, rangos superados, supervivencia infinita, misiones semanales y logros.</div></div>`;
+        return `<button class="btn small${full ? ' maxed' : ''}" data-train="${s.key}" data-pid="${d.id}" ${can && !full ? '' : 'disabled'} title="${full ? tr('Al máximo ({cap})', { cap }) : ''}">${s.short}${trained[s.key as StatKey] ? ` +${trained[s.key as StatKey]}` : ''} ${full ? tr('MÁX') : '＋'}</button>`; }).join('')}</div>
+      <div class="note">${tr('Cada ficha suma 1 punto a la estadística que elijas (máximo {tmax} para este futbolista). Se ganan con victorias, rangos superados, supervivencia infinita, misiones semanales y logros.', { tmax })}</div></div>`;
   }
 
   private playerDetail(d: RosterEntry) {
@@ -5889,21 +5891,21 @@ export class App {
     const reps = Array.from({ length: Math.max(4, d.techniques.length) }, (_, i) => d.techniques[i]); // GO players can know more than 4
     return `<div class="panel detail r-${d.rarity}${isHero(this.save, d.id) ? ' is-hero' : ''}" style="--rc:${RARITY_COLOR[d.rarity]}"><div class="art">${this.mug(d.id, 128)}${charCanvas(d.id, 3, 12)}</div><div>
       <h3>${esc(d.name)} “${esc(d.nickname)}” ${this.rar(d)} ${this.elem(d)}</h3>
-      <div class="note">${POS_LABEL[d.position]} · ${esc(d.teams.filter((t) => (this.m.mainTeams ?? []).includes(t)).slice(0, 5).map(teamLabel).join(', ') || (d.exclusive === 'bluelock' ? 'Colaboración InaZurvivors x BlueLock' : d.exclusive === 'evento' ? 'Colaboración · Banner de agradecimiento' : 'Jugador de Fichatrón / Ojeador'))}${(() => { const sg = [...new Set(d.teams.map(sagaOf).filter(Boolean))]; return sg.length ? ` · Saga: ${esc(sg.join(', '))}` : ''; })()}</div>
-      ${o ? `<p><button class="btn small blue" data-compare="${d.id}">${this.compareWith === d.id ? 'Elige otro futbolista para comparar…' : '⇄ Comparar con otro'}</button></p>` : ''}
+      <div class="note">${POS_LABEL[d.position]} · ${esc(d.teams.filter((t) => (this.m.mainTeams ?? []).includes(t)).slice(0, 5).map(teamLabel).join(', ') || (d.exclusive === 'bluelock' ? tr('Colaboración InaZurvivors x BlueLock') : d.exclusive === 'evento' ? tr('Colaboración · Banner de agradecimiento') : tr('Jugador de Fichatrón / Ojeador')))}${(() => { const sg = [...new Set(d.teams.map(sagaOf).filter(Boolean))]; return sg.length ? ` · Saga: ${esc(sg.join(', '))}` : ''; })()}</div>
+      ${o ? `<p><button class="btn small blue" data-compare="${d.id}">${this.compareWith === d.id ? tr('Elige otro futbolista para comparar…') : tr('⇄ Comparar con otro')}</button></p>` : ''}
       ${o ? this.starPanel(d) : ''}
-      ${o && (nextStep(this.save, d) || isHero(this.save, d.id) || championOf(this.save, d.id)) ? `<p><button class="btn ${nextStep(this.save, d) ? 'big' : 'blue'}" data-ascend="${d.id}">${!nextStep(this.save, d) ? (championOf(this.save, d.id) ? `★ Ver ${CHAMPION_LABEL[championOf(this.save, d.id)]}` : '★ Ver HÉROE') : nextStep(this.save, d)!.step === 'campeon' ? `♛ ${CHAMPION_LABEL[championOf(this.save, d.id) + 1]} (${sparesOf(this.save, d.id)}/${nextStep(this.save, d)!.cost})` : nextStep(this.save, d)!.step === 'estrella' ? `★ Estrella de héroe (${sparesOf(this.save, d.id)}/${nextStep(this.save, d)!.cost})` : `▲ Ascensión (${sparesOf(this.save, d.id)}/${nextStep(this.save, d)!.cost})`}</button></p>` : ''}
+      ${o && (nextStep(this.save, d) || isHero(this.save, d.id) || championOf(this.save, d.id)) ? `<p><button class="btn ${nextStep(this.save, d) ? 'big' : 'blue'}" data-ascend="${d.id}">${!nextStep(this.save, d) ? (championOf(this.save, d.id) ? `★ Ver ${CHAMPION_LABEL[championOf(this.save, d.id)]}` : tr('★ Ver HÉROE')) : nextStep(this.save, d)!.step === 'campeon' ? `♛ ${CHAMPION_LABEL[championOf(this.save, d.id) + 1]} (${sparesOf(this.save, d.id)}/${nextStep(this.save, d)!.cost})` : nextStep(this.save, d)!.step === 'estrella' ? tr('★ Estrella de héroe ({sparesOf}/{x1})', { sparesOf: sparesOf(this.save, d.id), x1: nextStep(this.save, d)!.cost }) : tr('▲ Ascensión ({sparesOf}/{x1})', { sparesOf: sparesOf(this.save, d.id), x1: nextStep(this.save, d)!.cost })}</button></p>` : ''}
       ${this.keshinPanel(d)}
-      ${d.heroTech ? `<div class="note">Técnica de HÉROE: <b>${esc(d.heroTech.name)}</b>${isHero(this.save, d.id) ? ' (desbloqueada)' : ''}</div>` : ''}
-      ${(() => { const pa = adaptedPassive(d); return (pa ? `<div class="note">Pasiva: <b>${esc(pa.name)}</b> · ${esc(passiveText(pa))} <small>(adaptación de InaZurvivors)</small></div>` : '') + d.techniques.filter((t) => t.type === 'talento').map((t) => `<div class="note">Talento: <b>${esc(t.name)}</b> · ${esc(talentText(t.id, 1))} <small>(efecto adaptado; sube con el nivel de la técnica)</small></div>`).join(''); })()}
-      <h3 style="margin-top:8px">Repertorio (2 técnicas activas en combate)</h3>
-      ${reps.map((t, i) => (t ? `<div class="rep">${i === active ? '<span class="tag start">★ Inicial</span>' : o && this.canStartWith(d, i) ? `<button class="ts-start" data-start="${d.id}:${i}">☆ Empezar con esta</button>` : isLocked(t) && !isBought(this.save, d.id, i) ? '<span class="tag">Tienda</span>' : ''}${this.techHtml(t)}<div class="note">Maestría ${masteryLevel(this.save.mastery[String(t.id)] ?? 0)}/${MASTERY_USES.length} · +${masteryLevel(this.save.mastery[String(t.id)] ?? 0) * MASTERY_BONUS * 100}% daño · ${this.save.mastery[String(t.id)] ?? 0} usos</div></div>`
-        : '<div class="rep"><div class="tech"><div class="note">Ficha pendiente: sin datos de origen para esta técnica.</div></div></div>')).join('')}
-      ${d.stats ? (() => { const sp = this.statSplit(d), ae = this.auraEntryOf(d.id), eff: Record<string, number> = sp.eff ?? this.statsOf(d)!; return `<h3 style="margin-top:8px">Estadísticas · media ${statMean(eff)}${ae ? ` <small class="note">(con su Aura ${esc(ae.name)}; propia ${statMean(sp.own!)})</small>` : ''}</h3><div class="stat-radar">${statRadar(sp.own ?? this.statsOf(d)!, statNames, RARITY_COLOR[effectiveRarity(this.save, d)], sp.add)}</div>
-        ${ae ? `<p><button class="btn small blue" data-aura-info="${d.id}">✦ Ver su Aura</button></p>` : ''}
+      ${d.heroTech ? `<div class="note">${tr('Técnica de HÉROE:')} <b>${esc(tTech(d.heroTech.name))}</b>${isHero(this.save, d.id) ? tr(' (desbloqueada)') : ''}</div>` : ''}
+      ${(() => { const pa = adaptedPassive(d); return (pa ? `<div class="note">${tr('Pasiva:')} <b>${esc(pa.name)}</b> · ${esc(passiveText(pa))} <small>${tr('(adaptación de InaZurvivors)')}</small></div>` : '') + d.techniques.filter((t) => t.type === 'talento').map((t) => `<div class="note">${tr('Talento:')} <b>${esc(t.name)}</b> · ${esc(talentText(t.id, 1))} <small>${tr('(efecto adaptado; sube con el nivel de la técnica)')}</small></div>`).join(''); })()}
+      <h3 style="margin-top:8px">${tr('Repertorio (2 técnicas activas en combate)')}</h3>
+      ${reps.map((t, i) => (t ? `<div class="rep">${i === active ? '<span class="tag start">★ Inicial</span>' : o && this.canStartWith(d, i) ? `<button class="ts-start" data-start="${d.id}:${i}">${tr('☆ Empezar con esta')}</button>` : isLocked(t) && !isBought(this.save, d.id, i) ? '<span class="tag">Tienda</span>' : ''}${this.techHtml(t)}<div class="note">${tr('Maestría {x1}/{MASTERY_USESLength} · +{x2}% daño · {x3} usos', { x1: masteryLevel(this.save.mastery[String(t.id)] ?? 0), MASTERY_USESLength: MASTERY_USES.length, x2: masteryLevel(this.save.mastery[String(t.id)] ?? 0) * MASTERY_BONUS * 100, x3: this.save.mastery[String(t.id)] ?? 0 })}</div></div>`
+        : `<div class="rep"><div class="tech"><div class="note">${tr('Ficha pendiente: sin datos de origen para esta técnica.')}</div></div></div>`)).join('')}
+      ${d.stats ? (() => { const sp = this.statSplit(d), ae = this.auraEntryOf(d.id), eff: Record<string, number> = sp.eff ?? this.statsOf(d)!; return `<h3 style="margin-top:8px">${tr('Estadísticas · media {statMean}{x1}', { statMean: statMean(eff), x1: ae ? ` <small class="note">${tr('(con su Aura {aeName}; propia {x1})', { aeName: esc(ae.name), x1: statMean(sp.own!) })}</small>` : '' })}</h3><div class="stat-radar">${statRadar(sp.own ?? this.statsOf(d)!, statNames, RARITY_COLOR[effectiveRarity(this.save, d)], sp.add)}</div>
+        ${ae ? `<p><button class="btn small blue" data-aura-info="${d.id}">${tr('✦ Ver su Aura')}</button></p>` : ''}
         ${this.trainingHtml(d)}
-        <div class="stat-explain">${STAT_INFO.map((s) => { const add = sp.add[s.key] ?? 0, own = sp.own?.[s.key as StatKey] ?? eff[s.key]; return `<div><b>${s.name} ${eff[s.key] ?? '—'}${add ? ` <small class="ai-break">${own} + <i>${add} Aura</i> = ${eff[s.key]}/${EFFECTIVE_STAT_MAX}</small>` : ''}</b><span>${esc(s.what(eff[s.key] ?? 60))}</span></div>`; }).join('')}</div>
-        <div class="note">Valores centrados en 60: por encima suman, por debajo restan. Cada técnica usa las estadísticas de su futbolista. Lo propio llega a 99; con un Aura, hasta ${EFFECTIVE_STAT_MAX}.</div><div class="bars-mini">${Object.entries(eff).map(([k, v]) => `<span>${statNames[k] ?? k}</span><i style="width:${Math.min(100, v / EFFECTIVE_STAT_MAX * 100)}%"></i>`).join('')}</div>${d.statsSource === 'derivado' ? '<div class="note">Estadísticas estimadas por posición y rareza: las de IE3 aún no se han descifrado.</div>' : ''}`; })() : ''}
+        <div class="stat-explain">${STAT_INFO.map((s) => { const add = sp.add[s.key] ?? 0, own = sp.own?.[s.key as StatKey] ?? eff[s.key]; return `<div><b>${s.name} ${eff[s.key] ?? '—'}${add ? ` <small class="ai-break">${own} + <i>${tr('{add} Aura', { add })}</i> = ${eff[s.key]}/${EFFECTIVE_STAT_MAX}</small>` : ''}</b><span>${esc(s.what(eff[s.key] ?? 60))}</span></div>`; }).join('')}</div>
+        <div class="note">${tr('Valores centrados en 60: por encima suman, por debajo restan. Cada técnica usa las estadísticas de su futbolista. Lo propio llega a 99; con un Aura, hasta {EFFECTIVE_STAT_MAX}.', { EFFECTIVE_STAT_MAX })}</div><div class="bars-mini">${Object.entries(eff).map(([k, v]) => `<span>${statNames[k] ?? k}</span><i style="width:${Math.min(100, v / EFFECTIVE_STAT_MAX * 100)}%"></i>`).join('')}</div>${d.statsSource === 'derivado' ? `<div class="note">${tr('Estadísticas estimadas por posición y rareza: las de IE3 aún no se han descifrado.')}</div>` : ''}`; })() : ''}
       </div></div>`;
   }
 
@@ -5921,7 +5923,7 @@ export class App {
     if (this.gachaBanner === 'evento' && !thanksOpen) this.gachaBanner = blOpen ? 'bluelock' : 'ff'; // 1.75: only while the event is open
     if (this.gachaBanner === 'bluelock' && !blOpen) this.gachaBanner = 'ff'; // author: InaZurvivors x BlueLock, only while it is open
     const banner = BANNERS[this.gachaBanner];
-    const ev = banner.id === 'evento' || banner.id === 'bluelock', wallet = ev ? this.save.eventTokens ?? 0 : this.save.tokens, unit = ev ? 'fichas de evento' : 'fichas';
+    const ev = banner.id === 'evento' || banner.id === 'bluelock', wallet = ev ? this.save.eventTokens ?? 0 : this.save.tokens, unit = ev ? tr('fichas de evento') : 'fichas';
     const teams = teamChoices(this.m.roster, this.m.mainTeams ?? []);
     if (banner.id === 'equipo' && !teams.some((t) => t.team === this.gachaTeam)) this.gachaTeam = (teams.find((t) => t.team === this.save.favoriteTeam) ?? teams[0])?.team ?? '';
     const pool = bannerPool(this.m.roster, banner.id, this.gachaTeam);
@@ -5938,7 +5940,7 @@ export class App {
         <span class="bt-art">${star ? this.mug(star.id, 64) : uiIcon('capsule')}</span>
         <span class="bt-tx"><b>${esc(BANNERS[b].label)}</b><small>${esc(BANNERS[b].tagline)}</small></span><em class="bt-price">${pr.cost}</em></button>`;
     }).join('');
-    const teamSel = banner.id === 'equipo' ? `<label class="team-sel">Equipo: <select id="gteam">${teams.map((t) => `<option value="${esc(t.team)}" ${t.team === this.gachaTeam ? 'selected' : ''}>${esc(teamLabel(t.team))} (${t.size})</option>`).join('')}</select></label>` : '';
+    const teamSel = banner.id === 'equipo' ? `<label class="team-sel">${tr('Equipo:')} <select id="gteam">${teams.map((t) => `<option value="${esc(t.team)}" ${t.team === this.gachaTeam ? 'selected' : ''}>${esc(teamLabel(t.team))} (${t.size})</option>`).join('')}</select></label>` : '';
     // the special banner shows all its stars
     const feat = featured(pool, ev ? pool.filter((p) => p.exclusive).length : 5).map((p) => `<span class="feat r-${p.rarity}" style="--rc:${RARITY_COLOR[p.rarity]}" title="${esc(p.name)}">${this.mug(p.id, 48)}<small>${esc(p.name)}</small></span>`).join('');
     const odds = RARITY_ORDER.map((r) => `<div class="odd"><span class="rar ${r}">${RARITY_LABEL[r].toUpperCase()}</span><i style="--w:${Math.max(1.5, real[r])}%;--c:${RARITY_COLOR[r]}"></i><b>${real[r] ? `${+real[r].toFixed(2)}% · c/u ${+each[r].toFixed(3)}%` : 'vacía'}</b></div>`).join('');
@@ -5950,15 +5952,15 @@ export class App {
     const sb = starBonus(1);
     const has = !!this.m.capsule;
     setMusicContext('gacha');
-    this.show(`<div class="screen gacha-screen">${this.titlebar('Máquina de fichajes', 'Menú')}
-      ${thanksOpen && !ev ? `<button class="pn-eventcta thanks-cta" id="thanksev"><span class="th-faces">${bannerPool(this.m.roster, 'evento').filter((p) => p.exclusive).slice(0, 5).map((p) => this.mug(p.id, 40)).join('')}</span><span><small>EVENTO · TERMINA EN ${this.leftText(thanksLeftMs(serverNow()))}</small><b>Banner de agradecimiento</b><em>Ataque a los Titanes, Los Siete Pecados Capitales y Axel Encapuchado · ${THANKS_EVENT.cost} fichas de evento la tirada</em></span></button>` : ''}
-      ${blOpen && banner.id !== 'bluelock' ? `<button class="pn-eventcta bl-cta" id="blev"><span class="th-faces">${BLUELOCK_EVENT.players.map((id) => this.mug(id, 40)).join('')}</span><span><small>COLABORACIÓN · TERMINA EN ${this.leftText(bluelockLeftMs(serverNow()))}</small><b>InaZurvivors x BlueLock</b><em>Nagi e Isagi · ${BLUELOCK_EVENT.cost} fichas de evento la tirada</em></span></button>` : ''}
-      ${eventActive(serverNow()) ? `<button class="pn-eventcta" id="pnevent"><span class="pn-cta-art">${pennantSvg('supernova', 44)}</span><span><small>EVENTO · TERMINA EN ${this.eventLeftText(serverNow())}</small><b>Banners de leyenda</b><em>Se paga con monedas · Mítico al 3%</em></span></button>` : ''}
+    this.show(`<div class="screen gacha-screen">${this.titlebar(tr('Máquina de fichajes'), 'Menú')}
+      ${thanksOpen && !ev ? `<button class="pn-eventcta thanks-cta" id="thanksev"><span class="th-faces">${bannerPool(this.m.roster, 'evento').filter((p) => p.exclusive).slice(0, 5).map((p) => this.mug(p.id, 40)).join('')}</span><span><small>${tr('EVENTO · TERMINA EN {x1}', { x1: this.leftText(thanksLeftMs(serverNow())) })}</small><b>${tr('Banner de agradecimiento')}</b><em>${tr('Ataque a los Titanes, Los Siete Pecados Capitales y Axel Encapuchado · {cost} fichas de evento la tirada', { cost: THANKS_EVENT.cost })}</em></span></button>` : ''}
+      ${blOpen && banner.id !== 'bluelock' ? `<button class="pn-eventcta bl-cta" id="blev"><span class="th-faces">${BLUELOCK_EVENT.players.map((id) => this.mug(id, 40)).join('')}</span><span><small>${tr('COLABORACIÓN · TERMINA EN {x1}', { x1: this.leftText(bluelockLeftMs(serverNow())) })}</small><b>${tr('InaZurvivors x BlueLock')}</b><em>${tr('Nagi e Isagi · {cost} fichas de evento la tirada', { cost: BLUELOCK_EVENT.cost })}</em></span></button>` : ''}
+      ${eventActive(serverNow()) ? `<button class="pn-eventcta" id="pnevent"><span class="pn-cta-art">${pennantSvg('supernova', 44)}</span><span><small>${tr('EVENTO · TERMINA EN {x1}', { x1: this.eventLeftText(serverNow()) })}</small><b>${tr('Banners de leyenda')}</b><em>${tr('Se paga con monedas · Mítico al 3%')}</em></span></button>` : ''}
       <div class="banner-tabs">${tabs}</div>
-      <div class="banner-head bh4${banner.id === 'bluelock' ? ' bh-bl' : ''}" style="--bc:${banner.color}"><div class="bh-tx"><small>${banner.id === 'bluelock' ? 'COLABORACIÓN' : 'MÁQUINA'}</small>${banner.id === 'bluelock' ? this.blLogo() : `<b>${esc(banner.label)}</b>`}<span>${esc(banner.tagline)} · ${pool.length} futbolistas</span> ${teamSel}
-          <div class="bh-chips"><span>${uiIcon('capsule')}×1 · <b>${PULL_COST}</b>${ev ? ' de evento' : ''}</span><span>${uiIcon('capsule')}×10 · <b>${MULTI_COST}</b>${ev ? ' de evento' : ''}</span><span>${uiIcon('capsule')}×100 · <b>${HUNDRED_COST}</b>${ev ? ' de evento' : ''}</span>${ev ? `<span>Termina en <b>${this.leftText(banner.id === 'bluelock' ? bluelockLeftMs(serverNow()) : thanksLeftMs(serverNow()))}</b></span>` : ''}<span class="ok">×10: Épico o mejor asegurado</span>${hot ? `<span class="hot">★ Destacada hoy: Épico ×${String(FEATURED_BOOST.epico).replace('.', ',')} · Legendario, Mítico y Leyenda ×${String(FEATURED_BOOST.legendario).replace('.', ',')}</span>` : ''}</div>
-          <details class="rk-how"><summary>${uiIcon('help')}Precio y reglas</summary><div>${ev ? `Los futbolistas especiales solo salen aquí, con ${pool.filter((p) => !p.exclusive).length} Comunes, Raros y Épicos de relleno. Se paga con fichas de evento: cada partida en Rango S o X te da tantas como fichas normales mientras dura el evento.` : banner.id === 'equipo' ? 'Solo futbolistas del equipo elegido; las rarezas altas tienen un tope por jugador.' : `Cada futbolista sale en una sola máquina: la de la primera saga en la que aparece. Precio según sus Míticos (${price.mythics}): sin estrellas 5 · sin Míticos 10 · de 1 a 5 Míticos 15 · 6 o más 20.`}</div></details>${banner.id === 'bluelock' ? this.blRewards() : ''}</div>
-        <div class="feat-row"><small>DESTACADOS</small><div>${feat}</div></div>${this.machineCoaches(banner.id)}</div>
+      <div class="banner-head bh4${banner.id === 'bluelock' ? ' bh-bl' : ''}" style="--bc:${banner.color}"><div class="bh-tx"><small>${banner.id === 'bluelock' ? tr('COLABORACIÓN') : tr('MÁQUINA')}</small>${banner.id === 'bluelock' ? this.blLogo() : `<b>${esc(banner.label)}</b>`}<span>${tr('{tagline} · {poolLength} futbolistas', { tagline: esc(banner.tagline), poolLength: pool.length })}</span> ${teamSel}
+          <div class="bh-chips"><span>${uiIcon('capsule')}×1 · <b>${PULL_COST}</b>${ev ? tr(' de evento') : ''}</span><span>${uiIcon('capsule')}×10 · <b>${MULTI_COST}</b>${ev ? tr(' de evento') : ''}</span><span>${uiIcon('capsule')}×100 · <b>${HUNDRED_COST}</b>${ev ? tr(' de evento') : ''}</span>${ev ? `<span>${tr('Termina en')} <b>${this.leftText(banner.id === 'bluelock' ? bluelockLeftMs(serverNow()) : thanksLeftMs(serverNow()))}</b></span>` : ''}<span class="ok">${tr('×10: Épico o mejor asegurado')}</span>${hot ? `<span class="hot">${tr('★ Destacada hoy: Épico ×{x1} · Legendario, Mítico y Leyenda ×{x2}', { x1: String(FEATURED_BOOST.epico).replace('.', ','), x2: String(FEATURED_BOOST.legendario).replace('.', ',') })}</span>` : ''}</div>
+          <details class="rk-how"><summary>${tr('{x1}Precio y reglas', { x1: uiIcon('help') })}</summary><div>${ev ? tr('Los futbolistas especiales solo salen aquí, con {x1} Comunes, Raros y Épicos de relleno. Se paga con fichas de evento: cada partida en Rango S o X te da tantas como fichas normales mientras dura el evento.', { x1: pool.filter((p) => !p.exclusive).length }) : banner.id === 'equipo' ? tr('Solo futbolistas del equipo elegido; las rarezas altas tienen un tope por jugador.') : tr('Cada futbolista sale en una sola máquina: la de la primera saga en la que aparece. Precio según sus Míticos ({mythics}): sin estrellas 5 · sin Míticos 10 · de 1 a 5 Míticos 15 · 6 o más 20.', { mythics: price.mythics })}</div></details>${banner.id === 'bluelock' ? this.blRewards() : ''}</div>
+        <div class="feat-row"><small>${tr('DESTACADOS')}</small><div>${feat}</div></div>${this.machineCoaches(banner.id)}</div>
       <div class="ie3-machine">${has ? `<div class="ds-top"><img id="globe" src="${this.cap('globe0')}" alt=""></div>
         <div class="ds-bottom" style="background-image:url(${this.cap('panel_bottom')})">
           <img class="goal" src="${this.cap('goal_slot')}" alt=""><div class="knobwrap"><img class="kbase" src="${this.cap('knob_base')}" alt="">
@@ -5972,17 +5974,17 @@ export class App {
           <button class="btn" data-pull="10" ${wallet < MULTI_COST ? 'disabled' : ''}>×10 · ${MULTI_COST} ${unit}</button>
           <button class="btn c100" data-pull="100" ${wallet < HUNDRED_COST ? 'disabled' : ''}>×100 · ${HUNDRED_COST} ${unit}</button></div></div>`}</div>
       <div class="gacha-info">
-        <div class="panel gi gi-wallet"><h3>${uiIcon('capsule')}Tus ${unit}</h3><div class="gi-big"><span class="tokens${ev ? ' ev-tok' : ''}">${wallet}</span></div>
-          <div class="note">×1 cuesta <b>${PULL_COST}</b> · ×10 cuesta <b>${MULTI_COST}</b> (con un Épico o mejor asegurado) · ×100 cuesta <b>${HUNDRED_COST}</b> (diez ×10 de golpe, un Épico o mejor asegurado en cada diez). ${wallet < PULL_COST ? `Te faltan ${PULL_COST - wallet}.` : `Te llega para ${Math.floor(wallet / PULL_COST)} tirada(s).`}${ev ? ' Las fichas de evento se ganan jugando en Rango S o X.' : ''}</div></div>
-        <div class="panel gi"><h3>${uiIcon('gift')}Cómo conseguir fichas</h3><ul class="gi-list"><li>Jugar partidas (más si ganas)</li><li>Misiones diarias, semanales y logros</li><li>Altares y fichas en el campo</li><li>Primera victoria en cada arena y rango</li></ul></div>
-        <details class="panel gi gi-rules"><summary><h3>${uiIcon('help')}Nuevo, duplicado y ascensión</h3></summary><ul class="gi-list"><li><b class="newtag">NUEVO</b>: se desbloquea para siempre y ya puede ir en Mi Equipo.</li>
-          <li><b>Duplicado</b>: sirve para ascender al futbolista; si ya no puede ascender más, se convierte en monedas.</li><li><b>Estrellas</b> (hasta ${MAX_STARS}): se compran con monedas en su ficha (10.000, 20.000… 50.000). Cada una da +${Math.round((sb.damage - 1) * 100)}% daño, +${Math.round((sb.hp - 1) * 100)}% vida y +5 al límite de la estadística que elijas. Los HÉROES y Campeones tienen 3 estrellas extra (100.000, 110.000 y 120.000).</li>
-          <li>Los duplicados también pagan la <b>ascensión</b> de cualquier futbolista (Fix 1.53): cada ascensión sube una rareza y cuesta según la rareza desde la que sube (Común ${ASC_COSTS.comun.ascenso}, Raro ${ASC_COSTS.raro.ascenso}, Épico ${ASC_COSTS.epico.ascenso}, Legendario ${ASC_COSTS.legendario.ascenso}). Al llegar a Mítico, el HÉROE cuesta según la rareza con la que nació: Común ${ASC_COSTS.comun.heroe}, Raro ${ASC_COSTS.raro.heroe}, Épico ${ASC_COSTS.epico.heroe}, Legendario ${ASC_COSTS.legendario.heroe}, Mítico ${ASC_COSTS.mitico.heroe} y Leyenda ${ASC_COSTS.leyenda.heroe}. Después, cada HÉROE gana hasta ${HERO_STARS_MAX} estrellas de héroe (Mítico ${ASC_COSTS.mitico.estrella} duplicados cada una).</li>
-          <li>Con ${MAX_STARS} estrellas y HÉROE, cada copia da monedas (de ${DUPLICATE_REFUND_BY.comun} a ${DUPLICATE_REFUND_BY.leyenda} según la rareza).</li></ul></details>
-        <div class="panel gi gi-odds"><h3>${uiIcon('target')}Probabilidades</h3><div class="odds">${odds}</div>${empty.length ? `<div class="note">${esc(empty.join(', '))}: sin futbolistas por ahora; su probabilidad pasa a la rareza inferior.</div>` : ''}</div>
+        <div class="panel gi gi-wallet"><h3>${tr('{x1}Tus {unit}', { x1: uiIcon('capsule'), unit })}</h3><div class="gi-big"><span class="tokens${ev ? ' ev-tok' : ''}">${wallet}</span></div>
+          <div class="note">${tr('{x1} <b>{PULL_COST}</b> {x2} <b>{MULTI_COST}</b> {x3} <b>{HUNDRED_COST}</b> (diez ×10 de golpe, un Épico o mejor asegurado en cada diez). {x4}{x5}', { x1: tr('×1 cuesta'), PULL_COST, x2: tr('· ×10 cuesta'), MULTI_COST, x3: tr('(con un Épico o mejor asegurado) · ×100 cuesta'), HUNDRED_COST, x4: wallet < PULL_COST ? `Te faltan ${PULL_COST - wallet}.` : tr('Te llega para {x1} tirada(s).', { x1: Math.floor(wallet / PULL_COST) }), x5: ev ? tr(' Las fichas de evento se ganan jugando en Rango S o X.') : '' })}</div></div>
+        <div class="panel gi"><h3>${tr('{x1}Cómo conseguir fichas', { x1: uiIcon('gift') })}</h3><ul class="gi-list"><li>${tr('Jugar partidas (más si ganas)')}</li><li>${tr('Misiones diarias, semanales y logros')}</li><li>${tr('Altares y fichas en el campo')}</li><li>${tr('Primera victoria en cada arena y rango')}</li></ul></div>
+        <details class="panel gi gi-rules"><summary><h3>${tr('{x1}Nuevo, duplicado y ascensión', { x1: uiIcon('help') })}</h3></summary><ul class="gi-list"><li><b class="newtag">${tr('NUEVO')}</b>${tr(': se desbloquea para siempre y ya puede ir en Mi Equipo.')}</li>
+          <li><b>${tr('Duplicado')}</b>${tr(': sirve para ascender al futbolista; si ya no puede ascender más, se convierte en monedas.')}</li><li><b>${tr('Estrellas')}</b> ${tr('(hasta {MAX_STARS}): se compran con monedas en su ficha (10.000, 20.000… 50.000). Cada una da +{x1}% daño, +{x2}% vida y +5 al límite de la estadística que elijas. Los HÉROES y Campeones tienen 3 estrellas extra (100.000, 110.000 y 120.000).', { MAX_STARS, x1: Math.round((sb.damage - 1) * 100), x2: Math.round((sb.hp - 1) * 100) })}</li>
+          <li>${tr('Los duplicados también pagan la <b>ascensión</b> de cualquier futbolista (Fix 1.53): cada ascensión sube una rareza y cuesta según la rareza desde la que sube (Común {ascenso}, Raro {ascenso2}, Épico {ascenso3}, Legendario {ascenso4}). Al llegar a Mítico, el HÉROE cuesta según la rareza con la que nació: Común {heroe}, Raro {heroe2}, Épico {heroe3}, Legendario {heroe4}, Mítico {heroe5} y Leyenda {heroe6}. Después, cada HÉROE gana hasta {HERO_STARS_MAX} estrellas de héroe (Mítico {estrella} duplicados cada una).', { ascenso: ASC_COSTS.comun.ascenso, ascenso2: ASC_COSTS.raro.ascenso, ascenso3: ASC_COSTS.epico.ascenso, ascenso4: ASC_COSTS.legendario.ascenso, heroe: ASC_COSTS.comun.heroe, heroe2: ASC_COSTS.raro.heroe, heroe3: ASC_COSTS.epico.heroe, heroe4: ASC_COSTS.legendario.heroe, heroe5: ASC_COSTS.mitico.heroe, heroe6: ASC_COSTS.leyenda.heroe, HERO_STARS_MAX, estrella: ASC_COSTS.mitico.estrella })}</li>
+          <li>${tr('Con {MAX_STARS} estrellas y HÉROE, cada copia da monedas (de {comun} a {leyenda} según la rareza).', { MAX_STARS, comun: DUPLICATE_REFUND_BY.comun, leyenda: DUPLICATE_REFUND_BY.leyenda })}</li></ul></details>
+        <div class="panel gi gi-odds"><h3>${tr('{x1}Probabilidades', { x1: uiIcon('target') })}</h3><div class="odds">${odds}</div>${empty.length ? `<div class="note">${tr('{x1}: sin futbolistas por ahora; su probabilidad pasa a la rareza inferior.', { x1: esc(empty.join(', ')) })}</div>` : ''}</div>
       </div>
-      <div class="panel gi-hist"><h3>${uiIcon('clock')}Últimas tiradas</h3><div class="hist-row">${hist || '<span class="note">Aún no has tirado.</span>'}</div>
-        <div class="note">Fichas = máquina de cápsulas · Monedas = mejoras y tiendas. Gráficos de la máquina: Inazuma Eleven 3 (hoja de The Spriters Resource, ripeada por Avegaille), recurso local.</div></div></div>`);
+      <div class="panel gi-hist"><h3>${tr('{x1}Últimas tiradas', { x1: uiIcon('clock') })}</h3><div class="hist-row">${hist || `<span class="note">${tr('Aún no has tirado.')}</span>`}</div>
+        <div class="note">${tr('Fichas = máquina de cápsulas · Monedas = mejoras y tiendas. Gráficos de la máquina: Inazuma Eleven 3 (hoja de The Spriters Resource, ripeada por Avegaille), recurso local.')}</div></div></div>`);
     this.on('[data-back]', 'click', () => this.mainMenu());
     document.getElementById('pnevent')?.addEventListener('click', () => { if (!this.pulling) this.pennantEvent(); });
     // 1.88: the tab row keeps its scroll when the machine changes, and the chosen one stays in sight
@@ -6024,7 +6026,7 @@ export class App {
       if (coachGot) window.setTimeout(() => this.coachReveal(coachGot), 350);
       // v1.4: a pull that completes a team reward (crest, kit, captain) says which team, right away
       const fresh = this.teamClaimList().filter((c) => !claimsBefore.has(`${c.team}|${c.kind}`));
-      if (fresh.length) window.setTimeout(() => this.claimNotice(fresh, '¡Nueva recompensa de equipo!'), 300);
+      if (fresh.length) window.setTimeout(() => this.claimNotice(fresh, tr('¡Nueva recompensa de equipo!')), 300);
       this.claimsAnnounced = this.collectionClaims(); // already told: the menu does not repeat it
     });
     if (has) this.animateGlobe();
@@ -6109,20 +6111,20 @@ export class App {
       const rank = (r: PullResult) => RARITY_ORDER.indexOf(r.player.rarity) * 2 + (r.isNew ? 1 : 0);
       const groups = results.length > 10 ? this.groupPulls(results) : results.map((r) => ({ r, n: 1 }));
       const sorted = groups.sort((a, b) => rank(b.r) - rank(a.r));
-      const badge = (r: PullResult) => r.isNew ? 'NUEVO' : r.refund ? `+${r.refund} ◉` : r.starReady ? `★${r.starReady} lista` : r.toStar ? `${r.toStar[0]}/${r.toStar[1]} ★` : r.forAscension ? '+1 ascenso' : `★${r.stars}`;
+      const badge = (r: PullResult) => r.isNew ? tr('NUEVO') : r.refund ? `+${r.refund} ◉` : r.starReady ? `★${r.starReady} lista` : r.toStar ? `${r.toStar[0]}/${r.toStar[1]} ★` : r.forAscension ? '+1 ascenso' : `★${r.stars}`;
       const main = new Set(this.m.mainTeams ?? []);
       const teamOf = (r: PullResult) => teamLabel(r.player.teams.find((t) => main.has(t)) ?? r.player.teams[0] ?? '') || 'Fichatrón';
-      const what = (r: PullResult) => r.isNew ? '<em class="ps-new">¡NUEVO!</em>' : r.refund ? `<em>Duplicado · +${r.refund} monedas</em>` : r.starReady ? `<em class="ps-star">¡Estrella ${r.starReady} lista! Súbela en su ficha</em>` : nextStep(this.save, r.player) && sparesOf(this.save, r.player.id) >= nextStep(this.save, r.player)!.cost ? '<em class="ps-asc">Duplicado · ¡ya puede ascender!</em>' : r.toStar ? `<em>Duplicado · ${r.toStar[0]}/${r.toStar[1]} hacia ★</em>` : '<em>Duplicado</em>';
+      const what = (r: PullResult) => r.isNew ? `<em class="ps-new">${tr('¡NUEVO!')}</em>` : r.refund ? `<em>${tr('Duplicado · +{refund} monedas', { refund: r.refund })}</em>` : r.starReady ? `<em class="ps-star">${tr('¡Estrella {starReady} lista! Súbela en su ficha', { starReady: r.starReady })}</em>` : nextStep(this.save, r.player) && sparesOf(this.save, r.player.id) >= nextStep(this.save, r.player)!.cost ? `<em class="ps-asc">${tr('Duplicado · ¡ya puede ascender!')}</em>` : r.toStar ? `<em>${tr('Duplicado · {x1}/{x2} hacia ★', { x1: r.toStar[0], x2: r.toStar[1] })}</em>` : '<em>Duplicado</em>';
       const dupTeams = new Map<string, number>();
       for (const r of results) if (!r.isNew) dupTeams.set(teamOf(r), (dupTeams.get(teamOf(r)) ?? 0) + 1);
       const news = results.filter((r) => r.isNew).length;
       const ov = document.createElement('div');
       ov.className = 'reveal pull-summary';
-      ov.innerHTML = `<div class="pull-summary-box"><h3>${esc(title)} · todo lo que has fichado</h3>
+      ov.innerHTML = `<div class="pull-summary-box"><h3>${tr('{title} · todo lo que has fichado', { title: esc(title) })}</h3>
         <div class="note">${[news ? `${news} ${news === 1 ? 'fichaje nuevo' : 'fichajes nuevos'}` : '', results.length - news ? `${results.length - news} ${results.length - news === 1 ? 'duplicado' : 'duplicados'}` : ''].filter(Boolean).join(' · ')}</div>
-        ${dupTeams.size ? `<div class="ps-teams">Duplicados por equipo: ${[...dupTeams].map(([t, n]) => `<span>${esc(t)} ×${n}</span>`).join('')}</div>` : ''}
+        ${dupTeams.size ? `<div class="ps-teams">${tr('Duplicados por equipo: {x1}', { x1: [...dupTeams].map(([t, n]) => `<span>${esc(t)} ×${n}</span>`).join('') })}</div>` : ''}
         <div class="grid">${sorted.map(({ r, n }) => `<div class="ps-item r-${r.player.rarity}${r.isNew ? ' is-new' : ''}">${this.pcard(r.player, { badge: badge(r) })}${n > 1 ? `<i class="ps-n">×${n}</i>` : ''}<div class="ps-cap"><b>${esc(teamOf(r))}</b>${what(r)}</div></div>`).join('')}</div>
-        <button class="btn big">Aceptar</button></div>`;
+        <button class="btn big">${tr('Aceptar')}</button></div>`;
       this.root.appendChild(ov);
       mountPreviews();
       sfx('reveal');
@@ -6153,7 +6155,7 @@ export class App {
       const has = !!this.m.capsule;
       ov.innerHTML = `<div class="rays"></div><div class="reveal-title">${esc(title)}</div>
         ${has ? '<img class="cap-sprite" id="capimg" alt="">' : `<div class="capsule" style="--c:${RARITY_COLOR[p.rarity]}"><div class="top"></div><div class="bot"></div></div>`}
-        <div class="flash"></div><button class="btn small blue skip">${multi ? 'Saltar todo' : 'Saltar'}</button>${multi ? `<button class="btn small speed${this.revealSpeed > 1 ? ' on' : ''}">×2</button>` : ''}`;
+        <div class="flash"></div><button class="btn small blue skip">${multi ? tr('Saltar todo') : 'Saltar'}</button>${multi ? `<button class="btn small speed${this.revealSpeed > 1 ? ' on' : ''}">×2</button>` : ''}`;
       this.root.appendChild(ov);
       let done = false;
       const finish = (skipAll: boolean) => { if (done) return; done = true; window.removeEventListener('keydown', keys, true); ov.remove(); resolve(skipAll); };
@@ -6303,8 +6305,8 @@ export class App {
         const card = document.createElement('div');
         card.className = 'reveal-card';
         card.innerHTML = `<div class="rarity-big t${tier}" style="color:${RARITY_COLOR[p.rarity]}">${RARITY_LABEL[p.rarity].toUpperCase()}</div>
-          ${this.pcard(p, { anim: 12, big: true })}<div class="${r.isNew ? 'newtag' : 'stars'}">${r.isNew ? '¡NUEVO FICHAJE!' : r.refund ? `Al máximo: +${r.refund} monedas` : r.starReady ? `¡Estrella ${r.starReady} lista para subir!` : r.toStar ? `Duplicado · ${r.toStar[0]}/${r.toStar[1]} para la siguiente ★` : r.forAscension ? 'Duplicado · +1 para ascender' : `Duplicado · ${'★'.repeat(r.stars)}`}</div>
-          <button class="btn big">${multi ? 'Siguiente ▶' : 'Aceptar'}</button>`;
+          ${this.pcard(p, { anim: 12, big: true })}<div class="${r.isNew ? 'newtag' : 'stars'}">${r.isNew ? tr('¡NUEVO FICHAJE!') : r.refund ? tr('Al máximo: +{refund} monedas', { refund: r.refund }) : r.starReady ? tr('¡Estrella {starReady} lista para subir!', { starReady: r.starReady }) : r.toStar ? tr('Duplicado · {x1}/{x2} para la siguiente ★', { x1: r.toStar[0], x2: r.toStar[1] }) : r.forAscension ? tr('Duplicado · +1 para ascender') : tr('Duplicado · {x1}', { x1: '★'.repeat(r.stars) })}</div>
+          <button class="btn big">${multi ? tr('Siguiente ▶') : 'Aceptar'}</button>`;
         ov.appendChild(card);
         if (special) card.classList.add('from-scene');
         mountPreviews();
@@ -6321,8 +6323,8 @@ export class App {
     panel.className = 'panel';
     panel.style.marginTop = '14px';
     const groups = res.length > 10 ? this.groupPulls(res) : res.map((r) => ({ r, n: 1 })); // 2.01: ×100 grouped
-    panel.innerHTML = `<h3>Resultado (${res.length})</h3><div class="grid">${groups.map(({ r, n }) => this.pcard(r.player, {
-      badge: `${r.isNew ? 'NUEVO' : r.refund ? `+${r.refund}` : `★${r.stars}`}${n > 1 ? ` ×${n}` : ''}` })).join('')}</div>`;
+    panel.innerHTML = `<h3>${tr('Resultado ({resLength})', { resLength: res.length })}</h3><div class="grid">${groups.map(({ r, n }) => this.pcard(r.player, {
+      badge: `${r.isNew ? tr('NUEVO') : r.refund ? `+${r.refund}` : `★${r.stars}`}${n > 1 ? ` ×${n}` : ''}` })).join('')}</div>`;
     this.root.querySelector('.screen')!.appendChild(panel);
     mountPreviews();
   }
@@ -6347,17 +6349,17 @@ export class App {
       return `<div class="pk-card${max ? ' max' : ''}${blocked ? ' blocked' : ''}${lv ? ' some' : ''}" style="--d:${i * 40}ms">
         <div class="pk-top"><span class="pk-ic">${uiIcon(cic)}</span><b>${esc(p.label)}</b><span class="pk-lv"><em>${lv}</em>/${p.max}</span></div>
         <div class="pk-desc">${esc(p.description)}</div>
-        <div class="pk-val"><span class="now">${lv ? perkValue(p, lv) : '—'}</span>${max ? '<span class="maxed">MÁXIMO</span>' : `<i>›</i><span class="nx">${perkValue(p, lv + 1)}</span>`}</div>
+        <div class="pk-val"><span class="now">${lv ? perkValue(p, lv) : '—'}</span>${max ? `<span class="maxed">${tr('MÁXIMO')}</span>` : `<i>›</i><span class="nx">${perkValue(p, lv + 1)}</span>`}</div>
         <div class="pk-pips">${Array.from({ length: p.max }, (_, k) => `<i class="${k < lv ? 'on' : ''}"></i>`).join('')}</div>
-        <button class="pk-buy${poor ? ' poor' : ''}" data-perk="${p.id}" ${max || blocked || poor ? 'disabled' : ''}>${max ? '✔ COMPLETA' : blocked ? '🔒 Requiere la anterior' : `<span class="rw-chip c">${cost}</span>${poor ? 'Te faltan monedas' : 'MEJORAR'}`}</button></div>`;
+        <button class="pk-buy${poor ? ' poor' : ''}" data-perk="${p.id}" ${max || blocked || poor ? 'disabled' : ''}>${max ? '✔ COMPLETA' : blocked ? tr('🔒 Requiere la anterior') : `<span class="rw-chip c">${cost}</span>${poor ? tr('Te faltan monedas') : tr('MEJORAR')}`}</button></div>`;
     }).join('');
-    this.show(`<div class="screen pk-screen" style="--cc:${cc}">${this.titlebar('Mejoras permanentes', 'Menú')}
-      <div class="pk-tabs" id="cats">${PERK_CATEGORIES.map((c) => `<button data-c="${c}" class="pk-tab${c === cat ? ' on' : ''}" style="--cc:${CAT[c][1]}"><span class="m4-ic">${uiIcon(CAT[c][0])}</span><b>${c}</b><small>${categoryLevels(this.save, c)} niveles</small></button>`).join('')}</div>
-      <div class="pk-hero"><span class="pk-hero-ic">${uiIcon(cic)}</span><div class="pk-hero-tx"><small>BONIFICACIÓN DE ${cat.toUpperCase()}</small><b>${esc(CATEGORY_BONUS[cat])}</b>
+    this.show(`<div class="screen pk-screen" style="--cc:${cc}">${this.titlebar(tr('Mejoras permanentes'), 'Menú')}
+      <div class="pk-tabs" id="cats">${PERK_CATEGORIES.map((c) => `<button data-c="${c}" class="pk-tab${c === cat ? ' on' : ''}" style="--cc:${CAT[c][1]}"><span class="m4-ic">${uiIcon(CAT[c][0])}</span><b>${tr(c)}</b><small>${tr('{categoryLevels} niveles', { categoryLevels: categoryLevels(this.save, c) })}</small></button>`).join('')}</div>
+      <div class="pk-hero"><span class="pk-hero-ic">${uiIcon(cic)}</span><div class="pk-hero-tx"><small>${tr('BONIFICACIÓN DE {toUpperCase}', { toUpperCase: tr(cat).toUpperCase() })}</small><b>${esc(CATEGORY_BONUS[cat])}</b>
         <div class="pk-track"><i style="width:${Math.min(100, levels / top * 100)}%"></i>${MILESTONES.map((m) => `<span class="pk-ms${levels >= m ? ' got' : ''}" style="left:${m / top * 100}%"><em>${m}</em></span>`).join('')}</div>
-        <span class="note">${next ? `${levels}/${next} niveles en esta categoría para el siguiente premio (acumulable).` : '¡Todos los premios de esta categoría conseguidos!'}</span></div></div>
+        <span class="note">${next ? tr('{levels}/{next} niveles en esta categoría para el siguiente premio (acumulable).', { levels, next }) : tr('¡Todos los premios de esta categoría conseguidos!')}</span></div></div>
       <div class="pk-cards">${cards}</div>
-      <div class="pk-foot"><span>Invertido: <b>${spentOn(this.save)}</b> monedas · pulsa dos veces para confirmar cada compra</span><button class="btn small blue" id="refund" ${spentOn(this.save) ? '' : 'disabled'}>Reiniciar y recuperar todo</button></div></div>`);
+      <div class="pk-foot"><span>${tr('Invertido: <b>{spentOn}</b> monedas · pulsa dos veces para confirmar cada compra', { spentOn: spentOn(this.save) })}</span><button class="btn small blue" id="refund" ${spentOn(this.save) ? '' : 'disabled'}>${tr('Reiniciar y recuperar todo')}</button></div></div>`);
     this.on('[data-back]', 'click', () => this.mainMenu());
     this.on('#cats button', 'click', (_e, el) => this.perks(el.dataset.c as PerkCategory));
     document.getElementById('refund')!.addEventListener('click', (e) => this.armed(e.currentTarget as HTMLElement, () => { refundPerks(this.save); this.persist(); sfx('buy'); this.perks(); }));
@@ -6380,8 +6382,8 @@ export class App {
     this.missionFilter = filter;
     window.clearTimeout(this.misRefresh);
     const mult = perkEffects(this.save).missionMult;
-    const TABS: [MissionKind, string, UiIconName, string][] = [['diaria', 'Diarias', 'clock', 'Se reinician a medianoche'], ['semanal', 'Semanales', 'missions', 'Se reinician el lunes'],
-      ['partida', 'De partida', 'pitch', 'En una sola partida'], ['logro', 'Logros', 'trophy', 'Para siempre']];
+    const TABS: [MissionKind, string, UiIconName, string][] = [['diaria', tr('Diarias'), 'clock', tr('Se reinician a medianoche')], ['semanal', tr('Semanales'), 'missions', tr('Se reinician el lunes')],
+      ['partida', tr('De partida'), 'pitch', tr('En una sola partida')], ['logro', tr('Logros'), 'trophy', tr('Para siempre')]];
     const state = (d: (typeof MISSIONS)[number]) => (isClaimed(this.save, d) ? 'reclamadas' : isClaimable(this.save, d) ? 'disponibles' : 'pendientes');
     const ready = MISSIONS.filter((d) => isClaimable(this.save, d));
     const pend = (k: MissionKind) => ready.filter((d) => d.kind === k).length;
@@ -6392,24 +6394,24 @@ export class App {
     const rows = list.map((d, i) => {
       const p = Math.min(d.goal, missionProgress(this.save, d)), st = state(d), pc = Math.round(p / d.goal * 100);
       // v1.5: achievements show their category and a medal of their tier (bronze 10, silver 20, gold 50 fichas)
-      const cat = d.kind !== 'logro' ? null : /^a_/.test(d.id) ? ['aura', '✦ AURAS'] : /^c_|col|equipo|mitico|heroe|ascenso|fichajes|eras/.test(d.id) ? ['col', '★ COLECCIÓN']
-        : /^g_|niveles|combos/.test(d.id) ? ['prog', '▲ PROGRESIÓN'] : ['comb', '⚔ COMBATE'];
+      const cat = d.kind !== 'logro' ? null : /^a_/.test(d.id) ? ['aura', '✦ AURAS'] : /^c_|col|equipo|mitico|heroe|ascenso|fichajes|eras/.test(d.id) ? ['col', tr('★ COLECCIÓN')]
+        : /^g_|niveles|combos/.test(d.id) ? ['prog', tr('▲ PROGRESIÓN')] : ['comb', '⚔ COMBATE'];
       const tier = d.kind !== 'logro' ? '' : d.tokens >= 50 ? ' tier-g' : d.tokens >= 20 ? ' tier-s' : ' tier-b';
       return `<div class="rw-card ${st}${tier}" data-mid="${d.id}" style="--d:${Math.min(i, 12) * 35}ms;--w:${pc}%"><i class="rw-shine"></i>
         <span class="rw-ic">${cat ? `<span class="rw-medal">${st === 'disponibles' ? '🏆' : cat[1].slice(0, 1)}</span>` : uiIcon(st === 'disponibles' ? 'gift' : icon)}</span>
-        <div class="rw-body">${cat ? `<small class="rw-cat c-${cat[0]}">${cat[1]}</small>` : ''}<b>${esc(d.label)}</b><div class="rw-bar"><i></i><span>${p.toLocaleString('es')} / ${d.goal.toLocaleString('es')}</span></div></div>
-        <div class="rw-rew"><span class="rw-chip c">${Math.round(d.coins * mult)}</span>${d.tokens ? `<span class="rw-chip t">${d.tokens}</span>` : ''}${d.train ? `<span class="rw-chip tr" title="Fichas de entrenamiento">+${d.train} ENT</span>` : ''}${d.dupe ? '<span class="rw-chip dp" title="Duplicado de uno de tus Legendarios o Míticos">+1 DUP</span>' : ''}</div>
-        ${st === 'disponibles' ? `<button class="rw-btn" data-claim="${d.id}">¡RECLAMAR!</button>` : st === 'reclamadas' ? '<span class="rw-done">✔ COBRADA</span>' : `<span class="rw-pc">${pc}%</span>`}
-        <span class="rw-stamp">¡COBRADA!</span></div>`;
-    }).join('') || `<div class="rw-empty">${uiIcon('target')}Nada en esta lista.</div>`;
-    this.show(`<div class="screen rw-screen">${this.titlebar('Recompensas', 'Menú')}
+        <div class="rw-body">${cat ? `<small class="rw-cat c-${cat[0]}">${cat[1]}</small>` : ''}<b>${esc(d.label)}</b><div class="rw-bar"><i></i><span>${p.toLocaleString(locale())} / ${d.goal.toLocaleString(locale())}</span></div></div>
+        <div class="rw-rew"><span class="rw-chip c">${Math.round(d.coins * mult)}</span>${d.tokens ? `<span class="rw-chip t">${d.tokens}</span>` : ''}${d.train ? `<span class="rw-chip tr" title="${tr('Fichas de entrenamiento')}">${tr('+{train} ENT', { train: d.train })}</span>` : ''}${d.dupe ? `<span class="rw-chip dp" title="${tr('Duplicado de uno de tus Legendarios o Míticos')}">${tr('+1 DUP')}</span>` : ''}</div>
+        ${st === 'disponibles' ? `<button class="rw-btn" data-claim="${d.id}">${tr('¡RECLAMAR!')}</button>` : st === 'reclamadas' ? '<span class="rw-done">✔ COBRADA</span>' : `<span class="rw-pc">${pc}%</span>`}
+        <span class="rw-stamp">${tr('¡COBRADA!')}</span></div>`;
+    }).join('') || `<div class="rw-empty">${tr('{x1}Nada en esta lista.', { x1: uiIcon('target') })}</div>`;
+    this.show(`<div class="screen rw-screen">${this.titlebar(tr('Recompensas'), tr('Menú'))}
       <div class="rw-hero${ready.length ? ' hot' : ''}"><span class="rw-hero-ic">${uiIcon('gift')}</span>
-        <div class="rw-hero-tx"><small>MISIONES Y LOGROS</small><b>${ready.length ? `¡${ready.length} ${ready.length === 1 ? 'recompensa lista' : 'recompensas listas'}!` : 'Todo cobrado'}</b>
-          <div class="rw-sum">${ready.length ? `<span class="rw-chip c big">${sumCoins}</span><span class="rw-chip t big">${sumTokens}</span>` : '<span class="note">Juega partidas para completar más misiones.</span>'}</div></div>
-        <button class="rw-all" id="claimall" ${ready.length ? '' : 'disabled'}><i class="m4-shine"></i>RECLAMAR TODO${ready.length ? `<em>${ready.length}</em>` : ''}</button></div>
+        <div class="rw-hero-tx"><small>${tr('MISIONES Y LOGROS')}</small><b>${ready.length ? `¡${ready.length} ${ready.length === 1 ? 'recompensa lista' : 'recompensas listas'}!` : tr('Todo cobrado')}</b>
+          <div class="rw-sum">${ready.length ? `<span class="rw-chip c big">${sumCoins}</span><span class="rw-chip t big">${sumTokens}</span>` : `<span class="note">${tr('Juega partidas para completar más misiones.')}</span>`}</div></div>
+        <button class="rw-all" id="claimall" ${ready.length ? '' : 'disabled'}><i class="m4-shine"></i>${tr('RECLAMAR TODO{x1}', { x1: ready.length ? `<em>${ready.length}</em>` : '' })}</button></div>
       <div class="rw-tabs" id="tabs">${TABS.map(([k, l, ic, sub]) => { const all = MISSIONS.filter((d) => d.kind === k), done = all.filter((d) => isClaimed(this.save, d)).length;
         return `<button data-k="${k}" class="rw-tab${k === kind ? ' on' : ''}"><span class="m4-ic">${uiIcon(ic)}</span><span class="rw-tab-tx"><b>${l}</b><small>${sub}</small><i style="--p:${Math.round(done / Math.max(1, all.length) * 100)}%"></i></span>${pend(k) ? `<span class="m4-badge">${pend(k)}</span>` : ''}</button>`; }).join('')}</div>
-      <div class="rk-chips rw-filter" id="mfilter">${[['todas', 'Todas'], ['disponibles', 'Para cobrar'], ['pendientes', 'En curso'], ['reclamadas', 'Cobradas']].map(([k, l]) => `<button data-f="${k}" class="rk-chip${k === filter ? ' on' : ''}">${l}</button>`).join('')}</div>
+      <div class="rk-chips rw-filter" id="mfilter">${[['todas', tr('Todas')], ['disponibles', tr('Para cobrar')], ['pendientes', tr('En curso')], ['reclamadas', tr('Cobradas')]].map(([k, l]) => `<button data-f="${k}" class="rk-chip${k === filter ? ' on' : ''}">${l}</button>`).join('')}</div>
       <div class="rw-list">${rows}</div></div>`);
     this.on('[data-back]', 'click', () => this.mainMenu());
     this.on('#tabs button', 'click', (_e, el) => this.missions(el.dataset.k as MissionKind));
@@ -6419,7 +6421,7 @@ export class App {
       const [wc, wt] = wallet();
       window.setTimeout(() => { if (wc) countUp(wc, c0, this.save.coins, 650); if (wt) countUp(wt, t0, this.save.tokens, 650); }, 420);
     };
-    const refreshSoon = (ms: number) => { window.clearTimeout(this.misRefresh); this.misRefresh = window.setTimeout(() => { if (this.screenKey === 'Recompensas') this.missions(kind, filter); }, ms); }; // same screen: show() keeps the scroll
+    const refreshSoon = (ms: number) => { window.clearTimeout(this.misRefresh); this.misRefresh = window.setTimeout(() => { if (this.screenKey === tr('Recompensas')) this.missions(kind, filter); }, ms); }; // same screen: show() keeps the scroll
     const celebrate = (card: HTMLElement) => {
       card.classList.add('claiming');
       const btn = card.querySelector('.rw-btn, .rw-rew') ?? card;
@@ -6465,9 +6467,9 @@ export class App {
     const box = document.createElement('div');
     box.id = 'rsum';
     box.className = 'rw-burst';
-    box.innerHTML = `<div class="rw-burst-card"><i class="rw-rays"></i><small>${got.count} ${got.count === 1 ? 'MISIÓN COBRADA' : 'MISIONES COBRADAS'}</small><b>¡Recompensas!</b>
+    box.innerHTML = `<div class="rw-burst-card"><i class="rw-rays"></i><small>${got.count} ${got.count === 1 ? tr('MISIÓN COBRADA') : tr('MISIONES COBRADAS')}</small><b>${tr('¡Recompensas!')}</b>
       <div class="rw-burst-row"><span class="rw-chip c huge"><em id="rbc">+0</em></span>${got.tokens ? `<span class="rw-chip t huge"><em id="rbt">+0</em></span>` : ''}</div>
-      ${dupe ? `<div class="rw-burst-dupe">+1 duplicado de <b>${esc(dupe)}</b></div>` : ''}<span class="note">Toca para cerrar</span></div>`;
+      ${dupe ? `<div class="rw-burst-dupe">${tr('+1 duplicado de <b>{dupe}</b>', { dupe: esc(dupe) })}</div>` : ''}<span class="note">${tr('Toca para cerrar')}</span></div>`;
     const close = () => { box.classList.add('out'); window.setTimeout(() => box.remove(), 220); };
     box.addEventListener('click', close);
     document.body.appendChild(box);
@@ -6498,31 +6500,31 @@ export class App {
       const locked = isLocked(t) && !isBought(this.save, p.id, i);
       const bought = isBought(this.save, p.id, i);
       const start = i === this.startOf(p);
-      const state = start ? ['★ INICIAL', 'ok'] : bought ? ['DESBLOQUEADA', 'ok'] : locked ? ['SOLO COMPRANDO', 'lock'] : [`DESDE NIVEL ${Math.floor(t.unlockLevel / 6)}`, 'lv'];
+      const state = start ? ['★ INICIAL', 'ok'] : bought ? [tr('DESBLOQUEADA'), 'ok'] : locked ? [tr('SOLO COMPRANDO'), 'lock'] : [tr('DESDE NIVEL {x1}', { x1: Math.floor(t.unlockLevel / 6) }), 'lv'];
       return `<div class="ts-tech ${state[1]}" style="--d:${i * 50}ms">${this.techHtml(t)}
         <div class="ts-status"><span class="ts-badge ${state[1]}">${state[0]}</span>
-          <div class="ts-pips" title="Manuales de daño">${Array.from({ length: MAX_TECH_BOOST }, (_, k) => `<i class="${k < lv ? 'on' : ''}"></i>`).join('')}<small>Manual ${lv}/${MAX_TECH_BOOST} · +${lv * 5}% daño</small></div>
-          <small class="ts-why">${locked ? 'Solo se aprende comprándola.' : bought || start ? 'Aparece desde el nivel 1 de la partida.' : `Aparece sola en partida a partir del nivel ${Math.floor(t.unlockLevel / 6)}; comprándola, desde el 1.`}</small></div>
-        <div class="shop-btns">${t.type === 'talento' ? '' : start ? '<span class="ts-start on">★ Técnica inicial</span>' : this.canStartWith(p, i) ? `<button class="ts-start" data-start="${p.id}:${i}">☆ Empezar con esta</button>` : ''}
-        ${start || i === startingTech(p) || bought ? '' : `<button class="btn small" data-unlock="${i}" ${this.save.coins < unlockCost(t) ? 'disabled' : ''}>Desbloquear · ${unlockCost(t)} ◉</button>`}
-        <button class="btn small blue" data-boost="${i}" ${lv >= MAX_TECH_BOOST || this.save.coins < boostCost(t, lv) ? 'disabled' : ''}>${lv >= MAX_TECH_BOOST ? 'Manual MÁX' : `Manual · ${boostCost(t, lv)} ◉`}</button></div></div>`;
+          <div class="ts-pips" title="${tr('Manuales de daño')}">${Array.from({ length: MAX_TECH_BOOST }, (_, k) => `<i class="${k < lv ? 'on' : ''}"></i>`).join('')}<small>${tr('Manual {lv}/{MAX_TECH_BOOST} · +{x1}% daño', { lv, MAX_TECH_BOOST, x1: lv * 5 })}</small></div>
+          <small class="ts-why">${locked ? tr('Solo se aprende comprándola.') : bought || start ? tr('Aparece desde el nivel 1 de la partida.') : tr('Aparece sola en partida a partir del nivel {x1}; comprándola, desde el 1.', { x1: Math.floor(t.unlockLevel / 6) })}</small></div>
+        <div class="shop-btns">${t.type === 'talento' ? '' : start ? `<span class="ts-start on">${tr('★ Técnica inicial')}</span>` : this.canStartWith(p, i) ? `<button class="ts-start" data-start="${p.id}:${i}">${tr('☆ Empezar con esta')}</button>` : ''}
+        ${start || i === startingTech(p) || bought ? '' : `<button class="btn small" data-unlock="${i}" ${this.save.coins < unlockCost(t) ? 'disabled' : ''}>${tr('Desbloquear · {unlockCost} ◉', { unlockCost: unlockCost(t) })}</button>`}
+        <button class="btn small blue" data-boost="${i}" ${lv >= MAX_TECH_BOOST || this.save.coins < boostCost(t, lv) ? 'disabled' : ''}>${lv >= MAX_TECH_BOOST ? tr('Manual MÁX') : `Manual · ${boostCost(t, lv)} ◉`}</button></div></div>`;
     }).join('') ?? '';
     const pr = p ? effectiveRarity(this.save, p) : 'comun';
-    this.show(`<div class="screen ts-screen">${this.titlebar('Tienda de técnicas', 'Menú')}
+    this.show(`<div class="screen ts-screen">${this.titlebar(tr('Tienda de técnicas'), 'Menú')}
       <div class="ts-wrap">
-        <aside class="ts-side"><h4>${uiIcon('team')}Tu plantilla <small id="tscount">${owned.length}</small></h4>
-          <div class="ts-filters"><input id="tsq" type="search" placeholder="Buscar futbolista o técnica…" value="${esc(f.q)}" autocomplete="off">
-            <div class="ts-frow"><select id="tsr"><option value="">Rareza</option>${RARITY_ORDER.map((r) => `<option value="${r}" ${f.rarity === r ? 'selected' : ''}>${RARITY_LABEL[r]}</option>`).join('')}<option value="heroe" ${f.rarity === 'heroe' ? 'selected' : ''}>HÉROE</option></select>
-              <select id="tse"><option value="">Elemento</option>${elements.map((e) => `<option value="${esc(e)}" ${f.element === e ? 'selected' : ''}>${esc(e)}</option>`).join('')}</select></div>
-            <div class="ts-frow"><select id="tst"><option value="">Tipo de técnica</option>${types.map((t) => `<option value="${t}" ${f.type === t ? 'selected' : ''}>${esc(TYPE_LABEL[t])}</option>`).join('')}</select>
-              <label class="ts-chk"><input type="checkbox" id="tsp" ${f.pending ? 'checked' : ''}>Por comprar</label></div></div>
+        <aside class="ts-side"><h4>${tr('{x1}Tu plantilla', { x1: uiIcon('team') })} <small id="tscount">${owned.length}</small></h4>
+          <div class="ts-filters"><input id="tsq" type="search" placeholder="${tr('Buscar futbolista o técnica…')}" value="${esc(f.q)}" autocomplete="off">
+            <div class="ts-frow"><select id="tsr"><option value="">${tr('Rareza')}</option>${RARITY_ORDER.map((r) => `<option value="${r}" ${f.rarity === r ? 'selected' : ''}>${RARITY_LABEL[r]}</option>`).join('')}<option value="heroe" ${f.rarity === 'heroe' ? 'selected' : ''}>${tr('HÉROE')}</option></select>
+              <select id="tse"><option value="">${tr('Elemento')}</option>${elements.map((e) => `<option value="${esc(e)}" ${f.element === e ? 'selected' : ''}>${esc(tEl(e))}</option>`).join('')}</select></div>
+            <div class="ts-frow"><select id="tst"><option value="">${tr('Tipo de técnica')}</option>${types.map((t) => `<option value="${t}" ${f.type === t ? 'selected' : ''}>${esc(TYPE_LABEL[t])}</option>`).join('')}</select>
+              <label class="ts-chk"><input type="checkbox" id="tsp" ${f.pending ? 'checked' : ''}>${tr('Por comprar')}</label></div></div>
           <div class="ts-list">${owned.map((o) => { const r = effectiveRarity(this.save, o); return `<button class="ts-pick${o.id === p?.id ? ' on' : ''}" data-p="${o.id}" style="--rc:${RARITY_COLOR[r]}"
               data-name="${esc([o.name, o.nameEn ?? '', ...o.techniques.map((t) => t.name)].join(' ').toLowerCase())}" data-r="${isHero(this.save, o.id) ? 'heroe' : r}" data-el="${esc(String(o.element))}"
-              data-types="${[...new Set(o.techniques.map((t) => t.type))].join(' ')}" data-pend="${this.shopPending(o) ? 1 : 0}">${this.mug(o.id, 36)}<span><b>${esc(o.name)}</b><small>${RARITY_LABEL[r]} · ${o.techniques.length} técnicas</small></span></button>`; }).join('')}</div></aside>
+              data-types="${[...new Set(o.techniques.map((t) => t.type))].join(' ')}" data-pend="${this.shopPending(o) ? 1 : 0}">${this.mug(o.id, 36)}<span><b>${esc(o.name)}</b><small>${tr('{x1} · {techniquesLength} técnicas', { x1: RARITY_LABEL[r], techniquesLength: o.techniques.length })}</small></span></button>`; }).join('')}</div></aside>
         <section class="ts-main">${p ? `<div class="ts-head" style="--rc:${RARITY_COLOR[pr]}"><span class="ts-mug">${this.mug(p.id, 96)}</span>
-            <div><small>REPERTORIO</small><b>${esc(p.name)}</b><div class="ts-tags">${this.rar(p)} ${this.elem(p)}</div>
-            <p>Cada futbolista solo usa su propio repertorio. Aquí desbloqueas sus técnicas y compras <b>manuales</b> de daño permanente (subir de nivel una técnica en partida es aparte).</p></div></div>
-          <div class="ts-techs">${rows}</div>` : '<div class="note">Aún no tienes futbolistas.</div>'}</section>
+            <div><small>${tr('REPERTORIO')}</small><b>${esc(p.name)}</b><div class="ts-tags">${this.rar(p)} ${this.elem(p)}</div>
+            <p>${tr('Cada futbolista solo usa su propio repertorio. Aquí desbloqueas sus técnicas y compras <b>manuales</b> de daño permanente (subir de nivel una técnica en partida es aparte).')}</p></div></div>
+          <div class="ts-techs">${rows}</div>` : `<div class="note">${tr('Aún no tienes futbolistas.')}</div>`}</section>
       </div></div>`);
     { const list = this.root.querySelector<HTMLElement>('.ts-list'), on = this.root.querySelector<HTMLElement>('.ts-pick.on');
       if (list && on) list.scrollTop = on.offsetTop - list.offsetTop - list.clientHeight / 2 + on.offsetHeight / 2; } // the chosen player stays in view, the page does not jump
@@ -6560,7 +6562,7 @@ export class App {
       return `<div class="perk gear${on ? ' on' : ''}"><div class="gear-row">${this.icon(it.icon, 2)}<div><b>${esc(it.name)}</b><div class="note">${esc(it.effect)}${it.note ? ` · ${esc(it.note)}` : ''}</div></div></div>
         ${mine ? `<button class="btn small blue" data-eq="${it.id}">${on ? 'Quitar' : 'Equipar'}</button>` : `<button class="btn small" data-buy="${it.id}" ${this.save.coins < it.price ? 'disabled' : ''}>${it.price} ◉</button>`}</div>`;
     }).join('')}</div>`).join('');
-    this.show(`<div class="screen">${this.titlebar('Equipamiento', 'Menú')}<div class="panel"><div class="note">Bonificaciones para todo el equipo. No cambian la equipación Raimon que se ve en combate.</div>${cols}</div></div>`);
+    this.show(`<div class="screen">${this.titlebar(tr('Equipamiento'), tr('Menú'))}<div class="panel"><div class="note">${tr('Bonificaciones para todo el equipo. No cambian la equipación Raimon que se ve en combate.')}</div>${cols}</div></div>`);
     this.on('[data-back]', 'click', () => this.mainMenu());
     const keep = (fn: () => void) => { const y = this.root.querySelector('.screen')!.scrollTop; fn(); this.gearScreen(); this.root.querySelector('.screen')!.scrollTop = y; };
     this.on('[data-buy]', 'click', (_e, el) => this.armed(el, () => keep(() => { const it = this.gear.find((x) => x.id === el.dataset.buy); if (it && buyGear(this.save, it)) { this.persist(); sfx('buy'); } })));
@@ -6571,32 +6573,32 @@ export class App {
   credits() {
     setMusicContext('menu');
     const link = (href: string, text: string) => `<a href="${href}" target="_blank" rel="noopener noreferrer">${text}</a>`;
-    this.show(`<div class="screen">${this.titlebar('Créditos y aviso legal', 'Menú')}<div class="panel legal">
-      <h3>InaZurvivors — Proyecto de fans no oficial</h3>
-      <p>InaZurvivors es un fangame independiente y gratuito desarrollado por AstraStorm17, inspirado en la franquicia Inazuma Eleven.</p>
-      <p>Inazuma Eleven, sus personajes, nombres, diseños, logotipos, música y materiales originales son propiedad de LEVEL-5 y/o sus respectivos titulares.</p>
-      <p>Este proyecto no está afiliado, patrocinado ni aprobado por LEVEL-5.</p>
-      <p>El código y los materiales originales desarrollados específicamente para InaZurvivors pertenecen a sus respectivos autores.</p>
-      <p>Los recursos gráficos y sonoros de terceros conservan sus derechos originales.</p>
-      <p>La inclusión de créditos y este aviso no implica la existencia de una licencia o autorización para distribuir material protegido.</p>
-      <h3>Desarrollo</h3>
-      <ul><li>Diseño, dirección y desarrollo: AstraStorm17.</li><li>Programación con asistencia de Claude (Anthropic).</li></ul>
-      <h3>Recursos de terceros y su procedencia</h3>
+    this.show(`<div class="screen">${this.titlebar(tr('Créditos y aviso legal'), 'Menú')}<div class="panel legal">
+      <h3>${tr('InaZurvivors — Proyecto de fans no oficial')}</h3>
+      <p>${tr('InaZurvivors es un fangame independiente y gratuito desarrollado por AstraStorm17, inspirado en la franquicia Inazuma Eleven.')}</p>
+      <p>${tr('Inazuma Eleven, sus personajes, nombres, diseños, logotipos, música y materiales originales son propiedad de LEVEL-5 y/o sus respectivos titulares.')}</p>
+      <p>${tr('Este proyecto no está afiliado, patrocinado ni aprobado por LEVEL-5.')}</p>
+      <p>${tr('El código y los materiales originales desarrollados específicamente para InaZurvivors pertenecen a sus respectivos autores.')}</p>
+      <p>${tr('Los recursos gráficos y sonoros de terceros conservan sus derechos originales.')}</p>
+      <p>${tr('La inclusión de créditos y este aviso no implica la existencia de una licencia o autorización para distribuir material protegido.')}</p>
+      <h3>${tr('Desarrollo')}</h3>
+      <ul><li>${tr('Diseño, dirección y desarrollo: AstraStorm17.')}</li><li>${tr('Programación con asistencia de Claude (Anthropic).')}</li></ul>
+      <h3>${tr('Recursos de terceros y su procedencia')}</h3>
       <ul>
-        <li>Futbolistas, retratos, cuerpos, escudos, objetos, arenas y música: Inazuma Eleven 2 (LEVEL-5), extraídos de una copia propia del juego.</li>
-        <li>Futbolistas, retratos y escudos de las sagas Mundial, GO, Chrono Stones, Galaxy, Ares y Orion: Inazuma Eleven 3 (LEVEL-5) con el parche de fans «Great Road of Heroes 3.1». Autoría del parche: no verificada; base y añadidos del parche no se pueden separar.</li>
-        <li>Máquina de cápsulas: gráficos de Inazuma Eleven 3 (LEVEL-5), hoja publicada en ${link('https://www.spriters-resource.com/', 'The Spriters Resource')}, ripeada por Avegaille.</li>
-        <li>Nombres en español e inglés de parte de las técnicas: ${link('https://inazuma-eleven.fandom.com/', 'Inazuma Eleven Wiki')} (Fandom), contenido bajo ${link('https://www.fandom.com/licensing', 'CC BY-SA')}.</li>
-        <li>Motor: ${link('https://phaser.io/', 'Phaser')} © Richard Davey, Phaser Studio Inc. (${link('https://opensource.org/license/mit', 'licencia MIT')}). Herramienta: ${link('https://vite.dev/', 'Vite')} (MIT).</li>
-        <li>Fuente: Press Start 2P © The Press Start 2P Project Authors (${link('https://openfontlicense.org/', 'SIL Open Font License 1.1')}), vía Fontsource.</li>
-        <li>Creados para InaZurvivors: efectos de supertécnicas, efectos de sonido, iconos de elemento, orbes, música «Generada» e interfaz.</li>
+        <li>${tr('Futbolistas, retratos, cuerpos, escudos, objetos, arenas y música: Inazuma Eleven 2 (LEVEL-5), extraídos de una copia propia del juego.')}</li>
+        <li>${tr('Futbolistas, retratos y escudos de las sagas Mundial, GO, Chrono Stones, Galaxy, Ares y Orion: Inazuma Eleven 3 (LEVEL-5) con el parche de fans «Great Road of Heroes 3.1». Autoría del parche: no verificada; base y añadidos del parche no se pueden separar.')}</li>
+        <li>${tr('Máquina de cápsulas: gráficos de Inazuma Eleven 3 (LEVEL-5), hoja publicada en {x1}, ripeada por Avegaille.', { x1: link('https://www.spriters-resource.com/', tr('The Spriters Resource')) })}</li>
+        <li>${tr('Nombres en español e inglés de parte de las técnicas: {x1} (Fandom), contenido bajo {x2}.', { x1: link('https://inazuma-eleven.fandom.com/', tr('Inazuma Eleven Wiki')), x2: link('https://www.fandom.com/licensing', tr('CC BY-SA')) })}</li>
+        <li>${tr('Motor: {x1} © Richard Davey, Phaser Studio Inc. ({x2}). Herramienta: {x3} (MIT).', { x1: link('https://phaser.io/', 'Phaser'), x2: link('https://opensource.org/license/mit', 'licencia MIT'), x3: link('https://vite.dev/', 'Vite') })}</li>
+        <li>${tr('Fuente: Press Start 2P © The Press Start 2P Project Authors ({x1}), vía Fontsource.', { x1: link('https://openfontlicense.org/', tr('SIL Open Font License 1.1')) })}</li>
+        <li>${tr('Creados para InaZurvivors: efectos de supertécnicas, efectos de sonido, iconos de elemento, orbes, música «Generada» e interfaz.')}</li>
       </ul>
-      <h3>Redes sociales</h3><p>${this.tiktokLink('Síguenos en TikTok')}</p>
-      <h3>Sobre el desarrollador</h3><p>AstraStorm también ha creado otros videojuegos.</p>
-      <p><a class="btn small blue dev-games" id="devgames" href="${CREATOR_GAMES_URL}" target="_blank" rel="noopener noreferrer" aria-label="Otros juegos del creador (se abre en una pestaña nueva)">${GAMEPAD_SVG}<span>Otros juegos del creador</span><svg class="dg-ext" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h6v6h-2V7.4l-7.3 7.3-1.4-1.4L16.6 6H14V4ZM5 6h6v2H6v10h10v-5h2v7H4V6h1Z"/></svg></a></p>
-      <h3>Enlaces oficiales</h3><p>${link('https://www.level5.co.jp/', 'LEVEL-5')} · ${link('https://www.inazuma.jp/', 'Inazuma Eleven')}</p>
-      <h3>Privacidad</h3><p>Sin cuenta, InaZurvivors no recopila datos personales: tu progreso se guarda solo en este navegador. Con cuenta online (Google) se guardan tu correo de Google (privado), tu nombre, tus marcas y tu guardado. <a href="privacidad.html" target="_blank" rel="noopener">Privacidad y condiciones</a></p>
-      <p class="note">${esc(VERSION_LABEL)} · compilación interna ${esc(BUILD)}</p></div></div>`);
+      <h3>${tr('Redes sociales')}</h3><p>${this.tiktokLink(tr('Síguenos en TikTok'))}</p>
+      <h3>${tr('Sobre el desarrollador')}</h3><p>${tr('AstraStorm también ha creado otros videojuegos.')}</p>
+      <p><a class="btn small blue dev-games" id="devgames" href="${CREATOR_GAMES_URL}" target="_blank" rel="noopener noreferrer" aria-label="${tr('Otros juegos del creador (se abre en una pestaña nueva)')}">${GAMEPAD_SVG}<span>${tr('Otros juegos del creador')}</span><svg class="dg-ext" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h6v6h-2V7.4l-7.3 7.3-1.4-1.4L16.6 6H14V4ZM5 6h6v2H6v10h10v-5h2v7H4V6h1Z"/></svg></a></p>
+      <h3>${tr('Enlaces oficiales')}</h3><p>${link('https://www.level5.co.jp/', tr('LEVEL-5'))} · ${link('https://www.inazuma.jp/', tr('Inazuma Eleven'))}</p>
+      <h3>${tr('Privacidad')}</h3><p>${tr('Sin cuenta, InaZurvivors no recopila datos personales: tu progreso se guarda solo en este navegador. Con cuenta online (Google) se guardan tu correo de Google (privado), tu nombre, tus marcas y tu guardado.')} <a href="privacidad.html" target="_blank" rel="noopener">${tr('Privacidad y condiciones')}</a></p>
+      <p class="note">${tr('{VERSION_LABEL} · compilación interna {BUILD}', { VERSION_LABEL: esc(VERSION_LABEL), BUILD: esc(BUILD) })}</p></div></div>`);
     this.on('[data-back]', 'click', () => this.mainMenu());
   }
 
@@ -6604,38 +6606,38 @@ export class App {
     setMusicContext('menu');
     const s = this.save.settings;
     const seg = (id: string, vals: [string, string][], cur: string) => `<div class="seg" data-seg="${id}">${vals.map(([v, l]) => `<button data-v="${v}" class="${cur === v ? 'on' : ''}">${l}</button>`).join('')}</div>`;
-    this.show(`<div class="screen">${this.titlebar('Opciones', 'Menú')}<div class="panel">
-      <h3>Sonido</h3>
-      <div class="opt-row"><span>Música</span><input type="range" id="mvol" min="0" max="1" step="0.05" value="${s.musicVolume}"></div>
-      <div class="opt-row"><span>Efectos</span><input type="range" id="vol" min="0" max="1" step="0.05" value="${s.volume}"></div>
-      <div class="opt-row"><span>Silenciar todo</span>${seg('muted', [['0', 'No'], ['1', 'Sí']], s.muted ? '1' : '0')}</div>
-      <div class="opt-row"><span>Fuente de música</span>${seg('musicSource', [['local', 'Inazuma Eleven (ROM)'], ['original', 'Generada']], s.musicSource)}</div>
-      <div class="note">Ahora suena: ${esc(currentTrack() || '—')}. Por defecto suena la música de Inazuma Eleven exportada de tu copia. «Generada» usa temas creados para este proyecto.</div>
-      <h3 style="margin-top:12px">Efectos visuales</h3>
-      <div class="opt-row"><span>Partículas</span>${seg('particles', [['completo', 'Completas'], ['reducido', 'Reducidas'], ['desactivado', 'Desactivadas']], s.particles)}</div>
-      <div class="opt-row"><span>Sacudida de cámara</span><input type="range" id="shake" min="0" max="1" step="0.05" value="${s.shake}"></div>
-      <div class="opt-row"><span>Destellos</span>${seg('flashes', [['1', 'Activados'], ['0', 'Desactivados']], s.flashes ? '1' : '0')}</div>
-      <div class="opt-row"><span>Reducir movimiento</span>${seg('reducedMotion', [['0', 'No'], ['1', 'Sí']], s.reducedMotion ? '1' : '0')}</div>
-      <div class="opt-row"><span>Números de daño</span>${seg('damageNumbers', [['1', 'Visibles'], ['0', 'Ocultos']], s.damageNumbers ? '1' : '0')}</div>
-      <div class="opt-row"><span>Calidad gráfica</span>${seg('quality', [['alta', 'Alta'], ['media', 'Media'], ['baja', 'Baja']], s.quality)}</div>
-      <h3 style="margin-top:12px">Pantalla y controles</h3>
-      <div class="opt-row"><span>Pantalla completa</span><button class="btn small blue" id="fs">${document.fullscreenElement ? 'Salir' : 'Activar'}</button></div>
-      <div class="opt-row"><span>Cámara</span>${seg('camera', [['cerca', 'Cerca'], ['normal', 'Normal'], ['lejos', 'Lejos']], s.camera)}</div>
-      <div class="opt-row"><span>Escala de interfaz</span>${seg('uiScale', [['0.85', '85%'], ['1', '100%'], ['1.15', '115%'], ['1.3', '130%']], String(s.uiScale))}</div>
-      <div class="opt-row"><span>Movimiento</span>${seg('moveKeys', [['ambos', 'WASD y flechas'], ['wasd', 'Solo WASD'], ['flechas', 'Solo flechas']], s.moveKeys)}</div>
-      <div class="opt-row"><span>Idioma</span><span class="note">Español (único disponible por ahora)</span></div>
-      <div class="opt-row"><span>Tutorial</span><button class="btn small blue" id="tutagain">Ver otra vez</button></div>
-      <h3 style="margin-top:12px">Privacidad</h3>
-      <div class="opt-row"><span>Compartir mis partidas<small class="opt-note">Con la sesión iniciada, cada partida en solitario se graba (posiciones, técnicas y cartas, sin nada personal) para que el autor vea cómo se juega y equilibre el juego. Se guardan tus 3 últimas y las de tus marcas del ranking.</small></span>${seg('shareReplays', [['1', 'Sí'], ['0', 'No']], s.shareReplays === false ? '0' : '1')}</div>
-      <h3 style="margin-top:12px">Copia de seguridad</h3>
-      <div class="opt-row"><span>Tu progreso</span><div><button class="btn small" id="export">Exportar</button> <button class="btn small blue" id="import">Importar</button><input type="file" id="importfile" accept=".json,application/json" hidden></div></div>
-      <h3 style="margin-top:12px">Ayuda</h3>
-      <div class="opt-row"><span>¿Algo no funciona?</span><div><button class="btn small" id="optbug">Reportar un bug</button> <button class="btn small" id="optidea">Recomendaciones</button> <button class="btn small blue" id="optadmin" hidden>Panel de bugs</button> <button class="btn small blue" id="optideas" hidden>Panel de recomendaciones</button> <button class="btn small blue" id="optplayers" hidden>Panel de jugadores</button></div></div>
-      <h3 style="margin-top:12px">Empezar de cero</h3>
-      <div class="opt-row"><span>Reiniciar progreso</span><button class="btn small" id="resetprog">Reiniciar progreso…</button></div>
-      <p class="note">Vuelves a empezar como un jugador nuevo${this.save.onlineName ? `, conservando tu cuenta de Google y tu nombre «${esc(this.save.onlineName)}»` : ''}. No es lo mismo que eliminar la cuenta.</p>
-      <p class="note">Controles: WASD/flechas mover · 1/2/3 formación · Esc/P pausa.</p>
-      <p class="note">Tu progreso se guarda en este navegador.${onlineConfigured() ? ' Si entras con Google, también en la nube y en todos tus dispositivos.' : ' Usa Exportar/Importar para llevarlo contigo.'}</p></div></div>`);
+    this.show(`<div class="screen">${this.titlebar(tr('Opciones'), tr('Menú'))}<div class="panel">
+      <h3>${tr('Sonido')}</h3>
+      <div class="opt-row"><span>${tr('Música')}</span><input type="range" id="mvol" min="0" max="1" step="0.05" value="${s.musicVolume}"></div>
+      <div class="opt-row"><span>${tr('Efectos')}</span><input type="range" id="vol" min="0" max="1" step="0.05" value="${s.volume}"></div>
+      <div class="opt-row"><span>${tr('Silenciar todo')}</span>${seg('muted', [['0', tr('No')], ['1', tr('Sí')]], s.muted ? '1' : '0')}</div>
+      <div class="opt-row"><span>${tr('Fuente de música')}</span>${seg('musicSource', [['local', tr('Inazuma Eleven (ROM)')], ['original', tr('Generada')]], s.musicSource)}</div>
+      <div class="note">${tr('Ahora suena: {x1}. Por defecto suena la música de Inazuma Eleven exportada de tu copia. «Generada» usa temas creados para este proyecto.', { x1: esc(currentTrack() || '—') })}</div>
+      <h3 style="margin-top:12px">${tr('Efectos visuales')}</h3>
+      <div class="opt-row"><span>${tr('Partículas')}</span>${seg('particles', [['completo', tr('Completas')], ['reducido', tr('Reducidas')], ['desactivado', tr('Desactivadas')]], s.particles)}</div>
+      <div class="opt-row"><span>${tr('Sacudida de cámara')}</span><input type="range" id="shake" min="0" max="1" step="0.05" value="${s.shake}"></div>
+      <div class="opt-row"><span>${tr('Destellos')}</span>${seg('flashes', [['1', tr('Activados')], ['0', tr('Desactivados')]], s.flashes ? '1' : '0')}</div>
+      <div class="opt-row"><span>${tr('Reducir movimiento')}</span>${seg('reducedMotion', [['0', tr('No')], ['1', tr('Sí')]], s.reducedMotion ? '1' : '0')}</div>
+      <div class="opt-row"><span>${tr('Números de daño')}</span>${seg('damageNumbers', [['1', tr('Visibles')], ['0', tr('Ocultos')]], s.damageNumbers ? '1' : '0')}</div>
+      <div class="opt-row"><span>${tr('Calidad gráfica')}</span>${seg('quality', [['alta', tr('Alta')], ['media', tr('Media')], ['baja', tr('Baja')]], s.quality)}</div>
+      <h3 style="margin-top:12px">${tr('Pantalla y controles')}</h3>
+      <div class="opt-row"><span>${tr('Pantalla completa')}</span><button class="btn small blue" id="fs">${document.fullscreenElement ? 'Salir' : 'Activar'}</button></div>
+      <div class="opt-row"><span>${tr('Cámara')}</span>${seg('camera', [['cerca', tr('Cerca')], ['normal', tr('Normal')], ['lejos', tr('Lejos')]], s.camera)}</div>
+      <div class="opt-row"><span>${tr('Escala de interfaz')}</span>${seg('uiScale', [['0.85', '85%'], ['1', '100%'], ['1.15', '115%'], ['1.3', '130%']], String(s.uiScale))}</div>
+      <div class="opt-row"><span>${tr('Movimiento')}</span>${seg('moveKeys', [['ambos', tr('WASD y flechas')], ['wasd', tr('Solo WASD')], ['flechas', tr('Solo flechas')]], s.moveKeys)}</div>
+      <div class="opt-row"><span>${tr('Idioma')}</span>${seg('lang', [['', tr('Automático (navegador)')], ...LANGS.map((l): [string, string] => [l.id, l.label])], s.lang ?? '')}</div>
+      <div class="opt-row"><span>${tr('Tutorial')}</span><button class="btn small blue" id="tutagain">${tr('Ver otra vez')}</button></div>
+      <h3 style="margin-top:12px">${tr('Privacidad')}</h3>
+      <div class="opt-row"><span>${tr('Compartir mis partidas')}<small class="opt-note">${tr('Con la sesión iniciada, cada partida en solitario se graba (posiciones, técnicas y cartas, sin nada personal) para que el autor vea cómo se juega y equilibre el juego. Se guardan tus 3 últimas y las de tus marcas del ranking.')}</small></span>${seg('shareReplays', [['1', tr('Sí')], ['0', tr('No')]], s.shareReplays === false ? '0' : '1')}</div>
+      <h3 style="margin-top:12px">${tr('Copia de seguridad')}</h3>
+      <div class="opt-row"><span>${tr('Tu progreso')}</span><div><button class="btn small" id="export">${tr('Exportar')}</button> <button class="btn small blue" id="import">${tr('Importar')}</button><input type="file" id="importfile" accept=".json,application/json" hidden></div></div>
+      <h3 style="margin-top:12px">${tr('Ayuda')}</h3>
+      <div class="opt-row"><span>${tr('¿Algo no funciona?')}</span><div><button class="btn small" id="optbug">${tr('Reportar un bug')}</button> <button class="btn small" id="optidea">${tr('Recomendaciones')}</button> <button class="btn small blue" id="optadmin" hidden>${tr('Panel de bugs')}</button> <button class="btn small blue" id="optideas" hidden>${tr('Panel de recomendaciones')}</button> <button class="btn small blue" id="optplayers" hidden>${tr('Panel de jugadores')}</button></div></div>
+      <h3 style="margin-top:12px">${tr('Empezar de cero')}</h3>
+      <div class="opt-row"><span>${tr('Reiniciar progreso')}</span><button class="btn small" id="resetprog">${tr('Reiniciar progreso…')}</button></div>
+      <p class="note">${tr('Vuelves a empezar como un jugador nuevo{x1}. No es lo mismo que eliminar la cuenta.', { x1: this.save.onlineName ? tr(', conservando tu cuenta de Google y tu nombre «{onlineName}»', { onlineName: esc(this.save.onlineName) }) : '' })}</p>
+      <p class="note">${tr('Controles: WASD/flechas mover · 1/2/3 formación · Esc/P pausa.')}</p>
+      <p class="note">${tr('Tu progreso se guarda en este navegador.{x1}', { x1: onlineConfigured() ? tr(' Si entras con Google, también en la nube y en todos tus dispositivos.') : tr(' Usa Exportar/Importar para llevarlo contigo.') })}</p></div></div>`);
     this.on('[data-back]', 'click', () => this.mainMenu());
     document.getElementById('mvol')!.addEventListener('input', (e) => { s.musicVolume = Number((e.target as HTMLInputElement).value); this.applyAudio(); this.persist(); });
     document.getElementById('vol')!.addEventListener('input', (e) => { s.volume = Number((e.target as HTMLInputElement).value); this.applyAudio(); this.persist(); });
@@ -6658,7 +6660,7 @@ export class App {
       a.download = `inazurivors-${new Date().toISOString().slice(0, 10)}.json`;
       a.click();
       URL.revokeObjectURL(a.href);
-      this.toast('Copia exportada');
+      this.toast(tr('Copia exportada'));
     });
     const file = document.getElementById('importfile') as HTMLInputElement;
     document.getElementById('import')!.addEventListener('click', (e) => this.armed(e.currentTarget as HTMLElement, () => file.click()));
@@ -6670,9 +6672,10 @@ export class App {
         for (const k of Object.keys(this.save)) delete (this.save as unknown as Record<string, unknown>)[k];
         Object.assign(this.save, next);
         this.captainId = this.save.captainId;
+        setLang(resolveLang(this.save.settings.lang)); // 2.3
         this.persist();
         this.applyAudio();
-        this.toast('Copia importada');
+        this.toast(tr('Copia importada'));
         this.mainMenu();
       } catch (err) {
         sfx('error');
@@ -6693,6 +6696,7 @@ export class App {
       if (key === 'moveKeys') s.moveKeys = v as 'ambos' | 'wasd' | 'flechas';
       if (key === 'camera') s.camera = v as 'cerca' | 'normal' | 'lejos';
       if (key === 'musicSource') { s.musicSource = v as 'original' | 'local'; setMusicSource(s.musicSource); }
+      if (key === 'lang') { s.lang = v as '' | 'es' | 'en'; if (resolveLang(s.lang) !== getLang()) { this.persist(); location.reload(); return; } }
       this.applyAudio();
       this.persist();
       this.options();
@@ -6705,7 +6709,7 @@ export class App {
     // only what the player has earned can be equipped; the rest shows its lock and how to get it
     type Pick = { id: number; html: string; label: string; ok: boolean; why: string };
     const items: Pick[] = tab === 'emblem'
-      ? (this.m.profile?.emblems ?? []).map((e) => ({ id: e.teamId!, html: `<img src="${e.texture}" alt="">`, label: e.name, ok: emblemUnlocked(this.save, e), why: 'Reclama el escudo en la Enciclopedia (3 futbolistas del equipo)' }))
+      ? (this.m.profile?.emblems ?? []).map((e) => ({ id: e.teamId!, html: `<img src="${e.texture}" alt="">`, label: e.name, ok: emblemUnlocked(this.save, e), why: tr('Reclama el escudo en la Enciclopedia (3 futbolistas del equipo)') }))
         .sort((a, b) => Number(b.ok) - Number(a.ok))
       : tab === 'coach' ? (this.m.profile?.coaches ?? []).map((e, k) => { const r = coachRequirement(this.save, this.m.roster, k); return { id: e.index!, html: `<img src="${e.texture}" alt="">`, label: e.name, ok: r.ok, why: r.label }; })
         : this.unlockedRoster().map((p) => ({ id: p.id, html: this.mug(p.id, 48), label: p.name, ok: true, why: '' }));
@@ -6718,17 +6722,17 @@ export class App {
     const heroes = Object.values(this.save.owned).filter((o) => o.hero).length;
     const achv = MISSIONS.filter((d) => d.kind === 'logro' && isClaimed(this.save, d)).length;
     const best = owned.slice().sort((x, y) => this.meanOf(y) - this.meanOf(x))[0];
-    const tabs: ['emblem' | 'player' | 'coach', string, UiIconName][] = [['emblem', 'Escudos de equipo', 'shirt'], ['player', 'Jugadores', 'team'], ['coach', 'Entrenadores', 'crown']];
-    this.show(`<div class="screen pf-screen">${this.titlebar('Perfil', 'Menú')}
-      ${this.playerCard({ tag: signedIn() ? 'JUGADOR CON CUENTA' : 'JUGADOR INVITADO', name: this.save.onlineName || this.save.profile.name, icon: this.profileIcon(112),
+    const tabs: ['emblem' | 'player' | 'coach', string, UiIconName][] = [['emblem', tr('Escudos de equipo'), 'shirt'], ['player', 'Jugadores', 'team'], ['coach', 'Entrenadores', 'crown']];
+    this.show(`<div class="screen pf-screen">${this.titlebar(tr('Perfil'), tr('Menú'))}
+      ${this.playerCard({ tag: signedIn() ? tr('JUGADOR CON CUENTA') : tr('JUGADOR INVITADO'), name: this.save.onlineName || this.save.profile.name, icon: this.profileIcon(112),
         frame: equippedFrame(this.save)?.id, crest: this.save.crest, pennant: equippedPennant(this.save)?.id ?? null, wins: st.wins, owned: owned.length, heroes,
-        fav: fav ? `${this.emblemOf(fav) ? `<img src="${this.emblemOf(fav)}" alt="">` : ''}<span><small>EQUIPO FAVORITO</small><b>${esc(teamLabel(fav))}</b></span><em title="El equipo favorito se elige una vez y no se puede cambiar">🔒 Para siempre</em>`
-          : `<span><small>EQUIPO FAVORITO</small><b>Aún sin elegir</b></span><select id="pteam"><option value="">Elige… (solo una vez)</option>${teams.map((t) => `<option value="${esc(t)}">${esc(teamLabel(t))}</option>`).join('')}</select>`,
-        best: best ? { id: best.id, mean: this.meanOf(best), rarity: effectiveRarity(this.save, best) } : null, bestLabel: 'TU MEJOR FUTBOLISTA',
+        fav: fav ? `${this.emblemOf(fav) ? `<img src="${this.emblemOf(fav)}" alt="">` : ''}<span><small>${tr('EQUIPO FAVORITO')}</small><b>${esc(teamLabel(fav))}</b></span><em title="${tr('El equipo favorito se elige una vez y no se puede cambiar')}">${tr('🔒 Para siempre')}</em>`
+          : `<span><small>${tr('EQUIPO FAVORITO')}</small><b>${tr('Aún sin elegir')}</b></span><select id="pteam"><option value="">${tr('Elige… (solo una vez)')}</option>${teams.map((t) => `<option value="${esc(t)}">${esc(teamLabel(t))}</option>`).join('')}</select>`,
+        best: best ? { id: best.id, mean: this.meanOf(best), rarity: effectiveRarity(this.save, best) } : null, bestLabel: tr('TU MEJOR FUTBOLISTA'),
         runs: st.runs, kills: st.kills, bestTimeSec: st.bestTimeSec, pulls: st.pulls, achv })}
       ${this.pennantPanel()}
       ${this.accountPanel()}
-      <div class="panel pf-icons"><h3>${uiIcon('target')}Icono de perfil <small>${got}/${items.length} desbloqueados${tab === 'player' ? ' · los de tu colección' : ''}</small></h3>
+      <div class="panel pf-icons"><h3>${tr('{x1}Icono de perfil', { x1: uiIcon('target') })} <small>${tr('{got}/{itemsLength} desbloqueados{x1}', { got, itemsLength: items.length, x1: tab === 'player' ? tr(' · los de tu colección') : '' })}</small></h3>
         <div class="rw-tabs pf-tabs" id="tabs">${tabs.map(([k, l, i]) => `<button data-t="${k}" class="rw-tab${tab === k ? ' on' : ''}"><span class="m4-ic">${uiIcon(i)}</span><span class="rw-tab-tx"><b>${l}</b></span></button>`).join('')}</div>
         <div class="icon-grid">${items.map((it) => `<button class="iconpick${ic.kind === tab && ic.id === it.id ? ' on' : ''}${it.ok ? '' : ' locked'}" data-id="${it.id}" ${it.ok ? '' : 'disabled'} title="${esc(it.label)}${it.ok ? '' : ` · ${esc(it.why)}`}">${it.html}${it.ok ? '' : '<span class="lockic">🔒</span>'}</button>`).join('')}</div></div></div>`);
     this.on('[data-back]', 'click', () => this.mainMenu());
@@ -6736,7 +6740,7 @@ export class App {
       const sel = e.target as HTMLSelectElement, v = sel.value;
       if (!v) return;
       // chosen once: a second tap confirms, then it is fixed
-      if (sel.dataset.armed !== v) { sel.dataset.armed = v; this.toast(`¿Seguro? ${teamLabel(v)} será tu equipo favorito para siempre. Elígelo otra vez para confirmar.`, 4000); sel.value = ''; return; }
+      if (sel.dataset.armed !== v) { sel.dataset.armed = v; this.toast(tr('¿Seguro? {teamLabel} será tu equipo favorito para siempre. Elígelo otra vez para confirmar.', { teamLabel: teamLabel(v) }), 4000); sel.value = ''; return; }
       this.save.favoriteTeam = v; this.persist(); sfx('legend'); confetti(30); this.profile(tab);
     });
     this.on('#tabs button', 'click', (_e, el) => this.profile(el.dataset.t as 'emblem' | 'player' | 'coach'));
@@ -6780,63 +6784,63 @@ export class App {
       const ids = squadOf(this.save, this.byId).slice(0, TRAIN_TEAM).map((p) => p.id);
       this.train = { ids: ids.length ? ids : owned.slice(0, 1).map((p) => p.id), techs: {}, combos: {}, map: this.m.maps[0]?.id ?? '' };
     }
-    const tr = this.train;
-    tr.ids = tr.ids.filter((id) => this.owned(id) && this.byId.has(id));
-    const team = tr.ids.map((id) => this.runEntry(this.byId.get(id)!));
-    for (const p of team) if (!tr.techs[p.id]) { // first time: his first three techniques (talents are passive) at level 5
+    const trn = this.train;
+    trn.ids = trn.ids.filter((id) => this.owned(id) && this.byId.has(id));
+    const team = trn.ids.map((id) => this.runEntry(this.byId.get(id)!));
+    for (const p of team) if (!trn.techs[p.id]) { // first time: his first three techniques (talents are passive) at level 5
       const idx = p.techniques.map((t, i) => (t.type === 'talento' ? -1 : i)).filter((i) => i >= 0).slice(0, 3);
-      tr.techs[p.id] = Object.fromEntries(idx.map((i) => [i, 5]));
+      trn.techs[p.id] = Object.fromEntries(idx.map((i) => [i, 5]));
     }
     const auraNames = team.map((p) => p.aura?.name).filter((x): x is string => !!x);
     const combos = squadCombos(team, auraNames);
-    for (const id of Object.keys(tr.combos)) if (!combos.some((c) => c.ready && c.combo.id === id)) delete tr.combos[id];
-    const stepper = (key: string, lv: number, max: number) => `<span class="tr-lv"><button data-step="${key}:-1" ${lv <= 1 ? 'disabled' : ''}>−</button><b>Nv ${lv}</b><button data-step="${key}:1" ${lv >= max ? 'disabled' : ''}>+</button></span>`;
+    for (const id of Object.keys(trn.combos)) if (!combos.some((c) => c.ready && c.combo.id === id)) delete trn.combos[id];
+    const stepper = (key: string, lv: number, max: number) => `<span class="tr-lv"><button data-step="${key}:-1" ${lv <= 1 ? 'disabled' : ''}>−</button><b>${tr('Nv {lv}', { lv })}</b><button data-step="${key}:1" ${lv >= max ? 'disabled' : ''}>+</button></span>`;
     const card = (p: RosterEntry) => {
-      const lv = tr.techs[p.id] ?? {}, active = Object.keys(lv).length;
+      const lv = trn.techs[p.id] ?? {}, active = Object.keys(lv).length;
       return `<div class="panel tr-player" style="--rc:${RARITY_COLOR[effectiveRarity(this.save, p)]}">
         <div class="tr-head">${this.mug(p.id, 48)}<div><b>${esc(p.name)}</b><small>${this.rar(p)} ${this.elem(p)}${p.aura ? ` · Aura: ${esc(p.aura.name)}` : ''}</small></div>
-          <button class="btn small blue" data-rm="${p.id}" title="Quitar">✕</button></div>
+          <button class="btn small blue" data-rm="${p.id}" title="${tr('Quitar')}">✕</button></div>
         <div class="tr-techs">${p.techniques.map((t, i) => {
           if (t.type === 'talento') return '';
           const on = lv[i] !== undefined;
-          return `<div class="tr-tech${on ? ' on' : ''}"><button class="tr-pick" data-tt="${p.id}:${i}" ${!on && active >= TRAIN_SLOTS ? 'disabled' : ''}>${this.techBadge(t, 1)}<span>${esc(t.name)}${t.aura !== undefined ? ' <em>Aura</em>' : ''}</span></button>${on ? stepper(`t:${p.id}:${i}`, lv[i], MAX_TECH_LEVEL) : ''}</div>`;
-        }).join('')}</div><small class="note">${active}/${TRAIN_SLOTS} técnicas activas</small></div>`;
+          return `<div class="tr-tech${on ? ' on' : ''}"><button class="tr-pick" data-tt="${p.id}:${i}" ${!on && active >= TRAIN_SLOTS ? 'disabled' : ''}>${this.techBadge(t, 1)}<span>${esc(tTech(t.name))}${t.aura !== undefined ? ' <em>Aura</em>' : ''}</span></button>${on ? stepper(`t:${p.id}:${i}`, lv[i], MAX_TECH_LEVEL) : ''}</div>`;
+        }).join('')}</div><small class="note">${tr('{active}/{TRAIN_SLOTS} técnicas activas', { active, TRAIN_SLOTS })}</small></div>`;
     };
-    const free = owned.filter((p) => !tr.ids.includes(p.id)).sort((a, b) => a.name.localeCompare(b.name, 'es'));
-    this.show(`<div class="screen tr-screen">${this.titlebar('Campo de entrenamiento', 'Menú')}
-      <p class="note">Prueba las técnicas de tus futbolistas al nivel que quieras, también las combinadas que puedan hacer juntos (con sus Auras incluidas). Nadie recibe daño y no se gana nada: ni recompensas, ni misiones, ni ranking.</p>
-      <div class="tr-bar"><label>Arena <select id="trmap">${this.m.maps.map((mp) => `<option value="${esc(mp.id)}" ${mp.id === tr.map ? 'selected' : ''}>${esc(mp.name)}</option>`).join('')}</select></label>
-        ${tr.ids.length < TRAIN_TEAM ? `<label>Añadir futbolista <select id="tradd"><option value="">Elige…</option>${free.map((p) => `<option value="${p.id}">${esc(p.name)}</option>`).join('')}</select></label>` : `<span class="note">Equipo completo (${TRAIN_TEAM})</span>`}
-        <button class="btn big" id="trgo" ${team.length ? '' : 'disabled'}>¡A ENTRENAR!</button></div>
-      <div class="tr-grid">${team.map(card).join('') || '<div class="panel note">Añade al menos un futbolista.</div>'}</div>
-      <div class="panel tr-combos"><h3>${uiIcon('bolt')}Técnicas combinadas</h3>${combos.map((c) => {
-        const on = tr.combos[c.combo.id] !== undefined;
-        return c.ready ? `<div class="tr-tech${on ? ' on' : ''}"><button class="tr-pick" data-tc="${c.combo.id}"><span>${esc(c.combo.name)}${c.viaAura.length ? ' <em>con Aura</em>' : ''}</span></button>${on ? stepper(`c:${c.combo.id}`, tr.combos[c.combo.id], COMBO_MAX_LEVEL) : ''}</div>`
-          : `<div class="tr-tech off"><span>${esc(c.combo.name)}</span><small>Falta: ${c.missing.map(esc).join(', ')}</small></div>`;
-      }).join('') || '<p class="note">Ninguno de estos futbolistas participa en una técnica combinada.</p>'}</div></div>`);
+    const free = owned.filter((p) => !trn.ids.includes(p.id)).sort((a, b) => a.name.localeCompare(b.name, 'es'));
+    this.show(`<div class="screen tr-screen">${this.titlebar(tr('Campo de entrenamiento'), 'Menú')}
+      <p class="note">${tr('Prueba las técnicas de tus futbolistas al nivel que quieras, también las combinadas que puedan hacer juntos (con sus Auras incluidas). Nadie recibe daño y no se gana nada: ni recompensas, ni misiones, ni ranking.')}</p>
+      <div class="tr-bar"><label>${tr('Arena')} <select id="trmap">${this.m.maps.map((mp) => `<option value="${esc(mp.id)}" ${mp.id === trn.map ? 'selected' : ''}>${esc(mp.name)}</option>`).join('')}</select></label>
+        ${trn.ids.length < TRAIN_TEAM ? `<label>${tr('Añadir futbolista')} <select id="tradd"><option value="">${tr('Elige…')}</option>${free.map((p) => `<option value="${p.id}">${esc(p.name)}</option>`).join('')}</select></label>` : `<span class="note">${tr('Equipo completo ({TRAIN_TEAM})', { TRAIN_TEAM })}</span>`}
+        <button class="btn big" id="trgo" ${team.length ? '' : 'disabled'}>${tr('¡A ENTRENAR!')}</button></div>
+      <div class="tr-grid">${team.map(card).join('') || `<div class="panel note">${tr('Añade al menos un futbolista.')}</div>`}</div>
+      <div class="panel tr-combos"><h3>${tr('{x1}Técnicas combinadas', { x1: uiIcon('bolt') })}</h3>${combos.map((c) => {
+        const on = trn.combos[c.combo.id] !== undefined;
+        return c.ready ? `<div class="tr-tech${on ? ' on' : ''}"><button class="tr-pick" data-tc="${c.combo.id}"><span>${esc(tTech(c.combo.name))}${c.viaAura.length ? ` <em>${tr('con Aura')}</em>` : ''}</span></button>${on ? stepper(`c:${c.combo.id}`, trn.combos[c.combo.id], COMBO_MAX_LEVEL) : ''}</div>`
+          : `<div class="tr-tech off"><span>${esc(tTech(c.combo.name))}</span><small>${tr('Falta: {x1}', { x1: c.missing.map(esc).join(', ') })}</small></div>`;
+      }).join('') || `<p class="note">${tr('Ninguno de estos futbolistas participa en una técnica combinada.')}</p>`}</div></div>`);
     const redraw = () => this.trainingField();
     this.on('[data-back]', 'click', () => this.mainMenu());
-    document.getElementById('trmap')?.addEventListener('change', (e) => { tr.map = (e.target as HTMLSelectElement).value; });
-    document.getElementById('tradd')?.addEventListener('change', (e) => { const id = Number((e.target as HTMLSelectElement).value); if (id && tr.ids.length < TRAIN_TEAM) { tr.ids.push(id); redraw(); } });
-    this.on('[data-rm]', 'click', (_e, el) => { tr.ids = tr.ids.filter((id) => id !== Number(el.dataset.rm)); redraw(); });
+    document.getElementById('trmap')?.addEventListener('change', (e) => { trn.map = (e.target as HTMLSelectElement).value; });
+    document.getElementById('tradd')?.addEventListener('change', (e) => { const id = Number((e.target as HTMLSelectElement).value); if (id && trn.ids.length < TRAIN_TEAM) { trn.ids.push(id); redraw(); } });
+    this.on('[data-rm]', 'click', (_e, el) => { trn.ids = trn.ids.filter((id) => id !== Number(el.dataset.rm)); redraw(); });
     this.on('[data-tt]', 'click', (_e, el) => {
-      const [id, i] = el.dataset.tt!.split(':').map(Number), lv = (tr.techs[id] ??= {});
+      const [id, i] = el.dataset.tt!.split(':').map(Number), lv = (trn.techs[id] ??= {});
       if (lv[i] !== undefined) delete lv[i]; else if (Object.keys(lv).length < TRAIN_SLOTS) lv[i] = 5;
       redraw();
     });
-    this.on('[data-tc]', 'click', (_e, el) => { const id = el.dataset.tc!; if (tr.combos[id] !== undefined) delete tr.combos[id]; else tr.combos[id] = 3; redraw(); });
+    this.on('[data-tc]', 'click', (_e, el) => { const id = el.dataset.tc!; if (trn.combos[id] !== undefined) delete trn.combos[id]; else trn.combos[id] = 3; redraw(); });
     this.on('[data-step]', 'click', (_e, el) => {
       const parts = el.dataset.step!.split(':'), d = Number(parts.pop());
-      if (parts[0] === 't') { const lv = tr.techs[Number(parts[1])]; const i = Number(parts[2]); lv[i] = Math.max(1, Math.min(MAX_TECH_LEVEL, lv[i] + d)); }
-      else tr.combos[parts[1]] = Math.max(1, Math.min(COMBO_MAX_LEVEL, tr.combos[parts[1]] + d));
+      if (parts[0] === 't') { const lv = trn.techs[Number(parts[1])]; const i = Number(parts[2]); lv[i] = Math.max(1, Math.min(MAX_TECH_LEVEL, lv[i] + d)); }
+      else trn.combos[parts[1]] = Math.max(1, Math.min(COMBO_MAX_LEVEL, trn.combos[parts[1]] + d));
       redraw();
     });
     document.getElementById('trgo')?.addEventListener('click', () => {
-      const ids = tr.ids.filter((id) => Object.keys(tr.techs[id] ?? {}).length);
-      if (!ids.length) { sfx('error'); this.toast('Activa al menos una técnica'); return; }
-      const setup: TrainingSetup = { members: ids.map((id) => ({ id, slots: Object.keys(tr.techs[id]).map(Number), levels: { ...tr.techs[id] } })), combos: { ...tr.combos } };
+      const ids = trn.ids.filter((id) => Object.keys(trn.techs[id] ?? {}).length);
+      if (!ids.length) { sfx('error'); this.toast(tr('Activa al menos una técnica')); return; }
+      const setup: TrainingSetup = { members: ids.map((id) => ({ id, slots: Object.keys(trn.techs[id]).map(Number), levels: { ...trn.techs[id] } })), combos: { ...trn.combos } };
       const raw = ids.map((id) => this.byId.get(id)!);
-      this.startRun(tr.map || this.m.maps[0].id, raw, raw, setup);
+      this.startRun(trn.map || this.m.maps[0].id, raw, raw, setup);
     });
   }
 
@@ -6892,17 +6896,17 @@ export class App {
       <div class="vitals cap-panel">
         <div class="cap-crest" title="${esc(this.save.crest ? teamLabel(this.save.crest) : 'InaZurvivors')}"><img src="${this.emblemOf(this.save.crest) || 'logo-192.png'}" alt=""><small>${esc(this.save.crest ? teamLabel(this.save.crest) : 'InaZurvivors')}</small></div>
         <div class="vbars">
-          <div class="cap-name"><b>${esc(team[0]?.name ?? 'Capitán')}</b><span>CAPITÁN</span>${(() => { const k = team[0] && keshinOf(team[0].id), lv = k ? keshinLevel(this.save, team[0].id) : 0; return k && lv ? `<span class="cap-eg" style="--kc:${k.color}" title="${esc(k.title)}">${this.egArt(k)}<em>${esc(k.name)}</em>${lv >= 2 ? this.egLevel(lv, 12) : ''}</span>` : ''; })()}<em class="crit-tag" id="crittag">¡CRÍTICO!</em></div>
+          <div class="cap-name"><b>${esc(team[0]?.name ?? 'Capitán')}</b><span>${tr('CAPITÁN')}</span>${(() => { const k = team[0] && keshinOf(team[0].id), lv = k ? keshinLevel(this.save, team[0].id) : 0; return k && lv ? `<span class="cap-eg" style="--kc:${k.color}" title="${esc(k.title)}">${this.egArt(k)}<em>${esc(k.name)}</em>${lv >= 2 ? this.egLevel(lv, 12) : ''}</span>` : ''; })()}<em class="crit-tag" id="crittag">${tr('¡CRÍTICO!')}</em></div>
           <div class="hp-bar" id="hpbar"><i class="ghost"></i><i class="fill"></i><span></span></div>
-          <div class="rev-chip none" id="revchip" title="Revivir: si tu capitán cae, se levanta y gasta una carga">✚ Revivir <b>0</b></div>
-          <div class="xp-row"><div class="lv-badge" id="lvbadge"><small>NV</small><b>1</b></div><div class="xp-bar" id="xpbar"><i></i><span id="xptext"></span></div></div>
+          <div class="rev-chip none" id="revchip" title="${tr('Revivir: si tu capitán cae, se levanta y gasta una carga')}">${tr('✚ Revivir <b>0</b>')}</div>
+          <div class="xp-row"><div class="lv-badge" id="lvbadge"><small>${tr('NV')}</small><b>1</b></div><div class="xp-bar" id="xpbar"><i></i><span id="xptext"></span></div></div>
           <div class="hud-stats"><span id="kills"></span><span class="st-coins" id="runcoins"></span><span class="st-tokens" id="runtokens"></span></div>
         </div></div>
       <div class="res-chips" id="reson"></div>
       <div class="top-right"><div class="clock" id="clock"><span class="ck-ic">${uiIcon('clock')}</span><b id="clocktxt"></b><i class="ck-bar"><i id="clockbar"></i></i></div>
         <div class="formation-hud" id="fbtns">${FORMATION_ORDER.map((f) => `<button data-f="${f}" title="${esc(FORMATIONS[f].description)}">${FORMATION_ICON(f, 40)}<kbd>${FORMATIONS[f].key}</kbd><span>${FORMATIONS[f].label}</span></button>`).join('')}</div>
         <div class="fdesc" id="fdesc"></div>
-        <button class="btn small blue pausebtn" id="pausebtn">II Pausa</button></div>
+        <button class="btn small blue pausebtn" id="pausebtn">${tr('II Pausa')}</button></div>
       <div class="bossbar" id="boss" style="display:none"><span class="bb-mug"></span><div class="bb-head"><span class="bb-ic">${uiIcon('crown')}</span><span class="bb-names"><small class="bb-title"></small><b class="bb-name"></b></span><span class="bb-phase"></span></div><div class="bb-bar"><i class="bb-ghost"></i><i class="bb-fill"></i><i class="bb-tick" style="left:33.333%"></i><i class="bb-tick" style="left:66.667%"></i><em class="bb-pct"></em></div><div class="bb-pop"></div></div>
       <canvas class="minimap" id="minimap" width="132" height="100" aria-hidden="true"></canvas><div class="edge-marks" id="marks"></div>
       <div class="altar-hud" id="altar"></div><div class="event-card" id="eventcard"></div><div class="event-result" id="eventresult"></div><div class="buffs" id="buffs"></div><div class="combo-hud" id="combohud"></div><div class="team-hud" id="hudteam"></div><div class="ult-dock" id="ultdock"></div><div id="bannerbox"></div><div class="joy" id="joy"><b><i></i></b></div></div>`, 'run-mode');
@@ -6923,7 +6927,7 @@ export class App {
         if (this.save.seenItems.includes(id)) return;
         this.save.seenItems.push(id);
         this.persist();
-        this.toast(`Nuevo: ${label}. ${info}`, 4500);
+        this.toast(tr('Nuevo: {label}. {info}', { label, info }), 4500);
       },
       asc: Object.fromEntries(candidates.map((p) => [String(p.id), { ...ascMultipliers(this.save, p), hero: isHero(this.save, p.id) || championOf(this.save, p.id) > 0 }])),
       manifest: this.m, map, team: runTeam, unlocked: runUnlocked, auras: runAuras, stars, settings: this.save.settings,
@@ -6959,7 +6963,7 @@ export class App {
     const loader = showRunLoader(this.m, runTeam, map.name, kitInfo?.field ?? null);
     init.hooks.loading = (p: number) => loader.progress(p);
     init.hooks.ready = () => loader.done();
-    if (training) document.getElementById('hud')?.insertAdjacentHTML('beforeend', '<div class="train-tag">ENTRENAMIENTO · sin daño ni recompensas · Pausa para salir</div>');
+    if (training) document.getElementById('hud')?.insertAdjacentHTML('beforeend', `<div class="train-tag">${tr('ENTRENAMIENTO · sin daño ni recompensas · Pausa para salir')}</div>`);
     this.game.scene.start('Arena', init);
   }
 
@@ -6972,11 +6976,11 @@ export class App {
       const box = document.createElement('div');
       box.className = 'modal';
       box.id = 'bossdown';
-      box.innerHTML = `<div class="panel" style="max-width:560px;text-align:center"><div class="result-banner win">¡JEFE DERROTADO!</div>
-        <p>La victoria ya es tuya. ¿Terminas aquí o sigues sobreviviendo?</p>
-        <div class="choice2"><button class="btn big" id="bd-end">TERMINAR PARTIDA<small>Victoria y recompensas ahora</small></button>
-        <button class="btn big blue" id="bd-go">CONTINUAR SOBREVIVIENDO<small>Cinco fases hasta el Infierno. Cada minuto jugado da recompensa y los jefes regresan.</small></button></div>
-        <p class="note">Récord actual: ${fmtTime(this.save.stats.bestEndless ?? 0)} en supervivencia infinita. Lo ganado se conserva al caer o al retirarte desde Pausa.</p></div>`;
+      box.innerHTML = `<div class="panel" style="max-width:560px;text-align:center"><div class="result-banner win">${tr('¡JEFE DERROTADO!')}</div>
+        <p>${tr('La victoria ya es tuya. ¿Terminas aquí o sigues sobreviviendo?')}</p>
+        <div class="choice2"><button class="btn big" id="bd-end">${tr('TERMINAR PARTIDA')}<small>${tr('Victoria y recompensas ahora')}</small></button>
+        <button class="btn big blue" id="bd-go">${tr('CONTINUAR SOBREVIVIENDO')}<small>${tr('Cinco fases hasta el Infierno. Cada minuto jugado da recompensa y los jefes regresan.')}</small></button></div>
+        <p class="note">${tr('Récord actual: {x1} en supervivencia infinita. Lo ganado se conserva al caer o al retirarte desde Pausa.', { x1: fmtTime(this.save.stats.bestEndless ?? 0) })}</p></div>`;
       this.root.appendChild(box);
       const done = (c: 'end' | 'continue') => { box.remove(); resolve(c); };
       box.querySelector('#bd-end')!.addEventListener('click', () => done('end'));
@@ -6989,13 +6993,13 @@ export class App {
     const from = to - 1;
     const cd = (l: number) => d.cooldownMs * (1 - 0.06 * (l - 1)) / 1000;
     const rows = [
-      `Daño <b>${comboDamage(d, from)} → ${comboDamage(d, to)}</b>`,
+      `${tr('Daño <b>{comboDamage} → {comboDamage2}</b>', { comboDamage: comboDamage(d, from), comboDamage2: comboDamage(d, to) })}`,
       `Recarga <b>${cd(from).toFixed(1)} s → ${cd(to).toFixed(1)} s</b>`,
-      `Atraviesa <b>${4 + from} → ${4 + to}</b> rivales`,
-      `Explosión <b>+${Math.round(((40 + to * 6) / (40 + from * 6) - 1) * 100)}%</b> más grande`,
+      `${tr('Atraviesa <b>{x1} → {x2}</b> rivales', { x1: 4 + from, x2: 4 + to })}`,
+      `${tr('Explosión <b>+{x1}%</b> más grande', { x1: Math.round(((40 + to * 6) / (40 + from * 6) - 1) * 100) })}`,
     ];
     if (d.effect === 'tierra' || d.effect === 'tierra-inf') rows.push(`Cometas <b>${8 + from * 2} → ${8 + to * 2}</b>`);
-    return `<div class="lv-desc lv-gains">Nv ${from} → Nv ${to}<br>${rows.join('<br>')}</div>`;
+    return `<div class="lv-desc lv-gains">${tr('Nv {from} → Nv {to}', { from, to })}<br>${rows.join('<br>')}</div>`;
   }
 
   /** Altar de despido: pick the teammate who leaves the run (1-9 also pick, Esc = nobody). */
@@ -7006,10 +7010,10 @@ export class App {
       const box = document.createElement('div');
       box.className = 'modal';
       box.id = 'dismiss';
-      box.innerHTML = `<div class="panel" style="max-width:620px;text-align:center"><div class="lvl-title">✖ ALTAR DE DESPIDO</div>
-        <p>Elige a quién echas del equipo. Pierdes sus técnicas y su parte de la vida, y su hueco queda libre para otro fichaje. El capitán no se puede echar.</p>
+      box.innerHTML = `<div class="panel" style="max-width:620px;text-align:center"><div class="lvl-title">${tr('✖ ALTAR DE DESPIDO')}</div>
+        <p>${tr('Elige a quién echas del equipo. Pierdes sus técnicas y su parte de la vida, y su hueco queda libre para otro fichaje. El capitán no se puede echar.')}</p>
         <div class="dm-list">${ids.map((id, i) => `<button class="btn dm-pick" data-id="${id}">${this.mug(id, 48)}<span><b>${esc(name(id))}</b><small>${i < 9 ? `Tecla ${i + 1}` : ''}</small></span></button>`).join('')}</div>
-        <p><button class="btn blue" id="dm-none">No echar a nadie</button></p></div>`;
+        <p><button class="btn blue" id="dm-none">${tr('No echar a nadie')}</button></p></div>`;
       this.root.appendChild(box);
       const shownAt = performance.now();
       const done = (id: number | null) => { window.removeEventListener('keydown', keys, true); box.remove(); if (id !== null) sfx('hurt'); resolve(id); };
@@ -7071,7 +7075,7 @@ export class App {
     if (fresh) {
       box.classList.remove('enter'); void box.offsetWidth; box.classList.add('enter');
       box.classList.toggle('rival', b.rival);
-      box.querySelector('.bb-title')!.textContent = b.rival ? 'DESAFÍO DE RIVAL' : b.title.toUpperCase();
+      box.querySelector('.bb-title')!.textContent = b.rival ? tr('DESAFÍO DE RIVAL') : b.title.toUpperCase();
       box.querySelector('.bb-name')!.textContent = b.name;
       this.bossBarState = { key, hp: b.hp, phase: b.phase, hitAt: 0 };
       void this.bossMug(box.querySelector('.bb-mug') as HTMLElement, b.name);
@@ -7083,7 +7087,7 @@ export class App {
     (box.querySelector('.bb-ghost') as HTMLElement).style.width = `${pctv}%`;
     box.querySelector('.bb-pct')!.textContent = `${Math.ceil(pctv)}%`;
     box.querySelectorAll<HTMLElement>('.bb-tick').forEach((t, i) => { t.style.display = b.rival && i === 1 ? 'none' : ''; if (b.rival) t.style.left = '50%'; });
-    const pipHtml = Array.from({ length: phases }, (_, i) => `<i class="${i < b.phase ? 'done' : i === b.phase ? 'now' : ''}"></i>`).join('') + `<span>FASE ${b.phase + 1}</span>`;
+    const pipHtml = Array.from({ length: phases }, (_, i) => `<i class="${i < b.phase ? 'done' : i === b.phase ? 'now' : ''}"></i>`).join('') + `<span>${tr('FASE {x1}', { x1: b.phase + 1 })}</span>`;
     const ph = box.querySelector('.bb-phase') as HTMLElement;
     if (ph.dataset.v !== String(b.phase)) { ph.dataset.v = String(b.phase); ph.innerHTML = pipHtml; }
     box.classList.toggle('low', pctv <= 25);
@@ -7091,7 +7095,7 @@ export class App {
     if (b.hp < st.hp && now - st.hitAt > 120) { st.hitAt = now; box.classList.remove('hit'); void box.offsetWidth; box.classList.add('hit'); }
     if (b.phase > st.phase && !fresh) {
       const pop = box.querySelector('.bb-pop') as HTMLElement;
-      pop.textContent = b.rival ? '¡SE PONE SERIO!' : `¡FASE ${b.phase + 1}!`;
+      pop.textContent = b.rival ? tr('¡SE PONE SERIO!') : tr('¡FASE {x1}!', { x1: b.phase + 1 });
       pop.classList.remove('on'); void pop.offsetWidth; pop.classList.add('on');
       box.classList.remove('phase-up'); void box.offsetWidth; box.classList.add('phase-up');
     }
@@ -7126,7 +7130,7 @@ export class App {
     const strip = Array.from({ length: 8 }, () => '<span>⚠ PELIGRO</span>').join('');
     this.root.insertAdjacentHTML('beforeend', `<div class="boss-warn${this.save.settings.flashes ? '' : ' calm'}" id="bosswarn" aria-live="assertive">
       <i class="bw-vig"></i><div class="bw-band top"><div>${strip}${strip}</div></div><div class="bw-band bot"><div>${strip}${strip}</div></div>
-      <div class="bw-center"><b>¡PELIGRO!</b><small>SE ACERCA EL JEFE</small></div></div>`);
+      <div class="bw-center"><b>${tr('¡PELIGRO!')}</b><small>${tr('SE ACERCA EL JEFE')}</small></div></div>`);
     sfx('alarm');
     window.setTimeout(() => document.getElementById('bosswarn')?.classList.add('out'), BOSS_WARN_SEC * 1000);
     window.setTimeout(() => document.getElementById('bosswarn')?.remove(), BOSS_WARN_SEC * 1000 + 500);
@@ -7137,7 +7141,7 @@ export class App {
     document.getElementById('bosswarn')?.remove();
     document.getElementById('bossintro')?.remove();
     this.root.insertAdjacentHTML('beforeend', `<div class="boss-intro" id="bossintro"><div class="bi-band"><i class="bi-stripes"></i>${this.uiPiece('vs', 'bi-vs')}
-      <div class="bi-tx"><small>${b.again ? '¡VUELVE!' : 'JEFE FINAL'} · ${esc(b.title.toUpperCase())}</small><b>${esc(b.name)}</b></div></div></div>`);
+      <div class="bi-tx"><small>${b.again ? tr('¡VUELVE!') : tr('JEFE FINAL')} · ${esc(b.title.toUpperCase())}</small><b>${esc(b.name)}</b></div></div></div>`);
     sfx('bossdrop');
     window.setTimeout(() => document.getElementById('bossintro')?.remove(), 2700);
   }
@@ -7149,7 +7153,7 @@ export class App {
     if (bar) bar.style.display = 'none'; // the scene holds still during the finale: the HUD would keep the last health
     this.bossBarState = null;
     this.root.insertAdjacentHTML('beforeend', `<div class="boss-intro boss-down" id="bossintro"><div class="bi-band"><i class="bi-stripes"></i>
-      <div class="bi-tx"><small>VICTORIA</small><b>¡JEFE DERROTADO!</b></div></div></div>`);
+      <div class="bi-tx"><small>${tr('VICTORIA')}</small><b>${tr('¡JEFE DERROTADO!')}</b></div></div></div>`);
     window.setTimeout(() => document.getElementById('bossintro')?.remove(), 1700);
   }
 
@@ -7163,7 +7167,7 @@ export class App {
       // v1.7: combinations within reach (everyone on the pitch) show how many participants already have their level
       const goals = s.comboGoals.filter((g) => g.complete).map((g) => {
         const ok = g.parts.filter((p) => p.have >= p.need).length;
-        return `<div class="combo-chip goal${g.ready ? ' ready' : ''}" title="${esc(g.parts.map((p) => `${p.player}: ${(!p.anyTech && p.tech) || p.bestTech || 'su mejor técnica'} Nv ${p.have}/${p.need}`).join(' · '))}">🔗 <b>${esc(g.name)}</b> ${g.ready ? '¡lista!' : `${ok}/${g.parts.length}`}</div>`;
+        return `<div class="combo-chip goal${g.ready ? ' ready' : ''}" title="${esc(g.parts.map((p) => `${p.player}: ${(!p.anyTech && p.tech) || p.bestTech || tr('su mejor técnica')} Nv ${p.have}/${p.need}`).join(' · '))}">🔗 <b>${esc(tTech(g.name))}</b> ${g.ready ? tr('¡lista!') : `${ok}/${g.parts.length}`}</div>`;
       }).join('');
       const html = s.combos.map((c) => `<div class="combo-chip${c.cd <= 0.02 ? ' ready' : ''}"><b>${esc(c.name)}</b>${this.comboTag(c.name, c.level)}<i style="width:${Math.round((1 - c.cd) * 100)}%"></i></div>`).join('') + goals;
       if (ch.innerHTML !== html) ch.innerHTML = html;
@@ -7218,9 +7222,9 @@ export class App {
       // 1.91: on phones the chip folds into one line (name, bar, ✦/🔗 counts); the Aura and combo rows only on big screens
       el.classList.toggle('off', !co.connected);
       const counts = (co.meta.auras.length ? `✦${co.meta.auras.length}` : '') + (co.meta.combos.length ? ` 🔗${co.meta.combos.length}` : '');
-      const html = `<small>${co.connected ? 'COMPAÑERO' : 'DESCONECTADO'}</small><b>${co.connected ? '' : '<span class="ch-ic">⚠</span>'}${esc(co.name)}${co.picking ? ' <span class="ch-pick">✋<span class="ch-pt"> seleccionando…</span></span>' : ''}</b><i class="ch-bar${co.down ? ' down' : ''}"><i style="width:${co.down ? 0 : pct}%"></i></i>${counts ? `<span class="ch-n">${counts.trim()}</span>` : ''}`
-        + (co.down ? `<em>${co.partnerRevive > 0 ? `Levantándolo · ${left(co.partnerRevive)}` : '¡Ha caído! Ve a su lado (3 s)'}</em>` : '')
-        + (co.meDown ? `<em class="me">Has caído · ${co.revive > 0 ? `te levantan · ${left(co.revive)}` : 'espera a tu compañero'}</em>` : '')
+      const html = `<small>${co.connected ? tr('COMPAÑERO') : tr('DESCONECTADO')}</small><b>${co.connected ? '' : '<span class="ch-ic">⚠</span>'}${esc(co.name)}${co.picking ? ' <span class="ch-pick">✋<span class="ch-pt"> seleccionando…</span></span>' : ''}</b><i class="ch-bar${co.down ? ' down' : ''}"><i style="width:${co.down ? 0 : pct}%"></i></i>${counts ? `<span class="ch-n">${counts.trim()}</span>` : ''}`
+        + (co.down ? `<em>${co.partnerRevive > 0 ? tr('Levantándolo · {left}', { left: left(co.partnerRevive) }) : tr('¡Ha caído! Ve a su lado (3 s)')}</em>` : '')
+        + (co.meDown ? `<em class="me">${tr('Has caído · {x1}', { x1: co.revive > 0 ? `te levantan · ${left(co.revive)}` : tr('espera a tu compañero') })}</em>` : '')
         + (co.meta.auras.length ? `<span class="ch-row">${co.meta.auras.map((a) => `<i class="ch-aura" style="--ec:${a.element ? ELEMENT_COLOR[a.element] ?? '#c9a0ff' : '#c9a0ff'}" title="${esc(a.carrier)}">✦ ${esc(a.name)}</i>`).join('')}</span>` : '')
         + (co.meta.combos.length ? `<span class="ch-row">${co.meta.combos.map((c) => `<i class="ch-combo">🔗 ${esc(c.name)}${this.comboTag(c.name, c.level)}</i>`).join('')}</span>` : '');
       if (el.innerHTML !== html) el.innerHTML = html;
@@ -7250,12 +7254,12 @@ export class App {
       if (resEl.dataset.top !== String(top)) { resEl.dataset.top = String(top); resEl.style.setProperty('top', `${top}px`, 'important'); }
     }
     // 2.0: phone portrait: clock, formations and pause go right under the captain panel, the minimap under them
-    const tr = document.querySelector<HTMLElement>('#hud .top-right'), mm = document.getElementById('minimap');
-    if (capPanel && tr?.offsetParent && matchMedia('(max-width: 620px) and (min-height: 521px)').matches) {
-      const top = Math.round((capPanel.getBoundingClientRect().bottom - tr.offsetParent.getBoundingClientRect().top) / uiZoom + 6);
-      if (tr.dataset.top !== String(top)) { tr.dataset.top = String(top); tr.style.setProperty('top', `${top}px`, 'important'); }
-      if (mm) { const mt = Math.round((tr.getBoundingClientRect().bottom - tr.offsetParent.getBoundingClientRect().top) / uiZoom + 6); if (mm.dataset.top !== String(mt)) { mm.dataset.top = String(mt); mm.style.setProperty('top', `${mt}px`, 'important'); } }
-    } else if (tr?.dataset.top) { delete tr.dataset.top; tr.style.removeProperty('top'); if (mm) { delete mm.dataset.top; mm.style.removeProperty('top'); } }
+    const topRight = document.querySelector<HTMLElement>('#hud .top-right'), mm = document.getElementById('minimap');
+    if (capPanel && topRight?.offsetParent && matchMedia('(max-width: 620px) and (min-height: 521px)').matches) {
+      const top = Math.round((capPanel.getBoundingClientRect().bottom - topRight.offsetParent.getBoundingClientRect().top) / uiZoom + 6);
+      if (topRight.dataset.top !== String(top)) { topRight.dataset.top = String(top); topRight.style.setProperty('top', `${top}px`, 'important'); }
+      if (mm) { const mt = Math.round((topRight.getBoundingClientRect().bottom - topRight.offsetParent.getBoundingClientRect().top) / uiZoom + 6); if (mm.dataset.top !== String(mt)) { mm.dataset.top = String(mt); mm.style.setProperty('top', `${mt}px`, 'important'); } }
+    } else if (topRight?.dataset.top) { delete topRight.dataset.top; topRight.style.removeProperty('top'); if (mm) { delete mm.dataset.top; mm.style.removeProperty('top'); } }
     // pre-2.0: the partner's chip makes the captain panel taller; the event box goes under the panel and the chips
     const altEl = document.getElementById('altar');
     if (co && capPanel && altEl?.offsetParent) {
@@ -7274,18 +7278,18 @@ export class App {
     this.renderUlts(s);
     const F = FORMATIONS[s.formation];
     const dmg = Math.round((F.damageMult - 1) * 100), taken = Math.round((F.damageTakenMult - 1) * 100);
-    document.getElementById('fdesc')!.textContent = dmg || taken ? `Daño ${dmg >= 0 ? '+' : ''}${dmg}% · recibido ${taken >= 0 ? '+' : ''}${taken}%` : 'Sin modificadores';
+    document.getElementById('fdesc')!.textContent = dmg || taken ? tr('Daño {x1}{dmg}% · recibido {x2}{taken}%', { x1: dmg >= 0 ? '+' : '', dmg, x2: taken >= 0 ? '+' : '', taken }) : tr('Sin modificadores');
     this.renderBossBar(s);
     const want = s.boss ? 'boss' : s.timeSec > s.durationSec * 0.5 ? 'run2' : 'run';
     if (want !== this.lastMusicCtx) { this.lastMusicCtx = want; setMusicContext(want); }
     const alt = document.getElementById('altar')!;
     this.renderEvent(s, alt);
-    const labels: Record<string, string> = { escudo: 'Escudo', xp: 'Exp ×2', dano: 'Daño +50%', recarga: 'Recarga -40%', velocidad: 'Velocidad +30%' };
+    const labels: Record<string, string> = { escudo: 'Escudo', xp: tr('Exp ×2'), dano: tr('Daño +50%'), recarga: tr('Recarga -40%'), velocidad: tr('Velocidad +30%') };
     document.getElementById('buffs')!.innerHTML = s.buffs.map((b) => `<span class="buff b-${b.id}"><i style="width:${b.left / b.total * 100}%"></i>${b.label ?? labels[b.id] ?? DROPS.find((d) => d.id === b.id)?.label ?? ''}</span>`).join('');
     document.getElementById('hurt')!.classList.toggle('on', this.save.settings.flashes && s.now - s.hurtAt < 0.12);
     if (s.formationChangedAt > 0 && s.formationChangedAt !== this.lastBannerAt) {
       this.lastBannerAt = s.formationChangedAt;
-      document.getElementById('bannerbox')!.innerHTML = `<div class="banner">${FORMATION_ICON(s.formation, 34)} FORMACIÓN ${F.label.toUpperCase()}</div>`;
+      document.getElementById('bannerbox')!.innerHTML = `<div class="banner">${tr('{FORMATION_ICON} FORMACIÓN {toUpperCase}', { FORMATION_ICON: FORMATION_ICON(s.formation, 34), toUpperCase: F.label.toUpperCase() })}</div>`;
     }
     const key = `${s.team.map((t) => t.id).join(',')}|${s.ults?.[0]?.playerId ?? ''}`; // 2.0: and which spirit is the active one
     const teamEl = document.getElementById('hudteam')!;
@@ -7293,17 +7297,17 @@ export class App {
       this.hudTeamKey = key;
       const slots = Array.from({ length: MAX_TEAM }, (_, i) => s.team[i]);
       teamEl.innerHTML = slots.map((t, i) => {
-        if (!t) return '<div class="plate empty" title="Ficha al subir de nivel"><b>+</b><span>Ficha al subir de nivel</span></div>';
+        if (!t) return `<div class="plate empty" title="${tr('Ficha al subir de nivel')}"><b>+</b><span>${tr('Ficha al subir de nivel')}</span></div>`;
         const p = this.byId.get(t.id)!;
         // 2.0: an awakened warrior spirit shows on the plate (its portrait, its level, its colour round the face)
         const k = keshinOf(t.id), klv = k ? keshinLevel(this.save, t.id) : 0;
         // (author) the active spirit is the leftmost one: its plate says ULTI; the others give only their passive
         const active = !!k && klv > 0 && s.ults?.[0]?.playerId === t.id;
-        const eg = k && klv ? `<span class="pl-eg" title="${esc(k.name)} · nivel ${KESHIN_LABEL[klv]} · ${active ? 'activo: su definitiva con R' : 'solo su pasiva (el activo es el de más a la izquierda)'}">${this.egArt(k)}${klv >= 2 ? this.egLevel(klv, 11) : ''}</span><b class="pl-egtag">${active ? '★ ULTI · R' : 'PASIVA'}</b>` : '';
+        const eg = k && klv ? `<span class="pl-eg" title="${tr('{kName} · nivel {x1} · {x2}', { kName: esc(k.name), x1: KESHIN_LABEL[klv], x2: active ? tr('activo: su definitiva con R') : tr('solo su pasiva (el activo es el de más a la izquierda)') })}">${this.egArt(k)}${klv >= 2 ? this.egLevel(klv, 11) : ''}</span><b class="pl-egtag">${active ? '★ ULTI · R' : tr('PASIVA')}</b>` : '';
         return `<div class="plate${i === 0 ? ' cap' : ''}${eg ? ` has-eg ${active ? 'eg-active' : 'eg-passive'}` : ''}" data-m="${t.id}" style="--rc:${RARITY_COLOR[p.rarity]};--ec:${ELEMENT_COLOR[String(p.element)] ?? '#ccc'}${k ? `;--kc:${k.color}` : ''}">
           <div class="pl-head"><span class="pl-mug">${this.mug(t.id, 40)}</span>${eg}${i === 0 ? '<span class="pl-c">C</span>' : ''}
-          <span class="pl-elem" title="${esc(p.element)}">${elementIcon(String(p.element), 18)}</span>
-          <span class="pl-name">${esc(p.name)}<small>${POS_LABEL[p.position]} · ${esc(p.element)}</small></span>${t.aura ? `<span class="pl-aura" title="Aura: ${esc(t.aura.name)}">${this.mug(t.aura.id, 40)}</span>` : ''}</div>
+          <span class="pl-elem" title="${esc(tEl(p.element))}">${elementIcon(String(p.element), 18)}</span>
+          <span class="pl-name">${esc(p.name)}<small>${POS_LABEL[p.position]} · ${esc(tEl(p.element))}</small></span>${t.aura ? `<span class="pl-aura" title="${tr('Aura: {auraName}', { auraName: esc(t.aura.name) })}">${this.mug(t.aura.id, 40)}</span>` : ''}</div>
           ${t.techs.map((_, k) => `<div class="pl-tech" data-k="${k}"><span class="pl-icon"><i class="cd"></i></span><span class="pl-tn"></span><span class="pl-pips"></span></div>`).join('')}</div>`;
       }).join('');
     }
@@ -7318,9 +7322,9 @@ export class App {
           c.dataset.sig = sig;
           c.classList.toggle('free', !tc);
           c.classList.toggle('combo', !!tc?.combo); // v1.7: raise this one to unlock a combined technique
-          c.title = tc?.combo ? `Súbela a Nv ${tc.comboNeed ?? '?'} para desbloquear ${tc.combo}` : '';
+          c.title = tc?.combo ? tr('Súbela a Nv {x1} para desbloquear {combo}', { x1: tc.comboNeed ?? '?', combo: tc.combo }) : '';
           c.classList.toggle('aura', !!tc?.aura); // v1.5: inherited from the Aura
-          (c.querySelector('.pl-tn') as HTMLElement).innerHTML = tc ? `<span class="tn-row"><span class="tn-txt">${esc(tc.name)}</span>${this.evoTag(tc.evolution)}${tc.combo && tc.comboNeed ? `<em class="pl-need">🔗Nv${tc.comboNeed}</em>` : ''}</span>` : 'Ranura libre';
+          (c.querySelector('.pl-tn') as HTMLElement).innerHTML = tc ? `<span class="tn-row"><span class="tn-txt">${esc(tTech(tc.name))}</span>${this.evoTag(tc.evolution)}${tc.combo && tc.comboNeed ? `<em class="pl-need">${tr('🔗Nv{comboNeed}', { comboNeed: tc.comboNeed })}</em>` : ''}</span>` : tr('Ranura libre');
           (c.querySelector('.pl-pips') as HTMLElement).innerHTML = tc ? Array.from({ length: MAX_TECH_LEVEL }, (_, n) => `<i class="${n < tc.level ? 'on' : ''}"></i>`).join('') : '';
           c.querySelector('.pl-icon .icon')?.remove();
           if (tc) (c.querySelector('.pl-icon') as HTMLElement).insertAdjacentHTML('afterbegin', this.icon(ICON.manual[tc.type], 1.25));
@@ -7364,8 +7368,8 @@ export class App {
         const i = ALTAR_INFO[a.type], r = a.rival;
         card.innerHTML = `<div class="ev-head"><span class="ev-ic" style="color:#${ALTAR_COLOR[a.type].toString(16).padStart(6, '0')}">${ALTAR_ICON[a.type]}</span><div><b>${esc(a.label)}</b><small class="ev-d ev-${i.difficulty === 'Difícil' ? 'hard' : i.difficulty === 'Media' ? 'mid' : 'easy'}">${i.difficulty}</small></div></div>
           ${r ? `<div class="ev-rival">${r.id ? this.mug(r.id, 56) : ''}<div><b>${esc(r.name)}</b>${r.team ? `<small>${esc(teamLabel(r.team))}</small>` : ''}</div></div>` : ''}
-          <p>${esc(i.description)}</p><dl><dt>Objetivo</dt><dd>${esc(a.task)}${a.goal > 1 ? ` (${a.goal})` : ''}</dd><dt>Tiempo</dt><dd>${Math.ceil(a.timeLeft)} s</dd><dt>Premio</dt><dd>${esc(ALTAR_REWARD[a.type])}</dd><dt>Fallas si</dt><dd>${esc(i.fail)}</dd></dl>
-          <button class="btn" id="evgo">Aceptar${document.body.classList.contains('touch') ? '' : ' <kbd>E</kbd>'}</button>`;
+          <p>${esc(i.description)}</p><dl><dt>${tr('Objetivo')}</dt><dd>${esc(a.task)}${a.goal > 1 ? ` (${a.goal})` : ''}</dd><dt>${tr('Tiempo')}</dt><dd>${Math.ceil(a.timeLeft)} s</dd><dt>${tr('Premio')}</dt><dd>${esc(ALTAR_REWARD[a.type])}</dd><dt>${tr('Fallas si')}</dt><dd>${esc(i.fail)}</dd></dl>
+          <button class="btn" id="evgo">${tr('Aceptar{x1}', { x1: document.body.classList.contains('touch') ? '' : ' <kbd>E</kbd>' })}</button>`;
         card.querySelector('#evgo')!.addEventListener('click', () => this.arena()?.acceptAltar());
       }
     }
@@ -7374,7 +7378,7 @@ export class App {
     else {
       const seconds = ALTAR_MODE[a.type] === 'tiempo' || ALTAR_MODE[a.type] === 'tiempo-dentro';
       const prog = seconds ? `${Math.floor(a.progress)}/${Math.ceil(a.goal)} s` : `${Math.floor(a.progress)}/${a.goal}`;
-      const html = `<b>${ALTAR_ICON[a.type]} ${esc(a.label)}</b><span class="ev-t">${Math.ceil(a.timeLeft)} s</span><div class="ev-goal">${esc(a.task)} · ${prog}</div><div class="ev-bar"><i style="width:${Math.min(100, a.progress / a.goal * 100)}%"></i></div><small>Falla si: ${esc(ALTAR_INFO[a.type].fail)}</small>`;
+      const html = `<b>${ALTAR_ICON[a.type]} ${esc(a.label)}</b><span class="ev-t">${Math.ceil(a.timeLeft)} s</span><div class="ev-goal">${esc(a.task)} · ${prog}</div><div class="ev-bar"><i style="width:${Math.min(100, a.progress / a.goal * 100)}%"></i></div><small>${tr('Falla si: {x1}', { x1: esc(ALTAR_INFO[a.type].fail) })}</small>`;
       if (alt.innerHTML !== html) alt.innerHTML = html;
     }
     alt.classList.toggle('on', !!a);
@@ -7385,7 +7389,7 @@ export class App {
     const box = document.getElementById('eventresult');
     if (!box) return;
     box.className = `event-result show ${r.ok ? 'ok' : 'bad'}`;
-    box.innerHTML = `<b>${r.ok ? '¡DESAFÍO SUPERADO!' : 'Desafío fallido'}</b><span>${esc(r.title)}</span><em>${esc(r.detail)}</em>`;
+    box.innerHTML = `<b>${r.ok ? tr('¡DESAFÍO SUPERADO!') : tr('Desafío fallido')}</b><span>${esc(r.title)}</span><em>${esc(r.detail)}</em>`;
     window.clearTimeout(this.eventTimer);
     this.eventTimer = window.setTimeout(() => { box.className = 'event-result'; }, 3200);
   }
@@ -7395,7 +7399,7 @@ export class App {
     let el = document.getElementById('coop-pick');
     if (!name) { el?.remove(); return; }
     if (!el) { el = document.createElement('div'); el.id = 'coop-pick'; el.className = 'coop-pick'; document.body.appendChild(el); }
-    el.innerHTML = `<i class="cp-dots"><b></b><b></b><b></b></i><span><b>${esc(name)}</b> está seleccionando…</span>`;
+    el.innerHTML = `<i class="cp-dots"><b></b><b></b><b></b></i><span><b>${esc(name)}</b> ${tr('está seleccionando…')}</span>`;
   }
 
   /** Minimap and, for what is off screen, up to three arrows: the most important first, the nearest of each kind. */
@@ -7435,24 +7439,24 @@ export class App {
     // v1.7: a card that brings a combined technique closer says which one and what it still needs
     const hints = (c.kind === 'upgrade' || c.kind === 'learn') ? c.combo ?? [] : [];
     if (!hints.length) return html;
-    const tag = `<div class="lv-combo">${hints.map((h) => `<span class="${h.reaches ? 'done' : ''}">🔗 <b>${esc(h.name)}</b> ${h.reaches ? '· ¡la desbloquea!' : `· pide Nv ${h.need}`}</span>`).join('')}</div>`;
+    const tag = `<div class="lv-combo">${hints.map((h) => `<span class="${h.reaches ? 'done' : ''}">🔗 <b>${esc(h.name)}</b> ${h.reaches ? tr('· ¡la desbloquea!') : `· pide Nv ${h.need}`}</span>`).join('')}</div>`;
     return html.replace('class="lvcard ', 'class="lvcard for-combo ').replace(/<\/button>$/, `${tag}</button>`);
   }
   private cardHtmlBase(c: Card, i: number) {
     const runP = (id: number) => this.runById.get(id) ?? this.byId.get(id)!;
-    const auraTag = (p: RosterEntry) => p.aura ? `<div class="lv-aura">✦ Aura: ${esc(p.aura.name)}</div>` : '';
+    const auraTag = (p: RosterEntry) => p.aura ? `<div class="lv-aura">${tr('✦ Aura: {auraName}', { auraName: esc(p.aura.name) })}</div>` : '';
     if (c.kind === 'recruit') {
       const p = runP(c.playerId);
       // Fix 1.41 (author): the card shows the technique he really starts with (the one chosen in Mi Equipo), not his first one
       const start = p.techniques[this.startOf(this.byId.get(p.id) ?? p)] ?? p.techniques[0];
       // 2.0: a footballer with an awakened spirit says so on the card: its portrait, and whether it will be the active one
       const k = keshinOf(p.id), klv = k ? keshinLevel(this.save, p.id) : 0;
-      const egBox = k && klv ? `<div class="lv-eg" style="--kc:${k.color}"><span class="lv-eg-art">${this.egArt(k)}</span><span class="lv-eg-tx"><small>ESPÍRITU GUERRERO${klv >= 2 ? ` · ${KESHIN_LABEL[klv]}` : ''}</small><b>${esc(k.name)}</b>
-        <em>${this.ultActiveId === null ? `★ Será tu EG activo: ${esc(techFor(k, klv).name)} con R` : `Pasiva: ${esc(k.passive.name)}`}</em></span></div>` : '';
-      return `<button class="lvcard recruit${egBox ? ' has-eg' : ''}" data-i="${i}" style="--rc:${RARITY_COLOR[p.rarity]}${k ? `;--kc:${k.color}` : ''}"><div class="lv-ribbon">${egBox ? '¡FICHAJE CON ESPÍRITU!' : '¡NUEVO FICHAJE!'}</div>
-        <div class="lv-type">FICHAJE · ${this.rar(p)}</div><div class="lv-art">${egBox ? `<span class="lv-art-eg">${this.egArt(k!)}</span>` : ''}${this.mug(p.id, 128)}<span class="minisprite">${charCanvas(p.id, 2, 12)}</span></div>
+      const egBox = k && klv ? `<div class="lv-eg" style="--kc:${k.color}"><span class="lv-eg-art">${this.egArt(k)}</span><span class="lv-eg-tx"><small>${tr('ESPÍRITU GUERRERO{x1}', { x1: klv >= 2 ? ` · ${KESHIN_LABEL[klv]}` : '' })}</small><b>${esc(k.name)}</b>
+        <em>${this.ultActiveId === null ? tr('★ Será tu EG activo: {x1} con R', { x1: esc(techFor(k, klv).name) }) : `Pasiva: ${esc(k.passive.name)}`}</em></span></div>` : '';
+      return `<button class="lvcard recruit${egBox ? ' has-eg' : ''}" data-i="${i}" style="--rc:${RARITY_COLOR[p.rarity]}${k ? `;--kc:${k.color}` : ''}"><div class="lv-ribbon">${egBox ? tr('¡FICHAJE CON ESPÍRITU!') : tr('¡NUEVO FICHAJE!')}</div>
+        <div class="lv-type">${tr('FICHAJE · {rar}', { rar: this.rar(p) })}</div><div class="lv-art">${egBox ? `<span class="lv-art-eg">${this.egArt(k!)}</span>` : ''}${this.mug(p.id, 128)}<span class="minisprite">${charCanvas(p.id, 2, 12)}</span></div>
         <div class="lv-name">${esc(p.name)}</div><div class="lv-sub">${POS_LABEL[p.position]} · ${this.elem(p)}</div>
-        <div class="lv-techs">${[start].filter(Boolean).map((t) => `<div>${this.icon(ICON.manual[t.type], 1.5)} ${esc(t.name)} <small>${TYPE_LABEL[t.type]}</small></div>`).join('')}</div>${auraTag(p)}${egBox}</button>`;
+        <div class="lv-techs">${[start].filter(Boolean).map((t) => `<div>${this.icon(ICON.manual[t.type], 1.5)} ${esc(tTech(t.name))} <small>${TYPE_LABEL[t.type]}</small></div>`).join('')}</div>${auraTag(p)}${egBox}</button>`;
     }
     if (c.kind === 'upgrade') {
       const p = runP(c.playerId);
@@ -7460,40 +7464,40 @@ export class App {
       const pips = Array.from({ length: MAX_TECH_LEVEL }, (_, k) => `<i class="${k < c.toLevel - 1 ? 'on' : k === c.toLevel - 1 ? 'new' : ''}"></i>`).join('');
       const evo = evolvesAt(t, c.toLevel - 1);
       const now = evolutionLabel(t, c.toLevel - 1);
-      return `<button class="lvcard upgrade${evo ? ' evolves' : ''}" data-i="${i}" style="--rc:${RARITY_COLOR[p.rarity]}">${evo ? `<div class="lv-ribbon">¡EVOLUCIÓN ${this.evoTag(evo)}!</div>` : ''}
-        <div class="lv-type">${t.aura !== undefined ? 'AURA · ' : ''}MEJORA · ${TYPE_LABEL[t.type].toUpperCase()}</div>
+      return `<button class="lvcard upgrade${evo ? ' evolves' : ''}" data-i="${i}" style="--rc:${RARITY_COLOR[p.rarity]}">${evo ? `<div class="lv-ribbon">${tr('¡EVOLUCIÓN {evoTag}!', { evoTag: this.evoTag(evo) })}</div>` : ''}
+        <div class="lv-type">${tr('{x1}MEJORA · {x2}', { x1: t.aura !== undefined ? tr('AURA · ') : '', x2: TYPE_LABEL[t.type].toUpperCase() })}</div>
         <div class="lv-art">${this.mug(p.id, 96)}${this.techBadge(t)}</div>
-        <div class="lv-name">${esc(t.name)}${this.evoTag(now)}</div><div class="lv-sub">${esc(p.name)}</div>${this.techChips(t)}
+        <div class="lv-name">${esc(tTech(t.name))}${this.evoTag(now)}</div><div class="lv-sub">${esc(p.name)}</div>${this.techChips(t)}
         <div class="lv-level">${this.evoTag(evolutionLabel(t, c.toLevel - 1), true) || 'Base'} <span>»</span> <b>${this.evoTag(evolutionLabel(t, c.toLevel), true) || `Nv ${c.toLevel}`}</b><span class="pips">${pips}</span></div>
         ${this.statDiff(t, c.toLevel - 1)}</button>`;
     }
     if (c.kind === 'learn') {
       const p = runP(c.playerId);
       const t = p.techniques[c.tech];
-      return `<button class="lvcard learn${t.aura !== undefined ? ' from-aura' : ''}" data-i="${i}" style="--rc:${RARITY_COLOR[p.rarity]}"><div class="lv-ribbon">${t.aura !== undefined ? `TÉCNICA DEL AURA · ${esc(p.aura?.name ?? '')}` : 'SEGUNDA TÉCNICA'}</div>
-        <div class="lv-type">APRENDER · ${TYPE_LABEL[t.type].toUpperCase()}</div>
+      return `<button class="lvcard learn${t.aura !== undefined ? ' from-aura' : ''}" data-i="${i}" style="--rc:${RARITY_COLOR[p.rarity]}"><div class="lv-ribbon">${t.aura !== undefined ? tr('TÉCNICA DEL AURA · {x1}', { x1: esc(p.aura?.name ?? '') }) : tr('SEGUNDA TÉCNICA')}</div>
+        <div class="lv-type">${tr('APRENDER · {x1}', { x1: TYPE_LABEL[t.type].toUpperCase() })}</div>
         <div class="lv-art">${this.mug(p.id, 96)}${this.techBadge(t)}</div>
-        <div class="lv-name">${esc(t.name)}</div><div class="lv-sub">${esc(p.name)} · poder ${t.power} · Nv 1/${MAX_TECH_LEVEL}</div>${this.techChips(t)}
+        <div class="lv-name">${esc(tTech(t.name))}</div><div class="lv-sub">${tr('{pName} · poder {power} · Nv 1/{MAX_TECH_LEVEL}', { pName: esc(p.name), power: t.power, MAX_TECH_LEVEL })}</div>${this.techChips(t)}
         <div class="lv-desc">${esc(t.description)}</div></button>`;
     }
     if (c.kind === 'combo') {
       const d = COMBOS.find((x) => x.id === c.id)!;
       const ids = d.needs.map((n) => this.m.roster.find((p) => p.name === n.player)?.id).filter((x): x is number => x !== undefined);
       const t = { id: 0, name: d.name, description: '', type: 'tiro', element: d.element, power: d.power, cost: 0, unlockLevel: 1, growth: null } as unknown as Technique;
-      return `<button class="lvcard combo" data-i="${i}" style="--rc:#ffe24a"><div class="lv-ribbon">${c.toLevel === 1 ? '¡TÉCNICA COMBINADA!' : 'MEJORA COMBINADA'}</div>
-        <div class="lv-type">COMBINADA · RANURA ESPECIAL</div>
+      return `<button class="lvcard combo" data-i="${i}" style="--rc:#ffe24a"><div class="lv-ribbon">${c.toLevel === 1 ? tr('¡TÉCNICA COMBINADA!') : tr('MEJORA COMBINADA')}</div>
+        <div class="lv-type">${tr('COMBINADA · RANURA ESPECIAL')}</div>
         <div class="lv-art combo-art">${ids.map((id) => this.mug(id, 64)).join('')}${this.techBadge(t, 2)}</div>
         <div class="lv-name">${esc(d.name)}${this.evoTag(comboLabel(d.power, c.toLevel))}</div><div class="lv-sub">${esc(d.needs.map((n) => n.player).join(' + '))}</div>${this.techChips(t)}
         ${c.toLevel > 1 ? `<div class="lv-level">${this.evoTag(comboLabel(d.power, c.toLevel - 1), true) || 'Base'} <span>»</span> <b>${this.evoTag(comboLabel(d.power, c.toLevel), true)}</b></div>` : ''}
-        ${c.toLevel > 1 ? this.comboGains(d, c.toLevel) : '<div class="lv-desc">Se lanza sola mientras estén todos en el campo. No ocupa ninguna ranura de técnica.</div>'}</button>`;
+        ${c.toLevel > 1 ? this.comboGains(d, c.toLevel) : `<div class="lv-desc">${tr('Se lanza sola mientras estén todos en el campo. No ocupa ninguna ranura de técnica.')}</div>`}</button>`;
     }
     if (c.kind === 'stat' || c.kind === 'passive') {
       const d = modDef(c.id)!;
-      return `<button class="lvcard ${c.kind}" data-i="${i}"><div class="lv-type">${c.kind === 'stat' ? 'ESTADÍSTICA DEL EQUIPO' : 'OBJETO PASIVO'}</div>
+      return `<button class="lvcard ${c.kind}" data-i="${i}"><div class="lv-type">${c.kind === 'stat' ? tr('ESTADÍSTICA DEL EQUIPO') : tr('OBJETO PASIVO')}</div>
         <div class="lv-art">${this.icon(d.icon, 5)}</div><div class="lv-name">${esc(d.label)}</div><div class="lv-sub">${esc(d.description)}</div></button>`;
     }
-    return `<button class="lvcard heal" data-i="${i}"><div class="lv-type">RECUPERACIÓN</div><div class="lv-art">${this.icon(ICON.riceBall, 5)}</div>
-      <div class="lv-name">Bola de arroz</div><div class="lv-sub">Recupera ${Math.round(c.amount * 100)}% de la vida del capitán</div></button>`;
+    return `<button class="lvcard heal" data-i="${i}"><div class="lv-type">${tr('RECUPERACIÓN')}</div><div class="lv-art">${this.icon(ICON.riceBall, 5)}</div>
+      <div class="lv-name">${tr('Bola de arroz')}</div><div class="lv-sub">${tr('Recupera {x1}% de la vida del capitán', { x1: Math.round(c.amount * 100) })}</div></button>`;
   }
 
   private levelUpModal(cards: Card[], rerolls: number, reroll: () => Card[], level: number): Promise<Card> {
@@ -7525,9 +7529,9 @@ export class App {
       const render = (cs: Card[], left: number, first: boolean) => {
         document.getElementById('lvl')?.remove();
         this.root.insertAdjacentHTML('beforeend', `<div class="levelup${first ? ' first' : ''}" id="lvl"><div class="lv-rays"></div>
-          <div class="lv-title"><span>${level ? `¡NIVEL ${level}!` : '¡RECOMPENSA!'}</span><small>Elige una mejora para tu equipo</small></div>
+          <div class="lv-title"><span>${level ? tr('¡NIVEL {level}!', { level }) : tr('¡RECOMPENSA!')}</span><small>${tr('Elige una mejora para tu equipo')}</small></div>
           <div class="lv-cards n${cs.length}">${cs.map((c, i) => this.cardHtml(c, i)).join('')}</div>
-          <div class="lv-bottom"><button class="btn big blue reroll" id="reroll" ${left > 0 ? '' : 'disabled'}>⟳ CAMBIAR CARTAS <span class="rr-count">${left}</span></button></div></div>`);
+          <div class="lv-bottom"><button class="btn big blue reroll" id="reroll" ${left > 0 ? '' : 'disabled'}>${tr('⟳ CAMBIAR CARTAS')} <span class="rr-count">${left}</span></button></div></div>`);
         mountPreviews();
         const modal = document.getElementById('lvl')!;
         current = cs;
@@ -7564,11 +7568,11 @@ export class App {
     const goals = (this.lastHud?.comboGoals ?? []).slice().sort((a, b) => Number(b.ready) - Number(a.ready) || Number(b.complete) - Number(a.complete)).slice(0, 6);
     if (!goals.length) return '';
     // 1.88 (author: less text): each participant with his level now / needed, ✔ when reached; one state pill
-    return `<h3>Técnicas combinadas</h3><div class="cb2-grid">${goals.map((g) => {
+    return `<h3>${tr('Técnicas combinadas')}</h3><div class="cb2-grid">${goals.map((g) => {
       const def = COMBOS.find((c) => c.id === g.id);
-      const parts = g.parts.map((p) => `<span class="cb2-who${p.memberId === null ? ' miss' : p.have >= p.need ? ' ok' : ''}" title="${esc(p.player)} · ${esc((!p.anyTech && p.tech) || p.bestTech || 'su mejor técnica')}">${p.memberId !== null ? this.mug(p.memberId, 40) : '<i class="cb2-q">?</i>'}<em>${p.memberId === null ? '—' : p.have >= p.need ? '✔' : `${p.have}/${p.need}`}</em></span>`).join('<i class="cb2-link">🔗</i>');
+      const parts = g.parts.map((p) => `<span class="cb2-who${p.memberId === null ? ' miss' : p.have >= p.need ? ' ok' : ''}" title="${esc(p.player)} · ${esc((!p.anyTech && p.tech) || p.bestTech || tr('su mejor técnica'))}">${p.memberId !== null ? this.mug(p.memberId, 40) : '<i class="cb2-q">?</i>'}<em>${p.memberId === null ? '—' : p.have >= p.need ? '✔' : `${p.have}/${p.need}`}</em></span>`).join('<i class="cb2-link">🔗</i>');
       return `<div class="cb2${g.ready ? ' ready' : ''}" style="--ec:${ELEMENT_COLOR[def?.element ?? ''] ?? '#ffe27a'}"><div class="cb2-team">${parts}</div>
-        <div class="cb2-info"><b>${esc(g.name)}</b><span class="cb2-tags">${g.ready ? '<em class="cb2-pill ok">¡Lista!</em>' : g.complete ? '<em class="cb2-pill">Sube niveles</em>' : '<em class="cb2-pill off">Falta gente</em>'}</span></div></div>`;
+        <div class="cb2-info"><b>${esc(g.name)}</b><span class="cb2-tags">${g.ready ? `<em class="cb2-pill ok">${tr('¡Lista!')}</em>` : g.complete ? `<em class="cb2-pill">${tr('Sube niveles')}</em>` : '<em class="cb2-pill off">Falta gente</em>'}</span></div></div>`;
     }).join('')}</div>`;
   }
 
@@ -7583,25 +7587,25 @@ export class App {
     const b = this.arena()?.buildStats();
     const tile = (label: string, v: string) => `<span class="pz-tile"><small>${label}</small><b>${v}</b></span>`;
     this.root.insertAdjacentHTML('beforeend', `<div class="modal pause-modal" id="pause"><div class="pz">
-      <div class="pz-head"><b class="pz-title">PAUSA</b>${h ? `<div class="pz-stats">
+      <div class="pz-head"><b class="pz-title">${tr('PAUSA')}</b>${h ? `<div class="pz-stats">
         <span>${uiIcon('clock')}<b>${fmtTime(h.timeSec)}</b> / ${fmtTime(h.durationSec)}</span><span>☠ <b>${h.kills}</b></span>
-        <span>NV <b>${h.level}</b></span><span>◉ <b>${h.runCoins}</b></span>${h.boss ? `<span class="pz-boss">${uiIcon('crown')}<b>${esc(h.boss.name)}</b> ${Math.ceil(h.boss.hp / Math.max(1, h.boss.maxHp) * 100)}%</span>` : ''}</div>` : ''}</div>
+        <span>${tr('NV <b>{level}</b>', { level: h.level })}</span><span>◉ <b>${h.runCoins}</b></span>${h.boss ? `<span class="pz-boss">${uiIcon('crown')}<b>${esc(h.boss.name)}</b> ${Math.ceil(h.boss.hp / Math.max(1, h.boss.maxHp) * 100)}%</span>` : ''}</div>` : ''}</div>
       <div class="pz-body">
         <aside class="pz-side">
-          <button class="pz-btn primary" id="resume">▶ Continuar</button>
-          <div class="pz-box"><h4>Ajustes rápidos</h4>
+          <button class="pz-btn primary" id="resume">${tr('▶ Continuar')}</button>
+          <div class="pz-box"><h4>${tr('Ajustes rápidos')}</h4>
             <div class="seg pz-seg" id="pp">${(['completo', 'reducido', 'desactivado'] as ParticleLevel[]).map((v) => `<button data-v="${v}" class="${s.particles === v ? 'on' : ''}">${v === 'completo' ? 'Todas' : v === 'reducido' ? 'Pocas' : 'Sin'}</button>`).join('')}</div>
-            <small class="pz-cap">Partículas</small>
+            <small class="pz-cap">${tr('Partículas')}</small>
             ${sw('toggleshake', 'Sacudida', s.shake > 0)}${sw('toggleflash', 'Destellos', s.flashes)}${sw('togglemute', 'Sonido', !s.muted)}</div>
-          <button class="pz-btn" id="pausebug">${uiIcon('bug')}Reportar un bug</button>
-          <button class="pz-btn danger" id="quit">${this.inTraining ? 'Salir del entrenamiento' : 'Abandonar partida'}</button>
-          <p class="note">${this.inTraining ? 'Vuelves al campo de entrenamiento con la misma configuración.' : 'Al abandonar conservas las monedas ganadas.'}</p>
+          <button class="pz-btn" id="pausebug">${tr('{x1}Reportar un bug', { x1: uiIcon('bug') })}</button>
+          <button class="pz-btn danger" id="quit">${this.inTraining ? tr('Salir del entrenamiento') : tr('Abandonar partida')}</button>
+          <p class="note">${this.inTraining ? tr('Vuelves al campo de entrenamiento con la misma configuración.') : tr('Al abandonar conservas las monedas ganadas.')}</p>
         </aside>
         <div class="pz-main">
-          <section><h3>Formación</h3><div class="formation-pick pz-forms">${FORMATION_ORDER.map((f) => this.formationCard(f, false)).join('')}</div></section>
-          ${b ? `<section><h3>Tu capitán ahora</h3><div class="pz-tiles">${tile('Daño recibido', `${b.damageTakenPct}%`)}${tile('Recarga', `${b.cooldownPct}%`)}${tile('Área', `${b.areaPct}%`)}
+          <section><h3>${tr('Formación')}</h3><div class="formation-pick pz-forms">${FORMATION_ORDER.map((f) => this.formationCard(f, false)).join('')}</div></section>
+          ${b ? `<section><h3>${tr('Tu capitán ahora')}</h3><div class="pz-tiles">${tile(tr('Daño recibido'), `${b.damageTakenPct}%`)}${tile('Recarga', `${b.cooldownPct}%`)}${tile('Área', `${b.areaPct}%`)}
             ${tile('Suerte', `+${b.luckPct}%`)}${tile('Recogida', `${b.pickupPx} px`)}${tile('Revivir', String(b.revives))}</div>
-            <p class="note">Solo el capitán recibe daño: tus compañeros son invulnerables. Recogida máx. 130 px.</p></section>` : ''}
+            <p class="note">${tr('Solo el capitán recibe daño: tus compañeros son invulnerables. Recogida máx. 130 px.')}</p></section>` : ''}
           ${(() => { const c = this.pauseCombos(); return c ? `<section>${c.replace('<h3 style="margin-top:12px">', '<h3>')}</section>` : ''; })()}
         </div>
       </div></div></div>`);
@@ -7660,14 +7664,14 @@ export class App {
       const credit = this.runSectorCredit;
       submitScore(runId, r.mapId, r.rank ?? 'C', r.timeSec, r.damage ?? 0, r.captainId ?? 0)
         .then((res) => {
-          this.toast(res === 'duplicate' ? 'Esta partida ya estaba en el ranking' : 'Marca enviada al ranking global');
+          this.toast(res === 'duplicate' ? tr('Esta partida ya estaba en el ranking') : tr('Marca enviada al ranking global'));
           // 2.2: the run's server points go to the player's side (×1.5 after rebelling)
           if (res === 'ok' && credit) void sectorCredit(runId, credit.rebel).then((pts) => {
             const sd = this.save.sector?.side;
-            if (pts > 0 && sd) window.setTimeout(() => this.toast(`${SIDES[sd].name}: +${pts.toLocaleString('es')} puntos para tu bando${credit.rebel ? ' (rebelde ×1,5)' : ''}`, 4000), 2600);
+            if (pts > 0 && sd) window.setTimeout(() => this.toast(tr('{x1}: +{x2} puntos para tu bando{x3}', { x1: SIDES[sd].name, x2: pts.toLocaleString(locale()), x3: credit.rebel ? ' (rebelde ×1,5)' : '' }), 4000), 2600);
           }).catch((e) => console.warn('[sector]', e));
         })
-        .catch((err: Error) => this.toast(`Ranking: ${err.message}`, 4000));
+        .catch((err: Error) => this.toast(tr('Ranking: {message}', { message: err.message }), 4000));
     }
     this.persist();
     const pending = pendingClaims(this.save);
@@ -7681,37 +7685,37 @@ export class App {
     const mvp = [...team].sort((a, b) => usesOf(b) - usesOf(a))[0];
     const techs = Object.entries(uses).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([id, n]) => ({ name: team.flatMap((x) => x.techniques).find((t) => String(t.id) === id)?.name ?? '', n })).filter((t) => t.name);
     const owned = this.unlockedRoster().length;
-    const recName: Record<string, string> = { tiempo: 'Mejor tiempo', eliminaciones: 'Más eliminaciones', nivel: 'Mayor nivel', ranking: 'Nueva mejor marca', infinito: 'Récord en infinito' };
+    const recName: Record<string, string> = { tiempo: tr('Mejor tiempo'), eliminaciones: tr('Más eliminaciones'), nivel: tr('Mayor nivel'), ranking: tr('Nueva mejor marca'), infinito: tr('Récord en infinito') };
     const stat = (label: string, value: string, rec: boolean, i: number) => `<div class="stat res-in${rec ? ' rec' : ''}" style="--d:${250 + i * 110}ms"><span class="note">${label}</span><b>${value}</b>${rec ? '<em>¡RÉCORD!</em>' : ''}</div>`;
     const crest = this.emblemOf(this.save.crest);
     const inf = (r.endlessSec ?? 0) > 0;
-    this.show(`<div class="screen res-screen ${r.victory ? 'res-win' : 'res-lose'}" id="resroot"><button class="btn small blue res-skip" id="resskip">Saltar ▶▶</button>
-      <div class="res-head">${crest ? `<img class="res-crest" src="${crest}" alt="">` : ''}<div class="result-banner ${r.victory ? 'win' : 'lose'}">${r.victory ? '¡VICTORIA!' : 'FIN DE LA PARTIDA'}</div></div>
+    this.show(`<div class="screen res-screen ${r.victory ? 'res-win' : 'res-lose'}" id="resroot"><button class="btn small blue res-skip" id="resskip">${tr('Saltar ▶▶')}</button>
+      <div class="res-head">${crest ? `<img class="res-crest" src="${crest}" alt="">` : ''}<div class="result-banner ${r.victory ? 'win' : 'lose'}">${r.victory ? tr('¡VICTORIA!') : tr('FIN DE LA PARTIDA')}</div></div>
       <div class="res-squad">${team.map((x, i) => `<span class="res-in${x === mvp ? ' mvp' : ''}" style="--d:${i * 90}ms">${this.mug(x.id, 56)}${x === mvp ? '<small>MVP</small>' : ''}</span>`).join('')}</div>
       <div class="panel" style="max-width:820px;margin:0 auto"><h3>${esc(map.name)} · ${RANKS[r.rank ?? 'C'].label}${r.victory ? ' · superada' : ''}</h3>
       <div class="result-grid">${stat('Tiempo', fmtTime(r.timeSec), records.includes('tiempo'), 0)}${stat('Eliminaciones', String(r.kills), records.includes('eliminaciones'), 1)}
-        ${stat('Daño', (r.damage ?? 0).toLocaleString('es'), false, 2)}${stat('Nivel', String(r.level), records.includes('nivel'), 3)}${stat('Minijefes', String(r.minibosses), false, 4)}</div>
-      ${(() => { const c = deathCause(r.death); return c ? `<div class="res-death res-in" style="--d:700ms"><b>${r.victory ? 'Fin de la supervivencia infinita' : 'Causa de la derrota'}</b><span>${esc(c.line)}</span>
-        <span>Último golpe: ${r.death!.dmg} de daño a los ${fmtTime(r.death!.at)} · Sobreviviste ${fmtTime(r.timeSec)}</span><span class="note">Consejo: ${esc(c.tip)}</span></div>` : ''; })()}
-      ${inf ? `<div class="res-inf res-in" style="--d:800ms"><b>Supervivencia infinita</b><span>Tiempo extra ${fmtTime(r.endlessSec ?? 0)} · Fase alcanzada: ${esc(r.endlessPhase ?? '')} · Jefes adicionales: ${r.endlessBosses ?? 0}</span><span>Recompensas del infinito: ${r.endlessCoins ?? 0} monedas y ${r.endlessTokens ?? 0} fichas${records.includes('infinito') ? ' · ¡Récord personal!' : ''}</span><span id="resrank"></span></div>` : ''}
-      ${mvp ? `<div class="res-mvp res-in" style="--d:900ms"><span>Mejor jugador: <b>${esc(mvp.name)}</b> (más técnicas lanzadas)</span>${techs.length ? `<span>Técnicas más usadas: ${techs.map((t) => `${esc(t.name)} ×${t.n}`).join(' · ')}</span>` : ''}</div>` : ''}
+        ${stat('Daño', (r.damage ?? 0).toLocaleString(locale()), false, 2)}${stat('Nivel', String(r.level), records.includes('nivel'), 3)}${stat('Minijefes', String(r.minibosses), false, 4)}</div>
+      ${(() => { const c = deathCause(r.death); return c ? `<div class="res-death res-in" style="--d:700ms"><b>${r.victory ? tr('Fin de la supervivencia infinita') : tr('Causa de la derrota')}</b><span>${esc(c.line)}</span>
+        <span>${tr('Último golpe: {x1} de daño a los {x2} · Sobreviviste {timeSec}', { x1: r.death!.dmg, x2: fmtTime(r.death!.at), timeSec: fmtTime(r.timeSec) })}</span><span class="note">${tr('Consejo: {tip}', { tip: esc(c.tip) })}</span></div>` : ''; })()}
+      ${inf ? `<div class="res-inf res-in" style="--d:800ms"><b>${tr('Supervivencia infinita')}</b><span>${tr('Tiempo extra {x1} · Fase alcanzada: {x2} · Jefes adicionales: {x3}', { x1: fmtTime(r.endlessSec ?? 0), x2: esc(r.endlessPhase ?? ''), x3: r.endlessBosses ?? 0 })}</span><span>${tr('Recompensas del infinito: {x1} monedas y {x2} fichas{x3}', { x1: r.endlessCoins ?? 0, x2: r.endlessTokens ?? 0, x3: records.includes('infinito') ? tr(' · ¡Récord personal!') : '' })}</span><span id="resrank"></span></div>` : ''}
+      ${mvp ? `<div class="res-mvp res-in" style="--d:900ms"><span>${tr('Mejor jugador: <b>{mvpName}</b> (más técnicas lanzadas)', { mvpName: esc(mvp.name) })}</span>${techs.length ? `<span>${tr('Técnicas más usadas: {x1}', { x1: techs.map((t) => `${esc(t.name)} ×${t.n}`).join(' · ') })}</span>` : ''}</div>` : ''}
       ${records.length ? `<div class="res-recs res-in" style="--d:1000ms">${records.map((x) => `<span>★ ${recName[x] ?? x}</span>`).join('')}</div>` : ''}
       <div class="reward-cols"><table class="rewards">${rewards.map((x, i) => `<tr class="rrow" style="--d:${1000 + i * 110}ms"><td>${esc(x.label)}</td><td>+${x.coins}</td></tr>`).join('')}
-        <tr class="rrow total" style="--d:${1000 + rewards.length * 110}ms"><td><b>Monedas</b></td><td><b id="tcoins">+0</b></td></tr></table>
+        <tr class="rrow total" style="--d:${1000 + rewards.length * 110}ms"><td><b>${tr('Monedas')}</b></td><td><b id="tcoins">+0</b></td></tr></table>
       <table class="rewards tok">${tokens.map((x, i) => `<tr class="rrow" style="--d:${1000 + i * 110}ms"><td>${esc(x.label)}</td><td>+${x.coins}</td></tr>`).join('')}
-        <tr class="rrow total" style="--d:${1000 + tokens.length * 110}ms"><td><b>Fichas de Fichaje</b></td><td><b id="ttokens">+0</b></td></tr>
-        ${evTokens ? `<tr class="rrow total ev-tok" style="--d:${1100 + tokens.length * 110}ms"><td><b>Fichas de evento</b></td><td><b>+${evTokens}</b></td></tr>` : ''}</table>
+        <tr class="rrow total" style="--d:${1000 + tokens.length * 110}ms"><td><b>${tr('Fichas de Fichaje')}</b></td><td><b id="ttokens">+0</b></td></tr>
+        ${evTokens ? `<tr class="rrow total ev-tok" style="--d:${1100 + tokens.length * 110}ms"><td><b>${tr('Fichas de evento')}</b></td><td><b>+${evTokens}</b></td></tr>` : ''}</table>
       ${trainTotal ? `<table class="rewards trn">${training.map((x, i) => `<tr class="rrow" style="--d:${1000 + i * 110}ms"><td>${esc(x.label)}</td><td>+${x.coins}</td></tr>`).join('')}
-        <tr class="rrow total" style="--d:${1000 + training.length * 110}ms"><td><b>Fichas de entrenamiento</b></td><td><b>+${trainTotal}</b></td></tr></table>` : ''}
+        <tr class="rrow total" style="--d:${1000 + training.length * 110}ms"><td><b>${tr('Fichas de entrenamiento')}</b></td><td><b>+${trainTotal}</b></td></tr></table>` : ''}
       ${eg.length ? `<table class="rewards egr">${eg.map((x, i) => `<tr class="rrow" style="--d:${1100 + i * 110}ms"><td>${esc(x.label)}</td><td>+${x.coins}</td></tr>`).join('')}
-        <tr class="rrow total" style="--d:${1100 + eg.length * 110}ms"><td><b>${this.egIcon(14)} Fichas EG</b></td><td><b>+${eg.reduce((a, x) => a + x.coins, 0)}</b></td></tr></table>` : ''}</div>
+        <tr class="rrow total" style="--d:${1100 + eg.length * 110}ms"><td><b>${tr('{egIcon} Fichas EG', { egIcon: this.egIcon(14) })}</b></td><td><b>+${eg.reduce((a, x) => a + x.coins, 0)}</b></td></tr></table>` : ''}</div>
       <div class="result-wallet"><span class="tokens">${this.save.tokens - tokenTotal}</span><span class="coins">${this.save.coins - total}</span></div>
-      <p class="note">Colección: ${owned} de ${this.m.roster.length} futbolistas · Una tirada cuesta ${PULL_COST} fichas</p>
-      ${pending ? `<p class="newtag">¡Tienes ${pending} ${pending === 1 ? 'misión' : 'misiones'} por cobrar!</p>` : ''}
-      <p style="text-align:center"><button class="btn big" id="again">Jugar otra vez</button> <button class="btn blue" id="menu">Menú</button></p></div></div>`);
+      <p class="note">${tr('Colección: {owned} de {rosterLength} futbolistas · Una tirada cuesta {PULL_COST} fichas', { owned, rosterLength: this.m.roster.length, PULL_COST })}</p>
+      ${pending ? `<p class="newtag">${tr('¡Tienes {pending} {x1} por cobrar!', { pending, x1: pending === 1 ? 'misión' : 'misiones' })}</p>` : ''}
+      <p style="text-align:center"><button class="btn big" id="again">${tr('Jugar otra vez')}</button> <button class="btn blue" id="menu">${tr('Menú')}</button></p></div></div>`);
     if (r.victory) { sfx('legend'); if (this.save.settings.particles !== 'desactivado') confetti(); } else sfx('reveal');
     if (inf && onlineConfigured() && signedIn() && this.save.onlineName) {
-      window.setTimeout(() => { void myPosition({ map: r.mapId, rank: r.rank ?? 'C', order: 'score' }).then((m) => { const el = document.getElementById('resrank'); if (el && m) el.textContent = `Posición en el ranking de esta arena: #${m.pos}`; }).catch(() => undefined); }, 1500);
+      window.setTimeout(() => { void myPosition({ map: r.mapId, rank: r.rank ?? 'C', order: 'score' }).then((m) => { const el = document.getElementById('resrank'); if (el && m) el.textContent = tr('Posición en el ranking de esta arena: #{pos}', { pos: m.pos }); }).catch(() => undefined); }, 1500);
     }
     const wc = document.querySelector<HTMLElement>('.result-wallet .coins'), wt = document.querySelector<HTMLElement>('.result-wallet .tokens');
     const c = document.getElementById('tcoins')!, t = document.getElementById('ttokens')!;

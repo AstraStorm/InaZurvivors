@@ -10,6 +10,8 @@ import type { RosterEntry } from '../data/manifest';
 import type { SaveData } from './save';
 import { addCopy } from './gacha';
 import { givePennant, hasPennant } from './pennants';
+import { tr } from '../i18n/i18n';
+import { tEl } from '../i18n/data';
 
 export const SECTOR_START = '2026-11-12T12:00:00+01:00'; // author: opens with the 2.2 on Thursday 12 November (was 13-11)
 export const SECTOR_END = '2026-12-12T15:00:00+01:00';
@@ -20,11 +22,11 @@ export type SideId = 'sector' | 'resistencia';
 export interface SideDef { id: SideId; name: string; short: string; color: string; frame: string; players: number[]; motto: string }
 /** the three footballers of each side (author: «equilibrado por rareza»): a copy of each to the winners every week */
 export const SIDES: Record<SideId, SideDef> = {
-  sector: { id: 'sector', name: 'Sector Quinto', short: 'Sector', color: '#3f6bff', frame: 'marco-sector-quinto', players: [100562, 100944, 100303],
-    motto: 'El fútbol bajo control: cada partido, como el Sector decide.' },
+  sector: { id: 'sector', name: tr('Sector Quinto'), short: 'Sector', color: '#3f6bff', frame: 'marco-sector-quinto', players: [100562, 100944, 100303],
+    motto: tr('El fútbol bajo control: cada partido, como el Sector decide.') },
   // author: the Resistencia's prize are its Mixi Max (Arion + Arthur, Riccardo + Nobunaga, Victor + Okita)
   resistencia: { id: 'resistencia', name: 'Resistencia', short: 'Resistencia', color: '#ffb020', frame: 'marco-resistencia', players: [101520, 100805, 101004],
-    motto: 'El fútbol es libre: el viento de la revolución sopla en cada partido.' },
+    motto: tr('El fútbol es libre: el viento de la revolución sopla en cada partido.') },
 };
 export const WIN_PRIZE = { tokens: 300, coins: 15000 };
 export const LOSE_PRIZE = { tokens: 100, coins: 5000 };
@@ -46,10 +48,10 @@ const ELEMS: Elem[] = ['Fuego', 'Aire', 'Bosque', 'Montaña'];
 /** the weekly decree: one element gets +20 % for everyone (author: «decreto semanal») */
 export interface WeeklyDecree { week: number; element: Elem; bonus: number; title: string; line: string }
 const WEEKLY: [Elem, string][] = [
-  ['Aire', 'El viento sopla a favor del Sector. Esta semana, quien domine el Aire dominará el campo.'],
-  ['Fuego', 'El Sector quiere goles de fuego. Esta semana, las técnicas de Fuego arden con más fuerza.'],
-  ['Bosque', 'Raíces firmes, disciplina firme. Esta semana el Bosque crece bajo la mirada del Sector.'],
-  ['Montaña', 'Nadie mueve una montaña sin permiso. Esta semana la Montaña es la ley.'],
+  ['Aire', tr('El viento sopla a favor del Sector. Esta semana, quien domine el Aire dominará el campo.')],
+  ['Fuego', tr('El Sector quiere goles de fuego. Esta semana, las técnicas de Fuego arden con más fuerza.')],
+  ['Bosque', tr('Raíces firmes, disciplina firme. Esta semana el Bosque crece bajo la mirada del Sector.')],
+  ['Montaña', tr('Nadie mueve una montaña sin permiso. Esta semana la Montaña es la ley.')],
 ];
 export function weeklyDecree(now: number | Date): WeeklyDecree | null {
   const w = sectorWeek(now);
@@ -61,10 +63,10 @@ export function weeklyDecree(now: number | Date): WeeklyDecree | null {
 /** a decree for one match: what accepting it costs */
 export interface MatchDecree { id: string; title: string; line: string; element?: Elem; elementMult?: number; allMult?: number; takenMult?: number }
 export const MATCH_DECREES: MatchDecree[] = [
-  ...ELEMS.map((e): MatchDecree => ({ id: `sin-${e.toLowerCase().replace('ñ', 'n')}`, title: `Técnicas de ${e} −40 %`, element: e, elementMult: 0.6,
-    line: `En este partido el ${e} no está autorizado. Juega como el Sector dice.` })),
-  { id: 'muro', title: 'Recibes +25 % de daño', takenMult: 1.25, line: 'Tu defensa no interesa al Sector. Aguanta los golpes en silencio.' },
-  { id: 'gris', title: 'Todas las técnicas −15 %', allMult: 0.85, line: 'Nada de lucirse: un partido gris, sin estrellas. Así lo quiere el Sector.' },
+  ...ELEMS.map((e): MatchDecree => ({ id: `sin-${e.toLowerCase().replace('ñ', 'n')}`, title: tr('Técnicas de {e} −40 %', { e: tEl(e) }), element: e, elementMult: 0.6,
+    line: tr('En este partido el {e} no está autorizado. Juega como el Sector dice.', { e: tEl(e) }) })),
+  { id: 'muro', title: tr('Recibes +25 % de daño'), takenMult: 1.25, line: tr('Tu defensa no interesa al Sector. Aguanta los golpes en silencio.') },
+  { id: 'gris', title: tr('Todas las técnicas −15 %'), allMult: 0.85, line: tr('Nada de lucirse: un partido gris, sin estrellas. Así lo quiere el Sector.') },
 ];
 /** the decree of a match, from its seed (the same match always gets the same one) */
 export const matchDecree = (seed: number) => MATCH_DECREES[Math.abs(Math.floor(seed)) % MATCH_DECREES.length];

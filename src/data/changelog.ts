@@ -15,6 +15,16 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: '12.0', date: '2026-11-12', title: '2.3 Inglés',
+    features: [
+      'Traducción al inglés (autor): src/i18n (tr() con el texto español como clave, en.ts ~3.850 entradas; idioma guardado en save.settings.lang o el del navegador, leído al cargar los módulos; cambiarlo en Opciones recarga). Datos (systems/*, data/*), HUD, noticias y release.ts completos; changelog.ts interno sigue en español.',
+      'Técnicas y combinadas con su nombre del doblaje inglés (tTech: en_tech.json, ComboDef.en, en_tech_manual.ts para revisar); elementos con tEl (Fire/Wind/Wood/Earth/Void); números y fechas con locale(). tools/i18n_wrap.py y tests/i18n.test.ts (cada tr() y cada texto de tabla tienen su inglés).',
+    ],
+    fixes: [],
+    visuals: ['Pantalla de carga de index.html en el idioma del jugador.'],
+    balance: [],
+  },
+  {
     version: '11.1', date: '2026-11-12', title: '2.2 Sector Quinto',
     features: [
       'Sector Quinto (autor; systems/sector.ts, migración sector_quinto): 12-11 12:00 → 12-12 15:00, 4 semanas (jueves 12:00). Bando para siempre (sector_join con margen max(5, 10 %)), puntos del servidor por victoria (submit_score guarda submitted_runs.points; sector_credit ×1,5 rebelde), gana la mayor media por miembro activo, cierre perezoso (sector_close_due), premios sector_claim (300/15.000 ganador, 100/5.000 perdedor) contados en economy_cap; el cliente da el marco del bando y una copia de sus tres estrellas (paySectorPrize).',

@@ -3,6 +3,7 @@
  * active slots in a run. TYPE (tiro/regate/defensa/parada/talento) selects the behaviour, POWER (command.dat) scales it.
  */
 import type { TechType, Technique } from '../data/manifest';
+import { getLang, tr } from '../i18n/i18n';
 
 export const MAX_TECH_LEVEL = 10;
 export const ACTIVE_SLOTS = 2;
@@ -83,8 +84,8 @@ export function statChanges(t: Pick<Technique, 'type' | 'power'>, level: number)
   if (t.type !== 'talento') add('Área', a.radius, b.radius);
   if (t.type !== 'talento') add('Recarga', `${(a.cooldownMs / 1000).toFixed(1)}s`, `${(b.cooldownMs / 1000).toFixed(1)}s`);
   if (t.type === 'parada') { add('Cura', pct(a.heal), pct(b.heal)); add('Escudo', pct(a.shield), pct(b.shield)); }
-  if (!a.explodes && b.explodes) out.push({ label: 'Explosión', from: '', to: 'NUEVO' });
-  if (a.slow === 1 && b.slow < 1) out.push({ label: 'Ralentiza', from: '', to: 'NUEVO' });
+  if (!a.explodes && b.explodes) out.push({ label: tr('Explosión'), from: '', to: tr('NUEVO') });
+  if (a.slow === 1 && b.slow < 1) out.push({ label: tr('Ralentiza'), from: '', to: tr('NUEVO') });
   return out;
 }
 
@@ -93,6 +94,7 @@ export const ELEMENT_COLOR: Record<string, number> = {
 };
 export const elementColor = (e: string | null | undefined) => (e && ELEMENT_COLOR[e]) || 0xf2f2f2;
 
-export const TYPE_LABEL: Record<TechType, string> = {
-  tiro: 'Tiro', regate: 'Regate', defensa: 'Defensa', parada: 'Parada', talento: 'Talento',
-};
+// 2.3: the dub's technique types (not tr(): «Tiro» and «Defensa» are also stats, Kick and Guard)
+export const TYPE_LABEL: Record<TechType, string> = getLang() === 'en'
+  ? { tiro: 'Shoot', regate: 'Dribble', defensa: 'Block', parada: 'Catch', talento: 'Talent' }
+  : { tiro: 'Tiro', regate: 'Regate', defensa: 'Defensa', parada: 'Parada', talento: 'Talento' };

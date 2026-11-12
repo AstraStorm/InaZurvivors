@@ -4,6 +4,8 @@
  * machine of their saga (a small chance per pull, only the ones not owned yet). Portraits: IE3 (Great Road of Heroes),
  * exported by InazumaExtractor/coaches_ie3.py; the manifest's `coaches` lists them by id.
  */
+import { tr } from '../i18n/i18n';
+import { tEl } from '../i18n/data';
 import type { FormationId } from '../systems/formations';
 import type { BannerId } from '../systems/banners';
 import type { Rarity } from './manifest';
@@ -25,38 +27,38 @@ export interface CoachDef {
 
 export const COACHES: CoachDef[] = [
   { id: 'hillman', name: 'Seymour Hillman', team: 'Raimon', rarity: 'legendario', machine: 'ff',
-    quote: 'El viejo del puesto de ramen que entrenó al Inazuma Eleven original.',
+    quote: tr('El viejo del puesto de ramen que entrenó al Inazuma Eleven original.'),
     passives: [{ kind: 'formacion', formation: 'equilibrada', damage: 0.12, taken: 0.08 }, { kind: 'combinadas', damage: 0.15 }] },
   { id: 'veterano', name: 'Mr Veteran', team: 'Veteranos', rarity: 'epico', machine: 'ff',
-    quote: 'Años de partidos: sabe aguantar y sabe dónde buscar.',
+    quote: tr('Años de partidos: sabe aguantar y sabe dónde buscar.'),
     passives: [{ kind: 'defensa', taken: 0.1 }, { kind: 'objetos', luck: 0.25 }] },
   { id: 'alpino', name: 'Entrenador del Alpino', team: 'Alpino', rarity: 'raro', machine: 'alius',
-    quote: 'Entrena entre la nieve, donde sopla el viento más frío.',
+    quote: tr('Entrena entre la nieve, donde sopla el viento más frío.'),
     passives: [{ kind: 'afinidad', element: 'Aire', damage: 0.1 }] },
   { id: 'claustro', name: 'Entrenador del Claustro Sagrado', team: 'Claustro Sagrado', rarity: 'raro', machine: 'alius',
-    quote: 'Disciplina de monasterio, paciencia de árbol centenario.',
+    quote: tr('Disciplina de monasterio, paciencia de árbol centenario.'),
     passives: [{ kind: 'afinidad', element: 'Bosque', damage: 0.1 }] },
   { id: 'fauxshore', name: 'Entrenador del Fauxshore', team: 'Fauxshore', rarity: 'raro', machine: 'alius',
-    quote: 'Siempre encuentra algo bueno entre la arena.',
+    quote: tr('Siempre encuentra algo bueno entre la arena.'),
     passives: [{ kind: 'objetos', luck: 0.3 }] },
   { id: 'mary-times', name: 'Entrenador del Mary Times', team: 'Mary Times', rarity: 'raro', machine: 'alius',
-    quote: 'Juego de equipo: las combinadas, como las olas, en serie.',
+    quote: tr('Juego de equipo: las combinadas, como las olas, en serie.'),
     passives: [{ kind: 'dano', damage: 0.05 }, { kind: 'combinadas', damage: 0.08 }] },
   { id: 'david-evans', name: 'David Evans', team: 'Little Gigant', rarity: 'legendario', machine: 'ffi',
-    quote: 'El abuelo de Mark: el que escribió los cuadernos de entrenamiento.',
+    quote: tr('El abuelo de Mark: el que escribió los cuadernos de entrenamiento.'),
     passives: [{ kind: 'afinidad', element: 'Montaña', damage: 0.15 }, { kind: 'defensa', taken: 0.08 }] },
   { id: 'travis', name: 'Percy Travis', team: 'Inazuma Japan', rarity: 'mitico', machine: 'ffi',
-    quote: 'El seleccionador de Inazuma Japan: al ataque, siempre.',
+    quote: tr('El seleccionador de Inazuma Japan: al ataque, siempre.'),
     passives: [{ kind: 'formacion', formation: 'ofensiva', damage: 0.15, taken: 0 }, { kind: 'dano', damage: 0.06 }] },
   { id: 'ray-dark', name: 'Ray Dark', team: 'Royal Academy', rarity: 'mitico', machine: 'ffi',
-    quote: 'Mister K: el estratega que lo calcula todo.',
+    quote: tr('Mister K: el estratega que lo calcula todo.'),
     passives: [{ kind: 'formacion', formation: 'defensiva', damage: 0.08, taken: 0.12 }, { kind: 'combinadas', damage: 0.2 }] },
   // FFI coaches with a portrait of their own in the ROM (team from the official database, zukan.inazuma.jp)
   { id: 'mister-d', name: 'Mister D', team: 'Orpheus (Team D)', rarity: 'legendario', machine: 'ffi',
-    quote: 'El misterioso entrenador del Team D. Debajo de la melena… alguien que ya conoces.',
+    quote: tr('El misterioso entrenador del Team D. Debajo de la melena… alguien que ya conoces.'),
     passives: [{ kind: 'afinidad', element: 'Aire', damage: 0.15 }, { kind: 'dano', damage: 0.05 }] },
   { id: 'zoolan', name: 'Zoolan Rice', team: 'The Kingdom', rarity: 'epico', machine: 'ffi',
-    quote: 'Entrenador de The Kingdom: siempre sabe qué hay que buscar.',
+    quote: tr('Entrenador de The Kingdom: siempre sabe qué hay que buscar.'),
     passives: [{ kind: 'objetos', luck: 0.2 }, { kind: 'combinadas', damage: 0.1 }] },
 ];
 export const COACH_BY_ID = new Map(COACHES.map((c) => [c.id, c]));
@@ -66,15 +68,15 @@ export const COACH_PULL_CHANCE = 0.02;
 export const coachesOfMachine = (m: BannerId) => COACHES.filter((c) => c.machine === m);
 
 const pct = (v: number) => `${Math.round(v * 100)}%`;
-const FORMATION_LABEL: Record<string, string> = { ofensiva: 'ofensiva', equilibrada: 'equilibrada', defensiva: 'defensiva' };
+const FORMATION_LABEL: Record<string, string> = { ofensiva: tr('ofensiva'), equilibrada: tr('equilibrada'), defensiva: tr('defensiva') };
 export function passiveText(p: CoachPassive): string {
   switch (p.kind) {
-    case 'formacion': return `Formación ${FORMATION_LABEL[p.formation]}: +${pct(p.damage)} daño${p.taken ? ` y −${pct(p.taken)} daño recibido` : ''} mientras la uses`;
-    case 'objetos': return `+${pct(p.luck)} probabilidad de objetos raros`;
-    case 'afinidad': return `Afinidad ${p.element}: +${pct(p.damage)} daño con técnicas de ${p.element}`;
-    case 'dano': return `+${pct(p.damage)} daño de todo el equipo`;
-    case 'defensa': return `−${pct(p.taken)} daño recibido`;
-    case 'combinadas': return `+${pct(p.damage)} daño de las técnicas combinadas`;
+    case 'formacion': return tr('Formación {x1}: +{pct} daño{x2} mientras la uses', { x1: FORMATION_LABEL[p.formation], pct: pct(p.damage), x2: p.taken ? tr(' y −{pct} daño recibido', { pct: pct(p.taken) }) : '' });
+    case 'objetos': return tr('+{pct} probabilidad de objetos raros', { pct: pct(p.luck) });
+    case 'afinidad': return tr('Afinidad {element}: +{pct} daño con técnicas de {element}', { element: tEl(p.element), pct: pct(p.damage) });
+    case 'dano': return tr('+{pct} daño de todo el equipo', { pct: pct(p.damage) });
+    case 'defensa': return tr('−{pct} daño recibido', { pct: pct(p.taken) });
+    case 'combinadas': return tr('+{pct} daño de las técnicas combinadas', { pct: pct(p.damage) });
   }
 }
 export const PASSIVE_ICON: Record<CoachPassive['kind'], string> = { formacion: '▦', objetos: '✪', afinidad: '◆', dano: '⚔', defensa: '⛨', combinadas: '🔗' };
