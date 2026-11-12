@@ -72,7 +72,7 @@ import type { CoopRun } from '../game/coopArena';
 import { applyCoachPerks, COACH_BY_ID, COACH_PULL_CHANCE, COACHES, coachesOfMachine, coachRun, PASSIVE_ICON, passiveText as coachPassiveText, type CoachDef } from '../data/coaches';
 import { clashWith } from '../systems/identity';
 import { applyGtsLedger, canLeave, gtsBanned, gtsError, gtsSlots, gtsSpare, type GtsRow } from '../systems/gts';
-import { accountId, adminBugReports, adminMetrics, adminPlayerStats, adminUpdateBug, amIAdmin, consumeAuthRedirect, deleteAccount, deleteMyBugReports, deleteShot, myBugReports, notifyBug, shotUrl, submitBugReport, uploadShot, getCloudSave, leaderboard, myPosition, passHolders, profileBanners, profileFrames, sectorClaim, sectorCredit, sectorJoin, sectorStatus, type SectorPrize, type SectorStatus, publicProfile, type PublicProfile, myProfile, onlineConfigured, putCloudSave, reserveUsername, resetMyProgress, signedEmail, signedIn, signInWithGoogle, signOut, submitScore, usernameAvailable, type BoardQuery, type BoardRow, type BugFilter, type BugRow, type CloudSave } from '../online/client';
+import { accountId, adminBugReports, adminMetrics, adminPlayerStats, adminUpdateBug, amIAdmin, consumeAuthRedirect, deleteAccount, deleteMyBugReports, deleteShot, myBugReports, notifyBug, shotUrl, submitBugReport, uploadShot, getCloudSave, leaderboard, myPosition, passHolders, sectorSides, profileBanners, profileFrames, sectorClaim, sectorCredit, sectorJoin, sectorStatus, type SectorPrize, type SectorStatus, publicProfile, type PublicProfile, myProfile, onlineConfigured, putCloudSave, reserveUsername, resetMyProgress, signedEmail, signedIn, signInWithGoogle, signOut, submitScore, usernameAvailable, type BoardQuery, type BoardRow, type BugFilter, type BugRow, type CloudSave } from '../online/client';
 import { backup, linkPlan, progressOf, summarize, type SaveSummary } from '../online/cloudSync';
 import { epochOf, freshProgress, resetSummary } from '../systems/resetProgress';
 import { scoreOf, localBoard, mapMult, recordBest } from '../systems/leaderboard';
@@ -1964,7 +1964,7 @@ export class App {
       return `<div class="rank-row${pos <= 3 ? ` top${pos}` : ''}${mine ? ' mine' : ''}${rb ? ' has-pn' : ''}" style="--d:${Math.min(pos, 15) * 40}ms"${onlineConfigured() ? ` data-user="${esc(name)}" title="Ver el perfil de ${esc(name)}"` : ''}>
         ${rb}<span class="rk-pos">${pos <= 3 ? ['🥇', '🥈', '🥉'][pos - 1] : `#${pos}`}</span>
         ${this.framed(`<span class="rk-av${p ? ` r-${p.rarity}` : ''}${this.champLevel(name, captain) ? ' champ' : ''}">${p ? this.mug(p.id, 48) : ''}</span>`, this.frameOf(name))}
-        <span class="rk-name"><b class="${this.goldName(name).trim()}">${esc(name)}</b>${this.clanBadge(name)}${this.champTag(name, captain)}<small>${esc(mapName(map))}</small></span>
+        <span class="rk-name"><b class="${this.goldName(name).trim()}">${esc(name)}</b>${this.clanBadge(name)}${this.sideBadge(name)}${this.champTag(name, captain)}<small>${esc(mapName(map))}</small></span>
         ${crest && this.emblemOf(crest) ? `<img class="rk-crest" src="${this.emblemOf(crest)}" alt="">` : '<span class="rk-crest"></span>'}
         <span class="rank-btn r-${rank} rk-r">${rankMark(rank)}</span>
         <span class="rk-num rk-pts${q.order === 'score' || q.order === 'rank' ? ' on' : ''}"><b>${pts.toLocaleString('es')}</b><small>puntos</small></span>
@@ -1976,7 +1976,7 @@ export class App {
       const p = this.byId.get(captain), pts = score ?? scoreOf({ map, rank, time, damage }), [big, unit] = metric(time, damage, pts);
       return `<div class="rk-pod p${pos}" style="--d:${pos * 90}ms"${onlineConfigured() ? ` data-user="${esc(name)}" title="Ver el perfil de ${esc(name)}"` : ''}><span class="rk-medal">${pos}</span>
         ${this.framed(`<span class="rk-pmug${p ? ` r-${p.rarity}` : ''}${this.champLevel(name, captain) ? ' champ' : ''}">${p ? this.mug(p.id, pos === 1 ? 112 : 88) : ''}</span>`, this.frameOf(name))}
-        ${this.namePlate('rk-pname', name)}${this.clanBadge(name)}${this.champTag(name, captain)}<small>${p ? esc(p.name) : ''} · ${esc(mapName(map))}</small>
+        ${this.namePlate('rk-pname', name)}${this.clanBadge(name)}${this.sideBadge(name)}${this.champTag(name, captain)}<small>${p ? esc(p.name) : ''} · ${esc(mapName(map))}</small>
         <div class="rk-pbig"><b>${big}</b><small>${unit}</small></div>
         <div class="rk-pmeta">${crest && this.emblemOf(crest) ? `<img class="rk-crest" src="${this.emblemOf(crest)}" alt="">` : ''}<span class="rank-btn r-${rank}">${rankMark(rank)}</span>
           <span><b>${fmtTime(time)}</b><small>tiempo</small></span><span><b>${damage.toLocaleString('es')}</b><small>daño</small></span></div>
@@ -2017,6 +2017,7 @@ export class App {
       profileFrames(want).then((got) => { for (const n of want) this.frameCache.delete(n.toLowerCase()); for (const r of got) if (isFrame(PENNANT_BY_ID.get(r.frame))) this.frameCache.set(r.username.toLowerCase(), r.frame); }).catch(() => { /* without frames */ }),
       passHolders(want).then((got) => { for (const n of want) this.goldCache.delete(n.toLowerCase()); for (const r of got) this.goldCache.add(r.username.toLowerCase()); }).catch(() => { /* names in white (the function may not be on the server yet) */ }), // 2.11
       clanOf(want).then((got) => { for (const n of want) this.clanCache.delete(n.toLowerCase()); for (const r of got) this.clanCache.set(r.username.toLowerCase(), { name: r.clan, crest: r.crest }); }).catch(() => { /* without clans */ }), // 1.93
+      sectorSides(want).then((got) => { for (const n of want) this.sideCache.delete(n.toLowerCase()); for (const r of got) if (r.side in SIDES) this.sideCache.set(r.username.toLowerCase(), r.side as SideId); }).catch(() => { /* without sides */ }), // 2.2
     ]);
   }
   /** 2.0 (author: «que en el ranking se vea si es campeón o no»): the Camino del Campeón level of each row's captain
@@ -2044,6 +2045,14 @@ export class App {
     const me = (this.save.onlineName ?? this.save.profile.name).toLowerCase() === name.toLowerCase();
     const c = me && this.save.clanSeen ? { name: this.save.clanSeen.name, crest: this.save.clanSeen.crest } : this.clanCache.get(name.toLowerCase());
     return c ? `<span class="rk-clan" data-clan="${esc(c.name)}" title="Ver el clan ${esc(c.name)}">${c.crest && this.emblemOf(c.crest) ? `<img src="${this.emblemOf(c.crest)}" alt="">` : uiIcon('team')}<em>${esc(c.name)}</em></span>` : '';
+  }
+  /** 2.2 (author: «que se vea en el ranking el bando»): Sector Quinto or Resistencia next to the name (lowercase name → side) */
+  private sideCache = new Map<string, SideId>();
+  private sideBadge(name: string) {
+    const me = (this.save.onlineName ?? this.save.profile.name).toLowerCase() === name.toLowerCase();
+    const id = me && signedIn() ? sectorOf(this.save).side ?? this.sideCache.get(name.toLowerCase()) : this.sideCache.get(name.toLowerCase());
+    const s = id ? SIDES[id] : null, logo = id ? this.m.sector?.[id] : null;
+    return s ? `<span class="rk-side sd-${s.id}" title="Bando: ${esc(s.name)}">${logo ? `<img src="${logo}" alt="">` : ''}<em>${esc(s.name)}</em></span>` : '';
   }
   /** v1.65: avatar frame of each name on the ranking (lowercase name → id) */
   private frameCache = new Map<string, string>();

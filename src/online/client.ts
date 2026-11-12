@@ -188,6 +188,8 @@ export const profileBanners = (usernames: string[]) => rpc<{ username: string; b
 export const profileFrames = (usernames: string[]) => rpc<{ username: string; frame: string }[]>('profile_frames', { p_usernames: usernames.slice(0, 60) }, false);
 /** 2.11: which of these names hold the Llave dorada of the season open now (pass_holders.sql) */
 export const passHolders = (usernames: string[]) => rpc<{ username: string }[]>('pass_holders', { p_usernames: usernames.slice(0, 60) }, false);
+/** 2.2: the Sector Quinto side of these names (sector_sides.sql); names without one are left out */
+export const sectorSides = (usernames: string[]) => rpc<{ username: string; side: string }[]>('sector_sides', { p_usernames: usernames.slice(0, 60) }, false);
 export const myPosition = async (q: BoardQuery) => (await rpc<BoardRow[]>('my_position', { p_map: q.map, p_rank: q.rank, p_order: q.order }))[0] ?? null;
 
 export const submitScore = (runId: string, map: string, rank: string, timeSec: number, damage: number, captainId: number) =>

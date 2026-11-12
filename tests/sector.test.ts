@@ -20,7 +20,7 @@ describe('Sector Quinto', () => {
     expect(sectorWeek(at(SECTOR_END))).toBeNull();
     // the same dates as the server
     const sql = fs.readFileSync(path.resolve(__dirname, '..', 'supabase', 'migrations', '20261112000200_sector_quinto.sql'), 'utf-8');
-    const start = fs.readFileSync(path.resolve(__dirname, '..', 'supabase', 'migrations', '20261112000400_sector_start_today.sql'), 'utf-8');
+    const start = fs.readFileSync(path.resolve(__dirname, '..', 'supabase', 'migrations', '20261112000600_sector_start_today.sql'), 'utf-8');
     expect(start).toContain("'2026-11-12 12:00+01'");
     expect(sql).toContain("'2026-12-12 15:00+01'");
     expect(at('2026-12-12T15:00:00+01:00')).toBe(at(SECTOR_END));

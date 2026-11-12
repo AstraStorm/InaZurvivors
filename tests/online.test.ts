@@ -860,6 +860,10 @@ describe('2.2 Sector Quinto (database)', () => {
     // signed out: the public view (sides and sizes), never an error
     const pub = (await api('', `select public.sector_status() as s`)).rows[0] as { s: { side: string | null; members: Record<string, number>; myPoints: number } };
     expect(pub.s).toMatchObject({ side: null, members: { sector: 6, resistencia: 1 }, myPoints: 0 });
+    // the boards show each name's side; anyone can ask, names without a side are left out
+    const sides = async (user: string) => (await api(user, `select * from public.sector_sides(array['Sq_0', 'Sq_5', 'Sq_7', 'nadie']) order by username`)).rows;
+    expect(await sides('')).toEqual([{ username: 'Sq_0', side: 'sector' }, { username: 'Sq_5', side: 'resistencia' }]);
+    expect(await sides(users[9])).toEqual([{ username: 'Sq_0', side: 'sector' }, { username: 'Sq_5', side: 'resistencia' }]);
   });
   it("a run's server points go to the side once, ×1.5 when rebelling; someone else's run gives nothing", async () => {
     const run = (n: number) => `00000000-0000-0000-0000-00000000ab${String(n).padStart(2, '0')}`;
