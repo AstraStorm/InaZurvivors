@@ -21,7 +21,7 @@ export const CHANGELOG: Release[] = [
       'Técnicas y combinadas con su nombre del doblaje inglés (tTech: en_tech.json, ComboDef.en, en_tech_manual.ts para revisar); elementos con tEl (Fire/Wind/Wood/Earth/Void); números y fechas con locale(). tools/i18n_wrap.py y tests/i18n.test.ts (cada tr() y cada texto de tabla tienen su inglés).',
     ],
     fixes: [],
-    visuals: ['Pantalla de carga de index.html en el idioma del jugador.'],
+    visuals: ['Pantalla de carga de index.html en el idioma del jugador.', 'Sala de jugadores (autor): lobby_info (migración 20261112000800 APLICADA) da equipación, bando, clan, banner y marco de toda la sala en una llamada; cada uno con su equipación, amigos en verde (friend_list), corona y anillo del top 3, escudo de clan y logo del bando sobre el nombre; la ficha como el ranking y abre el perfil (clic, o tocar la ficha).'],
     balance: [],
   },
   {

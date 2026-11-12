@@ -35,3 +35,24 @@
 @media (max-width: 620px) {
   .lb-card { min-width: 0; max-width: 250px; gap: 8px; padding: 6px 10px 6px 6px; }
 }
+
+/* 2.3 (author): the card like the profile and the ranking: banner plate, frame, clan and side, friend and podium tags;
+   it opens the player's profile (a click on the player, or a tap on the card on touch screens) */
+.lb-card { white-space: normal; max-width: 340px; }
+.lb-card.tap { pointer-events: auto; cursor: pointer; }
+.lb-mug .fr-host { display: block; }
+.lb-txt .lb-name { font-weight: normal; font-size: 10px; color: #fff; text-shadow: 1px 1px 0 #000; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 240px; }
+.lb-txt .lb-name.pn-plate { display: inline-flex; align-items: center; }
+.lb-tags { display: flex; flex-wrap: wrap; gap: 4px; }
+.lb-tags em { font-style: normal; font-size: 7px; padding: 1px 5px; border-radius: 4px; background: var(--yellow); color: #04061a; }
+.lb-tags em.fr { background: #7dff9a; }
+.lb-tags em.top.t1 { background: linear-gradient(180deg, #fff3a0, #ffc21a); }
+.lb-tags em.top.t2 { background: linear-gradient(180deg, #ffffff, #b9c6dc); }
+.lb-tags em.top.t3 { background: linear-gradient(180deg, #ffd0a0, #d97a35); }
+.lb-badges { display: flex; flex-wrap: wrap; gap: 4px; }
+.lb-badges .rk-clan, .lb-badges .rk-side { margin: 0; }
+.lb-open { font-size: 7px; color: #9fe8ff; }
+.lb-legend { display: inline-flex; align-items: center; gap: 4px; margin-left: 6px; font-size: 7px; color: var(--muted); white-space: nowrap; }
+.lb-legend i { font-style: normal; font-size: 10px; }
+.lb-legend i.t1 { color: #ffd23f; }
+.lb-legend i.fr { color: #7dff9a; margin-left: 6px; }

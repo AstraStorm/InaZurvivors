@@ -190,6 +190,9 @@ export const profileFrames = (usernames: string[]) => rpc<{ username: string; fr
 /** 2.11: which of these names hold the Llave dorada of the season open now (pass_holders.sql) */
 export const passHolders = (usernames: string[]) => rpc<{ username: string }[]>('pass_holders', { p_usernames: usernames.slice(0, 60) }, false);
 /** 2.2: the Sector Quinto side of these names (sector_sides.sql); names without one are left out */
+/** 2.3 (author): what the Sala de jugadores shows of each player, in one call for the whole room (up to 1.000 names) */
+export interface LobbyInfo { username: string; kit: string; side: string | null; clan: string | null; crest: string | null; banner: string | null; frame: string | null }
+export const lobbyInfo = (usernames: string[]) => rpc<LobbyInfo[]>('lobby_info', { p_usernames: usernames.slice(0, 1000) }, false);
 export const sectorSides = (usernames: string[]) => rpc<{ username: string; side: string }[]>('sector_sides', { p_usernames: usernames.slice(0, 60) }, false);
 export const myPosition = async (q: BoardQuery) => (await rpc<BoardRow[]>('my_position', { p_map: q.map, p_rank: q.rank, p_order: q.order }))[0] ?? null;
 

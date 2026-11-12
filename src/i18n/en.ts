@@ -3867,4 +3867,13 @@ export const EN: Record<string, string> = {
   "En inglés, las cifras y las fechas salen con el formato inglés (1,000 monedas, 0.5 %).": "In English, figures and dates use the English format (1,000 coins, 0.5%).",
   "Abre Ajustes y mira la nueva opción Idioma.": "Open Settings and check the new Language option.",
   "Pásale el juego a tus amigos que no hablan español.": "Share the game with your friends who don't speak Spanish.",
+  "Muévete con el joystick y acércate a alguien para ver su ficha; tócala para abrir su perfil.": "Move with the joystick and walk up to someone to see their card; tap it to open their profile.",
+  "Muévete con WASD o flechas y pasa el ratón por encima de alguien para ver su ficha; haz clic para abrir su perfil.": "Move with WASD or the arrows and hover over someone to see their card; click to open their profile.",
+  "Top 3": "Top 3",
+  "♥ AMIGO": "♥ FRIEND",
+  "Equipación: {x1}": "Kit: {x1}",
+  "Toca para ver su perfil": "Tap to see their profile",
+  "Clic para ver su perfil": "Click to see their profile",
+  "Sala de jugadores renovada": "Revamped player lounge",
+  "Cada jugador lleva su equipación, tus amigos salen en verde, el top 3 con su corona y, sobre el nombre, el escudo de su clan y su bando. Haz clic (o toca su ficha) para abrir su perfil.": "Every player wears their kit, your friends show in green, the top 3 with their crown and, over the name, their clan crest and side. Click (or tap their card) to open their profile.",
 };

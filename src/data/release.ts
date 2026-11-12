@@ -40,6 +40,7 @@ export const PUBLIC_RELEASES: PublicRelease[] = [
       { icon: '🌐', title: tr('Español o inglés'), text: tr('Elige el idioma en Ajustes > Idioma, o déjalo en «Automático» para que siga al navegador. Al cambiarlo, el juego se recarga en el idioma nuevo y tu partida no cambia.') },
       { icon: '⚡', title: tr('Nombres oficiales'), text: tr('En inglés, las supertécnicas y las técnicas combinadas llevan su nombre del doblaje oficial (Fire Tornado, God Hand, Crossfire…), y los elementos son Fire, Wind, Wood y Earth.') },
       { icon: '📰', title: tr('Noticias en los dos idiomas'), text: tr('Las noticias y todas las versiones desde la v1.0 se pueden leer en inglés.') },
+      { icon: '👥', title: tr('Sala de jugadores renovada'), text: tr('Cada jugador lleva su equipación, tus amigos salen en verde, el top 3 con su corona y, sobre el nombre, el escudo de su clan y su bando. Haz clic (o toca su ficha) para abrir su perfil.') },
       { icon: '🔢', title: tr('Números a su manera'), text: tr('En inglés, las cifras y las fechas salen con el formato inglés (1,000 monedas, 0.5 %).') },
     ],
     start: [tr('Abre Ajustes y mira la nueva opción Idioma.'), tr('Pásale el juego a tus amigos que no hablan español.')],

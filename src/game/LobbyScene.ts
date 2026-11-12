@@ -13,9 +13,14 @@ import { mapTextureKeys, swapRunTextures } from './runTextures';
 import { Footballer, bodyKey, headKey } from './Footballer';
 import { skinnedTexture } from './skin';
 
-export interface LobbyPlayer { key: string; name: string; captain: RosterEntry; me?: boolean }
+type Kit = NonNullable<Manifest['kits']>[string];
+/** 2.3 (author): each one in the kit they wear, friends in green, the top 3 of the ranking with their crown, and the
+ *  crests of their clan and side over the name (`icons`: image urls) */
+export interface LobbyPlayer { key: string; name: string; captain: RosterEntry; me?: boolean; kit?: Kit | null; friend?: boolean; top?: number; icons?: string[] }
 export interface LobbyInit {
-  manifest: Manifest; players: LobbyPlayer[]; kit?: NonNullable<Manifest['kits']>[string] | null;
+  manifest: Manifest; players: LobbyPlayer[]; kit?: Kit | null;
+  /** a click on someone (desktop): the app opens their profile */
+  onPick?: (key: string) => void;
   moveKeys: Settings['moveKeys']; touch: boolean;
   /** each frame: the player in focus (null = nobody), the screen point over their head and the screen y under their feet */
   onFocus: (key: string | null, x: number, y: number, feet: number) => void;
@@ -25,7 +30,10 @@ const SPEED = 110, WANDER = 55, NEAR = 56;
 /** feet to the top of the head in the 40×44 overworld cell (anchor at 20,41, same as the menu previews) */
 const HEAD = 42;
 
-interface Walker { p: LobbyPlayer; f: Footballer; label: Phaser.GameObjects.Text; tx: number; ty: number; wait: number }
+interface Walker { p: LobbyPlayer; f: Footballer; label: Phaser.GameObjects.Text; deco: Phaser.GameObjects.Container | null; ring: Phaser.GameObjects.Graphics | null; tx: number; ty: number; wait: number }
+/** name colours: gold, silver and bronze for the podium, green for friends, yellow for oneself */
+const TOP_COLOR = ['', '#ffd23f', '#e4ecfa', '#f0a060'], TOP_HEX = [0, 0xffd23f, 0xe4ecfa, 0xf0a060];
+const FRIEND = '#7dff9a', ICON = 11;
 
 export class LobbyScene extends Phaser.Scene {
   private cfg!: LobbyInit;
@@ -53,12 +61,12 @@ export class LobbyScene extends Phaser.Scene {
     };
     if (m.bodies.field) sheet(bodyKey('field'), m.bodies.field);
     if (m.bodies.gk) sheet(bodyKey('gk'), m.bodies.gk);
-    const kit = this.cfg.kit;
-    if (kit && m.bodies.field) {
+    for (const kit of new Set([this.cfg.kit, ...this.cfg.players.map((p) => p.kit)])) if (kit && m.bodies.field) {
       sheet(`kit:${kit.field}`, { ...m.bodies.field, texture: kit.field });
       if (kit.gk && m.bodies.gk) sheet(`kit:${kit.gk}`, { ...m.bodies.gk, texture: kit.gk });
     }
     for (const p of this.cfg.players) sheet(headKey(p.captain.id), p.captain.head);
+    for (const url of new Set(this.cfg.players.flatMap((p) => p.icons ?? []))) if (!this.textures.exists(`lbi:${url}`)) this.load.image(`lbi:${url}`, url);
     swapRunTextures(this, mapTextureKeys(map)); // 2.11: as in the menu
     for (const t of Object.values(map.textures)) if (!this.textures.exists(t.key)) this.load.image(t.key, t.texture);
     if (map.baked) for (const f of [...map.baked.tiles, ...map.baked.props]) {
@@ -77,25 +85,64 @@ export class LobbyScene extends Phaser.Scene {
     const others = this.cfg.players.filter((p) => !p.me);
     this.cfg.players.forEach((p) => {
       const body = m.bodies[p.captain.body] ?? m.bodies.field!;
-      // only the own captain wears the equipped kit: the others' kits are not public, so they wear Raimon's
-      const kit = p.me ? this.cfg.kit : null, keeper = p.captain.body === 'gk' && !!kit?.gk;
+      // 2.3: everyone in the kit they wear (Raimon's when they have none)
+      const want = p.kit ?? (p.me ? this.cfg.kit : null), kit = want && this.textures.exists(`kit:${want.field}`) ? want : null;
+      const keeper = p.captain.body === 'gk' && !!kit?.gk;
       const base = kit ? `kit:${keeper ? kit.gk! : kit.field}` : bodyKey(p.captain.body);
       const fromSkin = kit ? (keeper ? kit.gkSkin : kit.fieldSkin) : body.skin;
       // the others in rings round the centre spot, the own captain in the middle
       const i = others.indexOf(p), ring = Math.floor(Math.sqrt(i + 1)), a = i * 2.4;
       const x = p.me ? cx : this.clampX(cx + Math.cos(a) * (60 + ring * 44)), y = p.me ? cy : this.clampY(cy + Math.sin(a) * (40 + ring * 30));
       const f = new Footballer(this, p.captain, body, x, y, skinnedTexture(this, base, body, fromSkin, p.captain.skin));
-      const label = this.add.text(x, y - HEAD, p.name, { fontFamily: '"Press Start 2P", monospace', fontSize: '8px', color: p.me ? '#ffe24a' : '#ffffff',
+      const colour = p.me ? '#ffe24a' : p.top ? TOP_COLOR[p.top] : p.friend ? FRIEND : '#ffffff';
+      const label = this.add.text(x, y - HEAD, p.friend && !p.me ? `♥ ${p.name}` : p.name, { fontFamily: '"Press Start 2P", monospace', fontSize: '8px', color: colour,
         stroke: '#000000', strokeThickness: 3, resolution: 2 }).setOrigin(0.5, 1).setDepth(9000);
-      const w: Walker = { p, f, label, tx: x, ty: y, wait: 400 + Math.random() * 2000 };
+      const w: Walker = { p, f, label, deco: this.deco(p), ring: this.ring(p), tx: x, ty: y, wait: 400 + Math.random() * 2000 };
       this.walkers.push(w);
       if (p.me) this.me = w;
     });
     const cam = this.cameras.main.setBounds(0, 0, this.arena.widthPx, this.arena.heightPx).setZoom(1.6).centerOn(cx, cy);
     if (this.me) cam.startFollow(this.me.f.container, true, 0.12, 0.12);
+    this.input.on('pointerdown', (ptr: Phaser.Input.Pointer) => {
+      if (this.cfg.touch || ptr.wasTouch) return; // on touch screens the card itself opens the profile
+      const f = this.focus();
+      if (f && this.cfg.onPick) this.cfg.onPick(f.p.key);
+    });
     this.input.on('gameover', () => { this.pointerIn = true; });
     this.input.on('gameout', () => { this.pointerIn = false; });
     this.events.once('shutdown', () => this.cfg.onFocus(null, 0, 0, 0));
+  }
+
+  /** over the name: the podium crown and the crests (clan, side), side by side */
+  private deco(p: LobbyPlayer) {
+    const parts: Phaser.GameObjects.GameObject[] = [];
+    let x = 0;
+    if (p.top) {
+      const g = this.add.graphics(), c = TOP_HEX[p.top];
+      g.fillStyle(0x000000, 1).fillPoints([{ x: -1, y: 9 }, { x: -1, y: 0 }, { x: 3, y: 4 }, { x: 6, y: -2 }, { x: 9, y: 4 }, { x: 13, y: 0 }, { x: 13, y: 9 }], true);
+      g.fillStyle(c, 1).fillPoints([{ x: 0, y: 8 }, { x: 0, y: 2 }, { x: 3, y: 5 }, { x: 6, y: 0 }, { x: 9, y: 5 }, { x: 12, y: 2 }, { x: 12, y: 8 }], true);
+      g.setPosition(x, -9);
+      parts.push(g);
+      x += 15;
+    }
+    for (const url of p.icons ?? []) {
+      const key = `lbi:${url}`;
+      if (!this.textures.exists(key)) continue;
+      const img = this.add.image(x + ICON / 2, -ICON / 2, key);
+      img.setScale(ICON / Math.max(img.width, img.height));
+      parts.push(img);
+      x += ICON + 3;
+    }
+    if (!parts.length) return null;
+    const box = this.add.container(0, 0, parts).setDepth(9000);
+    box.setData('w', x - 3);
+    return box;
+  }
+  /** a ring under the feet: the podium colour, or green for friends */
+  private ring(p: LobbyPlayer) {
+    const c = p.top ? TOP_HEX[p.top] : p.friend && !p.me ? 0x7dff9a : 0;
+    if (!c) return null;
+    return this.add.graphics().lineStyle(2, c, 0.95).strokeEllipse(0, 0, 26, 10).fillStyle(c, 0.18).fillEllipse(0, 0, 26, 10);
   }
 
   private clampX(x: number) { return Phaser.Math.Clamp(x, this.pitch[0] + 48, this.pitch[0] + this.pitch[2] - 48); }
@@ -165,7 +212,10 @@ export class LobbyScene extends Phaser.Scene {
       if (w === this.me) this.moveMe(w, dt); else this.wander(w, dt);
       w.f.update(dt);
       // names of those further down the pitch go in front; the own name always on top
-      w.label.setPosition(Math.round(w.f.x), Math.round(w.f.y - HEAD)).setDepth(w === this.me ? 20000 : 9000 + w.f.y / 1000);
+      const depth = w === this.me ? 20000 : 9000 + w.f.y / 1000;
+      w.label.setPosition(Math.round(w.f.x), Math.round(w.f.y - HEAD)).setDepth(depth);
+      w.deco?.setPosition(Math.round(w.f.x - (w.deco.getData('w') as number) / 2), Math.round(w.f.y - HEAD - 11)).setDepth(depth);
+      w.ring?.setPosition(Math.round(w.f.x), Math.round(w.f.y + 1)).setDepth(w.f.container.depth - 0.01);
     }
     const f = this.focus(), cam = this.cameras.main;
     if (!f) { this.cfg.onFocus(null, 0, 0, 0); return; }

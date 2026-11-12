@@ -67,7 +67,7 @@ import { championOfRows, clanInfo, clanOf, clanAnswer, clanCancelRequest, clanCl
 import { addBag, boughtThisWeek, canPay, CLAN_COST, CLAN_ERRORS, CLAN_ITEMS, CLAN_MAX, CLAN_MISSION_TEXT, CLAN_PRIZES, CLAN_REWARD_MULT, CLAN_ROLE_LABEL, CLAN_RUNS_PER_DAY, clanDrops, clanError, clanNameProblem, clanPlayer, clanShop, clanWeekKey, clanWeekLeftMs, payBag, recordBuy, tierOfPos, type ClanBag, type ClanOffer, type ClanTier } from '../systems/clans';
 import { cleanTiers, placeIn, tierCount, topicLabel, TIER_COLOR, TIER_MAX, TIER_MIN, TIER_TOPICS, TIERS, type Tier, type Tiers } from '../systems/tierlist';
 import { CoopLink, type CoopMsg } from '../online/coop';
-import { coopInvite, coopInvitesClaim, friendHeartbeat, friendList, friendRemove, friendRequest, friendRespond, type FriendRow } from '../online/client';
+import { coopInvite, coopInvitesClaim, friendHeartbeat, friendList, friendRemove, friendRequest, friendRespond, lobbyInfo, type FriendRow, type LobbyInfo } from '../online/client';
 import type { CoopRun } from '../game/coopArena';
 import { applyCoachPerks, COACH_BY_ID, COACH_PULL_CHANCE, COACHES, coachesOfMachine, coachRun, PASSIVE_ICON, passiveText as coachPassiveText, type CoachDef } from '../data/coaches';
 import { clashWith } from '../systems/identity';
@@ -3494,7 +3494,7 @@ export class App {
     const key = this.screenKey;
     this.on('[data-back]', 'click', () => this.mainMenu());
     bindStick(document.getElementById('joy')!);
-    type Row = { name: string; captain: RosterEntry; pos: number | null; rank: string | null; pts: number | null; me: boolean };
+    type Row = { name: string; captain: RosterEntry; pos: number | null; rank: string | null; pts: number | null; me: boolean; kit?: string; friend?: boolean };
     const rows = new Map<string, Row>();
     let note = '';
     const pts = (r: BoardRow) => r.score == null ? scoreOf({ map: r.map, rank: r.rank, time: r.time_sec, damage: Number(r.damage) }) : Number(r.score);
@@ -3509,13 +3509,31 @@ export class App {
           if (cap && !(mine && r.username.toLowerCase() === mine.username.toLowerCase())) rows.set(`u:${r.username.toLowerCase()}`, { name: r.username, captain: cap, pos: Number(r.pos), rank: r.rank, pts: pts(r), me: false });
         }
         note = tr('{x1} jugadores en la sala', { x1: rows.size + (myCap ? 1 : 0) });
+        // 2.3 (author): kit, side, clan, banner and frame of everyone in one call, and who are one's friends
+        const names = [...rows.values()].map((r) => r.name);
+        const [info, friends] = await Promise.all([
+          lobbyInfo(names).catch(() => [] as LobbyInfo[]),
+          signedIn() ? friendList().catch(() => [] as FriendRow[]) : Promise.resolve([] as FriendRow[]),
+        ]);
+        const pals = new Set(friends.filter((f) => f.status === 'amigo').map((f) => f.username.toLowerCase()));
+        for (const i of info) {
+          const n = i.username.toLowerCase(), r = rows.get(`u:${n}`);
+          if (r) r.kit = i.kit;
+          this.flagCache.delete(n); this.frameCache.delete(n); this.clanCache.delete(n); this.sideCache.delete(n);
+          if (i.banner && PENNANT_BY_ID.has(i.banner)) this.flagCache.set(n, i.banner);
+          if (i.frame && isFrame(PENNANT_BY_ID.get(i.frame))) this.frameCache.set(n, i.frame);
+          if (i.clan) this.clanCache.set(n, { name: i.clan, crest: i.crest ?? '' });
+          if (i.side && i.side in SIDES) this.sideCache.set(n, i.side as SideId);
+        }
+        for (const [k, r] of rows) if (pals.has(k.slice(2))) r.friend = true;
       } catch { note = tr('El ranking no responde ahora: solo estás tú en la sala.'); }
     } else note = tr('El servicio online no está activado en esta versión: solo estás tú en la sala.');
     if (this.screenKey !== key) return; // left while the players were loading
-    if (myCap) rows.set('me', { name: mine?.username ?? this.save.profile.name, captain: myCap, pos: mine ? Number(mine.pos) : null, rank: mine?.rank ?? null, pts: mine ? pts(mine) : null, me: true });
+    if (myCap) rows.set('me', { name: mine?.username ?? this.save.onlineName ?? this.save.profile.name, captain: myCap, pos: mine ? Number(mine.pos) : null, rank: mine?.rank ?? null, pts: mine ? pts(mine) : null, me: true, kit: this.save.kit });
     const touch = document.body.classList.contains('touch');
     const info = document.getElementById('lbinfo');
-    if (info) info.innerHTML = `${uiIcon('team')}<span>${esc(note)}<small>${touch ? tr('Muévete con el joystick y acércate a alguien para ver su ficha.') : tr('Muévete con WASD o flechas y pasa el ratón por encima de alguien para ver su ficha.')}</small></span>`;
+    if (info) info.innerHTML = `${uiIcon('team')}<span>${esc(note)}<small>${touch ? tr('Muévete con el joystick y acércate a alguien para ver su ficha; tócala para abrir su perfil.') : tr('Muévete con WASD o flechas y pasa el ratón por encima de alguien para ver su ficha; haz clic para abrir su perfil.')}</small></span>
+      <span class="lb-legend"><i class="t1">♛</i>${tr('Top 3')} <i class="fr">♥</i>${tr('Amigos')}</span>`;
     const card = document.getElementById('lbcard')!;
     const zoom = parseFloat(getComputedStyle(this.root).zoom) || 1;
     let shown: string | null = null;
@@ -3526,8 +3544,15 @@ export class App {
         shown = k;
         const c = r.captain, rar = r.me ? effectiveRarity(this.save, c) : c.rarity; // the others' ascensions are not public
         card.style.setProperty('--rc', RARITY_COLOR[rar]);
-        card.innerHTML = `<span class="lb-mug r-${rar}">${this.mug(c.id, 72)}</span><div class="lb-txt"><b>${esc(r.name)}</b>${r.me ? '<em>TÚ</em>' : ''}<small>${tr('Capitán: {cName}', { cName: esc(c.name) })}</small>
-          ${r.pos !== null && r.rank ? `<span class="lb-rank"><span class="lb-pos">#${r.pos}</span><span class="rank-btn r-${r.rank}">${rankMark(r.rank)}</span><span class="lb-pts"><b>${r.pts!.toLocaleString(locale())}</b> ${tr('pts')}</span></span>` : `<span class="lb-rank none">${tr('Sin marca en el ranking')}</span>`}</div>`;
+        // 2.3: the same look as the profile and the ranking (banner, frame, clan, side), plus friend and podium tags
+        const kitName = r.kit && this.m.kits?.[r.kit] ? teamLabel(r.kit) : '';
+        const tags = `${r.me ? `<em>${tr('TÚ')}</em>` : ''}${r.friend ? `<em class="fr">${tr('♥ AMIGO')}</em>` : ''}${r.pos !== null && r.pos <= 3 ? `<em class="top t${r.pos}">♛ TOP ${r.pos}</em>` : ''}`;
+        card.innerHTML = `<span class="lb-mug r-${rar}">${this.framed(this.mug(c.id, 64), this.frameOf(r.name), true)}</span><div class="lb-txt">${this.namePlate('lb-name', r.name)}
+          ${tags ? `<span class="lb-tags">${tags}</span>` : ''}<small>${tr('Capitán: {cName}', { cName: esc(c.name) })}${kitName ? ` · ${tr('Equipación: {x1}', { x1: esc(kitName) })}` : ''}</small>
+          ${this.clanBadge(r.name) || this.sideBadge(r.name) ? `<span class="lb-badges">${this.clanBadge(r.name)}${this.sideBadge(r.name)}</span>` : ''}
+          ${r.pos !== null && r.rank ? `<span class="lb-rank"><span class="lb-pos">#${r.pos}</span><span class="rank-btn r-${r.rank}">${rankMark(r.rank)}</span><span class="lb-pts"><b>${r.pts!.toLocaleString(locale())}</b> ${tr('pts')}</span></span>` : `<span class="lb-rank none">${tr('Sin marca en el ranking')}</span>`}
+          ${r.me ? '' : `<span class="lb-open">${touch ? tr('Toca para ver su perfil') : tr('Clic para ver su perfil')}</span>`}</div>`;
+        card.dataset.user = r.me ? '' : r.name;
         card.hidden = false;
       }
       // over the head; under the feet when the bar would cover it, and never past the sides of the screen
@@ -3538,8 +3563,18 @@ export class App {
       card.style.setProperty('--ax', `${Math.round(cx - left)}px`);
       card.style.transform = `translate(${Math.round(left)}px, ${Math.round(below ? feet / zoom + 8 : cy - h)}px)`;
     };
-    const players: LobbyPlayer[] = [...rows].map(([k, r]) => ({ key: k, name: r.name, captain: r.captain, me: r.me }));
-    const init: LobbyInit = { manifest: this.m, players, kit: this.m.kits?.[this.save.kit] ?? null, moveKeys: this.save.settings.moveKeys, touch, onFocus };
+    // 2.3: on touch screens the card itself opens the profile; with a mouse, a click on the player (onPick)
+    card.classList.toggle('tap', touch);
+    card.addEventListener('click', () => { if (card.dataset.user) void this.otherProfile(card.dataset.user); });
+    const icons = (r: Row) => {
+      const c = this.clanBadge(r.name) ? (r.me && this.save.clanSeen ? this.save.clanSeen.crest : this.clanCache.get(r.name.toLowerCase())?.crest) : '';
+      const sideId = r.me && signedIn() ? sectorOf(this.save).side : this.sideCache.get(r.name.toLowerCase());
+      return [c ? this.emblemOf(c) : '', sideId ? this.m.sector?.[sideId] ?? '' : ''].filter(Boolean);
+    };
+    const players: LobbyPlayer[] = [...rows].map(([k, r]) => ({ key: k, name: r.name, captain: r.captain, me: r.me, kit: r.kit ? this.m.kits?.[r.kit] ?? null : null,
+      friend: r.friend, top: r.pos !== null && r.pos <= 3 ? r.pos : undefined, icons: icons(r) }));
+    const onPick = (k: string) => { const r = rows.get(k); if (r && !r.me) void this.otherProfile(r.name); };
+    const init: LobbyInit = { manifest: this.m, players, kit: this.m.kits?.[this.save.kit] ?? null, moveKeys: this.save.settings.moveKeys, touch, onFocus, onPick };
     this.game.scene.start('Lobby', init);
   }
 
