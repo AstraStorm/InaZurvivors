@@ -232,6 +232,8 @@ interface Enemy {
   webUntil?: number; poison?: { until: number; dps: number; acc: number };
   /** Gafe: cursed until this time */
   curseUntil?: number;
+  /** 2.2: a SEED of the Sector Quinto: the Sector's logo over its head and a blue ring at its feet */
+  seed?: { logo?: Phaser.GameObjects.Image; ring: Phaser.GameObjects.Ellipse };
 }
 
 /** width in radians of the opening of a shock wave */
@@ -436,6 +438,8 @@ export class ArenaScene extends Phaser.Scene {
       if (!this.textures.exists(key)) this.load.image(key, map.baked.base + f.src);
     }
     if (!this.textures.exists('items')) this.load.atlas('items', m.atlases.items.image, m.atlases.items.json);
+    // 2.2: the Sector Quinto's logo over its SEED rivals
+    if (this.cfg.sector && m.sector?.sector && !this.textures.exists('sector:logo')) this.load.image('sector:logo', m.sector.sector);
     // 2.11: the saga's digits for the damage numbers (fx.damageNumber), orange and purple
     for (const [c, d] of Object.entries(m.ui?.digits ?? {})) if (!this.cache.bitmapFont.exists(`iz-num-${c}`)) this.load.bitmapFont(`iz-num-${c}`, d.png, d.xml);
     const gk = this.cfg.goldKey?.texture; // 2.1
@@ -2502,10 +2506,26 @@ export class ArenaScene extends Phaser.Scene {
       sfx('boom');
     }
     e.id = this.nextEnemyId++;
+    if (seed) {
+      // 2.2 (author: «que se vea mucho más»): a pulsing blue ring at its feet and the Sector's logo over its head
+      const ring = this.add.ellipse(at.x, at.y, 34 * scale, 13 * scale, 0x2a4dff, 0.55).setStrokeStyle(2.5, 0x8fb0ff, 1).setDepth(at.y - 1);
+      this.tweens.add({ targets: ring, scaleX: 1.25, scaleY: 1.25, alpha: 0.7, duration: 650, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+      const logo = this.textures.exists('sector:logo') ? this.add.image(at.x, at.y, 'sector:logo').setDisplaySize(30, 18).setDepth(at.y + 2) : undefined;
+      e.seed = { ring, logo };
+      this.placeSeed(e);
+    }
     this.enemies.push(e);
     this.coop?.onSpawn(e);
     this.rec?.spawn(this.runTime, e);
     return e;
+  }
+
+  /** 2.2: a SEED's ring and logo follow it (the logo bobs a little over its head) */
+  private placeSeed(e: Enemy) {
+    const s = e.seed;
+    if (!s) return;
+    s.ring.setPosition(e.pos.x, e.pos.y).setDepth(e.pos.y - 1);
+    s.logo?.setPosition(e.pos.x, e.pos.y - e.sprite.displayHeight - 10 + Math.sin(this.runTime * 5 + (e.id ?? 0)) * 2).setDepth(e.pos.y + 2);
   }
 
   private spawn(dt: number) {
@@ -2597,6 +2617,7 @@ export class ArenaScene extends Phaser.Scene {
         e.sprite.setFrame(frame.f).setFlipX(anim.mirror);
       }
       e.sprite.setDepth(e.pos.y);
+      if (e.seed) this.placeSeed(e); // 2.2
       e.hitCd -= dt;
       // contact with the captain hurts; teammates are never hurt
       if (!guarded && this.freezeUntil <= this.runTime && Math.sqrt(bd) < 12 + e.radius && e.hitCd <= 0
@@ -3197,7 +3218,7 @@ export class ArenaScene extends Phaser.Scene {
   sweptOrphans = 0;
   private sweepGround() {
     const owned = new Set<unknown>(this.altarGfx);
-    for (const e of this.enemies) if (!e.dead) for (const g of [e.aim?.gfx, e.fuse?.gfx, e.pattern?.gfx]) if (g) owned.add(g);
+    for (const e of this.enemies) if (!e.dead) for (const g of [e.aim?.gfx, e.fuse?.gfx, e.pattern?.gfx, e.seed?.ring, e.seed?.logo]) if (g) owned.add(g);
     for (const h of this.hazards) { owned.add(h.shadow); owned.add(h.ring); }
     for (const w of this.shocks) owned.add(w.g);
     const list = this.children.list as unknown as (Phaser.GameObjects.GameObject & { depth: number })[];
@@ -3208,8 +3229,8 @@ export class ArenaScene extends Phaser.Scene {
   }
 
   private disposeTelegraphs(e: Enemy) {
-    for (const g of [e.aim?.gfx, e.fuse?.gfx, e.pattern?.gfx]) if (g) { this.tweens.killTweensOf(g); g.destroy(); }
-    e.aim = undefined; e.fuse = undefined;
+    for (const g of [e.aim?.gfx, e.fuse?.gfx, e.pattern?.gfx, e.seed?.ring, e.seed?.logo]) if (g) { this.tweens.killTweensOf(g); g.destroy(); }
+    e.aim = undefined; e.fuse = undefined; e.seed = undefined;
     if (e.pattern) e.pattern.gfx = undefined;
   }
 
