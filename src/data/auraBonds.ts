@@ -256,11 +256,11 @@ export const AURA_BONDS: AuraBond[] = [
   { a: 100427, aName: 'Fey Rune', b: 100426, bName: 'Simeon Ayp', kind: 'rivalidad', reason: tr('Second Stage Children: Simeon es su líder y Fei acaba enfrentándose a él en Chrono Stone.'),
     source: 'Wiki de Inazuma Eleven (fandom), «Fei Rune» y «Saryuu Evan»; anime Inazuma Eleven GO Chrono Stone.' },
   // 2.3 (author: «los 20% de Jaden, que sea Mark Evans mayor, David y Silvia»): Jaden Evans, the author's own Leyenda
-  { a: 900100, aName: 'Jaden Evans', b: 100234, bName: 'Endou Mamoru', kind: 'familia', reason: tr('Los Evans: Jaden lleva el apellido y el fútbol de Mark adulto.'),
+  { a: 900100, aName: 'Jaden Evans', b: 100234, bName: 'Endou Mamoru', kind: 'familia', reason: tr('¿Padre e hijo? Jaden lleva el apellido de Mark adulto y juega con su mismo corazón. Nadie lo ha confirmado.'),
     source: 'Personaje del autor (Road to Fútbol Frontier); vínculo pedido por el autor.' },
   { a: 900100, aName: 'Jaden Evans', b: 100773, bName: 'David Evans', kind: 'familia', reason: tr('Los Evans: el cuaderno de entrenamiento de David llega hasta Jaden.'),
     source: 'Personaje del autor (Road to Fútbol Frontier); vínculo pedido por el autor.' },
-  { a: 900100, aName: 'Jaden Evans', b: 1621, bName: 'Silvia Woods', kind: 'familia', reason: tr('Silvia acompaña a Jaden como acompañó al Raimon de Mark.'),
+  { a: 900100, aName: 'Jaden Evans', b: 1621, bName: 'Silvia Woods', kind: 'familia', reason: tr('Silvia lo cuida como cuidó al Raimon de Mark… y dicen que Jaden tiene su misma mirada. ¿Será su madre?'),
     source: 'Personaje del autor (Road to Fútbol Frontier); vínculo pedido por el autor.' },
 ];
 
