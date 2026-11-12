@@ -16,7 +16,7 @@ import { skinnedTexture } from './skin';
 type Kit = NonNullable<Manifest['kits']>[string];
 /** 2.3 (author): each one in the kit they wear, friends in green, the top 3 of the ranking with their crown, and the
  *  crests of their clan and side over the name (`icons`: image urls) */
-export interface LobbyPlayer { key: string; name: string; captain: RosterEntry; me?: boolean; kit?: Kit | null; friend?: boolean; top?: number; icons?: string[] }
+export interface LobbyPlayer { key: string; name: string; captain: RosterEntry; me?: boolean; kit?: Kit | null; friend?: boolean; top?: number; icons?: string[]; /** same clan as oneself */ clanmate?: boolean }
 export interface LobbyInit {
   manifest: Manifest; players: LobbyPlayer[]; kit?: Kit | null;
   /** a click on someone (desktop): the app opens their profile */
@@ -34,6 +34,8 @@ interface Walker { p: LobbyPlayer; f: Footballer; label: Phaser.GameObjects.Text
 /** name colours: gold, silver and bronze for the podium, green for friends, yellow for oneself */
 const TOP_COLOR = ['', '#ffd23f', '#e4ecfa', '#f0a060'], TOP_HEX = [0, 0xffd23f, 0xe4ecfa, 0xf0a060];
 const FRIEND = '#7dff9a', ICON = 11;
+/** (author) with a full room the names overlap: the rest show theirs only within this reach of the own captain */
+const NAME_NEAR = 110;
 
 export class LobbyScene extends Phaser.Scene {
   private cfg!: LobbyInit;
@@ -218,6 +220,13 @@ export class LobbyScene extends Phaser.Scene {
       w.ring?.setPosition(Math.round(w.f.x), Math.round(w.f.y + 1)).setDepth(w.f.container.depth - 0.01);
     }
     const f = this.focus(), cam = this.cameras.main;
+    // names always on for oneself, friends, the top 3 and clanmates; the rest when near the own captain or in focus
+    for (const w of this.walkers) {
+      const keep = w === this.me || w === f || !!w.p.friend || !!w.p.top || !!w.p.clanmate
+        || (!!this.me && Math.hypot(w.f.x - this.me.f.x, w.f.y - this.me.f.y) < NAME_NEAR);
+      w.label.setVisible(keep);
+      w.deco?.setVisible(keep);
+    }
     if (!f) { this.cfg.onFocus(null, 0, 0, 0); return; }
     this.cfg.onFocus(f.p.key, (f.f.x - cam.worldView.x) * cam.zoom, (f.f.y - HEAD - 10 - cam.worldView.y) * cam.zoom, (f.f.y + 8 - cam.worldView.y) * cam.zoom);
   }

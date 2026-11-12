@@ -3572,7 +3572,8 @@ export class App {
       return [c ? this.emblemOf(c) : '', sideId ? this.m.sector?.[sideId] ?? '' : ''].filter(Boolean);
     };
     const players: LobbyPlayer[] = [...rows].map(([k, r]) => ({ key: k, name: r.name, captain: r.captain, me: r.me, kit: r.kit ? this.m.kits?.[r.kit] ?? null : null,
-      friend: r.friend, top: r.pos !== null && r.pos <= 3 ? r.pos : undefined, icons: icons(r) }));
+      friend: r.friend, top: r.pos !== null && r.pos <= 3 ? r.pos : undefined, icons: icons(r),
+      clanmate: !r.me && !!this.save.clanSeen && this.clanCache.get(r.name.toLowerCase())?.name === this.save.clanSeen.name }));
     const onPick = (k: string) => { const r = rows.get(k); if (r && !r.me) void this.otherProfile(r.name); };
     const init: LobbyInit = { manifest: this.m, players, kit: this.m.kits?.[this.save.kit] ?? null, moveKeys: this.save.settings.moveKeys, touch, onFocus, onPick };
     this.game.scene.start('Lobby', init);
