@@ -3704,6 +3704,10 @@ export class ArenaScene extends Phaser.Scene {
     const rid = this.cfg.manifest.eventRobot;
     let pillar: Phaser.GameObjects.Image | Phaser.GameObjects.Sprite;
     if (rid && this.textures.exists(`unit:${rid}`)) {
+      // players: «se freezea» at 40 s from the second run on: the menu frees the robot's texture (runTextures.ts) and the run
+      // loads it again, but the global animation kept the frames of the removed one and rendering them stalled the game
+      const robotTex = this.textures.get(`unit:${rid}`);
+      if (this.anims.get('event-robot')?.frames[0]?.frame.texture !== robotTex) this.anims.remove('event-robot');
       if (!this.anims.exists('event-robot')) this.anims.create({ key: 'event-robot', frames: this.anims.generateFrameNumbers(`unit:${rid}`, { start: 16, end: 19 }), frameRate: 6, repeat: -1 });
       pillar = this.add.sprite(at.x, at.y + 8, `unit:${rid}`, 16).setOrigin(0.5, 1).setScale(1.9).setDepth(at.y + 8).play('event-robot');
     } else pillar = this.add.image(at.x, at.y + 8, 'fx:altar').setOrigin(0.5, 1).setTint(color).setDepth(at.y + 8);
