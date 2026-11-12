@@ -430,6 +430,8 @@ export class ArenaScene extends Phaser.Scene {
       if (!this.textures.exists(key)) this.load.image(key, map.baked.base + f.src);
     }
     if (!this.textures.exists('items')) this.load.atlas('items', m.atlases.items.image, m.atlases.items.json);
+    // 2.11: the saga's digits for the damage numbers (fx.damageNumber), orange and purple
+    for (const [c, d] of Object.entries(m.ui?.digits ?? {})) if (!this.cache.bitmapFont.exists(`iz-num-${c}`)) this.load.bitmapFont(`iz-num-${c}`, d.png, d.xml);
     const gk = this.cfg.goldKey?.texture; // 2.1
     if (gk && !this.textures.exists('pase:dorada')) this.load.image('pase:dorada', gk);
   }

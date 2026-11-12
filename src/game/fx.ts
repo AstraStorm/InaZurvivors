@@ -204,6 +204,8 @@ export interface HandTint { main: number; light: number; dark: number }
 export class Fx {
   private emitters = new Map<string, Phaser.GameObjects.Particles.ParticleEmitter>();
   private numbers: Phaser.GameObjects.Text[] = [];
+  /** 2.11: the damage numbers in the saga's digits (purple hits, orange big ones), when the fonts are in the manifest */
+  private digits: Phaser.GameObjects.BitmapText[] = [];
   /** 1.93: the combo meter at the top of the screen (fxCombo.ts) */
   combo: ComboMeter;
   /** 1.93: the usual size of a hit (slow average), so «big» and «huge» stay special as the run grows */
@@ -235,6 +237,9 @@ export class Fx {
       this.numbers.push(scene.add.text(0, 0, '', {
         fontFamily: '"Press Start 2P"', fontSize: '8px', color: '#ffffff', stroke: '#000000', strokeThickness: 3,
       }).setDepth(9500).setVisible(false).setOrigin(0.5));
+    }
+    if (scene.cache.bitmapFont.exists('iz-num-morado') && scene.cache.bitmapFont.exists('iz-num-naranja')) {
+      for (let i = 0; i < 36; i++) this.digits.push(scene.add.bitmapText(0, 0, 'iz-num-morado', '').setDepth(9500).setVisible(false).setOrigin(0.5));
     }
     this.combo = new ComboMeter(scene, () => this.settings);
   }
@@ -728,6 +733,20 @@ export class Fx {
     const color = heal ? '#7dff9a' : tier === 2 ? '#ff4f6a' : tier === 1 ? (v >= 40 ? '#ffe24a' : '#ff9a3a') : '#ffffff';
     const size = [1, 1.35, 1.8][tier];
     const dx = Phaser.Math.Between(-4, 4) + (tier ? Phaser.Math.Between(-10, 10) : 0);
+    if (!heal && this.digits.length) {
+      // 2.11: the saga's digits (16 px glyphs, half size for a normal hit); the huge ones orange turned red
+      t.setVisible(false);
+      const d = this.digits[(this.numberIdx - 1) % this.digits.length];
+      this.scene.tweens.killTweensOf(d);
+      const s = size * 0.55;
+      d.setFont(tier ? 'iz-num-naranja' : 'iz-num-morado').setText(String(v)).setPosition(x + Phaser.Math.Between(-4, 4), y).setVisible(true).setAlpha(1)
+        .setTint(tier === 2 ? 0xff6a6a : 0xffffff).setScale(s * (tier ? 1.5 : 1.25)).setAngle(tier ? Phaser.Math.Between(-10, 10) : 0).setDepth(9500 + tier);
+      if (tier === 2 && this.settings.shake) this.scene.cameras.main.shake(70, 0.0015);
+      this.scene.tweens.add({ targets: d, scale: s, angle: 0, duration: tier ? 180 : 110, ease: 'Back.easeOut' });
+      this.scene.tweens.add({ targets: d, x: d.x + dx, y: y - [16, 26, 34][tier], duration: [520, 700, 820][tier], ease: 'Cubic.easeOut' });
+      this.scene.tweens.add({ targets: d, alpha: 0, delay: [300, 460, 560][tier], duration: 260, onComplete: () => d.setVisible(false) });
+      return;
+    }
     t.setText(heal ? `+${v}` : tier ? `${v}!` : String(v)).setPosition(x + Phaser.Math.Between(-4, 4), y).setVisible(true).setAlpha(1)
       .setColor(color).setScale(size * (tier ? 1.5 : 1.25)).setAngle(tier ? Phaser.Math.Between(-10, 10) : 0).setDepth(9500 + tier);
     if (tier === 2 && this.settings.shake) this.scene.cameras.main.shake(70, 0.0015);

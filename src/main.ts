@@ -22,6 +22,7 @@ import './stylePass21.css';
 import './styleLobby.css';
 import './styleReplay.css';
 import './styleSeason.css';
+import './styleUiSaga.css'; // 2.11: the saga's digits and badges
 import type { Manifest } from './data/manifest';
 import { applyRosterFixes } from './data/rosterFixes';
 import { applyTechFixes } from './data/techFixes';

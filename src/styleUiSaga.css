@@ -1,0 +1,27 @@
+/* 2.11 (author): pieces of the saga's interface sheet with no text (tools/ui_assets.py): its digits in the HUD and the VS
+   badge, chevron and lightning hexagon as details (app.digitsHtml, app.uiPiece). */
+.dgs { display: inline-flex; align-items: center; vertical-align: middle; line-height: 0; }
+.dg { display: inline-block; flex: none; height: 16px; margin-right: -1px; background-image: var(--dg); background-repeat: no-repeat; image-rendering: pixelated; }
+.dg-t { line-height: 1; padding: 0 2px; }
+.dg-sp { display: inline-block; width: 5px; }
+#clocktxt .dgs { zoom: .8; }
+#clocktxt .dg-t { font-size: 14px; }
+#kills .dgs, #runcoins .dgs { zoom: .7; }
+#kills .dg-t, #runcoins .dg-t { font-size: 13px; }
+
+.ui-pc { image-rendering: pixelated; vertical-align: middle; }
+/* «¡Puedes ascender!»: the chevron turned upwards */
+.ui-chevron.up { width: 9px; height: 10px; transform: rotate(-90deg); margin: 0 1px; }
+/* power of a combined technique */
+.ui-rayo_hex.inl { width: 13px; height: 12px; margin: -2px 2px 0 0; }
+/* comparing two footballers */
+.cmp-vs { width: 44px; height: 38px; align-self: center; flex: none; }
+/* the boss's or rival's entrance: VS before the name */
+.bi-vs { position: relative; flex: none; width: clamp(40px, 7vw, 84px); height: auto; margin-right: clamp(8px, 2vw, 22px); filter: drop-shadow(3px 3px 0 #2a0006);
+  animation: biVs 2.7s cubic-bezier(.2, 1.6, .4, 1) both; }
+@keyframes biVs { 0% { transform: scale(2.6) rotate(-20deg); opacity: 0; } 12% { transform: scale(1) rotate(0); opacity: 1; } 90% { transform: scale(1.05); } }
+.boss-down .bi-vs { display: none; }
+/* the ultimate's button: the lightning hexagon pops in when it is charged */
+.ult-btn .ult-bolt { position: absolute; z-index: 3; right: -8px; top: -8px; width: 28px; height: auto; opacity: 0; transform: scale(.3); transition: opacity .2s, transform .25s cubic-bezier(.2, 1.8, .4, 1); pointer-events: none; }
+.ult-dock.ready .ult-btn .ult-bolt { opacity: 1; transform: scale(1); }
+@media (prefers-reduced-motion: reduce) { .bi-vs { animation: none; } }

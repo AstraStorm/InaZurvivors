@@ -136,6 +136,8 @@ export interface Blueprint {
 }
 
 export interface ProfileIcon { file: string; texture: string; name: string; teamId?: number; index?: number }
+/** 2.11: one colour of the saga's digits: Phaser bitmap font (png + BMFont xml) and the glyphs' [x, width] in the png */
+export interface UiDigits { png: string; xml: string; h: number; w: number; glyphs: [number, number][] }
 export interface MusicTrack { id: string; src: string; durationSec: number; loopStartSec: number | null; onsetsPerSec: number; rms: number }
 export interface CapsuleSheet { base: string; rarityColor: Record<string, string>; pieces: Record<string, { file: string; w: number; h: number }>; source: string }
 
@@ -157,6 +159,11 @@ export interface Manifest {
   profile: { emblems: ProfileIcon[]; coaches: ProfileIcon[] };
   /** pre-2.0: the coaches of Mi Equipo (portraits from IE3, ids of data/coaches.ts) */
   coaches?: { id: string; name: string; texture: string; source?: string }[];
+  /** 2.11: GO-era coaches from the author's portrait sheet (tools/go_coaches.py): 64 px face and the sheet's bust */
+  goCoaches?: { id: string; name: string; alias?: string; face: string; bust: string }[];
+  /** 2.11: the saga's interface pieces with no text (tools/ui_assets.py): two digit fonts (Phaser bitmap font + the
+   *  strip the HUD draws with CSS: x and width of each glyph 0-9) and details */
+  ui?: { digits: Record<'naranja' | 'morado', UiDigits>; pieces: Record<'vs' | 'chevron' | 'chevron_azul' | 'rayo_hex' | 'rayo_hex_rojo', string> } | null;
   music: { menu: string[]; battle: string[]; tracks: MusicTrack[]; contexts?: Record<string, string[]> };
   capsule: CapsuleSheet | null;
   /** 1.81: logo of each technique level step (src/systems/evolution.ts labels → generated/mejoras/*.webp) */

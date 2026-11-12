@@ -857,7 +857,7 @@ export class App {
     const stars = !locked && o ? `<div class="stars" title="${o.stars} de ${MAX_STARS} estrellas">${Array.from({ length: MAX_STARS }, (_, i) => starSvg(`st${i < o.stars ? ' on' : ''}`)).join('')}${heroStars}</div>` : '<div class="stars"></div>';
     const spare = !locked && o ? sparesOf(this.save, p.id) : 0, step = !locked && o ? nextStep(this.save, p) : null;
     const canAsc = !!step && spare >= step.cost;
-    const dup = canAsc ? `<span class="card-dup can-asc" title="¡Puedes ascender! (${spare} duplicados)">▲ ${spare}</span>`
+    const dup = canAsc ? `<span class="card-dup can-asc" title="¡Puedes ascender! (${spare} duplicados)">${this.uiPiece('chevron', 'up') || '▲'} ${spare}</span>`
       : spare ? `<span class="card-dup" title="Duplicados sin usar${step ? ` (${step.step === 'heroe' ? 'HÉROE' : step.step === 'estrella' ? 'estrella de héroe' : step.step === 'campeon' ? CHAMPION_LABEL[championOf(this.save, p.id) + 1] : 'ascenso'}: ${step.cost})` : ''}">+${spare}${step ? ` <i>${spare}/${step.cost}</i>` : ''}</span>` : '<span></span>';
     const top = `${opts.badge ? `<span class="badge">${esc(opts.badge)}</span>` : ''}${opts.captain ? '<span class="captain-badge">C</span>' : ''}`;
     const st = !locked && p.stats ? this.statsOf(p) : null;
@@ -2040,6 +2040,22 @@ export class App {
     const wide = !!(id && PENNANT_BY_ID.get(id)?.wings); // 1.81: winged frames are wider and keep room for their wings
     return svg ? `<span class="fr-host${square ? ' sq' : ''}${wide ? ' wide' : ''}">${html}<span class="fr-ov">${svg}</span></span>` : html;
   }
+  /** 2.11: a number in the saga's digits (tools/ui_assets.py), each glyph cut from its strip; other characters stay text */
+  private digitsHtml(text: string, colour: 'naranja' | 'morado' = 'naranja') {
+    const d = this.m.ui?.digits?.[colour];
+    if (!d) return esc(text);
+    return `<span class="dgs" style="--dg:url(${d.png})">${[...text].map((ch) => {
+      const n = ch.charCodeAt(0) - 48;
+      if (n < 0 || n > 9) return ch === ' ' ? '<span class="dg-sp"></span>' : `<span class="dg-t">${esc(ch)}</span>`;
+      const [x, w] = d.glyphs[n];
+      return `<i class="dg" style="width:${w}px;background-position:-${x}px 0"></i>`;
+    }).join('')}</span>`;
+  }
+  /** 2.11: a detail of the saga's interface (VS badge, chevron, lightning hexagon); '' without it */
+  private uiPiece(id: 'vs' | 'chevron' | 'chevron_azul' | 'rayo_hex' | 'rayo_hex_rojo', cls = '') {
+    const src = this.m.ui?.pieces?.[id];
+    return src ? `<img class="ui-pc ui-${id}${cls ? ` ${cls}` : ''}" src="${src}" alt="">` : '';
+  }
   /** the face a frame is shown on in the cards: the captain, or the profile icon */
   private frameFace() {
     const cap = this.save.captainId != null && this.byId.has(this.save.captainId) ? this.save.captainId : null;
@@ -2436,7 +2452,7 @@ export class App {
     if (dock.dataset.sig !== sig) {
       dock.dataset.sig = sig;
       dock.innerHTML = u && k ? `<button class="ult-btn" data-ult="${u.playerId}" title="${esc(u.tech)} · ${esc(k.name)} (R)">
-          <i class="ult-ring"></i>${this.egArt(k, 'ult-art')}<b class="ult-t"></b><em class="ult-pc"></em><kbd class="ult-key"></kbd></button>
+          <i class="ult-ring"></i>${this.egArt(k, 'ult-art')}<b class="ult-t"></b><em class="ult-pc"></em><kbd class="ult-key"></kbd>${this.uiPiece('rayo_hex', 'ult-bolt')}</button>
         <div class="ult-info"><small>${esc(k.name.toUpperCase())}</small><b>${esc(u.tech)}</b><em class="ult-state"></em></div>` : '';
       dock.classList.remove('ready');
     }
@@ -4604,7 +4620,7 @@ export class App {
       // 1.88 (author: less text): name, element, power and one state pill
       return `<div class="cb2${c.ready ? ' ready' : ''}${c.viaAura.length ? ' with-aura' : ''}" style="--ec:${ELEMENT_COLOR[c.combo.element] ?? '#ffe27a'}">
         <div class="cb2-team">${who}</div>
-        <div class="cb2-info"><b>${esc(c.combo.name)}</b><span class="cb2-tags">${elementIcon(c.combo.element, 12)}<i>⚡${c.combo.power}</i>
+        <div class="cb2-info"><b>${esc(c.combo.name)}</b><span class="cb2-tags">${elementIcon(c.combo.element, 12)}<i>${this.uiPiece('rayo_hex', 'inl') || '⚡'}${c.combo.power}</i>
           ${c.ready ? '<em class="cb2-pill ok">¡Lista!</em>' : `<em class="cb2-pill">Falta${c.missing.length > 1 ? 'n' : ''} ${c.missing.length}</em>`}</span></div></div>`;
     }).join('');
     return `<div class="panel syn-panel"><h3>Sinergias del equipo</h3>
@@ -5591,7 +5607,7 @@ export class App {
       a.element === b.element ? `Mismo elemento (${a.element}): suman resonancia de elemento juntos.` : '',
       shared.length ? `Comparten equipo: ${esc(shared.slice(0, 3).join(', '))} (química de club con 3 o más en el campo).` : ''].filter(Boolean);
     return `<div class="panel compare"><h3>Comparación <button class="btn small blue" data-uncompare="1">✕ Cerrar</button></h3>
-      <div class="cmp-head">${[a, b].map((p) => `<div>${this.mug(p.id, 64)}<b>${esc(p.name)}</b>${this.rar(p)}<small>${POS_LABEL[p.position]} · ${esc(String(p.element))}</small></div>`).join('<span>VS</span>')}</div>
+      <div class="cmp-head">${[a, b].map((p) => `<div>${this.mug(p.id, 64)}<b>${esc(p.name)}</b>${this.rar(p)}<small>${POS_LABEL[p.position]} · ${esc(String(p.element))}</small></div>`).join(this.uiPiece('vs', 'cmp-vs') || '<span>VS</span>')}</div>
       <table class="cmp-stats"><tr><th></th><th>${esc(a.nickname || a.name)}</th><th>${esc(b.nickname || b.name)}</th><th>Dif.</th></tr>${rows}</table>
       <div class="cmp-techs"><ul>${techs(a)}</ul><ul>${techs(b)}</ul></div>
       ${notes.map((n) => `<div class="note">${n}</div>`).join('')}</div>`;
@@ -6916,7 +6932,7 @@ export class App {
   private bossIntroFx(b: { name: string; title: string; again: boolean }) {
     document.getElementById('bosswarn')?.remove();
     document.getElementById('bossintro')?.remove();
-    this.root.insertAdjacentHTML('beforeend', `<div class="boss-intro" id="bossintro"><div class="bi-band"><i class="bi-stripes"></i>
+    this.root.insertAdjacentHTML('beforeend', `<div class="boss-intro" id="bossintro"><div class="bi-band"><i class="bi-stripes"></i>${this.uiPiece('vs', 'bi-vs')}
       <div class="bi-tx"><small>${b.again ? '¡VUELVE!' : 'JEFE FINAL'} · ${esc(b.title.toUpperCase())}</small><b>${esc(b.name)}</b></div></div></div>`);
     sfx('bossdrop');
     window.setTimeout(() => document.getElementById('bossintro')?.remove(), 2700);
@@ -6977,15 +6993,16 @@ export class App {
       badge.lastElementChild!.textContent = String(s.level);
       for (const el of [badge, document.getElementById('xpbar')!]) { el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop'); }
     }
-    const stat = (id: string, text: string) => {
+    const stat = (id: string, text: string, digits = false) => {
       const el = document.getElementById(id)!;
-      if (el.textContent === text) return;
-      el.textContent = text;
+      if (el.dataset.v === text) return;
+      el.dataset.v = text;
+      if (digits) el.innerHTML = this.digitsHtml(text); else el.textContent = text; // 2.11: the saga's digits
       el.classList.remove('pop');
       void el.offsetWidth;
       el.classList.add('pop');
     };
-    stat('runcoins', s.runCoins ? `◉ +${s.runCoins}` : '');
+    stat('runcoins', s.runCoins ? `◉ +${s.runCoins}` : '', true);
     // pre-2.0: the partner's chip (name, health, down), and this player's own «down» state
     const co = this.arena()?.coopHud();
     if (co) {
@@ -7042,11 +7059,13 @@ export class App {
       const top = Math.round((low - altEl.offsetParent.getBoundingClientRect().top) / uiZoom + 6);
       if (altEl.dataset.top !== String(top)) { altEl.dataset.top = String(top); altEl.style.setProperty('top', `${top}px`, 'important'); }
     }
-    document.getElementById('clocktxt')!.textContent = s.endless ? `∞ ${fmtTime(s.endless.sec)} · ${s.endless.phase}` : `${fmtTime(s.timeSec)} / ${fmtTime(s.durationSec)}`;
+    // 2.11: the clock and the knock-outs in the saga's digits (redrawn only when they change)
+    const setDigits = (el: HTMLElement, text: string, colour: 'naranja' | 'morado') => { if (el.dataset.v !== text) { el.dataset.v = text; el.innerHTML = this.digitsHtml(text, colour); } };
+    setDigits(document.getElementById('clocktxt')!, s.endless ? `∞ ${fmtTime(s.endless.sec)} · ${s.endless.phase}` : `${fmtTime(s.timeSec)} / ${fmtTime(s.durationSec)}`, 'naranja');
     // v1.4: the clock fills up towards the boss and warms up in the last minute
     (document.getElementById('clockbar') as HTMLElement).style.width = `${s.endless ? 100 : Math.min(100, s.timeSec / Math.max(1, s.durationSec) * 100)}%`;
     document.getElementById('clock')!.classList.toggle('late', !s.endless && s.durationSec - s.timeSec < 60);
-    document.getElementById('kills')!.textContent = `✖ ${s.kills}`;
+    setDigits(document.getElementById('kills')!, `✖ ${s.kills}`, 'morado');
     this.root.querySelectorAll<HTMLElement>('#fbtns button').forEach((b) => b.classList.toggle('on', b.dataset.f === s.formation));
     this.renderUlts(s);
     const F = FORMATIONS[s.formation];
