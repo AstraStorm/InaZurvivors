@@ -255,4 +255,17 @@ export const AURA_BONDS: AuraBond[] = [
     source: 'Wiki de Inazuma Eleven (fandom), «Amemiya Taiyou»; anime Inazuma Eleven GO.' },
   { a: 100427, aName: 'Fey Rune', b: 100426, bName: 'Simeon Ayp', kind: 'rivalidad', reason: tr('Second Stage Children: Simeon es su líder y Fei acaba enfrentándose a él en Chrono Stone.'),
     source: 'Wiki de Inazuma Eleven (fandom), «Fei Rune» y «Saryuu Evan»; anime Inazuma Eleven GO Chrono Stone.' },
+  // 2.3 (author: «los 20% de Jaden, que sea Mark Evans mayor, David y Silvia»): Jaden Evans, the author's own Leyenda
+  { a: 900100, aName: 'Jaden Evans', b: 100234, bName: 'Endou Mamoru', kind: 'familia', reason: tr('Los Evans: Jaden lleva el apellido y el fútbol de Mark adulto.'),
+    source: 'Personaje del autor (Road to Fútbol Frontier); vínculo pedido por el autor.' },
+  { a: 900100, aName: 'Jaden Evans', b: 100773, bName: 'David Evans', kind: 'familia', reason: tr('Los Evans: el cuaderno de entrenamiento de David llega hasta Jaden.'),
+    source: 'Personaje del autor (Road to Fútbol Frontier); vínculo pedido por el autor.' },
+  { a: 900100, aName: 'Jaden Evans', b: 1621, bName: 'Silvia Woods', kind: 'familia', reason: tr('Silvia acompaña a Jaden como acompañó al Raimon de Mark.'),
+    source: 'Personaje del autor (Road to Fútbol Frontier); vínculo pedido por el autor.' },
 ];
+
+/** 2.3 (author): Axel Blaze Encapuchado is Axel (systems/identity.ts), so he keeps every bond of Axel Blaze */
+const AXEL = 10, HOODED = { id: 1085, name: 'Axel Blaze Encapuchado' };
+for (const b of AURA_BONDS.filter((x) => x.a === AXEL || x.b === AXEL)) {
+  AURA_BONDS.push(b.a === AXEL ? { ...b, a: HOODED.id, aName: HOODED.name } : { ...b, b: HOODED.id, bName: HOODED.name });
+}

@@ -3876,4 +3876,7 @@ export const EN: Record<string, string> = {
   "Clic para ver su perfil": "Click to see their profile",
   "Sala de jugadores renovada": "Revamped player lounge",
   "Cada jugador lleva su equipación, tus amigos salen en verde, el top 3 con su corona y, sobre el nombre, el escudo de su clan y su bando. Haz clic (o toca su ficha) para abrir su perfil.": "Every player wears their kit, your friends show in green, the top 3 with their crown and, over the name, their clan crest and side. Click (or tap their card) to open their profile.",
+  "Los Evans: Jaden lleva el apellido y el fútbol de Mark adulto.": "The Evanses: Jaden carries adult Mark's name and his football.",
+  "Los Evans: el cuaderno de entrenamiento de David llega hasta Jaden.": "The Evanses: David's training notebook reaches all the way to Jaden.",
+  "Silvia acompaña a Jaden como acompañó al Raimon de Mark.": "Silvia stands by Jaden as she stood by Mark's Raimon.",
 };

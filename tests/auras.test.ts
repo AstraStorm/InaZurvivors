@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import type { RosterEntry, Technique } from '../src/data/manifest';
 import { newSave, migrate } from '../src/systems/save';
-import { AURA_PCT, BOND_PCT, EFFECTIVE_STAT_MAX, auraBonus, auraProblem, carrierForRun, carrierOf, equipAura, inheritedTechs, removeAura, sanitizeAuras, topStats, withAura } from '../src/systems/auras';
+import { AURA_PCT, BOND_PCT, EFFECTIVE_STAT_MAX, auraBonus, auraProblem, bondOf, carrierForRun, carrierOf, equipAura, inheritedTechs, removeAura, sanitizeAuras, topStats, withAura } from '../src/systems/auras';
 import { AURA_BONDS } from '../src/data/auraBonds';
 import { COMBOS, comboCast, comboReady } from '../src/systems/combos';
 import { STAT_MAX, playerStats } from '../src/systems/training';
@@ -208,6 +208,18 @@ describe('bond table', () => {
       const bond = AURA_BONDS.find((x) => (x.aName === a.player && x.bName === b.player) || (x.aName === b.player && x.bName === a.player));
       expect(bond, `${c.name}: ${a.player} + ${b.player}`).toBeTruthy();
     }
+  });
+});
+
+describe('2.3 bonds (author)', () => {
+  it('Jaden Evans: adult Mark, David and Silvia give 20%', () => {
+    for (const id of [100234, 100773, 1621]) expect(bondOf(900100, id), String(id)).toBeTruthy();
+  });
+  it('Axel Blaze Encapuchado keeps every bond of Axel Blaze', () => {
+    const axel = AURA_BONDS.filter((b) => b.a === 10 || b.b === 10).map((b) => (b.a === 10 ? b.b : b.a));
+    expect(axel.length).toBeGreaterThan(5);
+    for (const id of axel) expect(bondOf(1085, id), String(id)).toBeTruthy();
+    expect(bondOf(1085, 10)).toBeNull();
   });
 });
 
