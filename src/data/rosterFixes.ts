@@ -40,6 +40,10 @@ export const ROSTER_FIXES: Record<number, RosterFix> = {
   101595: { name: 'Petrionio Patti', nombre: 'Petronio Patti', cambiar: { 'Último recurso D': 'Fuerza de tiro' } },
   // author: adult Mark goes by his English name
   100234: { name: 'Endou Mamoru', nombre: 'Mark Evans Adulto' },
+  // author: the BlueLock pair were near the bottom of the Míticos (their kick, control and speed peaks hit the 95 limit and
+  // the low guard dragged them down); these floors put both at a 91 mean, the best Míticos, below the Leyendas
+  900200: { name: 'Seishiro Nagi', statFloor: { guard: 78, body: 90, guts: 95, stamina: 89 } },
+  900201: { name: 'Yoichi Isagi', statFloor: { guard: 80, body: 90, stamina: 87 } },
 };
 
 /** Applies ROSTER_FIXES in place; returns the problems found (unknown id, name mismatch, technique not found). */

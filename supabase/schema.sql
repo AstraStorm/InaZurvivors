@@ -3877,7 +3877,7 @@ update private.seasons set starts_at = '2026-11-12 12:00+01' where id = 'T1';
 -- played 100 and 5.000. Sides are kept even: nobody can join the side that is ahead by more than max(5, 10 %).
 -- Same dates in src/systems/sector.ts. Weeks close lazily (sector_status / sector_claim), like the ranking seasons.
 
-create or replace function private.sector_start() returns timestamptz language sql immutable as $$ select '2026-11-13 12:00+01'::timestamptz $$;
+create or replace function private.sector_start() returns timestamptz language sql immutable as $$ select '2026-11-12 12:00+01'::timestamptz $$;
 create or replace function private.sector_end() returns timestamptz language sql immutable as $$ select '2026-12-12 15:00+01'::timestamptz $$;
 create or replace function private.sector_weeks_n() returns integer language sql immutable as $$ select 4 $$;
 -- the week (0..3) a moment falls in, null outside the event; the last week runs to the end of the season

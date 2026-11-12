@@ -93,7 +93,7 @@ export const AUTHOR_NEWS: NewsItem[] = [
   },
   {
     // 2.2 (author): never say who Zabel really is
-    id: 'sector-quinto', kind: 'evento', date: '2026-11-13', icon: '⚔️', pinned: true, from: '2026-11-13T12:00:00+01:00',
+    id: 'sector-quinto', kind: 'evento', date: '2026-11-12', icon: '⚔️', pinned: true, from: '2026-11-12T12:00:00+01:00',
     title: 'Sector Quinto: ¿de qué bando eres?',
     summary: 'Elige Sector Quinto o Resistencia para toda la temporada. Cada semana gana el bando que mejor juegue: marco, fichas, monedas y copias de sus tres estrellas.',
     blocks: [

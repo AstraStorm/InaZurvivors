@@ -34,7 +34,7 @@ export const PUBLIC_RELEASES: PublicRelease[] = [
     version: '2.2', date: '2026-11-12',
     title: 'InaZurvivors 2.2 — Sector Quinto',
     tagline: '¿Sector Quinto o Resistencia?',
-    intro: 'Desde el 13 de noviembre a las 12:00 y hasta el final de la Temporada 1, elige bando: Sector Quinto o Resistencia. Cada semana gana el bando que mejor juegue.',
+    intro: 'Desde hoy, 12 de noviembre, y hasta el final de la Temporada 1, elige bando: Sector Quinto o Resistencia. Cada semana gana el bando que mejor juegue.',
     features: [
       { icon: '⚔️', title: 'Elige bando', text: 'Sector Quinto o Resistencia, para toda la temporada (no se puede cambiar). Para que sea justo, el bando que va por delante en miembros no admite a nadie más hasta que el otro lo alcance.', online: true },
       { icon: '📜', title: 'Decretos del Sector', text: 'Antes de cada partida el Sector impone un decreto: acátalo o rebélate. Rebelarse quita el decreto, pero los rivales tienen más vida y aparecen muchos más SEED; a cambio, tu victoria vale ×1,5 para tu bando.' },
@@ -45,7 +45,7 @@ export const PUBLIC_RELEASES: PublicRelease[] = [
       { icon: '📱', title: 'Móvil más estable', text: 'La partida ya no se reinicia sola en el móvil: cada estadio se libera de la memoria al empezar otra partida.' },
     ],
     start: [
-      'Desde el 13 de noviembre a las 12:00, mira el carrusel del menú: «¿Sector Quinto o Resistencia?».',
+      'Desde hoy, mira el carrusel del menú: «¿Sector Quinto o Resistencia?».',
       'Conecta tu cuenta (Perfil) para poder elegir bando.',
       'Gana partidas para sumar puntos a tu bando; si te atreves, rebélate.',
     ],

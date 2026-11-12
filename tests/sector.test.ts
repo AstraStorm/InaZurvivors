@@ -9,17 +9,19 @@ import path from 'node:path';
 const at = (iso: string) => Date.parse(iso);
 
 describe('Sector Quinto', () => {
-  it('opens on 13 November at 12:00 and ends with the Temporada 1; four weeks, the last one to the end', () => {
-    expect(sectorOpen(at('2026-11-13T11:59:00+01:00'))).toBe(false);
+  it('opens on 12 November at 12:00 and ends with the Temporada 1; four weeks, the last one to the end', () => {
+    expect(sectorOpen(at('2026-11-12T11:59:00+01:00'))).toBe(false);
     expect(sectorWeek(at(SECTOR_START))).toBe(0);
-    expect(sectorWeek(at('2026-11-20T11:59:00+01:00'))).toBe(0);
-    expect(sectorWeek(at('2026-11-20T12:00:00+01:00'))).toBe(1);
+    expect(sectorWeek(at('2026-11-19T11:59:00+01:00'))).toBe(0);
+    expect(sectorWeek(at('2026-11-19T12:00:00+01:00'))).toBe(1);
+    expect(sectorWeek(at('2026-12-03T12:00:00+01:00'))).toBe(3);
     expect(sectorWeek(at('2026-12-11T12:00:00+01:00'))).toBe(3);
     expect(sectorWeekEnd(3)).toBe(at(SECTOR_END));
     expect(sectorWeek(at(SECTOR_END))).toBeNull();
     // the same dates as the server
     const sql = fs.readFileSync(path.resolve(__dirname, '..', 'supabase', 'migrations', '20261112000200_sector_quinto.sql'), 'utf-8');
-    expect(sql).toContain("'2026-11-13 12:00+01'");
+    const start = fs.readFileSync(path.resolve(__dirname, '..', 'supabase', 'migrations', '20261112000400_sector_start_today.sql'), 'utf-8');
+    expect(start).toContain("'2026-11-12 12:00+01'");
     expect(sql).toContain("'2026-12-12 15:00+01'");
     expect(at('2026-12-12T15:00:00+01:00')).toBe(at(SECTOR_END));
   });
@@ -31,7 +33,7 @@ describe('Sector Quinto', () => {
     expect(sectorRun(now, fire, true)).toMatchObject({ elementMult: { Aire: 1.2 }, enemyHp: REBEL_ENEMY_HP, seedChance: SEED_CHANCE_REBEL, rebel: true });
     const air = MATCH_DECREES.find((d) => d.element === 'Aire')!;
     expect(sectorRun(now, air, false)!.elementMult.Aire).toBeCloseTo(0.72); // the week's +20 % and the decree's −40 %
-    expect(sectorRun(at('2026-11-12T10:00:00+01:00'), fire, false)).toBeNull();
+    expect(sectorRun(at('2026-11-12T11:59:00+01:00'), fire, false)).toBeNull();
     expect(matchDecree(12345)).toBe(matchDecree(12345));
   });
   it("a week is paid once; winners get their side's frame the first time and a copy of its three footballers", () => {

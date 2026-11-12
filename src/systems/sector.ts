@@ -11,7 +11,7 @@ import type { SaveData } from './save';
 import { addCopy } from './gacha';
 import { givePennant, hasPennant } from './pennants';
 
-export const SECTOR_START = '2026-11-13T12:00:00+01:00';
+export const SECTOR_START = '2026-11-12T12:00:00+01:00'; // author: opens with the 2.2 on Thursday 12 November (was 13-11)
 export const SECTOR_END = '2026-12-12T15:00:00+01:00';
 export const SECTOR_WEEKS = 4;
 const WEEK_MS = 7 * 86400_000;
