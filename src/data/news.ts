@@ -101,7 +101,7 @@ export const AUTHOR_NEWS: NewsItem[] = [
       { h: 'Los bandos', icon: '⚔️' },
       { list: [
         '**Sector Quinto** · Victor Blade, Bai Long y Tezcat.',
-        '**Resistencia** · Arion Sherwind, Riccardo Di Rigo y Gabriel Garcia.',
+        '**Resistencia** · Arion + Arthur, Riccardo + Nobunaga y Victor + Okita (Mixi Max).',
         'El bando es **para toda la temporada**. El que vaya por delante en miembros no admite a nadie más hasta que el otro lo alcance.',
       ] },
       { h: 'Decretos', icon: '📜' },

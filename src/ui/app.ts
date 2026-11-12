@@ -7236,9 +7236,9 @@ export class App {
       const top = Math.round((low - altEl.offsetParent.getBoundingClientRect().top) / uiZoom + 6);
       if (altEl.dataset.top !== String(top)) { altEl.dataset.top = String(top); altEl.style.setProperty('top', `${top}px`, 'important'); }
     }
-    // 2.11: the clock and the knock-outs in the saga's digits (redrawn only when they change)
+    // 2.11: the knock-outs in the saga's digits (redrawn only when they change); the clock keeps its own text (author)
     const setDigits = (el: HTMLElement, text: string, colour: 'naranja' | 'morado') => { if (el.dataset.v !== text) { el.dataset.v = text; el.innerHTML = this.digitsHtml(text, colour); } };
-    setDigits(document.getElementById('clocktxt')!, s.endless ? `∞ ${fmtTime(s.endless.sec)} · ${s.endless.phase}` : `${fmtTime(s.timeSec)} / ${fmtTime(s.durationSec)}`, 'naranja');
+    document.getElementById('clocktxt')!.textContent = s.endless ? `∞ ${fmtTime(s.endless.sec)} · ${s.endless.phase}` : `${fmtTime(s.timeSec)} / ${fmtTime(s.durationSec)}`;
     // v1.4: the clock fills up towards the boss and warms up in the last minute
     (document.getElementById('clockbar') as HTMLElement).style.width = `${s.endless ? 100 : Math.min(100, s.timeSec / Math.max(1, s.durationSec) * 100)}%`;
     document.getElementById('clock')!.classList.toggle('late', !s.endless && s.durationSec - s.timeSec < 60);

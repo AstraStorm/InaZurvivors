@@ -48,8 +48,8 @@ describe('Sector Quinto', () => {
     const lost = paySectorPrize(s, { week: 2, side: 'resistencia', won: false, tokens: 100, coins: 5000 }, roster);
     expect(lost).toEqual({ paid: true, frame: false, players: [] });
   });
-  it('the two sides are evenly matched in rarity value as the author chose', () => {
+  it("each side's three stars as the author chose (the Resistencia gives its Mixi Max)", () => {
     expect(SIDES.sector.players).toEqual([100562, 100944, 100303]);
-    expect(SIDES.resistencia.players).toEqual([100538, 100544, 100405]);
+    expect(SIDES.resistencia.players).toEqual([101520, 100805, 101004]);
   });
 });

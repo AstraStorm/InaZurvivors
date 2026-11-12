@@ -22,7 +22,8 @@ export interface SideDef { id: SideId; name: string; short: string; color: strin
 export const SIDES: Record<SideId, SideDef> = {
   sector: { id: 'sector', name: 'Sector Quinto', short: 'Sector', color: '#3f6bff', frame: 'marco-sector-quinto', players: [100562, 100944, 100303],
     motto: 'El fútbol bajo control: cada partido, como el Sector decide.' },
-  resistencia: { id: 'resistencia', name: 'Resistencia', short: 'Resistencia', color: '#ffb020', frame: 'marco-resistencia', players: [100538, 100544, 100405],
+  // author: the Resistencia's prize are its Mixi Max (Arion + Arthur, Riccardo + Nobunaga, Victor + Okita)
+  resistencia: { id: 'resistencia', name: 'Resistencia', short: 'Resistencia', color: '#ffb020', frame: 'marco-resistencia', players: [101520, 100805, 101004],
     motto: 'El fútbol es libre: el viento de la revolución sopla en cada partido.' },
 };
 export const WIN_PRIZE = { tokens: 300, coins: 15000 };
