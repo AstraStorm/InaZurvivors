@@ -13,7 +13,7 @@ import { LOSE_PRIZE, matchDecree, paySectorPrize, REBEL_ENEMY_HP, REBEL_POINTS, 
 import { activeSeason, addRunXp, buyNormalKey, canClaim as canClaimLevel, claimable, claimLevel, daysTo, giveGoldKey, goldKeyChance, levelOf, levelProgress, rowOpen, seasonEnd, seasonOf, seasonStart, upcomingSeason,
   GOLD_KEY_CHANCE, GOLD_KEY_COOP, LEVEL_XP, LEVELS, MULTI_FICHAS, NORMAL_KEY_PRICE, RANK_PRIZES, RANK_XP, SEASONS, XP_PER_MIN, passPlayersHidden, payRankPrize, type Granted, type SeasonReward, type SeasonTrack } from '../systems/seasonPass';
 import { claimSeasonRewards } from '../online/client';
-import { clearRoad, compensateJaden202, jadenProgress, JADEN_EVERY, JADEN_FIRST, JADEN_ID, ROAD_BY_ID, ROAD_DIFFS, ROAD_SQUAD, roadEligible, roadMatchSec, roadOf, type RoadDiff } from '../systems/road';
+import { clearRoad, compensateJaden202, compensateJaden3, jadenProgress, JADEN_EVERY, JADEN_FIRST, JADEN_ID, ROAD_BY_ID, ROAD_DIFFS, ROAD_SQUAD, roadEligible, roadMatchSec, roadOf, type RoadDiff } from '../systems/road';
 import { BANNERS, BANNER_ORDER, bannerPool, bannerPrice, eraOf, featured, featuredMachine, FEATURED_BOOST, perPlayerOdds, rarityOdds, teamChoices, type BannerId } from '../systems/banners';
 import { exportSave, importSave, remapIds, remapTechSlots, storeSave, type SaveData, type ParticleLevel, type Rank } from '../systems/save';
 import { addCopy, eligibleTeams, pull, recordHistory, DUPLICATE_REFUND_BY, PULL_COST, MAX_STARS, starBonus, onboardingPull, type PullResult } from '../systems/gacha';
@@ -253,8 +253,10 @@ export class App {
     if (resetStars185(save, m.roster)) storeSave(save); // 1.85: everyone's stars start again under the coin rules
     if (compensateDrakul153(save)) storeSave(save); // Fix 1.53: 3 copies of Drakul for whoever ascended him
     if (creatorGiftINA483(save)) storeSave(save); // 2.3: INA483 also gives the content creators' banner and frame
-    this.jadenNotice(compensateJaden202(save, this.byId.get(JADEN_ID))); // 2.02: Jaden at 3 clears, a copy every 5
-    if (save.jaden202) storeSave(save);
+    // 2.02: Jaden at 3 clears, a copy every 5; 2.3: a copy every 3
+    const jadenOwed = compensateJaden202(save, this.byId.get(JADEN_ID)) + compensateJaden3(save, this.byId.get(JADEN_ID));
+    this.jadenNotice(jadenOwed);
+    if (save.jaden202 || save.jaden3) storeSave(save);
     if (save.auras && sanitizeAuras(save, new Map(m.roster.map((p) => [p.id, p])))) storeSave(save); // v1.5: Auras no longer valid are dropped
     if (this.trimAllTraining(save, m.roster)) storeSave(save); // Fix 1.31: points stuck above 99 come back
     if (m.profile && !iconAllowed(save, m.roster, m.profile.emblems, m.profile.coaches)) save.profile.icon = { kind: 'emblem', id: DEFAULT_EMBLEM };
@@ -3791,7 +3793,7 @@ export class App {
     resetStars185(this.save, this.m.roster); // 1.85
     compensateDrakul153(this.save);
     creatorGiftINA483(this.save); // 2.3
-    this.jadenNotice(compensateJaden202(this.save, this.byId.get(JADEN_ID))); // 2.02
+    this.jadenNotice(compensateJaden202(this.save, this.byId.get(JADEN_ID)) + compensateJaden3(this.save, this.byId.get(JADEN_ID))); // 2.02, 2.3
     if (this.save.auras) sanitizeAuras(this.save, this.byId); // v1.5
     this.trimAllTraining(this.save, this.m.roster);
     this.captainId = this.save.captainId;
@@ -4520,7 +4522,7 @@ export class App {
 
   /** 2.02: the Jadens given for clears made under the old Road rule, said once the menu is up */
   private jadenNotice(n: number) {
-    if (n > 0) window.setTimeout(() => this.toast(tr('Road to Fútbol Frontier: ahora Jaden sale a las 3 victorias en Máxima y otra copia cada 5. Por tus victorias recibes {x1}.', { x1: n === 1 ? 'a Jaden Evans' : tr('{n} Jaden Evans (él y sus copias)', { n }) }), 7000), 2500);
+    if (n > 0) window.setTimeout(() => this.toast(tr('Road to Fútbol Frontier: ahora Jaden sale a las 3 victorias en Máxima y otra copia cada 3. Por tus victorias recibes {x1}.', { x1: n === 1 ? 'a Jaden Evans' : tr('{n} Jaden Evans (él y sus copias)', { n }) }), 7000), 2500);
   }
 
   /** 2.02: the run's recording goes to the server in the background (a failure only loses this replay) */

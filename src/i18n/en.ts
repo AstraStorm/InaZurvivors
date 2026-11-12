@@ -1562,7 +1562,7 @@ export const EN: Record<string, string> = {
   "{tokens} fichas · {x1} ◉ si jugaste esa semana": "{tokens} tokens · {x1} ◉ if you played that week",
   "Semana {x1}": "Week {x1}",
   "{x1}El bando es para toda la temporada y no se puede cambiar. Para que la lucha sea justa, el bando que vaya por delante en miembros no admite a nadie más hasta que el otro lo alcance. Cuentan las victorias de partidas normales (sin cooperativo, Road, clan ni entrenamiento).": "{x1}The side is for the whole season and can't be changed. To keep the fight fair, the side ahead in members takes nobody else until the other catches up. Wins in normal runs count (no co-op, Road, clan or training).",
-  "Road to Fútbol Frontier: ahora Jaden sale a las 3 victorias en Máxima y otra copia cada 5. Por tus victorias recibes {x1}.": "Road to Football Frontier: Jaden now comes at 3 wins on Maximum and another copy every 5. For your wins you get {x1}.",
+  "Road to Fútbol Frontier: ahora Jaden sale a las 3 victorias en Máxima y otra copia cada 3. Por tus victorias recibes {x1}.": "Road to Football Frontier: Jaden now comes at 3 wins on Maximum and another copy every 3. For your wins you get {x1}.",
   "{x1} repeticiones borradas": "{x1} replays deleted",
   "{rowsLength} repeticiones · {x1} en total. Cada jugador guarda sus 3 últimas y las de sus marcas del ranking.": "{rowsLength} replays · {x1} in total. Each player keeps their last 3 and those of their ranking records.",
   "{x1} · Nv {level}": "{x1} · Lv {level}",

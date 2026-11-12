@@ -3,7 +3,7 @@
  * Inazuma Japan (no Auras; the coach on the bench does count) play 3, 4 or 5 arenas in a row, one after another, up to
  * the final at the Zeus stadium. Losing a match ends the road. Clearing it pays by difficulty; the maximum one also
  * guarantees a Legendario or better (never an event footballer). 2.02 (author): 3 clears on the maximum difficulty give
- * Jaden Evans, then every 5 more a copy of him (it was one every 10).
+ * Jaden Evans, then every 5 more a copy of him (it was one every 10). 2.3 (author): a copy every 3, like the first one.
  */
 import type { RosterEntry } from '../data/manifest';
 import type { Rank, SaveData } from './save';
@@ -24,10 +24,10 @@ export const roadMatchSec = (level: number) => (level + 1) * 60;
 /** the teams of the road: the original Raimon and Inazuma Japan */
 export const ROAD_TEAMS = new Set(['Raimon', 'First_Raimon', 'Raimon_Soccer_Club', 'Inazuma_Japan_A']);
 export const roadEligible = (p: RosterEntry) => p.teams.some((t) => ROAD_TEAMS.has(t)) && !p.exclusive;
-/** Jaden Evans: the reward of 3 clears on the maximum difficulty, then a copy every 5 more (2.02) */
+/** Jaden Evans: the reward of 3 clears on the maximum difficulty, then a copy every 3 more (2.3; every 5 in 2.02) */
 export const JADEN_ID = 900100;
 export const JADEN_FIRST = 3;
-export const JADEN_EVERY = 5;
+export const JADEN_EVERY = 3;
 /** how many Jadens (him + copies) a number of clears on Máxima has earned */
 export const jadensFor = (clears: number) => clears < JADEN_FIRST ? 0 : 1 + Math.floor((clears - JADEN_FIRST) / JADEN_EVERY);
 /** clears left to the next Jaden and how far along the current stretch is (0..1) */
@@ -57,8 +57,23 @@ export function clearRoad(s: SaveData, diff: RoadDiff): { jaden: 'new' | 'copy' 
 export function compensateJaden202(s: SaveData, jaden: Pick<RosterEntry, 'id' | 'rarity'> | undefined): number {
   if (s.jaden202 || !jaden) return 0;
   s.jaden202 = true;
+  s.jaden3 = true; // jadensFor is already the 2.3 rule: nothing left for compensateJaden3
   const clears = s.road?.clears.maxima ?? 0;
   const owed = Math.max(0, jadensFor(clears) - Math.floor(clears / 10));
+  for (let i = 0; i < owed; i++) addCopy(s, jaden);
+  return owed;
+}
+
+/**
+ * 2.3 (author: «haz que jaden sea 3 partidas siempre, para dupes 5 no, 3 tmb»), once per save: whoever was already
+ * paid under the 2.02 rule (a copy every 5) gets the Jadens a copy every 3 gives for the same clears. Returns how many.
+ */
+export function compensateJaden3(s: SaveData, jaden: Pick<RosterEntry, 'id' | 'rarity'> | undefined): number {
+  if (s.jaden3 || !jaden) return 0;
+  s.jaden3 = true;
+  const clears = s.road?.clears.maxima ?? 0;
+  const every5 = clears < JADEN_FIRST ? 0 : 1 + Math.floor((clears - JADEN_FIRST) / 5);
+  const owed = Math.max(0, jadensFor(clears) - every5);
   for (let i = 0; i < owed; i++) addCopy(s, jaden);
   return owed;
 }

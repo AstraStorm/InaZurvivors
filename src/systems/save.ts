@@ -93,6 +93,8 @@ export interface SaveData {
   drakul153?: boolean;
   /** 2.02: the Jadens owed by the new Road rule were already given (road.ts compensateJaden202) */
   jaden202?: boolean;
+  /** 2.3: the Jadens owed by «a copy every 3» were already given (road.ts compensateJaden3) */
+  jaden3?: boolean;
   /** 2.1: the season pass of the current season (seasonPass.ts); another season's is replaced when it is read */
   season?: SeasonSave;
   /** 2.2: the Sector Quinto event (sector.ts): the side as the server last said, intro seen, weeks already collected */
