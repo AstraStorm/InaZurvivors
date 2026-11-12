@@ -13,8 +13,9 @@ const m: Manifest | null = fs.existsSync(manifestFile) ? JSON.parse(fs.readFileS
 const DAY = 86_400_000;
 
 describe('InaZurvivors x BlueLock', () => {
-  it('opens the day after the Banner de agradecimiento ends, for seven days', () => {
-    expect(bluelockStart() - thanksEnd()).toBe(DAY);
+  it('opens the day after the Banner de agradecimiento ends (at 12:00 with the 2.2, not 15:00), for seven days', () => {
+    expect(bluelockStart() - thanksEnd()).toBe(DAY - 3 * 3600_000);
+    expect(bluelockStart()).toBe(Date.parse('2026-11-12T12:00:00+01:00'));
     expect(bluelockActive(bluelockStart() - 1)).toBe(false);
     expect(bluelockActive(bluelockStart())).toBe(true);
     expect(bluelockActive(bluelockStart() + 7 * DAY)).toBe(false);

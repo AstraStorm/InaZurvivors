@@ -4,7 +4,7 @@ import { allNews, latestNewsId } from '../src/data/news';
 import { PUBLIC_RELEASES } from '../src/data/release';
 
 describe('news of the 2.0', () => {
-  const before = Date.parse('2026-11-12T14:59:00+01:00'), after = Date.parse('2026-11-12T15:00:00+01:00');
+  const before = Date.parse('2026-11-12T11:59:00+01:00'), after = Date.parse('2026-11-12T12:00:00+01:00'); // author: BlueLock at 12:00
   it('the BlueLock news is hidden until its banner opens, then pinned on top', () => {
     expect(allNews(true, before).some((n) => n.id === 'colab-bluelock')).toBe(false);
     const open = allNews(true, after);

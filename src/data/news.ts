@@ -67,11 +67,11 @@ export const AUTHOR_NEWS: NewsItem[] = [
   },
   // (author) InaZurvivors x BlueLock: it appears on its own, pinned, the moment its banner opens (server clock)
   {
-    id: 'colab-bluelock', kind: 'evento', date: '2026-11-12', icon: '⚽', pinned: true, from: '2026-11-12T15:00:00+01:00',
+    id: 'colab-bluelock', kind: 'evento', date: '2026-11-12', icon: '⚽', pinned: true, from: '2026-11-12T12:00:00+01:00',
     title: '¡InaZurvivors x BlueLock ya está aquí!',
     summary: 'Seishiro Nagi e Yoichi Isagi llegan en su propio banner durante 7 días. Juntos tienen afinidad del 20% y Cometa legendario.',
     blocks: [
-      { callout: 'nuevo', text: 'La nueva colaboración ya está abierta: **InaZurvivors x BlueLock**, hasta el **19 de noviembre a las 15:00**.' },
+      { callout: 'nuevo', text: 'La nueva colaboración ya está abierta: **InaZurvivors x BlueLock**, hasta el **19 de noviembre a las 12:00**.' },
       { h: 'Los fichajes', icon: '⚽' },
       { list: [
         '**Seishiro Nagi** · Aire · Delantero · **Mítico**: Ventisca eterna, Espejismo de balón, Regate supersónico y Ultratécnica.',

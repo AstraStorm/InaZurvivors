@@ -10,8 +10,9 @@ const DAY = 86_400_000;
 export const BLUELOCK_EVENT = {
   id: 'bluelock',
   name: 'InaZurvivors x BlueLock',
-  /** the day after the Banner de agradecimiento ends, at the same hour (Madrid); the server's clock decides */
-  start: '2026-11-12T15:00:00+01:00',
+  /** the day after the Banner de agradecimiento ends (Madrid); author: at 12:00 with the 2.2 and the Temporada 1 (was 15:00);
+   *  the server's clock decides */
+  start: '2026-11-12T12:00:00+01:00',
   days: 7,
   cost: 15,
   multiCost: 150,
