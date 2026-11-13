@@ -18,6 +18,7 @@ import { BANNERS, BANNER_ORDER, bannerPool, bannerPrice, eraOf, featured, featur
 import { exportSave, importSave, remapIds, remapTechSlots, storeSave, type SaveData, type ParticleLevel, type Rank } from '../systems/save';
 import { addCopy, eligibleTeams, pull, recordHistory, DUPLICATE_REFUND_BY, PULL_COST, MAX_STARS, starBonus, onboardingPull, type PullResult } from '../systems/gacha';
 import { applyRun, isMapUnlocked, mapTierScale, type RunResult } from '../systems/economy';
+import { clearRunCheckpoint, readRunCheckpoint, RUN_CP_MAX_AGE, RUN_CP_QUIET, saveRunCheckpoint } from '../systems/runCheckpoint';
 import { DROPS } from '../systems/items';
 import { STAT_INFO } from '../systems/playerStats';
 import { statChanges, TYPE_LABEL, MAX_TECH_LEVEL } from '../systems/techniques';
@@ -1078,6 +1079,7 @@ export class App {
   }
 
   mainMenu() {
+    if (this.recoverRun()) return;
     const owned = this.unlockedRoster();
     // restarted when the kit changed, so the players jogging on the menu pitch wear the equipped one
     if (!this.game.scene.isActive('Menu') || this.menuKit !== this.save.kit) {
@@ -6906,6 +6908,7 @@ export class App {
 
   /** 2.1: the last run was on the training field (no pass EXP) */
   private lastRunTraining = false;
+  private recoverTimer = 0;
   startRun(mapId: string, team: RosterEntry[], candidates: RosterEntry[] = team, training?: TrainingSetup, coop?: CoopRun & { rank: Rank }) {
     // 2.2 Sector Quinto: in a plain solo match of the event, a member of a side meets Zabel's decree first (accept or
     // rebel); every plain match of the event gets the weekly decree and SEED rivals
@@ -6996,7 +6999,9 @@ export class App {
         bossIntro: (b) => this.bossIntroFx(b),
         bossDefeated: () => this.bossDefeatedFx(),
         levelUp: (cards, rerolls, reroll, level) => this.levelUpModal(cards, rerolls, reroll, level),
-        end: (r) => { this.seasonRunXp(r); if (this.roadMatch) this.roadEnd(r); else if (this.clanMatch) this.clanEnd(r); else this.results(r); },
+        end: (r) => { clearRunCheckpoint(); this.seasonRunXp(r); if (this.roadMatch) this.roadEnd(r); else if (this.clanMatch) this.clanEnd(r); else this.results(r); },
+        // BUG-1BDD9F9B: the rewards so far, paid by recoverRun() if the page dies before the run ends (not road/clan/co-op)
+        checkpoint: (r) => { if (!training && !coop && !this.roadMatch && !this.clanMatch) saveRunCheckpoint(r); },
         goldKey: () => this.goldKeyDropped(), // 2.1
         pause: () => this.pauseModal(),
         bossDown: () => this.bossDownModal(),
@@ -7673,8 +7678,31 @@ export class App {
     });
   }
 
-  private results(r: RunResult & { level: number }) {
-    this.sendReplay(r);
+  /**
+   * BUG-1BDD9F9B: a run cut by the page itself (iOS reloads the tab when it runs out of memory, or after it was hidden)
+   * is paid from its last checkpoint, as if it had ended there: what leaving it from the pause menu would have paid.
+   * A checkpoint written moments ago may belong to a run still going on in another tab: it waits until it goes quiet.
+   */
+  private recoverRun(): boolean {
+    const cp = readRunCheckpoint();
+    if (!cp) return false;
+    const age = Date.now() - cp.at;
+    if (age < RUN_CP_QUIET) {
+      window.clearTimeout(this.recoverTimer);
+      this.recoverTimer = window.setTimeout(() => { if (document.querySelector('.m4-tile') && !this.game.scene.isActive('Arena')) this.recoverRun(); }, RUN_CP_QUIET - age + 500);
+      return false;
+    }
+    clearRunCheckpoint();
+    if (age > RUN_CP_MAX_AGE) return false;
+    this.lastRunTraining = false; this.coopRunActive = false;
+    this.seasonRunXp(cp.r);
+    this.results(cp.r, true);
+    window.setTimeout(() => this.toast(tr('Tu última partida se cortó a los {x1}: aquí tienes lo que llevabas ganado.', { x1: fmtTime(cp.r.timeSec) }), 6000), 4600); // after the pass EXP toast
+    return true;
+  }
+
+  private results(r: RunResult & { level: number }, recovered = false) {
+    if (!recovered) this.sendReplay(r);
     document.getElementById('lvl')?.remove();
     document.getElementById('pause')?.remove();
     const effects = perkEffects(this.save);

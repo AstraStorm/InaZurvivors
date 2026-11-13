@@ -128,6 +128,9 @@ export interface ArenaHooks {
   hud(s: HudState): void;
   levelUp(cards: Card[], rerolls: number, reroll: () => Card[], level: number): Promise<Card>;
   end(r: RunResult & { level: number }): void;
+  /** BUG-1BDD9F9B: what the run has earned so far, every few seconds and when the tab is hidden, so a page that the
+   *  phone reloads mid-run (iOS does it when memory runs short) still pays it on the next load */
+  checkpoint?(r: RunResult & { level: number }): void;
   pause(): void;
   /** boss beaten for the first time: the player picks finishing now or endless survival */
   bossDown(): Promise<'end' | 'continue'>;
@@ -292,6 +295,7 @@ export class ArenaScene extends Phaser.Scene {
   /** 1.82: boss juice, rate limits */
   private nextBossSpark = 0; private nextBossShake = 0; private enragedFx = new WeakMap<Enemy, number>();
   private ended = false;
+  private nextCheckpoint = 10;
   private hudAcc = 0;
   private rerolls = 2;
   private levelingUp = false;
@@ -399,7 +403,7 @@ export class ArenaScene extends Phaser.Scene {
     this.members = []; this.enemies = []; this.projectiles = []; this.pickups = []; this.trail = [];
     this.hp = this.maxHp = 100; this.xp = 0; this.level = 1; this.kills = 0; this.runTime = 0; this.spawnAcc = 0;
     this.flowAcc = 0; this.fadeAcc = 0; this.minibossesSpawned = 0; this.minibossesKilled = 0; this.boss = null;
-    this.bossSpawned = false; this.bossWarned = false; this.ended = false; this.rerolls = 2 + data.perks.extraRerolls; this.levelingUp = false;
+    this.bossSpawned = false; this.bossWarned = false; this.ended = false; this.nextCheckpoint = 10; this.rerolls = 2 + data.perks.extraRerolls; this.levelingUp = false;
     this.formation = data.formation; this.formationChangedAt = -10; this.hurtAt = -10; this.healAt = -10; this.regenShown = 0; this.regenAt = 0; this.heading = 0; this.capVx = 0; this.capVy = 0; this.invulnUntil = 0; this.hitsTaken = {}; this.lastHit = null; this.reviveCharges = 0; this.hitSrc = { by: '', attack: '' };
     this.rng = new Phaser.Math.RandomDataGenerator([String(data.seed ?? Date.now())]);
     this.mods = baseMods(); this.taken = {}; this.buffs = new Map(); this.bonusCoins = 0; this.lastUpgrade = null; this.techUses = {}; this.auraTechUses = 0; this.auraCombos = 0; this.guardBlocks = 0;
@@ -497,6 +501,11 @@ export class ArenaScene extends Phaser.Scene {
       this.coop = new CoopSession(this.coopPort(), this.cfg.coop);
       this.events.once('shutdown', () => { this.coop?.destroy(); this.coop = null; });
     }
+    // the loop stops with the tab hidden, and a hidden tab is the one iOS throws away first: save the run's rewards then
+    const onHide = () => { if (document.visibilityState === 'hidden') this.checkpoint(); };
+    document.addEventListener('visibilitychange', onHide);
+    window.addEventListener('pagehide', onHide);
+    this.events.once('shutdown', () => { document.removeEventListener('visibilitychange', onHide); window.removeEventListener('pagehide', onHide); });
   }
   /** pre-2.0: last culling pass (QA reads it) */
   cullStats: CullStats = { checked: 0, culled: 0 };
@@ -754,6 +763,7 @@ export class ArenaScene extends Phaser.Scene {
     if (padA && !this.padAWas) this.acceptAltar();
     this.padAWas = padA;
     this.updateEndless();
+    if (this.runTime >= this.nextCheckpoint) { this.nextCheckpoint = this.runTime + 10; this.checkpoint(); }
     const still = Math.hypot(this.capVx, this.capVy) < 5; // Pereza heals only standing still
     const regen = capRegen(this.mods.regen + this.cfg.perks.regen + this.talents().regen + (still ? this.talents().idleRegen : 0));
     if (this.talents().revive && !this.reviveUsed && this.hp > 0 && this.hp < this.maxHp * 0.2) {
@@ -3964,10 +3974,22 @@ export class ArenaScene extends Phaser.Scene {
     this.pushHud();
     const lost = !(victory || this.endless);
     if (!this.cfg.training) (lost ? HAPTIC.lose : HAPTIC.win)();
-    this.cfg.hooks.end({ death: (lost || (this.endless && this.hp <= 0)) && this.lastHit ? { ...this.lastHit } : undefined, mapId: this.cfg.map.id, rank: this.rank.id, victory: victory || !!this.endless, endlessSec: this.endless ? this.runTime - this.endless.since : 0, endlessPhase: this.endless ? endlessPhase(this.endlessMin()).name : undefined, endlessBosses: this.endless?.bosses ?? 0, endlessCoins: this.endless?.coins ?? 0, endlessTokens: this.endless?.tokens ?? 0, altars: this.altarsDone, damage: Math.round(this.damageDealt), runId: this.runId, captainId: this.members[0].entry.id, teamIds: this.members.map((m) => m.entry.id), timeSec: this.runTime, kills: this.kills, level: this.level,
+    this.cfg.hooks.end(this.result(victory, true));
+  }
+
+  /** BUG-1BDD9F9B: the run as it would end right now (no cause of defeat: it was cut, not lost); solo runs only */
+  private checkpoint() {
+    if (this.ended || this.cfg.training || this.cfg.coop || this.cfg.road || !this.cfg.hooks.checkpoint) return;
+    this.cfg.hooks.checkpoint(this.result(false, false));
+  }
+
+  /** what finish() hands the menu, also saved by checkpoint() */
+  private result(victory: boolean, death: boolean): RunResult & { level: number } {
+    const lost = !(victory || this.endless);
+    return { death: death && (lost || (this.endless && this.hp <= 0)) && this.lastHit ? { ...this.lastHit } : undefined, mapId: this.cfg.map.id, rank: this.rank.id, victory: victory || !!this.endless, endlessSec: this.endless ? this.runTime - this.endless.since : 0, endlessPhase: this.endless ? endlessPhase(this.endlessMin()).name : undefined, endlessBosses: this.endless?.bosses ?? 0, endlessCoins: this.endless?.coins ?? 0, endlessTokens: this.endless?.tokens ?? 0, altars: this.altarsDone, damage: Math.round(this.damageDealt), runId: this.runId, captainId: this.members[0].entry.id, teamIds: this.members.map((m) => m.entry.id), timeSec: this.runTime, kills: this.kills, level: this.level,
       minibosses: this.minibossesKilled, bossDefeated: (victory || !!this.endless) && this.bossSpawned, reachedBoss: this.bossSpawned, bonusCoins: this.bonusCoins, bonusTokens: this.bonusTokens,
       formation: this.formation, techUses: this.techUses, techById: this.techById, auraTechUses: this.auraTechUses, auraCombos: this.auraCombos, withAuras: this.members.some((m) => !!m.entry.aura),
-      maxTechLevel: Math.max(...this.members.flatMap((m) => Object.values(m.state.levels))), combos: [...this.combos.keys()] });
+      maxTechLevel: Math.max(...this.members.flatMap((m) => Object.values(m.state.levels))), combos: [...this.combos.keys()] };
   }
 
   // ------------------------------------------------------------- pre-2.0 co-op (coopArena.ts)

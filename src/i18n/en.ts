@@ -3892,4 +3892,5 @@ export const EN: Record<string, string> = {
   "Grabas, editas y subes: InaZurvivors llega más lejos gracias a ti.": "You record, edit and upload: InaZurvivors goes further thanks to you.",
   "Marco de Creador": "Creator Frame",
   "Un botón de play con alas: el marco de quien graba InaZurvivors.": "A play button with wings: the frame of those who record InaZurvivors.",
+  "Tu última partida se cortó a los {x1}: aquí tienes lo que llevabas ganado.": "Your last run was cut off at {x1}: here is what you had earned so far.",
 };
