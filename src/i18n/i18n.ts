@@ -7,28 +7,32 @@
  * Game data (techniques, players, maps…) goes through its own tables (tName and friends), not through tr(). (Named tr, not t: t is a technique or a time in much of the code.)
  *
  * The language is the player's choice in Ajustes (save.settings.lang); without one it follows the browser: English,
- * French, Italian or German (2.4, fr.ts / it.ts / de.ts) when the browser asks for one of them first, Spanish otherwise.
+ * French, Italian or German (2.4, fr.ts / it.ts / de.ts), Catalan or Portuguese (2.5, ca.ts / pt.ts) when the browser asks for
+ * one of them first, Spanish otherwise.
  */
 import { EN } from './en';
 import { FR } from './fr';
 import { IT } from './it';
 import { DE } from './de';
+import { CA } from './ca';
+import { PT } from './pt';
 
-export type Lang = 'es' | 'en' | 'fr' | 'it' | 'de';
+export type Lang = 'es' | 'en' | 'fr' | 'it' | 'de' | 'ca' | 'pt';
 export const LANGS: { id: Lang; label: string }[] = [
   { id: 'es', label: 'Español' }, { id: 'en', label: 'English' }, { id: 'fr', label: 'Français' }, { id: 'it', label: 'Italiano' }, { id: 'de', label: 'Deutsch' },
+  { id: 'ca', label: 'Català' }, { id: 'pt', label: 'Português' },
 ];
-/** 2.4 (author: «traduceme ahora el juego de la misma forma del inglés al francés», then «pon italiano tmb» and «aleman»): the dictionaries */
-const DICTS: Partial<Record<Lang, Record<string, string>>> = { en: EN, fr: FR, it: IT, de: DE };
-const isLang = (l: string | undefined | null): l is Lang => l === 'es' || l === 'en' || l === 'fr' || l === 'it' || l === 'de';
-const LOCALES: Record<Lang, string> = { es: 'es-ES', en: 'en-GB', fr: 'fr-FR', it: 'it-IT', de: 'de-DE' };
+/** 2.4 (author: «traduceme ahora el juego de la misma forma del inglés al francés», then «pon italiano tmb» and «aleman»; 2.5 «traducelo en catalan y portugues»): the dictionaries */
+const DICTS: Partial<Record<Lang, Record<string, string>>> = { en: EN, fr: FR, it: IT, de: DE, ca: CA, pt: PT };
+const isLang = (l: string | undefined | null): l is Lang => l === 'es' || l === 'en' || l === 'fr' || l === 'it' || l === 'de' || l === 'ca' || l === 'pt';
+const LOCALES: Record<Lang, string> = { es: 'es-ES', en: 'en-GB', fr: 'fr-FR', it: 'it-IT', de: 'de-DE', ca: 'ca-ES', pt: 'pt-BR' };
 
 let lang: Lang = 'es';
 
 /** the browser's first language, as one of ours */
 export function browserLang(langs: readonly string[] = typeof navigator === 'undefined' ? [] : navigator.languages ?? [navigator.language]): Lang {
   const first = (langs[0] ?? '').toLowerCase();
-  return (['en', 'fr', 'it', 'de'] as const).find((l) => first.startsWith(l)) ?? 'es';
+  return (['en', 'fr', 'it', 'de', 'ca', 'pt'] as const).find((l) => first.startsWith(l)) ?? 'es';
 }
 /** the language to use for a saved choice ('' or absent = follow the browser) */
 export const resolveLang = (choice: string | undefined | null, langs?: readonly string[]): Lang => (isLang(choice) ? choice : browserLang(langs));

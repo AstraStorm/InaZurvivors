@@ -15,6 +15,17 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: '14.0', date: '2026-11-14', title: '2.5 Catalán y portugués',
+    features: [
+      'Traducción al catalán y al portugués de Brasil (autor: «traducelo en catalan y portugues»): ca.ts y pt.ts con las mismas claves que en.ts, idiomas «ca» y «pt» en Ajustes y por navegador (ca*, pt*), locales ca-ES y pt-BR. Elementos Foc/Aire/Bosc/Muntanya/Neutre y Fogo/Vento/Floresta/Montanha/Neutro, tipos Tir/Regat/Bloqueig/Aturada y Chute/Drible/Bloqueio/Captura, puestos POR/DEF/MIG/DAV y GOL/ZAG/MEI/ATA; estadios y pantalla de carga.',
+      'Técnicas: tools/i18n_tech_names_wiki.py --lang ca|pt (wiki catalana, doblaje del Super3, solo por PAGES a mano: 26; Super Onze Wiki brasileña: 65); el resto, mías en ca_ / pt_tech_manual.ts para revisar.',
+      'Noticia 2.5 y presentación de lanzamiento con las banderas de los siete idiomas girando (autor: «pon las banderitas en lo de 2.4 que da vueltas»): también la de la 2.4.',
+    ],
+    fixes: ['Los pasos del registro (Nombre, Avatar, Confirmar) y la comprobación del nombre (Válido, Comprobando…, Disponible, Ocupado) pasan por tr(): salían en español en todos los idiomas.'],
+    visuals: [],
+    balance: [],
+  },
+  {
     version: '13.0', date: '2026-11-14', title: '2.4 Francés, italiano y alemán',
     features: [
       'Traducción al francés (autor: «de la misma forma» que el inglés): fr.ts con las mismas ~3.900 claves que en.ts (test: ninguna clave solo en un idioma), idioma «fr» en Ajustes y por navegador (fr*), locale fr-FR, espacio irrompible antes de ! ? : ; % y dentro de « ». Pantalla de carga en francés.',

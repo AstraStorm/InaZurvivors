@@ -80,9 +80,9 @@
       // 2.3: the same language choice as src/i18n/i18n.ts (the saved one, else the browser's first language)
       var lang = '';
       try { lang = (JSON.parse(localStorage.getItem('ie-survivors-save') || 'null') || {}).settings.lang || ''; } catch (e) { lang = ''; }
-      if (lang !== 'es' && lang !== 'en' && lang !== 'fr' && lang !== 'it' && lang !== 'de') {
+      if (lang !== 'es' && lang !== 'en' && lang !== 'fr' && lang !== 'it' && lang !== 'de' && lang !== 'ca' && lang !== 'pt') {
         var first = (navigator.languages && navigator.languages[0]) || navigator.language || '';
-        lang = /^en/i.test(first) ? 'en' : /^fr/i.test(first) ? 'fr' : /^it/i.test(first) ? 'it' : /^de/i.test(first) ? 'de' : 'es'; // 2.4: French, Italian and German too
+        lang = /^en/i.test(first) ? 'en' : /^fr/i.test(first) ? 'fr' : /^it/i.test(first) ? 'it' : /^de/i.test(first) ? 'de' : /^ca/i.test(first) ? 'ca' : /^pt/i.test(first) ? 'pt' : 'es'; // 2.4: French, Italian and German too; 2.5: Catalan and Portuguese
       }
       var set = function (sel, text) { var e = document.querySelector(sel); if (e) e.textContent = text; };
       var foot = function (html) { var f = document.querySelector('#boot footer'); if (f) f.innerHTML = html; };
@@ -118,6 +118,22 @@
         set('#boot .tag', 'Fußball-Roguelite-Fangame');
         set('#boot-msg', 'Lädt…');
         foot('Kostenloses, inoffizielles Fangame, inspiriert von Inazuma Eleven (LEVEL-5).<br /><a href="privacidad.html">Datenschutz</a><a href="terminos.html">Bedingungen</a><a href="https://github.com/AstraStorm/InaZurvivors">GitHub</a>');
+      } else if (lang === 'ca') {
+        document.documentElement.lang = 'ca';
+        tips = ['Consell: el capità dona un bonus a tot l\'equip.', 'Consell: prova les tècniques a Entrenament abans de jugar.',
+          'Consell: després de vèncer el cap, la supervivència continua sense fi.', 'Consell: millora els teus futbolistes amb còpies repetides.',
+          'Consell: entra amb Google per desar el teu club al núvol.'];
+        set('#boot .tag', 'Fangame roguelite de futbol');
+        set('#boot-msg', 'Carregant…');
+        foot('Fangame gratuït i no oficial, inspirat en Inazuma Eleven (LEVEL-5).<br /><a href="privacidad.html">Privacitat</a><a href="terminos.html">Condicions</a><a href="https://github.com/AstraStorm/InaZurvivors">GitHub</a>');
+      } else if (lang === 'pt') {
+        document.documentElement.lang = 'pt-BR';
+        tips = ['Dica: o capitão dá um bônus a todo o time.', 'Dica: teste as técnicas no Treino antes de jogar.',
+          'Dica: depois de vencer o chefe, a sobrevivência continua sem fim.', 'Dica: melhore seus jogadores com cópias repetidas.',
+          'Dica: entre com o Google para salvar seu clube na nuvem.'];
+        set('#boot .tag', 'Fangame roguelite de futebol');
+        set('#boot-msg', 'Carregando…');
+        foot('Fangame gratuito e não oficial, inspirado em Inazuma Eleven (LEVEL-5).<br /><a href="privacidad.html">Privacidade</a><a href="terminos.html">Termos</a><a href="https://github.com/AstraStorm/InaZurvivors">GitHub</a>');
       }
       var el = document.getElementById('boot-tip'), n = Math.floor(Math.random() * tips.length);
       var show = function () { el.textContent = tips[n++ % tips.length]; };

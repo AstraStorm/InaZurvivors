@@ -119,9 +119,21 @@ const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const RARITY_COLOR: Record<Rarity, string> = { comun: '#9fb0c8', raro: '#4fb3ff', epico: '#b36bff', legendario: '#ffb020', mitico: '#ff4f8b', leyenda: '#fff6c8' };
 const ELEMENT_COLOR: Record<string, string> = { Fuego: '#ff6a2a', Aire: '#6ad8ff', Bosque: '#5ee05a', 'Montaña': '#d9a440', Neutro: '#c45aff' };
 // 2.3: not tr(): «DEF» is also the Guard stat (GRD)
+// 2.5 (author: «pon las banderitas en lo de 2.4 que da vueltas»): the languages' flags for the launch intro (drawn, so they look
+// the same everywhere: Windows has no flag emoji); English is the Union Jack, Portuguese Brazil's (the game speaks pt-BR)
+const FLAG_SVG: Record<string, string> = {
+  es: '<rect width="30" height="20" fill="#c60b1e"/><rect y="5" width="30" height="10" fill="#ffc400"/>',
+  en: '<rect width="30" height="20" fill="#012169"/><path d="M0 0L30 20M30 0L0 20" stroke="#fff" stroke-width="4"/><path d="M0 0L30 20M30 0L0 20" stroke="#c8102e" stroke-width="1.6"/><path d="M15 0V20M0 10H30" stroke="#fff" stroke-width="6"/><path d="M15 0V20M0 10H30" stroke="#c8102e" stroke-width="3.4"/>',
+  fr: '<rect width="10" height="20" fill="#0055a4"/><rect x="10" width="10" height="20" fill="#fff"/><rect x="20" width="10" height="20" fill="#ef4135"/>',
+  it: '<rect width="10" height="20" fill="#009246"/><rect x="10" width="10" height="20" fill="#fff"/><rect x="20" width="10" height="20" fill="#ce2b37"/>',
+  de: '<rect width="30" height="7" fill="#000"/><rect y="6.6" width="30" height="7" fill="#dd0000"/><rect y="13.3" width="30" height="6.7" fill="#ffce00"/>',
+  ca: '<rect width="30" height="20" fill="#fcdd09"/>' + [1, 3, 5, 7].map((i) => `<rect y="${(i * 20) / 9}" width="30" height="${20 / 9}" fill="#da121a"/>`).join(''),
+  pt: '<rect width="30" height="20" fill="#009c3b"/><path d="M15 2.5L27.5 10L15 17.5L2.5 10Z" fill="#ffdf00"/><circle cx="15" cy="10" r="4.6" fill="#002776"/><path d="M10.6 9.2Q15 7.6 19.4 10.6" stroke="#fff" stroke-width=".7" fill="none"/>',
+};
 const POS_LABEL: Record<string, string> = getLang() === 'en' ? { GK: 'GK', DF: 'DF', MF: 'MF', FW: 'FW' }
   : getLang() === 'fr' ? { GK: 'GB', DF: 'DÉF', MF: 'MIL', FW: 'ATT' } : getLang() === 'it' ? { GK: 'POR', DF: 'DIF', MF: 'CEN', FW: 'ATT' }
   : getLang() === 'de' ? { GK: 'TW', DF: 'AB', MF: 'MF', FW: 'ST' }
+  : getLang() === 'ca' ? { GK: 'POR', DF: 'DEF', MF: 'MIG', FW: 'DAV' } : getLang() === 'pt' ? { GK: 'GOL', DF: 'ZAG', MF: 'MEI', FW: 'ATA' }
   : { GK: 'POR', DF: 'DEF', MF: 'MED', FW: 'DEL' };
 const FORMATION_ICON = (f: FormationId, size = 46) => {
   const F = FORMATIONS[f];
@@ -522,7 +534,7 @@ export class App {
       const code = normalizeCode(input.value);
       if (!code) return;
       go.disabled = true;
-      say('Comprobando…');
+      say(tr('Comprobando…'));
       let status: string, reward: CodeReward | undefined;
       try {
         if (online) {
@@ -588,11 +600,11 @@ export class App {
       const v = validateUsername(input.value);
       window.clearTimeout(timer);
       if (!v.ok) { out.className = 'pcheck bad'; out.textContent = v.reason; if (button) button.disabled = true; return; }
-      out.className = 'pcheck'; out.textContent = 'Comprobando…'; if (button) button.disabled = true;
+      out.className = 'pcheck'; out.textContent = tr('Comprobando…'); if (button) button.disabled = true;
       const mine = ++seq;
       timer = window.setTimeout(() => usernameAvailable(v.name).then((free) => {
         if (mine !== seq) return;
-        out.className = `pcheck ${free ? 'ok' : 'bad'}`; out.textContent = free ? 'Disponible' : 'Ocupado'; if (button) button.disabled = !free;
+        out.className = `pcheck ${free ? 'ok' : 'bad'}`; out.textContent = free ? tr('Disponible') : tr('Ocupado'); if (button) button.disabled = !free;
       }).catch(() => { if (mine === seq) { out.className = 'pcheck'; out.textContent = tr('No se pudo comprobar ahora'); if (button) button.disabled = false; } }), 450);
     };
     input.addEventListener('input', check);
@@ -957,7 +969,7 @@ export class App {
     const teams = eligibleTeams(this.m.roster).filter((t) => mainTeams.has(t) && !!this.emblemOf(t));
     const fullKit = (t: string) => !!this.m.kits?.[t];
     const emblems = (this.m.profile?.emblems ?? []).filter((e, i, a) => e.name !== '???' && a.findIndex((x) => x.name === e.name) === i).slice(0, 36);
-    const steps = ['Nombre', 'Avatar', tr('Equipo favorito'), 'Confirmar'];
+    const steps = [tr('Nombre'), tr('Avatar'), tr('Equipo favorito'), tr('Confirmar')];
     const dots = step === 0 ? '' : steps.map((t, i) => `<span class="${i + 1 === step ? 'on' : i + 1 < step ? 'done' : ''}">${i + 1}. ${t}</span>`).join('');
     let body = '';
     const nameOk = validateUsername(draft.name).ok;
@@ -1017,13 +1029,13 @@ export class App {
         draft.name = input.value.trim();
         window.clearTimeout(timer);
         if (!v.ok) { out.className = 'pcheck bad'; out.textContent = v.reason; next.disabled = true; return; }
-        if (!onlineConfigured()) { out.className = 'pcheck ok'; out.textContent = 'Válido'; next.disabled = false; return; }
-        out.className = 'pcheck'; out.textContent = 'Comprobando…'; next.disabled = true;
+        if (!onlineConfigured()) { out.className = 'pcheck ok'; out.textContent = tr('Válido'); next.disabled = false; return; }
+        out.className = 'pcheck'; out.textContent = tr('Comprobando…'); next.disabled = true;
         const mine = ++seq;
         timer = window.setTimeout(() => {
           usernameAvailable(v.name).then((free) => {
             if (mine !== seq) return;
-            out.className = `pcheck ${free ? 'ok' : 'bad'}`; out.textContent = free ? 'Disponible' : 'Ocupado'; next.disabled = !free;
+            out.className = `pcheck ${free ? 'ok' : 'bad'}`; out.textContent = free ? tr('Disponible') : tr('Ocupado'); next.disabled = !free;
           }).catch(() => { if (mine === seq) { out.className = 'pcheck'; out.textContent = tr('No se pudo comprobar ahora'); next.disabled = false; } });
         }, 450);
       };
@@ -2782,19 +2794,20 @@ export class App {
     try { return localStorage.getItem(`iz-launch-${PUBLIC_VERSION}`) !== '1'; } catch { return false; }
   }
   /** the launch intro of a version (the current one by default): its number, its tagline and its features. 2.0 is the
-   *  spirits' (and its news button replays it); 2.4 orbits the five languages */
+   *  spirits' (and its news button replays it); 2.4 orbits the five languages, 2.5 the seven, with their flags */
   private launch20(version = PUBLIC_VERSION) {
     try { localStorage.setItem(`iz-launch-${version}`, '1'); } catch { /* private window: it may show again */ }
     const rel = PUBLIC_RELEASES.find((r) => r.version === version) ?? PUBLIC_RELEASES[0];
     const spirits = version === '2.0';
-    const sub = spirits ? tr('ESPÍRITUS GUERREROS') : version === '2.4' ? tr('CINCO IDIOMAS') : tr('NUEVA VERSIÓN');
+    const sub = spirits ? tr('ESPÍRITUS GUERREROS') : version === '2.4' ? tr('CINCO IDIOMAS') : version === '2.5' ? tr('SIETE IDIOMAS') : tr('NUEVA VERSIÓN');
+    const langs = version === '2.4' ? LANGS.filter((l) => ['es', 'en', 'fr', 'it', 'de'].includes(l.id)) : LANGS;
     const newsId = spirits ? 'version-2-0-espiritus' : `version-${rel.version}`;
     const box = document.createElement('div');
     box.className = 'launch20';
-    const LANG_COLORS = ['#ffd23a', '#5ad8ff', '#6a8cff', '#5ee05a', '#ff6a2a'];
-    const ring = spirits || version !== '2.4'
+    const LANG_COLORS = ['#ffd23a', '#5ad8ff', '#6a8cff', '#5ee05a', '#ff6a2a', '#ff4f8b', '#b36bff']; // 2.5: seven languages
+    const ring = spirits || (version !== '2.4' && version !== '2.5')
       ? KESHINS.map((k, i) => `<span style="--d:${i * 60}ms;--kc:${k.color}">${this.egArt(k)}</span>`).join('')
-      : [...LANGS, ...LANGS, ...LANGS].map((l, i) => `<span class="l2-lang" style="--d:${i * 60}ms;--kc:${LANG_COLORS[i % LANGS.length]}"><b>${l.id.toUpperCase()}</b></span>`).join('');
+      : [...langs, ...langs, ...langs].map((l, i) => `<span class="l2-lang" style="--d:${i * 60}ms;--kc:${LANG_COLORS[i % langs.length]}"><svg viewBox="0 0 30 20" preserveAspectRatio="xMidYMid slice" aria-hidden="true">${FLAG_SVG[l.id] ?? ''}</svg><b>${l.id.toUpperCase()}</b></span>`).join('');
     const feats = rel.features.slice(0, 10).map((f, i) => `<b style="--d:${i * 110}ms">${f.icon} ${esc(f.title)}</b>`).join('');
     box.innerHTML = `<i class="l2-rays"></i><i class="l2-glow"></i><i class="l2-shock"></i><i class="l2-bolt"></i><i class="l2-flash"></i>
       <div class="l2-main"><div class="l2-logo">INAZURVIVORS</div><div class="l2-vw"><div class="l2-ring">${ring}</div><div class="l2-v">${esc(rel.version)}</div></div><div class="l2-sub">${sub}</div>

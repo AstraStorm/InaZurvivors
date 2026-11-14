@@ -94,7 +94,8 @@ export const ELEMENT_COLOR: Record<string, number> = {
 };
 export const elementColor = (e: string | null | undefined) => (e && ELEMENT_COLOR[e]) || 0xf2f2f2;
 
-// 2.3: the dub's technique types (not tr(): «Tiro» and «Defensa» are also stats, Kick and Guard); 2.4: the French, Italian and German games'
+// 2.3: the dub's technique types (not tr(): «Tiro» and «Defensa» are also stats, Kick and Guard); 2.4: the French, Italian and German games';
+// 2.5: Catalan like the Super3 dub, Portuguese like the Brazilian wiki (Chute, Drible, Bloqueio, Captura)
 export const TYPE_LABEL: Record<TechType, string> = getLang() === 'en'
   ? { tiro: 'Shoot', regate: 'Dribble', defensa: 'Block', parada: 'Catch', talento: 'Talent' }
   : getLang() === 'fr'
@@ -103,4 +104,8 @@ export const TYPE_LABEL: Record<TechType, string> = getLang() === 'en'
       ? { tiro: 'Tiro', regate: 'Offesa', defensa: 'Difesa', parada: 'Parata', talento: 'Talento' }
       : getLang() === 'de'
         ? { tiro: 'Schuss', regate: 'Dribbel', defensa: 'Block', parada: 'Parade', talento: 'Talent' }
+      : getLang() === 'ca'
+        ? { tiro: 'Tir', regate: 'Regat', defensa: 'Bloqueig', parada: 'Aturada', talento: 'Talent' }
+      : getLang() === 'pt'
+        ? { tiro: 'Chute', regate: 'Drible', defensa: 'Bloqueio', parada: 'Captura', talento: 'Talento' }
       : { tiro: 'Tiro', regate: 'Regate', defensa: 'Defensa', parada: 'Parada', talento: 'Talento' };

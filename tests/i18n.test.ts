@@ -1,5 +1,6 @@
 /** 2.3 English translation (src/i18n): the language choice, t() and that every t('…') in the code has its English text.
- *  2.4: the same for French, Italian and German (fr.ts, it.ts, de.ts), plus their technique names (fr_/it_/de_tech.json, fr_/it_/de_tech_manual.ts). */
+ *  2.4: the same for French, Italian and German (fr.ts, it.ts, de.ts), plus their technique names (fr_/it_/de_tech.json, fr_/it_/de_tech_manual.ts).
+ *  2.5: and for Catalan and Portuguese (ca.ts, pt.ts, ca_/pt_tech.json, ca_/pt_tech_manual.ts). */
 import { describe, expect, it } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -8,6 +9,8 @@ import { EN } from '../src/i18n/en';
 import { FR } from '../src/i18n/fr';
 import { IT } from '../src/i18n/it';
 import { DE } from '../src/i18n/de';
+import { CA } from '../src/i18n/ca';
+import { PT } from '../src/i18n/pt';
 import { tEl, tTech } from '../src/i18n/data';
 import { PERKS, PERK_CATEGORIES } from '../src/systems/perks';
 import { SAGAS } from '../src/data/sagas';
@@ -24,7 +27,7 @@ export function tKeys(code: string): string[] {
   for (const m of code.matchAll(re)) out.push((m[1] ?? m[2] ?? m[3]).replace(/\\(['"`\\])/g, '$1').replace(/\\n/g, '\n'));
   return out;
 }
-const DICTS: Record<string, Record<string, string>> = { en: EN, fr: FR, it: IT, de: DE };
+const DICTS: Record<string, Record<string, string>> = { en: EN, fr: FR, it: IT, de: DE, ca: CA, pt: PT };
 
 describe('i18n', () => {
   it('follows the browser unless the player chose a language', () => {
@@ -34,7 +37,10 @@ describe('i18n', () => {
     expect(browserLang(['fr-CA', 'en'])).toBe('fr');
     expect(browserLang(['it-IT', 'en'])).toBe('it');
     expect(browserLang(['de-DE', 'en'])).toBe('de');
-    expect(browserLang(['pt-BR'])).toBe('es');
+    expect(browserLang(['pt-BR'])).toBe('pt');
+    expect(browserLang(['pt-PT', 'en'])).toBe('pt');
+    expect(browserLang(['ca-ES', 'es'])).toBe('ca');
+    expect(browserLang(['es-ES', 'ca'])).toBe('es');
     expect(browserLang([])).toBe('es');
     expect(resolveLang('', ['en-GB'])).toBe('en');
     expect(resolveLang('es', ['en-GB'])).toBe('es');
@@ -70,8 +76,8 @@ describe('i18n', () => {
       expect(texts.filter((k) => dict[k] === undefined)).toEqual([]);
     });
   }
-  it('French, Italian and German have the same keys as English: nothing translated to one language only', () => {
-    for (const d of [FR, IT, DE]) {
+  it('French, Italian, German, Catalan and Portuguese have the same keys as English: nothing translated to one language only', () => {
+    for (const d of [FR, IT, DE, CA, PT]) {
       expect(Object.keys(EN).filter((k) => !(k in d))).toEqual([]);
       expect(Object.keys(d).filter((k) => !(k in EN))).toEqual([]);
     }
@@ -96,6 +102,20 @@ describe('i18n', () => {
     expect(COMBOS.filter((c) => tTech(c.name) === c.name && !['Big Bang', 'Zero Magnum', 'Tripegaso'].includes(c.name)).map((c) => c.name)).toEqual([]);
     expect(tEl('Bosque')).toBe('Holz');
     expect(tr('Ajustes')).toBe('Einstellungen');
+    setLang('ca');
+    expect(tTech('Tornado de fuego')).toBe('Tornado de Foc'); // ca_tech.json (Catalan wiki)
+    expect(tTech('Mano Celestial')).toBe('Mà Celestial');
+    expect(tTech('Fuego cruzado')).toBe('Foc creuat'); // ca_tech_manual.ts
+    expect(COMBOS.filter((c) => tTech(c.name) === c.name && !['Big Bang', 'Zero Magnum', 'Escena nocturna'].includes(c.name)).map((c) => c.name)).toEqual([]);
+    expect(tEl('Bosque')).toBe('Bosc');
+    expect(tr('Ajustes')).toBe('Configuració');
+    setLang('pt');
+    expect(tTech('Tornado de fuego')).toBe('Furacão de Fogo'); // pt_tech.json (Brazilian wiki)
+    expect(tTech('Mano Celestial')).toBe('Mão Fantasma');
+    expect(tTech('Fuego total')).toBe('Fogo Total'); // pt_tech_manual.ts
+    expect(COMBOS.filter((c) => tTech(c.name) === c.name && !['Big Bang', 'Zero Magnum'].includes(c.name)).map((c) => c.name)).toEqual([]);
+    expect(tEl('Aire')).toBe('Vento');
+    expect(tr('Ajustes')).toBe('Configurações');
     setLang('es');
     expect(tTech('Tornado de fuego')).toBe('Tornado de fuego');
   });

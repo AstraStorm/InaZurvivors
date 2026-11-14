@@ -96,7 +96,51 @@ const DE: MapText = {
   clan: ['Kirschblütenhügel', 'Der Kirschblütenpark, in dem die Clans gegeneinander antreten. Nur für die Clan-Spiele.'],
 };
 
-const TEXTS: Partial<Record<string, MapText>> = { en: EN, fr: FR, it: IT, de: DE };
+const CA: MapText = {
+  raimon: ['Institut Raimon', 'On comença tot. El camp del teu institut contra els equips del torneig regional.'],
+  ribera: ['Riba del riu', 'El parc al costat del riu on entrena el Raimon. Rivals de barri per escalfar.'],
+  royal: ['Royal Academy', 'La fortalesa de la Royal Academy. Passadissos estrets i rivals que no fallen.'],
+  nara: ['Parc dels Cérvols', 'Nara: la Tempesta de Gèminis aterra al costat de la gran estàtua del cérvol.'],
+  zeus: ['Estadi Zeus', "Un estadi daurat per als déus de l'Institut Zeus."],
+  alpino: ["Parc de l'Alpine", "Hokkaido: l'institut de l'Alpine entre pins i neu."],
+  nevada: ['Gran Plana Nevada', "Hokkaido profund: Pols de Diamant a la neu. Rellisca i no perdona."],
+  claustro: ['Claustre Sagrat', 'Kyoto: el temple del Claustre Sagrat i les seves escales.'],
+  naniwa: ['Naniwaland', "El parc d'atraccions d'Osaka. Les noies del Triple C juguen a casa."],
+  yokato: ['Institut Yokato', 'Fukuoka: Èpsilon i Prominence es troben al pati del Yokato.'],
+  marytimes: ['Illa Mary Times', 'Okinawa: terrasses, caseta i platja. Baixa fins a la sorra.'],
+  fuji: ["Mar d'Arbres", "La clariana amagada del bosc del Fuji, a les portes de l'Acadèmia Alius. El final del camí."],
+  ehime: ["Port d'Ehime", "Ehime: el port on atraca el submarí de la Royal Academy Redux. Caleb Stonewall t'espera entre contenidors."],
+  alius: ['Acadèmia Alius', "El camp de l'Acadèmia Alius, sota la llum de la pedra. Gènesi juga a casa."],
+  ruinas: ['Institut en ruïnes', "L'Umbrella, arrasat. Entre les runes, els Emperadors Foscos: l'últim desafiament."],
+  barrio: ['Parc del carrer comercial', "El campet dels gronxadors al costat del carrer comercial d'Inazuma, on entrenen els Inazuma Kids FC. Carrers oberts per tots costats: t'envolten des de qualsevol cantonada."],
+  plazanieve: ["Plaça nevada de l'Alpine", "La plaça circular davant de l'Institut Alpine, a Hokkaido. Bardisses gelades, un estany al centre i neu fins als genolls."],
+  torre: ['Torre de ferro al capvespre', "El turó de la torre d'Inazuma, on en Mark entrenava de petit. Quan es pon el sol, el capità del Raimon t'espera a dalt: l'últim desafiament."],
+  clan: ['Turó dels Cirerers', 'El parc dels cirerers on s\'enfronten els clans. Només per als Jocs del Clan.'],
+};
+
+const PT: MapText = {
+  raimon: ['Instituto Raimon', 'Onde tudo começa. O campo do seu instituto contra os times do torneio regional.'],
+  ribera: ['Margem do Rio', 'O parque à beira do rio onde o Raimon treina. Rivais do bairro para aquecer.'],
+  royal: ['Royal Academy', 'A fortaleza da Royal Academy. Corredores estreitos e rivais que não erram.'],
+  nara: ['Parque dos Cervos', 'Nara: a Tempestade de Gêmeos pousa ao lado da grande estátua do cervo.'],
+  zeus: ['Estádio Zeus', 'Um estádio dourado para os deuses do Instituto Zeus.'],
+  alpino: ['Parque do Alpine', 'Hokkaido: o instituto do Alpine entre pinheiros e neve.'],
+  nevada: ['Grande Planície Nevada', 'Hokkaido profundo: Pó de Diamante na neve. Escorrega e não perdoa.'],
+  claustro: ['Claustro Sagrado', 'Kyoto: o templo do Claustro Sagrado e suas escadarias.'],
+  naniwa: ['Naniwaland', 'O parque de diversões de Osaka. As garotas do Triple C jogam em casa.'],
+  yokato: ['Instituto Yokato', 'Fukuoka: Épsilon e Prominence se encontram no pátio do Yokato.'],
+  marytimes: ['Ilha Mary Times', 'Okinawa: terraços, casinhas e praia. Desça até a areia.'],
+  fuji: ['Mar de Árvores', 'A clareira escondida na floresta do Fuji, às portas da Academia Alius. O fim do caminho.'],
+  ehime: ['Porto de Ehime', 'Ehime: o porto onde atraca o submarino da Royal Academy Redux. Caleb Stonewall te espera entre contêineres.'],
+  alius: ['Academia Alius', 'O campo da Academia Alius, sob a luz da pedra. Gênesis joga em casa.'],
+  ruinas: ['Instituto em ruínas', 'O Umbrella, arrasado. Entre os escombros, os Imperadores Sombrios: o último desafio.'],
+  barrio: ['Parque da rua comercial', 'O campinho dos balanços ao lado da rua comercial de Inazuma, onde treinam os Inazuma Kids FC. Ruas abertas por todos os lados: eles te cercam de qualquer esquina.'],
+  plazanieve: ['Praça nevada do Alpine', 'A praça circular em frente ao Instituto Alpine, em Hokkaido. Sebes congeladas, um lago no centro e neve até os joelhos.'],
+  torre: ['Torre de ferro ao entardecer', 'A colina da torre de Inazuma, onde Mark treinava quando pequeno. Ao pôr do sol, o capitão do Raimon te espera lá em cima: o último desafio.'],
+  clan: ['Colina das Cerejeiras', 'O parque das cerejeiras onde os clãs se enfrentam. Só para os Jogos do Clã.'],
+};
+
+const TEXTS: Partial<Record<string, MapText>> = { en: EN, fr: FR, it: IT, de: DE, ca: CA, pt: PT };
 
 /** the arenas in the current language (ids untouched); a map without an entry keeps its Spanish text */
 export function localizeMaps(maps: MapInfo[]) {

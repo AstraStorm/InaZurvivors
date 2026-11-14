@@ -7,7 +7,7 @@
 import { CHANGELOG } from './changelog';
 import { tr } from '../i18n/i18n';
 
-export const PUBLIC_VERSION = '2.4';
+export const PUBLIC_VERSION = '2.5';
 export const BUILD = CHANGELOG[0].version;
 export const RELEASED = true; // (author) 2.0: the «pre» phase is over
 export const VERSION_LABEL = RELEASED ? `v${PUBLIC_VERSION}` : `v${PUBLIC_VERSION} · pre-lanzamiento`;
@@ -31,6 +31,20 @@ export interface PublicRelease {
 
 /** Public news, newest first. Starts at v1.0: the internal versions before it are not part of the public history. */
 export const PUBLIC_RELEASES: PublicRelease[] = [
+  {
+    version: '2.5', date: '2026-11-14',
+    title: tr("InaZurvivors 2.5 — Ya en catalán y portugués"),
+    tagline: tr("InaZurvivors, ara en català · agora em português"),
+    intro: tr("El juego entero se puede jugar en catalán y en portugués de Brasil: menús, partidas, datos, noticias y todo el historial de versiones. Si tu navegador está en uno de esos idiomas, se abre solo en él."),
+    features: [
+      { icon: '🌐', title: tr('Siete idiomas'), text: tr("Elige el idioma en Ajustes > Idioma (español, inglés, francés, italiano, alemán, catalán o portugués), o déjalo en «Automático» para que siga al navegador. Al cambiarlo, el juego se recarga y tu partida no cambia.") },
+      { icon: '⚡', title: tr('Nombres oficiales'), text: tr("Las supertécnicas llevan el nombre del doblaje de cada idioma cuando existe: Tornado de Foc y Mà Celestial en catalán, como en el Super3; Furacão de Fogo y Mão Fantasma en portugués, como en Super Onze. Los elementos son Foc, Aire, Bosc y Muntanya en catalán, y Fogo, Vento, Floresta y Montanha en portugués.") },
+      { icon: '🏳️', title: tr('Banderas en la presentación'), text: tr("Al abrir la versión nueva, las banderas de los siete idiomas giran alrededor del número.") },
+      { icon: '📝', title: tr('Registro en tu idioma'), text: tr("Los pasos del registro y la comprobación del nombre ya salen en tu idioma, también en inglés, francés, italiano y alemán.") },
+      { icon: '🔢', title: tr('Números a su manera'), text: tr("Cifras y fechas en el formato de cada idioma: 1.000 en catalán y en portugués.") },
+    ],
+    start: [tr('Abre Ajustes y mira la nueva opción Idioma.'), tr("Pásale el juego a tus amigos de Cataluña, Portugal y Brasil.")],
+  },
   {
     version: '2.4', date: '2026-11-14',
     title: tr('InaZurvivors 2.4 — Ya en francés, italiano y alemán'),
