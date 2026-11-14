@@ -7,7 +7,7 @@
 import { CHANGELOG } from './changelog';
 import { tr } from '../i18n/i18n';
 
-export const PUBLIC_VERSION = '2.5';
+export const PUBLIC_VERSION = '2.6';
 export const BUILD = CHANGELOG[0].version;
 export const RELEASED = true; // (author) 2.0: the «pre» phase is over
 export const VERSION_LABEL = RELEASED ? `v${PUBLIC_VERSION}` : `v${PUBLIC_VERSION} · pre-lanzamiento`;
@@ -31,6 +31,18 @@ export interface PublicRelease {
 
 /** Public news, newest first. Starts at v1.0: the internal versions before it are not part of the public history. */
 export const PUBLIC_RELEASES: PublicRelease[] = [
+  {
+    version: '2.6', date: '2026-11-14',
+    title: tr("InaZurvivors 2.6 — Victory Road, muy pronto"),
+    tagline: tr("Diez futbolistas nuevos esperan su turno"),
+    intro: tr("Victory Road llega muy pronto a InaZurvivors. Ya puedes ver a sus diez futbolistas en el menú y en Fichajes, aunque todavía no se pueden fichar."),
+    features: [
+      { icon: '🌟', title: tr("Diez futbolistas nuevos"), text: tr("Destin, Victorio, Briar, Raika, Alix, Nikas, Cedric, Harper, Reyes y Mark adulto, con sus caras nuevas. Hay Leyendas, Míticos y Legendarios.") },
+      { icon: '🎰', title: tr("Su propia máquina"), text: tr("Llegarán con su propia máquina de fichajes. Mientras tanto, en Fichajes ya está su sitio, cerrado con candado.") },
+      { icon: '📣', title: tr("Cartel al entrar"), text: tr("Al abrir el juego, un cartel grande de Victory Road te presenta a todos.") },
+    ],
+    start: [tr("Mira el carrusel del menú: «Victory Road»."), tr("Abre FICHAJES y busca la máquina con candado.")],
+  },
   {
     version: '2.5', date: '2026-11-14',
     title: tr("InaZurvivors 2.5 — Ya en catalán y portugués"),

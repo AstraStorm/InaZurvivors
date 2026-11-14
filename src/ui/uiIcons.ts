@@ -29,6 +29,7 @@ const PATHS = {
   fire: '<path d="M12.2 2c.6 3.4 4 5.2 4.8 8.8.6 2.4-.2 4.4-1.3 5.6.2-2-.6-3.6-2-4.6.2 2.4-1 4-2.8 4.8.6-1.6.2-3-.8-4-1.6 1.4-2.6 3-2.2 5.2-2-1.4-3-3.6-2.4-6.4C4.4 7.6 9.6 6 12.2 2z"/><path d="M6.4 18.6c1.6 2.2 3.6 3.2 5.8 3.2 3.4 0 6-2.4 6.2-5.8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>',
   // 1.8: GTS — the globe with two exchange arrows
   gts: '<circle cx="12" cy="12" r="9.4" opacity=".55"/><path d="M2.8 12h18.4M12 2.6c2.6 2.6 3.8 5.8 3.8 9.4s-1.2 6.8-3.8 9.4c-2.6-2.6-3.8-5.8-3.8-9.4S9.4 5.2 12 2.6z" fill="none" stroke="#0008" stroke-width="1.3"/><path d="M6 8.6h9.4l-2.2-2.2M18 15.4H8.6l2.2 2.2" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>',
+  lock: '<path d="M7 10V7.5a5 5 0 0 1 10 0V10" fill="none" stroke="currentColor" stroke-width="2.4"/><rect x="4.5" y="10" width="15" height="11.5" rx="2"/><circle cx="12" cy="15.2" r="1.7" fill="#0009"/>', // 2.6: Victory Road, not yet
 } as const;
 
 export type UiIconName = keyof typeof PATHS;

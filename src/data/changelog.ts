@@ -15,6 +15,16 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: '15.0', date: '2026-11-14', title: '2.6 Victory Road, muy pronto',
+    features: [
+      'Teaser de Victory Road (autor: «que se vea en el menu el banner de coming soon del victory road con los mugshots de los jugadores, que salga en lo de fichajes tmb, pero que no salgan y no se puedan fichar ni tirar»): tools/vr_teaser.py recorta las 10 caras (900500-900509) del trabajo de Victory Road de la carpeta principal a public/generated/mugshots-vr y las pone en manifest.vrTeaser (sync-assets las conserva); NO entran en el roster: no se pueden fichar ni tirar.',
+      'Primera diapositiva del carrusel «Próximamente · Victory Road», franja y máquina con candado en Fichajes (solo abren el cartel) y, al entrar por primera vez en la 2.6, el cartel grande de Victory Road con los diez (es la intro de lanzamiento de la 2.6).',
+    ],
+    fixes: [],
+    visuals: [],
+    balance: [],
+  },
+  {
     version: '14.0', date: '2026-11-14', title: '2.5 Catalán y portugués',
     features: [
       'Traducción al catalán y al portugués de Brasil (autor: «traducelo en catalan y portugues»): ca.ts y pt.ts con las mismas claves que en.ts, idiomas «ca» y «pt» en Ajustes y por navegador (ca*, pt*), locales ca-ES y pt-BR. Elementos Foc/Aire/Bosc/Muntanya/Neutre y Fogo/Vento/Floresta/Montanha/Neutro, tipos Tir/Regat/Bloqueig/Aturada y Chute/Drible/Bloqueio/Captura, puestos POR/DEF/MIG/DAV y GOL/ZAG/MEI/ATA; estadios y pantalla de carga.',

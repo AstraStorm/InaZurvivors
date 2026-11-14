@@ -13,6 +13,7 @@ import './styleCards.css';
 import './styleMenu19.css';
 import './styleClans.css';
 import './styleKeshin.css';
+import './styleVrTeaser.css';
 import './styleEgFrames.css';
 import './styleLaunch20.css';
 import './styleMobile20.css';

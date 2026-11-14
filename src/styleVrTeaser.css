@@ -1,0 +1,62 @@
+/* 2.6 (author: «el banner de coming soon del victory road con los mugshots de los jugadores»): the Victory Road teaser —
+   the poster on entry (App.vrTeaserPoster), the menu slide and the locked machine in Fichajes. */
+.vr-mug { display: inline-block; background-size: 100% 100%; image-rendering: pixelated; }
+
+.vrt { position: fixed; inset: 0; z-index: 9600; display: grid; place-items: center; overflow: auto; padding: 16px; color: #fff;
+  background: radial-gradient(ellipse at 50% 30%, #0f6f72 0%, #06303a 45%, #020a12 100%); animation: vrtIn .45s ease-out; }
+.vrt.out { animation: vrtOut .42s ease-in forwards; }
+@keyframes vrtIn { from { opacity: 0; } }
+@keyframes vrtOut { to { opacity: 0; transform: scale(1.04); } }
+.vrt-rays { position: fixed; inset: -50%; pointer-events: none; opacity: .35;
+  background: repeating-conic-gradient(from 0deg at 50% 50%, #19c3b433 0 6deg, transparent 6deg 18deg); animation: vrtSpin 40s linear infinite; }
+@keyframes vrtSpin { to { transform: rotate(360deg); } }
+.vrt-flash { position: fixed; inset: 0; background: #e8fff9; opacity: 0; pointer-events: none; animation: vrtFlash .7s ease-out .1s; }
+@keyframes vrtFlash { 0% { opacity: .9; } 100% { opacity: 0; } }
+.vrt-main { position: relative; z-index: 1; width: min(1000px, 100%); display: grid; justify-items: center; gap: 12px; text-align: center; }
+.vrt-kick { font: 12px/1 'Press Start 2P', monospace; letter-spacing: 4px; color: #ffe066; text-shadow: 0 0 12px #ffcc2a;
+  padding: 6px 12px; border: 2px solid #ffe06688; border-radius: 999px; background: #0008; animation: vrtPulse 1.6s ease-in-out infinite; }
+@keyframes vrtPulse { 50% { box-shadow: 0 0 18px #ffcc2a88; } }
+.vrt-logo { display: grid; line-height: .9; font: italic 900 clamp(46px, 11vw, 112px)/.92 'Arial Black', Impact, sans-serif; letter-spacing: -2px;
+  animation: vrtLogo .7s cubic-bezier(.2, 1.5, .4, 1) .15s backwards; }
+.vrt-logo b { background: linear-gradient(180deg, #ffffff 0%, #b8fff2 38%, #19c3b4 62%, #0b6f6a 100%); -webkit-background-clip: text; background-clip: text; color: transparent;
+  filter: drop-shadow(0 4px 0 #021b22) drop-shadow(0 0 24px #19c3b4aa); }
+.vrt-logo b + b { background: linear-gradient(180deg, #fff6c8 0%, #ffd23a 50%, #c97a10 100%); -webkit-background-clip: text; background-clip: text; margin-top: -4px;
+  filter: drop-shadow(0 4px 0 #2a1600) drop-shadow(0 0 24px #ffb020aa); }
+@keyframes vrtLogo { from { opacity: 0; transform: scale(2.2) rotate(-4deg); filter: blur(6px); } }
+.vrt-text { max-width: 640px; margin: 0; font-size: 15px; line-height: 1.5; color: #d8fff9; }
+.vrt-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; width: 100%; }
+.vrt-card { position: relative; display: grid; justify-items: center; gap: 4px; padding: 10px 6px 8px; border-radius: 12px; overflow: hidden;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--rc) 26%, #0b2330), #071820); box-shadow: 0 0 0 2px color-mix(in srgb, var(--rc) 70%, #fff), 0 6px 18px #0008;
+  animation: vrtCard .55s cubic-bezier(.2, 1.6, .4, 1) var(--d) backwards; }
+.vrt-card::after { content: ''; position: absolute; inset: 0; background: linear-gradient(110deg, transparent 35%, #fff5 50%, transparent 65%); transform: translateX(-120%);
+  animation: vrtShine 3.2s ease-in-out calc(var(--d) + 1s) infinite; pointer-events: none; }
+@keyframes vrtCard { from { opacity: 0; transform: translateY(24px) scale(.7); } }
+@keyframes vrtShine { 0%, 60% { transform: translateX(-120%); } 100% { transform: translateX(120%); } }
+.vrt-card .vr-mug { filter: drop-shadow(0 4px 0 #0009); }
+.vrt-card b { font: 10px/1.2 'Press Start 2P', monospace; }
+.vrt-card small { font-size: 11px; color: #bfe; }
+.vrt-card small em { font-style: normal; font-weight: 700; color: var(--rc); }
+.vrt-card.r-leyenda { box-shadow: 0 0 0 2px #fff6c8, 0 0 22px #ffe08a, 0 6px 18px #0008; }
+.vrt-lock { position: absolute; top: 6px; right: 6px; width: 18px; height: 18px; color: #ffe066; opacity: .9; }
+.vrt-lock .uic { width: 100%; height: 100%; }
+.vrt-note { margin: 0; font-size: 13px; color: #ffe9a8; }
+.vrt-btns { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
+.vrt-skip { position: fixed; right: 14px; bottom: 12px; z-index: 2; background: none; border: 0; color: #9cc; font: 10px 'Press Start 2P', monospace; cursor: pointer; }
+@media (max-width: 720px) { .vrt-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; } .vrt-card .vr-mug { width: 48px !important; height: 48px !important; }
+  .vrt-card b { font-size: 7px; } .vrt-card small { font-size: 9px; } .vrt-text { font-size: 13px; } }
+@media (max-height: 520px) { .vrt { place-items: start center; } .vrt-logo { font-size: 44px; } .vrt-card .vr-mug { width: 44px !important; height: 44px !important; } .vrt-text, .vrt-note { font-size: 12px; } }
+
+/* the menu slide */
+.m5-vr { display: flex; align-items: flex-end; justify-content: center; }
+/* Fichajes: the strip on top and the locked machine (they open the poster: nobody can pull them) */
+.pn-eventcta.vr-cta { background: linear-gradient(90deg, #04262e, #0b6a6a 55%, #19c3b4); box-shadow: 0 0 18px #19c3b455, inset 0 0 0 2px #9ffff0aa; }
+.vr-cta small { color: #ffe066; }
+.vr-cta .th-faces { display: flex; flex-shrink: 0; }
+.vr-cta .th-faces .mug { margin-left: -14px; border-radius: 50%; box-shadow: 0 0 0 2px #04262e; background-color: #0b4a50; }
+.vr-cta .th-faces .mug:first-child { margin-left: 0; }
+.banner-tab.bt-soon .bt-art .vr-mug { filter: grayscale(.25) brightness(.9); }
+.banner-tab.bt-soon .bt-hot { top: auto; bottom: 5px; right: 6px; background: #19c3b4; color: #021b22; }
+.banner-tab.bt-soon .bt-price { top: 5px; bottom: auto; color: #ffe066; padding: 2px 4px; }
+.banner-tab.bt-soon .bt-price::before { display: none; }
+.banner-tab.bt-soon .bt-price .uic { width: 12px; height: 12px; }
+.banner-tab.bt-soon small { padding-right: 0; padding-bottom: 12px; }

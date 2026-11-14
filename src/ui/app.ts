@@ -683,6 +683,41 @@ export class App {
   }
 
   /** Bodyshot of a player. With a kit equipped (Equipaciones), the torso is that kit's (falls back to Raimon while it draws). */
+  /** 2.6: a Victory Road teaser face (its own file: the teaser footballers are not in the roster) */
+  private vrMug(p: NonNullable<Manifest['vrTeaser']>[number], size = 64) {
+    return `<span class="mug vr-mug" style="width:${size}px;height:${size}px;background-image:url(${p.mug})"></span>`;
+  }
+  private vrName(p: NonNullable<Manifest['vrTeaser']>[number]) { return p.id === 900509 ? tr('Mark Evans Adulto') : p.name; }
+  /** 2.6 (author: «cuando entran les sale el banner en grande de victory road con los jugadores»): the Victory Road poster, on
+   *  entry once per browser (it is the 2.6 launch intro) and from the menu slide and the locked machine in Fichajes */
+  private vrTeaserPoster() {
+    try { localStorage.setItem(`iz-launch-${PUBLIC_VERSION}`, '1'); } catch { /* private window: it may show again */ }
+    const ps = this.m.vrTeaser ?? [];
+    if (!ps.length || document.querySelector('.vrt')) return;
+    const box = document.createElement('div');
+    box.className = 'vrt';
+    box.innerHTML = `<i class="vrt-rays"></i><i class="vrt-flash"></i><div class="vrt-main"><small class="vrt-kick">${tr('PRÓXIMAMENTE')}</small>
+      <div class="vrt-logo"><b>VICTORY</b><b>ROAD</b></div><p class="vrt-text">${tr('Diez futbolistas nuevos de Victory Road llegan muy pronto con su propia máquina. Todavía no se pueden fichar: ¿a quién quieres primero?')}</p>
+      <div class="vrt-grid">${ps.map((p, i) => `<div class="vrt-card r-${p.rarity}" title="${esc(this.vrName(p))}" style="--rc:${RARITY_COLOR[p.rarity]};--d:${600 + i * 90}ms"><i class="vrt-lock">${uiIcon('lock')}</i>${this.vrMug(p, 72)}
+        <b>${esc(p.nickname)}</b><small><em>${esc(RARITY_LABEL[p.rarity])}</em> · ${esc(POS_LABEL[p.position] ?? p.position)}</small></div>`).join('')}</div>
+      <p class="vrt-note">${tr('Todavía no se pueden fichar ni tirar: llegarán muy pronto con su propia máquina.')}</p>
+      <div class="vrt-btns"><button class="btn big blue" data-vrnews>${tr('Ver la noticia')}</button><button class="btn big" data-vrgo>${tr('¡A jugar! ▶')}</button></div></div>
+      <button class="vrt-skip" data-vrgo>${tr('Saltar')}</button>`;
+    document.body.appendChild(box);
+    window.setTimeout(() => sfx('boom'), 150);
+    window.setTimeout(() => sfx('legend'), 900);
+    let closed = false;
+    const close = (news: boolean) => {
+      if (closed) return; closed = true;
+      document.removeEventListener('keydown', onKey);
+      box.classList.add('out');
+      window.setTimeout(() => { box.remove(); if (news) this.devlog(`version-${PUBLIC_VERSION}`); }, 420);
+    };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') close(false); };
+    document.addEventListener('keydown', onKey);
+    box.querySelectorAll('[data-vrgo]').forEach((b) => b.addEventListener('click', () => close(false)));
+    box.querySelector('[data-vrnews]')!.addEventListener('click', () => close(true));
+  }
   mug(id: number, size = 64) {
     const kitted = this.kitPortrait(id);
     if (kitted) return `<span class="mug" data-kitmug="${id}" style="width:${size}px;height:${size}px;background-image:url(${kitted});background-size:100% 100%"></span>`;
@@ -1183,7 +1218,7 @@ export class App {
     this.claimsAnnounced = claims;
     // 2.0 (author): the launch intro, once per browser, before anything else of the menu; 2.4 (author: «que salga en pantalla la
     // alerta al entrar x first time»): the current version's, so everyone sees the new one once
-    if (this.launchPending()) window.setTimeout(() => { if (this.screenKey === 'menu-mode' && !this.game.scene.isActive('Arena')) this.launch20(); }, 300);
+    if (this.launchPending()) window.setTimeout(() => { if (this.screenKey === 'menu-mode' && !this.game.scene.isActive('Arena')) { if (PUBLIC_VERSION === '2.6' && this.m.vrTeaser?.length) this.vrTeaserPoster(); else this.launch20(); } }, 300);
     // 2.0: the Espíritus Guerreros are introduced once per save (no gift: Fichas EG are earned in rank X)
     if (giveKeshinGift(this.save)) {
       this.persist();
@@ -1337,6 +1372,11 @@ export class App {
     // 2.2: until the player has a side, «elige tu bando» goes before the pass; afterwards right behind it
     const sq = slides.findIndex((x) => x.kicker.includes(tr('SECTOR QUINTO')));
     if (sq > 0) slides.splice(this.save.sector?.side ? 1 : 0, 0, ...slides.splice(sq, 1));
+    // 2.6 (author: «que se vea en el menu el banner de coming soon del victory road con los mugshots»): first of all
+    const vr = this.m.vrTeaser ?? [];
+    if (vr.length) slides.unshift({ kicker: tr('PRÓXIMAMENTE'), title: 'Victory Road', text: tr('Diez futbolistas nuevos de Victory Road llegan muy pronto con su propia máquina. Todavía no se pueden fichar: ¿a quién quieres primero?'),
+      cta: tr('Muy pronto'), color: '#19c3b4', tag: tr('MUY PRONTO'), art: `<span class="m5-vr">${[...vr].sort((a, b) => RARITY_ORDER.indexOf(b.rarity) - RARITY_ORDER.indexOf(a.rarity)).slice(0, 5).map((p, i) => `<span class="m5-who" style="--i:${i}">${this.vrMug(p, 128)}</span>`).join('')}</span>`,
+      act: () => this.vrTeaserPoster() });
     return slides;
   }
   private promoHtml(slides: ReturnType<App['promoSlides']>) {
@@ -6026,7 +6066,9 @@ export class App {
       ${thanksOpen && !ev ? `<button class="pn-eventcta thanks-cta" id="thanksev"><span class="th-faces">${bannerPool(this.m.roster, 'evento').filter((p) => p.exclusive).slice(0, 5).map((p) => this.mug(p.id, 40)).join('')}</span><span><small>${tr('EVENTO · TERMINA EN {x1}', { x1: this.leftText(thanksLeftMs(serverNow())) })}</small><b>${tr('Banner de agradecimiento')}</b><em>${tr('Ataque a los Titanes, Los Siete Pecados Capitales y Axel Encapuchado · {cost} fichas de evento la tirada', { cost: THANKS_EVENT.cost })}</em></span></button>` : ''}
       ${blOpen && banner.id !== 'bluelock' ? `<button class="pn-eventcta bl-cta" id="blev"><span class="th-faces">${BLUELOCK_EVENT.players.map((id) => this.mug(id, 40)).join('')}</span><span><small>${tr('COLABORACIÓN · TERMINA EN {x1}', { x1: this.leftText(bluelockLeftMs(serverNow())) })}</small><b>${tr('InaZurvivors x BlueLock')}</b><em>${tr('Nagi e Isagi · {cost} fichas de evento la tirada', { cost: BLUELOCK_EVENT.cost })}</em></span></button>` : ''}
       ${eventActive(serverNow()) ? `<button class="pn-eventcta" id="pnevent"><span class="pn-cta-art">${pennantSvg('supernova', 44)}</span><span><small>${tr('EVENTO · TERMINA EN {x1}', { x1: this.eventLeftText(serverNow()) })}</small><b>${tr('Banners de leyenda')}</b><em>${tr('Se paga con monedas · Mítico al 3%')}</em></span></button>` : ''}
-      <div class="banner-tabs">${tabs}</div>
+      ${this.m.vrTeaser?.length ? `<button class="pn-eventcta vr-cta" id="vrsoon"><span class="th-faces">${this.m.vrTeaser.slice(0, 5).map((p) => this.vrMug(p, 40)).join('')}</span><span><small>${tr('PRÓXIMAMENTE')}</small><b>Victory Road</b><em>${tr('{n} futbolistas · todavía no se pueden fichar', { n: this.m.vrTeaser.length })}</em></span></button>` : ''}
+      <div class="banner-tabs">${tabs}${this.m.vrTeaser?.length ? `<button class="banner-tab bt4 bt-soon" data-vrsoon style="--bc:#19c3b4"><i class="bt-hot">${tr('MUY PRONTO')}</i><span class="bt-art">${this.vrMug(this.m.vrTeaser[0], 64)}</span>
+        <span class="bt-tx"><b>Victory Road</b><small>${esc(this.m.vrTeaser.filter((p) => p.rarity === 'leyenda').map((p) => p.nickname).join(', '))}…</small></span><em class="bt-price">${uiIcon('lock')}</em></button>` : ''}</div>
       <div class="banner-head bh4${banner.id === 'bluelock' ? ' bh-bl' : ''}" style="--bc:${banner.color}"><div class="bh-tx"><small>${banner.id === 'bluelock' ? tr('COLABORACIÓN') : tr('MÁQUINA')}</small>${banner.id === 'bluelock' ? this.blLogo() : `<b>${esc(banner.label)}</b>`}<span>${tr('{tagline} · {poolLength} futbolistas', { tagline: esc(banner.tagline), poolLength: pool.length })}</span> ${teamSel}
           <div class="bh-chips"><span>${uiIcon('capsule')}×1 · <b>${PULL_COST}</b>${ev ? tr(' de evento') : ''}</span><span>${uiIcon('capsule')}×10 · <b>${MULTI_COST}</b>${ev ? tr(' de evento') : ''}</span><span>${uiIcon('capsule')}×100 · <b>${HUNDRED_COST}</b>${ev ? tr(' de evento') : ''}</span>${ev ? `<span>${tr('Termina en')} <b>${this.leftText(banner.id === 'bluelock' ? bluelockLeftMs(serverNow()) : thanksLeftMs(serverNow()))}</b></span>` : ''}<span class="ok">${tr('×10: Épico o mejor asegurado')}</span>${hot ? `<span class="hot">${tr('★ Destacada hoy: Épico ×{x1} · Legendario, Mítico y Leyenda ×{x2}', { x1: String(FEATURED_BOOST.epico).replace('.', ','), x2: String(FEATURED_BOOST.legendario).replace('.', ',') })}</span>` : ''}</div>
           <details class="rk-how"><summary>${tr('{x1}Precio y reglas', { x1: uiIcon('help') })}</summary><div>${ev ? tr('Los futbolistas especiales solo salen aquí, con {x1} Comunes, Raros y Épicos de relleno. Se paga con fichas de evento: cada partida en Rango S o X te da tantas como fichas normales mientras dura el evento.', { x1: pool.filter((p) => !p.exclusive).length }) : banner.id === 'equipo' ? tr('Solo futbolistas del equipo elegido; las rarezas altas tienen un tope por jugador.') : tr('Cada futbolista sale en una sola máquina: la de la primera saga en la que aparece. Precio según sus Míticos ({mythics}): sin estrellas 5 · sin Míticos 10 · de 1 a 5 Míticos 15 · 6 o más 20.', { mythics: price.mythics })}</div></details>${banner.id === 'bluelock' ? this.blRewards() : ''}</div>
@@ -6069,6 +6111,7 @@ export class App {
     const pick = (b: BannerId) => { if (this.pullBusy()) return; this.pulling = false; this.gachaBanner = b; this.gacha(); };
     this.onTap('#thanksev', () => pick('evento'));
     this.onTap('#blev', () => pick('bluelock'));
+    this.onTap('#vrsoon, [data-vrsoon]', () => this.vrTeaserPoster()); // 2.6: only the poster: they can't be pulled
     this.onTap('[data-banner]', (el) => pick(el.dataset.banner as BannerId));
     document.getElementById('gteam')?.addEventListener('change', (e) => { this.gachaTeam = (e.target as HTMLSelectElement).value; this.gacha(); });
     this.on('[data-pull]', 'click', async (_e, el) => {
