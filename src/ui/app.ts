@@ -1169,8 +1169,9 @@ export class App {
     // Fix 1.31: notice when the Colección has something new to collect (once per new reward, not on every visit)
     if (claims > Math.max(0, this.claimsAnnounced)) window.setTimeout(() => { if (this.screenKey === 'menu-mode') this.claimNotice(this.teamClaimList(), tr('¡Para recoger en la Colección!')); }, 400);
     this.claimsAnnounced = claims;
-    // 2.0 (author): the launch intro, once per browser, before anything else of the menu
-    if (this.launch20Pending()) window.setTimeout(() => { if (this.screenKey === 'menu-mode' && !this.game.scene.isActive('Arena')) this.launch20(); }, 300);
+    // 2.0 (author): the launch intro, once per browser, before anything else of the menu; 2.4 (author: «que salga en pantalla la
+    // alerta al entrar x first time»): the current version's, so everyone sees the new one once
+    if (this.launchPending()) window.setTimeout(() => { if (this.screenKey === 'menu-mode' && !this.game.scene.isActive('Arena')) this.launch20(); }, 300);
     // 2.0: the Espíritus Guerreros are introduced once per save (no gift: Fichas EG are earned in rank X)
     if (giveKeshinGift(this.save)) {
       this.persist();
@@ -2777,25 +2778,33 @@ export class App {
     requestAnimationFrame(frame);
   }
 
-  private launch20Pending() {
-    try { return localStorage.getItem('iz-launch-2.0') !== '1'; } catch { return false; }
+  private launchPending() {
+    try { return localStorage.getItem(`iz-launch-${PUBLIC_VERSION}`) !== '1'; } catch { return false; }
   }
-  private launch20() {
-    try { localStorage.setItem('iz-launch-2.0', '1'); } catch { /* private window: it may show again */ }
-    const rel = PUBLIC_RELEASES[0];
+  /** the launch intro of a version (the current one by default): its number, its tagline and its features. 2.0 is the
+   *  spirits' (and its news button replays it); 2.4 orbits the five languages */
+  private launch20(version = PUBLIC_VERSION) {
+    try { localStorage.setItem(`iz-launch-${version}`, '1'); } catch { /* private window: it may show again */ }
+    const rel = PUBLIC_RELEASES.find((r) => r.version === version) ?? PUBLIC_RELEASES[0];
+    const spirits = version === '2.0';
+    const sub = spirits ? tr('ESPÍRITUS GUERREROS') : version === '2.4' ? tr('CINCO IDIOMAS') : tr('NUEVA VERSIÓN');
+    const newsId = spirits ? 'version-2-0-espiritus' : `version-${rel.version}`;
     const box = document.createElement('div');
     box.className = 'launch20';
-    const ring = KESHINS.map((k, i) => `<span style="--d:${i * 60}ms;--kc:${k.color}">${this.egArt(k)}</span>`).join('');
+    const LANG_COLORS = ['#ffd23a', '#5ad8ff', '#6a8cff', '#5ee05a', '#ff6a2a'];
+    const ring = spirits || version !== '2.4'
+      ? KESHINS.map((k, i) => `<span style="--d:${i * 60}ms;--kc:${k.color}">${this.egArt(k)}</span>`).join('')
+      : [...LANGS, ...LANGS, ...LANGS].map((l, i) => `<span class="l2-lang" style="--d:${i * 60}ms;--kc:${LANG_COLORS[i % LANGS.length]}"><b>${l.id.toUpperCase()}</b></span>`).join('');
     const feats = rel.features.slice(0, 10).map((f, i) => `<b style="--d:${i * 110}ms">${f.icon} ${esc(f.title)}</b>`).join('');
     box.innerHTML = `<i class="l2-rays"></i><i class="l2-glow"></i><i class="l2-shock"></i><i class="l2-bolt"></i><i class="l2-flash"></i>
-      <div class="l2-main"><div class="l2-logo">INAZURVIVORS</div><div class="l2-vw"><div class="l2-ring">${ring}</div><div class="l2-v">2.0</div></div><div class="l2-sub">${tr('ESPÍRITUS GUERREROS')}</div>
+      <div class="l2-main"><div class="l2-logo">INAZURVIVORS</div><div class="l2-vw"><div class="l2-ring">${ring}</div><div class="l2-v">${esc(rel.version)}</div></div><div class="l2-sub">${sub}</div>
         <div class="l2-feats">${feats}</div>
         <div class="l2-btns"><button class="btn big blue" data-l2news>${tr('Ver todas las novedades')}</button><button class="btn big" data-l2go>${tr('¡A jugar! ▶')}</button></div></div>
       <button class="l2-skip" data-l2go>${tr('Saltar')}</button>`;
     document.body.appendChild(box);
     this.launchOrbit(box);
     window.setTimeout(() => sfx('boom'), 150);
-    window.setTimeout(() => egAwaken('Fuego', 'omega'), 450);
+    if (spirits) window.setTimeout(() => egAwaken('Fuego', 'omega'), 450);
     window.setTimeout(() => sfx('legend'), 2200);
     if (this.save.settings.particles !== 'desactivado') window.setTimeout(() => confetti(140), 1200);
     let closed = false;
@@ -2803,7 +2812,7 @@ export class App {
       if (closed) return; closed = true;
       document.removeEventListener('keydown', onKey);
       box.classList.add('out');
-      window.setTimeout(() => { box.remove(); if (news) this.devlog('version-2-0-espiritus'); }, 420);
+      window.setTimeout(() => { box.remove(); if (news) this.devlog(newsId); }, 420);
     };
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') close(false); };
     document.addEventListener('keydown', onKey);
@@ -3882,7 +3891,7 @@ export class App {
     this.on('[data-news]', 'click', (_e, el) => { this.devlog(el.dataset.news); document.getElementById('nbdetail')?.scrollTo(0, 0); if (window.innerWidth < 760) document.getElementById('nbdetail')?.scrollIntoView({ behavior: 'smooth' }); });
     document.getElementById('newsplay')?.addEventListener('click', () => { this.mainMenu(); (this.root.querySelector('[data-go="play"]') as HTMLElement | null)?.click(); });
     document.getElementById('newsbug')?.addEventListener('click', () => this.bugReportModal());
-    document.getElementById('newsl2')?.addEventListener('click', () => this.launch20()); // (author) the 2.0 intro, again
+    document.getElementById('newsl2')?.addEventListener('click', () => this.launch20('2.0')); // (author) the 2.0 intro, again
   }
 
   /**

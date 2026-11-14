@@ -3927,4 +3927,5 @@ export const EN: Record<string, string> = {
   "Pásale el juego a tus amigos de Francia, Italia y Alemania.": "Share the game with your friends in France, Italy and Germany.",
   "Más juegos de AstraStorm": "More games by AstraStorm",
   "En la barra de arriba del menú y en Créditos, el botón de itch.io lleva a la página de AstraStorm, el creador, con sus otros juegos. Si quieres apoyar sus próximos proyectos, ahí lo tienes.": "In the menu's top bar and in Credits, the itch.io button takes you to the page of AstraStorm, the creator, with their other games. If you want to support their next projects, that's the place.",
+  "CINCO IDIOMAS": "FIVE LANGUAGES",
 };
