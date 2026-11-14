@@ -21,6 +21,7 @@ function current(list: HTMLElement[]) {
 function focus(el: HTMLElement) {
   document.querySelector('.pad-focus')?.classList.remove('pad-focus');
   el.classList.add('pad-focus');
+  el.dispatchEvent(new CustomEvent('padfocus', { bubbles: true })); // the level-up cards light the selected one
   el.scrollIntoView({ block: 'nearest', inline: 'nearest' });
 }
 

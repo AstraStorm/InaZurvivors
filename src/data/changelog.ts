@@ -15,6 +15,16 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: '15.1', date: '2026-11-14', title: 'David, Xavier y la carta seleccionada',
+    features: [],
+    fixes: [
+      'Manos Infinitas (Mugen The Hand) venía de la wiki como defensa: ahora es parada para todos los que la tienen (techFixes.ts TECH_TYPE) y usa la animación de manos infinitas.',
+      'David Evans: Parada Celestial en lugar de Bloque de Hielo, al mismo nivel (autor). Xavier Foster: el talento Carga elemental en lugar de Descenso Estelar, que no es suyo (autor).',
+    ],
+    visuals: ['Carta de mejora seleccionada (ratón o mando) más llamativa: salta con rebote, brilla en su color con un anillo de luz girando, destello, número que late, tic al cambiar y las otras se apagan; flash al elegirla (autor: «más feedback a la carta seleccionada»).'],
+    balance: [],
+  },
+  {
     version: '15.0', date: '2026-11-14', title: '2.6 Victory Road, muy pronto',
     features: [
       'Teaser de Victory Road (autor: «que se vea en el menu el banner de coming soon del victory road con los mugshots de los jugadores, que salga en lo de fichajes tmb, pero que no salgan y no se puedan fichar ni tirar»): tools/vr_teaser.py recorta las 10 caras (900500-900509) del trabajo de Victory Road de la carpeta principal a public/generated/mugshots-vr y las pone en manifest.vrTeaser (sync-assets las conserva); NO entran en el roster: no se pueden fichar ni tirar.',

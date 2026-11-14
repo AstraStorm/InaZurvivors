@@ -81,3 +81,34 @@
 }
 body.reduced-motion .levelup .lvc::before { animation: none !important; }
 @media (prefers-reduced-motion: reduce) { .levelup .lvc::before { animation: none !important; } }
+
+/*
+ * author: juicier selected card (mouse over it or gamepad focus, class .sel set in app.ts). It jumps up with a bounce,
+ * glows in its colour with a spinning light ring, the sheen sweeps across it and the other cards step back and dim.
+ */
+.levelup .lv-cards .lvc.ready { transition: filter .18s, opacity .18s; }
+.levelup .lv-cards:has(.lvc.sel) .lvc.ready:not(.sel) { filter: brightness(.55) saturate(.6); opacity: .85; }
+.levelup .lv-cards:has(.lvc.sel) .lvc.ready:not(.sel) .lvc-in { transform: scale(.94); }
+.levelup .lvc.ready .lvc-in { transition: transform .22s cubic-bezier(.3,1.8,.5,1); }
+.levelup .lvc.ready.sel { z-index: 2; }
+.levelup .lvc.ready.sel .lvc-in { transform: translateY(-18px) scale(1.07); }
+.levelup .lvc.ready.sel .lvcard { transform: perspective(700px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)) !important;
+  filter: brightness(1.12) !important; animation: lvSelGlow .9s ease-in-out infinite alternate !important; }
+.levelup .lvc.ready.sel .lvcard::after { transform: translateX(320%) skewX(-18deg); }
+.levelup .lvc.ready.sel .lv-glare { opacity: 1; }
+.levelup .lvc.ready.sel .lv-key { animation: lvSelKey .5s ease-in-out infinite alternate; }
+/* the light ring running round the selected card, outside its frame */
+.levelup .lvc-in::before { content: ''; position: absolute; inset: -8px; z-index: -1; border-radius: 20px; pointer-events: none; opacity: 0; transition: opacity .15s;
+  background: conic-gradient(from var(--lvA), transparent 0 40%, var(--kc) 62%, #fff 70%, var(--kc) 78%, transparent 92%);
+  filter: drop-shadow(0 0 10px var(--kc)); }
+.levelup .lvc.ready.sel .lvc-in::before { opacity: 1; animation: lvHalo 1.2s linear infinite; }
+@keyframes lvSelGlow {
+  from { box-shadow: inset 0 0 0 3px #fff, inset 0 0 0 6px var(--kc), 0 0 22px color-mix(in srgb, var(--kc) 60%, transparent), 0 20px 34px #000b; }
+  to { box-shadow: inset 0 0 0 3px #fff, inset 0 0 0 7px var(--kc), 0 0 44px var(--kc), 0 20px 34px #000b; }
+}
+@keyframes lvSelKey { to { transform: scale(1.25); } }
+/* picked: a white flash and the card bursts out */
+.levelup .lvc .lvcard.picked { animation: lvPicked .18s ease-out both !important; }
+@keyframes lvPicked { 0% { filter: brightness(1.2); } 50% { filter: brightness(2.4); } 100% { filter: brightness(1.6); transform: scale(1.18); } }
+body.reduced-motion .levelup .lvc.sel :is(.lvcard, .lv-key), body.reduced-motion .levelup .lvc.sel .lvc-in::before { animation: none !important; }
+@media (prefers-reduced-motion: reduce) { .levelup .lvc.sel .lvcard, .levelup .lvc.sel .lv-key { animation: none !important; } }

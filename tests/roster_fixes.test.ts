@@ -4,6 +4,7 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import type { Manifest } from '../src/data/manifest';
 import { applyRosterFixes, ROSTER_FIXES } from '../src/data/rosterFixes';
+import { applyTechFixes } from '../src/data/techFixes';
 
 const tech = (name: string, unlockLevel = 5) => ({ id: 1, name, description: '', type: 'tiro' as const, element: 'Fuego', power: 50, cost: 10, unlockLevel, growth: null });
 const fake = () => ({ roster: [
@@ -36,5 +37,17 @@ describe('roster fixes', () => {
     expect(p.name).toBe('Petronio Patti');
     expect(p.techniques.map((t) => t.name)).not.toContain('Último recurso D');
     expect(p.techniques[0]).toMatchObject({ name: 'Fuerza de tiro', type: 'talento' });
+  });
+  it.skipIf(!fs.existsSync(file))('author: David Evans has Parada Celestial, Xavier Foster Carga elemental, Manos Infinitas is a parada', () => {
+    const m = JSON.parse(fs.readFileSync(file, 'utf-8')) as Manifest;
+    applyRosterFixes(m, ROSTER_FIXES);
+    applyTechFixes(m);
+    const david = m.roster.find((x) => x.id === 100773)!;
+    expect(david.techniques.map((t) => t.name)).not.toContain('Bloque de Hielo');
+    expect(david.techniques[2]).toMatchObject({ name: 'Parada Celestial', type: 'parada', unlockLevel: 21 });
+    expect(david.techniques.find((t) => t.name === 'Manos Infinitas')?.type).toBe('parada');
+    const xavier = m.roster.find((x) => x.id === 101722)!;
+    expect(xavier.techniques.map((t) => t.name)).not.toContain('Descenso Estelar');
+    expect(xavier.techniques[0]).toMatchObject({ name: 'Carga elemental', type: 'talento' });
   });
 });

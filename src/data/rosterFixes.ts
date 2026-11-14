@@ -38,6 +38,11 @@ export const ROSTER_FIXES: Record<number, RosterFix> = {
   // author: Petronio (his name had a typo) has no Último recurso D of his own any more — the Dragón is a combined technique
   // that needs a Último recurso in the run; Fuerza de tiro takes its place
   101595: { name: 'Petrionio Patti', nombre: 'Petronio Patti', cambiar: { 'Último recurso D': 'Fuerza de tiro' } },
+  // author: David Evans gets Parada Celestial (God Catch) in Bloque de Hielo's place, same run level
+  100773: { name: 'David Evans', cambiar: { 'Bloque de Hielo': 'Parada Celestial' }, nivel: { 'Parada Celestial': 21 } },
+  // author: Descenso Estelar (Tenkuu Otoshi) is not Xavier's; the talent Carga elemental takes its place (start tech falls
+  // back to Katana crisantemo)
+  101722: { name: 'Xavier Foster', cambiar: { 'Descenso Estelar': 'Carga elemental' } },
   // author: adult Mark goes by his English name
   100234: { name: 'Endou Mamoru', nombre: 'Mark Evans Adulto' },
   // author: the BlueLock pair were near the bottom of the Míticos (their kick, control and speed peaks hit the 95 limit and

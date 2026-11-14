@@ -7669,6 +7669,16 @@ export class App {
           wrap.firstElementChild!.prepend(el);
           // Fix 1.41: the whole slot picks (the card or anything around it), and the card goes flat once it has turned over
           wrap.addEventListener('click', () => pick(el, cs));
+          // author: the selected card (mouse over it, gamepad focus) stands out with a tick; see .sel in styleCards.css
+          const select = () => {
+            if (chosen || wrap.classList.contains('sel') || !wrap.classList.contains('ready')) return;
+            modal.querySelectorAll('.lvc.sel').forEach((w) => w.classList.remove('sel'));
+            wrap.classList.add('sel');
+            sfx('click', 1.4 + k * 0.15);
+          };
+          wrap.addEventListener('mousemove', select);
+          wrap.addEventListener('padfocus', select);
+          wrap.addEventListener('mouseleave', () => wrap.classList.remove('sel'));
           wrap.firstElementChild!.addEventListener('animationend', (e) => { if ((e as AnimationEvent).animationName === 'lvcFlip') wrap.classList.add('ready'); });
           window.setTimeout(() => wrap.classList.add('ready'), still ? 0 : 1000 + k * 160); // backup if animationend never comes (tab in background)
           if (!document.body.classList.contains('reduced-motion')) window.setTimeout(() => sfx('whoosh', 1 + k * 0.12), 260 + k * 160);

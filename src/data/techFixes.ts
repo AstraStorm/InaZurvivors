@@ -2,7 +2,7 @@
  * 1.76 (author): a technique's element fixed by its name, for everyone who has it (the GO tables leave many without one
  * and the game gave them the footballer's element). Applied at load, right after rosterFixes.ts.
  */
-import type { Manifest } from './manifest';
+import type { Manifest, RosterEntry } from './manifest';
 
 import { TECH_ELEMENT_WIKI } from './techElementsWiki';
 
@@ -19,6 +19,11 @@ export const TECH_ELEMENT: Record<string, string> = {
 /** 1.83 (author): a technique's power fixed by its name (lower case), for everyone who has it. */
 export const TECH_POWER: Record<string, number> = {
   'lluvia de meteoros': 80,
+};
+
+/** author: a technique's type fixed by its name. Manos Infinitas (Mugen The Hand) came from the wiki tables as a defensa. */
+export const TECH_TYPE: Record<string, RosterEntry['techniques'][number]['type']> = {
+  'Manos Infinitas': 'parada',
 };
 
 /**
@@ -38,6 +43,8 @@ export function applyTechFixes(m: Manifest, fixes: Record<string, string> = TECH
     if (el && t.element !== el) { t.element = el; changed++; }
     const pw = powers[t.name.toLowerCase()];
     if (pw !== undefined && t.power !== pw) { t.power = pw; changed++; }
+    const ty = TECH_TYPE[t.name];
+    if (ty && t.type !== ty) { t.type = ty; changed++; }
   }
   return changed;
 }
