@@ -50,7 +50,7 @@ export function chemistrySynergy(kitTeam: string, label: string, onPitch: Pick<R
 export function captainSynergy(perPlayer: number, captainElement: string, allies: number): Synergy | null {
   if (perPlayer <= 0) return null;
   return { key: 'syn', kind: 'sinergia', label: tr('Sinergia {element}', { element: tEl(captainElement) }), element: captainElement, bonus: perPlayer * allies, count: allies, goal: MAX_TEAM - 1,
-    hint: tr('{allies} compañero{x1} de {captainElement} con el capitán: +{x2}% cada uno', { allies, x1: allies === 1 ? '' : 's', captainElement: tEl(captainElement), x2: fmtNum(Math.round(perPlayer * 1000) / 10) }) };
+    hint: tr(allies === 1 ? '1 compañero de {captainElement} con el capitán: +{x2}% cada uno' : '{allies} compañeros de {captainElement} con el capitán: +{x2}% cada uno', { allies, captainElement: tEl(captainElement), x2: fmtNum(Math.round(perPlayer * 1000) / 10) }) };
 }
 
 /**

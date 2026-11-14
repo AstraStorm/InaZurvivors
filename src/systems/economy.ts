@@ -56,9 +56,9 @@ export function computeRewards(r: RunResult, rewardMult = 1): Reward[] {
   const out: Reward[] = [
     // Fix 1.11 halved the coins and Fix 1.13 took about 20% more, so upgrades take real effort (ECONOMIA_1.11.md)
     { label: tr('Eliminaciones ({kills})', { kills: r.kills }), coins: Math.floor(r.kills / 4) },
-    { label: `Supervivencia (${Math.floor(r.timeSec)} s)`, coins: Math.floor(r.timeSec / 5) },
+    { label: tr('Supervivencia ({x1} s)', { x1: Math.floor(r.timeSec) }), coins: Math.floor(r.timeSec / 5) },
   ];
-  if (r.minibosses) out.push({ label: `Minijefes (${r.minibosses})`, coins: 20 * r.minibosses });
+  if (r.minibosses) out.push({ label: tr('Minijefes ({x1})', { x1: r.minibosses }), coins: 20 * r.minibosses });
   if (r.reachedBoss) out.push({ label: tr('Objetivo: llegar al jefe'), coins: 25 });
   if (r.bossDefeated) out.push({ label: tr('Jefe derrotado'), coins: Math.round(100 * rewardMult) });
   if (r.victory) out.push({ label: tr('Victoria'), coins: Math.round(65 * rewardMult) });

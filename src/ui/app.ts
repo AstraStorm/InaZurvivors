@@ -73,7 +73,7 @@ import type { CoopRun } from '../game/coopArena';
 import { applyCoachPerks, COACH_BY_ID, COACH_PULL_CHANCE, COACHES, coachesOfMachine, coachRun, PASSIVE_ICON, passiveText as coachPassiveText, type CoachDef } from '../data/coaches';
 import { clashWith } from '../systems/identity';
 import { applyGtsLedger, canLeave, gtsBanned, gtsError, gtsSlots, gtsSpare, type GtsRow } from '../systems/gts';
-import { fmtNum, getLang, LANGS, locale, resolveLang, setLang, tr } from '../i18n/i18n';
+import { fmtNum, getLang, LANGS, locale, resolveLang, setLang, tr, type Lang } from '../i18n/i18n';
 import { tEl, tTech } from '../i18n/data';
 import { buzz, HAPTIC, setHaptics } from '../game/haptics';
 import { accountId, adminBugReports, adminMetrics, adminPlayerStats, adminUpdateBug, amIAdmin, consumeAuthRedirect, deleteAccount, deleteMyBugReports, deleteShot, myBugReports, notifyBug, shotUrl, submitBugReport, uploadShot, getCloudSave, leaderboard, myPosition, passHolders, sectorSides, profileBanners, profileFrames, sectorClaim, sectorCredit, sectorJoin, sectorStatus, type SectorPrize, type SectorStatus, publicProfile, type PublicProfile, myProfile, onlineConfigured, putCloudSave, reserveUsername, resetMyProgress, signedEmail, signedIn, signInWithGoogle, signOut, submitScore, usernameAvailable, type BoardQuery, type BoardRow, type BugFilter, type BugRow, type CloudSave } from '../online/client';
@@ -100,7 +100,7 @@ import { BOSS_WARN_SEC } from '../systems/bossKit';
 import { canLevel, egTokens, KESHIN_BY_ID, type KeshinId, giveKeshinGift, keshinElClass, KESHIN_LABEL, KESHIN_MAX, KESHINS, keshinForRun, keshinLevel, keshinOf, keshinStepCost, levelKeshin, nextCost, passiveText as keshinPassiveText, statBonus, techFor, withKeshinStats, type KeshinDef } from '../systems/keshin';
 import { charCanvas, initPreviews, mountPreviews, setPreviewKit } from './sprites';
 import { egAwaken, sfx, setVolume } from '../game/sfx';
-import { firstPad } from '../game/controls';
+import { firstPad, moveKey } from '../game/controls';
 import { setEgArt } from '../game/fxKeshin';
 import { currentTrack, initMusic, setMusicContext, setMusicSource, setMusicVolume, musicUnlocked } from '../game/music';
 
@@ -119,7 +119,10 @@ const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const RARITY_COLOR: Record<Rarity, string> = { comun: '#9fb0c8', raro: '#4fb3ff', epico: '#b36bff', legendario: '#ffb020', mitico: '#ff4f8b', leyenda: '#fff6c8' };
 const ELEMENT_COLOR: Record<string, string> = { Fuego: '#ff6a2a', Aire: '#6ad8ff', Bosque: '#5ee05a', 'Montaña': '#d9a440', Neutro: '#c45aff' };
 // 2.3: not tr(): «DEF» is also the Guard stat (GRD)
-const POS_LABEL: Record<string, string> = getLang() === 'en' ? { GK: 'GK', DF: 'DF', MF: 'MF', FW: 'FW' } : { GK: 'POR', DF: 'DEF', MF: 'MED', FW: 'DEL' };
+const POS_LABEL: Record<string, string> = getLang() === 'en' ? { GK: 'GK', DF: 'DF', MF: 'MF', FW: 'FW' }
+  : getLang() === 'fr' ? { GK: 'GB', DF: 'DÉF', MF: 'MIL', FW: 'ATT' } : getLang() === 'it' ? { GK: 'POR', DF: 'DIF', MF: 'CEN', FW: 'ATT' }
+  : getLang() === 'de' ? { GK: 'TW', DF: 'AB', MF: 'MF', FW: 'ST' }
+  : { GK: 'POR', DF: 'DEF', MF: 'MED', FW: 'DEL' };
 const FORMATION_ICON = (f: FormationId, size = 46) => {
   const F = FORMATIONS[f];
   const dots = F.slots.map(([x, y]) => `<circle cx="${23 + x * 0.27}" cy="${24 - y * 0.27}" r="3.4" fill="#7fd3ff" stroke="#0a1d48"/>`).join('');
@@ -708,7 +711,7 @@ export class App {
           <div class="pf-fav">${v.fav}</div></div>
         ${pn ? `<div class="pf-flag" title="${esc(PENNANT_BY_ID.get(pn)!.name)}">${pennantEmblem(pn)}</div>` : ''}
         ${v.best ? `<div class="pf-best" style="--rc:${RARITY_COLOR[v.best.rarity]}"><small>${v.bestLabel}</small>${this.mug(v.best.id, 72)}<b>${esc(this.byId.get(v.best.id)?.name ?? '')}</b><span>${tr('Media {mean}', { mean: v.best.mean })}</span></div>` : ''}</div>
-      <div class="pf-stats">${tile('pitch', 'Partidas', v.runs)}${tile('trophy', 'Victorias', v.wins, 'gold')}${tile('fire', 'Eliminaciones', v.kills.toLocaleString(locale()))}${tile('clock', tr('Mejor tiempo'), fmtTime(v.bestTimeSec))}
+      <div class="pf-stats">${tile('pitch', tr('Partidas'), v.runs)}${tile('trophy', tr('Victorias'), v.wins, 'gold')}${tile('fire', tr('Eliminaciones'), v.kills.toLocaleString(locale()))}${tile('clock', tr('Mejor tiempo'), fmtTime(v.bestTimeSec))}
         ${tile('capsule', tr('Fichajes'), v.pulls ?? '—')}${tile('cards', tr('Colección'), `${v.owned}/${this.m.roster.length}`)}${tile('crown', tr('Logros'), v.achv === null ? '—' : `${v.achv}/${achvAll}`)}${tile('perks', 'Héroes', v.heroes)}</div>`;
   }
   /** Fix 1.3: the stats the game really uses (rarity band, ascension, HÉROE, training: training.ts); null without data. */
@@ -2123,7 +2126,7 @@ export class App {
     // 1.81: a code's banner is only listed for whoever owns it
     const list = PENNANTS.filter((d) => visiblePennant(this.save, d));
     const eq = this.save.pennants?.equipped, owned = list.filter((d) => hasPennant(this.save, d.id)).length;
-    const how = (d: PennantDef) => d.source === 'tienda' ? `Tienda · ${d.price?.toLocaleString(locale())} ◉` : d.source === 'logro' ? `Logro: ${d.how}` : d.source === 'codigo' ? (d.how ?? 'Código') : d.source === 'clan' ? tr('Tienda del clan') : d.source === 'colab' ? tr('Colaboración BlueLock: {how}{x1}', { how: d.how, x1: d.id === 'colab-bluelock' && !hasPennant(this.save, d.id) ? ` (${Math.min(this.save.blWins ?? 0, BLUELOCK_WINS_FOR_BANNER)}/${BLUELOCK_WINS_FOR_BANNER})` : '' }) : tr('Evento por tiempo limitado');
+    const how = (d: PennantDef) => d.source === 'tienda' ? tr('Tienda · {x1} ◉', { x1: d.price?.toLocaleString(locale()) }) : d.source === 'logro' ? tr('Logro: {how}', { how: d.how }) : d.source === 'codigo' ? (d.how ?? tr('Código')) : d.source === 'clan' ? tr('Tienda del clan') : d.source === 'colab' ? tr('Colaboración BlueLock: {how}{x1}', { how: d.how, x1: d.id === 'colab-bluelock' && !hasPennant(this.save, d.id) ? ` (${Math.min(this.save.blWins ?? 0, BLUELOCK_WINS_FOR_BANNER)}/${BLUELOCK_WINS_FOR_BANNER})` : '' }) : tr('Evento por tiempo limitado');
     return `<div class="panel pf-pennants"><h3>${tr('{x1}Banners', { x1: uiIcon('crown') })} <small>${owned}/${list.length}</small></h3>
       <p class="note">${tr('Tu banner sale junto a tu nombre en el ranking y en tu perfil, también cuando otros lo abren.')}</p>
       <div class="pn-grid">${list.map((d) => { const own = hasPennant(this.save, d.id);
@@ -2452,7 +2455,7 @@ export class App {
     box.className = 'ult-toast';
     box.style.setProperty('--kc', k.color);
     box.innerHTML = `<i class="ut-rays"></i><span class="ut-art">${this.egArt(k)}</span><div class="ut-tx"><small>${tr('¡DEFINITIVA LISTA!')}</small><b>${esc(tech)}</b>
-      <em>${pad ? `${tr('Pulsa')} <kbd>Y</kbd>` : touch ? tr('Toca su botón') : 'Pulsa <kbd>R</kbd>'}</em></div>`;
+      <em>${pad ? `${tr('Pulsa')} <kbd>Y</kbd>` : touch ? tr('Toca su botón') : `${tr('Pulsa')} <kbd>R</kbd>`}</em></div>`;
     document.getElementById('hud')?.appendChild(box);
     setTimeout(() => box.classList.add('out'), 1500);
     setTimeout(() => box.remove(), 1900);
@@ -4275,7 +4278,7 @@ export class App {
       case 'monedas': return { art: `<span class="sp-ic sp-coin">◉</span>`, label: tr('{x1} monedas', { x1: r.n.toLocaleString(locale()) }) };
       case 'fichas': return { art: `<span class="sp-ic sp-tok">${uiIcon('capsule')}</span>`, label: tr('{rN} fichas', { rN: r.n }) };
       case 'multi': return { art: `<span class="sp-ic sp-multi">${uiIcon('capsule')}<b>×10</b></span>`, label: tr('Tirada ×10 ({MULTI_FICHAS} fichas)', { MULTI_FICHAS }) };
-      case 'eg': return { art: `<span class="sp-ic sp-eg">${this.egIcon(small ? 22 : 28)}</span>`, label: tr('{rN} Ficha{x1} EG', { rN: r.n, x1: r.n > 1 ? 's' : '' }) };
+      case 'eg': return { art: `<span class="sp-ic sp-eg">${this.egIcon(small ? 22 : 28)}</span>`, label: r.n > 1 ? tr('{rN} Fichas EG', { rN: r.n }) : tr('{rN} Ficha EG', { rN: r.n }) };
       case 'jugador': { const p = this.byId.get(r.id); return { art: `<span class="sp-mug">${this.mug(r.id, small ? 40 : 56)}</span>`, label: p?.name ?? 'Futbolista', rar: p?.rarity }; }
       case 'banner': { const d = PENNANT_BY_ID.get(r.id); return { art: `<span class="sp-pn">${pennantSvg(r.id, small ? 26 : 34)}</span>`, label: `Banner: ${d?.name ?? r.id}`, rar: d?.rarity }; }
       case 'marco': { const d = PENNANT_BY_ID.get(r.id); return { art: `<span class="sp-fr">${this.framed(this.frameFace(), r.id)}</span>`, label: `Marco: ${d?.name ?? r.id}`, rar: d?.rarity }; }
@@ -4300,7 +4303,7 @@ export class App {
       if (g.reward.kind === 'eg') sum.eg += g.reward.n;
     }
     const parts = [sum.monedas && tr('{x1} monedas', { x1: sum.monedas.toLocaleString(locale()) }), sum.fichas && tr('{fichas} fichas', { fichas: sum.fichas }), sum.eg && tr('{eg} Fichas EG', { eg: sum.eg }),
-      ...got.filter((g) => g.player).map((g) => `${g.player!.name}${g.isNew ? ' (¡nuevo!)' : ''}`),
+      ...got.filter((g) => g.player).map((g) => `${g.player!.name}${g.isNew ? tr(' (¡nuevo!)') : ''}`),
       ...got.filter((g) => g.reward.kind === 'banner' || g.reward.kind === 'marco').map((g) => PENNANT_BY_ID.get((g.reward as { id: string }).id)?.name ?? '')].filter(Boolean);
     this.toast(tr('Pase: {x1}', { x1: parts.join(' · ') }), 4500);
     if (got.some((g) => g.player && (g.player.rarity === 'leyenda' || g.player.rarity === 'legendario')) && this.save.settings.particles !== 'desactivado') confetti(90);
@@ -4323,7 +4326,7 @@ export class App {
       // 2.11: amounts big with their unit under them; prizes say their rarity; a shut row shows its key, not a padlock
       const words = r.kind === 'monedas' ? `<b class="sp-amt coin">${r.n.toLocaleString(locale())}</b><small>${tr('monedas')}</small>`
         : r.kind === 'fichas' ? `<b class="sp-amt tok">${r.n}</b><small>${tr('fichas')}</small>`
-        : r.kind === 'eg' ? `<b class="sp-amt eg">${r.n}</b><small>${tr('Ficha{x1} EG', { x1: r.n > 1 ? 's' : '' })}</small>`
+        : r.kind === 'eg' ? `<b class="sp-amt eg">${r.n}</b><small>${r.n > 1 ? tr('Fichas EG') : tr('Ficha EG')}</small>`
         : r.kind === 'multi' ? `<small class="sp-nm">${tr('Tirada ×10')}</small>`
         : `<small class="sp-nm">${esc(label.replace(/^(Banner|Marco): /, ''))}</small>${rar ? `<em class="sp-tag">${r.kind === 'jugador' ? RARITY_LABEL[rar] : r.kind === 'marco' ? 'Marco' : 'Banner'}</em>` : ''}`;
       const key = keys?.[track === 'normal' ? 'normal' : 'dorada'];
@@ -4478,7 +4481,7 @@ export class App {
       const join = mine ? (mine === id ? `<em class="sq-you">${tr('TU BANDO')}</em>` : '') : !signedIn() ? ''
         : `<button class="btn${can ? '' : ' off'}" data-join="${id}" ${can ? '' : 'disabled'}>${can ? `Unirme a ${esc(d.short)}` : tr('Va por delante: entra en el otro')}</button>`;
       return `<div class="sq-side s-${id}${mine === id ? ' mine' : ''}" style="--sc:${d.color}">${logos ? `<img class="sq-logo" src="${logos[id]}" alt="">` : ''}
-        <b>${esc(d.name)}</b><small>${esc(d.motto)}</small><span class="sq-n">${s ? `${s.members[id]} miembro${s.members[id] === 1 ? '' : 's'}` : ''}</span>
+        <b>${esc(d.name)}</b><small>${esc(d.motto)}</small><span class="sq-n">${s ? (s.members[id] === 1 ? tr('1 miembro') : tr('{members} miembros', { members: s.members[id] })) : ''}</span>
         <div class="sq-stars">${d.players.map((pid) => { const p = this.byId.get(pid); return p ? `<span class="r-${p.rarity}" title="${esc(p.name)}">${this.mug(pid, 44)}</span>` : ''; }).join('')}</div>${join}</div>`;
     };
     const a = { sector: s?.avg.sector ?? 0, resistencia: s?.avg.resistencia ?? 0 }, tot = Math.max(1, a.sector + a.resistencia);
@@ -4803,7 +4806,7 @@ export class App {
     // the movement slide is playable: the ball follows WASD/arrows inside its little pitch
     let bx = 50, by = 50;
     const keys = (e: KeyboardEvent) => {
-      const k = e.key.toLowerCase();
+      const k = moveKey(e);
       const ball = document.getElementById('tutball');
       if (ball && ['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(k)) {
         bx = Math.max(5, Math.min(95, bx + (k === 'd' || k === 'arrowright' ? 6 : k === 'a' || k === 'arrowleft' ? -6 : 0)));
@@ -4839,7 +4842,7 @@ export class App {
       const ec = ELEMENT_COLOR[x.element] ?? '#ccc';
       const pips = Array.from({ length: 5 }, (_, i) => `<i class="${i < x.techs ? 'on' : ''}"></i>`).join('');
       return `<div class="syn-card${x.reach ? ' on' : ''}" style="--ec:${ec}"><span class="syn-ic">${elementIcon(x.element, 26)}</span><div><b>${tr('Resonancia {element}', { element: esc(tEl(x.element)) })}</b>
-        <span class="syn-pips">${pips}</span><small>${tr('{techs} técnica{x1} de {element} en el equipo · {players} futbolista{x2}', { techs: x.techs, x1: x.techs === 1 ? '' : 's', element: esc(tEl(x.element)), players: x.players, x2: x.players === 1 ? '' : 's' })}</small></div>
+        <span class="syn-pips">${pips}</span><small>${x.techs === 1 ? tr('1 técnica de {element} en el equipo', { element: esc(tEl(x.element)) }) : tr('{techs} técnicas de {element} en el equipo', { techs: x.techs, element: esc(tEl(x.element)) })} · ${x.players === 1 ? tr('1 futbolista') : tr('{players} futbolistas', { players: x.players })}</small></div>
         <em>${x.reach ? `hasta +${Math.round(x.reach * 100)}%` : `${x.techs}/3`}</em></div>`;
     }).join('');
     const ch = pot.chemistry, cap = pot.captain;
@@ -4860,7 +4863,7 @@ export class App {
       return `<div class="cb2${c.ready ? ' ready' : ''}${c.viaAura.length ? ' with-aura' : ''}" style="--ec:${ELEMENT_COLOR[c.combo.element] ?? '#ffe27a'}">
         <div class="cb2-team">${who}</div>
         <div class="cb2-info"><b>${esc(tTech(c.combo.name))}</b><span class="cb2-tags">${elementIcon(c.combo.element, 12)}<i>${this.uiPiece('rayo_hex', 'inl') || '⚡'}${c.combo.power}</i>
-          ${c.ready ? `<em class="cb2-pill ok">${tr('¡Lista!')}</em>` : `<em class="cb2-pill">${tr('Falta{x1} {missingLength}', { x1: c.missing.length > 1 ? 'n' : '', missingLength: c.missing.length })}</em>`}</span></div></div>`;
+          ${c.ready ? `<em class="cb2-pill ok">${tr('¡Lista!')}</em>` : `<em class="cb2-pill">${c.missing.length > 1 ? tr('Faltan {missingLength}', { missingLength: c.missing.length }) : tr('Falta {missingLength}', { missingLength: c.missing.length })}</em>`}</span></div></div>`;
     }).join('');
     return `<div class="panel syn-panel"><h3>${tr('Sinergias del equipo')}</h3>
       <div class="note">${tr('Resonancia: 3 técnicas activas del mismo elemento dan <b>+8%</b> de daño a esas técnicas, 5 dan <b>+15%</b>. Las técnicas activas se eligen al subir de nivel en la partida.')}</div>
@@ -5939,7 +5942,7 @@ export class App {
       <div class="note">${POS_LABEL[d.position]} · ${esc(d.teams.filter((t) => (this.m.mainTeams ?? []).includes(t)).slice(0, 5).map(teamLabel).join(', ') || (d.exclusive === 'bluelock' ? tr('Colaboración InaZurvivors x BlueLock') : d.exclusive === 'evento' ? tr('Colaboración · Banner de agradecimiento') : tr('Jugador de Fichatrón / Ojeador')))}${(() => { const sg = [...new Set(d.teams.map(sagaOf).filter(Boolean))]; return sg.length ? ` · Saga: ${esc(sg.join(', '))}` : ''; })()}</div>
       ${o ? `<p><button class="btn small blue" data-compare="${d.id}">${this.compareWith === d.id ? tr('Elige otro futbolista para comparar…') : tr('⇄ Comparar con otro')}</button></p>` : ''}
       ${o ? this.starPanel(d) : ''}
-      ${o && (nextStep(this.save, d) || isHero(this.save, d.id) || championOf(this.save, d.id)) ? `<p><button class="btn ${nextStep(this.save, d) ? 'big' : 'blue'}" data-ascend="${d.id}">${!nextStep(this.save, d) ? (championOf(this.save, d.id) ? `★ Ver ${CHAMPION_LABEL[championOf(this.save, d.id)]}` : tr('★ Ver HÉROE')) : nextStep(this.save, d)!.step === 'campeon' ? `♛ ${CHAMPION_LABEL[championOf(this.save, d.id) + 1]} (${sparesOf(this.save, d.id)}/${nextStep(this.save, d)!.cost})` : nextStep(this.save, d)!.step === 'estrella' ? tr('★ Estrella de héroe ({sparesOf}/{x1})', { sparesOf: sparesOf(this.save, d.id), x1: nextStep(this.save, d)!.cost }) : tr('▲ Ascensión ({sparesOf}/{x1})', { sparesOf: sparesOf(this.save, d.id), x1: nextStep(this.save, d)!.cost })}</button></p>` : ''}
+      ${o && (nextStep(this.save, d) || isHero(this.save, d.id) || championOf(this.save, d.id)) ? `<p><button class="btn ${nextStep(this.save, d) ? 'big' : 'blue'}" data-ascend="${d.id}">${!nextStep(this.save, d) ? (championOf(this.save, d.id) ? tr('★ Ver {x1}', { x1: CHAMPION_LABEL[championOf(this.save, d.id)] }) : tr('★ Ver HÉROE')) : nextStep(this.save, d)!.step === 'campeon' ? `♛ ${CHAMPION_LABEL[championOf(this.save, d.id) + 1]} (${sparesOf(this.save, d.id)}/${nextStep(this.save, d)!.cost})` : nextStep(this.save, d)!.step === 'estrella' ? tr('★ Estrella de héroe ({sparesOf}/{x1})', { sparesOf: sparesOf(this.save, d.id), x1: nextStep(this.save, d)!.cost }) : tr('▲ Ascensión ({sparesOf}/{x1})', { sparesOf: sparesOf(this.save, d.id), x1: nextStep(this.save, d)!.cost })}</button></p>` : ''}
       ${this.keshinPanel(d)}
       ${d.heroTech ? `<div class="note">${tr('Técnica de HÉROE:')} <b>${esc(tTech(d.heroTech.name))}</b>${isHero(this.save, d.id) ? tr(' (desbloqueada)') : ''}</div>` : ''}
       ${(() => { const pa = adaptedPassive(d); return (pa ? `<div class="note">${tr('Pasiva:')} <b>${esc(pa.name)}</b> · ${esc(passiveText(pa))} <small>${tr('(adaptación de InaZurvivors)')}</small></div>` : '') + d.techniques.filter((t) => t.type === 'talento').map((t) => `<div class="note">${tr('Talento:')} <b>${esc(t.name)}</b> · ${esc(talentText(t.id, 1))} <small>${tr('(efecto adaptado; sube con el nivel de la técnica)')}</small></div>`).join(''); })()}
@@ -5988,7 +5991,7 @@ export class App {
     const teamSel = banner.id === 'equipo' ? `<label class="team-sel">${tr('Equipo:')} <select id="gteam">${teams.map((t) => `<option value="${esc(t.team)}" ${t.team === this.gachaTeam ? 'selected' : ''}>${esc(teamLabel(t.team))} (${t.size})</option>`).join('')}</select></label>` : '';
     // the special banner shows all its stars
     const feat = featured(pool, ev ? pool.filter((p) => p.exclusive).length : 5).map((p) => `<span class="feat r-${p.rarity}" style="--rc:${RARITY_COLOR[p.rarity]}" title="${esc(p.name)}">${this.mug(p.id, 48)}<small>${esc(p.name)}</small></span>`).join('');
-    const odds = RARITY_ORDER.map((r) => `<div class="odd"><span class="rar ${r}">${RARITY_LABEL[r].toUpperCase()}</span><i style="--w:${Math.max(1.5, real[r])}%;--c:${RARITY_COLOR[r]}"></i><b>${real[r] ? `${+real[r].toFixed(2)}% · c/u ${+each[r].toFixed(3)}%` : 'vacía'}</b></div>`).join('');
+    const odds = RARITY_ORDER.map((r) => `<div class="odd"><span class="rar ${r}">${RARITY_LABEL[r].toUpperCase()}</span><i style="--w:${Math.max(1.5, real[r])}%;--c:${RARITY_COLOR[r]}"></i><b>${real[r] ? tr('{x1}% · c/u {x2}%', { x1: (+real[r].toFixed(2)).toLocaleString(locale()), x2: (+each[r].toFixed(3)).toLocaleString(locale()) }) : tr('vacía')}</b></div>`).join('');
     const empty = RARITY_ORDER.filter((r) => !real[r]).map((r) => RARITY_LABEL[r]);
     const hist = (this.save.gachaHistory ?? []).slice(0, 12).map((h) => {
       const p = this.byId.get(h.id);
@@ -6452,7 +6455,7 @@ export class App {
     }).join('') || `<div class="rw-empty">${tr('{x1}Nada en esta lista.', { x1: uiIcon('target') })}</div>`;
     this.show(`<div class="screen rw-screen">${this.titlebar(tr('Recompensas'), tr('Menú'))}
       <div class="rw-hero${ready.length ? ' hot' : ''}"><span class="rw-hero-ic">${uiIcon('gift')}</span>
-        <div class="rw-hero-tx"><small>${tr('MISIONES Y LOGROS')}</small><b>${ready.length ? `¡${ready.length} ${ready.length === 1 ? 'recompensa lista' : 'recompensas listas'}!` : tr('Todo cobrado')}</b>
+        <div class="rw-hero-tx"><small>${tr('MISIONES Y LOGROS')}</small><b>${ready.length ? (ready.length === 1 ? tr('¡1 recompensa lista!') : tr('¡{n} recompensas listas!', { n: ready.length })) : tr('Todo cobrado')}</b>
           <div class="rw-sum">${ready.length ? `<span class="rw-chip c big">${sumCoins}</span><span class="rw-chip t big">${sumTokens}</span>` : `<span class="note">${tr('Juega partidas para completar más misiones.')}</span>`}</div></div>
         <button class="rw-all" id="claimall" ${ready.length ? '' : 'disabled'}><i class="m4-shine"></i>${tr('RECLAMAR TODO{x1}', { x1: ready.length ? `<em>${ready.length}</em>` : '' })}</button></div>
       <div class="rw-tabs" id="tabs">${TABS.map(([k, l, ic, sub]) => { const all = MISSIONS.filter((d) => d.kind === k), done = all.filter((d) => isClaimed(this.save, d)).length;
@@ -6744,7 +6747,7 @@ export class App {
       if (key === 'moveKeys') s.moveKeys = v as 'ambos' | 'wasd' | 'flechas';
       if (key === 'camera') s.camera = v as 'cerca' | 'normal' | 'lejos';
       if (key === 'musicSource') { s.musicSource = v as 'original' | 'local'; setMusicSource(s.musicSource); }
-      if (key === 'lang') { s.lang = v as '' | 'es' | 'en'; if (resolveLang(s.lang) !== getLang()) { this.persist(); location.reload(); return; } }
+      if (key === 'lang') { s.lang = v as '' | Lang; if (resolveLang(s.lang) !== getLang()) { this.persist(); location.reload(); return; } }
       this.applyAudio();
       this.persist();
       this.options();
@@ -7760,19 +7763,19 @@ export class App {
     const techs = Object.entries(uses).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([id, n]) => ({ name: team.flatMap((x) => x.techniques).find((t) => String(t.id) === id)?.name ?? '', n })).filter((t) => t.name);
     const owned = this.unlockedRoster().length;
     const recName: Record<string, string> = { tiempo: tr('Mejor tiempo'), eliminaciones: tr('Más eliminaciones'), nivel: tr('Mayor nivel'), ranking: tr('Nueva mejor marca'), infinito: tr('Récord en infinito') };
-    const stat = (label: string, value: string, rec: boolean, i: number) => `<div class="stat res-in${rec ? ' rec' : ''}" style="--d:${250 + i * 110}ms"><span class="note">${label}</span><b>${value}</b>${rec ? '<em>¡RÉCORD!</em>' : ''}</div>`;
+    const stat = (label: string, value: string, rec: boolean, i: number) => `<div class="stat res-in${rec ? ' rec' : ''}" data-rec="${tr('¡RÉCORD!')}" style="--d:${250 + i * 110}ms"><span class="note">${label}</span><b>${value}</b>${rec ? `<em>${tr('¡RÉCORD!')}</em>` : ''}</div>`;
     const crest = this.emblemOf(this.save.crest);
     const inf = (r.endlessSec ?? 0) > 0;
     this.show(`<div class="screen res-screen ${r.victory ? 'res-win' : 'res-lose'}" id="resroot"><button class="btn small blue res-skip" id="resskip">${tr('Saltar ▶▶')}</button>
       <div class="res-head">${crest ? `<img class="res-crest" src="${crest}" alt="">` : ''}<div class="result-banner ${r.victory ? 'win' : 'lose'}">${r.victory ? tr('¡VICTORIA!') : tr('FIN DE LA PARTIDA')}</div></div>
       <div class="res-squad">${team.map((x, i) => `<span class="res-in${x === mvp ? ' mvp' : ''}" style="--d:${i * 90}ms">${this.mug(x.id, 56)}${x === mvp ? '<small>MVP</small>' : ''}</span>`).join('')}</div>
       <div class="panel" style="max-width:820px;margin:0 auto"><h3>${esc(map.name)} · ${RANKS[r.rank ?? 'C'].label}${r.victory ? ' · superada' : ''}</h3>
-      <div class="result-grid">${stat('Tiempo', fmtTime(r.timeSec), records.includes('tiempo'), 0)}${stat('Eliminaciones', String(r.kills), records.includes('eliminaciones'), 1)}
-        ${stat('Daño', (r.damage ?? 0).toLocaleString(locale()), false, 2)}${stat('Nivel', String(r.level), records.includes('nivel'), 3)}${stat('Minijefes', String(r.minibosses), false, 4)}</div>
+      <div class="result-grid">${stat(tr('Tiempo'), fmtTime(r.timeSec), records.includes('tiempo'), 0)}${stat(tr('Eliminaciones'), String(r.kills), records.includes('eliminaciones'), 1)}
+        ${stat(tr('Daño'), (r.damage ?? 0).toLocaleString(locale()), false, 2)}${stat(tr('Nivel'), String(r.level), records.includes('nivel'), 3)}${stat(tr('Minijefes'), String(r.minibosses), false, 4)}</div>
       ${(() => { const c = deathCause(r.death); return c ? `<div class="res-death res-in" style="--d:700ms"><b>${r.victory ? tr('Fin de la supervivencia infinita') : tr('Causa de la derrota')}</b><span>${esc(c.line)}</span>
         <span>${tr('Último golpe: {x1} de daño a los {x2} · Sobreviviste {timeSec}', { x1: r.death!.dmg, x2: fmtTime(r.death!.at), timeSec: fmtTime(r.timeSec) })}</span><span class="note">${tr('Consejo: {tip}', { tip: esc(c.tip) })}</span></div>` : ''; })()}
       ${inf ? `<div class="res-inf res-in" style="--d:800ms"><b>${tr('Supervivencia infinita')}</b><span>${tr('Tiempo extra {x1} · Fase alcanzada: {x2} · Jefes adicionales: {x3}', { x1: fmtTime(r.endlessSec ?? 0), x2: esc(r.endlessPhase ?? ''), x3: r.endlessBosses ?? 0 })}</span><span>${tr('Recompensas del infinito: {x1} monedas y {x2} fichas{x3}', { x1: r.endlessCoins ?? 0, x2: r.endlessTokens ?? 0, x3: records.includes('infinito') ? tr(' · ¡Récord personal!') : '' })}</span><span id="resrank"></span></div>` : ''}
-      ${mvp ? `<div class="res-mvp res-in" style="--d:900ms"><span>${tr('Mejor jugador: <b>{mvpName}</b> (más técnicas lanzadas)', { mvpName: esc(mvp.name) })}</span>${techs.length ? `<span>${tr('Técnicas más usadas: {x1}', { x1: techs.map((t) => `${esc(t.name)} ×${t.n}`).join(' · ') })}</span>` : ''}</div>` : ''}
+      ${mvp ? `<div class="res-mvp res-in" style="--d:900ms"><span>${tr('Mejor jugador: <b>{mvpName}</b> (más técnicas lanzadas)', { mvpName: esc(mvp.name) })}</span>${techs.length ? `<span>${tr('Técnicas más usadas: {x1}', { x1: techs.map((t) => `${esc(tTech(t.name))} ×${t.n}`).join(' · ') })}</span>` : ''}</div>` : ''}
       ${records.length ? `<div class="res-recs res-in" style="--d:1000ms">${records.map((x) => `<span>★ ${recName[x] ?? x}</span>`).join('')}</div>` : ''}
       <div class="reward-cols"><table class="rewards">${rewards.map((x, i) => `<tr class="rrow" style="--d:${1000 + i * 110}ms"><td>${esc(x.label)}</td><td>+${x.coins}</td></tr>`).join('')}
         <tr class="rrow total" style="--d:${1000 + rewards.length * 110}ms"><td><b>${tr('Monedas')}</b></td><td><b id="tcoins">+0</b></td></tr></table>

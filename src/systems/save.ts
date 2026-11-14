@@ -218,7 +218,7 @@ export interface Settings {
   /** 2.02: finished runs are recorded and sent for the author to watch (signed-in players only); absent = yes */
   shareReplays?: boolean;
   /** 2.3: the language chosen in Ajustes; absent or '' = the browser's (i18n.ts resolveLang) */
-  lang?: '' | 'es' | 'en';
+  lang?: '' | 'es' | 'en' | 'fr' | 'it' | 'de';
   /** 2.3: vibration on phones at the key moments of a run (game/haptics.ts); absent = yes */
   vibration?: boolean;
 }

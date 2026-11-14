@@ -15,6 +15,21 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: '13.0', date: '2026-11-14', title: '2.4 Francés, italiano y alemán',
+    features: [
+      'Traducción al francés (autor: «de la misma forma» que el inglés): fr.ts con las mismas ~3.900 claves que en.ts (test: ninguna clave solo en un idioma), idioma «fr» en Ajustes y por navegador (fr*), locale fr-FR, espacio irrompible antes de ! ? : ; % y dentro de « ». Pantalla de carga en francés.',
+      'Traducción al italiano (autor: «pon italiano tmb»): it.ts igual, idioma «it» (navegador it*), locale it-IT. Elementos Fuoco/Vento/Foresta/Montagna/Neutro, tipos Tiro/Offesa/Difesa/Parata, puestos POR/DIF/CEN/ATT, Fichas EG = Gettoni SG.',
+      'Traducción al alemán (autor: «aleman»): de.ts igual, idioma «de» (navegador de*), locale de-DE, comillas „…“. Elementos Feuer/Wind/Holz/Erde/Neutral, tipos Schuss/Dribbel/Block/Parade, puestos TW/AB/MF/ST, Fichas = Marken, Fichas EG = KG-Marken (Kampfgeister). Técnicas de la wiki alemana (de_tech.json 729, sigue también los enlaces de la wiki francesa) y el resto en de_tech_manual.ts para revisar; noticia de la 2.4 reescrita para los cinco idiomas.',
+      'Técnicas, combinadas y talentos con su nombre oficial de la wiki de cada idioma (tools/i18n_tech_names_wiki.py --lang fr|it → fr_tech.json 760 de 810, it_tech.json 466 de 810; cachés data/extracted/wiki_moves_fr.json / _it.json; el italiano también sigue los enlaces de la wiki francesa); el resto, traducción mía en fr_ / it_tech_manual.ts para revisar. Estadios con nombre y descripción traducidos al cargar el manifiesto (i18n/maps.ts).',
+    ],
+    fixes: [
+      'El movimiento con teclado lee la posición física de la tecla (KeyboardEvent.code): WASD es ZQSD en un teclado AZERTY (game/controls.ts moveKey, también la pelota del tutorial).',
+      'Plurales por clave y no por sufijo «s» (Fichas EG, técnicas de elemento, compañeros, miembros, Falta/Faltan); textos que seguían en español también en inglés: resultados, filas de monedas, perfil, recompensas, banderines, probabilidades.',
+    ],
+    visuals: [],
+    balance: [],
+  },
+  {
     version: '12.0', date: '2026-11-12', title: '2.3 Inglés',
     features: [
       'Traducción al inglés (autor): src/i18n (tr() con el texto español como clave, en.ts ~3.850 entradas; idioma guardado en save.settings.lang o el del navegador, leído al cargar los módulos; cambiarlo en Opciones recarga). Datos (systems/*, data/*), HUD, noticias y release.ts completos; changelog.ts interno sigue en español.',

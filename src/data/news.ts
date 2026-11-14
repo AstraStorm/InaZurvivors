@@ -327,7 +327,7 @@ export function releaseNews(r: PublicRelease, online = true): NewsItem {
       { p: r.intro },
       { divider: true },
       { h: tr('Qué trae'), icon: '✦' },
-      { list: feats.map((f) => `${f.icon} **${f.title}**: ${f.text}`) },
+      { list: feats.map((f) => `${f.icon} ${tr('**{title}**: {text}', { title: f.title, text: f.text })}`) }, // 2.4: French puts a space before «:»
       ...(r.start.length ? [{ divider: true } as NewsBlock, { h: tr('Cómo empezar'), icon: '▶' } as NewsBlock, { list: r.start } as NewsBlock] : []),
     ],
   };

@@ -7,7 +7,7 @@
 import { CHANGELOG } from './changelog';
 import { tr } from '../i18n/i18n';
 
-export const PUBLIC_VERSION = '2.3';
+export const PUBLIC_VERSION = '2.4';
 export const BUILD = CHANGELOG[0].version;
 export const RELEASED = true; // (author) 2.0: the «pre» phase is over
 export const VERSION_LABEL = RELEASED ? `v${PUBLIC_VERSION}` : `v${PUBLIC_VERSION} · pre-lanzamiento`;
@@ -31,6 +31,19 @@ export interface PublicRelease {
 
 /** Public news, newest first. Starts at v1.0: the internal versions before it are not part of the public history. */
 export const PUBLIC_RELEASES: PublicRelease[] = [
+  {
+    version: '2.4', date: '2026-11-14',
+    title: tr('InaZurvivors 2.4 — Ya en francés, italiano y alemán'),
+    tagline: tr('InaZurvivors, maintenant en français · ora in italiano · jetzt auf Deutsch'),
+    intro: tr('El juego entero se puede jugar en francés, en italiano y en alemán: menús, partidas, datos, noticias y todo el historial de versiones. Si tu navegador está en uno de esos idiomas, se abre solo en él.'),
+    features: [
+      { icon: '🌐', title: tr('Cinco idiomas'), text: tr('Elige el idioma en Ajustes > Idioma (español, inglés, francés, italiano o alemán), o déjalo en «Automático» para que siga al navegador. Al cambiarlo, el juego se recarga y tu partida no cambia.') },
+      { icon: '⚡', title: tr('Nombres oficiales'), text: tr('Las supertécnicas, las combinadas y los talentos llevan su nombre oficial de los juegos y el anime de cada idioma: Tornade de Feu y Main Céleste en francés, Tornado di Fuoco y Mano di Luce en italiano, Feuertornado y Himmelshand en alemán. Los elementos son Feu, Air, Bois y Terre en francés, Fuoco, Vento, Foresta y Montagna en italiano, y Feuer, Wind, Holz y Erde en alemán.') },
+      { icon: '⌨️', title: tr('Teclados AZERTY'), text: tr('El movimiento va por la posición de las teclas y no por la letra: en un teclado francés te mueves con ZQSD.') },
+      { icon: '🔢', title: tr('Números a su manera'), text: tr('Cifras y fechas en el formato de cada idioma: 1 000 en francés, 1.000 en italiano y en alemán.') },
+    ],
+    start: [tr('Abre Ajustes y mira la nueva opción Idioma.'), tr('Pásale el juego a tus amigos de Francia, Italia y Alemania.')],
+  },
   {
     version: '2.3', date: '2026-11-12',
     title: tr('InaZurvivors 2.3 — Ya en inglés'),

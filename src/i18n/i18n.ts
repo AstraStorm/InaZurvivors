@@ -6,22 +6,32 @@
  * Placeholders are `{name}`: `tr('Ver el perfil de {name}', { name })`. The dictionary keeps them in the English text.
  * Game data (techniques, players, maps…) goes through its own tables (tName and friends), not through tr(). (Named tr, not t: t is a technique or a time in much of the code.)
  *
- * The language is the player's choice in Ajustes (save.settings.lang); without one it follows the browser: English when
- * the browser asks for English first, Spanish otherwise.
+ * The language is the player's choice in Ajustes (save.settings.lang); without one it follows the browser: English,
+ * French, Italian or German (2.4, fr.ts / it.ts / de.ts) when the browser asks for one of them first, Spanish otherwise.
  */
 import { EN } from './en';
+import { FR } from './fr';
+import { IT } from './it';
+import { DE } from './de';
 
-export type Lang = 'es' | 'en';
-export const LANGS: { id: Lang; label: string }[] = [{ id: 'es', label: 'Español' }, { id: 'en', label: 'English' }];
+export type Lang = 'es' | 'en' | 'fr' | 'it' | 'de';
+export const LANGS: { id: Lang; label: string }[] = [
+  { id: 'es', label: 'Español' }, { id: 'en', label: 'English' }, { id: 'fr', label: 'Français' }, { id: 'it', label: 'Italiano' }, { id: 'de', label: 'Deutsch' },
+];
+/** 2.4 (author: «traduceme ahora el juego de la misma forma del inglés al francés», then «pon italiano tmb» and «aleman»): the dictionaries */
+const DICTS: Partial<Record<Lang, Record<string, string>>> = { en: EN, fr: FR, it: IT, de: DE };
+const isLang = (l: string | undefined | null): l is Lang => l === 'es' || l === 'en' || l === 'fr' || l === 'it' || l === 'de';
+const LOCALES: Record<Lang, string> = { es: 'es-ES', en: 'en-GB', fr: 'fr-FR', it: 'it-IT', de: 'de-DE' };
 
 let lang: Lang = 'es';
 
 /** the browser's first language, as one of ours */
 export function browserLang(langs: readonly string[] = typeof navigator === 'undefined' ? [] : navigator.languages ?? [navigator.language]): Lang {
-  return (langs[0] ?? '').toLowerCase().startsWith('en') ? 'en' : 'es';
+  const first = (langs[0] ?? '').toLowerCase();
+  return (['en', 'fr', 'it', 'de'] as const).find((l) => first.startsWith(l)) ?? 'es';
 }
 /** the language to use for a saved choice ('' or absent = follow the browser) */
-export const resolveLang = (choice: string | undefined | null, langs?: readonly string[]): Lang => (choice === 'es' || choice === 'en' ? choice : browserLang(langs));
+export const resolveLang = (choice: string | undefined | null, langs?: readonly string[]): Lang => (isLang(choice) ? choice : browserLang(langs));
 
 /** the language saved in the local save, read before any module builds its tables: the data tables (perks, missions…)
  * translate their texts once, when they load, so a change of language in Ajustes reloads the page */
@@ -39,7 +49,7 @@ export function setLang(l: Lang) {
 }
 export const getLang = () => lang;
 /** the locale for numbers and dates */
-export const locale = () => (lang === 'en' ? 'en-GB' : 'es-ES');
+export const locale = () => LOCALES[lang];
 export const fmtNum = (n: number) => n.toLocaleString(locale());
 
 type Vars = Record<string, string | number | null | undefined>;
@@ -47,5 +57,5 @@ const fill = (s: string, vars?: Vars) => (vars ? s.replace(/\{(\w+)\}/g, (m, k: 
 
 /** a text of the interface, in the current language */
 export function tr(es: string, vars?: Vars): string {
-  return fill(lang === 'en' ? EN[es] ?? es : es, vars);
+  return fill(DICTS[lang]?.[es] ?? es, vars);
 }

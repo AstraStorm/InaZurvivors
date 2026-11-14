@@ -94,7 +94,13 @@ export const ELEMENT_COLOR: Record<string, number> = {
 };
 export const elementColor = (e: string | null | undefined) => (e && ELEMENT_COLOR[e]) || 0xf2f2f2;
 
-// 2.3: the dub's technique types (not tr(): «Tiro» and «Defensa» are also stats, Kick and Guard)
+// 2.3: the dub's technique types (not tr(): «Tiro» and «Defensa» are also stats, Kick and Guard); 2.4: the French, Italian and German games'
 export const TYPE_LABEL: Record<TechType, string> = getLang() === 'en'
   ? { tiro: 'Shoot', regate: 'Dribble', defensa: 'Block', parada: 'Catch', talento: 'Talent' }
-  : { tiro: 'Tiro', regate: 'Regate', defensa: 'Defensa', parada: 'Parada', talento: 'Talento' };
+  : getLang() === 'fr'
+    ? { tiro: 'Tir', regate: 'Dribble', defensa: 'Blocage', parada: 'Arrêt', talento: 'Talent' }
+    : getLang() === 'it'
+      ? { tiro: 'Tiro', regate: 'Offesa', defensa: 'Difesa', parada: 'Parata', talento: 'Talento' }
+      : getLang() === 'de'
+        ? { tiro: 'Schuss', regate: 'Dribbel', defensa: 'Block', parada: 'Parade', talento: 'Talent' }
+      : { tiro: 'Tiro', regate: 'Regate', defensa: 'Defensa', parada: 'Parada', talento: 'Talento' };

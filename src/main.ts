@@ -27,6 +27,7 @@ import './styleSector.css'; // 2.2 Sector Quinto
 import type { Manifest } from './data/manifest';
 import { applyRosterFixes } from './data/rosterFixes';
 import { applyTechFixes } from './data/techFixes';
+import { localizeMaps } from './i18n/maps';
 import { ArenaScene } from './game/ArenaScene';
 import { LobbyScene } from './game/LobbyScene';
 import { ReplayScene } from './game/ReplayScene';
@@ -93,6 +94,7 @@ async function boot() {
   // quick footballer corrections (rarity, element, techniques) that ship without repackaging resources
   for (const w of applyRosterFixes(manifest)) console.warn('[rosterFixes]', w);
   applyTechFixes(manifest); // 1.76: fixed elements of some techniques
+  localizeMaps(manifest.maps); // 2.4: arena names and blurbs in the player's language
   progress(0.75, tr('Preparando caras y objetos…'));
   const [mugs, icons] = await Promise.all([
     fetch(manifest.atlases.mugshots.json).then((r) => r.json()),

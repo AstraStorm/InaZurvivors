@@ -195,7 +195,7 @@ button { font-family: inherit; }
 .result-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 12px; }
 .stat { background: #0007; border: 2px solid var(--frame-dim); padding: 10px; text-align: center; clip-path: var(--cut); }
 .stat b { display: block; font-size: 18px; color: var(--yellow); margin-top: 4px; }
-.stat.rec { border-color: var(--ok); } .stat.rec::after { content: '¡RÉCORD!'; display: block; color: var(--ok); font-size: 9px; margin-top: 4px; }
+.stat.rec { border-color: var(--ok); } .stat.rec::after { content: attr(data-rec); display: block; color: var(--ok); font-size: 9px; margin-top: 4px; }
 .rewards { width: 100%; border-collapse: collapse; } .rewards td { padding: 4px 8px; border-bottom: 1px solid #ffffff14; }
 .rewards td:last-child { text-align: right; color: var(--yellow); }
 .problems { font-size: 10px; color: var(--muted); }

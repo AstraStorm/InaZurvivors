@@ -6,9 +6,11 @@ export const touchStick = { x: 0, y: 0 };
  * loses Phaser's key state, so a key kept pressed through the level-up cards stopped counting until pressed again.
  */
 export const heldKeys = new Set<string>();
+/** 2.4 (French): letters by their place on the keyboard, not their character, so WASD is ZQSD on an AZERTY keyboard */
+export const moveKey = (e: KeyboardEvent) => (/^Key[A-Z]$/.test(e.code) ? e.code.slice(3).toLowerCase() : e.key.toLowerCase());
 if (typeof window !== 'undefined') {
-  window.addEventListener('keydown', (e) => heldKeys.add(e.key.toLowerCase()), true);
-  window.addEventListener('keyup', (e) => heldKeys.delete(e.key.toLowerCase()), true);
+  window.addEventListener('keydown', (e) => heldKeys.add(moveKey(e)), true);
+  window.addEventListener('keyup', (e) => heldKeys.delete(moveKey(e)), true);
   window.addEventListener('blur', () => heldKeys.clear());
 }
 
