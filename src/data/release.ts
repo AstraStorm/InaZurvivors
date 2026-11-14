@@ -40,6 +40,7 @@ export const PUBLIC_RELEASES: PublicRelease[] = [
       { icon: '🌐', title: tr('Cinco idiomas'), text: tr('Elige el idioma en Ajustes > Idioma (español, inglés, francés, italiano o alemán), o déjalo en «Automático» para que siga al navegador. Al cambiarlo, el juego se recarga y tu partida no cambia.') },
       { icon: '⚡', title: tr('Nombres oficiales'), text: tr('Las supertécnicas, las combinadas y los talentos llevan su nombre oficial de los juegos y el anime de cada idioma: Tornade de Feu y Main Céleste en francés, Tornado di Fuoco y Mano di Luce en italiano, Feuertornado y Himmelshand en alemán. Los elementos son Feu, Air, Bois y Terre en francés, Fuoco, Vento, Foresta y Montagna en italiano, y Feuer, Wind, Holz y Erde en alemán.') },
       { icon: '⌨️', title: tr('Teclados AZERTY'), text: tr('El movimiento va por la posición de las teclas y no por la letra: en un teclado francés te mueves con ZQSD.') },
+      { icon: '🎮', title: tr('Más juegos de AstraStorm'), text: tr('En la barra de arriba del menú y en Créditos, el botón de itch.io lleva a la página de AstraStorm, el creador, con sus otros juegos. Si quieres apoyar sus próximos proyectos, ahí lo tienes.') },
       { icon: '🔢', title: tr('Números a su manera'), text: tr('Cifras y fechas en el formato de cada idioma: 1 000 en francés, 1.000 en italiano y en alemán.') },
     ],
     start: [tr('Abre Ajustes y mira la nueva opción Idioma.'), tr('Pásale el juego a tus amigos de Francia, Italia y Alemania.')],
