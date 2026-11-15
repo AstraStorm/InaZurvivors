@@ -469,3 +469,17 @@ body.reduced-motion .l28 * { animation: none !important; }
 :is(.rank-row, .wr-row) .rk-num small { color: #cfe0ff; text-shadow: 1px 1px 0 #000; }
 :is(.rank-row, .wr-row) .rk-name b, .wr-row .wr-name b { text-shadow: 2px 2px 0 #000, -1px 0 0 #000, 0 -1px 0 #000; }
 :is(.rank-row, .wr-row) .rk-name small { color: #e6eeff; text-shadow: 1px 1px 0 #000; }
+/* live 2.8 feedback: the favourite-team crest sat on the drawn ring; the BlueLock plate was cut by the card's edge */
+.pf-avatar:has(.fr-host.rnd) .pf-crest { right: -40px; bottom: -14px; width: 40px; height: 40px; }
+.pf-avatar:has(.fr-host.rnd.wide) .pf-crest { right: -54px; }
+.pf-card:has(.fr-host.rnd) { padding-bottom: 44px !important; }
+/* podiums: the drawn frame a size smaller and room under it, so the name's ribbon stays clear */
+:is(.rk-pod, .wr-pod) > .fr-host:has(.fr-art) { transform: scale(.82); margin-bottom: 18px; }
+:is(.rk-pod, .wr-pod) > .fr-host.wide:has(.fr-art) { margin-bottom: 14px; }
+/* the menu's world ranking rows: points / time / damage on a dark plate like the ranking's */
+.wr-row .wr-num { position: relative; z-index: 1; padding: 3px 10px; border-radius: 8px; background: #050c22d0; box-shadow: inset 0 0 0 1px #ffffff22; }
+.wr-row .wr-num b { color: #fff; font-size: 11px; text-shadow: 2px 2px 0 #000; }
+.wr-row .wr-num small { color: #e2ecff; font-size: 8px; text-shadow: 1px 1px 0 #000; }
+.wr-row .wr-who b { text-shadow: 2px 2px 0 #000, -1px 0 0 #000, 0 -1px 0 #000; }
+.wr-row .wr-who small { color: #eef3ff; text-shadow: 1px 1px 0 #000; }
+.wr-pod .rk-pmeta b, .rk-pod .rk-pmeta b, .wr-pod .rk-pmeta small, .rk-pod .rk-pmeta small { text-shadow: 1px 1px 0 #000; }
