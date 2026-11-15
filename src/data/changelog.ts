@@ -15,6 +15,17 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: '16.0', date: '2026-11-15', title: '2.7 Guía, tutorial y media del equipo',
+    features: [
+      'Tutorial rehecho en dos capítulos (autor: «el tutorial se quedó atrás con las cosas nuevas»): 10 pasos; corrige la diapositiva «vida compartida» (solo el capitán recibe daño) y añade las ultis de los Espíritus (R / Y), altares, formaciones con LB/RB y rangos C-Z; termina en el recorrido del menú.',
+      'Recorrido por el menú con foco sobre el menú real, «¿Cómo se juega?» con el tutorial, el recorrido y la guía de cada pantalla, y un botón ? en la barra de 24 pantallas que se explica sola la primera vez (se puede desactivar).',
+      'Mi Equipo: MEDIA DEL EQUIPO de los siete candidatos (con Auras), coloreada por la rareza a la que equivale, con la media de cada estadística y la del capitán (autor).',
+    ],
+    fixes: ['Títulos del tutorial sin traducir (Muévete, Supertécnicas, Formaciones); el mando ya navega dentro del tutorial (antes movía el menú de detrás).'],
+    visuals: ['Diapositivas que entran deslizándose, barra de progreso, iconos que aparecen uno a uno, el capitán en el campito de prueba; navegación con ← → y deslizando.'],
+    balance: [],
+  },
+  {
     version: '15.1', date: '2026-11-14', title: 'David, Xavier y la carta seleccionada',
     features: [],
     fixes: [

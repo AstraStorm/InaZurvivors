@@ -106,6 +106,10 @@ export interface SaveData {
   /** pre-2.0: Road to Fútbol Frontier — the road in progress and the clears per difficulty (road.ts) */
   road?: { active?: { diff: 'facil' | 'normal' | 'maxima'; level: number; squad: number[] }; clears: Partial<Record<'facil' | 'normal' | 'maxima', number>> };
   roadIntroSeen?: boolean;
+  /** 2.7: the screens whose tip was shown on their first visit (guide.ts), tips switched off, the menu tour seen */
+  helpSeen?: string[];
+  tipsOff?: boolean;
+  menuTourSeen?: boolean;
   /** 1.9: the tier list being made (systems/tierlist.ts); published ones live on the server */
   tierDraft?: { topic: string; tiers: Record<string, number[]> };
   /** 1.93: clan items from the Juegos del Clan and this week's clan shop purchases (systems/clans.ts) */

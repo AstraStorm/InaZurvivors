@@ -1,0 +1,111 @@
+/* 2.7: tutorial rewritten, menu tour, «?» tips of every screen, the guide and the team average of Mi Equipo.
+   Only transform/opacity animate (no box-shadow or filter animations: they repaint every frame). */
+
+/* ---------------------------------------------------------------- tutorial */
+.tut-card-main { overflow: hidden; padding-top: 20px; }
+.tut-card-main.from-r { animation: tutInR .34s cubic-bezier(.2, 1.3, .5, 1); }
+.tut-card-main.from-l { animation: tutInL .34s cubic-bezier(.2, 1.3, .5, 1); }
+@keyframes tutInR { from { opacity: 0; transform: translateX(40px) scale(.97); } }
+@keyframes tutInL { from { opacity: 0; transform: translateX(-40px) scale(.97); } }
+.tut-bar { position: absolute; left: 0; right: 0; top: 0; height: 5px; background: #ffffff18; }
+.tut-bar b { display: block; height: 100%; background: linear-gradient(90deg, var(--orange), var(--yellow)); transition: width .4s ease; }
+.tut-step { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+.tut-step small { color: var(--orange-2); font-size: 7px; letter-spacing: 1px; }
+.tut-card-main h2 { animation: tutPop .4s .05s both cubic-bezier(.3, 1.6, .6, 1); }
+.tut-pop { animation: tutPop .42s calc(.12s + var(--i, 0) * .07s) both cubic-bezier(.3, 1.6, .6, 1); }
+@keyframes tutPop { from { opacity: 0; transform: translateY(10px) scale(.7); } }
+.tut-dots i { cursor: pointer; transition: transform .2s; } .tut-dots i.done { background: var(--orange); } .tut-dots i.on { transform: scale(1.35); }
+.tut-card { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.tut-card b { font-size: 8px; }
+.tut-caphp { display: flex; flex-direction: column; align-items: center; gap: 4px; } .tut-caphp small { font-size: 7px; color: var(--yellow); }
+.tut-ball canvas { display: block; } .tut-ball.flip canvas { transform: scaleX(-1); }
+.tut-chip { font-size: 8px; padding: 6px 9px; border: 2px solid var(--ac, var(--frame-dim)); background: #0a1d48; color: #fff; display: inline-flex; align-items: center; gap: 6px; }
+.tut-chip.hot { border-color: var(--yellow); color: var(--yellow); }
+.tut-chip.big { font-size: 9px; padding: 8px 11px; } .tut-chip .uic { width: 16px; height: 16px; }
+.keys kbd.pad { border-radius: 50%; background: #c99a00; color: #000; }
+.tut-ult { position: relative; width: 92px; height: 92px; display: grid; place-items: center; }
+.tut-ult img, .tut-ult .uic { width: 58px; height: 58px; position: relative; animation: tutBob 1.6s ease-in-out infinite; }
+.tut-ring { position: absolute; inset: 0; border-radius: 50%; border: 4px solid var(--yellow); animation: tutRing 1.6s ease-out infinite; }
+@keyframes tutRing { from { transform: scale(.55); opacity: 1; } to { transform: scale(1.15); opacity: 0; } }
+@keyframes tutBob { 50% { transform: translateY(-4px) scale(1.06); } }
+.tut-altar { position: relative; width: 74px; height: 74px; display: grid; place-items: center; }
+.tut-altar i { position: absolute; inset: 0; border-radius: 50%; border: 3px dashed #ffc83a; animation: tutSpin 6s linear infinite; }
+.tut-altar i + i { inset: 10px; border-style: solid; border-width: 2px; opacity: .6; animation: tutRing 1.8s ease-out infinite; }
+.tut-altar b { font-size: 22px; color: #ffc83a; }
+@keyframes tutSpin { to { transform: rotate(360deg); } }
+.tut-rank { width: 34px; height: 34px; display: grid; place-items: center; font-size: 14px; color: #000; background: var(--rk); clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%); }
+.tut-rank .rz-b svg { width: 22px; height: 22px; }
+
+/* ---------------------------------------------------------------- the «?» of the titlebar */
+.tb-help { font: inherit; font-size: 12px; width: 26px; height: 26px; border-radius: 50%; border: 2px solid var(--yellow); background: #0a1d48; color: var(--yellow); cursor: pointer; display: grid; place-items: center; padding: 0; transition: transform .15s; }
+.tb-help:hover, .tb-help.pad-focus { transform: scale(1.15); background: var(--yellow); color: #000; }
+
+/* ---------------------------------------------------------------- tip card */
+.gd-tip { position: fixed; z-index: 85; right: 16px; bottom: 16px; width: min(360px, calc(100vw - 32px)); padding: 12px 14px; background: linear-gradient(180deg, #1b438f, #0a1d48); border: 2px solid var(--yellow); box-shadow: 0 10px 30px #000a; animation: gdTipIn .35s cubic-bezier(.2, 1.4, .5, 1); }
+.gd-tip.out { animation: gdTipOut .22s ease-in forwards; }
+@keyframes gdTipIn { from { opacity: 0; transform: translateY(24px) scale(.95); } }
+@keyframes gdTipOut { to { opacity: 0; transform: translateY(18px); } }
+.gd-tip-head { display: flex; align-items: center; gap: 10px; }
+.gd-tip-head > span:nth-child(2) { display: flex; flex-direction: column; gap: 3px; flex: 1; }
+.gd-tip-head small { font-size: 7px; color: var(--orange-2); letter-spacing: 1px; } .gd-tip-head b { font-size: 11px; color: var(--yellow); }
+.gd-tip-ic { width: 32px; height: 32px; display: grid; place-items: center; background: var(--orange); color: #fff; } .gd-tip-ic .uic { width: 20px; height: 20px; }
+.gd-x { font: inherit; background: none; border: 0; color: var(--muted); cursor: pointer; font-size: 12px; }
+.gd-tip p { font-size: 9px; line-height: 1.8; margin: 10px 0 6px; }
+.gd-tip ul, .gd-item ul { margin: 0; padding-left: 16px; font-size: 8px; line-height: 1.8; color: var(--muted); }
+.gd-tip li { animation: tutPop .35s calc(.15s + var(--i) * .06s) both; } .gd-tip li::marker, .gd-item li::marker { color: var(--yellow); }
+.gd-tip-foot { display: flex; align-items: center; gap: 8px; margin-top: 10px; } .gd-tip-foot small { flex: 1; font-size: 7px; color: var(--muted); }
+.gd-off { flex: 1; text-align: left; font: inherit; font-size: 7px; background: none; border: 0; color: var(--muted); text-decoration: underline; cursor: pointer; padding: 0; }
+
+/* ---------------------------------------------------------------- menu tour */
+.gd-tour { position: fixed; inset: 0; z-index: 95; animation: gdFade .25s; }
+.gd-tour.out { animation: gdTipOut .22s forwards; }
+@keyframes gdFade { from { opacity: 0; } }
+.gd-hole { position: fixed; border-radius: 10px; box-shadow: 0 0 0 9999px #020814d0; pointer-events: none; transition: left .35s cubic-bezier(.3, 1.2, .5, 1), top .35s cubic-bezier(.3, 1.2, .5, 1), width .35s, height .35s; }
+.gd-hole i { position: absolute; inset: -4px; border-radius: 12px; border: 3px solid var(--yellow); animation: gdPulse 1.4s ease-out infinite; }
+@keyframes gdPulse { from { transform: scale(1); opacity: 1; } to { transform: scale(1.06); opacity: 0; } }
+.gd-bubble { position: fixed; padding: 12px 14px; background: linear-gradient(180deg, #1b438f, #0a1d48); border: 2px solid var(--yellow); box-shadow: 0 10px 30px #000a; transition: left .3s, top .3s; }
+.gd-bubble.pop { animation: tutPop .35s cubic-bezier(.3, 1.6, .6, 1); }
+.gd-bubble h3 { margin: 6px 0; font-size: 12px; color: var(--yellow); }
+.gd-bubble p { margin: 0 0 10px; font-size: 9px; line-height: 1.8; }
+.gd-b-top { display: flex; align-items: center; gap: 8px; } .gd-b-top small { font-size: 7px; color: var(--muted); }
+.gd-bar { flex: 1; height: 4px; background: #ffffff18; } .gd-bar b { display: block; height: 100%; background: linear-gradient(90deg, var(--orange), var(--yellow)); transition: width .35s; }
+.gd-b-nav { display: flex; gap: 6px; align-items: center; } .gd-b-nav .btn { white-space: nowrap; padding: 7px 8px; }
+.gd-skip { font: inherit; font-size: 7px; background: none; border: 0; padding: 4px 0; color: var(--muted); text-decoration: underline; cursor: pointer; text-align: left; } .gd-b-nav .spacer { flex: 1; }
+
+/* ---------------------------------------------------------------- «¿Cómo se juega?» */
+.gd-hub { width: min(760px, 100%); max-height: calc(100vh - 32px); overflow: auto; animation: rsIn .3s cubic-bezier(.3, 1.5, .6, 1); }
+.gd-hub h2 { display: flex; align-items: center; gap: 8px; color: var(--yellow); font-size: 15px; margin: 0 0 12px; } .gd-hub h2 .uic { width: 22px; height: 22px; }
+.gd-hub h3 { font-size: 10px; margin: 16px 0 8px; color: var(--orange-2); }
+.gd-hub-top { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.gd-big { font: inherit; color: #fff; cursor: pointer; display: grid; grid-template-columns: auto 1fr; grid-template-rows: auto auto; column-gap: 10px; row-gap: 4px; align-items: center; text-align: left; padding: 12px; background: linear-gradient(180deg, #ffa53a, var(--orange) 55%, #c95300); border: 2px solid #ffe0a8; transition: transform .15s; }
+.gd-big:hover, .gd-big.pad-focus { transform: translateY(-2px) scale(1.02); }
+.gd-big-ic { grid-row: 1 / 3; width: 34px; height: 34px; display: grid; place-items: center; background: #0004; } .gd-big-ic .uic { width: 22px; height: 22px; }
+.gd-big b { font-size: 11px; } .gd-big small { font-size: 7px; opacity: .9; }
+.gd-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 10px; }
+.gd-group h4 { margin: 0 0 6px; font-size: 8px; color: var(--yellow); letter-spacing: 1px; }
+.gd-item { background: #0a1d48; border: 2px solid var(--frame-dim); margin-bottom: 6px; }
+.gd-item[open] { border-color: var(--yellow); }
+.gd-item summary { list-style: none; cursor: pointer; display: flex; gap: 8px; align-items: center; padding: 8px; }
+.gd-item summary::-webkit-details-marker { display: none; }
+.gd-item summary.pad-focus { background: #ffffff14; }
+.gd-item summary > span:last-child { display: flex; flex-direction: column; gap: 3px; } .gd-item summary b { font-size: 9px; } .gd-item summary small { font-size: 7px; color: var(--muted); line-height: 1.6; }
+.gd-ic { flex: none; width: 26px; height: 26px; display: grid; place-items: center; background: var(--panel-2); color: var(--yellow); } .gd-ic .uic { width: 16px; height: 16px; }
+.gd-item ul { padding: 0 12px 10px 30px; }
+.gd-hub-foot { display: flex; align-items: center; gap: 10px; margin-top: 14px; flex-wrap: wrap; } .gd-hub-foot .spacer { flex: 1; }
+.gd-check { font-size: 8px; display: flex; gap: 6px; align-items: center; cursor: pointer; }
+@media (max-width: 560px) { .gd-hub-top { grid-template-columns: 1fr; } .gd-list { grid-template-columns: 1fr; } }
+
+/* ---------------------------------------------------------------- Mi Equipo: team average */
+.sq-avg { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin: 10px 0; padding: 10px 14px; background: linear-gradient(90deg, color-mix(in srgb, var(--rc) 26%, #0a1d48), #0a1d48 70%); border: 2px solid var(--rc); }
+.sq-avg-main { display: flex; flex-direction: column; align-items: center; min-width: 96px; }
+.sq-avg-main small { font-size: 7px; color: var(--muted); letter-spacing: 1px; }
+.sq-avg-main b { font-size: 30px; line-height: 1.1; color: var(--rc); text-shadow: 2px 2px 0 #000; animation: tutPop .45s cubic-bezier(.3, 1.6, .6, 1); }
+.sq-avg-main em { font-style: normal; font-size: 7px; color: var(--rc); }
+.sq-avg-stats { flex: 1; display: grid; grid-template-columns: repeat(7, minmax(36px, 1fr)); gap: 6px; min-width: 240px; }
+.sq-avg-stats span { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+.sq-avg-stats small { font-size: 7px; color: var(--muted); } .sq-avg-stats b { font-size: 11px; }
+.sq-avg-stats i { width: 100%; height: 4px; background: #ffffff18; position: relative; overflow: hidden; }
+.sq-avg-stats i::after { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: var(--p); background: var(--rc); }
+.sq-avg-stats span.top b { color: var(--yellow); }
+.sq-avg-side { display: flex; flex-direction: column; gap: 4px; font-size: 8px; color: var(--muted); } .sq-avg-side b { color: #fff; }
+@media (max-width: 560px) { .sq-avg-stats { grid-template-columns: repeat(4, 1fr); min-width: 0; } }

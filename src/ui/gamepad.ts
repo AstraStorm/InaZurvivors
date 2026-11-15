@@ -1,12 +1,13 @@
 /** Menu navigation with a gamepad (spatial focus, A confirm, B back) and the on-screen touch stick. */
 import { firstPad, padStick, touchStick } from '../game/controls';
 
-const FOCUSABLE = 'button:not(:disabled), .pcard[data-id], select, input';
+const FOCUSABLE = 'button:not(:disabled), .pcard[data-id], select, input, summary';
 const REPEAT_MS = 190;
 
 function scope(): ParentNode {
   const ui = document.getElementById('ui')!;
-  return ui.querySelector('.reveal') ?? ui.querySelector('.levelup') ?? ui.querySelector('.modal') ?? ui;
+  // 2.7: the tutorial, the menu tour and the guide live over the page (guide.ts .gd-layer)
+  return document.querySelector<HTMLElement>('body > .gd-layer') ?? ui.querySelector('.reveal') ?? ui.querySelector('.levelup') ?? ui.querySelector('.modal') ?? ui;
 }
 
 const visible = (el: HTMLElement) => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0; };

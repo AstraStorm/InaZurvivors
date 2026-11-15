@@ -5,6 +5,7 @@ import { rankMark, zEmblem } from './rankZ';
 import type { Manifest, MapInfo, Rarity, RosterEntry, Technique } from '../data/manifest';
 import { ICON, RARITY_LABEL, RARITY_ORDER } from '../data/manifest';
 import { uiIcon, type UiIconName } from './uiIcons';
+import { guideFor, guideHub, menuTourSteps, runTour, showTip } from './guide';
 import { deathCause } from '../systems/deathCause';
 import { serverNow, syncServerTime, timeSource, trustedClock } from '../online/serverTime';
 import { PASS, PASS_TOTAL, claimPass, passStatus, type PassReward } from '../systems/weeklyPass';
@@ -52,12 +53,12 @@ import { buildMeta, CATEGORIES, SEVERITIES, SHOT_MAX_BYTES, SHOT_MAX_SIDE, SHOT_
 import { elementIcon, setElementArt } from './elements';
 import { prefetchRunArt, showRunLoader } from './runLoader';
 import { EXTRA_STARS_MAX, affordableStars, assignPick, buyStars, resetStars185, restoreHeroStars188, capBonusOf, extraStarsOf, hasExtraStars, nextStar, pendingPicks, STAR_CAP_STEP } from '../systems/stars';
-import { CHAMPION_CAP, CHAMPION_STATS, CHAMPION_TRAIN, playerStats, resetTraining, statCapOf, trainingOf, trainingUsed, trainMaxOf, trainRoom, trainStat, trimTraining, type StatKey } from '../systems/training';
+import { CHAMPION_CAP, CHAMPION_STATS, CHAMPION_TRAIN, RARITY_STAT_MEAN, playerStats, resetTraining, statCapOf, trainingOf, trainingUsed, trainMaxOf, trainRoom, trainStat, trimTraining, type StatKey } from '../systems/training';
 import { AURA_PCT, AURA_ELEMENT_BONUS, AURA_TECH_DAMAGE, BOND_PCT, EFFECTIVE_STAT_MAX, auraBonus, auraOf, bondOf, canBeAura, carrierForRun, carrierOf, equipAura, inheritedTechs, removeAura, sanitizeAuras, withAura, type AuraBonus } from '../systems/auras';
 import { BOND_KIND_LABEL } from '../data/auraBonds';
 import { ascendAll, ascendableCount, ASC_BONUS, ASC_COSTS, CHAMPION_COSTS, CHAMPION_LABEL, CHAMPION_MAX, HERO_AURA, HERO_STARS_MAX, championOf, compensateDrakul153, migrateChampions18, migrateHeroes131, type AscStep, ascend, ascMultipliers, effectiveRarity, isHero, isTopRarity, nextStep, rarityUp, sparesOf } from '../systems/ascension';
 import { USERNAME_MAX, validateUsername } from '../systems/username';
-import { ALTAR_COLOR, ALTAR_ICON, ALTAR_INFO, ALTAR_MODE, ALTAR_REWARD } from '../systems/altars';
+import { ALTAR_COLOR, ALTAR_ICON, ALTAR_INFO, ALTAR_LABEL, ALTAR_MODE, ALTAR_REWARD } from '../systems/altars';
 import { adaptedPassive, passiveText, talentChanges, talentText } from '../systems/talents';
 import { adminSuggestions, adminUpdateSuggestion, claimBugNotices, claimBugRewards, claimSuggestionNotices, mySuggestions, redeemCode, submitSuggestion, type SuggestionRow } from '../online/client';
 import { THANKS_EVENT, addThanksTokens, thanksActive, thanksLeftMs, thanksTokens } from '../systems/thanksEvent';
@@ -796,6 +797,7 @@ export class App {
     const top = same ? this.root.querySelector('.screen, .menu-root')?.scrollTop ?? 0 : 0;
     if (!same) document.querySelectorAll('.toast.screen-bound').forEach((t) => t.remove());
     if (!same) document.getElementById('zabel')?.remove(); // 2.3: Zabel's notice belongs to the screen that opened it (it stayed over the run on phones)
+    if (!same) document.getElementById('gdtip')?.remove(); // 2.7: a screen's tip leaves with it
     this.screenKey = key;
     this.root.innerHTML = html.replace(/<img /g, '<img decoding="sync" ');
     // Fix 1.22: looping effects (card glows, sheens...) are anchored to the document clock, so a repaint (selecting a card
@@ -806,12 +808,46 @@ export class App {
     if (!same) first?.classList.add('enter');
     if (top && first) first.scrollTop = top;
     mountPreviews();
+    if (!same) this.screenTip();
     // Fix 1.32 perf: a full-screen menu covers the game canvas: the game loop sleeps (it kept drawing the menu pitch and
     // its players 60 times a second under Mi Equipo, the collection, the shop...) and wakes on the main menu and runs
     const covered = !!this.root.querySelector(':scope > .screen');
     const loop = this.game.loop;
     if (covered && loop.running) loop.sleep();
     else if (!covered && !loop.running) loop.wake();
+  }
+  /** 2.7: the «?» of the titlebar explains its screen; the first visit explains it on its own (once per screen, until tipsOff) */
+  private helpWired = false;
+  private screenTip() {
+    if (!this.helpWired) {
+      this.helpWired = true;
+      this.root.addEventListener('click', (e) => {
+        if (!(e.target as HTMLElement).closest?.('[data-help]')) return;
+        const g = guideFor(this.root.querySelector('.titlebar h2')?.textContent ?? '');
+        if (g) showTip(g, false, () => undefined);
+      });
+    }
+    const g = guideFor(this.root.querySelector('.titlebar h2')?.textContent ?? '');
+    if (!g || !this.save.onboardingDone || this.save.tipsOff || (this.save.helpSeen ?? []).includes(g.id)) return;
+    const key = this.screenKey;
+    window.setTimeout(() => {
+      if (this.screenKey !== key || document.querySelector('.gd-layer, #tut, .modal, .launch20, .eg-intro') || this.game.scene.isActive('Arena')) return;
+      this.save.helpSeen = [...(this.save.helpSeen ?? []), g.id];
+      this.persist();
+      showTip(g, true, (off) => { if (off) { this.save.tipsOff = true; this.persist(); this.toast(tr('Consejos desactivados. Puedes volver a activarlos en «¿Cómo se juega?».'), 3500); } });
+    }, 650);
+  }
+  /** 2.7: «¿Cómo se juega?»: the tutorial, the menu tour and the guide of every screen */
+  private howToPlay() {
+    guideHub({ tipsOn: !this.save.tipsOff, onTutorial: () => this.tutorial(), onTour: () => this.menuTour(),
+      onTips: (on) => { this.save.tipsOff = !on; if (on) this.save.helpSeen = []; this.persist(); } });
+  }
+  /** 2.7: the spotlight tour of the main menu (it opens the menu first when called from elsewhere) */
+  menuTour() {
+    const run = () => runTour(menuTourSteps(), () => { this.save.menuTourSeen = true; this.persist(); document.querySelector('.m4-play')?.scrollIntoView({ block: 'nearest' }); });
+    if (this.screenKey === 'menu-mode') { run(); return; }
+    this.mainMenu();
+    window.setTimeout(run, 450);
   }
   private on(sel: string, ev: string, fn: (e: Event, el: HTMLElement) => void, scope: ParentNode = this.root) {
     scope.querySelectorAll<HTMLElement>(sel).forEach((el) => el.addEventListener(ev, (e) => fn(e, el)));
@@ -893,7 +929,7 @@ export class App {
   }
   private titlebar(title: string, back?: string) {
     return `<div class="titlebar">${back ? `<button class="tb-back" data-back><span>‹</span>${esc(tr(back))}</button>` : ''}
-      <h2>${esc(tr(title))}</h2><span class="spacer"></span><span class="tb-wallet"><span class="tokens" title="${tr('Fichas de Fichaje')}">${this.save.tokens}</span><span class="coins" title="${tr('Monedas')}">${this.save.coins}</span></span></div>`;
+      <h2>${esc(tr(title))}</h2>${guideFor(tr(title)) ? `<button class="tb-help" data-help title="${tr('¿Para qué sirve?')}" aria-label="${tr('¿Para qué sirve?')}">?</button>` : ''}<span class="spacer"></span><span class="tb-wallet"><span class="tokens" title="${tr('Fichas de Fichaje')}">${this.save.tokens}</span><span class="coins" title="${tr('Monedas')}">${this.save.coins}</span></span></div>`;
   }
   private techHtml(t: Technique) {
     return `<div class="tech">${this.icon(ICON.manual[t.type], 2)}<div><div class="tn">${esc(tTech(t.name))}</div>
@@ -1218,7 +1254,7 @@ export class App {
     this.claimsAnnounced = claims;
     // 2.0 (author): the launch intro, once per browser, before anything else of the menu; 2.4 (author: «que salga en pantalla la
     // alerta al entrar x first time»): the current version's, so everyone sees the new one once
-    if (this.launchPending()) window.setTimeout(() => { if (this.screenKey === 'menu-mode' && !this.game.scene.isActive('Arena')) { if (PUBLIC_VERSION === '2.6' && this.m.vrTeaser?.length) this.vrTeaserPoster(); else this.launch20(); } }, 300);
+    if (this.launchPending()) window.setTimeout(() => { if (this.screenKey === 'menu-mode' && !this.game.scene.isActive('Arena')) this.launch20(); }, 300); // 2.6 showed the Victory Road poster here (vrTeaserPoster)
     // 2.0: the Espíritus Guerreros are introduced once per save (no gift: Fichas EG are earned in rank X)
     if (giveKeshinGift(this.save)) {
       this.persist();
@@ -1272,7 +1308,7 @@ export class App {
       if (go === 'pass') this.weeklyPass();
       if (go === 'season') this.seasonScreen(); // 2.1
       if (go === 'codes') this.codesModal();
-      if (go === 'tutorial') this.tutorial();
+      if (go === 'tutorial') this.howToPlay(); // 2.7: the tutorial, the menu tour and the guide
     });
     document.getElementById('credits')!.addEventListener('click', () => this.credits());
     document.getElementById('menubug')!.addEventListener('click', () => this.bugReportModal());
@@ -2839,7 +2875,8 @@ export class App {
     try { localStorage.setItem(`iz-launch-${version}`, '1'); } catch { /* private window: it may show again */ }
     const rel = PUBLIC_RELEASES.find((r) => r.version === version) ?? PUBLIC_RELEASES[0];
     const spirits = version === '2.0';
-    const sub = spirits ? tr('ESPÍRITUS GUERREROS') : version === '2.4' ? tr('CINCO IDIOMAS') : version === '2.5' ? tr('SIETE IDIOMAS') : tr('NUEVA VERSIÓN');
+    const sub = spirits ? tr('ESPÍRITUS GUERREROS') : version === '2.4' ? tr('CINCO IDIOMAS') : version === '2.5' ? tr('SIETE IDIOMAS') : version === '2.7' ? tr('GUÍA Y TUTORIAL') : tr('NUEVA VERSIÓN');
+    const guide = version === '2.7'; // 2.7: its main button starts the menu tour
     const langs = version === '2.4' ? LANGS.filter((l) => ['es', 'en', 'fr', 'it', 'de'].includes(l.id)) : LANGS;
     const newsId = spirits ? 'version-2-0-espiritus' : `version-${rel.version}`;
     const box = document.createElement('div');
@@ -2852,7 +2889,7 @@ export class App {
     box.innerHTML = `<i class="l2-rays"></i><i class="l2-glow"></i><i class="l2-shock"></i><i class="l2-bolt"></i><i class="l2-flash"></i>
       <div class="l2-main"><div class="l2-logo">INAZURVIVORS</div><div class="l2-vw"><div class="l2-ring">${ring}</div><div class="l2-v">${esc(rel.version)}</div></div><div class="l2-sub">${sub}</div>
         <div class="l2-feats">${feats}</div>
-        <div class="l2-btns"><button class="btn big blue" data-l2news>${tr('Ver todas las novedades')}</button><button class="btn big" data-l2go>${tr('¡A jugar! ▶')}</button></div></div>
+        <div class="l2-btns"><button class="btn big blue" data-l2news>${tr('Ver todas las novedades')}</button>${guide ? `<button class="btn big" data-l2tour>${tr('Ver el recorrido ▶')}</button>` : `<button class="btn big" data-l2go>${tr('¡A jugar! ▶')}</button>`}</div></div>
       <button class="l2-skip" data-l2go>${tr('Saltar')}</button>`;
     document.body.appendChild(box);
     this.launchOrbit(box);
@@ -2871,6 +2908,7 @@ export class App {
     document.addEventListener('keydown', onKey);
     box.querySelectorAll('[data-l2go]').forEach((b) => b.addEventListener('click', () => close(false)));
     box.querySelector('[data-l2news]')!.addEventListener('click', () => close(true));
+    box.querySelector('[data-l2tour]')?.addEventListener('click', () => { close(false); window.setTimeout(() => this.menuTour(), 450); });
   }
 
   private keshinIntro() {
@@ -4820,43 +4858,56 @@ export class App {
   }
 
   // ------------------------------------------------------------- tutorial
-  /** Short visual tour; can be skipped at any step, and replayed from the options. */
-  tutorial(step = 0) {
-    const cap = squadOf(this.save, this.byId)[0] ?? this.unlockedRoster()[0];
-    const mugs = squadOf(this.save, this.byId).slice(0, 5).map((p) => this.mug(p.id, 40)).join('');
-    const slides: { title: string; text: string; art: string }[] = [
-      { title: tr('Sobrevive y gana'), text: tr('Aguanta las oleadas de rivales hasta que llegue el jefe y derrótalo. Solo tu capitán recibe daño: si su vida llega a cero, pierdes (pero te quedas las monedas).'),
-        art: cap ? `<div class="tut-hero">${this.mug(cap.id, 96)}${charCanvas(cap.id, 3, 12)}</div>` : '' },
-      { title: 'Muévete', text: tr('WASD o flechas (o el joystick táctil / mando). Las técnicas se lanzan solas: tú solo te colocas. ¡Pruébalo aquí!'),
-        art: '<div class="tut-pitch" id="tutpitch"><span class="tut-ball" id="tutball">⚽</span></div><div class="keys"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></div>' },
-      { title: tr('Vida compartida'), text: tr('Todo el equipo comparte una barra. Si un rival toca a cualquiera, capitán o compañero, baja para todos.'),
-        art: `<div class="tut-hp"><i></i></div><div class="tut-row">${mugs}</div>` },
-      { title: tr('Ficha en la partida'), text: tr('Empiezas solo con el capitán. Al subir de nivel aparecen cartas para fichar a tus candidatos de Mi Equipo (máximo {MAX_TEAM} en el campo).', { MAX_TEAM }),
-        art: `<div class="tut-row"><span class="tut-card">${tr('¡NUEVO FICHAJE!')}</span><span class="tut-card">${tr('MEJORA · TIRO')}</span><span class="tut-card">${tr('OBJETO')}</span></div>` },
-      { title: 'Supertécnicas', text: tr('Tiro, regate, defensa y parada atacan solos; los talentos son pasivos. Mejóralas hasta nivel 10 y evolucionan.'),
-        art: `<div class="tut-row">${(['tiro', 'regate', 'defensa', 'parada', 'talento'] as const).map((t) => `<span class="tut-type">${this.icon(ICON.manual[t], 3)}<small>${TYPE_LABEL[t]}</small></span>`).join('')}</div>` },
-      { title: 'Formaciones', text: tr('Teclas 1, 2 y 3. Ofensiva: más daño y más riesgo. Equilibrada: neutra. Defensiva: menos daño recibido. Toca una:'),
+  /**
+   * Short visual tour; can be skipped at any step, and replayed from «¿Cómo se juega?» or the options.
+   * 2.7 (author: «el tutorial se quedó atrás con las cosas nuevas»): rewritten. Only the captain takes damage (the old
+   * «vida compartida» slide said otherwise), plus the warrior spirits' ultimates, altars and ranks; the last slide hands
+   * over to the spotlight tour of the menu. Slides enter from the side they come from; ← → and swipes move between them.
+   */
+  tutorial(step = 0, dir = 1) {
+    const squad = squadOf(this.save, this.byId);
+    const cap = squad[0] ?? this.unlockedRoster()[0];
+    const mate = squad[1] ?? this.unlockedRoster()[1];
+    const mugs = squad.slice(0, 5).map((p, i) => `<span class="tut-pop" style="--i:${i}">${this.mug(p.id, 40)}</span>`).join('');
+    const altars = ['entrenamiento', 'cofre', 'minijefe', 'defensa'] as const;
+    const rankHue: Record<string, string> = { C: '#5ee05a', B: '#4fb3ff', A: '#ffb020', S: '#ff5a1f', X: '#ff2a6a', Z: '#b04aff' };
+    const field = tr('EN EL CAMPO'), club = tr('EN EL MENÚ');
+    const slides: { kicker: string; title: string; text: string; art: string }[] = [
+      { kicker: field, title: tr('Sobrevive y gana'), text: tr('Aguanta las oleadas de rivales hasta que llegue el jefe y derrótalo. Solo tu capitán recibe daño: los compañeros son invulnerables y atacan por su cuenta. Si su vida llega a cero, pierdes (pero te quedas las monedas).'),
+        art: cap ? `<div class="tut-hero">${this.mug(cap.id, 96)}${charCanvas(cap.id, 3, 12)}</div><div class="tut-caphp"><small>${tr('CAPITÁN')}</small><div class="tut-hp"><i></i></div></div>` : '' },
+      { kicker: field, title: tr('Muévete'), text: tr('WASD o flechas, el joystick táctil o el mando. Las técnicas se lanzan solas: tú solo te colocas. ¡Prueba a mover a tu capitán!'),
+        art: `<div class="tut-pitch" id="tutpitch"><span class="tut-ball" id="tutball">${cap ? charCanvas(cap.id, 2, 12) : '⚽'}</span></div><div class="keys"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></div>` },
+      { kicker: field, title: tr('Ficha en la partida'), text: tr('Empiezas solo con el capitán. Al subir de nivel aparecen cartas para fichar a tus candidatos de Mi Equipo (máximo {MAX_TEAM} en el campo).', { MAX_TEAM }),
+        art: `<div class="tut-row"><span class="tut-card tut-pop" style="--i:0">${mate ? this.mug(mate.id, 40) : ''}<b>${tr('¡NUEVO FICHAJE!')}</b></span><span class="tut-card tut-pop" style="--i:1">${this.icon(ICON.manual.tiro, 2)}<b>${tr('MEJORA · TIRO')}</b></span><span class="tut-card tut-pop" style="--i:2">${this.icon(ICON.riceBall, 2)}<b>${tr('OBJETO')}</b></span></div>` },
+      { kicker: field, title: tr('Supertécnicas'), text: tr('Tiro, regate, defensa y parada atacan solas; los talentos son pasivos. Cada carta de mejora las sube de nivel y a nivel 10 evolucionan. Si varios compañeros tienen sus técnicas al nivel justo, aparece la carta de una técnica combinada.'),
+        art: `<div class="tut-row">${(['tiro', 'regate', 'defensa', 'parada', 'talento'] as const).map((t, i) => `<span class="tut-type tut-pop" style="--i:${i}">${this.icon(ICON.manual[t], 3)}<small>${TYPE_LABEL[t]}</small></span>`).join('')}</div>
+          <div class="tut-row"><span class="tut-chip">${tr('Nv. 10 → EVOLUCIÓN')}</span><span class="tut-chip hot">${tr('¡TÉCNICA COMBINADA!')}</span></div>` },
+      { kicker: field, title: tr('Espíritus Guerreros'), text: tr('Si un futbolista tiene su Espíritu Guerrero desbloqueado, en el campo carga una ulti. Cuando brille, pulsa R, Y en el mando o su botón en pantalla. Los golpes encadenados (¡GENIAL!, ¡BRUTAL!…) la cargan antes.'),
+        art: `<div class="tut-ult"><span class="tut-ring"></span>${this.m.eg ? `<img src="${this.m.eg.insignia}" alt="">` : uiIcon('fire')}</div><div class="keys"><kbd>R</kbd><kbd class="pad">Y</kbd></div>` },
+      { kicker: field, title: tr('Formaciones'), text: tr('Teclas 1, 2 y 3 (o los botones LB y RB del mando). Ofensiva: más daño y más riesgo. Equilibrada: técnicas combinadas más fuertes. Defensiva: menos daño recibido. Toca una:'),
         art: `<div class="tut-row" id="tutform">${FORMATION_ORDER.map((f) => `<button class="tut-f" data-f="${f}">${FORMATION_ICON(f, 56)}<small>[${FORMATIONS[f].key}] ${FORMATIONS[f].label}</small></button>`).join('')}</div><div class="note" id="tutfdesc"></div>` },
-      { title: tr('Objetos y experiencia'), text: tr('Chispa verde, balón azul y rayo dorado dan experiencia (de menos a más). La comida cura y los objetos especiales te ayudan un rato.'),
-        art: `<div class="tut-row"><span class="orb o0"></span><span class="orb o1"></span><span class="orb o2"></span>${this.icon(206, 3)}${this.icon(303, 3)}</div>` },
-      { title: tr('Fichajes y fichas'), text: tr('Las Fichas de Fichaje se ganan jugando y con misiones. En la máquina, ×1 cuesta {PULL_COST}. Un futbolista nuevo es tuyo para siempre; un duplicado le da estrellas.', { PULL_COST }),
-        art: this.cap('coin_oro') ? `<img class="tut-img" src="${this.cap('coin_oro')}" alt="">` : '' },
-      { title: tr('Mejoras permanentes'), text: tr('Las monedas compran mejoras que duran para siempre: vida, daño, imán, ranuras de técnica y más.'),
-        art: `<div class="tut-row"><span class="tut-card">${tr('▲ MEJORAS')}</span><span class="tut-card">${tr('★ TÉCNICAS')}</span></div>` },
-      { title: tr('Prepara tu equipo'), text: tr('En Mi Equipo eliges 7 candidatos y el capitán. Luego, JUGAR, elige rango (C es el más fácil) y ¡al campo!'),
-        art: `<div class="tut-row">${mugs}</div>` },
+      { kicker: field, title: tr('Altares'), text: tr('A veces aparece una zona marcada en el campo. Entra en ella para empezar un reto (entrenar, defender, abrir un cofre, un minijefe…) y llevarte un premio. Si la ignoras, no pasa nada.'),
+        art: `<div class="tut-altar"><i></i><i></i><b>${ALTAR_ICON.cofre}</b></div><div class="tut-row">${altars.map((a, i) => `<span class="tut-chip tut-pop" style="--i:${i};--ac:#${ALTAR_COLOR[a].toString(16).padStart(6, '0')}">${ALTAR_ICON[a]} ${esc(ALTAR_LABEL[a])}</span>`).join('')}</div>` },
+      { kicker: field, title: tr('Objetos y experiencia'), text: tr('Chispa verde, balón azul y rayo dorado dan experiencia (de menos a más). La comida cura y los objetos especiales te ayudan un rato.'),
+        art: `<div class="tut-row"><span class="orb o0 tut-pop" style="--i:0"></span><span class="orb o1 tut-pop" style="--i:1"></span><span class="orb o2 tut-pop" style="--i:2"></span>${this.icon(206, 3)}${this.icon(303, 3)}</div>` },
+      { kicker: field, title: tr('Rangos de dificultad'), text: tr('Antes de cada partida eliges arena y rango. C es el más fácil y Z el más difícil: cuanto más alto, más monedas y fichas. Ganar en X o Z da Fichas EG para los Espíritus. Gana una arena para abrir la siguiente.'),
+        art: `<div class="tut-row tut-ranks">${RANK_ORDER.map((r, i) => `<span class="tut-rank tut-pop" style="--i:${i};--rk:${rankHue[r]}">${rankMark(r)}</span>`).join('')}</div><div class="tut-row"><span class="tut-chip">${tr('X · Z → {x1} Fichas EG', { x1: this.egIcon(14) })}</span></div>` },
+      { kicker: club, title: tr('Tu club te espera'), text: tr('Entre partidas está el menú: allí fichas, haces a tu equipo más fuerte para siempre y compites con todo el mundo. ¿Te enseñamos dónde está cada cosa?'),
+        art: `<div class="tut-row">${mugs}</div><div class="tut-row"><span class="tut-chip big tut-pop" style="--i:3">${uiIcon('team')}${tr('TU CLUB')}</span><span class="tut-chip big tut-pop" style="--i:4">${uiIcon('capsule')}${tr('FICHAJES')}</span><span class="tut-chip big tut-pop" style="--i:5">${uiIcon('crown')}${tr('COMPETICIÓN')}</span></div>` },
     ];
-    const s = slides[Math.max(0, Math.min(step, slides.length - 1))];
+    step = Math.max(0, Math.min(step, slides.length - 1));
+    const s = slides[step];
     const last = step >= slides.length - 1;
     document.getElementById('tut')?.remove();
     const box = document.createElement('div');
     box.id = 'tut';
-    box.className = 'tut-modal';
-    box.innerHTML = `<div class="tut-card-main panel"><div class="tut-step">${step + 1}/${slides.length}</div><h2>${esc(s.title)}</h2>
+    box.className = 'tut-modal gd-layer';
+    box.innerHTML = `<div class="tut-card-main panel ${dir < 0 ? 'from-l' : 'from-r'}"><div class="tut-bar"><b style="width:${(step + 1) / slides.length * 100}%"></b></div>
+      <div class="tut-step"><small>${esc(s.kicker)}</small>${step + 1}/${slides.length}</div><h2>${esc(s.title)}</h2>
       <div class="tut-art">${s.art}</div><p>${esc(s.text)}</p>
-      <div class="tut-dots">${slides.map((_, i) => `<i class="${i === step ? 'on' : ''}"></i>`).join('')}</div>
-      <div class="tut-nav"><button class="btn small blue" id="tutskip">${tr('Saltar tutorial')}</button><span class="spacer"></span>
-        ${step ? `<button class="btn small blue" id="tutprev">${tr('◀ Atrás')}</button>` : ''}<button class="btn" id="tutnext">${last ? tr('¡A jugar!') : tr('Siguiente ▶')}</button></div></div>`;
+      <div class="tut-dots">${slides.map((_, i) => `<i class="${i === step ? 'on' : i < step ? 'done' : ''}"></i>`).join('')}</div>
+      <div class="tut-nav"><button class="btn small blue" id="tutskip">${last ? tr('Ahora no') : tr('Saltar tutorial')}</button><span class="spacer"></span>
+        ${step ? `<button class="btn small blue" id="tutprev">${tr('◀ Atrás')}</button>` : ''}<button class="btn" id="tutnext">${last ? tr('Enséñame el menú ▶') : tr('Siguiente ▶')}</button></div></div>`;
     document.body.appendChild(box);
     mountPreviews();
     const close = (state: 'hecho' | 'omitido') => {
@@ -4865,8 +4916,10 @@ export class App {
       if (this.save.tutorial !== 'hecho') this.save.tutorial = state;
       this.persist();
     };
-    // the movement slide is playable: the ball follows WASD/arrows inside its little pitch
+    const goto = (i: number) => { window.removeEventListener('keydown', keys); this.tutorial(i, i < step ? -1 : 1); };
+    // the movement slide is playable: the captain follows WASD/arrows inside its little pitch
     let bx = 50, by = 50;
+    const moving = !!document.getElementById('tutball');
     const keys = (e: KeyboardEvent) => {
       const k = moveKey(e);
       const ball = document.getElementById('tutball');
@@ -4874,23 +4927,35 @@ export class App {
         bx = Math.max(5, Math.min(95, bx + (k === 'd' || k === 'arrowright' ? 6 : k === 'a' || k === 'arrowleft' ? -6 : 0)));
         by = Math.max(10, Math.min(90, by + (k === 's' || k === 'arrowdown' ? 8 : k === 'w' || k === 'arrowup' ? -8 : 0)));
         ball.style.left = `${bx}%`; ball.style.top = `${by}%`;
+        if (k === 'a' || k === 'arrowleft') ball.classList.add('flip');
+        if (k === 'd' || k === 'arrowright') ball.classList.remove('flip');
         e.preventDefault();
         return;
       }
       if (k === 'enter') document.getElementById('tutnext')?.click();
+      if (!moving && k === 'arrowright' && !last) goto(step + 1);
+      if (!moving && k === 'arrowleft' && step) goto(step - 1);
       if (k === 'escape') close('omitido');
     };
     window.addEventListener('keydown', keys);
+    // swipes on touch screens (not on the playable pitch)
+    let sx = 0, sy = 0;
+    box.addEventListener('pointerdown', (e) => { sx = e.clientX; sy = e.clientY; });
+    box.addEventListener('pointerup', (e) => {
+      if ((e.target as HTMLElement).closest('#tutpitch')) return;
+      const dx = e.clientX - sx, dy = e.clientY - sy;
+      if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) { if (dx < 0 && !last) goto(step + 1); else if (dx > 0 && step) goto(step - 1); }
+    });
     box.querySelectorAll<HTMLElement>('.tut-f').forEach((b) => b.addEventListener('click', () => {
       box.querySelectorAll('.tut-f').forEach((x) => x.classList.toggle('on', x === b));
       document.getElementById('tutfdesc')!.textContent = FORMATIONS[b.dataset.f as FormationId].description;
     }));
-    document.getElementById('tutskip')!.addEventListener('click', () => close('omitido'));
-    document.getElementById('tutprev')?.addEventListener('click', () => { window.removeEventListener('keydown', keys); this.tutorial(step - 1); });
+    box.querySelectorAll<HTMLElement>('.tut-dots i').forEach((d, i) => d.addEventListener('click', () => { if (i !== step) goto(i); }));
+    document.getElementById('tutskip')!.addEventListener('click', () => close(last ? 'hecho' : 'omitido'));
+    document.getElementById('tutprev')?.addEventListener('click', () => goto(step - 1));
     document.getElementById('tutnext')!.addEventListener('click', () => {
-      if (last) { close('hecho'); return; }
-      window.removeEventListener('keydown', keys);
-      this.tutorial(step + 1);
+      if (last) { close('hecho'); this.menuTour(); return; }
+      goto(step + 1);
     });
   }
 
@@ -4945,6 +5010,22 @@ export class App {
   private auraEntryOf(carrierId: number) { const a = auraOf(this.save, carrierId); return a === null ? undefined : this.byId.get(a); }
   private auraBonusOf(p: RosterEntry): AuraBonus | null { const ae = this.auraEntryOf(p.id); return ae ? auraBonus(this.save, p.id, ae) : null; }
   /** own stats (≤ 99), Aura points and effective stats (≤ 120) of a footballer */
+  /** 2.7 (author: «añade una media total a mi equipo»): the mean of the seven candidates (Auras included, as on their
+   *  slots), coloured by the rarity band it reaches, with the team's average of every stat and the captain's own mean */
+  private squadAverage(squad: RosterEntry[]) {
+    const effs = squad.map((p) => this.statSplit(p).eff).filter((e): e is NonNullable<typeof e> => !!e);
+    if (!effs.length) return '';
+    const means = effs.map((e) => statMean(e));
+    const avg = Math.round(means.reduce((a, b) => a + b, 0) / means.length);
+    const tier = [...RARITY_ORDER].reverse().find((r) => avg >= RARITY_STAT_MEAN[r] - 3) ?? 'comun';
+    const keys = Object.keys(STAT_SHORT).filter((k) => effs.every((e) => typeof (e as Record<string, number>)[k] === 'number'));
+    const per = keys.map((k) => ({ k, v: Math.round(effs.reduce((a, e) => a + (e as Record<string, number>)[k], 0) / effs.length) }));
+    const best = per.reduce((a, b) => (b.v > a.v ? b : a), per[0]);
+    const capMean = squad[0] && this.statSplit(squad[0]).eff ? means[0] : null;
+    return `<div class="sq-avg" style="--rc:${RARITY_COLOR[tier]}"><div class="sq-avg-main"><small>${tr('MEDIA DEL EQUIPO')}</small><b>${avg}</b><em>${RARITY_LABEL[tier]}</em></div>
+      <div class="sq-avg-stats">${per.map((x) => `<span class="${x.k === best?.k ? 'top' : ''}"><small>${STAT_SHORT[x.k]}</small><b>${x.v}</b><i style="--p:${Math.min(100, x.v)}%"></i></span>`).join('')}</div>
+      <div class="sq-avg-side">${capMean !== null ? `<span>${tr('Capitán')} <b>${capMean}</b></span>` : ''}<span>${tr('{n} de {SQUAD_SIZE} candidatos', { n: effs.length, SQUAD_SIZE })}</span></div></div>`;
+  }
   private statSplit(p: RosterEntry) {
     const own = this.statsOf(p) as Record<StatKey, number> | null;
     const b = this.auraBonusOf(p);
@@ -5156,6 +5237,7 @@ export class App {
       ${this.benchPanel()}
       <div class="panel"><div class="note">${tr('Tienes <b>5 equipos</b>: cambia entre ellos arriba. Elige <b>7 candidatos</b>. Empiezas solo con el <b>capitán</b>; al subir de nivel podrás fichar a los otros seis (máximo {MAX_TEAM} en el campo). Pulsa un futbolista de tu colección para añadirlo o quitarlo, pulsa una plaza para cambiarla, o arrastra para colocar e intercambiar. Se guarda solo.', { MAX_TEAM })}</div>
         ${this.teamBar()}
+        ${this.squadAverage(squad)}
         <div class="squad-row">${slots}</div></div>
       <div class="panel sq-picker"><div class="sq-pick-head"><h3>${tr('Tu colección')}</h3>
           <span class="note">${this.auraPick !== null ? `<span class="aura-pick-note">${tr('{x1} <b>Aura de {x2}</b>{x3}', { x1: tr('✦ Elige el'), x2: esc(this.byId.get(this.auraPick)?.name ?? ''), x3: tr(': un Legendario, Mítico o Leyenda (♥ = compatible, 20%)') })}</span> · <button class="linkbtn" id="aucancel">${tr('cancelar')}</button>` : this.squadPicked ? `${tr('Elige quién va a la <b>{x1}</b> ·', { x1: tr('plaza {x1}{x2}', { x1: this.squadSlot + 1, x2: this.squadSlot === 0 ? ' (capitán)' : '' }) })} <button class="linkbtn" id="sqcancel">${tr('cancelar')}</button>` : squad.length < SQUAD_SIZE ? tr('Pulsa un futbolista para añadirlo o quitarlo · o cógelo y arrástralo a una plaza') : tr('Equipo completo: pulsa una plaza para cambiarla, o un futbolista del equipo para quitarlo')}</span>
@@ -6742,6 +6824,8 @@ export class App {
       <div class="opt-row"><span>${tr('Movimiento')}</span>${seg('moveKeys', [['ambos', tr('WASD y flechas')], ['wasd', tr('Solo WASD')], ['flechas', tr('Solo flechas')]], s.moveKeys)}</div>
       <div class="opt-row"><span>${tr('Idioma')}</span>${seg('lang', [['', tr('Automático (navegador)')], ...LANGS.map((l): [string, string] => [l.id, l.label])], s.lang ?? '')}</div>
       <div class="opt-row"><span>${tr('Tutorial')}</span><button class="btn small blue" id="tutagain">${tr('Ver otra vez')}</button></div>
+      <div class="opt-row"><span>${tr('Recorrido por el menú')}</span><button class="btn small blue" id="touragain">${tr('Ver otra vez')}</button></div>
+      <div class="opt-row"><span>${tr('Explicar cada pantalla la primera vez que la abro')}</span>${seg('tips', [['on', tr('Sí')], ['off', tr('No')]], this.save.tipsOff ? 'off' : 'on')}</div>
       <h3 style="margin-top:12px">${tr('Privacidad')}</h3>
       <div class="opt-row"><span>${tr('Compartir mis partidas')}<small class="opt-note">${tr('Con la sesión iniciada, cada partida en solitario se graba (posiciones, técnicas y cartas, sin nada personal) para que el autor vea cómo se juega y equilibre el juego. Se guardan tus 3 últimas y las de tus marcas del ranking.')}</small></span>${seg('shareReplays', [['1', tr('Sí')], ['0', tr('No')]], s.shareReplays === false ? '0' : '1')}</div>
       <h3 style="margin-top:12px">${tr('Copia de seguridad')}</h3>
@@ -6751,13 +6835,14 @@ export class App {
       <h3 style="margin-top:12px">${tr('Empezar de cero')}</h3>
       <div class="opt-row"><span>${tr('Reiniciar progreso')}</span><button class="btn small" id="resetprog">${tr('Reiniciar progreso…')}</button></div>
       <p class="note">${tr('Vuelves a empezar como un jugador nuevo{x1}. No es lo mismo que eliminar la cuenta.', { x1: this.save.onlineName ? tr(', conservando tu cuenta de Google y tu nombre «{onlineName}»', { onlineName: esc(this.save.onlineName) }) : '' })}</p>
-      <p class="note">${tr('Controles: WASD/flechas mover · 1/2/3 formación · Esc/P pausa.')}</p>
+      <p class="note">${tr('Controles: WASD/flechas mover · 1/2/3 formación · R ulti · Esc/P pausa.')}</p>
       <p class="note">${tr('Tu progreso se guarda en este navegador.{x1}', { x1: onlineConfigured() ? tr(' Si entras con Google, también en la nube y en todos tus dispositivos.') : tr(' Usa Exportar/Importar para llevarlo contigo.') })}</p></div></div>`);
     this.on('[data-back]', 'click', () => this.mainMenu());
     document.getElementById('mvol')!.addEventListener('input', (e) => { s.musicVolume = Number((e.target as HTMLInputElement).value); this.applyAudio(); this.persist(); });
     document.getElementById('vol')!.addEventListener('input', (e) => { s.volume = Number((e.target as HTMLInputElement).value); this.applyAudio(); this.persist(); });
     document.getElementById('shake')!.addEventListener('input', (e) => { s.shake = Number((e.target as HTMLInputElement).value); this.persist(); });
     document.getElementById('tutagain')!.addEventListener('click', () => this.tutorial());
+    document.getElementById('touragain')!.addEventListener('click', () => this.menuTour());
     document.getElementById('resetprog')!.addEventListener('click', () => this.resetProgressModal());
     document.getElementById('optbug')!.addEventListener('click', () => this.bugReportModal());
     document.getElementById('optadmin')!.addEventListener('click', () => { void this.adminBugs(); });
@@ -6801,6 +6886,7 @@ export class App {
       const key = el.parentElement!.dataset.seg!;
       const v = el.dataset.v!;
       if (key === 'particles') s.particles = v as ParticleLevel;
+      if (key === 'tips') { this.save.tipsOff = v === 'off'; if (v === 'on') this.save.helpSeen = []; } // 2.7
       if (key === 'flashes') s.flashes = v === '1';
       if (key === 'damageNumbers') s.damageNumbers = v === '1';
       if (key === 'vibration') { s.vibration = v === '1'; if (s.vibration) buzz(40); }

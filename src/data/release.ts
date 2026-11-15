@@ -7,7 +7,7 @@
 import { CHANGELOG } from './changelog';
 import { tr } from '../i18n/i18n';
 
-export const PUBLIC_VERSION = '2.6';
+export const PUBLIC_VERSION = '2.7';
 export const BUILD = CHANGELOG[0].version;
 export const RELEASED = true; // (author) 2.0: the «pre» phase is over
 export const VERSION_LABEL = RELEASED ? `v${PUBLIC_VERSION}` : `v${PUBLIC_VERSION} · pre-lanzamiento`;
@@ -31,6 +31,19 @@ export interface PublicRelease {
 
 /** Public news, newest first. Starts at v1.0: the internal versions before it are not part of the public history. */
 export const PUBLIC_RELEASES: PublicRelease[] = [
+  {
+    version: '2.7', date: '2026-11-15',
+    title: tr("InaZurvivors 2.7 — Guía, tutorial y media del equipo"),
+    tagline: tr("Cada pantalla te explica para qué sirve"),
+    intro: tr("El juego ha crecido mucho y el tutorial se había quedado atrás. Ahora todo se explica: un tutorial nuevo, un recorrido por el menú y un botón ? en cada pantalla."),
+    features: [
+      { icon: '📘', title: tr("Tutorial nuevo"), text: tr("Diez pasos con lo que de verdad importa en el campo: el capitán, las ultis de los Espíritus, los altares, las formaciones y los rangos de C a Z.") },
+      { icon: '🔦', title: tr("Recorrido por el menú"), text: tr("Te señalamos cada sección del menú, una a una: qué hay en Tu Club, Fichajes y Competición y dónde está cada cosa.") },
+      { icon: '❓', title: tr("Un botón ? en cada pantalla"), text: tr("La primera vez que abres una pantalla te explica para qué sirve. Después lo tienes siempre en el ? de arriba.") },
+      { icon: '📊', title: tr("Media del equipo"), text: tr("Mi Equipo muestra la media total de tus siete candidatos (con sus Auras), la de cada estadística y la de tu capitán.") },
+    ],
+    start: [tr("Pulsa «¿Cómo se juega?» en el menú."), tr("Abre MI EQUIPO y mira la media de tu equipo.")],
+  },
   {
     version: '2.6', date: '2026-11-14',
     title: tr("InaZurvivors 2.6 — Victory Road, muy pronto"),
