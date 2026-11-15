@@ -110,6 +110,8 @@ export interface SaveData {
   helpSeen?: string[];
   tipsOff?: boolean;
   menuTourSeen?: boolean;
+  /** 16.5: the shop novelties already seen (SHOP_NEW_KEY), so the menu tile stops saying NUEVO */
+  shopNewSeen?: string;
   /** 1.9: the tier list being made (systems/tierlist.ts); published ones live on the server */
   tierDraft?: { topic: string; tiers: Record<string, number[]> };
   /** 1.93: clan items from the Juegos del Clan and this week's clan shop purchases (systems/clans.ts) */

@@ -4162,4 +4162,10 @@ export const EN: Record<string, string> = {
   "Medias lunas rojas y nubes de noche alrededor del retrato.": "Red crescents and night clouds around your portrait.",
   "Marco Ukiyo-e": "Ukiyo-e Frame",
   "Olas de grabado japonés rompiendo alrededor, con su sol rojo.": "Japanese-print waves breaking all around, with their red sun.",
+  // 16.4: ukiyo-e legendary
+  "La gran ola rompe sobre las barcas con el Fuji al fondo, como en el grabado de Hokusai.": "The great wave crashes over the boats with Mount Fuji behind, like in Hokusai's print.",
+  "Dos grandes olas abren el marco como alas, con espuma salpicando alrededor.": "Two great waves open the frame like wings, with foam splashing all around.",
+  // 16.5: shop novelties
+  "¡Banners y marcos nuevos!": "New banners and frames!",
+  "Mira los banners y marcos nuevos de la Tienda": "Check out the new banners and frames in the Shop",
 };

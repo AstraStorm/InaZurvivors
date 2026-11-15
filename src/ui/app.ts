@@ -87,7 +87,7 @@ import { SIGNATURE } from '../data/signatures';
 import { bindStick, initGamepad } from './gamepad';
 import { confetti, countUp, flyTo } from './rewardFx';
 import { frameSvg, pennantEmblem, pennantRibbon, pennantSvg, setPennantLogos } from './pennantArt';
-import { FRAMES, isFrame, PENNANTS, PENNANT_BY_ID, PENNANT_EVENT, type PennantDef } from '../data/pennants';
+import { FRAMES, isFrame, isNewPennant, PENNANTS, PENNANT_BY_ID, PENNANT_EVENT, SHOP_NEW_KEY, type PennantDef } from '../data/pennants';
 import { buyPennant, equipFrame, equippedFrame, equipPennant, equippedPennant, eventActive, eventLeftMs, eventOdds, givePennant, grantAchievementPennants, hasPennant, pullEvent, visiblePennant, type PennantPull } from '../systems/pennants';
 import { MASTERY_BONUS, MASTERY_USES, masteryLevel, recordMastery } from '../systems/mastery';
 import { MAX_TEAM, canStartWith, startingTech, type Card } from '../systems/cards';
@@ -1184,7 +1184,7 @@ export class App {
     const tips = new Map(guideEntries().map((g) => [g.id, g.what]));
     const TIP_ID: Record<string, string> = { shop: 'techshop', pass: 'weekly', lobby: 'lobby', gacha: 'gacha' };
     const tip = (go: string) => tips.get(TIP_ID[go] ?? go) ?? '';
-    const tile = (go: string, icon: UiIconName, label: string, sub: string, badge = 0, hot = false) => `<button class="m4-tile${hot ? ' hot' : ''}" data-go="${go}"${tip(go) ? ` title="${esc(tip(go))}"` : ''}><span class="m4-ic">${uiIcon(icon)}</span><span class="m4-tx"><b>${label}</b><small>${sub}</small></span>${badge ? `<span class="m4-badge">${badge}</span>` : ''}</button>`;
+    const tile = (go: string, icon: UiIconName, label: string, sub: string, badge = 0, hot = false, tag = '') => `<button class="m4-tile${hot ? ' hot' : ''}" data-go="${go}"${tip(go) ? ` title="${esc(tip(go))}"` : ''}>${tag ? `<em class="m4-new">${tag}</em>` : ''}<span class="m4-ic">${uiIcon(icon)}</span><span class="m4-tx"><b>${label}</b><small>${sub}</small></span>${badge ? `<span class="m4-badge">${badge}</span>` : ''}</button>`;
     const group = (cls: string, icon: UiIconName, title: string, tiles: string) => `<div class="m4-group ${cls}"><h4>${uiIcon(icon)}${title}</h4><div class="m4-grid">${tiles}</div></div>`;
     const squad = squadOf(this.save, this.byId);
     const unseenLog = this.save.devlogSeen !== newsKey();
@@ -1229,7 +1229,7 @@ export class App {
             + tile('perks', 'perks', tr('MEJORAS'), tr('Vida, daño, imán…')) + tile('shop', 'bolt', tr('TÉCNICAS'), tr('Manuales para tu equipo'))
             + tile('gear', 'boot', tr('EQUIPAMIENTO'), tr('Botas, guantes…')) + tile('coaches', 'whistle', tr('ENTRENADORES'), tr('{x1} de {COACHESLength}', { x1: this.save.coaches?.owned.length ?? 0, COACHESLength: COACHES.length }))
             + tile('kits', 'shirt', tr('EQUIPACIONES'), tr('Uniforme y escudo')) + tile('training', 'target', tr('ENTRENAMIENTO'), tr('Prueba técnicas')))}
-          ${group('g-sign', 'capsule', tr('CONSIGUE FUTBOLISTAS'), tile('gacha', 'capsule', tr('MÁQUINA'), tr('{tokens} fichas', { tokens: this.save.tokens })) + (thanksActive(serverNow()) ? tile('thanksev', 'gift', tr('AGRADECIMIENTO'), tr('{x1} fichas de evento', { x1: this.save.eventTokens ?? 0 }), 0, true) : '') + (eventActive(serverNow()) ? tile('pnevent', 'gift', tr('EVENTO'), tr('Banners de leyenda'), 0, true) : '') + tile('daily', 'shop', tr('TIENDA'), tr('Ofertas del día')) + tile('gts', 'gts', tr('GTS'), tr('Intercambia online')) + tile('codes', 'key', tr('CÓDIGOS'), tr('Canjea regalos')))}
+          ${group('g-sign', 'capsule', tr('CONSIGUE FUTBOLISTAS'), tile('gacha', 'capsule', tr('MÁQUINA'), tr('{tokens} fichas', { tokens: this.save.tokens })) + (thanksActive(serverNow()) ? tile('thanksev', 'gift', tr('AGRADECIMIENTO'), tr('{x1} fichas de evento', { x1: this.save.eventTokens ?? 0 }), 0, true) : '') + (eventActive(serverNow()) ? tile('pnevent', 'gift', tr('EVENTO'), tr('Banners de leyenda'), 0, true) : '') + (this.shopNews() ? tile('daily', 'shop', tr('TIENDA'), tr('¡Banners y marcos nuevos!'), 0, true, tr('NUEVO')) : tile('daily', 'shop', tr('TIENDA'), tr('Ofertas del día'))) + tile('gts', 'gts', tr('GTS'), tr('Intercambia online')) + tile('codes', 'key', tr('CÓDIGOS'), tr('Canjea regalos')))}
           ${group('g-mode', 'play', tr('MODOS DE JUEGO'), tile('road', 'flag', tr('ROAD TO FF'), this.save.road?.active ? tr('Partido {x1} en juego', { x1: this.save.road.active.level + 1 }) : tr('Arenas seguidas'), 0, !!this.save.road?.active)
             + tile('clan', 'shield', tr('CLANES'), this.save.clanSeen ? esc(this.save.clanSeen.name) : tr('Juegos del Clan')) + tile('coop', 'team', tr('COOP'), tr('Con un amigo · beta')))}
           ${group('g-comp', 'crown', tr('COMUNIDAD'), tile('ranking', 'chart', tr('RANKING'), onlineConfigured() ? tr('Global') : tr('Tus marcas')) + tile('lobby', 'pitch', tr('SALA'), tr('Todos los jugadores'))
@@ -1359,12 +1359,18 @@ export class App {
     if (passReady) steps.push({ go: 'pass', icon: 'ticket', text: tr('Reclama el premio del pase semanal') });
     if (seasonN) steps.push({ go: 'season', icon: 'star', text: tr('Reclama {n} niveles del pase de temporada', { n: seasonN }) });
     if (claims) steps.push({ go: 'collection', icon: 'cards', text: tr('Recoge las recompensas de la Colección') });
+    if (this.shopNews()) steps.push({ go: 'daily', icon: 'shop', text: tr('Mira los banners y marcos nuevos de la Tienda') });
     if (squad.length < SQUAD_SIZE && this.unlockedRoster().length > squad.length) steps.push({ go: 'squad', icon: 'team', text: tr('Completa tus {n} candidatos en Mi Equipo', { n: SQUAD_SIZE }) });
     if (this.save.tokens >= PULL_COST * 10) steps.push({ go: 'gacha', icon: 'capsule', text: tr('Tienes {n} fichas: haz una tirada ×10', { n: this.save.tokens }) });
     const next = this.m.maps.find((mp) => !this.save.clearedMaps.includes(mp.id) && isMapUnlocked(mp, this.save));
     steps.push({ go: 'play', icon: 'play', text: next ? tr('Gana {map} para abrir la siguiente arena', { map: next.name }) : tr('Sube de rango: prueba un rango más difícil') });
     return `<div class="m4-card m4-next" id="${id}"><h3>${tr('{x1}Qué hacer ahora', { x1: uiIcon('target') })}</h3>
       ${steps.slice(0, 3).map((s, i) => `<button class="m4-step" data-go="${s.go}" style="--i:${i}"><span class="m4-ic">${uiIcon(s.icon)}</span><span>${esc(s.text)}</span><em>›</em></button>`).join('')}</div>`;
+  }
+  /** 16.5: the shop has novelties not owned and not seen yet */
+  private shopNews() {
+    const now = serverNow().getTime();
+    return this.save.shopNewSeen !== SHOP_NEW_KEY && [...PENNANTS, ...FRAMES].some((d) => d.source === 'tienda' && isNewPennant(d, now) && !hasPennant(this.save, d.id));
   }
   /** 2.7: the arenas as a summary (won of total, the highest rank, the next one) instead of a list of every arena */
   private menuProgress() {
@@ -5879,6 +5885,7 @@ export class App {
   dailyShop() {
     setMusicContext('menu');
     const now = serverNow();
+    if (this.save.shopNewSeen !== SHOP_NEW_KEY) this.save.shopNewSeen = SHOP_NEW_KEY; // 16.5: the menu tile stops saying NUEVO
     const offers = rollDaily(this.save, this.m.roster, now);
     this.persist();
     const hm = (ms: number) => ms >= 86400000 ? `${Math.floor(ms / 86400000)} d ${Math.floor(ms / 3600000) % 24} h` : `${Math.floor(ms / 3600000)} h ${Math.floor(ms / 60000) % 60} min`;
@@ -5909,8 +5916,9 @@ export class App {
         return `<h3 class="shop-sec">${tr('Pase de temporada')}</h3><div class="shop-grid"><article class="shop-card sp-shopkey r-raro" style="--rc:${RARITY_COLOR.raro}"><div class="shop-art">${this.m.pase ? `<img class="sp-shopimg" src="${this.m.pase.normal}" alt="">` : ''}</div>
           <b class="shop-name">${tr('Llave normal')}</b><small class="shop-left">${tr('Abre la fila normal del pase de {sdName}: monedas, fichas, tiradas, los jugadores del Dominio de Zanark, banners y un marco.', { sdName: esc(sd.name) })}</small>
           <button class="btn small" id="shopkey" ${has || this.save.coins < NORMAL_KEY_PRICE ? 'disabled' : ''}>${has ? '✔ Tuya' : `${NORMAL_KEY_PRICE.toLocaleString(locale())} ◉`}</button></article></div>`; })()}
-      ${([[tr('Banners de perfil'), PENNANTS], [tr('Marcos de perfil'), FRAMES]] as const).map(([title, list]) => `<h3 class="shop-sec">${title}</h3><div class="shop-grid pn-shop">${list.filter((d) => d.source === 'tienda').map((d) => { const own = hasPennant(this.save, d.id);
-        return `<article class="shop-card pn-shopcard r-${d.rarity}" style="--rc:${RARITY_COLOR[d.rarity]}">${isFrame(d) ? `<div class="shop-art fr-prev">${this.framed(this.frameFace(), d.id)}</div>` : `<div class="shop-art pn-prev">${pennantRibbon(d)}</div>`}<b class="shop-name">${esc(d.name)}</b>
+      ${([[tr('Banners de perfil'), PENNANTS], [tr('Marcos de perfil'), FRAMES]] as const).map(([title, list]) => `<h3 class="shop-sec">${title}</h3><div class="shop-grid pn-shop">${list.filter((d) => d.source === 'tienda').sort((a, b) => Number(isNewPennant(b, now.getTime())) - Number(isNewPennant(a, now.getTime()))).map((d) => { const own = hasPennant(this.save, d.id);
+        const fresh = !own && isNewPennant(d, now.getTime()); // 16.5: ¡NUEVO! on the novelties not owned yet
+        return `<article class="shop-card pn-shopcard r-${d.rarity}${fresh ? ' is-new' : ''}" style="--rc:${RARITY_COLOR[d.rarity]}">${fresh ? `<span class="shop-tag tag-nuevo">${tr('¡NUEVO!')}</span>` : ''}${isFrame(d) ? `<div class="shop-art fr-prev">${this.framed(this.frameFace(), d.id)}</div>` : `<div class="shop-art pn-prev">${pennantRibbon(d)}</div>`}<b class="shop-name">${esc(d.name)}</b>
           <div class="shop-meta"><span class="rar ${d.rarity}">${RARITY_LABEL[d.rarity].toUpperCase()}</span></div><small class="shop-left">${esc(d.tagline)}</small>
           <button class="btn small" data-pnbuy="${d.id}" ${own || this.save.coins < (d.price ?? 0) ? 'disabled' : ''}>${own ? '✔ Tuyo' : `${d.price?.toLocaleString(locale())} ◉`}</button></article>`; }).join('')}</div>`).join('')}
       <h3 class="shop-sec">${tr('Destacados')}</h3><div class="shop-grid shop-top">${top.map(card).join('')}</div>

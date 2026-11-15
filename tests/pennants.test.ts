@@ -13,7 +13,7 @@ describe('banners', () => {
     expect(PENNANTS).toHaveLength(19); // 1.93: + 1 for the clan shop; 16.3: + 3 in the shop
     expect(new Set(PENNANTS.map((p) => p.id)).size).toBe(19);
     expect(PENNANTS.filter((p) => p.source === 'clan').map((p) => p.id)).toEqual(['clan-cerezo']);
-    expect(PENNANTS.filter((p) => p.source === 'tienda').map((p) => p.rarity)).toEqual(['comun', 'raro', 'epico', 'comun', 'raro', 'epico']); // 16.3: ball, crimson moon, ukiyo-e
+    expect(PENNANTS.filter((p) => p.source === 'tienda').map((p) => p.rarity)).toEqual(['comun', 'raro', 'epico', 'comun', 'raro', 'legendario']); // 16.3: ball, crimson moon, ukiyo-e
     expect(PENNANTS.filter((p) => p.source === 'logro').map((p) => p.rarity)).toEqual(['legendario', 'leyenda']);
     expect(EVENT_POOL).toHaveLength(20); // ten banners + ten frames
     const myth = PENNANTS.filter((p) => p.rarity === 'mitico');
@@ -71,7 +71,7 @@ describe('banners', () => {
     expect(FRAMES.filter((p) => p.source === 'clan').map((p) => p.id)).toEqual(['marco-cerezo']);
     expect(FRAMES.filter((p) => p.source === 'sector').map((p) => p.id)).toEqual(['marco-sector-quinto', 'marco-resistencia']); // 2.2, one per side
     expect(FRAMES.every((f) => f.kind === 'marco')).toBe(true);
-    expect(FRAMES.filter((p) => p.source === 'tienda').map((p) => p.rarity)).toEqual(['comun', 'raro', 'epico', 'comun', 'raro', 'epico']);
+    expect(FRAMES.filter((p) => p.source === 'tienda').map((p) => p.rarity)).toEqual(['comun', 'raro', 'epico', 'comun', 'raro', 'legendario']);
     const odds = eventOdds();
     expect(odds.filter((o) => o.def.rarity === 'mitico').map((o) => [o.def.id, o.pct])).toEqual([['supernova', 3], ['marco-supernova', 3]]);
     const s = newSave([], null);

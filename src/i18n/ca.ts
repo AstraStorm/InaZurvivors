@@ -4163,4 +4163,10 @@ export const CA: Record<string, string> = {
   "Medias lunas rojas y nubes de noche alrededor del retrato.": "Mitges llunes vermelles i núvols de nit al voltant del retrat.",
   "Marco Ukiyo-e": "Marc Ukiyo-e",
   "Olas de grabado japonés rompiendo alrededor, con su sol rojo.": "Onades de gravat japonès trencant al voltant, amb el seu sol vermell.",
+  // 16.4: ukiyo-e legendary
+  "La gran ola rompe sobre las barcas con el Fuji al fondo, como en el grabado de Hokusai.": "La gran onada trenca sobre les barques amb el Fuji al fons, com al gravat d'Hokusai.",
+  "Dos grandes olas abren el marco como alas, con espuma salpicando alrededor.": "Dues grans onades obren el marc com ales, amb escuma esquitxant al voltant.",
+  // 16.5: shop novelties
+  "¡Banners y marcos nuevos!": "Bàners i marcs nous!",
+  "Mira los banners y marcos nuevos de la Tienda": "Mira els bàners i marcs nous de la Botiga",
 };

@@ -142,3 +142,11 @@ body.reduced-motion .m4-tile.hot, body.reduced-motion .m4-tile.hot::after { anim
 .m4-right { align-self: start; }
 .m4-next-mob { display: none; }
 @media (max-width: 700px) { .m4-next-mob { display: block; margin: 4px 0 2px; } .m4-right .m4-next { display: none; } }
+
+/* ---------------------------------------------------------------- 16.5: ¡NUEVO! in the shop and on the menu tile */
+.shop-tag.tag-nuevo { z-index: 3; background: linear-gradient(180deg, #ff6a8a, #ff2a5a); color: #fff; text-shadow: 1px 1px 0 #6a0018; animation: m4Pop 1.4s ease-in-out infinite; }
+.pn-shopcard.is-new { overflow: visible; border-color: #ff4f8b !important; }
+.pn-shopcard.is-new::after { content: ''; position: absolute; inset: -3px; border-radius: inherit; border: 2px solid #ff4f8b; pointer-events: none; animation: shopNew 2s ease-out infinite; }
+@keyframes shopNew { 0% { opacity: .9; transform: scale(1); } 70%, 100% { opacity: 0; transform: scale(1.05); } }
+.m4-new { position: absolute; top: -7px; right: -5px; z-index: 2; font-style: normal; font-size: 7px; padding: 3px 5px; border-radius: 6px; color: #fff; background: linear-gradient(180deg, #ff6a8a, #ff2a5a); box-shadow: 0 2px 0 #0008; animation: m4Pop 1.4s ease-in-out infinite; }
+body.reduced-motion .shop-tag.tag-nuevo, body.reduced-motion .pn-shopcard.is-new::after, body.reduced-motion .m4-new { animation: none !important; }

@@ -15,6 +15,7 @@ import './styleClans.css';
 import './styleKeshin.css';
 import './styleVrTeaser.css';
 import './styleGuide.css'; // 2.7
+import './styleFrameFx.css'; // 16.4: animated frames
 import './styleEgFrames.css';
 import './styleLaunch20.css';
 import './styleMobile20.css';

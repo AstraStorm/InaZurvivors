@@ -15,6 +15,29 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: '16.6', date: '2026-11-15', title: 'La Gran Ola con el grabado de Hokusai y marcos que giran',
+    features: ['La Gran Ola lleva el grabado de Hokusai de verdad (1831, dominio público; public/art/gran-ola.webp, autor: «mejora el banner del ukiyo-e con la foto»): es la tela del banderín, un círculo en el emblema del perfil y un grabado enmarcado sobre las olas en la cinta ancha (PennantDef.photo).',
+      'Marcos más vivos (autor: «no veo las animaciones: cosas dando vueltas o el propio marco dando vueltas»): todos los aros redondos giran y un cometa con estela da vueltas alrededor de cada marco; el del balón y la luna, más rápidos.'],
+    fixes: [],
+    visuals: [],
+    balance: [],
+  },
+  {
+    version: '16.5', date: '2026-11-15', title: '¡NUEVO! en la tienda',
+    features: ['Novedades de la tienda (autor: «que salga un nuevo en la tienda»): los banners y marcos de la 16.3 llevan ¡NUEVO! con un pulso durante dos semanas (newUntil) y salen primero mientras no los tengas; el botón TIENDA del menú brilla con NUEVO hasta que la abres (save.shopNewSeen) y «Qué hacer ahora» lo sugiere.'],
+    fixes: [],
+    visuals: [],
+    balance: [],
+  },
+  {
+    version: '16.4', date: '2026-11-15', title: 'Marcos animados y ukiyo-e legendario',
+    features: ['Todos los marcos se mueven a su manera (autor: «que los marcos estén animados en plan guay, con efectos chulos»): el del balón gira y una pelota corre por el aro, la luna suelta ascuas y sus nubes derivan, las llamas parpadean, los rayos destellan, las estrellas titilan, las olas ukiyo-e rompen en cadena, las alas aletean, el emblema de arriba flota y la gema late. Solo transform/opacity; en las listas largas (ranking, sala) esperan quietos hasta pasar el ratón.',
+      'La Gran Ola y el Marco Ukiyo-e, rehechos con «La gran ola» de Hokusai como referencia y ahora Legendarios (45.000 / 35.000): gran ola azul de Prusia con garras de espuma y salpicaduras, Fuji nevado, barcas con remeros, cartela y olas delante; el marco abre dos grandes olas como alas (autor: «mejora el de ukiyo-e y hazlo legendario»).'],
+    fixes: [],
+    visuals: [],
+    balance: [],
+  },
+  {
     version: '16.3', date: '2026-11-15', title: 'Tres banners y tres marcos nuevos en la tienda',
     features: ['Tienda (autor: «uno ukiyo-e en épico, raro una luna carmesí y el común como una pelota de fútbol»): La Gran Ola / Marco Ukiyo-e (épico, 20.000 / 15.000), Luna Carmesí / Marco de la Luna Carmesí (raro, 8.000 / 6.000) y Balón de Reglamento / Marco del Balón (común, 2.500 / 2.000). Patrones, emblemas y adornos de marco nuevos dibujados en SVG (ola con garras de espuma, seigaiha, Fuji y sol rojo; luna roja con nubes y un balón cruzando; paneles y costuras de balón).'],
     fixes: [],
