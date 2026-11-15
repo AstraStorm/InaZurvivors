@@ -69,7 +69,7 @@ import { championOfRows, clanInfo, clanOf, clanAnswer, clanCancelRequest, clanCl
 import { addBag, boughtThisWeek, canPay, CLAN_COST, CLAN_ERRORS, CLAN_ITEMS, CLAN_MAX, CLAN_MISSION_TEXT, CLAN_PRIZES, CLAN_REWARD_MULT, CLAN_ROLE_LABEL, CLAN_RUNS_PER_DAY, clanDrops, clanError, clanNameProblem, clanPlayer, clanShop, clanWeekKey, clanWeekLeftMs, payBag, recordBuy, tierOfPos, type ClanBag, type ClanOffer, type ClanTier } from '../systems/clans';
 import { cleanTiers, placeIn, tierCount, topicLabel, TIER_COLOR, TIER_MAX, TIER_MIN, TIER_TOPICS, TIERS, type Tier, type Tiers } from '../systems/tierlist';
 import { CoopLink, type CoopMsg } from '../online/coop';
-import { coopInvite, coopInvitesClaim, friendHeartbeat, friendList, friendRemove, friendRequest, friendRespond, lobbyInfo, type FriendRow, type LobbyInfo } from '../online/client';
+import { coopInvite, coopInvitesClaim, coopStatus, type CoopStatus, friendHeartbeat, friendList, friendRemove, friendRequest, friendRespond, lobbyInfo, type FriendRow, type LobbyInfo } from '../online/client';
 import type { CoopRun } from '../game/coopArena';
 import { applyCoachPerks, COACH_BY_ID, COACH_PULL_CHANCE, COACHES, coachesOfMachine, coachRun, PASSIVE_ICON, passiveText as coachPassiveText, type CoachDef } from '../data/coaches';
 import { clashWith } from '../systems/identity';
@@ -86,7 +86,7 @@ import { INTRO } from './cinematics';
 import { SIGNATURE } from '../data/signatures';
 import { bindStick, initGamepad } from './gamepad';
 import { confetti, countUp, flyTo } from './rewardFx';
-import { frameSvg, pennantEmblem, pennantRibbon, pennantSvg, setPennantLogos } from './pennantArt';
+import { frameSvg, hasFrameArt, pennantEmblem, pennantRibbon, pennantSvg, setPennantLogos } from './pennantArt';
 import { FRAMES, isFrame, isNewPennant, PENNANTS, PENNANT_BY_ID, PENNANT_EVENT, SHOP_NEW_KEY, type PennantDef } from '../data/pennants';
 import { buyPennant, equipFrame, equippedFrame, equipPennant, equippedPennant, eventActive, eventLeftMs, eventOdds, givePennant, grantAchievementPennants, hasPennant, pullEvent, visiblePennant, type PennantPull } from '../systems/pennants';
 import { MASTERY_BONUS, MASTERY_USES, masteryLevel, recordMastery } from '../systems/mastery';
@@ -381,7 +381,7 @@ export class App {
   private titleScreen(next: () => void) {
     const name = this.save.onlineName ?? this.save.profile.name;
     const guest = onlineConfigured() && !signedIn();
-    this.show(`<div class="cine cine4 title-screen">${this.cineStage()}<div class="cine-shot in"><div class="logo cine-logo ib-logo4 idle"><h1><span class="p1">INA</span><span class="bolt p2">Z</span><span class="p3">URVIVORS</span><i class="ib-shine"></i><span class="ib-pre ib-v2">2.0</span></h1>
+    this.show(`<div class="cine cine4 title-screen">${this.cineStage()}<div class="cine-shot in"><div class="logo cine-logo ib-logo4 lg-host idle">${this.artLogo(true)}
       <div class="sub">${tr('ROGUELITE DE FÚTBOL · FANGAME')}</div></div>
       <p class="cine-text">${tr('¡Hola de nuevo, {name}!', { name: esc(name) })}</p>
       <p class="wiz-next"><button class="btn big" id="tscont">${tr('Continuar ▶')}</button></p>
@@ -399,14 +399,16 @@ export class App {
       sfx('whoosh');
       scr.classList.add('leaving');
       scr.insertAdjacentHTML('beforeend', '<i class="ts-flash"></i>');
+      // 16.7 (author: «mírate bien la animación de salida, que es horrible»): the words fly apart, the Z crackles and
+      // charges at the camera, and the menu is swapped in under a short white flash
       window.setTimeout(() => {
         next();
         // the flash keeps fading over the new screen so the change has no hard edge
         const f = document.createElement('i');
         f.className = 'ts-flash after';
         document.body.appendChild(f);
-        window.setTimeout(() => f.remove(), 520);
-      }, 560);
+        window.setTimeout(() => f.remove(), 380);
+      }, 520);
     };
     const key = (e: KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') go(); };
     window.addEventListener('keydown', key);
@@ -1017,7 +1019,7 @@ export class App {
           const balls = Array.from({ length: 6 }, (_, k) => `<i class="ib-ball" style="--y:${15 + k * 13}%;--d:${0.4 + k * 0.18}s">⚽</i>`).join('');
           const sparks = Array.from({ length: 18 }, (_, k) => `<i class="ib-spark" style="--a:${k * 20}deg;--r:${120 + (k % 3) * 60}px;--d:${0.95 + (k % 4) * 0.03}s"></i>`).join('');
           box.innerHTML = `<div class="intro-burst">${bolts}${balls}<div class="ib-orbit">${orbs}</div><i class="ib-flash"></i><i class="ib-ring"></i><i class="ib-ring r2"></i>${sparks}
-            <div class="logo cine-logo ib-logo4"><h1><span class="p1">INA</span><span class="bolt p2">Z</span><span class="p3">URVIVORS</span><i class="ib-shine"></i><span class="ib-pre ib-v2">2.0</span></h1><div class="sub">${words(tr('ROGUELITE DE FÚTBOL · FANGAME'), 1300)}</div><span class="ver-badge ib-ver">${esc(VERSION_LABEL)}</span></div>${this.versionStamp()}</div>`;
+            <div class="logo cine-logo ib-logo4 lg-host">${this.artLogo(true)}<div class="sub">${words(tr('ROGUELITE DE FÚTBOL · FANGAME'), 1300)}</div><span class="ver-badge ib-ver">${esc(VERSION_LABEL)}</span></div>${this.versionStamp()}</div>`;
           if (!this.save.settings.reducedMotion) window.setTimeout(() => { sfx('boom'); if (this.save.settings.shake <= 0) return; document.querySelector('.cine4')?.classList.add('shake'); window.setTimeout(() => document.querySelector('.cine4')?.classList.remove('shake'), 420); }, 950);
           if (!this.save.settings.reducedMotion) sfx('legend');
         }
@@ -1079,7 +1081,7 @@ export class App {
         <p>${tr('{x1} La máquina te dará <b>{x2}</b>, y al menos uno será de {x3} con rareza Épica o superior. Este regalo solo ocurre una vez.', { x1: this.m.kits?.[draft.team] ? tr('Empiezas con la equipación y el escudo de {x1}.', { x1: esc(teamLabel(draft.team)) }) : tr('Empiezas con el escudo de {x1}; este equipo aún no tiene equipación de combate disponible.', { x1: esc(teamLabel(draft.team)) }), x2: tr('5 futbolistas distintos'), x3: esc(teamLabel(draft.team)) })}</p>
         <p class="wiz-next"><button class="btn blue" id="prev">${tr('◀ Atrás')}</button> <button class="btn big" id="go">${tr('Crear perfil y abrir mis 5 cápsulas ▶')}</button></p>`;
     }
-    this.show(`<div class="screen center"><div class="logo"><h1>INA<span class="bolt">Z</span>URVIVORS</h1><div class="sub">${tr('ROGUELITE DE FÚTBOL · FANGAME')}</div></div>
+    this.show(`<div class="screen center"><div class="logo lg-host">${this.artLogo()}<div class="sub">${tr('ROGUELITE DE FÚTBOL · FANGAME')}</div></div>
       <div class="panel welcome"><div class="wiz-steps">${dots}</div>${body}</div></div>`);
     const keepName = () => { const n = (document.getElementById('pname') as HTMLInputElement | null)?.value.trim(); if (n) draft.name = n; };
     this.on('[data-e]', 'click', (_e, el) => {
@@ -1184,8 +1186,8 @@ export class App {
     const tips = new Map(guideEntries().map((g) => [g.id, g.what]));
     const TIP_ID: Record<string, string> = { shop: 'techshop', pass: 'weekly', lobby: 'lobby', gacha: 'gacha' };
     const tip = (go: string) => tips.get(TIP_ID[go] ?? go) ?? '';
-    const tile = (go: string, icon: UiIconName, label: string, sub: string, badge = 0, hot = false, tag = '') => `<button class="m4-tile${hot ? ' hot' : ''}" data-go="${go}"${tip(go) ? ` title="${esc(tip(go))}"` : ''}>${tag ? `<em class="m4-new">${tag}</em>` : ''}<span class="m4-ic">${uiIcon(icon)}</span><span class="m4-tx"><b>${label}</b><small>${sub}</small></span>${badge ? `<span class="m4-badge">${badge}</span>` : ''}</button>`;
-    const group = (cls: string, icon: UiIconName, title: string, tiles: string) => `<div class="m4-group ${cls}"><h4>${uiIcon(icon)}${title}</h4><div class="m4-grid">${tiles}</div></div>`;
+    const tile = (go: string, icon: UiIconName, label: string, sub: string, badge = 0, hot = false, tag = '') => `<button class="m4-tile${hot ? ' hot' : ''}" data-go="${go}"${tip(go) ? ` title="${esc(tip(go))}"` : ''}>${tag ? `<em class="m4-new">${tag}</em>` : ''}<span class="m4-ic${go === 'coaches' || this.menuArt(go) ? ' m4-art' : ''}">${go === 'coaches' ? this.tmIcon('whistle') : this.menuArt(go) || uiIcon(icon)}</span><span class="m4-tx"><b>${label}</b><small>${sub}</small></span>${badge ? `<span class="m4-badge">${badge}</span>` : ''}</button>`;
+    const group = (cls: string, icon: UiIconName, title: string, tiles: string) => `<div class="m4-group ${cls}"><h4>${this.menuArt(cls, 'm4-hic') || uiIcon(icon)}<span>${title}</span></h4><div class="m4-grid">${tiles}</div></div>`;
     const squad = squadOf(this.save, this.byId);
     const unseenLog = this.save.devlogSeen !== newsKey();
     const pass = passStatus(this.save, serverNow());
@@ -1196,7 +1198,7 @@ export class App {
     const seasonNow = activeSeason(serverNow()); // 2.1
     this.show(`<div class="menu-root m4"><div class="menu-lights"><i></i><i></i><i></i><b></b><b></b><b></b></div>
       <header class="m4-top">
-        <button class="m4-profile" data-go="profile">${this.profileIcon(46)}${this.save.crest && this.emblemOf(this.save.crest) ? `<img class="m4-crest" src="${this.emblemOf(this.save.crest)}" alt="">` : ''}
+        <button class="m4-profile" data-go="profile">${this.framed(this.profileIcon(46), equippedFrame(this.save)?.id, true)}${this.save.crest && this.emblemOf(this.save.crest) ? `<img class="m4-crest" src="${this.emblemOf(this.save.crest)}" alt="">` : ''}
           <span><b>${esc(this.save.profile.name)}</b><small>${tr('{ownedLength}/{rosterLength} futbolistas · {wins} victorias', { ownedLength: owned.length, rosterLength: this.m.roster.length, wins: this.save.stats.wins })}</small></span></button>
         <button class="m4-clanchip" id="m4clan" data-go="clan">${this.clanChipHtml()}</button>
         <span class="spacer"></span>
@@ -1212,11 +1214,11 @@ export class App {
         <section class="m4-left">
           ${this.promoHtml(promo)}
           <div class="logo menu-logo brand"><svg class="logo-bolt" viewBox="0 0 60 100"><polygon points="38,0 6,56 26,56 16,100 56,38 34,38"/></svg>
-            <h1 aria-label="InaZurvivors"><span class="b1">Ina</span><span class="bz">Z</span><span class="b2">urvivors</span></h1><div class="sub">${tr('ROGUELITE DE FÚTBOL · FANGAME')} <span class="ver-badge">${esc(VERSION_LABEL)}</span></div></div>
+            ${this.artLogo()}<div class="sub">${tr('ROGUELITE DE FÚTBOL · FANGAME')} <span class="ver-badge">${esc(VERSION_LABEL)}</span></div></div>
           <div class="m4-main">
             <button class="m4-play" data-go="play"><i class="m4-shine"></i><span class="m4-play-ic">${uiIcon('play')}</span>
               <span class="m4-tx"><b>${tr('JUGAR')}</b><small>${squad[0] ? tr('Capitán: {x1} · Rango {difficulty}', { x1: esc(squad[0].name), difficulty: this.save.difficulty }) : tr('Prepara tu equipo')}</small></span></button>
-            <button class="m4-team" data-go="squad"><span class="m4-tx"><b>${tr('MI EQUIPO')}</b><small>${tr('{squadLength}/{SQUAD_SIZE} candidatos', { squadLength: squad.length, SQUAD_SIZE })}</small></span>
+            <button class="m4-team" data-go="squad"><span class="m4-tx"><b>${tr('MI EQUIPO')}</b><small>${tr('{squadLength}/{SQUAD_SIZE} candidatos', { squadLength: squad.length, SQUAD_SIZE })}</small>${this.teamChips(squad)}</span>
               <span class="m4-faces">${squad.length ? this.teamFaces(squad) : uiIcon('team')}</span></button>
           </div>
           <div class="m4-next-mob">${this.menuNext(squad, pending, claims, pass.available, 'm4nextm')}</div>
@@ -1225,7 +1227,7 @@ export class App {
             + (seasonNow ? (() => { const st = seasonOf(this.save, seasonNow), n = claimable(st, 'normal').length + claimable(st, 'premium').length;
               return tile('season', 'star', tr('TEMPORADA'), n ? tr('¡Premios por reclamar!') : tr('Pase · nivel {levelOf}', { levelOf: levelOf(st.xp) }), n, !!n); })() : ''))}
           ${group('g-club', 'perks', tr('HAZ MÁS FUERTE A TU EQUIPO'), tile('collection', 'cards', tr('COLECCIÓN'), claims ? tr('¡Recompensas!') : tr('Asciende y pon estrellas'), claims, !!claims)
-            + `<button class="m4-tile eg-tile" data-go="keshin" title="${esc(tip('keshin'))}"><span class="m4-ic">${this.m.eg ? `<img src="${this.m.eg.insignia}" alt="">` : uiIcon('fire')}</span><span class="m4-tx"><b>${tr('ESPÍRITUS')}</b><small>${tr('{egTokens} Fichas EG', { egTokens: egTokens(this.save) })}</small></span></button>`
+            + `<button class="m4-tile eg-tile" data-go="keshin" title="${esc(tip('keshin'))}"><span class="m4-ic m4-art">${this.menuArt('keshin')}</span><span class="m4-tx"><b>${tr('ESPÍRITUS')}</b><small>${tr('{egTokens} Fichas EG', { egTokens: egTokens(this.save) })}</small></span></button>`
             + tile('perks', 'perks', tr('MEJORAS'), tr('Vida, daño, imán…')) + tile('shop', 'bolt', tr('TÉCNICAS'), tr('Manuales para tu equipo'))
             + tile('gear', 'boot', tr('EQUIPAMIENTO'), tr('Botas, guantes…')) + tile('coaches', 'whistle', tr('ENTRENADORES'), tr('{x1} de {COACHESLength}', { x1: this.save.coaches?.owned.length ?? 0, COACHESLength: COACHES.length }))
             + tile('kits', 'shirt', tr('EQUIPACIONES'), tr('Uniforme y escudo')) + tile('training', 'target', tr('ENTRENAMIENTO'), tr('Prueba técnicas')))}
@@ -2207,9 +2209,11 @@ export class App {
   }
   /** an avatar inside its frame (unchanged without one); `square` for the profile icons */
   private framed(html: string, id: string | null | undefined, square = false) {
-    const svg = frameSvg(id, square);
+    // 16.7 (author: «se sigue viendo cuadrado en el perfil»): a drawn frame is round everywhere; a square icon inside it is cut round
+    const art = hasFrameArt(id), sq = square && !art;
+    const svg = frameSvg(id, sq);
     const wide = !!(id && PENNANT_BY_ID.get(id)?.wings); // 1.81: winged frames are wider and keep room for their wings
-    return svg ? `<span class="fr-host${square ? ' sq' : ''}${wide ? ' wide' : ''}">${html}<span class="fr-ov">${svg}</span></span>` : html;
+    return svg ? `<span class="fr-host${sq ? ' sq' : ''}${square && art ? ' rnd' : ''}${wide ? ' wide' : ''}">${html}<span class="fr-ov">${svg}</span></span>` : html;
   }
   /** 2.11: a number in the saga's digits (tools/ui_assets.py), each glyph cut from its strip; other characters stay text */
   private digitsHtml(text: string, colour: 'naranja' | 'morado' = 'naranja') {
@@ -2509,10 +2513,11 @@ export class App {
   /** Mi Equipo: the bench, with the coach and what he gives */
   private benchPanel() {
     const c = this.benchCoach(), n = this.save.coaches?.owned.length ?? 0;
-    return `<div class="panel bench-panel${c ? ` r-${c.rarity}` : ' empty'}" ${c ? `style="--rc:${RARITY_COLOR[c.rarity]}"` : ''}>
-      <div class="bench-tag">${tr('BANQUILLO')}</div>
-      ${c ? `${this.coachArt(c, 96)}<div class="bench-tx"><small>${tr('ENTRENADOR · {team}', { team: esc(c.team) })}</small><b>${esc(c.name)}</b><span class="rar ${c.rarity}">${RARITY_LABEL[c.rarity].toUpperCase()}</span>${this.coachPassives(c)}</div>`
-        : `<span class="co-art empty-art"><b>?</b></span><div class="bench-tx"><small>${tr('ENTRENADOR')}</small><b>${tr('Banquillo vacío')}</b><p class="note">${n ? tr('Elige a uno de tus entrenadores.') : tr('Los entrenadores salen en las máquinas de fichajes de su saga ({x1}% por cápsula). Cada uno da pasivas a todo el equipo.', { x1: Math.round(COACH_PULL_CHANCE * 100) })}</p></div>`}
+    // 16.7 (author: «mejora lo del entrenador»): a dugout: the coach under a spotlight on his bench, passives as chips
+    return `<div class="panel bench-panel tm-bench${c ? ` r-${c.rarity}` : ' empty'}" ${c ? `style="--rc:${RARITY_COLOR[c.rarity]}"` : ''}>
+      <div class="bench-tag">${this.tmIcon('whistle')}${tr('BANQUILLO')}</div>
+      ${c ? `<div class="tm-coach">${this.coachArt(c, 96)}<i class="tm-spot"></i></div><div class="bench-tx"><small>${tr('ENTRENADOR · {team}', { team: esc(c.team) })}</small><b>${esc(c.name)}</b><span class="rar ${c.rarity}">${RARITY_LABEL[c.rarity].toUpperCase()}</span>${this.coachPassives(c)}</div>`
+        : `<div class="tm-coach"><span class="co-art empty-art">${this.tmIcon('whistle')}</span></div><div class="bench-tx"><small>${tr('ENTRENADOR')}</small><b>${tr('Banquillo vacío')}</b><p class="note">${n ? tr('Elige a uno de tus entrenadores.') : tr('Los entrenadores salen en las máquinas de fichajes de su saga ({x1}% por cápsula). Cada uno da pasivas a todo el equipo.', { x1: Math.round(COACH_PULL_CHANCE * 100) })}</p></div>`}
       <button class="btn small blue" data-go-coaches>${c ? 'Cambiar' : tr('Ver entrenadores')}</button></div>`;
   }
 
@@ -2915,6 +2920,7 @@ export class App {
   /** the launch intro of a version (the current one by default): its number, its tagline and its features. 2.0 is the
    *  spirits' (and its news button replays it); 2.4 orbits the five languages, 2.5 the seven, with their flags */
   private launch20(version = PUBLIC_VERSION) {
+    if (version === '2.8') { this.launch28(); return; }
     try { localStorage.setItem(`iz-launch-${version}`, '1'); } catch { /* private window: it may show again */ }
     const rel = PUBLIC_RELEASES.find((r) => r.version === version) ?? PUBLIC_RELEASES[0];
     const spirits = version === '2.0';
@@ -2952,6 +2958,46 @@ export class App {
     box.querySelectorAll('[data-l2go]').forEach((b) => b.addEventListener('click', () => close(false)));
     box.querySelector('[data-l2news]')!.addEventListener('click', () => close(true));
     box.querySelector('[data-l2tour]')?.addEventListener('click', () => { close(false); window.setTimeout(() => this.menuTour(), 450); });
+  }
+
+  /**
+   * 2.8 (author: «un anuncio del estilo de los EG, pero estilo diferente, que no sea lo mismo»): a poster premiere instead
+   * of the spirits' ring. Light sweeps a dark stage, the new logo builds itself, a «2.8 · NUEVO ASPECTO» seal stamps in,
+   * a line of captains in the new drawn frames pops up, banners swing in from the top, and the news land as stickers.
+   */
+  private launch28() {
+    try { localStorage.setItem('iz-launch-2.8', '1'); } catch { /* private window: it may show again */ }
+    const rel = PUBLIC_RELEASES.find((r) => r.version === '2.8') ?? PUBLIC_RELEASES[0];
+    const frames = ['marco-leyenda', 'marco-inazuma', 'marco-bluelock', 'marco-ukiyo', 'marco-supernova'];
+    const banners = ['once-leyenda', 'inazuma', 'gran-ola', 'supernova'];
+    const face = this.frameFace();
+    const box = document.createElement('div');
+    box.className = 'l28';
+    box.innerHTML = `<i class="l28-sweep"></i><i class="l28-sweep s2"></i><i class="l28-grain"></i>
+      <div class="l28-flags">${banners.map((b, i) => `<span style="--i:${i}">${pennantSvg(b, 64)}</span>`).join('')}</div>
+      <div class="l28-main">
+        <div class="l28-logo lg-host">${this.artLogo(true)}</div>
+        <div class="l28-seal"><small>${tr('VERSIÓN')}</small><b>${esc(rel.version)}</b><em>${tr('NUEVO ASPECTO')}</em></div>
+        <div class="l28-row">${frames.map((f, i) => `<span class="l28-fr" style="--i:${i}">${this.framed(face, f)}</span>`).join('')}</div>
+        <div class="l28-stk">${rel.features.map((f, i) => `<span style="--i:${i};--r:${[-3, 2, -2, 3, -1][i % 5]}deg"><i>${f.icon}</i><b>${esc(f.title)}</b><small>${esc(f.text)}</small></span>`).join('')}</div>
+        <div class="l28-btns"><button class="btn big blue" data-l2news>${tr('Ver todas las novedades')}</button><button class="btn big" data-l2go>${tr('¡A jugar! ▶')}</button></div>
+      </div>
+      <button class="l2-skip" data-l2go>${tr('Saltar')}</button>`;
+    document.body.appendChild(box);
+    window.setTimeout(() => sfx('boom'), 300);
+    window.setTimeout(() => sfx('legend'), 1500);
+    if (this.save.settings.particles !== 'desactivado') window.setTimeout(() => confetti(90), 1700);
+    let closed = false;
+    const close = (news: boolean) => {
+      if (closed) return; closed = true;
+      document.removeEventListener('keydown', onKey);
+      box.classList.add('out');
+      window.setTimeout(() => { box.remove(); if (news) this.devlog('version-2.8'); }, 420);
+    };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') close(false); };
+    document.addEventListener('keydown', onKey);
+    box.querySelectorAll('[data-l2go]').forEach((b) => b.addEventListener('click', () => close(false)));
+    box.querySelector('[data-l2news]')!.addEventListener('click', () => close(true));
   }
 
   private keshinIntro() {
@@ -3075,6 +3121,7 @@ export class App {
       this.coopStart(this.coopMap, this.save.difficulty);
     });
     if (ok && !link) void this.coopFriendsPanel(state.code ?? null);
+    if (ok && !link && !state.code && !state.busy) void this.coopCapacity();
     if (state.join && !state.error && !state.busy) join(state.join); // from a friend's invitation
     clearInterval(this.coopTick);
     if (link) {
@@ -3090,6 +3137,28 @@ export class App {
       ping();
       this.coopTick = window.setInterval(ping, 500);
     }
+  }
+
+  /** 16.7 (author: «antes de llegar al límite del servidor pare de ofrecer partidas y avise»): co-op is endless, so the
+   *  server closes new rooms before its monthly budget runs out; then the lobby offers none and says why and until when */
+  private coopCap: { at: number; s: CoopStatus | null } | null = null;
+  private async coopCapacity() {
+    if (!this.coopCap || Date.now() - this.coopCap.at > 60_000) {
+      try { this.coopCap = { at: Date.now(), s: await coopStatus() }; } catch { return; } // unknown: the server still says no on create
+    }
+    const s = this.coopCap.s;
+    const screen = this.root.querySelector('.coop-screen');
+    if (!s || s.open || !screen || screen.querySelector('.cp-cap')) return;
+    const when = new Date(s.reopens).toLocaleDateString(locale(), { day: 'numeric', month: 'long' });
+    const box = document.createElement('div');
+    box.className = 'panel cp-panel cp-cap';
+    box.innerHTML = `<span class="cp-cap-ic">${uiIcon('lock')}</span><div><b>${tr('Cooperativo en pausa')}</b><p>${s.reason === 'lleno'
+      ? tr('Hay demasiadas partidas a la vez y el servidor está al límite. Prueba otra vez en unos minutos.')
+      : tr('El servidor ha gastado casi todo su margen de este mes, así que no se abren salas nuevas para no pasarnos. Vuelve el {when}.', { when })}</p>
+      <small>${tr('Las partidas que ya están en juego siguen sin problema.')}</small></div>`;
+    screen.querySelector('.cp-two')?.before(box);
+    screen.querySelectorAll<HTMLButtonElement>('#cpcreate, #cpjoin').forEach((b) => { b.disabled = true; });
+    screen.querySelector('.cp-two')?.classList.add('cp-closed');
   }
 
   /** the room's friends list: who is online, and an «Invitar» button while this player hosts an empty room */
@@ -5003,17 +5072,42 @@ export class App {
   }
 
   // ------------------------------------------------------------- play flow: Mi Equipo -> arena -> run (team starts with the captain only)
-  /** Fix 1.31: the team synergies of the seven candidates, big and clear (element resonance, club chemistry, captain) */
+  /** Fix 1.31: the team synergies of the seven candidates, big and clear (element resonance, club chemistry, captain).
+   *  16.7 (author: «haz más bonita cómo se expresan las técnicas combinadas, los elementos y sinergias»): combined
+   *  techniques as duo/trio cards joined by an energy beam (it runs when the combination is ready), resonances as
+   *  gauges with their two steps (3 → +8%, 5 → +15%) marked, and ForgeGUI pixel emblems on each block */
+  /** 16.7 (author: «antes de entrar al juego debería aparecer la Z y entonces hacer la animación, y en el menú que no esté
+   *  animado, y que se junten bien las letras con la Z»): the game's logo, from the art in public/art/logo */
+  private artLogo(intro = false, extra = '') {
+    return `<h1 class="lg-art${intro ? ' lg-intro' : ''}" aria-label="InaZurvivors"><img class="lg-ina" src="art/logo/ina.png" alt=""><span class="lg-zw"><img class="lg-zs" src="art/logo/z.png" alt="">${intro ? '<i class="lg-z" style="background-image:url(art/logo/z-anim.png)"></i><i class="lg-flash"></i>' : ''}</span><img class="lg-urv" src="art/logo/urvivors.png" alt="">${extra}</h1>`;
+  }
+  /** 16.7: the menu's art (the author's ChatGPT UI pack cut by tools/gpt_ui.py into public/art/ui/menu-iconos.png, 27
+   *  cells of 128 px in this order) */
+  private static readonly MENU_ART = ['missions', 'pass', 'season', 'collection', 'keshin', 'perks', 'shop', 'gear', 'kits',
+    'gacha', 'capsula', 'gift', 'daily', 'gts', 'codes', 'road', 'clan', 'coop', 'ranking', 'lobby', 'tierlist', 'friends', 'hall',
+    'training', 'captain', 'crown', 'modes'];
+  private static readonly MENU_ART_ALIAS: Record<string, string> = { thanksev: 'gift', pnevent: 'gift', 'g-rew': 'gift', 'g-club': 'perks', 'g-sign': 'capsula', 'g-mode': 'modes', 'g-comp': 'crown' };
+  private menuArt(name: string, cls = '') {
+    const i = App.MENU_ART.indexOf(App.MENU_ART_ALIAS[name] ?? name);
+    if (i < 0) return '';
+    return `<i class="mart${cls ? ` ${cls}` : ''}" style="--mi:${i};background-image:url(art/ui/menu-iconos.png)" aria-hidden="true"></i>`;
+  }
+  /** 16.7: the Mi Equipo emblems (ForgeGUI pixel art, one sheet public/art/team/iconos.png of 84 px cells) */
+  private tmIcon(name: 'combo' | 'whistle' | 'chemistry' | 'medal' | 'resonance' | string, cls = '') {
+    const i = ['combo', 'whistle', 'chemistry', 'medal', 'resonance'].indexOf(name);
+    return `<i class="tm-ic${cls ? ` ${cls}` : ''}" style="--ti:${Math.max(0, i)};background-image:url(art/team/iconos.png)" aria-hidden="true"></i>`;
+  }
   private squadSynergyPanel(squad: RosterEntry[]) {
     if (!squad.length) return '';
     const kit = this.save.kit || 'Raimon';
     const pot = squadPotential(squad, kit, teamLabel(kit), perkEffects(this.save).synergy);
     const el = pot.elements.map((x) => {
       const ec = ELEMENT_COLOR[x.element] ?? '#ccc';
-      const pips = Array.from({ length: 5 }, (_, i) => `<i class="${i < x.techs ? 'on' : ''}"></i>`).join('');
-      return `<div class="syn-card${x.reach ? ' on' : ''}" style="--ec:${ec}"><span class="syn-ic">${elementIcon(x.element, 26)}</span><div><b>${tr('Resonancia {element}', { element: esc(tEl(x.element)) })}</b>
-        <span class="syn-pips">${pips}</span><small>${x.techs === 1 ? tr('1 técnica de {element} en el equipo', { element: esc(tEl(x.element)) }) : tr('{techs} técnicas de {element} en el equipo', { techs: x.techs, element: esc(tEl(x.element)) })} · ${x.players === 1 ? tr('1 futbolista') : tr('{players} futbolistas', { players: x.players })}</small></div>
-        <em>${x.reach ? `hasta +${Math.round(x.reach * 100)}%` : `${x.techs}/3`}</em></div>`;
+      const steps = Array.from({ length: 5 }, (_, i) => `<i class="${i < x.techs ? 'on' : ''}${i === 2 || i === 4 ? ' mk' : ''}">${i === 2 ? '<u>+8%</u>' : i === 4 ? '<u>+15%</u>' : ''}</i>`).join('');
+      return `<div class="rs-card${x.reach ? ' on' : ''}" style="--ec:${ec};--p:${Math.min(1, x.techs / 5)}"><span class="rs-ring">${elementIcon(x.element, 26)}</span>
+        <div class="rs-body"><b>${tr('Resonancia {element}', { element: esc(tEl(x.element)) })}</b><span class="rs-steps">${steps}</span>
+        <small>${x.techs === 1 ? tr('1 técnica de {element} en el equipo', { element: esc(tEl(x.element)) }) : tr('{techs} técnicas de {element} en el equipo', { techs: x.techs, element: esc(tEl(x.element)) })} · ${x.players === 1 ? tr('1 futbolista') : tr('{players} futbolistas', { players: x.players })}</small></div>
+        <em class="rs-bonus">${x.reach ? `+${Math.round(x.reach * 100)}%` : `${x.techs}/3`}</em></div>`;
     }).join('');
     const ch = pot.chemistry, cap = pot.captain;
     // Fix 1.32: combined techniques of the squad, two (or three) footballers linked by a chain; the missing ones greyed out
@@ -5021,28 +5115,33 @@ export class App {
     // v1.5 (author): Auras count here too — a participant carried as Aura shows as present, with its carrier named
     const carrierOfName = new Map<string, string>();
     for (const q of squad) { const an = this.auraEntryOf(q.id)?.name; if (an) carrierOfName.set(an, q.name); }
-    const combos = squadCombos(squad, [...carrierOfName.keys()]).map((c) => {
+    const list = squadCombos(squad, [...carrierOfName.keys()]);
+    const combos = list.map((c) => {
       const who = c.combo.needs.map((n) => {
         // Fix 1.51: a counterpart (Xene for Xavier, Shawn + Axel for Shawn...) plays the part too
         const x = squad.find((q) => playsAs(q.name, n.player)) ?? byName.get(n.player);
         const self = squad.some((q) => playsAs(q.name, n.player)), viaKey = !self ? [...carrierOfName.keys()].find((an) => playsAs(an, n.player)) : undefined;
         const via = viaKey ? carrierOfName.get(viaKey) : undefined, here = self || !!via;
-        return `<span class="cb2-who${here ? '' : ' miss'}${via ? ' via-aura' : ''}" title="${tr('{player}{x1} · Nv {level}{x2}', { player: esc(n.player), x1: n.tech ? ` · ${esc(n.tech)}` : '', level: n.level, x2: via ? tr(' (Aura de {via})', { via: esc(via) }) : here ? '' : tr(' (no está)') })}">${x ? this.mug(x.id, 40) : ''}<em>${tr('Nv{level}', { level: n.level })}</em></span>`;
-      }).join('<i class="cb2-link">🔗</i>');
+        return `<span class="cb3-who${here ? '' : ' miss'}${via ? ' via-aura' : ''}" title="${tr('{player}{x1} · Nv {level}{x2}', { player: esc(n.player), x1: n.tech ? ` · ${esc(n.tech)}` : '', level: n.level, x2: via ? tr(' (Aura de {via})', { via: esc(via) }) : here ? '' : tr(' (no está)') })}">${x ? this.mug(x.id, 48) : ''}${here ? '' : '<b class="cb3-q">?</b>'}<em>${tr('Nv{level}', { level: n.level })}</em></span>`;
+      }).join('<i class="cb3-beam"><b></b></i>');
       // 1.88 (author: less text): name, element, power and one state pill
-      return `<div class="cb2${c.ready ? ' ready' : ''}${c.viaAura.length ? ' with-aura' : ''}" style="--ec:${ELEMENT_COLOR[c.combo.element] ?? '#ffe27a'}">
-        <div class="cb2-team">${who}</div>
-        <div class="cb2-info"><b>${esc(tTech(c.combo.name))}</b><span class="cb2-tags">${elementIcon(c.combo.element, 12)}<i>${this.uiPiece('rayo_hex', 'inl') || '⚡'}${c.combo.power}</i>
-          ${c.ready ? `<em class="cb2-pill ok">${tr('¡Lista!')}</em>` : `<em class="cb2-pill">${c.missing.length > 1 ? tr('Faltan {missingLength}', { missingLength: c.missing.length }) : tr('Falta {missingLength}', { missingLength: c.missing.length })}</em>`}</span></div></div>`;
+      return `<div class="cb3${c.ready ? ' ready' : ''}${c.viaAura.length ? ' with-aura' : ''}" style="--ec:${ELEMENT_COLOR[c.combo.element] ?? '#ffe27a'};--pw:${Math.min(1, c.combo.power / 200)}">
+        <div class="cb3-team">${who}</div>
+        <div class="cb3-info"><b>${esc(tTech(c.combo.name))}</b>
+          <span class="cb3-pow">${elementIcon(c.combo.element, 14)}<i><s></s></i><em>${this.uiPiece('rayo_hex', 'inl') || '⚡'}${c.combo.power}</em></span>
+          ${c.ready ? `<em class="cb3-state ok">${tr('¡Lista!')}</em>` : `<em class="cb3-state">${c.missing.length > 1 ? tr('Faltan {missingLength}', { missingLength: c.missing.length }) : tr('Falta {missingLength}', { missingLength: c.missing.length })}</em>`}</div></div>`;
     }).join('');
-    return `<div class="panel syn-panel"><h3>${tr('Sinergias del equipo')}</h3>
-      <div class="note">${tr('Resonancia: 3 técnicas activas del mismo elemento dan <b>+8%</b> de daño a esas técnicas, 5 dan <b>+15%</b>. Las técnicas activas se eligen al subir de nivel en la partida.')}</div>
-      ${combos ? `<h3 class="cb-title">${tr('🔗 Técnicas combinadas')} <small class="cb2-count">${tr('{x1} listas', { x1: squadCombos(squad, [...carrierOfName.keys()]).filter((c) => c.ready).length })}</small></h3><div class="cb2-grid">${combos}</div><p class="note cb2-legend">${tr('El nivel bajo cada cara es el que necesita su técnica en la partida.')}</p><h3 class="cb-title">${tr('Elementos y química')}</h3>` : ''}
-      <div class="syn-grid">${el}
-        <div class="syn-card${ch.bonus ? ' on' : ''}" style="--ec:#7dff9a"><span class="syn-ic">♜</span><div><b>${tr('Química de club')}</b><span class="syn-pips">${Array.from({ length: ch.goal }, (_, i) => `<i class="${i < ch.count ? 'on' : ''}"></i>`).join('')}</span><small>${tr('{hint} (equipación {x1})', { hint: esc(ch.hint), x1: esc(teamLabel(kit)) })}</small></div><em>${ch.bonus ? `+${Math.round(ch.bonus * 100)}%` : `${ch.count}/${ch.goal}`}</em></div>
-        ${cap ? `<div class="syn-card${cap.bonus ? ' on' : ''}" style="--ec:${ELEMENT_COLOR[String(cap.element)] ?? '#ffe27a'}"><span class="syn-ic">★</span><div><b>${esc(cap.label)}</b><small>${esc(cap.hint)}</small></div><em>${cap.bonus ? `+${(cap.bonus * 100).toFixed(1).replace('.', ',')}%` : '—'}</em></div>`
-          : `<div class="syn-card"><span class="syn-ic">★</span><div><b>${tr('Sinergia elemental')}</b><small>${tr('Compra la mejora «Sinergia elemental»: más daño por cada compañero del elemento del capitán.')}</small></div><em>—</em></div>`}
-      </div></div>`;
+    const head = (icon: string, title: string, extra = '') => `<div class="tm-head">${this.tmIcon(icon)}${title}${extra}</div>`;
+    return `<div class="panel tm-syn">
+      ${combos ? `<section class="tm-sec">${head('combo', `<h3>${tr('Técnicas combinadas')}</h3>`, `<span class="tm-count">${tr('{x1} listas', { x1: list.filter((c) => c.ready).length })} / ${list.length}</span>`)}
+        <div class="cb3-grid">${combos}</div><p class="note tm-legend">${tr('El nivel bajo cada cara es el que necesita su técnica en la partida.')}</p></section>` : ''}
+      <section class="tm-sec">${head('resonance', `<h3>${tr('Elementos y química')}</h3>`)}
+        <p class="note tm-legend">${tr('Resonancia: 3 técnicas activas del mismo elemento dan <b>+8%</b> de daño a esas técnicas, 5 dan <b>+15%</b>. Las técnicas activas se eligen al subir de nivel en la partida.')}</p>
+        <div class="rs-grid">${el}
+          <div class="rs-card rs-wide${ch.bonus ? ' on' : ''}" style="--ec:#7dff9a;--p:${Math.min(1, ch.count / Math.max(1, ch.goal))}"><span class="rs-ring">${this.tmIcon('chemistry')}</span><div class="rs-body"><b>${tr('Química de club')}</b><span class="rs-steps">${Array.from({ length: ch.goal }, (_, i) => `<i class="${i < ch.count ? 'on' : ''}"></i>`).join('')}</span><small>${tr('{hint} (equipación {x1})', { hint: esc(ch.hint), x1: esc(teamLabel(kit)) })}</small></div><em class="rs-bonus">${ch.bonus ? `+${Math.round(ch.bonus * 100)}%` : `${ch.count}/${ch.goal}`}</em></div>
+          ${cap ? `<div class="rs-card rs-wide${cap.bonus ? ' on' : ''}" style="--ec:${ELEMENT_COLOR[String(cap.element)] ?? '#ffe27a'};--p:${cap.bonus ? 1 : 0}"><span class="rs-ring">${this.menuArt('captain', 'tm-ic')}</span><div class="rs-body"><b>${esc(cap.label)}</b><small>${esc(cap.hint)}</small></div><em class="rs-bonus">${cap.bonus ? `+${(cap.bonus * 100).toFixed(1).replace('.', ',')}%` : '—'}</em></div>`
+            : `<div class="rs-card rs-wide" style="--ec:#ffe27a;--p:0"><span class="rs-ring">${this.menuArt('captain', 'tm-ic')}</span><div class="rs-body"><b>${tr('Sinergia elemental')}</b><small>${tr('Compra la mejora «Sinergia elemental»: más daño por cada compañero del elemento del capitán.')}</small></div><em class="rs-bonus">—</em></div>`}
+        </div></section></div>`;
   }
 
   // ------------------------------------------------------------- v1.5: Auras
@@ -5055,19 +5154,35 @@ export class App {
   /** own stats (≤ 99), Aura points and effective stats (≤ 120) of a footballer */
   /** 2.7 (author: «añade una media total a mi equipo»): the mean of the seven candidates (Auras included, as on their
    *  slots), coloured by the rarity band it reaches, with the team's average of every stat and the captain's own mean */
+  /** 16.7: the menu's Mi Equipo card shows the team average (medal, rarity colour) and the combined techniques ready */
+  private teamChips(squad: RosterEntry[]) {
+    const effs = squad.map((p) => this.statSplit(p).eff).filter((e): e is NonNullable<typeof e> => !!e);
+    if (!effs.length) return '';
+    const avg = Math.round(effs.reduce((a, e) => a + statMean(e), 0) / effs.length);
+    const tier = [...RARITY_ORDER].reverse().find((r) => avg >= RARITY_STAT_MEAN[r] - 3) ?? 'comun';
+    const auras = squad.map((x) => this.auraEntryOf(x.id)?.name).filter((x): x is string => !!x);
+    const ready = squadCombos(squad, auras).filter((c) => c.ready).length;
+    return `<span class="m4-tchips"><span class="m4-tchip" style="--rc:${RARITY_COLOR[tier]}" title="${tr('MEDIA DEL EQUIPO')}">${this.tmIcon('medal')}<b>${avg}</b></span>${ready ? `<span class="m4-tchip cb" title="${tr('Técnicas combinadas')}">${this.tmIcon('combo')}<b>${ready}</b></span>` : ''}</span>`;
+  }
   private squadAverage(squad: RosterEntry[]) {
     const effs = squad.map((p) => this.statSplit(p).eff).filter((e): e is NonNullable<typeof e> => !!e);
     if (!effs.length) return '';
     const means = effs.map((e) => statMean(e));
     const avg = Math.round(means.reduce((a, b) => a + b, 0) / means.length);
     const tier = [...RARITY_ORDER].reverse().find((r) => avg >= RARITY_STAT_MEAN[r] - 3) ?? 'comun';
+    const next = RARITY_ORDER[RARITY_ORDER.indexOf(tier) + 1];
     const keys = Object.keys(STAT_SHORT).filter((k) => effs.every((e) => typeof (e as Record<string, number>)[k] === 'number'));
     const per = keys.map((k) => ({ k, v: Math.round(effs.reduce((a, e) => a + (e as Record<string, number>)[k], 0) / effs.length) }));
     const best = per.reduce((a, b) => (b.v > a.v ? b : a), per[0]);
     const capMean = squad[0] && this.statSplit(squad[0]).eff ? means[0] : null;
-    return `<div class="sq-avg" style="--rc:${RARITY_COLOR[tier]}"><div class="sq-avg-main"><small>${tr('MEDIA DEL EQUIPO')}</small><b>${avg}</b><em>${RARITY_LABEL[tier]}</em></div>
-      <div class="sq-avg-stats">${per.map((x) => `<span class="${x.k === best?.k ? 'top' : ''}"><small>${STAT_SHORT[x.k]}</small><b>${x.v}</b><i style="--p:${Math.min(100, x.v)}%"></i></span>`).join('')}</div>
-      <div class="sq-avg-side">${capMean !== null ? `<span>${tr('Capitán')} <b>${capMean}</b></span>` : ''}<span>${tr('{n} de {SQUAD_SIZE} candidatos', { n: effs.length, SQUAD_SIZE })}</span></div></div>`;
+    // 16.7 (author: «mejora lo de la media de equipo»): a medal with the number, the band it reaches and how far the next
+    // one is, and the seven stats as an equaliser (the best one lit)
+    return `<div class="tm-avg" style="--rc:${RARITY_COLOR[tier]}">
+      <div class="tm-medal">${this.tmIcon('medal')}<b>${avg}</b></div>
+      <div class="tm-avg-tx"><small>${tr('MEDIA DEL EQUIPO')}</small><em class="rar ${tier}">${RARITY_LABEL[tier]}</em>
+        ${next ? `<span class="tm-next" style="--nc:${RARITY_COLOR[next]}">${tr('{n} para {rarity}', { n: Math.max(1, RARITY_STAT_MEAN[next] - 3 - avg), rarity: RARITY_LABEL[next] })}</span>` : ''}
+        <span class="tm-side">${capMean !== null ? `${tr('Capitán')} <b>${capMean}</b> · ` : ''}${tr('{n} de {SQUAD_SIZE} candidatos', { n: effs.length, SQUAD_SIZE })}</span></div>
+      <div class="tm-eq">${per.map((x) => `<span class="${x.k === best?.k ? 'top' : ''}" style="--p:${Math.max(6, Math.min(100, (x.v - 40) / 0.6))}%"><b>${x.v}</b><i></i><small>${STAT_SHORT[x.k]}</small></span>`).join('')}</div></div>`;
   }
   private statSplit(p: RosterEntry) {
     const own = this.statsOf(p) as Record<StatKey, number> | null;

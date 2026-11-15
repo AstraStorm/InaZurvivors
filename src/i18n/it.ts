@@ -4169,4 +4169,28 @@ export const IT: Record<string, string> = {
   // 16.5: shop novelties
   "¡Banners y marcos nuevos!": "Banner e cornici nuovi!",
   "Mira los banners y marcos nuevos de la Tienda": "Guarda i nuovi banner e cornici del Negozio",
+  // 16.7: endless co-op capacity, Mi Equipo
+  "El cooperativo está en pausa: el servidor ha llegado a su límite. Las partidas en curso siguen.": "La cooperativa è in pausa: il server ha raggiunto il suo limite. Le partite in corso continuano.",
+  "Cooperativo en pausa": "Cooperativa in pausa",
+  "Hay demasiadas partidas a la vez y el servidor está al límite. Prueba otra vez en unos minutos.": "Ci sono troppe partite contemporaneamente e il server è al limite. Riprova tra qualche minuto.",
+  "El servidor ha gastado casi todo su margen de este mes, así que no se abren salas nuevas para no pasarnos. Vuelve el {when}.": "Il server ha usato quasi tutto il margine di questo mese, quindi non si aprono nuove stanze per non superarlo. Torna il {when}.",
+  "Las partidas que ya están en juego siguen sin problema.": "Le partite già in corso continuano senza problemi.",
+  "{n} para {rarity}": "{n} per {rarity}",
+  // 2.8: a new look
+  "InaZurvivors 2.8 — Nuevo aspecto": "InaZurvivors 2.8 — Nuovo aspetto",
+  "Todo el juego, dibujado de nuevo": "Tutto il gioco, ridisegnato",
+  "InaZurvivors se pone guapo: logo nuevo, menú con iconos y botones dibujados, banners y marcos con arte propio y animaciones, y un Mi Equipo rediseñado. Además, el cooperativo ya no acaba en el jefe.": "InaZurvivors si rifà il look: nuovo logo, menu con icone e pulsanti disegnati, banner e cornici con arte propria e animazioni, e un La mia squadra ridisegnato. E la cooperativa non finisce più col boss.",
+  "Logo nuevo": "Nuovo logo",
+  "La Z cae, chispea y las letras se unen a ella al entrar en el juego.": "La Z cade, scintilla e le lettere si uniscono a lei quando entri nel gioco.",
+  "Menú dibujado": "Menu disegnato",
+  "Cada sección del menú tiene su icono, y los botones y paneles tienen arte nuevo. Los títulos se leen mejor.": "Ogni sezione del menu ha la sua icona, e pulsanti e pannelli hanno arte nuova. I titoli si leggono meglio.",
+  "Banners y marcos nuevos": "Nuovi banner e cornici",
+  "Todos los banners y marcos tienen arte propio: los banderines se mecen, los emblemas brillan y los marcos llevan luces, destellos y alas que aletean.": "Ogni banner e ogni cornice ha la sua arte: gli stendardi ondeggiano, gli emblemi brillano e le cornici hanno luci, scintille e ali che sbattono.",
+  "Mi Equipo rediseñado": "La mia squadra ridisegnata",
+  "Técnicas combinadas unidas por un rayo, resonancias con sus pasos, el entrenador en su banquillo y la media del equipo con medalla.": "Tecniche combinate unite da un fulmine, risonanze con i loro gradini, l'allenatore in panchina e la media della squadra con medaglia.",
+  "Cooperativo infinito": "Cooperativa infinita",
+  "Al vencer al jefe, la partida en pareja sigue en supervivencia infinita.": "Battuto il boss, la partita in coppia continua in sopravvivenza infinita.",
+  "Abre tu Perfil y equípate un marco.": "Apri il tuo Profilo ed equipaggia una cornice.",
+  "Juega en cooperativo y no pares en el jefe.": "Gioca in cooperativa e non fermarti al boss.",
+  "NUEVO ASPECTO": "NUOVO ASPETTO",
 };

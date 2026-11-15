@@ -186,9 +186,15 @@ export function runTour(all: TourStep[], onEnd: () => void) {
   document.body.appendChild(layer);
   const hole = layer.querySelector<HTMLElement>('.gd-hole')!, bubble = layer.querySelector<HTMLElement>('.gd-bubble')!;
   let at = 0;
+  // 16.7 (author: «cuidado que esto puede pasar con lo de los espíritus»): the tour belongs to the screen it started on;
+  // when that screen goes (another one opened, by hand or by itself) or the card it points at is gone, it ends quietly
+  // instead of pointing at an empty spot over the new screen
+  const home = find(steps[0].sel)?.closest('.screen') ?? null;
+  const gone = () => (home ? !home.isConnected : false) || !find(steps[at].sel);
+  const watch = window.setInterval(() => { if (gone()) end(); }, 250);
   const place = () => {
     const el = find(steps[at].sel);
-    if (!el) return;
+    if (!el) { end(); return; }
     const r = el.getBoundingClientRect(), pad = 6, vw = window.innerWidth, vh = window.innerHeight;
     Object.assign(hole.style, { left: `${r.left - pad}px`, top: `${r.top - pad}px`, width: `${r.width + pad * 2}px`, height: `${r.height + pad * 2}px` });
     // the bubble goes where there is more room: below or above the hole, kept inside the window
@@ -219,7 +225,11 @@ export function runTour(all: TourStep[], onEnd: () => void) {
     else if (e.key === 'ArrowLeft') { e.preventDefault(); if (at) go(at - 1); }
   };
   const onResize = () => place();
+  let ended = false;
   function end() {
+    if (ended) return;
+    ended = true;
+    clearInterval(watch);
     window.removeEventListener('keydown', keys, true);
     window.removeEventListener('resize', onResize);
     window.removeEventListener('scroll', onResize, true);

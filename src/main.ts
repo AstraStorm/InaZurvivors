@@ -27,6 +27,7 @@ import './styleReplay.css';
 import './styleSeason.css';
 import './styleUiSaga.css'; // 2.11: the saga's digits and badges
 import './styleSector.css'; // 2.2 Sector Quinto
+import './styleTeam21.css'; // 16.7 Mi Equipo
 import type { Manifest } from './data/manifest';
 import { applyRosterFixes } from './data/rosterFixes';
 import { applyTechFixes } from './data/techFixes';

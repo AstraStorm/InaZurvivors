@@ -4169,4 +4169,28 @@ export const CA: Record<string, string> = {
   // 16.5: shop novelties
   "¡Banners y marcos nuevos!": "Bàners i marcs nous!",
   "Mira los banners y marcos nuevos de la Tienda": "Mira els bàners i marcs nous de la Botiga",
+  // 16.7: endless co-op capacity, Mi Equipo
+  "El cooperativo está en pausa: el servidor ha llegado a su límite. Las partidas en curso siguen.": "El cooperatiu està en pausa: el servidor ha arribat al seu límit. Les partides en curs continuen.",
+  "Cooperativo en pausa": "Cooperatiu en pausa",
+  "Hay demasiadas partidas a la vez y el servidor está al límite. Prueba otra vez en unos minutos.": "Hi ha massa partides alhora i el servidor és al límit. Torna-ho a provar d'aquí a uns minuts.",
+  "El servidor ha gastado casi todo su margen de este mes, así que no se abren salas nuevas para no pasarnos. Vuelve el {when}.": "El servidor ha gastat gairebé tot el marge d'aquest mes, així que no s'obren sales noves per no passar-nos-en. Torna el {when}.",
+  "Las partidas que ya están en juego siguen sin problema.": "Les partides que ja s'estan jugant continuen sense problemes.",
+  "{n} para {rarity}": "{n} per a {rarity}",
+  // 2.8: a new look
+  "InaZurvivors 2.8 — Nuevo aspecto": "InaZurvivors 2.8 — Nou aspecte",
+  "Todo el juego, dibujado de nuevo": "Tot el joc, dibuixat de nou",
+  "InaZurvivors se pone guapo: logo nuevo, menú con iconos y botones dibujados, banners y marcos con arte propio y animaciones, y un Mi Equipo rediseñado. Además, el cooperativo ya no acaba en el jefe.": "InaZurvivors es posa guapo: logo nou, menú amb icones i botons dibuixats, banners i marcs amb art propi i animacions, i un El meu equip redissenyat. A més, el cooperatiu ja no acaba al cap final.",
+  "Logo nuevo": "Logo nou",
+  "La Z cae, chispea y las letras se unen a ella al entrar en el juego.": "La Z cau, espurneja i les lletres s'hi uneixen quan entres al joc.",
+  "Menú dibujado": "Menú dibuixat",
+  "Cada sección del menú tiene su icono, y los botones y paneles tienen arte nuevo. Los títulos se leen mejor.": "Cada secció del menú té la seva icona, i els botons i panells tenen art nou. Els títols es llegeixen millor.",
+  "Banners y marcos nuevos": "Banners i marcs nous",
+  "Todos los banners y marcos tienen arte propio: los banderines se mecen, los emblemas brillan y los marcos llevan luces, destellos y alas que aletean.": "Tots els banners i marcs tenen art propi: els banderins es gronxen, els emblemes brillen i els marcs porten llums, espurnes i ales que bateguen.",
+  "Mi Equipo rediseñado": "El meu equip redissenyat",
+  "Técnicas combinadas unidas por un rayo, resonancias con sus pasos, el entrenador en su banquillo y la media del equipo con medalla.": "Tècniques combinades unides per un llamp, ressonàncies amb els seus passos, l'entrenador a la banqueta i la mitjana de l'equip amb medalla.",
+  "Cooperativo infinito": "Cooperatiu infinit",
+  "Al vencer al jefe, la partida en pareja sigue en supervivencia infinita.": "En vèncer el cap final, la partida en parella continua en supervivència infinita.",
+  "Abre tu Perfil y equípate un marco.": "Obre el teu Perfil i equipa't un marc.",
+  "Juega en cooperativo y no pares en el jefe.": "Juga en cooperatiu i no t'aturis al cap final.",
+  "NUEVO ASPECTO": "NOU ASPECTE",
 };

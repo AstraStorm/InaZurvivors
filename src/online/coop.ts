@@ -7,7 +7,7 @@
  * retransmits (state snapshots: a lost one is replaced by the next). The host simulates, the guest draws.
  */
 import { tr } from '../i18n/i18n';
-import { coopCreate, coopIceServers, coopJoin, coopMark, coopPoll, coopSignal } from './client';
+import { coopBeat, coopCreate, coopIceServers, coopJoin, coopMark, coopPoll, coopSignal } from './client';
 
 /** public STUN servers (no account): enough for most home networks; the TURN relay (Cloudflare) is added per room */
 const ICE: RTCIceServer[] = [{ urls: ['stun:stun.cloudflare.com:3478', 'stun:stun.l.google.com:19302'] }];
@@ -39,6 +39,8 @@ export class CoopLink {
   private ev: RTCDataChannel | null = null;
   private st: RTCDataChannel | null = null;
   private pingTimer = 0;
+  private beatTimer = 0;
+  private relayBytes = 0;
   private closed = false;
   /** round trip in ms (median of the last few pings), 0 until measured */
   rtt = 0;
@@ -131,6 +133,24 @@ export class CoopLink {
     try { await Promise.race([chans, timeout]); } catch (e) { this.close(); throw e; } finally { clearTimeout(timer); }
     this.pingTimer = window.setInterval(() => this.send({ t: 'ping', at: performance.now() }), PING_MS);
     this.send({ t: 'ping', at: performance.now() });
+    // 16.7: co-op is endless now, so the server counts what each match really costs (coop_status closes new rooms in time)
+    if (this.role === 'host') this.beatTimer = window.setInterval(() => void this.beat(), 60_000);
+  }
+  /** the minute and the relayed megabytes since the last beat (both directions; 0 when the pair talks directly) */
+  private async beat() {
+    let mb = 0;
+    try {
+      const stats = await this.pc.getStats();
+      for (const s of stats.values()) {
+        if (s.type !== 'candidate-pair' || s.state !== 'succeeded' || !s.nominated) continue;
+        const relay = stats.get(s.localCandidateId)?.candidateType === 'relay' || stats.get(s.remoteCandidateId)?.candidateType === 'relay';
+        const total = (s.bytesSent ?? 0) + (s.bytesReceived ?? 0);
+        if (relay) mb = Math.max(0, total - this.relayBytes) / 1048576;
+        this.relayBytes = total;
+        break;
+      }
+    } catch { /* no stats: the minute still counts */ }
+    void coopBeat(this.code, mb).catch(() => undefined);
   }
 
   get open() { return !this.closed && this.ev?.readyState === 'open'; }
@@ -154,6 +174,7 @@ export class CoopLink {
     if (this.closed) return;
     this.closed = true;
     clearInterval(this.pingTimer);
+    clearInterval(this.beatTimer);
     try { this.pc.close(); } catch { /* already closed */ }
     void coopMark(this.code, 'cerrada').catch(() => undefined);
     this.onClose(why);

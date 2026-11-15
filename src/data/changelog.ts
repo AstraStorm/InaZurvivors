@@ -15,6 +15,15 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: '17.0', date: '2026-11-15', title: '2.8 Nuevo aspecto: arte del autor (ChatGPT) en logo, menú, banners, marcos; Mi Equipo; coop infinito',
+    features: ['Pack de UI del autor hecho con ChatGPT (D:/Sprites Inazuma/GPT): tools/gpt_ui.py (iconos del menú, logo Ina/Z/urvivors con la Z animada, botones y paneles 9-slice) y tools/gpt_pennants.py (banderín, emblema, cinta y emblema animado de cada banner; cada marco con su agujero y placa medidos; alas).',
+      'Logo: en la entrada la Z cae sola, chispea y las palabras se unen; en el menú quieto. Salida de la pantalla de título rehecha.',
+      'Mi Equipo rediseñado (técnicas combinadas, resonancias, entrenador, media) y menú redistribuido con títulos más grandes.',
+      'Cooperativo infinito tras el jefe, con tope de servidor (coop_capacity: deja de ofrecer salas antes del límite y avisa).',
+      'Jaden cambia de torso con la equipación. El recorrido del menú se cierra si cambia la pantalla.'],
+    fixes: [], visuals: ['Anuncio de la 2.8 con estilo de estreno de cartel (App.launch28).'], balance: [],
+  },
+  {
     version: '16.6', date: '2026-11-15', title: 'La Gran Ola con el grabado de Hokusai y marcos que giran',
     features: ['La Gran Ola lleva el grabado de Hokusai de verdad (1831, dominio público; public/art/gran-ola.webp, autor: «mejora el banner del ukiyo-e con la foto»): es la tela del banderín, un círculo en el emblema del perfil y un grabado enmarcado sobre las olas en la cinta ancha (PennantDef.photo).',
       'Marcos más vivos (autor: «no veo las animaciones: cosas dando vueltas o el propio marco dando vueltas»): todos los aros redondos giran y un cometa con estela da vueltas alrededor de cada marco; el del balón y la luna, más rápidos.'],

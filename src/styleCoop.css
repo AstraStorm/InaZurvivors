@@ -163,3 +163,12 @@
   .cp-id .fr-host, .cp-id > .avatar { zoom: .7; } .cp-squad { gap: 4px; } .cp-mug .mug { zoom: .8; }
   .cp-pc.wait { min-height: 120px; }
 }
+
+/* 16.7: co-op paused before the server's limit */
+.cp-cap { display: flex; gap: 12px; align-items: center; border: 2px solid #ffb44a99; background: linear-gradient(135deg, #3a2208ee, #1d1206ee); }
+.cp-cap b { color: #ffd27a; font-size: 13px; }
+.cp-cap p { margin: 4px 0; font-size: 10px; line-height: 1.6; color: #ffe9c4; }
+.cp-cap small { color: #c8b89a; font-size: 9px; }
+.cp-cap-ic { flex: none; width: 38px; height: 38px; display: grid; place-items: center; border-radius: 50%; background: #ffb44a33; color: #ffd27a; }
+.cp-cap-ic svg { width: 22px; height: 22px; }
+.cp-closed { opacity: .45; filter: grayscale(.6); pointer-events: none; }

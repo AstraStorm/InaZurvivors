@@ -37,6 +37,7 @@ const ERRORS: Record<string, string> = {
   room_full: tr('Esa sala ya tiene dos jugadores.'),
   own_room: tr('Esa sala es tuya: pásale el código a tu compañero.'),
   coop_daily_limit: tr('Has creado demasiadas salas hoy. Vuelve mañana.'),
+  coop_capacity: tr('El cooperativo está en pausa: el servidor ha llegado a su límite. Las partidas en curso siguen.'),
   friend_not_found: tr('No hay ningún jugador con ese nombre global.'),
   friend_self: tr('Ese eres tú.'),
   friend_daily_limit: tr('Has enviado muchas solicitudes hoy. Vuelve mañana.'),
@@ -378,6 +379,11 @@ export const coopJoin = (code: string) => rpc<string>('coop_join', { p_code: cod
 export const coopSignal = (code: string, kind: 'offer' | 'answer', sdp: string) => rpc<null>('coop_signal', { p_code: code, p_kind: kind, p_sdp: sdp });
 export const coopPoll = async (code: string) => (await rpc<CoopPoll[]>('coop_poll', { p_code: code }))[0] ?? null;
 export const coopMark = (code: string, status: 'conectada' | 'cerrada') => rpc<null>('coop_mark', { p_code: code, p_status: status });
+/** 16.7: the host, once a minute while playing: megabytes that went through the relay (0 when direct) */
+export const coopBeat = (code: string, relayMb: number) => rpc<null>('coop_beat', { p_code: code, p_relay_mb: Math.round(relayMb * 100) / 100 });
+/** 16.7: open = new rooms are offered; closed before the server's monthly budget (or its live matches) runs out */
+export interface CoopStatus { open: boolean; pct: number; reason: 'lleno' | 'mensual' | null; reopens: string }
+export const coopStatus = async () => (await rpc<CoopStatus[]>('coop_status', {}))[0] ?? null;
 /** pre-2.0: TURN relay servers for a room (turn-credentials Edge Function); [] when unavailable: the game then tries direct */
 export async function coopIceServers(code: string): Promise<RTCIceServer[]> {
   const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), 4000);

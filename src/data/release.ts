@@ -7,7 +7,7 @@
 import { CHANGELOG } from './changelog';
 import { tr } from '../i18n/i18n';
 
-export const PUBLIC_VERSION = '2.7';
+export const PUBLIC_VERSION = '2.8';
 export const BUILD = CHANGELOG[0].version;
 export const RELEASED = true; // (author) 2.0: the «pre» phase is over
 export const VERSION_LABEL = RELEASED ? `v${PUBLIC_VERSION}` : `v${PUBLIC_VERSION} · pre-lanzamiento`;
@@ -31,6 +31,20 @@ export interface PublicRelease {
 
 /** Public news, newest first. Starts at v1.0: the internal versions before it are not part of the public history. */
 export const PUBLIC_RELEASES: PublicRelease[] = [
+  {
+    version: '2.8', date: '2026-11-15',
+    title: tr("InaZurvivors 2.8 — Nuevo aspecto"),
+    tagline: tr("Todo el juego, dibujado de nuevo"),
+    intro: tr("InaZurvivors se pone guapo: logo nuevo, menú con iconos y botones dibujados, banners y marcos con arte propio y animaciones, y un Mi Equipo rediseñado. Además, el cooperativo ya no acaba en el jefe."),
+    features: [
+      { icon: '⚡', title: tr("Logo nuevo"), text: tr("La Z cae, chispea y las letras se unen a ella al entrar en el juego.") },
+      { icon: '🎨', title: tr("Menú dibujado"), text: tr("Cada sección del menú tiene su icono, y los botones y paneles tienen arte nuevo. Los títulos se leen mejor.") },
+      { icon: '🏳️', title: tr("Banners y marcos nuevos"), text: tr("Todos los banners y marcos tienen arte propio: los banderines se mecen, los emblemas brillan y los marcos llevan luces, destellos y alas que aletean.") },
+      { icon: '🔗', title: tr("Mi Equipo rediseñado"), text: tr("Técnicas combinadas unidas por un rayo, resonancias con sus pasos, el entrenador en su banquillo y la media del equipo con medalla.") },
+      { icon: '🤝', title: tr("Cooperativo infinito"), text: tr("Al vencer al jefe, la partida en pareja sigue en supervivencia infinita.") },
+    ],
+    start: [tr("Abre tu Perfil y equípate un marco."), tr("Juega en cooperativo y no pares en el jefe.")],
+  },
   {
     version: '2.7', date: '2026-11-15',
     title: tr("InaZurvivors 2.7 — Guía, tutorial y media del equipo"),

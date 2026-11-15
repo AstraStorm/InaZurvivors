@@ -51,6 +51,8 @@ export interface CoopPort {
   makeGhost(entry: RosterEntry, x: number, y: number): Footballer;
   replayShot(m: FxMsg): void;
   end(victory: boolean): void;
+  /** the first boss fell: the pair goes on in endless survival */
+  endless(): void;
   banner(text: string, color: string): void;
   telegraph(m: TeleMsg): void;
   /** 2.0: the partner fired his warrior spirit's ultimate (`at`: where his player stands now) */
@@ -257,6 +259,7 @@ export class CoopSession {
       case 'hazard': p.hazard(Number(m.x), Number(m.y), Number(m.dmg), String(m.by ?? '')); break;
       case 'shock': p.shock(Number(m.x), Number(m.y), Number(m.dmg), Number(m.c), String(m.by ?? '')); break;
       case 'end': p.end(!!m.win); break;
+      case 'inf': if (this.role === 'guest') p.endless(); break;
       case 'tele': p.telegraph(m as unknown as TeleMsg); break;
       case 'say': p.banner(String(m.tx ?? ''), String(m.c ?? '#ffffff')); break;
       case 'askhz': if (this.role === 'host') p.hazard(Number(m.x), Number(m.y), -1, ''); break;
@@ -337,6 +340,7 @@ export class CoopSession {
   down() { /* the partner reads it from the team snapshot */ }
   /** host: the run ended for both */
   end(victory: boolean) { if (this.role === 'host') this.send({ t: 'end', win: victory }); }
+  endless() { if (this.role === 'host') this.send({ t: 'inf' }); }
   /** both down: the run is lost */
   bothDown() { return this.port.isDown() && (this.partnerDown || this.lost); }
 

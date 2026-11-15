@@ -3427,7 +3427,7 @@ export class ArenaScene extends Phaser.Scene {
 
   /** First boss: choose to finish or keep surviving. Later bosses (endless) pay a reward and the run goes on. */
   private onBossDown(x: number, y: number) {
-    if (this.coop || this.cfg.road) { this.finish(true); return; } // pre-2.0: co-op and the road end with the boss (no endless)
+    if (this.cfg.road) { this.finish(true); return; } // pre-2.0: the road ends with the boss (no endless)
     if (this.endless) {
       this.bonusCoins += 60; this.bonusTokens += FICHA_DROP;
       this.endless.coins += 60; this.endless.tokens += FICHA_DROP; this.endless.bosses++;
@@ -3435,18 +3435,24 @@ export class ArenaScene extends Phaser.Scene {
       sfx('evolve');
       return;
     }
+    // co-op (author: «que se vuelva infinito»): no choice, the pair goes on; the host tells the guest (only the host gets here)
+    if (this.coop) { this.coop.endless(); this.startEndless(); return; }
     this.levelingUp = true;
     this.scene.pause();
     void this.cfg.hooks.bossDown().then((choice) => {
       this.levelingUp = false;
       if (choice === 'end') { this.finish(true); return; }
-      const c = this.members[0].f;
-      this.endless = { since: this.runTime, nextTick: this.runTime + 60, moved: 0, ticks: 0, nextBoss: this.runTime + 150, nextMiniboss: this.runTime + 70, killsAtTick: this.kills, phase: 0, bosses: 0, coins: 0, tokens: 0 };
-      this.nextSurround = this.runTime + 40;
-      this.lastCapPos = { x: c.x, y: c.y };
+      this.startEndless();
       this.scene.resume();
-      this.banner(tr('¡SUPERVIVENCIA INFINITA!'), '#ff8a5a');
     });
+  }
+  private startEndless() {
+    if (this.endless || this.ended) return;
+    const c = this.members[0].f;
+    this.endless = { since: this.runTime, nextTick: this.runTime + 60, moved: 0, ticks: 0, nextBoss: this.runTime + 150, nextMiniboss: this.runTime + 70, killsAtTick: this.kills, phase: 0, bosses: 0, coins: 0, tokens: 0 };
+    this.nextSurround = this.runTime + 40;
+    this.lastCapPos = { x: c.x, y: c.y };
+    this.banner(tr('¡SUPERVIVENCIA INFINITA!'), '#ff8a5a');
   }
 
   private endlessMin() { return this.endless ? (this.runTime - this.endless.since) / 60 : 0; }
@@ -3481,6 +3487,7 @@ export class ArenaScene extends Phaser.Scene {
       } else this.banner(tr('Sin recompensa: juega para ganarla'), '#ff9a8a');
       e.moved = 0; e.killsAtTick = this.kills;
     }
+    if (this.coop?.role === 'guest') return; // co-op: the host brings the minibosses and the boss back
     const units = this.units();
     if (this.runTime >= e.nextMiniboss) {
       e.nextMiniboss = this.runTime + ph.minibossEvery;
@@ -4064,6 +4071,7 @@ export class ArenaScene extends Phaser.Scene {
       replayShot: (m) => this.replayShot(m),
       partnerUlt: (id, at) => { const k = KESHIN_BY_ID.get(id as KeshinId); spiritApparition(this, id, k?.color ?? '#ffffff', at); },
       end: (v) => this.finish(v),
+      endless: () => this.startEndless(),
       banner: (t, c) => this.banner(t, c),
       telegraph: (m) => this.telegraphMirror(m),
       partnerPicking: (on) => this.cfg.hooks.coopPicking?.(on && this.coop ? this.coop.partnerName : null),
@@ -4113,6 +4121,11 @@ export class ArenaScene extends Phaser.Scene {
     this.altarCount(e);
     this.disposeTelegraphs(e);
     if (e === this.boss) this.boss = null;
+    if (e.kind === 'boss' && this.endless) { // co-op endless: each player gets the boss reward, as the host does in onBossDown
+      this.bonusCoins += 60; this.bonusTokens += FICHA_DROP;
+      this.endless.coins += 60; this.endless.tokens += FICHA_DROP; this.endless.bosses++;
+      this.fx.label(e.pos.x, e.pos.y - 30, tr('¡Jefe derrotado! +60 monedas +{FICHA_DROP} fichas', { FICHA_DROP }), '#8fe8ff');
+    }
     const x = e.pos.x, y = e.pos.y - 6, sp = e.sprite;
     this.fx.burst(style, x, y - 4, 6, 50);
     this.fx.ring(x, y - 4, 12, 0xffffff, 180, 2);

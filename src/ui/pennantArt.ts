@@ -5,6 +5,7 @@
  */
 import { PENNANT_BY_ID, type PennantDef, type PennantEmblem, type PennantPattern } from '../data/pennants';
 import type { Rarity } from '../data/manifest';
+import { PN_RASTER } from './pennantRaster';
 
 /** same colours as the rest of the UI (app.ts) */
 const RARITY_COLOR: Record<Rarity, string> = { comun: '#9fb0c8', raro: '#4fb3ff', epico: '#b36bff', legendario: '#ffb020', mitico: '#ff4f8b', leyenda: '#fff6c8' };
@@ -22,6 +23,25 @@ export function setPennantLogos(p: { bluelock?: string; sector?: string; resiste
   if (p.resistencia) SIDE_LOGO.resistencia = p.resistencia;
 }
 const W = 100, H = 132;
+
+// ------------------------------------------------------------------ 16.7: the author's ChatGPT art (tools/gpt_pennants.py)
+// Every banner has a drawn pennant, emblem, ribbon and (mythic ones) an animated emblem strip; every frame a drawn ring.
+// Anything without art keeps the SVG drawing below. Logos (BlueLock, Sector Quinto, Resistencia) go on the art's blank
+// plates, so no logo is ever invented.
+const PN_DIR = 'art/pn/';
+const hasArt = (id: string) => !!PN_RASTER.banners[id];
+/** 16.7: a frame drawn by the author (round, also around the square profile icons, which are then cut round) */
+export const hasFrameArt = (id: string | null | undefined) => !!(id && PN_RASTER.frames[id]);
+const LOGO_OF: Partial<Record<PennantEmblem, () => string>> = { bluelock: () => BL_LOGO, sector: () => SIDE_LOGO.sector, resistencia: () => SIDE_LOGO.resistencia };
+/** the emblem as art: the animated strip when there is one (steps through its frames), the still image otherwise */
+function emblemArt(p: PennantDef, cls = ''): string {
+  const n = PN_RASTER.banners[p.id]?.anim;
+  const logo = LOGO_OF[p.emblem]?.();
+  const plate = logo ? `<img class="pna-logo" src="${logo}" alt="">` : '';
+  return n
+    ? `<span class="pna-emb pna-anim ${cls}" style="--n:${n};background-image:url(${PN_DIR}${p.id}-a.webp)">${plate}</span>`
+    : `<span class="pna-emb ${cls}"><img src="${PN_DIR}${p.id}-e.webp" alt="">${plate}</span>`;
+}
 /** 16.6: a picture that covers a w × h box, centred on its point (fx, fy) as far as its edges allow */
 function photoFill(ph: NonNullable<PennantDef['photo']>, x0: number, y0: number, w: number, h: number): string {
   const ih = Math.max(h, w / ph.ratio), iw = ih * ph.ratio;
@@ -158,6 +178,10 @@ function emblem(e: PennantEmblem, a: string, C = 'translate(50 52)'): string {
 export function pennantSvg(def: PennantDef | string | undefined, size = 48): string {
   const p = typeof def === 'string' ? PENNANT_BY_ID.get(def) : def;
   if (!p) return '';
+  if (hasArt(p.id)) { // 16.7: the drawn pennant, swaying from its rod; Épico and up with a shine across the cloth
+    const logo = LOGO_OF[p.emblem]?.();
+    return `<span class="pennant pn-art pn-${p.rarity}" role="img" aria-label="${p.name}" style="width:${size}px;height:${Math.round(size * H / W)}px;--rc:${RARITY_COLOR[p.rarity]}"><img src="${PN_DIR}${p.id}.webp" alt="">${logo ? `<img class="pna-logo" src="${logo}" alt="">` : ''}<i class="pna-shine"></i></span>`;
+  }
   const id = `pn${++uid}`;
   const frame = p.rarity === 'leyenda' ? `url(#${id}r)` : RARITY_COLOR[p.rarity];
   const shine = ['epico', 'legendario', 'mitico', 'leyenda'].includes(p.rarity);
@@ -262,6 +286,10 @@ export function pennantRibbon(def: PennantDef | string | null | undefined, withE
   const id = `pr${++uid}`;
   const shine = ['epico', 'legendario', 'mitico', 'leyenda'].includes(p.rarity);
   const echo = (x: number, k: number) => emblem(p.emblem, p.accent, `translate(${x} ${EY}) scale(${k})`);
+  if (hasArt(p.id)) // 16.7: the drawn ribbon, its emblem floating where the SVG one stood (EX), and the shine
+    return `<span class="pn-ribbon pnr-${p.rarity} pnr-art-on" style="--rc:${RARITY_COLOR[p.rarity]};--ac:${p.accent}" aria-hidden="true"><span class="pnr-in">
+      <img class="pnr-art pnr-img" src="${PN_DIR}${p.id}-c.webp" alt="">${withEmblem ? `<span class="pnr-emb-art" style="left:${(EX / RW * 100).toFixed(1)}%">${emblemArt(p)}</span>` : ''}
+      ${shine ? '<i class="pnr-shine-art"></i>' : ''}</span></span>`;
   return `<span class="pn-ribbon pnr-${p.rarity}" style="--rc:${RARITY_COLOR[p.rarity]}" aria-hidden="true"><span class="pnr-in">
     <svg class="pnr-art" viewBox="0 0 ${RW} ${RH}" preserveAspectRatio="xMidYMid slice">
       <defs><linearGradient id="${id}g" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="${p.c2}"/><stop offset=".58" stop-color="${p.c1}"/><stop offset="1" stop-color="${p.c2}"/></linearGradient>
@@ -283,12 +311,53 @@ export function pennantRibbon(def: PennantDef | string | null | undefined, withE
 export function pennantEmblem(def: PennantDef | string | null | undefined, size = 120): string {
   const p = typeof def === 'string' ? PENNANT_BY_ID.get(def) : def;
   if (!p) return '';
+  if (hasArt(p.id)) return `<span class="pn-emblem pn-emblem-art" style="width:${size}px;height:${size}px;--ac:${p.accent}" aria-hidden="true">${emblemArt(p)}</span>`;
   const id = `pe${++uid}`;
   return `<svg class="pn-emblem" viewBox="0 0 100 100" width="${size}" height="${size}" aria-hidden="true">
     <defs><radialGradient id="${id}o" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="${p.accent}" stop-opacity=".65"/><stop offset="1" stop-color="${p.accent}" stop-opacity="0"/></radialGradient></defs>
     <circle cx="50" cy="50" r="50" fill="url(#${id}o)"/>${p.photo ? `<clipPath id="${id}c"><circle cx="50" cy="50" r="44"/></clipPath><g clip-path="url(#${id}c)">${photoFill({ ...p.photo, x: 0.36, y: 0.3 }, -40, 6, 180, 88)}</g><circle cx="50" cy="50" r="44" fill="none" stroke="#efe3c6" stroke-width="3"/>`
       : isClan(p) ? clanEmblem(p, 50, 50, 1) : emblem(p.emblem, p.accent, 'translate(50 50) scale(1.5)')}</svg>`;
 }
+
+/**
+ * 16.7 (author: «añade animaciones a marcos si puedes»): a drawn frame. The image is scaled so its hole is the avatar's
+ * circle (100 of the 140 box, centred). On top, by rarity: a light that runs round the ring (Raro up), twinkles that
+ * blink on it (Épico up), a comet in orbit and a breathing glow (Legendario up), a colour shimmer (Mítico, Leyenda).
+ */
+function frameArt(p: PennantDef, a: (typeof PN_RASTER.frames)[string]): string {
+  const id = `fa${++uid}`;
+  // the hole a bit wider than the avatar (100): the ring sits around the face instead of over its edge (author: «tapan mucho»)
+  // FRAME_DROP: the drawing sits a little low on the avatar, the face then reads higher in the ring (author: «bájalos un poquito»)
+  const iw = FRAME_HOLE / a.d, ih = iw * a.ar, x = FC - a.cx * iw, y = FC - a.cy * ih + FRAME_DROP;
+  const r = PENNANT_RANK[p.rarity];
+  const logo = LOGO_OF[p.emblem]?.();
+  // the logo goes on the frame's blank plate, measured by tools/gpt_pennants.py (a little inside its edges)
+  const pl = a.plate;
+  const plate = logo && pl ? `<image class="fa-logo" href="${logo}" x="${(x + (pl.x + pl.w * 0.08) * iw).toFixed(1)}" y="${(y + (pl.y + pl.h * 0.12) * ih).toFixed(1)}" width="${(pl.w * 0.84 * iw).toFixed(1)}" height="${(pl.h * 0.76 * ih).toFixed(1)}" preserveAspectRatio="xMidYMid meet"/>` : '';
+  const tw = r >= 2 ? [30, 140, 230, 320].map((deg, k) => {
+    const t = deg * Math.PI / 180, R = 64;
+    return `<g class="fa-tw" style="--k:${k}" transform="translate(${(FC + R * Math.cos(t)).toFixed(1)} ${(FC + R * Math.sin(t)).toFixed(1)})"><path d="M0,-6 L1.4,-1.4 L6,0 L1.4,1.4 L0,6 L-1.4,1.4 L-6,0 L-1.4,-1.4 Z" fill="#fff"/></g>`;
+  }).join('') : '';
+  // (author: «no veo incorporadas alas») the winged frames whose drawing has none get the beating SVG wings behind the
+  // ring, scaled to its size so they spring from behind it
+  // the author's drawn wings (a01): the left one with its shoulder (lower right corner) behind the ring's left side, the
+  // right one its mirror; both beat from the shoulder. Without a drawing, the SVG wings
+  const WW = 60, wh = a.wing ? WW * a.wing : 0, sx = FC - 62, sy = FC + 8 + FRAME_DROP;
+  const wingImg = (flip: boolean) => `<g class="fa-wing${flip ? ' r' : ''}" style="transform-origin:${flip ? 140 - sx : sx}px ${sy}px"><g${flip ? ' transform="translate(140 0) scale(-1 1)"' : ''}><image href="${PN_DIR}${p.id}-w.webp" x="${(sx - WW * 0.9).toFixed(1)}" y="${(sy - wh * 0.9).toFixed(1)}" width="${WW}" height="${wh.toFixed(1)}" preserveAspectRatio="none"/></g></g>`;
+  const wingsSvg = !p.wings ? '' : a.wing ? wingImg(false) + wingImg(true)
+    : !ART_WINGED.has(p.id) ? `<g transform="translate(${FC} ${FC}) scale(1.12) translate(${-FC} ${-FC})">${wings(p.accent, p.c1, p.c2, false)}</g>` : '';
+  return `<svg class="frame fr-${p.rarity} frp-${p.pattern} fr-art" viewBox="${p.wings ? `${-WING_PAD} 0 ${140 + WING_PAD * 2} 140` : '0 0 140 140'}" aria-hidden="true" style="--ac:${p.accent}">${wingsSvg}
+    <defs><linearGradient id="${id}s" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".5" stop-color="#fff" stop-opacity=".95"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient></defs>
+    <image class="fa-img" href="${PN_DIR}${p.id}.webp" x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${iw.toFixed(1)}" height="${ih.toFixed(1)}" preserveAspectRatio="none"/>${plate}
+    ${r >= 1 ? `<g class="fr-spin"><circle cx="${FC}" cy="${FC}" r="60" fill="none" stroke="url(#${id}s)" stroke-width="3.2" stroke-dasharray="34 400" stroke-linecap="round"/></g>` : ''}
+    ${tw}
+    ${r >= 3 ? `<g class="fx-orbit fx-comet"><g transform="translate(${FC} ${FC - 68})"><path d="M2,0 L-22,-4 L-22,4 Z" fill="${p.accent}" opacity=".55"/><circle r="5" fill="${p.accent}" opacity=".5"/><circle r="2.6" fill="#fff"/></g></g>` : ''}
+  </svg>`;
+}
+const FRAME_HOLE = 112, FRAME_DROP = 5;
+/** the frames whose drawing already has wings (or the ukiyo-e waves that play them) */
+const ART_WINGED = new Set(['marco-bluelock', 'marco-sector-quinto', 'marco-t1-campeon', 'marco-t1-podio', 'marco-creador', 'marco-ukiyo']);
+const PENNANT_RANK: Record<Rarity, number> = { comun: 0, raro: 1, epico: 2, legendario: 3, mitico: 4, leyenda: 5 };
 
 // ------------------------------------------------------------------ avatar frames (author: "marcos súper guays")
 /*
@@ -411,6 +480,8 @@ function clanDeco(p: PennantDef): string {
 export function frameSvg(def: PennantDef | string | null | undefined, square = false): string {
   const p = typeof def === 'string' ? PENNANT_BY_ID.get(def) : def;
   if (!p) return '';
+  const art = !square ? PN_RASTER.frames[p.id] : undefined;
+  if (art) return frameArt(p, art);
   const id = `fr${++uid}`;
   const top = ['epico', 'legendario', 'mitico', 'leyenda'].includes(p.rarity);
   const ring = p.pattern === 'arcoiris' || p.rarity === 'leyenda' ? `url(#${id}r)` : `url(#${id}g)`;

@@ -1,0 +1,450 @@
+/* 16.7 Mi Equipo (author: «mejórame todo el apartado gráfico de mi equipo: técnicas combinadas, entrenador, elementos y
+   sinergias, media de equipo»). Emblems: ForgeGUI pixel art, public/art/team/iconos.png (5 cells of 84 px) */
+.tm-ic { display: inline-block; flex: none; width: 34px; height: 34px; background-repeat: no-repeat;
+  background-size: 500% 100%; background-position: calc(var(--ti) * 25%) 0; image-rendering: pixelated; filter: drop-shadow(0 2px 0 #0008); }
+
+/* ---- sections */
+.tm-syn { display: flex; flex-direction: column; gap: 14px; }
+.tm-sec { display: flex; flex-direction: column; gap: 8px; }
+.tm-head { display: flex; align-items: center; gap: 10px; padding-bottom: 6px; border-bottom: 2px solid #ffffff14; }
+.tm-head h3 { margin: 0; font-size: 12px; color: var(--yellow); text-shadow: 2px 2px 0 #000; }
+.tm-head .tm-ic { width: 40px; height: 40px; animation: tmBob 2.6s ease-in-out infinite; }
+.tm-count { margin-left: auto; padding: 4px 8px; border-radius: 999px; font-size: 8px; color: #0a2a10; background: #7fff9a; box-shadow: 0 2px 0 #0007; }
+.tm-legend { margin: 0; font-size: 8px; line-height: 1.6; }
+@keyframes tmBob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
+
+/* ---- combined techniques: duo / trio cards joined by an energy beam */
+.cb3-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 10px; }
+.cb3 { position: relative; display: flex; align-items: center; gap: 12px; padding: 12px 12px 12px 14px; border-radius: 14px; overflow: hidden; isolation: isolate;
+  background: radial-gradient(120% 140% at 0% 50%, color-mix(in srgb, var(--ec) 26%, transparent), transparent 60%), linear-gradient(135deg, #0c2150, #071433);
+  box-shadow: inset 0 0 0 2px #ffffff1c, 0 4px 0 #0006; opacity: .82; transition: transform .15s, opacity .15s; }
+.cb3:hover { transform: translateY(-2px); opacity: 1; }
+.cb3::after { content: ''; position: absolute; inset: 0; z-index: -1; background: repeating-linear-gradient(-45deg, #ffffff06 0 6px, transparent 6px 12px); }
+.cb3.ready { opacity: 1; box-shadow: inset 0 0 0 2px var(--ec), 0 0 18px color-mix(in srgb, var(--ec) 45%, transparent), 0 4px 0 #0006; }
+.cb3.ready::before { content: ''; position: absolute; inset: -40% auto -40% -30%; width: 30%; z-index: -1; transform: skewX(-20deg);
+  background: linear-gradient(90deg, transparent, #ffffff30, transparent); animation: cb3Sweep 3.2s ease-in-out infinite; }
+@keyframes cb3Sweep { 0% { left: -30%; } 60%, 100% { left: 130%; } }
+.cb3-team { display: flex; align-items: center; flex: none; }
+.cb3-who { position: relative; display: flex; flex-direction: column; align-items: center; }
+.cb3-who .mug { border-radius: 50%; background-color: #06102b; box-shadow: 0 0 0 3px var(--ec), 0 0 0 5px #0b1630, 0 4px 8px #000a; }
+.cb3.ready .cb3-who .mug { animation: cb3Pulse 1.8s ease-in-out infinite; }
+.cb3-who:nth-child(3) .mug { animation-delay: .3s; } .cb3-who:nth-child(5) .mug { animation-delay: .6s; }
+@keyframes cb3Pulse { 50% { box-shadow: 0 0 0 3px var(--ec), 0 0 0 5px #0b1630, 0 0 16px var(--ec); } }
+.cb3-who em { margin-top: -8px; z-index: 1; padding: 1px 5px; border-radius: 6px; font-style: normal; font-size: 7px; color: #fff; background: #0b1630; box-shadow: inset 0 0 0 1px var(--ec); }
+.cb3-who.miss .mug { filter: grayscale(1) brightness(.35); box-shadow: 0 0 0 2px #ffffff40, 0 0 0 4px #0b1630; }
+.cb3-who.miss em { color: #ffb0b0; box-shadow: inset 0 0 0 1px #ff6a6a; }
+.cb3-q { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); font-size: 18px; color: #fff; text-shadow: 2px 2px 0 #000; }
+.cb3-who.via-aura .mug { box-shadow: 0 0 0 3px #7ff6ff, 0 0 0 5px #0b1630, 0 0 10px #7ff6ff; }
+.cb3-beam { position: relative; width: 22px; height: 6px; margin: 0 -3px 14px; z-index: 2; background: #0b1630; border-radius: 3px; overflow: hidden; }
+.cb3-beam b { position: absolute; inset: 1px; border-radius: 2px; background: #ffffff30; }
+.cb3.ready .cb3-beam b { background: linear-gradient(90deg, transparent, #fff, var(--ec), #fff, transparent) 0 0 / 200% 100%; animation: cb3Beam .8s linear infinite; }
+@keyframes cb3Beam { to { background-position: -200% 0; } }
+.cb3-info { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 6px; }
+.cb3-info > b { font-weight: normal; font-size: 10px; line-height: 1.4; color: #fff; text-shadow: 2px 2px 0 #000; }
+.cb3-pow { display: flex; align-items: center; gap: 6px; }
+.cb3-pow > i { flex: 1; height: 6px; border-radius: 3px; background: #ffffff18; overflow: hidden; box-shadow: inset 0 0 0 1px #0006; }
+.cb3-pow > i s { display: block; height: 100%; width: calc(var(--pw) * 100%); background: linear-gradient(90deg, color-mix(in srgb, var(--ec) 60%, #fff), var(--ec)); }
+.cb3-pow em { font-style: normal; font-size: 9px; color: var(--yellow); display: flex; align-items: center; gap: 2px; white-space: nowrap; }
+.cb3-pow em .ui-pc { height: 12px; }
+.cb3-state { align-self: flex-start; padding: 2px 8px; border-radius: 6px; font-style: normal; font-size: 7px; color: #2a1a00; background: #ffd23f; box-shadow: 0 2px 0 #0007; }
+.cb3-state.ok { color: #0a2a10; background: #7fff9a; }
+
+/* ---- element resonances, club chemistry, captain: gauges */
+.rs-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; }
+.rs-card { position: relative; display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 14px; opacity: .78;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--ec) 14%, #0a1d48), #071433); box-shadow: inset 0 0 0 2px #ffffff18, 0 4px 0 #0006; }
+.rs-card.on { opacity: 1; box-shadow: inset 0 0 0 2px var(--ec), 0 0 14px color-mix(in srgb, var(--ec) 40%, transparent), 0 4px 0 #0006; }
+.rs-ring { position: relative; flex: none; width: 52px; height: 52px; display: grid; place-items: center; border-radius: 50%;
+  background: conic-gradient(var(--ec) calc(var(--p) * 360deg), #ffffff14 0); }
+.rs-ring::before { content: ''; position: absolute; inset: 5px; border-radius: 50%; background: #0b1630; box-shadow: inset 0 0 10px color-mix(in srgb, var(--ec) 40%, transparent); }
+.rs-ring > * { position: relative; }
+.rs-ring .tm-ic { width: 32px; height: 32px; }
+.rs-star svg { width: 24px; height: 24px; color: var(--ec); }
+.rs-card.on .rs-ring { animation: rsGlow 2.4s ease-in-out infinite; }
+@keyframes rsGlow { 50% { filter: drop-shadow(0 0 6px var(--ec)); } }
+.rs-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px; }
+.rs-body b { font-size: 10px; color: var(--ec); text-shadow: 1px 1px 0 #000; }
+.rs-body small { font-size: 7px; line-height: 1.5; color: var(--muted); }
+.rs-steps { display: flex; gap: 3px; padding-top: 10px; }
+.rs-steps i { position: relative; flex: 1; max-width: 26px; height: 7px; border-radius: 2px; background: #ffffff1a; box-shadow: inset 0 0 0 1px #0006; }
+.rs-steps i.on { background: var(--ec); box-shadow: 0 0 6px color-mix(in srgb, var(--ec) 60%, transparent); }
+.rs-steps i.mk::after { content: ''; position: absolute; right: -2px; top: -3px; bottom: -3px; width: 2px; background: #fff; }
+.rs-steps u { position: absolute; right: -10px; top: -11px; text-decoration: none; font-size: 6px; color: #fff; white-space: nowrap; }
+.rs-steps i.on u { color: var(--ec); }
+.rs-bonus { font-style: normal; font-size: 14px; color: var(--ec); text-shadow: 2px 2px 0 #000; white-space: nowrap; }
+
+/* ---- the coach: a dugout */
+.tm-bench { gap: 16px; padding: 14px 16px 22px; background: radial-gradient(60% 120% at 12% 0%, color-mix(in srgb, var(--rc, #7fd3ff) 22%, transparent), transparent 70%), linear-gradient(180deg, #102a63, #0a1a40) !important; }
+.tm-bench .bench-tag { display: flex; align-items: center; gap: 6px; top: 8px; padding: 3px 9px 3px 4px; }
+.tm-bench .bench-tag .tm-ic { width: 22px; height: 22px; margin: -6px 0; }
+.tm-coach { position: relative; z-index: 1; flex: none; }
+.tm-coach .co-art { box-shadow: 0 0 0 3px var(--rc, #ffffff30), 0 6px 0 #0007; }
+.tm-spot { position: absolute; left: 50%; top: -30px; width: 140px; height: 150px; transform: translateX(-50%); pointer-events: none; z-index: -1;
+  background: conic-gradient(from 160deg at 50% 0%, transparent 0deg, #fff6c066 10deg, #fff6c022 30deg, transparent 40deg); filter: blur(2px); animation: tmSpot 3s ease-in-out infinite; }
+.tm-coach::after { content: ''; position: absolute; left: -10px; right: -10px; bottom: -10px; height: 12px; border-radius: 3px; z-index: -1;
+  background: linear-gradient(180deg, #b0743a, #6e4120); box-shadow: 0 3px 0 #2a1608, inset 0 2px 0 #d9985a; }
+.tm-bench .bench-tx > b { font-size: 15px; text-shadow: 2px 2px 0 #000; }
+.tm-bench.r-legendario .co-art, .tm-bench.r-mitico .co-art, .tm-bench.r-leyenda .co-art { animation: rsGlow 2.4s ease-in-out infinite; --ec: var(--rc); }
+@keyframes tmSpot { 50% { opacity: .55; } }
+.tm-bench .co-art.empty-art { display: grid; place-items: center; width: 96px; height: 96px; }
+.tm-bench .co-art.empty-art .tm-ic { width: 64px; height: 64px; filter: grayscale(.4) drop-shadow(0 3px 0 #0008); animation: tmBob 2.6s ease-in-out infinite; }
+.tm-bench .co-passives { display: flex; flex-direction: row; flex-wrap: wrap; gap: 6px; margin: 4px 0 0; padding: 0; list-style: none; }
+.tm-bench .co-passives li { display: flex; align-items: center; gap: 5px; padding: 4px 8px; border-radius: 8px; font-size: 8px; line-height: 1.4;
+  background: #0b1630cc; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--rc, #7fd3ff) 60%, transparent); }
+
+/* ---- the team average: medal + equaliser */
+.tm-avg { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin: 10px 0; padding: 12px 16px; border-radius: 14px;
+  background: radial-gradient(70% 160% at 0% 50%, color-mix(in srgb, var(--rc) 28%, transparent), transparent 60%), linear-gradient(135deg, #0d2357, #071433);
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--rc) 70%, transparent), 0 0 18px color-mix(in srgb, var(--rc) 25%, transparent), 0 4px 0 #0006; }
+.tm-medal { position: relative; flex: none; display: flex; align-items: center; gap: 4px; }
+.tm-medal .tm-ic { width: 84px; height: 84px; margin: -12px -8px -12px -10px; animation: tmBob 3s ease-in-out infinite; }
+.tm-medal b { font-size: 34px; line-height: 1; color: var(--rc); text-shadow: 3px 3px 0 #000, 0 0 14px color-mix(in srgb, var(--rc) 50%, transparent); animation: tutPop .45s cubic-bezier(.3, 1.6, .5, 1) both; }
+.tm-avg-tx { display: flex; flex-direction: column; gap: 5px; min-width: 150px; }
+.tm-avg-tx small { font-size: 8px; letter-spacing: 1px; color: var(--muted); }
+.tm-avg-tx .rar { align-self: flex-start; font-style: normal; }
+.tm-next { font-size: 8px; color: var(--nc); }
+.tm-next::before { content: '▲ '; }
+.tm-side { font-size: 8px; color: var(--muted); } .tm-side b { color: #fff; }
+.tm-eq { flex: 1; min-width: 260px; display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; align-items: end; }
+.tm-eq span { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.tm-eq b { font-size: 10px; color: #fff; text-shadow: 1px 1px 0 #000; }
+.tm-eq i { position: relative; width: 16px; height: 54px; border-radius: 4px; background: #ffffff12; box-shadow: inset 0 0 0 1px #0007; overflow: hidden; }
+.tm-eq i::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: var(--p); border-radius: 3px;
+  background: repeating-linear-gradient(0deg, color-mix(in srgb, var(--rc) 70%, #000) 0 2px, var(--rc) 2px 6px); animation: tmRise .7s cubic-bezier(.3, 1.3, .5, 1) both; transform-origin: bottom; }
+@keyframes tmRise { from { transform: scaleY(0); } }
+.tm-eq small { font-size: 7px; color: var(--muted); }
+.tm-eq span.top b { color: var(--yellow); }
+.tm-eq span.top i { box-shadow: inset 0 0 0 1px var(--yellow), 0 0 8px #ffe24a88; }
+
+@media (max-width: 620px) {
+  .cb3-grid, .rs-grid { grid-template-columns: 1fr; }
+  .cb3 .mug { width: 40px !important; height: 40px !important; }
+  .tm-avg { gap: 10px; padding: 10px; }
+  .tm-medal .tm-ic { width: 64px; height: 64px; } .tm-medal b { font-size: 26px; }
+  .tm-eq { min-width: 0; flex-basis: 100%; } .tm-eq i { height: 40px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tm-head .tm-ic, .tm-medal .tm-ic, .tm-medal b, .cb3.ready::before, .cb3.ready .cb3-who .mug, .cb3.ready .cb3-beam b, .rs-card.on .rs-ring, .tm-spot { animation: none; }
+}
+
+/* ---- 16.7 menu (author: «mejora todo el apartado gráfico del menú»): glossier tiles, gem icons, a shine on hover, the
+   group titles as ribbons, and the Mi Equipo card with the team average and the combinations ready */
+.m4 .m4-tile { background: linear-gradient(180deg, #1a3d88 0%, #12306e 48%, #0b1d48 52%, #0a1a40 100%);
+  box-shadow: 0 3px 0 #040b20, inset 0 1px 0 #ffffff2a, inset 0 -2px 0 #00000040; }
+.m4 .m4-tile::before { content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+  background: linear-gradient(105deg, transparent 40%, #ffffff30 50%, transparent 60%) 150% 0 / 250% 100% no-repeat; transition: background-position .5s ease-out; }
+.m4 .m4-tile:hover::before { background-position: -50% 0; }
+.m4 .m4-ic { position: relative; border-radius: 10px; overflow: hidden;
+  background: radial-gradient(circle at 50% 25%, color-mix(in srgb, var(--gc) 55%, #0a1022), color-mix(in srgb, var(--gc) 18%, #060d22) 70%);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--gc) 70%, transparent), inset 0 -3px 0 #0006, 0 2px 0 #0007; color: #fff; }
+.m4 .m4-ic::after { content: ''; position: absolute; left: 3px; right: 3px; top: 2px; height: 40%; border-radius: 8px 8px 50% 50%; background: linear-gradient(#ffffff40, transparent); pointer-events: none; }
+.m4 .m4-ic svg { filter: drop-shadow(0 1px 0 #0009); }
+.m4 .m4-ic.m4-art .tm-ic { width: 140%; height: 140%; filter: drop-shadow(0 1px 0 #0009); }
+.m4 .m4-group h4 { display: flex; align-items: center; gap: 6px; position: relative; }
+.m4 .m4-group h4::after { content: ''; flex: 1; height: 2px; margin-left: 4px; background: linear-gradient(90deg, var(--gc), transparent); opacity: .6; }
+.m4 .m4-group h4 svg { color: var(--gc); filter: drop-shadow(0 0 4px color-mix(in srgb, var(--gc) 60%, transparent)); }
+.m4-tchips { display: flex; gap: 6px; margin-top: 6px; }
+.m4-tchip { display: inline-flex; align-items: center; gap: 2px; padding: 2px 8px 2px 2px; border-radius: 999px; background: #06102bcc;
+  box-shadow: inset 0 0 0 1px var(--rc, #ffe24a), 0 2px 0 #0007; }
+.m4-tchip .tm-ic { width: 26px; height: 26px; margin: -4px -2px -4px -4px; }
+.m4-tchip b { font-size: 10px; color: var(--rc, #ffe24a); text-shadow: 1px 1px 0 #000; }
+.m4-tchip.cb { --rc: #7fff9a; }
+@media (max-width: 620px) { .m4-tchips { margin-top: 4px; } .m4-tchip .tm-ic { width: 20px; height: 20px; } .m4-tchip b { font-size: 8px; } }
+
+/* ---- 16.7 the author's ChatGPT UI pack (tools/gpt_ui.py): menu icons, group titles, logo */
+.mart { display: inline-block; flex: none; width: 100%; height: 100%; background-repeat: no-repeat; background-size: 2700% 100%;
+  background-position: calc(var(--mi) * 100% / 26) 0; filter: drop-shadow(0 2px 0 #0009); }
+.rs-ring .mart.tm-ic { background-size: 2700% 100%; background-position: calc(var(--mi) * 100% / 26) 0; }
+.m4 .m4-ic.m4-art { background: none; box-shadow: none; overflow: visible; }
+.m4 .m4-ic.m4-art::after { display: none; }
+.m4 .m4-ic.m4-art .mart, .m4 .m4-ic.m4-art .tm-ic { width: 150%; height: 150%; margin: -25%; transition: transform .15s cubic-bezier(.2, 1.6, .4, 1); }
+.m4 .m4-tile:hover .m4-ic.m4-art .mart, .m4 .m4-tile:hover .m4-ic.m4-art .tm-ic { transform: scale(1.15) rotate(-6deg); }
+.m4 .m4-tile.eg-tile .m4-ic.m4-art .mart { animation: egBadge 2.4s ease-in-out infinite; }
+.m4 .m4-group h4 .m4-hic { width: 22px; height: 22px; margin: -5px 0; }
+
+/* the logo: «Ina» · Z · «urvivors». The Z is taller and the words tuck under its arms (negative margins), as in the
+   author's full logo. Still everywhere; .lg-intro builds it: the Z lands alone, crackles, the words slam in at the flash */
+h1.lg-art { position: relative; display: inline-flex; align-items: center; height: clamp(46px, 5.6vw, 84px); margin: 0; padding: 0;
+  letter-spacing: 0; font-size: inherit; background: none; overflow: visible !important; }
+.lg-art > img, .lg-art .lg-zs { display: block; height: 100%; width: auto; filter: drop-shadow(0 4px 0 #0008); }
+.lg-art .lg-ina { height: 96%; position: relative; z-index: 1; }
+.lg-art .lg-urv { height: 88%; position: relative; z-index: 1; margin-top: 3%; }
+.lg-zw { position: relative; z-index: 2; flex: none; height: 142%; aspect-ratio: 237 / 240; margin: -8% -9% 0 -3.5%; }
+.lg-zw .lg-zs { height: 100%; filter: drop-shadow(0 0 8px #ffb02077) drop-shadow(0 4px 0 #0008); }
+.lg-z { position: absolute; inset: -6%; background-repeat: no-repeat; background-size: 1000% 100%; background-position: 0 0; pointer-events: none;
+  -webkit-mask-image: radial-gradient(circle, #000 52%, transparent 71%); mask-image: radial-gradient(circle, #000 52%, transparent 71%); }
+.lg-flash { position: absolute; left: 50%; top: 50%; width: 10px; height: 10px; border-radius: 50%; pointer-events: none; opacity: 0;
+  background: radial-gradient(circle, #fff 0, #fff6c0 30%, #ffb02066 60%, transparent 70%); transform: translate(-50%, -50%); }
+.menu-logo:has(.lg-art) .logo-bolt { display: none; }
+.menu-logo h1.lg-art { margin-left: 4px; }
+.lg-host { text-align: center; }
+.lg-host h1.lg-art { height: clamp(52px, 8vw, 110px); }
+.ib-logo4.lg-host h1.lg-art { padding: 14px 0; }
+.ib-logo4 h1.lg-art::after { content: none !important; }
+
+/* the build: 0-.45 s the Z drops in big and spinning; .45-1.25 s its ten frames (the flash at ~1 s); at 1 s the words
+   slam in from both sides; 1.3 s a bump; then still */
+.lg-intro .lg-zw { animation: lgZDrop 1.2s linear both; }
+.lg-intro .lg-zs { opacity: 0; animation: lgShow 0s 1.25s forwards; }
+.lg-intro .lg-z { animation: lgZRun .8s .45s steps(9) both, lgHide 0s 1.25s forwards; }
+.lg-intro .lg-flash { animation: lgFlash .5s .95s ease-out both; }
+.lg-intro .lg-ina { animation: lgInL .28s 1s cubic-bezier(.3, 1.4, .6, 1) both; }
+.lg-intro .lg-urv { animation: lgInR .28s 1s cubic-bezier(.3, 1.4, .6, 1) both; }
+.lg-intro { animation: lgBump .35s 1.25s ease-out both; }
+/* alone it stands at the centre of the logo (its slot is left of centre: «urvivors» is longer than «Ina»), then it
+   slides into its slot as the words arrive */
+@keyframes lgZDrop {
+  0% { transform: translate(52%, -120%) scale(2.4) rotate(-25deg); opacity: 0; animation-timing-function: cubic-bezier(.2, 1.4, .5, 1); }
+  22% { opacity: 1; }
+  37% { transform: translate(52%, 0) scale(1) rotate(0); }
+  83% { transform: translate(52%, 0) scale(1); animation-timing-function: cubic-bezier(.3, 1.3, .6, 1); }
+  96%, 100% { transform: translate(0, 0) scale(1); }
+}
+@keyframes lgZRun { from { background-position: 0 0; } to { background-position: 100% 0; } }
+@keyframes lgShow { to { opacity: 1; } }
+@keyframes lgHide { to { opacity: 0; } }
+@keyframes lgFlash { 0% { width: 10px; height: 10px; opacity: 1; } 100% { width: 900px; height: 900px; opacity: 0; } }
+@keyframes lgInL { from { transform: translateX(-140%) skewX(-20deg); opacity: 0; } }
+@keyframes lgInR { from { transform: translateX(140%) skewX(20deg); opacity: 0; } }
+@keyframes lgBump { 0% { transform: scale(1); } 30% { transform: scale(1.06) translateY(2px); } 100% { transform: scale(1); } }
+body.reduced-motion .lg-intro, body.reduced-motion .lg-intro * { animation: none !important; }
+body.reduced-motion .lg-intro .lg-zs { opacity: 1; } body.reduced-motion .lg-intro .lg-z { display: none; }
+@media (prefers-reduced-motion: reduce) { .lg-intro, .lg-intro * { animation: none !important; } .lg-intro .lg-zs { opacity: 1; } .lg-intro .lg-z { display: none; } }
+
+@media (max-width: 620px) { .brand h1.lg-art { height: 60px; } .lg-host h1.lg-art { height: 64px; } }
+
+/* ---- 16.7 buttons and panels of the author's pack (public/art/ui, 9-slice) */
+.m4 .m4-play { border-style: solid !important; border-color: transparent !important; border-width: 10px !important; border-image: url(/art/ui/btn-naranja.png) 30 fill / 10px stretch !important; background: none !important; box-shadow: 0 6px 14px #0008 !important; }
+.m4 .m4-team { border-style: solid !important; border-color: transparent !important; border-width: 10px !important; border-image: url(/art/ui/btn-verde.png) 30 fill / 10px stretch !important; background: none !important; box-shadow: 0 6px 14px #0008 !important; }
+.m4 .m4-badge { background: url(/art/ui/badge.png) center / 100% 100% no-repeat !important; border: 0 !important; box-shadow: none !important; text-shadow: 1px 1px 0 #600; }
+.m4-wallet > span { border-style: solid !important; border-color: transparent !important; border-width: 9px !important; border-image: url(/art/ui/pildora.png) 40 fill / 9px stretch !important; background: none !important; box-shadow: none !important; }
+.m4-right > .m4-card, .m4-right > .m4-chal, .m4-right > .m4-wide { border-style: solid !important; border-color: transparent !important; border-width: 10px !important; border-image: url(/art/ui/panel.png) 22 fill / 10px stretch !important; background-clip: padding-box !important; }
+.m4-wallet > span { padding-left: 6px !important; }
+
+/* ---- 16.7 the title screen's exit with the art logo: «Ina» and «urvivors» fly apart, the Z crackles again and charges at
+   the camera (it covers the screen), a short white flash, the menu under it */
+.title-screen.leaving .cine-logo.lg-host { animation: none !important; }
+.title-screen.leaving .lg-intro { animation: none !important; }
+.title-screen.leaving .lg-intro .lg-ina { animation: tsWordL .34s cubic-bezier(.5, 0, .9, .4) forwards !important; }
+.title-screen.leaving .lg-intro .lg-urv { animation: tsWordR .34s cubic-bezier(.5, 0, .9, .4) forwards !important; }
+.title-screen.leaving .lg-intro .lg-zw { animation: tsZCharge .52s cubic-bezier(.6, 0, .8, .3) forwards !important; }
+.title-screen.leaving .lg-intro .lg-zs { opacity: 0 !important; animation: none !important; }
+.title-screen.leaving .lg-intro .lg-z { opacity: 1 !important; animation: lgZRun .36s steps(9) forwards !important; }
+.title-screen.leaving .lg-intro .lg-flash { animation: none !important; }
+.title-screen.leaving .sub { animation: tsDrop .3s ease-in forwards; }
+@keyframes tsWordL { to { transform: translateX(-70vw) skewX(18deg); opacity: 0; } }
+@keyframes tsWordR { to { transform: translateX(70vw) skewX(-18deg); opacity: 0; } }
+@keyframes tsZCharge { 0% { transform: scale(1); } 30% { transform: scale(.85) rotate(4deg); } 100% { transform: scale(9) rotate(-12deg); opacity: .9; } }
+.ts-flash { background: radial-gradient(circle at 50% 42%, #fff 0, #fffbe6 45%, #fff6c8cc 70%, #fff6c800 100%) !important; transform: none !important;
+  animation: tsFlash2 .52s ease-in forwards !important; }
+@keyframes tsFlash2 { 0%, 55% { opacity: 0; } 100% { opacity: 1; } }
+.ts-flash.after { background: #fffbe6 !important; animation: tsFlashOut2 .38s ease-out forwards !important; }
+@keyframes tsFlashOut2 { from { opacity: .9; } to { opacity: 0; } }
+
+/* ---- MI EQUIPO: the green art toned down (author: «brilla mucho») */
+.m4 .m4-team::after { content: ''; position: absolute; inset: 0; border-radius: 6px; pointer-events: none; background: linear-gradient(180deg, #0a2a1488, #04140acc); }
+.m4 .m4-team > * { position: relative; z-index: 1; }
+.m4 .m4-team .m4-tx b { color: #eaffea; }
+
+/* ---- the menu logo no longer pokes into the carousel above it */
+.menu-logo:has(.lg-art) { margin-top: 26px; }
+@media (max-width: 620px) { .menu-logo:has(.lg-art) { margin-top: 22px; } }
+
+/* ---- the rest of the buttons with the pack's art: the top bar tools (navy square) and the game's .btn (orange / blue) */
+.m4 .m4-tool { border-style: solid !important; border-color: transparent !important; border-width: 6px !important; border-radius: 0 !important;
+  border-image: url(/art/ui/sq-marino.png) 40 fill / 6px stretch !important; background: none !important; height: 38px; padding: 0 5px; color: #e8f2ff; }
+.m4 .m4-tool:hover { filter: brightness(1.25); background: none !important; }
+.btn:not(.google-btn):not(.c100):not(.linkbtn) { clip-path: none; box-shadow: none; border-style: solid; border-color: transparent; border-width: 6px;
+  border-image: url(/art/ui/sq-naranja.png) 44 fill / 6px stretch; background: none; padding: 6px 12px; }
+.btn.blue:not(.google-btn) { border-image: url(/art/ui/sq-azul.png) 44 fill / 6px stretch; background: none; box-shadow: none; }
+.btn.small:not(.google-btn) { padding: 2px 6px; }
+.btn.big:not(.google-btn) { padding: 10px 20px; }
+.m4 .m4-play { padding-left: 10px !important; padding-right: 8px !important; gap: 10px; }
+.m4 .m4-play small { white-space: nowrap; }
+
+/* ---- 16.7 (author: «la animación de entrada a la web se sigue viendo mal, lo de la versión está mal situado, la Z ha de
+   estar más abajo, no están los botones de la izquierda»).
+   The opening's shake used to REPLACE .cine-shot's fade-in (opacity 0 base): the whole logo vanished for 0.4 s and faded
+   in again. The shot keeps its animation; the burst inside shakes instead. */
+.cine4.shake .cine-shot { animation: cineIn .7s ease-out both !important; }
+.cine4.shake .intro-burst { animation: cineShake .42s ease-out; }
+/* the version stamp: centred under the logo, in the flow (it floated over the logo's right side); the small badge that
+   repeated it goes */
+.intro-burst { display: flex; flex-direction: column; align-items: center; }
+.intro-burst .vs4 { position: relative; top: auto; right: auto; bottom: auto; margin: 18px auto 0; transform: none; flex-direction: row; gap: 10px; padding: 6px 14px; }
+.intro-burst .vs4 .vs4-new { margin-top: 0; }
+.ib-logo4.lg-host .ib-ver { display: none; }
+/* the Z sits lower: its top above the words, its foot just under them */
+.lg-zw { top: 11%; }
+/* the menu's tiles (left column) on the pack's square buttons: navy, the ones with something to do in blue */
+.m4 .m4-tile:not(.eg-tile) { border-style: solid !important; border-color: transparent !important; border-width: 6px !important; border-radius: 0 !important;
+  border-image: url(/art/ui/sq-marino.png) 40 fill / 6px stretch !important; background: none !important; box-shadow: 0 3px 0 #0006 !important; padding: 4px 6px; }
+.m4 .m4-tile.hot:not(.eg-tile) { border-image: url(/art/ui/sq-azul.png) 40 fill / 6px stretch !important; box-shadow: 0 0 12px color-mix(in srgb, var(--gc) 55%, transparent), 0 3px 0 #0006 !important; }
+.m4 .m4-tile.hot::after { border-radius: 4px; }
+
+/* ---- 16.7 the pack everywhere (author: «la parte de ranking y pase no está cambiada, los ajustes ni noticias, en mi equipo
+   no veo ningún cambio, ni donde el perfil»). Panels keep their own background and colours; the pack gives them its
+   frame (light blue edge with gold rivets) as a 9-slice ring. Tabs and team tabs are the pack's square buttons. */
+.panel:not(.detail):not(.tm-bench):not(.bench-panel) { clip-path: none !important; border-radius: 0 !important; border-style: solid !important;
+  border-color: transparent !important; border-width: 10px !important; border-image: url(/art/ui/panel.png) 22 / 10px stretch !important; background-clip: padding-box; }
+.tm-bench { clip-path: none !important; }
+.nb-item, .pf-card { border-style: solid !important; border-color: transparent !important; border-width: 8px !important; border-radius: 0 !important;
+  border-image: url(/art/ui/panel.png) 22 / 8px stretch !important; background-clip: padding-box !important; box-shadow: 0 6px 14px #0008 !important; }
+.nb-item.on { filter: brightness(1.15); }
+.titlebar { border-style: solid !important; border-color: transparent !important; border-width: 8px !important; border-image: url(/art/ui/panel.png) 22 fill / 8px stretch !important; }
+.rw-tab, .team-tab { border-style: solid !important; border-color: transparent !important; border-width: 6px !important; border-radius: 0 !important;
+  border-image: url(/art/ui/sq-marino.png) 40 fill / 6px stretch !important; background: none !important; box-shadow: none !important; }
+.rw-tab.on, .team-tab.on { border-image: url(/art/ui/sq-azul.png) 40 fill / 6px stretch !important; }
+/* the menu's ranking / pass / GTS / tierlist cards like the right column */
+.m4 .m4-card, .m4 .m4-chal { border-style: solid !important; border-color: transparent !important; border-width: 10px !important;
+  border-image: url(/art/ui/panel.png) 22 fill / 10px stretch !important; background-clip: padding-box !important; }
+
+/* ---- the opening and the title: a bigger logo; the old lightning glyphs (they read as more Zs) go */
+.lg-host h1.lg-art, .ib-logo4.lg-host h1.lg-art { height: clamp(84px, 12vw, 170px) !important; }
+@media (max-width: 620px) { .lg-host h1.lg-art, .ib-logo4.lg-host h1.lg-art { height: 74px !important; } }
+.intro-burst .ib-bolt { display: none; }
+/* the menu: the Z lower still */
+.menu-logo .lg-zw { top: 22%; left: -5%; }
+.menu-logo .lg-art .lg-urv { margin-left: -5%; }
+
+/* ---- 16.7 (author: «que se vean mejor los textos en el menú»): bigger, brighter labels with a hard pixel shadow over the
+   pack's art */
+.m4 .m4-tile b { font-size: 9px; letter-spacing: -.2px; color: #fff; text-shadow: 1px 1px 0 #000, -1px 0 0 #000, 0 -1px 0 #000, 1px 0 0 #000, 0 1px 0 #000; }
+.m4 .m4-tile small { font-size: 7.5px; color: #dbe8ff; margin-top: 3px; text-shadow: 1px 1px 0 #000; }
+.m4 .m4-tile.hot small { color: #ffe86a; }
+.m4 .m4-group h4 { font-size: 9px; color: #fff; text-shadow: 2px 2px 0 #000; letter-spacing: 1.5px; }
+.m4 .m4-group h4 span { color: color-mix(in srgb, var(--gc) 45%, #fff); }
+.m4 .m4-step { font-size: 8.5px; text-shadow: 1px 1px 0 #000; }
+.m4 .m4-card h3, .m4 .m4-chal h3, .m4 .m4-next h3 { font-size: 11px; text-shadow: 2px 2px 0 #000; }
+.m4 .m4-chal, .m4 .m4-card { font-size: 9px; }
+.m4 .m4-team small, .m4 .m4-play small { font-size: 8.5px; color: #fff; text-shadow: 1px 1px 0 #000; }
+.m4-wallet > span { font-size: 12px; text-shadow: 1px 1px 0 #000; }
+.m4 .m4-tool span { font-size: 8.5px; color: #fff; text-shadow: 1px 1px 0 #000; }
+@media (max-width: 1250px) { .m4 .m4-tile b { font-size: 8.5px; } }
+
+/* ---- 16.7 (author: «sigo viendo poco los títulos, redistribuye todo un poco para que sea más grande»): the tiles' column
+   takes more of the width (the centre stage, the captain, gives it up), and tiles, icons and labels grow with it */
+@media (min-width: 1251px) { .m4 .m4-stage { grid-template-columns: minmax(0, max(680px, 38vw)) minmax(0, 1fr) minmax(0, max(270px, 15vw)); gap: 16px; } }
+@media (min-width: 1001px) and (max-width: 1250px) { .m4 .m4-stage { grid-template-columns: minmax(0, 580px) minmax(0, 1fr) minmax(0, 230px); gap: 12px; } }
+@media (min-width: 701px) {
+  .m4 .m4-grid { gap: 8px; }
+  .m4 .m4-tile { gap: 10px; padding: 7px 8px; min-height: 56px; }
+  .m4 .m4-ic { width: 38px; height: 38px; }
+  .m4 .m4-tile b { font-size: 11px; letter-spacing: 0; }
+  .m4 .m4-tile small { font-size: 8.5px; }
+  .m4 .m4-group h4 { font-size: 10.5px; margin: 6px 0 4px; }
+  .m4 .m4-group h4 .m4-hic { width: 26px; height: 26px; }
+  .m4 .m4-team .m4-tx b, .m4 .m4-play .m4-tx b { letter-spacing: 1px; }
+  .menu-logo .lg-art { height: clamp(60px, 6.6vw, 104px); }
+}
+@media (min-width: 1001px) and (max-width: 1250px) { .m4 .m4-tile b { font-size: 10px; } .m4 .m4-tile small { font-size: 8px; } .m4 .m4-ic { width: 32px; height: 32px; } }
+@media (min-width: 701px) { .m4 .m5-promo { height: 168px; } .m4 .m4-left { gap: 8px; } .menu-logo:has(.lg-art) { margin-top: 18px; } }
+
+/* ---- 16.7 the author's drawn banners and frames (pennantArt.ts: pennantSvg / pennantRibbon / pennantEmblem / frameArt) */
+.pn-art { position: relative; display: inline-block; flex: none; transform-origin: 50% 4%; animation: pnaSway 4.2s ease-in-out infinite; }
+.pn-art > img:first-child { width: 100%; height: 100%; object-fit: contain; display: block; }
+.pn-art .pna-logo { position: absolute; left: 50%; top: 47%; width: 62%; transform: translate(-50%, -50%); }
+.pn-art .pna-shine { position: absolute; inset: 8% 10% 12%; overflow: hidden; pointer-events: none; display: none; }
+.pn-art.pn-epico .pna-shine, .pn-art.pn-legendario .pna-shine, .pn-art.pn-mitico .pna-shine, .pn-art.pn-leyenda .pna-shine { display: block; }
+.pn-art .pna-shine::after { content: ''; position: absolute; top: -10%; bottom: -10%; width: 30%; left: -40%; transform: skewX(-18deg);
+  background: linear-gradient(90deg, transparent, #ffffff70, transparent); animation: pnaShine 3.4s ease-in-out infinite; }
+.pn-art.pn-legendario, .pn-art.pn-mitico, .pn-art.pn-leyenda { filter: drop-shadow(0 0 6px color-mix(in srgb, var(--rc) 60%, transparent)); }
+@keyframes pnaSway { 0%, 100% { transform: rotate(-1.6deg); } 50% { transform: rotate(1.6deg); } }
+@keyframes pnaShine { 0%, 55% { left: -40%; } 100% { left: 130%; } }
+
+.pna-emb { position: relative; display: block; width: 100%; height: 100%; }
+.pna-emb > img:first-child { width: 100%; height: 100%; object-fit: contain; display: block; }
+.pna-anim { background-repeat: no-repeat; background-size: calc(var(--n) * 100%) 100%; animation: pnaAnim calc(var(--n) * .11s) steps(calc(var(--n) - 1)) infinite alternate; }
+@keyframes pnaAnim { from { background-position: 0 0; } to { background-position: 100% 0; } }
+.pna-emb .pna-logo { position: absolute; left: 50%; top: 50%; width: 74%; transform: translate(-50%, -50%); }
+.pn-emblem-art { position: relative; display: inline-block; flex: none; animation: pnaFloat 3s ease-in-out infinite; }
+.pn-emblem-art::before { content: ''; position: absolute; inset: -12%; border-radius: 50%; background: radial-gradient(circle, color-mix(in srgb, var(--ac) 55%, transparent), transparent 68%);
+  animation: pnaGlow 2.4s ease-in-out infinite; z-index: -1; }
+@keyframes pnaFloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
+@keyframes pnaGlow { 0%, 100% { opacity: .6; transform: scale(.94); } 50% { opacity: 1; transform: scale(1.06); } }
+
+.pnr-art-on .pnr-in { position: relative; overflow: hidden; }
+.pnr-img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 50%; display: block; }
+.pnr-emb-art { position: absolute; top: 50%; height: 118%; aspect-ratio: 1; transform: translate(-50%, -50%); animation: pnaFloatC 3s ease-in-out infinite; }
+.pnr-emb-art::before { content: ''; position: absolute; inset: -18%; border-radius: 50%; background: radial-gradient(circle, color-mix(in srgb, var(--ac) 55%, transparent), transparent 66%); }
+@keyframes pnaFloatC { 0%, 100% { transform: translate(-50%, -50%); } 50% { transform: translate(-50%, -56%); } }
+.pnr-shine-art { position: absolute; top: 0; bottom: 0; width: 12%; left: -20%; transform: skewX(-20deg); pointer-events: none;
+  background: linear-gradient(90deg, transparent, #ffffff55, transparent); animation: pnaShine 4s ease-in-out infinite; }
+
+.frame.fr-art { overflow: visible; }
+.frame.fr-art .fa-img { transform-box: view-box; transform-origin: 70px 70px; }
+.frame.fr-art.fr-legendario .fa-img, .frame.fr-art.fr-mitico .fa-img, .frame.fr-art.fr-leyenda .fa-img { animation: faBreath 3s ease-in-out infinite; }
+.frame.fr-art.fr-mitico .fa-img, .frame.fr-art.fr-leyenda .fa-img { animation: faBreath 3s ease-in-out infinite, faShimmer 6s linear infinite; }
+@keyframes faBreath { 0%, 100% { filter: drop-shadow(0 0 2px var(--ac)); } 50% { filter: drop-shadow(0 0 7px var(--ac)) brightness(1.12); } }
+@keyframes faShimmer { 0%, 100% { filter: drop-shadow(0 0 3px var(--ac)) hue-rotate(0deg); } 50% { filter: drop-shadow(0 0 8px var(--ac)) hue-rotate(25deg) brightness(1.1); } }
+.frame.fr-art .fr-spin { transform-box: view-box; transform-origin: 70px 70px; animation: faSpin 3.6s linear infinite; }
+@keyframes faSpin { to { transform: rotate(360deg); } }
+.frame.fr-art .fa-tw path { transform-box: fill-box; transform-origin: center; animation: faTw 2.4s ease-in-out infinite; animation-delay: calc(var(--k) * .6s); opacity: 0; }
+@keyframes faTw { 0%, 70%, 100% { opacity: 0; transform: scale(.3) rotate(0); } 80% { opacity: 1; transform: scale(1.1) rotate(45deg); } 90% { opacity: .6; transform: scale(.7) rotate(90deg); } }
+body.reduced-motion .pn-art, body.reduced-motion .pn-art *, body.reduced-motion .pn-emblem-art, body.reduced-motion .pn-emblem-art *, body.reduced-motion .pnr-art-on *, body.reduced-motion .frame.fr-art * { animation: none !important; }
+@media (prefers-reduced-motion: reduce) { .pn-art, .pn-art *, .pn-emblem-art, .pn-emblem-art *, .pnr-art-on *, .frame.fr-art * { animation: none !important; } }
+/* the list cards: the winged drawn frames reached the name under them */
+.pn-pick .frame.fr-art { transform: scale(.84); transform-origin: 50% 40%; }
+.pn-card .fr-prev:has(.fr-art) { margin-top: 10px; margin-bottom: 10px; }
+/* a square profile icon inside a drawn (round) frame: cut round so it sits in the hole */
+.fr-host.rnd > :first-child { border-radius: 50% !important; overflow: hidden; clip-path: circle(50%); }
+.fr-host.rnd > :first-child img, .fr-host.rnd > :first-child .avatar { border-radius: 50%; }
+.fr-host.rnd .avatar { border-radius: 50% !important; box-shadow: none !important; }
+.m4-profile .fr-host { margin: 4px 6px 4px 4px; }
+/* the drawn wings beat from the shoulder */
+.frame.fr-art .fa-wing { transform-box: view-box; animation: faWingL 2.8s ease-in-out infinite; }
+.frame.fr-art .fa-wing.r { animation-name: faWingR; }
+@keyframes faWingL { 0%, 100% { transform: rotate(0); } 50% { transform: rotate(-9deg); } }
+@keyframes faWingR { 0%, 100% { transform: rotate(0); } 50% { transform: rotate(9deg); } }
+/* the drawn frames around the menu's profile chip and the profile card's icon: snug to the icon (the overlay keeps the
+   140-box proportions: height h -> width 1.43 h with wings) so the crown and the wings stay inside their bar / card */
+.m4-profile .fr-host.rnd > .fr-ov { inset: -12%; }
+.m4-profile .fr-host.rnd.wide > .fr-ov { left: -40.5%; right: -40.5%; }
+.m4-profile .fr-host.rnd { transform: scale(.8); margin: 0 6px 0 2px; }
+.m4-profile .fr-host.rnd.wide { margin: 0 16px 0 14px; }
+.pf-avatar .fr-host.rnd > .fr-ov { inset: -14%; }
+.pf-avatar .fr-host.rnd.wide > .fr-ov { left: -42%; right: -42%; }
+.pf-card:has(.fr-host.rnd) { padding-top: 30px; padding-bottom: 26px; }
+.pf-card:has(.fr-host.rnd.wide) .pf-avatar { margin: 0 22px; }
+
+/* ---- 2.8 launch (App.launch28): a poster premiere, not the spirits' ring */
+.l28 { position: fixed; inset: 0; z-index: 120; overflow: hidden auto; display: flex; justify-content: center; align-items: flex-start; padding: 56px 16px 40px;
+  background: radial-gradient(80% 60% at 50% 30%, #1d3f8f, #08142e 70%), #05102a; animation: l28In .45s ease-out both; }
+.l28.out { animation: l28Out .42s ease-in forwards; }
+@keyframes l28In { from { opacity: 0; } }
+@keyframes l28Out { to { opacity: 0; transform: scale(1.04); } }
+.l28-sweep { position: absolute; top: -20%; bottom: -20%; width: 34%; left: -40%; transform: skewX(-18deg); pointer-events: none;
+  background: linear-gradient(90deg, transparent, #ffe9a033, #fff6c055, #ffe9a033, transparent); animation: l28Sweep 4.5s .2s ease-in-out infinite; }
+.l28-sweep.s2 { animation-delay: 2.4s; background: linear-gradient(90deg, transparent, #7fd3ff22, #bfe8ff44, #7fd3ff22, transparent); }
+@keyframes l28Sweep { 0% { left: -40%; } 60%, 100% { left: 120%; } }
+.l28-grain { position: absolute; inset: 0; pointer-events: none; opacity: .35;
+  background: repeating-linear-gradient(0deg, #ffffff06 0 2px, transparent 2px 4px), repeating-linear-gradient(90deg, #00000010 0 3px, transparent 3px 6px); }
+.l28-flags { position: absolute; top: 0; left: 0; right: 0; display: flex; justify-content: space-between; padding: 0 3vw; pointer-events: none; }
+.l28-flags span { animation: l28Drop .7s calc(1.4s + var(--i) * .12s) cubic-bezier(.3, 1.5, .5, 1) both; }
+.l28-flags span:nth-child(2) { margin-right: auto; margin-left: 2vw; } .l28-flags span:nth-child(3) { margin-left: auto; margin-right: 2vw; }
+@keyframes l28Drop { from { transform: translateY(-130%); } }
+.l28-main { position: relative; z-index: 2; width: min(980px, 100%); display: flex; flex-direction: column; align-items: center; gap: 16px; text-align: center; }
+.l28-logo h1.lg-art { height: clamp(80px, 11vw, 150px) !important; }
+.l28-seal { position: relative; display: flex; align-items: center; gap: 12px; padding: 8px 22px; border-radius: 12px; color: #2a1400;
+  background: linear-gradient(180deg, #ffe58a, #ffb020); box-shadow: 0 0 0 3px #0b1630, 0 0 0 6px #ffd23f, 0 10px 24px #000a;
+  animation: l28Stamp .5s 1.3s cubic-bezier(.3, 1.8, .5, 1) both; transform: rotate(-4deg); }
+.l28-seal small { font-size: 8px; letter-spacing: 2px; }
+.l28-seal b { font-size: 34px; line-height: 1; text-shadow: 2px 2px 0 #fff6c0; }
+.l28-seal em { font-style: normal; font-size: 13px; letter-spacing: 2px; }
+@keyframes l28Stamp { from { transform: scale(3) rotate(-25deg); opacity: 0; } 70% { opacity: 1; } to { transform: rotate(-4deg); } }
+.l28-row { display: flex; justify-content: center; flex-wrap: wrap; gap: clamp(18px, 4vw, 44px); padding: 22px 30px 10px; }
+.l28-fr { animation: l28Pop .5s calc(1.8s + var(--i) * .14s) cubic-bezier(.3, 1.7, .5, 1) both; }
+.l28-fr .fr-face { width: 64px; height: 64px; }
+@keyframes l28Pop { from { transform: translateY(40px) scale(.3); opacity: 0; } }
+.l28-stk { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; width: 100%; }
+.l28-stk span { display: flex; flex-direction: column; align-items: flex-start; gap: 5px; padding: 12px 14px; text-align: left; color: #10203f;
+  background: #fff8e4; border-radius: 6px; box-shadow: 0 0 0 3px #0b1630, 4px 6px 0 #0008; transform: rotate(var(--r));
+  animation: l28Stick .45s calc(2.5s + var(--i) * .12s) cubic-bezier(.3, 1.6, .5, 1) both; }
+.l28-stk span i { font-style: normal; font-size: 20px; }
+.l28-stk span b { font-size: 10px; color: #c94f00; }
+.l28-stk span small { font-size: 8px; line-height: 1.55; color: #24345a; }
+@keyframes l28Stick { from { transform: rotate(calc(var(--r) * 6)) scale(.4); opacity: 0; } }
+.l28-btns { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; animation: l28Pop .4s 3.2s ease-out both; }
+@media (max-width: 620px) { .l28-flags { display: none; } .l28-seal b { font-size: 26px; } .l28-fr .fr-face { width: 48px; height: 48px; } .l28-row { gap: 22px; } }
+body.reduced-motion .l28 * { animation: none !important; }
+@media (prefers-reduced-motion: reduce) { .l28 * { animation: none !important; } }

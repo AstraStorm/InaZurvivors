@@ -4168,4 +4168,28 @@ export const EN: Record<string, string> = {
   // 16.5: shop novelties
   "¡Banners y marcos nuevos!": "New banners and frames!",
   "Mira los banners y marcos nuevos de la Tienda": "Check out the new banners and frames in the Shop",
+  // 16.7: endless co-op capacity, Mi Equipo
+  "El cooperativo está en pausa: el servidor ha llegado a su límite. Las partidas en curso siguen.": "Co-op is paused: the server has reached its limit. Matches already running carry on.",
+  "Cooperativo en pausa": "Co-op paused",
+  "Hay demasiadas partidas a la vez y el servidor está al límite. Prueba otra vez en unos minutos.": "There are too many matches at once and the server is at its limit. Try again in a few minutes.",
+  "El servidor ha gastado casi todo su margen de este mes, así que no se abren salas nuevas para no pasarnos. Vuelve el {when}.": "The server has used almost all of this month's allowance, so no new rooms open to stay within it. Come back on {when}.",
+  "Las partidas que ya están en juego siguen sin problema.": "Matches already being played carry on without problems.",
+  "{n} para {rarity}": "{n} to {rarity}",
+  // 2.8: a new look
+  "InaZurvivors 2.8 — Nuevo aspecto": "InaZurvivors 2.8 — A new look",
+  "Todo el juego, dibujado de nuevo": "The whole game, drawn again",
+  "InaZurvivors se pone guapo: logo nuevo, menú con iconos y botones dibujados, banners y marcos con arte propio y animaciones, y un Mi Equipo rediseñado. Además, el cooperativo ya no acaba en el jefe.": "InaZurvivors gets a makeover: a new logo, a menu with drawn icons and buttons, banners and frames with their own art and animations, and a redesigned My Team. And co-op no longer ends at the boss.",
+  "Logo nuevo": "New logo",
+  "La Z cae, chispea y las letras se unen a ella al entrar en el juego.": "The Z drops, crackles and the letters join it when you enter the game.",
+  "Menú dibujado": "Drawn menu",
+  "Cada sección del menú tiene su icono, y los botones y paneles tienen arte nuevo. Los títulos se leen mejor.": "Every menu section has its icon, and buttons and panels have new art. Titles are easier to read.",
+  "Banners y marcos nuevos": "New banners and frames",
+  "Todos los banners y marcos tienen arte propio: los banderines se mecen, los emblemas brillan y los marcos llevan luces, destellos y alas que aletean.": "Every banner and frame has its own art: pennants sway, emblems shine and frames carry lights, sparkles and flapping wings.",
+  "Mi Equipo rediseñado": "My Team redesigned",
+  "Técnicas combinadas unidas por un rayo, resonancias con sus pasos, el entrenador en su banquillo y la media del equipo con medalla.": "Combined techniques linked by a bolt, resonances with their steps, the coach on his bench and the team average with a medal.",
+  "Cooperativo infinito": "Endless co-op",
+  "Al vencer al jefe, la partida en pareja sigue en supervivencia infinita.": "Beat the boss and the match for two goes on in endless survival.",
+  "Abre tu Perfil y equípate un marco.": "Open your Profile and equip a frame.",
+  "Juega en cooperativo y no pares en el jefe.": "Play co-op and don't stop at the boss.",
+  "NUEVO ASPECTO": "NEW LOOK",
 };
