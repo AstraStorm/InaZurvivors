@@ -328,12 +328,13 @@ function frameArt(p: PennantDef, a: (typeof PN_RASTER.frames)[string]): string {
   const id = `fa${++uid}`;
   // the hole a bit wider than the avatar (100): the ring sits around the face instead of over its edge (author: «tapan mucho»)
   // FRAME_DROP: the drawing sits a little low on the avatar, the face then reads higher in the ring (author: «bájalos un poquito»)
-  const iw = FRAME_HOLE / a.d, ih = iw * a.ar, x = FC - a.cx * iw, y = FC - a.cy * ih + FRAME_DROP;
+  // the frames with a logo plate on their lower edge sit lower still, so the plate stays under the chin
+  const iw = FRAME_HOLE / a.d, ih = iw * a.ar, x = FC - a.cx * iw, y = FC - a.cy * ih + FRAME_DROP + (a.plate ? 7 : 0);
   const r = PENNANT_RANK[p.rarity];
   const logo = LOGO_OF[p.emblem]?.();
   // the logo goes on the frame's blank plate, measured by tools/gpt_pennants.py (a little inside its edges)
   const pl = a.plate;
-  const plate = logo && pl ? `<image class="fa-logo" href="${logo}" x="${(x + (pl.x + pl.w * 0.08) * iw).toFixed(1)}" y="${(y + (pl.y + pl.h * 0.12) * ih).toFixed(1)}" width="${(pl.w * 0.84 * iw).toFixed(1)}" height="${(pl.h * 0.76 * ih).toFixed(1)}" preserveAspectRatio="xMidYMid meet"/>` : '';
+  const plate = logo && pl ? `<image class="fa-logo" href="${logo}" x="${(x + (pl.x + pl.w * 0.2) * iw).toFixed(1)}" y="${(y + (pl.y + pl.h * 0.2) * ih).toFixed(1)}" width="${(pl.w * 0.6 * iw).toFixed(1)}" height="${(pl.h * 0.6 * ih).toFixed(1)}" preserveAspectRatio="xMidYMid meet"/>` : '';
   const tw = r >= 2 ? [30, 140, 230, 320].map((deg, k) => {
     const t = deg * Math.PI / 180, R = 64;
     return `<g class="fa-tw" style="--k:${k}" transform="translate(${(FC + R * Math.cos(t)).toFixed(1)} ${(FC + R * Math.sin(t)).toFixed(1)})"><path d="M0,-6 L1.4,-1.4 L6,0 L1.4,1.4 L0,6 L-1.4,1.4 L-6,0 L-1.4,-1.4 Z" fill="#fff"/></g>`;
