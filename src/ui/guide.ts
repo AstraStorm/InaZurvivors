@@ -160,9 +160,12 @@ export function menuTourSteps(): TourStep[] {
     { sel: '.m4-play', title: tr('JUGAR'), text: tr('Empieza una partida: eliges arena y rango y saltas al campo con tu capitán.') },
     { sel: '.m4-team', title: tr('MI EQUIPO'), text: tr('Tu capitán y los 7 candidatos que podrás fichar durante la partida. Aquí también ves las sinergias del equipo.') },
     { sel: '.m4-wallet', title: tr('Tu cartera'), text: tr('Fichas de Fichaje para fichar, monedas para mejoras, técnicas y estrellas, y Fichas EG para los Espíritus Guerreros. Todo se gana jugando.') },
-    { sel: '.g-club', title: tr('TU CLUB'), text: tr('Lo que hace a tu equipo más fuerte para siempre: la colección (ascender, estrellas, auras), los Espíritus, mejoras, técnicas, entrenadores, equipaciones y equipamiento.') },
-    { sel: '.g-sign', title: tr('FICHAJES'), text: tr('Consigue futbolistas: la máquina de fichajes, la tienda del día, los intercambios GTS con otros jugadores y los códigos de regalo.') },
-    { sel: '.g-comp', title: tr('COMPETICIÓN'), text: tr('Misiones y pases con premios cada día, el ranking mundial, Road to FF, clanes, tierlists y el cooperativo con amigos.') },
+    { sel: '.m4-next', title: tr('Qué hacer ahora'), text: tr('Si no sabes qué hacer, mira aquí: tus siguientes pasos, lo más urgente primero. Toca uno para ir directo.') },
+    { sel: '.g-rew', title: tr('PREMIOS DE HOY'), text: tr('Misiones, el pase semanal (un premio cada día) y el pase de temporada. Brillan cuando tienes algo por recoger.') },
+    { sel: '.g-club', title: tr('HAZ MÁS FUERTE A TU EQUIPO'), text: tr('Lo que hace a tu equipo más fuerte para siempre: la colección (ascender, estrellas, auras), los Espíritus, mejoras, técnicas, entrenadores, equipaciones y equipamiento.') },
+    { sel: '.g-sign', title: tr('CONSIGUE FUTBOLISTAS'), text: tr('Consigue futbolistas: la máquina de fichajes, la tienda del día, los intercambios GTS con otros jugadores y los códigos de regalo.') },
+    { sel: '.g-mode', title: tr('MODOS DE JUEGO'), text: tr('Otras formas de jugar: Road to FF (varias arenas seguidas), los Juegos del Clan y el cooperativo con un amigo.') },
+    { sel: '.g-comp', title: tr('COMUNIDAD'), text: tr('El ranking mundial, la sala con todos los jugadores, las tierlists, tus amigos y el salón con tus victorias.') },
     { sel: '#m5promo', title: tr('Novedades'), text: tr('Los eventos y banners del momento. Toca uno para ir directo.') },
     { sel: '.m4-tools', title: tr('Noticias y ajustes'), text: tr('Las novedades de cada versión, los ajustes (idioma, sonido, cuenta) y el botón para reportar bugs.') },
     { sel: '.m4-help', title: tr('¿Perdido?'), text: tr('Aquí vuelves a ver el tutorial, este recorrido y la guía de cada pantalla. Además, cada pantalla tiene arriba un botón ? que explica para qué sirve.') },
@@ -171,7 +174,9 @@ export function menuTourSteps(): TourStep[] {
 
 /** Spotlight over each element of the steps that is on the page (missing ones are skipped); Esc or «Saltar» ends it. */
 export function runTour(all: TourStep[], onEnd: () => void) {
-  const steps = all.filter((s) => { const el = document.querySelector<HTMLElement>(s.sel); return !!el && el.getClientRects().length > 0; });
+  // the first VISIBLE match: some cards exist twice, one for phones and one for wide screens
+  const find = (sel: string) => [...document.querySelectorAll<HTMLElement>(sel)].find((el) => el.getClientRects().length > 0) ?? null;
+  const steps = all.filter((s) => !!find(s.sel));
   if (!steps.length) { onEnd(); return; }
   document.getElementById('gdtour')?.remove();
   const layer = document.createElement('div');
@@ -182,7 +187,7 @@ export function runTour(all: TourStep[], onEnd: () => void) {
   const hole = layer.querySelector<HTMLElement>('.gd-hole')!, bubble = layer.querySelector<HTMLElement>('.gd-bubble')!;
   let at = 0;
   const place = () => {
-    const el = document.querySelector<HTMLElement>(steps[at].sel);
+    const el = find(steps[at].sel);
     if (!el) return;
     const r = el.getBoundingClientRect(), pad = 6, vw = window.innerWidth, vh = window.innerHeight;
     Object.assign(hole.style, { left: `${r.left - pad}px`, top: `${r.top - pad}px`, width: `${r.width + pad * 2}px`, height: `${r.height + pad * 2}px` });
@@ -197,7 +202,7 @@ export function runTour(all: TourStep[], onEnd: () => void) {
   const go = (i: number) => {
     at = Math.max(0, Math.min(steps.length - 1, i));
     const s = steps[at], last = at === steps.length - 1;
-    document.querySelector<HTMLElement>(s.sel)?.scrollIntoView({ block: 'center', inline: 'nearest' });
+    find(s.sel)?.scrollIntoView({ block: 'center', inline: 'nearest' });
     bubble.innerHTML = `<div class="gd-b-top"><small>${at + 1}/${steps.length}</small><i class="gd-bar"><b style="width:${(at + 1) / steps.length * 100}%"></b></i></div>
       <h3>${esc(s.title)}</h3><p>${esc(s.text)}</p>
       <div class="gd-b-nav"><button class="gd-skip">${tr('Saltar recorrido')}</button><span class="spacer"></span>

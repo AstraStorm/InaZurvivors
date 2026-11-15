@@ -5,7 +5,7 @@ import { rankMark, zEmblem } from './rankZ';
 import type { Manifest, MapInfo, Rarity, RosterEntry, Technique } from '../data/manifest';
 import { ICON, RARITY_LABEL, RARITY_ORDER } from '../data/manifest';
 import { uiIcon, type UiIconName } from './uiIcons';
-import { guideFor, guideHub, menuTourSteps, runTour, showTip } from './guide';
+import { guideEntries, guideFor, guideHub, menuTourSteps, runTour, showTip } from './guide';
 import { deathCause } from '../systems/deathCause';
 import { serverNow, syncServerTime, timeSource, trustedClock } from '../online/serverTime';
 import { PASS, PASS_TOTAL, claimPass, passStatus, type PassReward } from '../systems/weeklyPass';
@@ -1179,7 +1179,12 @@ export class App {
     const pending = pendingClaims(this.save);
     const claims = this.collectionClaims();
     const challenges = MISSIONS.filter((d) => d.kind === 'diaria' || d.kind === 'semanal').filter((d) => !isClaimed(this.save, d)).slice(0, 3);
-    const tile = (go: string, icon: UiIconName, label: string, sub: string, badge = 0, hot = false) => `<button class="m4-tile${hot ? ' hot' : ''}" data-go="${go}"><span class="m4-ic">${uiIcon(icon)}</span><span class="m4-tx"><b>${label}</b><small>${sub}</small></span>${badge ? `<span class="m4-badge">${badge}</span>` : ''}</button>`;
+    // 2.7 (author: «mejórame el menú»): groups by what you do there, own icons, tooltips from the guide and «hot» only when
+    // something is waiting (it used to be on for eight tiles all the time, so nothing stood out)
+    const tips = new Map(guideEntries().map((g) => [g.id, g.what]));
+    const TIP_ID: Record<string, string> = { shop: 'techshop', pass: 'weekly', lobby: 'lobby', gacha: 'gacha' };
+    const tip = (go: string) => tips.get(TIP_ID[go] ?? go) ?? '';
+    const tile = (go: string, icon: UiIconName, label: string, sub: string, badge = 0, hot = false) => `<button class="m4-tile${hot ? ' hot' : ''}" data-go="${go}"${tip(go) ? ` title="${esc(tip(go))}"` : ''}><span class="m4-ic">${uiIcon(icon)}</span><span class="m4-tx"><b>${label}</b><small>${sub}</small></span>${badge ? `<span class="m4-badge">${badge}</span>` : ''}</button>`;
     const group = (cls: string, icon: UiIconName, title: string, tiles: string) => `<div class="m4-group ${cls}"><h4>${uiIcon(icon)}${title}</h4><div class="m4-grid">${tiles}</div></div>`;
     const squad = squadOf(this.save, this.byId);
     const unseenLog = this.save.devlogSeen !== newsKey();
@@ -1214,16 +1219,21 @@ export class App {
             <button class="m4-team" data-go="squad"><span class="m4-tx"><b>${tr('MI EQUIPO')}</b><small>${tr('{squadLength}/{SQUAD_SIZE} candidatos', { squadLength: squad.length, SQUAD_SIZE })}</small></span>
               <span class="m4-faces">${squad.length ? this.teamFaces(squad) : uiIcon('team')}</span></button>
           </div>
-          ${group('g-club', 'team', tr('TU CLUB'), tile('collection', 'cards', tr('COLECCIÓN'), claims ? tr('¡Recompensas!') : tr('{ownedLength} de {rosterLength}', { ownedLength: owned.length, rosterLength: this.m.roster.length }), claims, !!claims)
-            + `<button class="m4-tile hot eg-tile" data-go="keshin"><span class="m4-ic">${this.m.eg ? `<img src="${this.m.eg.insignia}" alt="">` : uiIcon('fire')}</span><span class="m4-tx"><b>${tr('ESPÍRITUS')}</b><small>${tr('{egTokens} Fichas EG', { egTokens: egTokens(this.save) })}</small></span><em class="eg-new">2.0</em></button>`
-            + tile('perks', 'perks', tr('MEJORAS'), tr('Potencia permanente')) + tile('shop', 'bolt', tr('TÉCNICAS'), tr('Manuales'))
-            + tile('training', 'target', tr('ENTRENAMIENTO'), tr('Prueba técnicas')) + tile('coaches', 'crown', tr('ENTRENADORES'), tr('{x1} de {COACHESLength}', { x1: this.save.coaches?.owned.length ?? 0, COACHESLength: COACHES.length })) + tile('kits', 'shirt', tr('EQUIPACIONES'), tr('Uniforme y escudo')) + tile('gear', 'boot', tr('EQUIPAMIENTO'), tr('Botas y accesorios')) + tile('hall', 'trophy', tr('SALÓN'), tr('{x1} victorias', { x1: (this.save.hall ?? []).length })))}
-          ${group('g-sign', 'capsule', tr('FICHAJES'), tile('gacha', 'capsule', tr('FICHAJES'), tr('{tokens} fichas', { tokens: this.save.tokens }), 0, true) + (thanksActive(serverNow()) ? tile('thanksev', 'gift', tr('AGRADECIMIENTO'), tr('{x1} fichas de evento', { x1: this.save.eventTokens ?? 0 }), 0, true) : '') + (eventActive(serverNow()) ? tile('pnevent', 'gift', tr('EVENTO'), tr('Banners de leyenda'), 0, true) : '') + tile('daily', 'shop', tr('TIENDA'), tr('Ofertas del día')) + tile('gts', 'gts', tr('GTS'), tr('Intercambios online')) + tile('codes', 'gift', tr('CÓDIGOS'), tr('Canjea regalos')))}
-          ${group('g-comp', 'crown', tr('COMPETICIÓN'), tile('missions', 'missions', tr('MISIONES'), pending ? tr('¡Por recoger!') : tr('Recompensas'), pending, !!pending)
+          <div class="m4-next-mob">${this.menuNext(squad, pending, claims, pass.available, 'm4nextm')}</div>
+          ${group('g-rew', 'gift', tr('PREMIOS DE HOY'), tile('missions', 'missions', tr('MISIONES'), pending ? tr('¡{n} por recoger!', { n: pending }) : tr('Objetivos con premio'), pending, !!pending)
+            + tile('pass', 'ticket', tr('PASE SEMANAL'), pass.available ? tr('¡Recompensa lista!') : tr('Un premio cada día'), pass.available ? 1 : 0, pass.available)
             + (seasonNow ? (() => { const st = seasonOf(this.save, seasonNow), n = claimable(st, 'normal').length + claimable(st, 'premium').length;
-              return tile('season', 'crown', tr('TEMPORADA'), n ? tr('¡Premios por reclamar!') : tr('Pase · nivel {levelOf}', { levelOf: levelOf(st.xp) }), n, true); })() : '')
-            + tile('pass', 'ticket', tr('PASE'), pass.available ? tr('¡Recompensa lista!') : tr('Vuelve mañana'), pass.available ? 1 : 0, pass.available) + tile('ranking', 'crown', tr('RANKING'), onlineConfigured() ? tr('Global') : tr('Tus marcas')) + tile('lobby', 'team', tr('SALA'), tr('Todos los jugadores'), 0, true)
-            + tile('road', 'trophy', tr('ROAD TO FF'), this.save.road?.active ? tr('Partido {x1} en juego', { x1: this.save.road.active.level + 1 }) : tr('Nuevo modo'), 0, true) + tile('clan', 'team', tr('CLANES'), this.save.clanSeen ? esc(this.save.clanSeen.name) : tr('Juegos del Clan'), 0, true) + tile('tierlist', 'cards', tr('TIERLISTS'), tr('Crea y comparte'), 0, true) + tile('coop', 'team', tr('COOP'), tr('pre-2.0 · en pruebas'), 0, true) + tile('friends', 'gift', tr('AMIGOS'), tr('Invita al coop')))}
+              return tile('season', 'star', tr('TEMPORADA'), n ? tr('¡Premios por reclamar!') : tr('Pase · nivel {levelOf}', { levelOf: levelOf(st.xp) }), n, !!n); })() : ''))}
+          ${group('g-club', 'perks', tr('HAZ MÁS FUERTE A TU EQUIPO'), tile('collection', 'cards', tr('COLECCIÓN'), claims ? tr('¡Recompensas!') : tr('Asciende y pon estrellas'), claims, !!claims)
+            + `<button class="m4-tile eg-tile" data-go="keshin" title="${esc(tip('keshin'))}"><span class="m4-ic">${this.m.eg ? `<img src="${this.m.eg.insignia}" alt="">` : uiIcon('fire')}</span><span class="m4-tx"><b>${tr('ESPÍRITUS')}</b><small>${tr('{egTokens} Fichas EG', { egTokens: egTokens(this.save) })}</small></span></button>`
+            + tile('perks', 'perks', tr('MEJORAS'), tr('Vida, daño, imán…')) + tile('shop', 'bolt', tr('TÉCNICAS'), tr('Manuales para tu equipo'))
+            + tile('gear', 'boot', tr('EQUIPAMIENTO'), tr('Botas, guantes…')) + tile('coaches', 'whistle', tr('ENTRENADORES'), tr('{x1} de {COACHESLength}', { x1: this.save.coaches?.owned.length ?? 0, COACHESLength: COACHES.length }))
+            + tile('kits', 'shirt', tr('EQUIPACIONES'), tr('Uniforme y escudo')) + tile('training', 'target', tr('ENTRENAMIENTO'), tr('Prueba técnicas')))}
+          ${group('g-sign', 'capsule', tr('CONSIGUE FUTBOLISTAS'), tile('gacha', 'capsule', tr('MÁQUINA'), tr('{tokens} fichas', { tokens: this.save.tokens })) + (thanksActive(serverNow()) ? tile('thanksev', 'gift', tr('AGRADECIMIENTO'), tr('{x1} fichas de evento', { x1: this.save.eventTokens ?? 0 }), 0, true) : '') + (eventActive(serverNow()) ? tile('pnevent', 'gift', tr('EVENTO'), tr('Banners de leyenda'), 0, true) : '') + tile('daily', 'shop', tr('TIENDA'), tr('Ofertas del día')) + tile('gts', 'gts', tr('GTS'), tr('Intercambia online')) + tile('codes', 'key', tr('CÓDIGOS'), tr('Canjea regalos')))}
+          ${group('g-mode', 'play', tr('MODOS DE JUEGO'), tile('road', 'flag', tr('ROAD TO FF'), this.save.road?.active ? tr('Partido {x1} en juego', { x1: this.save.road.active.level + 1 }) : tr('Arenas seguidas'), 0, !!this.save.road?.active)
+            + tile('clan', 'shield', tr('CLANES'), this.save.clanSeen ? esc(this.save.clanSeen.name) : tr('Juegos del Clan')) + tile('coop', 'team', tr('COOP'), tr('Con un amigo · beta')))}
+          ${group('g-comp', 'crown', tr('COMUNIDAD'), tile('ranking', 'chart', tr('RANKING'), onlineConfigured() ? tr('Global') : tr('Tus marcas')) + tile('lobby', 'pitch', tr('SALA'), tr('Todos los jugadores'))
+            + tile('tierlist', 'list', tr('TIERLISTS'), tr('Crea y comparte')) + tile('friends', 'heart', tr('AMIGOS'), tr('Invita al coop')) + tile('hall', 'trophy', tr('SALÓN'), tr('{x1} victorias', { x1: (this.save.hall ?? []).length })))}
         </section>
         ${feat ? `<section class="m4-hero" data-go="squad" style="--rc:${RARITY_COLOR[featR]}"><div class="m4-aura"></div><div class="m4-ring"></div>
           <div class="m4-hero-art">${this.mug(feat.id, 256)}<span class="m4-hero-sprite">${charCanvas(feat.id, 3, 12)}</span></div>
@@ -1233,9 +1243,9 @@ export class App {
         <aside class="m4-right">
           <button class="m4-news" data-go="devlog"><span class="m4-news-head">${tr('{x1}NOTICIAS{x2}', { x1: uiIcon('news'), x2: unseenLog ? '<em>NUEVO</em>' : '' })}</span>
             <b>${esc(news?.title ?? CURRENT_PUBLIC.title)}</b><span>${esc(news?.summary ?? CURRENT_PUBLIC.tagline)}</span><small>${tr('{VERSION_LABEL} · Leer más ›', { VERSION_LABEL: esc(VERSION_LABEL) })}</small></button>
+          ${this.menuNext(squad, pending, claims, pass.available, 'm4next')}
           <div class="m4-card"><h3>${tr('{x1}Desafíos', { x1: uiIcon('target') })}</h3>${challenges.map((d) => { const pc = Math.min(100, Math.round(missionProgress(this.save, d) / d.goal * 100)); return `<div class="m4-chal"><span>${esc(d.label)}</span><em>${pc}%</em><i style="--p:${pc}%"></i></div>`; }).join('') || `<div class="note">${tr('¡Todo completado por hoy!')}</div>`}</div>
-          <div class="m4-card"><h3>${tr('{x1}Arenas', { x1: uiIcon('pitch') })}</h3>${this.m.maps.map((mp) => { const ok = this.save.clearedMaps.includes(mp.id); return `<div class="m4-arena${ok ? ' ok' : ''}"><span class="m4-chk">${ok ? '✔' : ''}</span><span>${esc(mp.name)}</span><span class="m4-ranks">${RANK_ORDER.map((r) => `<i class="${(this.save.clearedRanks[mp.id] ?? []).includes(r) ? 'on' : ''}">${r}</i>`).join('')}</span></div>`; }).join('')}
-            <div class="m4-best">${tr('{x1}Mejor tiempo <b>{bestTimeSec}</b> · <b>{kills}</b> {x2}', { x1: uiIcon('clock'), bestTimeSec: fmtTime(this.save.stats.bestTimeSec), kills: this.save.stats.kills, x2: tr('eliminaciones') })}</div></div>
+          ${this.menuProgress()}
           <div class="m4-card m4-tier" data-go="tierlist"><h3>${tr('{x1}Tierlists de la comunidad', { x1: uiIcon('cards') })}</h3><div id="menutier">${onlineConfigured() ? '<div class="note">Cargando…</div>' : `<div class="note">${tr('Disponible con el servicio online.')}</div>`}</div></div>
           <div class="m4-card m4-gts" data-go="gts"><h3>${tr('{x1}GTS · Intercambios', { x1: uiIcon('gts') })}</h3><div id="menugts">${onlineConfigured() ? '<div class="note">Cargando…</div>' : `<div class="note">${tr('Disponible con el servicio online.')}</div>`}</div></div>
           <button class="m4-help" data-go="tutorial">${tr('{x1}¿Cómo se juega?', { x1: uiIcon('help') })}</button>
@@ -1338,6 +1348,33 @@ export class App {
     // 1.75 (author): the thank-you notice, once, while the Banner de agradecimiento is open
     else if (thanksActive(serverNow()) && !this.save.thanksSeen && this.save.onboardingDone) window.setTimeout(() => { if (this.screenKey === 'menu-mode') this.thanksNotice(); }, 600);
     else if (!this.save.roadIntroSeen && this.save.onboardingDone) window.setTimeout(() => { if (this.screenKey === 'menu-mode') this.roadIntro(); }, 700); // pre-2.0
+  }
+
+  /** 2.7: «Qué hacer ahora»: up to three next steps, the most urgent first, each one a button to where it is done */
+  private menuNext(squad: RosterEntry[], pending: number, claims: number, passReady: boolean, id: string) {
+    const steps: { go: string; icon: UiIconName; text: string }[] = [];
+    const st = activeSeason(serverNow()) ? seasonOf(this.save, activeSeason(serverNow())!) : null;
+    const seasonN = st ? claimable(st, 'normal').length + claimable(st, 'premium').length : 0;
+    if (pending) steps.push({ go: 'missions', icon: 'missions', text: tr('Recoge {n} premios de misiones', { n: pending }) });
+    if (passReady) steps.push({ go: 'pass', icon: 'ticket', text: tr('Reclama el premio del pase semanal') });
+    if (seasonN) steps.push({ go: 'season', icon: 'star', text: tr('Reclama {n} niveles del pase de temporada', { n: seasonN }) });
+    if (claims) steps.push({ go: 'collection', icon: 'cards', text: tr('Recoge las recompensas de la Colección') });
+    if (squad.length < SQUAD_SIZE && this.unlockedRoster().length > squad.length) steps.push({ go: 'squad', icon: 'team', text: tr('Completa tus {n} candidatos en Mi Equipo', { n: SQUAD_SIZE }) });
+    if (this.save.tokens >= PULL_COST * 10) steps.push({ go: 'gacha', icon: 'capsule', text: tr('Tienes {n} fichas: haz una tirada ×10', { n: this.save.tokens }) });
+    const next = this.m.maps.find((mp) => !this.save.clearedMaps.includes(mp.id) && isMapUnlocked(mp, this.save));
+    steps.push({ go: 'play', icon: 'play', text: next ? tr('Gana {map} para abrir la siguiente arena', { map: next.name }) : tr('Sube de rango: prueba un rango más difícil') });
+    return `<div class="m4-card m4-next" id="${id}"><h3>${tr('{x1}Qué hacer ahora', { x1: uiIcon('target') })}</h3>
+      ${steps.slice(0, 3).map((s, i) => `<button class="m4-step" data-go="${s.go}" style="--i:${i}"><span class="m4-ic">${uiIcon(s.icon)}</span><span>${esc(s.text)}</span><em>›</em></button>`).join('')}</div>`;
+  }
+  /** 2.7: the arenas as a summary (won of total, the highest rank, the next one) instead of a list of every arena */
+  private menuProgress() {
+    const maps = this.m.maps, won = maps.filter((mp) => this.save.clearedMaps.includes(mp.id)).length;
+    const best = [...RANK_ORDER].reverse().find((r) => Object.values(this.save.clearedRanks ?? {}).some((l) => l.includes(r)));
+    const pc = Math.round(won / Math.max(1, maps.length) * 100);
+    return `<div class="m4-card m4-prog" data-go="play"><h3>${tr('{x1}Tu progreso', { x1: uiIcon('pitch') })}</h3>
+      <div class="m4-prog-row"><span><b>${won}</b>/${maps.length}</span><small>${tr('arenas ganadas')}</small><i style="--p:${pc}%"></i></div>
+      <div class="m4-prog-row"><span class="m4-prog-rank">${best ? rankMark(best) : '—'}</span><small>${best ? tr('mejor rango superado') : tr('aún sin victorias: empieza en rango C')}</small></div>
+      <div class="m4-best">${tr('{x1}Mejor tiempo <b>{bestTimeSec}</b> · <b>{kills}</b> {x2}', { x1: uiIcon('clock'), bestTimeSec: fmtTime(this.save.stats.bestTimeSec), kills: this.save.stats.kills, x2: tr('eliminaciones') })}</div></div>`;
   }
 
   // ---- 1.9 (author: a juicier menu with the news and new banners in big): the promo carousel at the top of the menu

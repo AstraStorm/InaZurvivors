@@ -15,6 +15,13 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: '16.1', date: '2026-11-15', title: 'Menú más claro',
+    features: ['Menú principal reorganizado (autor: «mejórame el menú, no me lo añadas como un 2.x más»): cinco grupos según lo que haces (Premios de hoy, Haz más fuerte a tu equipo, Consigue futbolistas, Modos de juego, Comunidad), un icono propio por botón, subtítulos que dicen qué haces ahí y la explicación de la guía al pasar el ratón; «Qué hacer ahora» con los tres siguientes pasos (en móvil, bajo JUGAR) y «Tu progreso» en lugar de la lista de 18 arenas.'],
+    fixes: ['Los botones solo brillan cuando hay algo que hacer (antes ocho estaban siempre dorados); FICHAJES ya no es a la vez grupo y botón (el botón es MÁQUINA).'],
+    visuals: [],
+    balance: [],
+  },
+  {
     version: '16.0', date: '2026-11-15', title: '2.7 Guía, tutorial y media del equipo',
     features: [
       'Tutorial rehecho en dos capítulos (autor: «el tutorial se quedó atrás con las cosas nuevas»): 10 pasos; corrige la diapositiva «vida compartida» (solo el capitán recibe daño) y añade las ultis de los Espíritus (R / Y), altares, formaciones con LB/RB y rangos C-Z; termina en el recorrido del menú.',

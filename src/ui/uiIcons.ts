@@ -29,6 +29,15 @@ const PATHS = {
   fire: '<path d="M12.2 2c.6 3.4 4 5.2 4.8 8.8.6 2.4-.2 4.4-1.3 5.6.2-2-.6-3.6-2-4.6.2 2.4-1 4-2.8 4.8.6-1.6.2-3-.8-4-1.6 1.4-2.6 3-2.2 5.2-2-1.4-3-3.6-2.4-6.4C4.4 7.6 9.6 6 12.2 2z"/><path d="M6.4 18.6c1.6 2.2 3.6 3.2 5.8 3.2 3.4 0 6-2.4 6.2-5.8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>',
   // 1.8: GTS — the globe with two exchange arrows
   gts: '<circle cx="12" cy="12" r="9.4" opacity=".55"/><path d="M2.8 12h18.4M12 2.6c2.6 2.6 3.8 5.8 3.8 9.4s-1.2 6.8-3.8 9.4c-2.6-2.6-3.8-5.8-3.8-9.4S9.4 5.2 12 2.6z" fill="none" stroke="#0008" stroke-width="1.3"/><path d="M6 8.6h9.4l-2.2-2.2M18 15.4H8.6l2.2 2.2" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>',
+  // 2.7: one icon per menu tile (season, ranking, friends, tierlists, coaches, codes, clans, Road)
+  star: '<path d="m12 2.5 2.9 6.1 6.6.8-4.9 4.6 1.3 6.6L12 17.3l-5.9 3.3 1.3-6.6-4.9-4.6 6.6-.8z"/>',
+  chart: '<path d="M3 20.5h18V22H3z"/><path d="M4.5 12h3.6v7.5H4.5zM10.2 7h3.6v12.5h-3.6zM15.9 3h3.6v16.5h-3.6z"/>',
+  heart: '<path d="M12 21s-8.5-5.2-8.5-11.2A4.8 4.8 0 0 1 12 6.6a4.8 4.8 0 0 1 8.5 3.2C20.5 15.8 12 21 12 21z"/>',
+  list: '<path d="M3 4h4v4H3zM3 10h4v4H3zM3 16h4v4H3z"/><path d="M9 5h12v2H9zM9 11h9v2H9zM9 17h6v2H9z" opacity=".75"/>',
+  whistle: '<circle cx="9" cy="14" r="6.5"/><path d="M12 8.2 21.5 6v5l-7 1.6z"/><circle cx="9" cy="14" r="2.2" fill="#0008"/>',
+  key: '<circle cx="7.5" cy="12" r="5"/><circle cx="7.5" cy="12" r="1.8" fill="#0008"/><path d="M12 10.8h10v2.4h-2v3h-2.4v-3H16v2.2h-2.4v-2.2H12z"/>',
+  shield: '<path d="M12 2.2 20 5v6.4c0 5-3.4 8.8-8 10.4-4.6-1.6-8-5.4-8-10.4V5z"/><path d="M12 6.2v11.6c2.8-1.3 4.6-3.8 4.6-6.6V7.8z" fill="#0006"/>',
+  flag: '<path d="M4.5 2.5h2v19h-2z"/><path d="M6.5 3.5h13l-3 4.5 3 4.5h-13z"/>',
   lock: '<path d="M7 10V7.5a5 5 0 0 1 10 0V10" fill="none" stroke="currentColor" stroke-width="2.4"/><rect x="4.5" y="10" width="15" height="11.5" rx="2"/><circle cx="12" cy="15.2" r="1.7" fill="#0009"/>', // 2.6: Victory Road, not yet
 } as const;
 
