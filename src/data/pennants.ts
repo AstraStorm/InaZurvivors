@@ -8,8 +8,8 @@ import type { Rarity } from './manifest';
 import { tr } from '../i18n/i18n';
 
 export type PennantSource = 'tienda' | 'logro' | 'evento' | 'codigo' | 'clan' | 'colab' | 'pase' | 'temporada' | 'sector';
-export type PennantPattern = 'franjas' | 'diagonal' | 'llamas' | 'estrellas' | 'arcoiris' | 'cuadros' | 'tiza' | 'olas' | 'rayos' | 'copos' | 'espiral' | 'nebulosa' | 'rejilla' | 'huracan';
-export type PennantEmblem = 'balon' | 'rayo' | 'llama' | 'caravana' | 'corona' | 'neumatico' | 'pizarra' | 'olas' | 'viento' | 'copo' | 'espiral' | 'mano' | 'reloj' | 'planeta' | 'ojo' | 'bluelock' | 'cuernos' | 'todopoderoso' | 'sector' | 'resistencia' | 'creador';
+export type PennantPattern = 'franjas' | 'diagonal' | 'llamas' | 'estrellas' | 'arcoiris' | 'cuadros' | 'tiza' | 'olas' | 'rayos' | 'copos' | 'espiral' | 'nebulosa' | 'rejilla' | 'huracan' | 'ukiyo' | 'luna' | 'pelota';
+export type PennantEmblem = 'balon' | 'rayo' | 'llama' | 'caravana' | 'corona' | 'neumatico' | 'pizarra' | 'olas' | 'viento' | 'copo' | 'espiral' | 'mano' | 'reloj' | 'planeta' | 'ojo' | 'bluelock' | 'cuernos' | 'todopoderoso' | 'sector' | 'resistencia' | 'creador' | 'ukiyo' | 'luna' | 'pelota';
 
 export interface PennantDef {
   id: string; name: string; rarity: Rarity; source: PennantSource;
@@ -32,6 +32,10 @@ export const PENNANTS: PennantDef[] = [
   { id: 'raimon', name: tr('Banderín del Raimon'), rarity: 'comun', source: 'tienda', price: 2500, c1: '#2a62d8', c2: '#0d2a6a', accent: '#ffd23f', pattern: 'franjas', emblem: 'balon', tagline: tr('El de toda la vida, el del club del instituto.') },
   { id: 'relampago', name: tr('Relámpago Inazuma'), rarity: 'raro', source: 'tienda', price: 8000, c1: '#1a2f66', c2: '#071233', accent: '#ffe94a', pattern: 'diagonal', emblem: 'rayo', tagline: tr('Un rayo amarillo sobre la noche: el once del relámpago.') },
   { id: 'goleador', name: tr('Llama del Goleador'), rarity: 'epico', source: 'tienda', price: 20000, c1: '#ff7a1a', c2: '#6a0d00', accent: '#ffe08a', pattern: 'llamas', emblem: 'llama', tagline: tr('Para quien remata cada balón con fuego.') },
+  // ---- 16.3 (author: «uno ukiyo-e en épico, raro una luna carmesí y el común como una pelota de fútbol»)
+  { id: 'balon-reglamento', name: tr('Balón de Reglamento'), rarity: 'comun', source: 'tienda', price: 2500, c1: '#f4f6fa', c2: '#aab4c4', accent: '#1a1f2a', pattern: 'pelota', emblem: 'pelota', tagline: tr('Paneles negros, costuras blancas: el balón de siempre, hecho banner.') },
+  { id: 'luna-carmesi', name: tr('Luna Carmesí'), rarity: 'raro', source: 'tienda', price: 8000, c1: '#4a0a1c', c2: '#0a0206', accent: '#ff2a3a', pattern: 'luna', emblem: 'luna', tagline: tr('Esta noche la luna sale roja, y un balón cruza por delante.') },
+  { id: 'gran-ola', name: tr('La Gran Ola'), rarity: 'epico', source: 'tienda', price: 20000, c1: '#f1e4c6', c2: '#c4ad80', accent: '#1f3f74', pattern: 'ukiyo', emblem: 'ukiyo', tagline: tr('Tinta azul sobre papel viejo: una ola que rompe como un grabado ukiyo-e.') },
   // ---- achievements
   { id: 'caravana', name: tr('Caravana Inazuma'), rarity: 'legendario', source: 'logro', how: tr('Consigue 200 futbolistas'), c1: '#1f47a8', c2: '#081a45', accent: '#ffd23f', pattern: 'estrellas', emblem: 'caravana', tagline: tr('Doscientos fichajes: la caravana ya no cabe más.') },
   { id: 'once-leyenda', name: tr('Once de Leyenda'), rarity: 'leyenda', source: 'logro', how: tr('Consigue un futbolista Leyenda'), c1: '#3a1270', c2: '#0a0420', accent: '#fff6c8', pattern: 'arcoiris', emblem: 'corona', tagline: tr('Solo para quien tiene una Leyenda en su club.') },
@@ -76,6 +80,10 @@ export const FRAMES: PennantDef[] = [
   { id: 'marco-raimon', kind: 'marco', name: tr('Marco del Raimon'), rarity: 'comun', source: 'tienda', price: 2000, c1: '#2a62d8', c2: '#0d2a6a', accent: '#ffd23f', pattern: 'franjas', emblem: 'balon', tagline: tr('Azul y amarillo, como la equipación del club.') },
   { id: 'marco-trueno', kind: 'marco', name: tr('Marco del Trueno'), rarity: 'raro', source: 'tienda', price: 6000, c1: '#3a5ad8', c2: '#0a1440', accent: '#ffe94a', pattern: 'diagonal', emblem: 'rayo', tagline: tr('Chispas amarillas alrededor del retrato.') },
   { id: 'marco-fuego', kind: 'marco', name: tr('Marco Llameante'), rarity: 'epico', source: 'tienda', price: 15000, c1: '#ff7a1a', c2: '#7a1000', accent: '#ffe08a', pattern: 'llamas', emblem: 'llama', tagline: tr('El retrato rodeado de fuego.') },
+  // ---- 16.3 (author)
+  { id: 'marco-balon', kind: 'marco', name: tr('Marco del Balón'), rarity: 'comun', source: 'tienda', price: 2000, c1: '#f4f6fa', c2: '#5a6270', accent: '#1a1f2a', pattern: 'pelota', emblem: 'pelota', tagline: tr('Tu retrato cosido dentro de un balón.') },
+  { id: 'marco-luna', kind: 'marco', name: tr('Marco de la Luna Carmesí'), rarity: 'raro', source: 'tienda', price: 6000, c1: '#7a0a20', c2: '#1a0208', accent: '#ff2a3a', pattern: 'luna', emblem: 'luna', tagline: tr('Medias lunas rojas y nubes de noche alrededor del retrato.') },
+  { id: 'marco-ukiyo', kind: 'marco', name: tr('Marco Ukiyo-e'), rarity: 'epico', source: 'tienda', price: 15000, c1: '#f1e4c6', c2: '#1f3f74', accent: '#2a5a9a', pattern: 'ukiyo', emblem: 'ukiyo', tagline: tr('Olas de grabado japonés rompiendo alrededor, con su sol rojo.') },
   // ---- achievements
   { id: 'marco-caravana', kind: 'marco', name: tr('Marco de la Caravana'), rarity: 'legendario', source: 'logro', how: tr('Consigue 200 futbolistas'), wings: true, c1: '#ffd23f', c2: '#8a5a00', accent: '#ffffff', pattern: 'estrellas', emblem: 'caravana', tagline: tr('Oro y alas para un club de doscientos.') },
   { id: 'marco-leyenda', kind: 'marco', name: tr('Marco de Leyenda'), rarity: 'leyenda', source: 'logro', how: tr('Consigue un futbolista Leyenda'), wings: true, c1: '#fff6c8', c2: '#6a3aa8', accent: '#fff6c8', pattern: 'arcoiris', emblem: 'corona', tagline: tr('Corona y arcoíris: solo con una Leyenda en el club.') },

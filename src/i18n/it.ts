@@ -4150,4 +4150,17 @@ export const IT: Record<string, string> = {
   "Misiones, el pase semanal (un premio cada día) y el pase de temporada. Brillan cuando tienes algo por recoger.": "Missioni, il pass settimanale (un premio ogni giorno) e il pass stagionale. Brillano quando hai qualcosa da ritirare.",
   "Otras formas de jugar: Road to FF (varias arenas seguidas), los Juegos del Clan y el cooperativo con un amigo.": "Altri modi di giocare: Road to FF (più arene di fila), i Giochi del Clan e la cooperativa con un amico.",
   "El ranking mundial, la sala con todos los jugadores, las tierlists, tus amigos y el salón con tus victorias.": "La classifica mondiale, la sala con tutti i giocatori, le tier list, i tuoi amici e l'albo d'oro con le tue vittorie.",
+  // 16.3: shop banners and frames
+  "Balón de Reglamento": "Pallone regolamentare",
+  "Paneles negros, costuras blancas: el balón de siempre, hecho banner.": "Pannelli neri, cuciture bianche: il pallone di sempre, diventato banner.",
+  "Luna Carmesí": "Luna Cremisi",
+  "Esta noche la luna sale roja, y un balón cruza por delante.": "Stanotte la luna sorge rossa, e un pallone le passa davanti.",
+  "La Gran Ola": "La Grande Onda",
+  "Tinta azul sobre papel viejo: una ola que rompe como un grabado ukiyo-e.": "Inchiostro blu su carta antica: un'onda che si infrange come una stampa ukiyo-e.",
+  "Marco del Balón": "Cornice del Pallone",
+  "Tu retrato cosido dentro de un balón.": "Il tuo ritratto cucito dentro un pallone.",
+  "Marco de la Luna Carmesí": "Cornice della Luna Cremisi",
+  "Medias lunas rojas y nubes de noche alrededor del retrato.": "Mezzelune rosse e nuvole notturne intorno al ritratto.",
+  "Marco Ukiyo-e": "Cornice Ukiyo-e",
+  "Olas de grabado japonés rompiendo alrededor, con su sol rojo.": "Onde da stampa giapponese che si infrangono intorno, con il loro sole rosso.",
 };

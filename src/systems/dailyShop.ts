@@ -46,7 +46,8 @@ function rng(seed: number) {
 function rollSlot(pool: RosterEntry[], slot: Slot, r: () => number, used: Set<number>, favoriteTeam: string | null): Offer | null {
   const team = slot.team ? pool.filter((p) => favoriteTeam && p.teams.includes(favoriteTeam) && !used.has(p.id)) : [];
   const fav = team.length > 0;
-  const from = (fav ? team : pool).filter((p) => p.rarity !== 'leyenda');
+  // 16.2 (author: «que no salgan en la tienda los de evento»): event, collab, pass, Road... footballers (exclusive) never
+  const from = (fav ? team : pool).filter((p) => p.rarity !== 'leyenda' && !p.exclusive);
   const entries = Object.entries(slot.odds) as [Rarity, number][];
   let x = r() * entries.reduce((a, [, w]) => a + w, 0), rolled = entries[0][0];
   for (const [rar, w] of entries) { x -= w; if (x < 0) { rolled = rar; break; } }
@@ -74,6 +75,10 @@ export function weeklyOffer(pool: RosterEntry[], key: string, seed: number): Off
 /** Today's offers plus the weekly special. A new day rolls new daily offers and clears their purchases. */
 export function rollDaily(save: SaveData, pool: RosterEntry[], now = new Date()): Offer[] {
   const key = dayKey(now), wk = weekKey(now);
+  // 16.2: offers rolled before the event footballers were left out are rolled again (what was already bought is kept)
+  const exclusive = new Set(pool.filter((p) => p.exclusive).map((p) => p.id));
+  if (save.weeklyShop && !save.weeklyShop.bought && exclusive.has((save.weeklyShop.offer as Offer | null)?.playerId ?? -1)) save.weeklyShop = undefined;
+  if (save.daily.key === key && (save.daily.offers as Offer[] | undefined)?.some((o) => exclusive.has(o.playerId) && !save.daily.bought.includes(o.playerId))) save.daily.offers = [];
   if (save.weeklyShop?.key !== wk) save.weeklyShop = { key: wk, offer: weeklyOffer(pool, wk, save.shopSeed), bought: false };
   const weekly = save.weeklyShop.offer as Offer | null;
   if (save.daily.key !== key || !save.daily.offers?.length || (save.daily.layout ?? 1) < SHOP_LAYOUT) {

@@ -52,6 +52,17 @@ describe('daily shop', () => {
     expect(buyOffer(s, roster, o.playerId, day(1))).toBe(true);
     expect(buyOffer(s, roster, o.playerId, day(1))).toBe(false);
   });
+  it('16.2: event footballers (exclusive) never come out, and offers rolled before are rolled again', () => {
+    const ev = roster.map((p) => (p.id % 3 ? p : { ...p, exclusive: 'evento' })) as RosterEntry[];
+    for (let d = 1; d <= 20; d++) {
+      const s = newSave([], null);
+      expect(rollDaily(s, ev, day(d)).filter((o) => ev.find((p) => p.id === o.playerId)!.exclusive)).toEqual([]);
+    }
+    const s = newSave([], null);
+    rollDaily(s, roster, day(2)); // rolled with the event players still in the pool
+    s.daily.offers = [{ playerId: 3, price: 10, discount: 0 }, ...(s.daily.offers as never[])];
+    expect(rollDaily(s, ev, day(2)).some((o) => o.playerId % 3 === 0)).toBe(false);
+  });
 });
 
 describe('talents', () => {

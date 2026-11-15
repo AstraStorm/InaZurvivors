@@ -15,6 +15,20 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: '16.3', date: '2026-11-15', title: 'Tres banners y tres marcos nuevos en la tienda',
+    features: ['Tienda (autor: «uno ukiyo-e en épico, raro una luna carmesí y el común como una pelota de fútbol»): La Gran Ola / Marco Ukiyo-e (épico, 20.000 / 15.000), Luna Carmesí / Marco de la Luna Carmesí (raro, 8.000 / 6.000) y Balón de Reglamento / Marco del Balón (común, 2.500 / 2.000). Patrones, emblemas y adornos de marco nuevos dibujados en SVG (ola con garras de espuma, seigaiha, Fuji y sol rojo; luna roja con nubes y un balón cruzando; paneles y costuras de balón).'],
+    fixes: [],
+    visuals: [],
+    balance: [],
+  },
+  {
+    version: '16.2', date: '2026-11-15', title: 'Tienda sin futbolistas de evento',
+    features: [],
+    fixes: ['La tienda diaria y el especial semanal ya no ofrecen futbolistas de evento, colaboración, pase, Road ni próximamente (exclusive); las ofertas de hoy que tenían alguno se vuelven a tirar, conservando lo ya comprado (autor: «que no salgan en la tienda los de evento»).'],
+    visuals: [],
+    balance: [],
+  },
+  {
     version: '16.1', date: '2026-11-15', title: 'Menú más claro',
     features: ['Menú principal reorganizado (autor: «mejórame el menú, no me lo añadas como un 2.x más»): cinco grupos según lo que haces (Premios de hoy, Haz más fuerte a tu equipo, Consigue futbolistas, Modos de juego, Comunidad), un icono propio por botón, subtítulos que dicen qué haces ahí y la explicación de la guía al pasar el ratón; «Qué hacer ahora» con los tres siguientes pasos (en móvil, bajo JUGAR) y «Tu progreso» en lugar de la lista de 18 arenas.'],
     fixes: ['Los botones solo brillan cuando hay algo que hacer (antes ocho estaban siempre dorados); FICHAJES ya no es a la vez grupo y botón (el botón es MÁQUINA).'],

@@ -4150,4 +4150,17 @@ export const FR: Record<string, string> = {
   "Misiones, el pase semanal (un premio cada día) y el pase de temporada. Brillan cuando tienes algo por recoger.": "Les missions, le passe hebdomadaire (une récompense par jour) et le passe de saison. Ils brillent quand tu as quelque chose à récupérer.",
   "Otras formas de jugar: Road to FF (varias arenas seguidas), los Juegos del Clan y el cooperativo con un amigo.": "D’autres façons de jouer : Road to FF (plusieurs arènes d’affilée), les Jeux du Clan et le coopératif avec un ami.",
   "El ranking mundial, la sala con todos los jugadores, las tierlists, tus amigos y el salón con tus victorias.": "Le classement mondial, le salon avec tous les joueurs, les tier lists, tes amis et le panthéon de tes victoires.",
+  // 16.3: shop banners and frames
+  "Balón de Reglamento": "Ballon réglementaire",
+  "Paneles negros, costuras blancas: el balón de siempre, hecho banner.": "Panneaux noirs, coutures blanches : le ballon de toujours, en bannière.",
+  "Luna Carmesí": "Lune Écarlate",
+  "Esta noche la luna sale roja, y un balón cruza por delante.": "Ce soir, la lune se lève rouge, et un ballon passe devant.",
+  "La Gran Ola": "La Grande Vague",
+  "Tinta azul sobre papel viejo: una ola que rompe como un grabado ukiyo-e.": "De l’encre bleue sur du vieux papier : une vague qui déferle comme une estampe ukiyo-e.",
+  "Marco del Balón": "Cadre du Ballon",
+  "Tu retrato cosido dentro de un balón.": "Ton portrait cousu dans un ballon.",
+  "Marco de la Luna Carmesí": "Cadre de la Lune Écarlate",
+  "Medias lunas rojas y nubes de noche alrededor del retrato.": "Des croissants rouges et des nuages de nuit autour du portrait.",
+  "Marco Ukiyo-e": "Cadre Ukiyo-e",
+  "Olas de grabado japonés rompiendo alrededor, con su sol rojo.": "Des vagues d’estampe japonaise qui déferlent tout autour, avec leur soleil rouge.",
 };

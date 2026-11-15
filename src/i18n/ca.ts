@@ -4150,4 +4150,17 @@ export const CA: Record<string, string> = {
   "Misiones, el pase semanal (un premio cada día) y el pase de temporada. Brillan cuando tienes algo por recoger.": "Missions, el passi setmanal (un premi cada dia) i el passi de temporada. Brillen quan tens alguna cosa per recollir.",
   "Otras formas de jugar: Road to FF (varias arenas seguidas), los Juegos del Clan y el cooperativo con un amigo.": "Altres maneres de jugar: Road to FF (diverses arenes seguides), els Jocs del Clan i el cooperatiu amb un amic.",
   "El ranking mundial, la sala con todos los jugadores, las tierlists, tus amigos y el salón con tus victorias.": "El rànquing mundial, la sala amb tots els jugadors, les tierlists, els teus amics i el saló amb les teves victòries.",
+  // 16.3: shop banners and frames
+  "Balón de Reglamento": "Pilota reglamentària",
+  "Paneles negros, costuras blancas: el balón de siempre, hecho banner.": "Panells negres, costures blanques: la pilota de sempre, feta bàner.",
+  "Luna Carmesí": "Lluna Carmesí",
+  "Esta noche la luna sale roja, y un balón cruza por delante.": "Aquesta nit la lluna surt vermella, i una pilota hi passa per davant.",
+  "La Gran Ola": "La Gran Onada",
+  "Tinta azul sobre papel viejo: una ola que rompe como un grabado ukiyo-e.": "Tinta blava sobre paper vell: una onada que trenca com un gravat ukiyo-e.",
+  "Marco del Balón": "Marc de la Pilota",
+  "Tu retrato cosido dentro de un balón.": "El teu retrat cosit dins d'una pilota.",
+  "Marco de la Luna Carmesí": "Marc de la Lluna Carmesí",
+  "Medias lunas rojas y nubes de noche alrededor del retrato.": "Mitges llunes vermelles i núvols de nit al voltant del retrat.",
+  "Marco Ukiyo-e": "Marc Ukiyo-e",
+  "Olas de grabado japonés rompiendo alrededor, con su sol rojo.": "Onades de gravat japonès trencant al voltant, amb el seu sol vermell.",
 };

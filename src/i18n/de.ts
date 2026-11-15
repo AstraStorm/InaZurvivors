@@ -4150,4 +4150,17 @@ export const DE: Record<string, string> = {
   "Misiones, el pase semanal (un premio cada día) y el pase de temporada. Brillan cuando tienes algo por recoger.": "Missionen, der Wochenpass (jeden Tag ein Preis) und der Saisonpass. Sie leuchten, wenn du etwas abholen kannst.",
   "Otras formas de jugar: Road to FF (varias arenas seguidas), los Juegos del Clan y el cooperativo con un amigo.": "Andere Spielarten: Road to FF (mehrere Arenen am Stück), die Clan-Spiele und Koop mit einem Freund.",
   "El ranking mundial, la sala con todos los jugadores, las tierlists, tus amigos y el salón con tus victorias.": "Die Weltrangliste, die Lobby mit allen Spielern, die Tier-Listen, deine Freunde und die Ruhmeshalle mit deinen Siegen.",
+  // 16.3: shop banners and frames
+  "Balón de Reglamento": "Spielball",
+  "Paneles negros, costuras blancas: el balón de siempre, hecho banner.": "Schwarze Felder, weiße Nähte: der klassische Ball als Banner.",
+  "Luna Carmesí": "Blutroter Mond",
+  "Esta noche la luna sale roja, y un balón cruza por delante.": "Heute Nacht geht der Mond rot auf, und ein Ball fliegt vor ihm vorbei.",
+  "La Gran Ola": "Die große Welle",
+  "Tinta azul sobre papel viejo: una ola que rompe como un grabado ukiyo-e.": "Blaue Tinte auf altem Papier: eine Welle, die bricht wie ein Ukiyo-e-Holzschnitt.",
+  "Marco del Balón": "Ball-Rahmen",
+  "Tu retrato cosido dentro de un balón.": "Dein Porträt, in einen Ball genäht.",
+  "Marco de la Luna Carmesí": "Rahmen des Blutroten Monds",
+  "Medias lunas rojas y nubes de noche alrededor del retrato.": "Rote Mondsicheln und Nachtwolken rund ums Porträt.",
+  "Marco Ukiyo-e": "Ukiyo-e-Rahmen",
+  "Olas de grabado japonés rompiendo alrededor, con su sol rojo.": "Wellen wie auf einem japanischen Holzschnitt brechen rundherum, mit ihrer roten Sonne.",
 };

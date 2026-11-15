@@ -4149,4 +4149,17 @@ export const EN: Record<string, string> = {
   "Misiones, el pase semanal (un premio cada día) y el pase de temporada. Brillan cuando tienes algo por recoger.": "Missions, the weekly pass (a prize every day) and the season pass. They glow when you have something to collect.",
   "Otras formas de jugar: Road to FF (varias arenas seguidas), los Juegos del Clan y el cooperativo con un amigo.": "Other ways to play: Road to FF (several arenas in a row), the Clan Games and co-op with a friend.",
   "El ranking mundial, la sala con todos los jugadores, las tierlists, tus amigos y el salón con tus victorias.": "The world ranking, the lobby with every player, tier lists, your friends and the hall with your victories.",
+  // 16.3: shop banners and frames
+  "Balón de Reglamento": "Regulation Ball",
+  "Paneles negros, costuras blancas: el balón de siempre, hecho banner.": "Black panels, white seams: the classic ball, turned into a banner.",
+  "Luna Carmesí": "Crimson Moon",
+  "Esta noche la luna sale roja, y un balón cruza por delante.": "Tonight the moon rises red, and a ball flies right across it.",
+  "La Gran Ola": "The Great Wave",
+  "Tinta azul sobre papel viejo: una ola que rompe como un grabado ukiyo-e.": "Blue ink on old paper: a wave breaking like an ukiyo-e print.",
+  "Marco del Balón": "Ball Frame",
+  "Tu retrato cosido dentro de un balón.": "Your portrait stitched inside a ball.",
+  "Marco de la Luna Carmesí": "Crimson Moon Frame",
+  "Medias lunas rojas y nubes de noche alrededor del retrato.": "Red crescents and night clouds around your portrait.",
+  "Marco Ukiyo-e": "Ukiyo-e Frame",
+  "Olas de grabado japonés rompiendo alrededor, con su sol rojo.": "Japanese-print waves breaking all around, with their red sun.",
 };

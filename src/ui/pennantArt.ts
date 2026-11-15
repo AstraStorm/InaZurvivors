@@ -41,6 +41,15 @@ function pattern(p: PennantPattern, a: string, id: string): string {
     // (author) InaZurvivors x BlueLock: the facility's blue grid and a light beam across
     case 'rejilla': return `<pattern id="${id}h" width="10" height="10" patternUnits="userSpaceOnUse"><path d="M10,0 H0 V10" stroke="${a}" stroke-width=".7" fill="none" opacity=".35"/></pattern><rect x="0" y="0" width="${W}" height="${H}" fill="url(#${id}h)"/><path d="M-10,96 L110,18 L110,40 L-10,118 Z" fill="${a}" opacity=".12"/>`;
     // 2.1 (author): «Soy todopoderoso», golden hurricanes with blue electricity
+    // 16.3: a print on old paper: red sun, Fuji, a great wave rising from the left and seigaiha at the bottom
+    case 'ukiyo': return `<circle cx="74" cy="26" r="9" fill="#d9442b" opacity=".9"/>${fuji(78, 92, 0.75, a)}${seigaiha(0, 98, 100, 20, 6, a, 0.55, '#efe3c6')}`
+      + waveCrest(24, 86, 0.75, a, 0, 0.55) + `<rect x="80" y="14" width="7" height="14" fill="#d9442b" opacity=".85"/><path d="M82,17 H85 M82,21 H85 M82,25 H85" stroke="#efe3c6" stroke-width="1"/>`;
+    // 16.3: the crimson moon over a dark red night, thin clouds and a few stars
+    case 'luna': return Array.from({ length: 14 }, (_, k) => `<circle cx="${10 + ((k * 37) % 80)}" cy="${14 + ((k * 53) % 90)}" r="${k % 3 ? 0.6 : 1.1}" fill="#ffd8d8" opacity="${k % 2 ? 0.45 : 0.8}"/>`).join('')
+      + `<circle cx="50" cy="52" r="40" fill="${a}" opacity=".12"/><ellipse cx="50" cy="118" rx="60" ry="22" fill="${a}" opacity=".3"/>` + redCloud(6, 26, 1.2, '#5a0a18', 0.7) + redCloud(62, 88, 1.1, '#5a0a18', 0.6);
+    // 16.3: the cloth is a ball: black pentagons, white panels and their seams
+    case 'pelota': return [[20, 22, 0], [80, 22, 36], [50, 2, 18], [8, 62, 20], [92, 62, -10], [26, 104, 30], [74, 104, 0]].map(([x, y, r]) => ballPanel(x, y, 9, r, '#4a5260', 0.9)).join('')
+      + '<path d="M8,40 Q50,34 92,40 M8,86 Q50,92 92,86" stroke="#4a5260" stroke-width="1" fill="none" opacity=".5" stroke-dasharray="2 2"/>';
     case 'huracan': return [[30, 34, 1], [72, 80, 0.8], [26, 94, 0.6]].map(([x, y, k]) => hurricane(x, y, 26 * k, a, 0.42)).join('')
       + [[14, 20, 46, 60], [70, 18, 88, 50], [60, 70, 84, 100]].map(([x1, y1, x2, y2]) => bolt(x1, y1, x2, y2, 1.4)).join('');
   }
@@ -57,6 +66,40 @@ function bolt(x1: number, y1: number, x2: number, y2: number, w: number, c = '#5
     return `${(x1 + (x2 - x1) * t + (nx / l) * j).toFixed(1)},${(y1 + (y2 - y1) * t + (ny / l) * j).toFixed(1)}`; }).join(' ');
   return `<polyline points="${pts}" fill="none" stroke="${c}" stroke-width="${w * 2.6}" opacity=".3" stroke-linejoin="round"/><polyline points="${pts}" fill="none" stroke="#e8fbff" stroke-width="${w}" stroke-linejoin="round" opacity=".95"/>`;
 }
+
+// ------------------------------------------------------------------ 16.3 (author): ukiyo-e, crimson moon and football
+/** a wave crest of the ukiyo-e prints: a rising curl in prussian blue with foam claws along its lip (faces right) */
+function waveCrest(x: number, y: number, k: number, a: string, rot = 0, op = 1): string {
+  const claws = [[0, -22, -40], [7, -24, -10], [14, -23, 15], [20, -19, 40], [24, -13, 70], [25, -7, 100]]
+    .map(([cx, cy, r]) => `<path d="M0,0 q-2,-4 2,-6 q2,-1 3,1 q-3,0 -2,3 q-1,1 -3,2 z" fill="#fff" transform="translate(${cx} ${cy}) rotate(${r})"/>`).join('');
+  return `<g transform="translate(${x.toFixed(1)} ${y.toFixed(1)}) rotate(${rot.toFixed(0)}) scale(${k})" opacity="${op}">
+    <path d="M-34,22 C-30,2 -16,-20 4,-24 C20,-27 31,-16 26,-5 C22,2 13,0 14,-6 C15,-11 9,-13 4,-10 C-7,-3 -10,10 -8,22 Z" fill="${a}" stroke="#0b1a33" stroke-width="1.6" stroke-linejoin="round"/>
+    <path d="M-27,20 C-23,4 -12,-12 3,-17 M-19,21 C-16,8 -9,-3 1,-8" stroke="#dbe8f5" stroke-width="1.4" fill="none" opacity=".75"/>
+    <path d="M-34,22 C-26,18 -16,18 -8,22" stroke="#0b1a33" stroke-width="1.6" fill="none"/>${claws}</g>`;
+}
+/** seigaiha: rows of concentric arcs, the classic Japanese wave tiling */
+function seigaiha(x0: number, y0: number, w: number, h: number, r: number, a: string, op: number, bg: string): string {
+  let s = '';
+  for (let row = 0, y = y0; y <= y0 + h; row++, y += r * 0.75)
+    for (let x = x0 + (row % 2 ? r : 0); x <= x0 + w + r; x += r * 2)
+      s += `<path d="M${(x - r).toFixed(1)},${y.toFixed(1)} A${r},${r} 0 0,1 ${(x + r).toFixed(1)},${y.toFixed(1)} Z" fill="${bg}"/>` + [1, 0.68, 0.36].map((f) => `<path d="M${(x - r * f).toFixed(1)},${y.toFixed(1)} A${(r * f).toFixed(1)},${(r * f).toFixed(1)} 0 0,1 ${(x + r * f).toFixed(1)},${y.toFixed(1)}" stroke="${a}" stroke-width="${(r / 7).toFixed(2)}" fill="none"/>`).join('');
+  return `<g opacity="${op}">${s}</g>`;
+}
+/** a little Mount Fuji with its snow cap */
+const fuji = (x: number, y: number, k: number, a: string) => `<g transform="translate(${x} ${y}) scale(${k})"><path d="M-22,0 L-6,-17 Q0,-20 6,-17 L22,0 Z" fill="${a}" opacity=".8"/><path d="M-6,-17 Q0,-20 6,-17 L9,-13 L5,-14 L2,-11 L-1,-14 L-4,-12 L-9,-13 Z" fill="#fff"/></g>`;
+/** the crimson moon: glow, red disc with darker seas and a lit rim */
+function crimsonMoon(x: number, y: number, r: number, a: string): string {
+  return `<g transform="translate(${x} ${y})"><circle r="${r * 1.9}" fill="${a}" opacity=".12"/><circle r="${r * 1.35}" fill="${a}" opacity=".18"/>
+    <circle r="${r}" fill="${a}"/><circle r="${r}" fill="#000" opacity=".22" transform="translate(${r * 0.18} ${r * 0.12})"/>
+    <circle cx="${-r * 0.3}" cy="${-r * 0.25}" r="${r * 0.22}" fill="#6a0010" opacity=".45"/><circle cx="${r * 0.28}" cy="${r * 0.2}" r="${r * 0.3}" fill="#6a0010" opacity=".4"/><circle cx="${r * 0.05}" cy="${r * 0.55}" r="${r * 0.12}" fill="#6a0010" opacity=".45"/>
+    <path d="M${-r * 0.85},${-r * 0.5} A${r},${r} 0 0,1 ${r * 0.2},${-r * 0.98}" stroke="#ffc0c0" stroke-width="${(r / 9).toFixed(1)}" fill="none" opacity=".55" stroke-linecap="round"/></g>`;
+}
+/** a long thin cloud that drifts across the moon */
+const redCloud = (x: number, y: number, k: number, c = '#2a0008', op = 0.9) => `<path d="M${x},${y} q${6 * k},${-7 * k} ${14 * k},${-2 * k} q${6 * k},${-8 * k} ${16 * k},${-1 * k} q${9 * k},${-5 * k} ${14 * k},${3 * k} q${5 * k},${1 * k} ${6 * k},${4 * k} Z" fill="${c}" opacity="${op}"/>`;
+/** a black football pentagon, point up, radius r */
+const pentagon = (x: number, y: number, r: number, rot = 0, c = '#111') => `<path d="${Array.from({ length: 5 }, (_, k) => { const g = -Math.PI / 2 + (k / 5) * Math.PI * 2; return `${k ? 'L' : 'M'}${(Math.cos(g) * r).toFixed(1)},${(Math.sin(g) * r).toFixed(1)}`; }).join('')}Z" fill="${c}" transform="translate(${x.toFixed(1)} ${y.toFixed(1)}) rotate(${rot})"/>`;
+/** the panels of a ball: a pentagon with the five seams that leave it */
+const ballPanel = (x: number, y: number, r: number, rot: number, seam: string, op = 1) => `<g opacity="${op}">${pentagon(x, y, r, rot)}${Array.from({ length: 5 }, (_, k) => { const g = -Math.PI / 2 + (k / 5) * Math.PI * 2 + (rot * Math.PI) / 180; return `<path d="M${(x + Math.cos(g) * r).toFixed(1)},${(y + Math.sin(g) * r).toFixed(1)} L${(x + Math.cos(g) * r * 2.1).toFixed(1)},${(y + Math.sin(g) * r * 2.1).toFixed(1)}" stroke="${seam}" stroke-width="${(r / 4.5).toFixed(2)}"/>`; }).join('')}</g>`;
 
 function emblem(e: PennantEmblem, a: string, C = 'translate(50 52)'): string {
   switch (e) {
@@ -80,6 +123,16 @@ function emblem(e: PennantEmblem, a: string, C = 'translate(50 52)'): string {
     case 'cuernos': return `<g transform="${C}"><path d="M-8,-6 C-14,-14 -22,-18 -30,-16 C-24,-12 -18,-6 -16,2 Z M8,-6 C14,-14 22,-18 30,-16 C24,-12 18,-6 16,2 Z" fill="#f4f0e0" stroke="#1a1a1a" stroke-width="1.6" stroke-linejoin="round"/><path d="M-6,-14 L0,-26 L6,-14 Z" fill="#0e3a40" stroke="#1a1a1a" stroke-width="1.6" stroke-linejoin="round"/><path d="M-17,-8 Q0,-16 17,-8 L15,12 Q0,24 -15,12 Z" fill="#0e3a40" stroke="#1a1a1a" stroke-width="2"/><path d="M-11,0 L-3,3 L-11,5 Z M11,0 L3,3 L11,5 Z" fill="${a}"/></g>`;
     // 2.1: «Soy todopoderoso»: the ball inside a golden storm sphere, blue lightning around
     case 'todopoderoso': return `<g transform="${C}"><circle r="28" fill="#ffe94a" opacity=".25"/><circle r="22" fill="#2a1400"/><circle r="20" fill="#c8500a"/><circle r="17.5" fill="#ff8a1a"/>${[[8, 0.2, 2.6], [12, 2.3, 3], [15, 4.1, 2.4], [6, 3.6, 2.2]].map(([rr, st, sw]) => `<path d="M${(Math.cos(st) * rr).toFixed(1)},${(Math.sin(st) * rr).toFixed(1)} A${rr},${rr} 0 0,1 ${(Math.cos(st + 1.8) * rr).toFixed(1)},${(Math.sin(st + 1.8) * rr).toFixed(1)}" stroke="#ffe94a" stroke-width="${sw}" fill="none" stroke-linecap="round"/>`).join('')}<circle cx="-5" cy="-6" r="6" fill="#fff6c8" opacity=".45"/><circle r="7.5" fill="#fff" stroke="#2a1400" stroke-width="1.6"/><path d="M0,-3 L2.9,-.9 L1.8,2.5 L-1.8,2.5 L-2.9,-.9 Z" fill="#2a1400"/>${bolt(-30, -6, 30, 8, 1.8)}${bolt(-16, 24, 6, 30, 1.3)}</g>`;
+    // 16.3: the red sun of the prints with the great wave crashing in front of it
+    case 'ukiyo': return `<g transform="${C}"><circle cx="10" cy="-10" r="15" fill="#d9442b" stroke="#7a1a10" stroke-width="1.4"/><circle cx="10" cy="-10" r="18" fill="none" stroke="#d9442b" stroke-width=".8" stroke-dasharray="2 3" opacity=".7"/>${waveCrest(-4, 8, 0.85, a)}</g>`;
+    // 16.3: the crimson moon, a cloud across it and a ball flying past in silhouette
+    case 'luna': return `<g transform="${C}">${crimsonMoon(0, -2, 22, a)}${redCloud(-30, 16, 1.6)}
+      <path d="M26,-20 Q10,-2 -10,12" stroke="#ffd0d0" stroke-width="5" fill="none" stroke-linecap="round" opacity=".18"/><path d="M24,-18 Q10,-2 -8,10" stroke="#fff" stroke-width="1.6" fill="none" stroke-linecap="round" opacity=".5" stroke-dasharray="3 3"/>
+      <circle cx="-14" cy="14" r="8.5" fill="#12020a" stroke="${a}" stroke-width="1.6"/><path d="M-14,9.2 L-9.4,12.5 L-11.2,17.9 L-16.8,17.9 L-18.6,12.5 Z" fill="${a}" opacity=".75"/></g>`;
+    // 16.3: a match ball up close: shading, panels and stitching
+    case 'pelota': { const k = `pb${++uid}`; return `<g transform="${C}"><defs><clipPath id="${k}"><circle r="20"/></clipPath><radialGradient id="${k}g" cx=".35" cy=".3" r=".75"><stop offset="0" stop-color="#fff"/><stop offset=".7" stop-color="#e4e8ef"/><stop offset="1" stop-color="#9aa4b4"/></radialGradient></defs>
+      <ellipse cy="24" rx="16" ry="3.5" fill="#000" opacity=".3"/><circle r="20" fill="url(#${k}g)"/><g clip-path="url(#${k})">${ballPanel(0, 0, 7, 0, '#5a6270')}${[0, 72, 144, 216, 288].map((r) => { const g = ((r - 90) * Math.PI) / 180; return pentagon(Math.cos(g) * 19, Math.sin(g) * 19, 7, r + 36); }).join('')}</g>
+      <circle r="20" fill="none" stroke="#1a1f2a" stroke-width="2"/><path d="M-12,-12 A16,16 0 0,1 2,-17" stroke="#fff" stroke-width="2.4" fill="none" stroke-linecap="round" opacity=".9"/></g>`; }
     // 2.3: content creators (INA303): a play button on a rounded screen, with a sparkle
     case 'creador': return `<g transform="${C}"><rect x="-26" y="-19" width="52" height="38" rx="11" fill="#ff2a5a" stroke="#2a0410" stroke-width="2.2"/><rect x="-21" y="-14" width="42" height="10" rx="5" fill="#fff" opacity=".18"/><path d="M-7,-10 L11,0 L-7,10 Z" fill="${a}" stroke="#2a0410" stroke-width="1.6" stroke-linejoin="round"/><path d="M22,-26 L24,-21 L29,-19 L24,-17 L22,-12 L20,-17 L15,-19 L20,-21 Z" fill="#ffe94a"/></g>`;
     // 2.2: the sides of the Sector Quinto, their logos as they are (the Sector's is a wide shield)
@@ -174,6 +227,13 @@ function widePattern(p: PennantPattern, a: string, id: string): string {
     case 'nebulosa': return `<radialGradient id="${id}n" cx=".58" cy=".5" r=".5"><stop offset="0" stop-color="#b04aff" stop-opacity=".6"/><stop offset=".5" stop-color="#4a1a8a" stop-opacity=".25"/><stop offset="1" stop-color="#000" stop-opacity="0"/></radialGradient><rect width="${RW}" height="${RH}" fill="url(#${id}n)"/>`
       + '<ellipse cx="250" cy="70" rx="180" ry="40" fill="#ff3a6a" opacity=".12"/><ellipse cx="1050" cy="40" rx="140" ry="34" fill="#3a6aff" opacity=".14"/>'
       + Array.from({ length: 50 }, (_, k) => `<circle cx="${rnd(k * 3 + 7, RW)}" cy="${rnd(k * 13 + 1, RH)}" r="${k % 6 ? 0.9 : 1.8}" fill="#fff" opacity=".75"/>`).join('');
+    case 'ukiyo': return `<circle cx="1040" cy="34" r="26" fill="#d9442b" opacity=".85"/>${fuji(960, 104, 2.2, a)}${seigaiha(0, 92, RW, 30, 14, a, 0.45, '#efe3c6')}`
+      + [[90, 100, 1.9], [330, 98, 1.5], [540, 104, 1.2], [1150, 100, 1.6]].map(([x, y, k]) => waveCrest(x, y, k, a, 0, 0.6)).join('')
+      + Array.from({ length: 16 }, (_, k) => `<circle cx="${180 + rnd(k * 9 + 2, 520)}" cy="${16 + rnd(k * 5 + 1, 50)}" r="${k % 3 ? 1.6 : 2.6}" fill="#fff" opacity=".7"/>`).join('');
+    case 'luna': return Array.from({ length: 50 }, (_, k) => `<circle cx="${rnd(k + 3, RW)}" cy="${6 + rnd(k * 7 + 2, RH - 12)}" r="${k % 5 ? 0.9 : 1.8}" fill="#ffd8d8" opacity="${k % 2 ? 0.4 : 0.8}"/>`).join('')
+      + `<ellipse cx="${EX}" cy="${RH + 30}" rx="700" ry="70" fill="${a}" opacity=".28"/>` + redCloud(60, 96, 5, '#5a0a18', 0.6) + redCloud(330, 34, 4, '#5a0a18', 0.5) + redCloud(980, 40, 4.4, '#5a0a18', 0.55) + redCloud(1080, 104, 3.4, '#2a0008', 0.8);
+    case 'pelota': return Array.from({ length: 13 }, (_, k) => ballPanel(40 + k * 96, k % 2 ? 26 : 92, 16, k * 23, '#4a5260', 0.85)).join('')
+      + '<path d="M0,60 H1200" stroke="#4a5260" stroke-width="1.5" opacity=".35" stroke-dasharray="4 4"/>';
     case 'huracan': return [[150, 60, 70], [420, 40, 46], [1000, 64, 66], [1150, 30, 40], [EX, EY, 110]].map(([x, y, r]) => hurricane(x, y, r, a, 0.35)).join('')
       + [[60, 10, 230, 110], [300, 0, 380, 120], [820, 4, 930, 112], [1080, 0, 1190, 100], [520, 110, 610, 10]].map(([x1, y1, x2, y2]) => bolt(x1, y1, x2, y2, 2.2)).join('');
   }
@@ -255,6 +315,17 @@ function ornaments(p: PennantPattern, a: string, c1: string, sq: boolean, id: st
       + around(14, (x, y) => `<circle cx="${x}" cy="${y}" r="1" fill="#fff" opacity=".8"/>`, 66, Math.PI / 14);
     case 'nebulosa': return `<radialGradient id="${id}a" cx=".5" cy=".5" r=".5"><stop offset=".62" stop-color="#b04aff" stop-opacity="0"/><stop offset=".78" stop-color="#b04aff" stop-opacity=".55"/><stop offset="1" stop-color="#000" stop-opacity="0"/></radialGradient><circle cx="${FC}" cy="${FC}" r="70" fill="url(#${id}a)"/>`
       + around(9, (x, y, _g, k) => `<circle cx="${x}" cy="${y}" r="${k % 3 ? 1.4 : 2.4}" fill="${k % 2 ? a : '#fff'}"/>`, 64, 0.2);
+    // 16.3: wave crests running round the ring, foam between them
+    case 'ukiyo': return around(9, (x, y, g) => waveCrest(x, y, 0.36, a, deg(g) + 180), 56)
+      + around(18, (x, y, _g, k) => `<circle cx="${x}" cy="${y}" r="${k % 2 ? 1.1 : 1.7}" fill="#fff" opacity=".9"/>`, 65, 0.15)
+      + `<circle cx="${FC + 44}" cy="${FC - 44}" r="6.5" fill="#d9442b" stroke="#7a1a10" stroke-width="1"/>`;
+    // 16.3: a red glow behind the ring, crescents and drifting clouds
+    case 'luna': return `<radialGradient id="${id}m" cx=".5" cy=".5" r=".5"><stop offset=".64" stop-color="${a}" stop-opacity="0"/><stop offset=".8" stop-color="${a}" stop-opacity=".45"/><stop offset="1" stop-color="${a}" stop-opacity="0"/></radialGradient><circle cx="${FC}" cy="${FC}" r="70" fill="url(#${id}m)"/>`
+      + around(6, (x, y, g) => `<path d="M0,-8.5 A8.5,8.5 0 1,0 0,8.5 A6,6 0 1,1 0,-8.5 Z" fill="#ff5a5a" stroke="#ffd0d0" stroke-width="1" transform="translate(${x} ${y}) rotate(${deg(g)})"/>`, 62, 0.3)
+      + around(4, (x, y) => redCloud(x - 12, y, 0.75, '#2a0008', 0.85), 55, 0.9);
+    // 16.3: the ring is a ball's seam line: black pentagons with their stitches
+    case 'pelota': return around(10, (x, y, g) => pentagon(x, y, 6, deg(g) + 90), 53.5)
+      + around(10, (x, y, g) => `<path d="M-4,0 H4" stroke="#fff" stroke-width="1.2" stroke-dasharray="1.5 1.2" transform="translate(${x} ${y}) rotate(${deg(g) + 90})"/>`, 53.5, Math.PI / 10);
     // 2.1 (author's sketch): the ring wrapped in yellow hurricane curls, close together and overlapping, blue sparks in
     // between; each curl a little loop that turns back on itself, at slightly different radii, sizes and turns
     case 'huracan': {
