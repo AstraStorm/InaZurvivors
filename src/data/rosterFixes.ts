@@ -49,6 +49,12 @@ export const ROSTER_FIXES: Record<number, RosterFix> = {
   // the low guard dragged them down); these floors put both at a 91 mean, the best Míticos, below the Leyendas
   900200: { name: 'Seishiro Nagi', statFloor: { guard: 78, body: 90, guts: 95, stamina: 89 } },
   900201: { name: 'Yoichi Isagi', statFloor: { guard: 80, body: 90, stamina: 87 } },
+  // 2.9 (author: «bufales los stats un poco a todos»): the Sendokai five above the middle of their rarity
+  900600: { name: 'Cloe', statFloor: { guard: 76, body: 80, speed: 92, stamina: 86 } },
+  900601: { name: 'Fenzy', statFloor: { guard: 74, body: 76, control: 90, stamina: 88 } },
+  900602: { name: 'Zak', statFloor: { guard: 80, body: 88, stamina: 88 } },
+  900603: { name: 'Kiet', statFloor: { kick: 82, control: 80, speed: 78, guts: 90 } },
+  900604: { name: 'Lon', statFloor: { guard: 80, body: 86, stamina: 88 } },
 };
 
 /** Applies ROSTER_FIXES in place; returns the problems found (unknown id, name mismatch, technique not found). */

@@ -68,6 +68,9 @@ export function nextStep(save: SaveData, p: Pick<RosterEntry, 'id' | 'rarity'>):
   // 1.8: a Leyenda climbs Campeón, Campeón+ and Campeón++ instead of HÉROE
   if (p.rarity === 'leyenda') { const c = championOf(save, p.id); return c < CHAMPION_MAX ? { step: 'campeon', cost: CHAMPION_COSTS[c] } : null; }
   const cost = ASC_COSTS[p.rarity] ?? ASC_COSTS.legendario;
+  // 2.8 (author): a HÉROE awakened with a Moneda de Despertar goes on along the Campeón path, a hero star's price per level
+  const awoken = championOf(save, p.id);
+  if (awoken) return awoken < CHAMPION_MAX ? { step: 'campeon', cost: cost.estrella } : null;
   // Fix 1.31: after HÉROE come the hero stars (3 at most), paid with duplicates (1.88: back, 1.84 removed them by mistake)
   if (o.hero) return (o.heroStars ?? 0) < HERO_STARS_MAX ? { step: 'estrella', cost: cost.estrella } : null;
   // Fix 1.51 (author): a footballer climbs one rarity per ascension (Común » Raro » Épico » Legendario » Mítico), each
@@ -89,6 +92,31 @@ export function ascend(save: SaveData, p: Pick<RosterEntry, 'id' | 'rarity'>): A
   else if (next.step === 'campeon') o.champion = championOf(save, p.id) + 1;
   else o.heroStars = Math.min(HERO_STARS_MAX, (o.heroStars ?? 0) + 1);
   return next.step;
+}
+
+/**
+ * 2.8 (author: gift for the first 200+ registered players): the Moneda de Despertar turns a HÉROE of any rarity but
+ * Leyenda into a Campeón, keeping his hero stars as levels like migrateChampions18 does: HÉROE » Campeón, HÉROE ★ »
+ * Campeón+, HÉROE ★★ or ★★★ » Campeón++. He stays HÉROE too (technique, aura and bonuses); one coin per footballer.
+ */
+export const AWAKEN_GIFT = 1;
+export const awakenCoins = (save: SaveData) => Math.max(0, Math.floor(save.awakenCoins ?? 0));
+export const awakenLevel = (save: SaveData, id: number) => Math.min(CHAMPION_MAX, 1 + Math.min(2, save.owned[String(id)]?.heroStars ?? 0));
+export const canAwaken = (save: SaveData, p: Pick<RosterEntry, 'id' | 'rarity'>) =>
+  p.rarity !== 'leyenda' && isHero(save, p.id) && championOf(save, p.id) === 0;
+export function awaken(save: SaveData, p: Pick<RosterEntry, 'id' | 'rarity'>): number {
+  if (!canAwaken(save, p) || awakenCoins(save) < 1) return 0;
+  const lv = awakenLevel(save, p.id);
+  save.awakenCoins = awakenCoins(save) - 1;
+  save.owned[String(p.id)].champion = lv;
+  return lv;
+}
+/** once per save: the coin of the 200 registered players */
+export function giveAwakenGift(save: SaveData): boolean {
+  if (save.awakenGift200) return false;
+  save.awakenCoins = awakenCoins(save) + AWAKEN_GIFT;
+  save.awakenGift200 = true;
+  return true;
 }
 
 /** Damage and HP multipliers a player gets in a run from its ascension (hero stars included). */

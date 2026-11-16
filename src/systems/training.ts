@@ -64,7 +64,7 @@ export const championLevel = (save: SaveData, id: number) => Math.max(0, Math.mi
 /** 1.84 (author): each star lets the player raise the limit of one stat by STAR_CAP_STEP (stars.ts) */
 export const STAR_CAP_STEP = 5;
 /** the highest a stat of this footballer can reach (`k`: that stat, with its star bonus; without it, the common limit) */
-export const statCapOf = (save: SaveData, p: Pick<RosterEntry, 'id' | 'rarity'>, k?: StatKey) => STAT_MAX + (p.rarity === 'leyenda' ? CHAMPION_CAP * championLevel(save, p.id) : 0)
+export const statCapOf = (save: SaveData, p: Pick<RosterEntry, 'id' | 'rarity'>, k?: StatKey) => STAT_MAX + CHAMPION_CAP * championLevel(save, p.id) // 2.8: an awakened HÉROE too
   + (k ? STAR_CAP_STEP * (save.owned[String(p.id)]?.starCaps?.[k] ?? 0) : 0);
 /** training points this footballer can take */
 export const trainMaxOf = (save: SaveData, id: number) => TRAIN_MAX + CHAMPION_TRAIN * championLevel(save, id);

@@ -5,7 +5,7 @@
  * amount) while the event is open.
  */
 import type { Rank, SaveData } from './save';
-import { bluelockActive } from './collabEvent';
+import { bluelockActive, sendokaiActive } from './collabEvent';
 import { tr } from '../i18n/i18n';
 
 export const THANKS_EVENT = {
@@ -30,7 +30,7 @@ export const thanksLeftMs = (now: number | Date) => Math.max(0, thanksEnd() - +n
 /** Fichas de evento of a finished run: as many as its normal fichas, on Rango S or X while the event is open. */
 export function thanksTokens(rank: Rank | undefined, tokenTotal: number, now: number | Date): number {
   // (author) InaZurvivors x BlueLock is paid with the same Fichas de evento, so they keep coming while it is open
-  return (thanksActive(now) || bluelockActive(now)) && rank && THANKS_RANKS.includes(rank) ? Math.max(0, Math.floor(tokenTotal)) : 0;
+  return (thanksActive(now) || bluelockActive(now) || sendokaiActive(now)) && rank && THANKS_RANKS.includes(rank) ? Math.max(0, Math.floor(tokenTotal)) : 0;
 }
 
 export function addThanksTokens(s: SaveData, n: number) {

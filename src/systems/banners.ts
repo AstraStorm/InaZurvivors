@@ -11,7 +11,7 @@ import { RARITY_WEIGHTS } from './gacha';
 import { tr } from '../i18n/i18n';
 
 // Fix 1.31: one machine per SAGA (author's request), priced by how likely its stars are; the eras stay for missions
-export type BannerId = 'evento' | 'bluelock' | 'ff' | 'alius' | 'ffi' | 'go' | 'chrono' | 'galaxy' | 'ares' | 'orion' | 'fichatron' | 'equipo';
+export type BannerId = 'evento' | 'bluelock' | 'sendokai' | 'ff' | 'alius' | 'ffi' | 'go' | 'chrono' | 'galaxy' | 'ares' | 'orion' | 'fichatron' | 'equipo';
 export interface BannerDef { id: BannerId; label: string; tagline: string; cost: number; multiCost: number; color: string }
 
 /** cost/multiCost here are the defaults; the real price of a saga machine comes from bannerPrice() */
@@ -19,6 +19,8 @@ export const BANNERS: Record<BannerId, BannerDef> = {
   // (author) the special banner: every exclusive footballer (data/special_players.json) plus Común/Raro/Épico filler
   // (author) InaZurvivors x BlueLock: Nagi and Isagi, the same Fichas de evento (systems/collabEvent.ts)
   bluelock: { id: 'bluelock', label: tr('InaZurvivors x BlueLock'), tagline: tr('Seishiro Nagi y Yoichi Isagi, solo aquí y por tiempo limitado'), cost: 15, multiCost: 150, color: '#2a5ad8' },
+  // 2.9 (author): InaZurvivors x Desafío Sendokai, the five Sen-Kuns, the same Fichas de evento (systems/collabEvent.ts)
+  sendokai: { id: 'sendokai', label: tr('InaZurvivors x Desafío Sendokai'), tagline: tr('Zak, Cloe, Kiet, Fenzy y Lon, solo aquí y por tiempo limitado'), cost: 15, multiCost: 150, color: '#ff7a1a' },
   evento: { id: 'evento', label: tr('Banner de agradecimiento'), tagline: tr('Ataque a los Titanes, Los Siete Pecados Capitales y Axel Encapuchado'), cost: 15, multiCost: 150, color: '#c45aff' },
   ff: { id: 'ff', label: tr('Fútbol Frontier'), tagline: tr('Inazuma Eleven 1'), cost: 10, multiCost: 100, color: '#ff8a2a' },
   alius: { id: 'alius', label: tr('Invasión Alius'), tagline: tr('Inazuma Eleven 2 y el viaje por Japón'), cost: 10, multiCost: 100, color: '#ff4f6a' },
@@ -31,7 +33,7 @@ export const BANNERS: Record<BannerId, BannerDef> = {
   fichatron: { id: 'fichatron', label: tr('Fichatrón'), tagline: tr('Fichajes sueltos de toda la serie'), cost: 5, multiCost: 50, color: '#9aa8c8' },
   equipo: { id: 'equipo', label: tr('Por equipo'), tagline: tr('Elige un equipo: solo sus futbolistas'), cost: 15, multiCost: 150, color: '#7dff9a' },
 };
-export const BANNER_ORDER: BannerId[] = ['bluelock', 'evento', 'ff', 'alius', 'ffi', 'go', 'chrono', 'galaxy', 'ares', 'orion', 'fichatron', 'equipo'];
+export const BANNER_ORDER: BannerId[] = ['sendokai', 'bluelock', 'evento', 'ff', 'alius', 'ffi', 'go', 'chrono', 'galaxy', 'ares', 'orion', 'fichatron', 'equipo'];
 
 const GO = new Set(['GO', 'Chrono Stones', 'Galaxy']);
 const VR = new Set(['Ares', 'Orion']);
@@ -53,11 +55,11 @@ const SAGA_MACHINE: [string, BannerId][] = [[tr('Fútbol Frontier'), 'ff'], [tr(
 const isMixi = (name: string) => /\+| MM$/.test(name);
 
 /** The one saga machine a character comes out of: his earliest story saga; scouts with no story team go to the Fichatrón. */
-export function machineOf(p: Pick<RosterEntry, 'teams' | 'name'> & { era?: RosterEntry['era'] }): Exclude<BannerId, 'equipo' | 'evento' | 'bluelock'> {
+export function machineOf(p: Pick<RosterEntry, 'teams' | 'name'> & { era?: RosterEntry['era'] }): Exclude<BannerId, 'equipo' | 'evento' | 'bluelock' | 'sendokai'> {
   if (isMixi(p.name)) return 'chrono';
   const sagas = new Set(p.teams.map(sagaOf));
   const hit = SAGA_MACHINE.find(([s]) => sagas.has(s as never));
-  if (hit) return hit[1] as Exclude<BannerId, 'equipo' | 'evento' | 'bluelock'>;
+  if (hit) return hit[1] as Exclude<BannerId, 'equipo' | 'evento' | 'bluelock' | 'sendokai'>;
   if (p.era === 'go') return 'go';
   if (p.era === 'vr') return 'ares';
   return 'fichatron';
@@ -108,9 +110,11 @@ export function bluelockFiller(roster: RosterEntry[]): RosterEntry[] {
 export function bannerPool(roster: RosterEntry[], banner: BannerId, team?: string): RosterEntry[] {
   // pre-2.0: «road» exclusives (Jaden Evans) come only from Road to Fútbol Frontier, never from a machine
   // 2.02: «proximamente» footballers can't be got anywhere yet; 2.1: «pase» ones only from the season pass
-  if (banner === 'evento') return roster.filter((p) => (p.exclusive && p.exclusive !== 'road' && p.exclusive !== 'bluelock' && p.exclusive !== 'proximamente' && p.exclusive !== 'pase') || (EVENT_FILLER_IDS.includes(p.id) && EVENT_FILLER.includes(p.rarity)));
+  if (banner === 'evento') return roster.filter((p) => (p.exclusive && p.exclusive !== 'road' && p.exclusive !== 'bluelock' && p.exclusive !== 'sendokai' && p.exclusive !== 'proximamente' && p.exclusive !== 'pase') || (EVENT_FILLER_IDS.includes(p.id) && EVENT_FILLER.includes(p.rarity)));
   // (author) InaZurvivors x BlueLock: its two footballers and the morralla
   if (banner === 'bluelock') return [...roster.filter((p) => p.exclusive === 'bluelock'), ...bluelockFiller(roster)];
+  // 2.9: InaZurvivors x Desafío Sendokai, the same way
+  if (banner === 'sendokai') return [...roster.filter((p) => p.exclusive === 'sendokai'), ...bluelockFiller(roster)];
   // special footballers (data/special_players.json) only come out of their own banner
   roster = roster.filter((p) => !p.exclusive);
   if (banner === 'equipo') return team ? roster.filter((p) => p.teams.includes(team)) : [];
@@ -133,7 +137,7 @@ export function bannerPrice(pool: RosterEntry[], banner: BannerId): { cost: numb
   const n = (r: Rarity) => pool.filter((p) => p.rarity === r).length;
   const mythics = n('mitico'), stars = n('legendario') + mythics + n('leyenda');
   // (author) the Banner de agradecimiento: 15 / 150 Fichas de evento
-  const cost = banner === 'evento' || banner === 'bluelock' ? BANNERS[banner].cost : banner === 'fichatron' ? 5 : banner === 'equipo' ? 15 : banner === 'chrono' ? CHRONO_PRICE
+  const cost = banner === 'evento' || banner === 'bluelock' || banner === 'sendokai' ? BANNERS[banner].cost : banner === 'fichatron' ? 5 : banner === 'equipo' ? 15 : banner === 'chrono' ? CHRONO_PRICE
     : !stars ? 5 : mythics >= 6 ? 20 : mythics || n('leyenda') ? 15 : 10;
   return { cost, multiCost: cost * 10, mythics };
 }

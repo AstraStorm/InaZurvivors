@@ -213,13 +213,13 @@
 @media (max-width: 560px) { .hud .bossbar { padding-left: 50px; } .bb-mug { width: 42px; height: 42px; } }
 
 /* ---------------------------------------------------------------- 1.84: Campeón, Campeón+ and Campeón++ */
-.pcard.cc.t-leyenda.champ-1 { --bw: 9px; --metal: conic-gradient(from var(--ring), #ffe08a, #ff5a3a, #b0103a, #ffd23f, #fff6c8, #ff5a3a, #ffe08a); --glow: #ff6a4acc; --orn: #ffe08a; --og: "\265B"; --sp1: #ffe08a; --sp2: #ff5a3a; }
-.pcard.cc.t-leyenda.champ-2 { --bw: 10px; --metal: conic-gradient(from var(--ring), #ffe08a, #b04aff, #4a0a8a, #ffd23f, #ffffff, #b04aff, #ffe08a); --glow: #c07affcc; --orn: #f0d8ff; --og: "\265B"; --sp1: #ffffff; --sp2: #c07aff; }
-.pcard.cc.t-leyenda.champ-3 { --bw: 11px; --metal: conic-gradient(from var(--ring), #ff4a6a, #ffd23f, #5effa0, #4ad8ff, #b04aff, #ff4a6a, #ffd23f, #ff4a6a); --glow: #ffffffcc; --orn: #ffffff; --og: "\265B"; --sp1: #ffffff; --sp2: #7fe9ff; }
-.pcard.cc.t-leyenda.champ-1 .cc-face { background: radial-gradient(120% 60% at 50% 0%, #6a1420, #2a0812 60%, #12040a); }
-.pcard.cc.t-leyenda.champ-2 .cc-face { background: radial-gradient(120% 60% at 50% 0%, #4a1a8a, #1a0a3a 60%, #08041a); }
-.pcard.cc.t-leyenda.champ-3 .cc-face { background: radial-gradient(120% 60% at 50% 0%, #2a3a8a, #12102a 60%, #06040e), linear-gradient(120deg, #ff4a6a22, #4ad8ff22); }
-.pcard.cc.t-leyenda.champ-3 .cc-frame { animation-duration: 1.4s; }
+.pcard.cc.t-leyenda.champ-1, .pcard.cc.t-heroe.champ-1 { --bw: 9px; --metal: conic-gradient(from var(--ring), #ffe08a, #ff5a3a, #b0103a, #ffd23f, #fff6c8, #ff5a3a, #ffe08a); --glow: #ff6a4acc; --orn: #ffe08a; --og: "\265B"; --sp1: #ffe08a; --sp2: #ff5a3a; }
+.pcard.cc.t-leyenda.champ-2, .pcard.cc.t-heroe.champ-2 { --bw: 10px; --metal: conic-gradient(from var(--ring), #ffe08a, #b04aff, #4a0a8a, #ffd23f, #ffffff, #b04aff, #ffe08a); --glow: #c07affcc; --orn: #f0d8ff; --og: "\265B"; --sp1: #ffffff; --sp2: #c07aff; }
+.pcard.cc.t-leyenda.champ-3, .pcard.cc.t-heroe.champ-3 { --bw: 11px; --metal: conic-gradient(from var(--ring), #ff4a6a, #ffd23f, #5effa0, #4ad8ff, #b04aff, #ff4a6a, #ffd23f, #ff4a6a); --glow: #ffffffcc; --orn: #ffffff; --og: "\265B"; --sp1: #ffffff; --sp2: #7fe9ff; }
+.pcard.cc.t-leyenda.champ-1 .cc-face, .pcard.cc.t-heroe.champ-1 .cc-face { background: radial-gradient(120% 60% at 50% 0%, #6a1420, #2a0812 60%, #12040a); }
+.pcard.cc.t-leyenda.champ-2 .cc-face, .pcard.cc.t-heroe.champ-2 .cc-face { background: radial-gradient(120% 60% at 50% 0%, #4a1a8a, #1a0a3a 60%, #08041a); }
+.pcard.cc.t-leyenda.champ-3 .cc-face, .pcard.cc.t-heroe.champ-3 .cc-face { background: radial-gradient(120% 60% at 50% 0%, #2a3a8a, #12102a 60%, #06040e), linear-gradient(120deg, #ff4a6a22, #4ad8ff22); }
+.pcard.cc.t-leyenda.champ-3 .cc-frame, .pcard.cc.t-heroe.champ-3 .cc-frame { animation-duration: 1.4s; }
 /* the badge: one colour per level, the last one prismatic */
 .rar.heroe.campeon.c2 { background: linear-gradient(90deg, #ffe08a, #b04aff, #4a0a8a, #b04aff, #ffe08a); text-shadow: 1px 1px 0 #2a0050; }
 .rar.heroe.campeon.c3 { background: linear-gradient(90deg, #ff4a6a, #ffd23f, #5effa0, #4ad8ff, #b04aff, #ff4a6a); background-size: 200% 100%; color: #fff; text-shadow: 1px 1px 0 #000, 0 0 6px #fff; animation: champSheen 2.4s linear infinite; }

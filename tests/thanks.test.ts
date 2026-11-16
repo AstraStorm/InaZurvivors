@@ -19,7 +19,7 @@ describe('Banner de agradecimiento (1.75)', () => {
     expect(thanksTokens('S', 37, open)).toBe(37);
     expect(thanksTokens('X', 12, open)).toBe(12);
     expect(thanksTokens('A', 37, open)).toBe(0);
-    expect(thanksTokens('S', 37, at('2026-11-20T12:00:00+01:00'))).toBe(0);
+    expect(thanksTokens('S', 37, at('2026-11-27T12:00:00+01:00'))).toBe(0);
   });
   it('the event pull spends Fichas de evento, never the normal fichas', () => {
     const s = newSave([10], 10);

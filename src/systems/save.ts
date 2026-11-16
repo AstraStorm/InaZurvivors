@@ -73,6 +73,10 @@ export interface SaveData {
   egTokens?: number;
   keshin?: Record<string, number>;
   egGift20?: boolean;
+  /** 2.8: Monedas de Despertar (a HÉROE becomes Campeón, ascension.ts awaken) and the gift of the 200 registered players */
+  awakenCoins?: number;
+  awakenGift200?: boolean;
+  awakenSeen?: boolean;
   /** (author) Fichas de evento: they only pay the Banner de agradecimiento (thanksEvent.ts) */
   eventTokens?: number;
   /** (author) runs won while InaZurvivors x BlueLock is open: 3 give its banner (collabEvent.ts) */
@@ -383,6 +387,10 @@ export function validate(s: SaveData): SaveData {
   for (const [k, v] of Object.entries(obj(s.keshin) ?? {})) { const lv = Math.min(6, Math.max(0, Math.floor(num(v, 0)))); if (/^\d+$/.test(k) && lv) ks[k] = lv; }
   s.keshin = ks;
   if (s.egGift20 !== true) delete s.egGift20;
+  s.awakenCoins = Math.max(0, Math.floor(num(s.awakenCoins, 0)));
+  if (!s.awakenCoins) delete s.awakenCoins;
+  if (s.awakenGift200 !== true) delete s.awakenGift200;
+  if (s.awakenSeen !== true) delete s.awakenSeen;
   const owned: Record<string, OwnedPlayer> = {};
   for (const [k, v] of Object.entries(obj(s.owned) ?? {})) {
     const o = obj(v);

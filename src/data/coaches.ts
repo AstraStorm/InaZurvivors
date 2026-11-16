@@ -4,7 +4,7 @@
  * machine of their saga (a small chance per pull, only the ones not owned yet). Portraits: IE3 (Great Road of Heroes),
  * exported by InazumaExtractor/coaches_ie3.py; the manifest's `coaches` lists them by id.
  */
-import { tr } from '../i18n/i18n';
+import { locale, tr } from '../i18n/i18n';
 import { tEl } from '../i18n/data';
 import type { FormationId } from '../systems/formations';
 import type { BannerId } from '../systems/banners';
@@ -16,13 +16,18 @@ export type CoachPassive =
   | { kind: 'afinidad'; element: string; damage: number }
   | { kind: 'dano'; damage: number }
   | { kind: 'defensa'; taken: number }
-  | { kind: 'combinadas'; damage: number };
+  | { kind: 'combinadas'; damage: number }
+  /** 2.9 (author): Tampo, by how many of `players` are on the pitch (Auras don't count): with all of them `damage` and
+   *  `taken` in his formation, a share less for each one missing, `least` of both with none */
+  | { kind: 'sendokai'; formation: FormationId; players: number[]; damage: number; taken: number; least: number };
 
 export interface CoachDef {
   id: string; name: string; team: string; rarity: Rarity; machine: BannerId;
   /** one line in his voice (or about him), shown on his card */
   quote: string;
   passives: CoachPassive[];
+  /** 2.9: a coach that no machine gives: he joins whoever owns all these footballers */
+  reward?: number[];
 }
 
 export const COACHES: CoachDef[] = [
@@ -60,12 +65,18 @@ export const COACHES: CoachDef[] = [
   { id: 'zoolan', name: 'Zoolan Rice', team: 'The Kingdom', rarity: 'epico', machine: 'ffi',
     quote: tr('Entrenador de The Kingdom: siempre sabe qué hay que buscar.'),
     passives: [{ kind: 'objetos', luck: 0.2 }, { kind: 'combinadas', damage: 0.1 }] },
+  // 2.9 (author): the Sendokai master, for owning the five; the wiki's Tänpo, leader of the Equipo Wadaan
+  { id: 'tampo', name: 'Tampo', team: 'Desafío Sendokai', rarity: 'mitico', machine: 'sendokai', reward: [900600, 900601, 900602, 900603, 900604],
+    quote: tr('El maestro sendokai más sabio: entrenó a los Sen-Kuns para salvar la Tierra.'),
+    passives: [{ kind: 'sendokai', formation: 'equilibrada', players: [900600, 900601, 900602, 900603, 900604], damage: 0.5, taken: 0.25, least: 0.025 }] },
 ];
 export const COACH_BY_ID = new Map(COACHES.map((c) => [c.id, c]));
 
 /** chance per pull of a coach of the machine (only coaches not owned yet; none once all of them are) */
 export const COACH_PULL_CHANCE = 0.02;
-export const coachesOfMachine = (m: BannerId) => COACHES.filter((c) => c.machine === m);
+export const coachesOfMachine = (m: BannerId) => COACHES.filter((c) => c.machine === m && !c.reward);
+/** 2.9: the reward coaches whose footballers are all owned and who aren't yet */
+export const rewardCoachesDue = (owned: (id: number) => boolean, have: string[]) => COACHES.filter((c) => c.reward && !have.includes(c.id) && c.reward.every(owned));
 
 const pct = (v: number) => `${Math.round(v * 100)}%`;
 const FORMATION_LABEL: Record<string, string> = { ofensiva: tr('ofensiva'), equilibrada: tr('equilibrada'), defensiva: tr('defensiva') };
@@ -77,17 +88,27 @@ export function passiveText(p: CoachPassive): string {
     case 'dano': return tr('+{pct} daño de todo el equipo', { pct: pct(p.damage) });
     case 'defensa': return tr('−{pct} daño recibido', { pct: pct(p.taken) });
     case 'combinadas': return tr('+{pct} daño de las técnicas combinadas', { pct: pct(p.damage) });
+    case 'sendokai': return tr('Formación {x1}: con los {n} de Desafío Sendokai en el campo, +{x2} daño y −{x3} daño recibido; menos por cada uno que falte y {x4} sin ninguno (las Auras no cuentan)', { x1: FORMATION_LABEL[p.formation], n: p.players.length, x2: pct(p.damage), x3: pct(p.taken), x4: `${(p.least * 100).toLocaleString(locale())}%` });
   }
 }
-export const PASSIVE_ICON: Record<CoachPassive['kind'], string> = { formacion: '▦', objetos: '✪', afinidad: '◆', dano: '⚔', defensa: '⛨', combinadas: '🔗' };
+export const PASSIVE_ICON: Record<CoachPassive['kind'], string> = { formacion: '▦', objetos: '✪', afinidad: '◆', dano: '⚔', defensa: '⛨', combinadas: '🔗', sendokai: '✦' };
 
 /** what the run needs from the equipped coach (ArenaScene: formation and element; the rest goes into the perks) */
 export interface CoachRun { id: string; formation: { id: FormationId; damage: number; taken: number } | null; element: { element: string; damage: number } | null }
-export function coachRun(def: CoachDef | undefined): CoachRun | undefined {
+/** 2.9: Tampo's bonus with `n` of his footballers on the pitch */
+export function sendokaiBonus(p: Extract<CoachPassive, { kind: 'sendokai' }>, n: number) {
+  const k = Math.min(n, p.players.length) / p.players.length;
+  return { damage: n ? p.damage * k : p.least, taken: n ? p.taken * k : p.least };
+}
+/** `field`: the ids of the footballers on the pitch (Tampo counts his own among them) */
+export function coachRun(def: CoachDef | undefined, field: number[] = []): CoachRun | undefined {
   if (!def) return undefined;
   const f = def.passives.find((p) => p.kind === 'formacion') as Extract<CoachPassive, { kind: 'formacion' }> | undefined;
   const e = def.passives.find((p) => p.kind === 'afinidad') as Extract<CoachPassive, { kind: 'afinidad' }> | undefined;
-  return { id: def.id, formation: f ? { id: f.formation, damage: f.damage, taken: f.taken } : null, element: e ? { element: e.element, damage: e.damage } : null };
+  const s = def.passives.find((p) => p.kind === 'sendokai') as Extract<CoachPassive, { kind: 'sendokai' }> | undefined;
+  const sb = s ? sendokaiBonus(s, s.players.filter((id) => field.includes(id)).length) : null;
+  return { id: def.id, formation: f ? { id: f.formation, damage: f.damage, taken: f.taken } : s && sb ? { id: s.formation, damage: sb.damage, taken: sb.taken } : null,
+    element: e ? { element: e.element, damage: e.damage } : null };
 }
 /** the passives that are plain perk changes (damage, defence, combos, rare items) */
 export function applyCoachPerks(def: CoachDef | undefined, perks: { damageMult: number; damageTakenMult: number; comboMult: number; specialLuck: number }) {

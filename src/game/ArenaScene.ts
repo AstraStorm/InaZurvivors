@@ -3453,6 +3453,8 @@ export class ArenaScene extends Phaser.Scene {
     this.nextSurround = this.runTime + 40;
     this.lastCapPos = { x: c.x, y: c.y };
     this.banner(tr('¡SUPERVIVENCIA INFINITA!'), '#ff8a5a');
+    // 2.8 (author): the co-op endless is new; its limit with so many effects is unknown
+    if (this.coop) this.time.delayedCall(2600, () => { if (!this.ended) this.banner(tr('Cooperativo infinito en pruebas: con muchos efectos puede ir lento'), '#ffd27a'); });
   }
 
   private endlessMin() { return this.endless ? (this.runTime - this.endless.since) / 60 : 0; }

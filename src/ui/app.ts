@@ -56,13 +56,13 @@ import { EXTRA_STARS_MAX, affordableStars, assignPick, buyStars, resetStars185, 
 import { CHAMPION_CAP, CHAMPION_STATS, CHAMPION_TRAIN, RARITY_STAT_MEAN, playerStats, resetTraining, statCapOf, trainingOf, trainingUsed, trainMaxOf, trainRoom, trainStat, trimTraining, type StatKey } from '../systems/training';
 import { AURA_PCT, AURA_ELEMENT_BONUS, AURA_TECH_DAMAGE, BOND_PCT, EFFECTIVE_STAT_MAX, auraBonus, auraOf, bondOf, canBeAura, carrierForRun, carrierOf, equipAura, inheritedTechs, removeAura, sanitizeAuras, withAura, type AuraBonus } from '../systems/auras';
 import { BOND_KIND_LABEL } from '../data/auraBonds';
-import { ascendAll, ascendableCount, ASC_BONUS, ASC_COSTS, CHAMPION_COSTS, CHAMPION_LABEL, CHAMPION_MAX, HERO_AURA, HERO_STARS_MAX, championOf, compensateDrakul153, migrateChampions18, migrateHeroes131, type AscStep, ascend, ascMultipliers, effectiveRarity, isHero, isTopRarity, nextStep, rarityUp, sparesOf } from '../systems/ascension';
+import { awaken, awakenCoins, awakenLevel, canAwaken, giveAwakenGift, ascendAll, ascendableCount, ASC_BONUS, ASC_COSTS, CHAMPION_COSTS, CHAMPION_LABEL, CHAMPION_MAX, HERO_AURA, HERO_STARS_MAX, championOf, compensateDrakul153, migrateChampions18, migrateHeroes131, type AscStep, ascend, ascMultipliers, effectiveRarity, isHero, isTopRarity, nextStep, rarityUp, sparesOf } from '../systems/ascension';
 import { USERNAME_MAX, validateUsername } from '../systems/username';
 import { ALTAR_COLOR, ALTAR_ICON, ALTAR_INFO, ALTAR_LABEL, ALTAR_MODE, ALTAR_REWARD } from '../systems/altars';
 import { adaptedPassive, passiveText, talentChanges, talentText } from '../systems/talents';
 import { adminSuggestions, adminUpdateSuggestion, claimBugNotices, claimBugRewards, claimSuggestionNotices, mySuggestions, redeemCode, submitSuggestion, type SuggestionRow } from '../online/client';
 import { THANKS_EVENT, addThanksTokens, thanksActive, thanksLeftMs, thanksTokens } from '../systems/thanksEvent';
-import { BLUELOCK_EVENT, BLUELOCK_WINS_FOR_BANNER, bluelockActive, bluelockDaysToStart, bluelockLeftMs, bluelockUpcoming, recordBluelockWin } from '../systems/collabEvent';
+import { BLUELOCK_EVENT, BLUELOCK_WINS_FOR_BANNER, SENDOKAI_EVENT, bluelockActive, bluelockDaysToStart, bluelockLeftMs, bluelockUpcoming, recordBluelockWin, sendokaiActive, sendokaiDaysToStart, sendokaiLeftMs, sendokaiLineup, sendokaiOwned, sendokaiUpcoming } from '../systems/collabEvent';
 import { gtsDeposit, gtsFeed, gtsMine, gtsSearch, gtsTake, gtsWithdraw, type GtsOffer } from '../online/client';
 import { submitTierlist, tierlistFeed, type TierlistRow } from '../online/client';
 import { championOfRows, clanInfo, clanOf, clanAnswer, clanCancelRequest, clanClaimMission, clanClaimPrizes, clanCreate, clanKick, clanLastWeek, clanLeave, clanRanking, clanRequest, clanRequests, clanSearch, clanSetRole, clanSubmitRun, clanUpdate, myClan, myClanRequests, type ClanMember, type ClanMission, type ClanPrize, type ClanRole, type MyClan } from '../online/client';
@@ -71,7 +71,7 @@ import { cleanTiers, placeIn, tierCount, topicLabel, TIER_COLOR, TIER_MAX, TIER_
 import { CoopLink, type CoopMsg } from '../online/coop';
 import { coopInvite, coopInvitesClaim, coopStatus, type CoopStatus, friendHeartbeat, friendList, friendRemove, friendRequest, friendRespond, lobbyInfo, type FriendRow, type LobbyInfo } from '../online/client';
 import type { CoopRun } from '../game/coopArena';
-import { applyCoachPerks, COACH_BY_ID, COACH_PULL_CHANCE, COACHES, coachesOfMachine, coachRun, PASSIVE_ICON, passiveText as coachPassiveText, type CoachDef } from '../data/coaches';
+import { applyCoachPerks, COACH_BY_ID, COACH_PULL_CHANCE, COACHES, coachesOfMachine, rewardCoachesDue, coachRun, PASSIVE_ICON, passiveText as coachPassiveText, type CoachDef } from '../data/coaches';
 import { clashWith } from '../systems/identity';
 import { applyGtsLedger, canLeave, gtsBanned, gtsError, gtsSlots, gtsSpare, type GtsRow } from '../systems/gts';
 import { fmtNum, getLang, LANGS, locale, resolveLang, setLang, tr, type Lang } from '../i18n/i18n';
@@ -245,6 +245,8 @@ export class App {
     // author: InaZurvivors x BlueLock is a surprise until it opens — its footballers stay out of the encyclopedia, lists
     // and searches (unless already owned, e.g. the QA accounts); the menu teaser only shows their silhouettes
     if (bluelockUpcoming(serverNow())) m.roster = m.roster.filter((p) => p.exclusive !== 'bluelock' || !!save.owned[String(p.id)]);
+    // 2.9 (author: «cuando lo subamos ha de estar en oculto»): the Sendokai five don't exist until their banner opens
+    if (sendokaiUpcoming(serverNow())) m.roster = m.roster.filter((p) => p.exclusive !== 'sendokai' || !!save.owned[String(p.id)]);
     // 2.02 (author): «próximamente» footballers are a secret: nowhere in the game until they are owned
     m.roster = m.roster.filter((p) => p.exclusive !== 'proximamente' || !!save.owned[String(p.id)]);
     // 2.1: the season pass footballers are a surprise until the season opens (the teaser shows them in silhouette)
@@ -270,6 +272,7 @@ export class App {
     if (resetStars185(save, m.roster)) storeSave(save); // 1.85: everyone's stars start again under the coin rules
     if (compensateDrakul153(save)) storeSave(save); // Fix 1.53: 3 copies of Drakul for whoever ascended him
     if (creatorGiftINA483(save)) storeSave(save); // 2.3: INA483 also gives the content creators' banner and frame
+    if (giveAwakenGift(save)) storeSave(save); // 2.8: the Moneda de Despertar of the 200 registered players
     // 2.02: Jaden at 3 clears, a copy every 5; 2.3: a copy every 3
     const jadenOwed = compensateJaden202(save, this.byId.get(JADEN_ID)) + compensateJaden3(save, this.byId.get(JADEN_ID));
     this.jadenNotice(jadenOwed);
@@ -1202,7 +1205,7 @@ export class App {
           <span><b>${esc(this.save.profile.name)}</b><small>${tr('{ownedLength}/{rosterLength} futbolistas · {wins} victorias', { ownedLength: owned.length, rosterLength: this.m.roster.length, wins: this.save.stats.wins })}</small></span></button>
         <button class="m4-clanchip" id="m4clan" data-go="clan">${this.clanChipHtml()}</button>
         <span class="spacer"></span>
-        <div class="m4-wallet"><span class="tokens" title="${tr('Fichas de Fichaje')}">${this.save.tokens}</span><span class="coins" title="${tr('Monedas')}">${this.save.coins}</span><span class="egt" title="${tr('Fichas EG')}">${this.egIcon(16)}${egTokens(this.save)}</span></div>
+        <div class="m4-wallet"><span class="tokens" title="${tr('Fichas de Fichaje')}">${this.save.tokens}</span><span class="coins" title="${tr('Monedas')}">${this.save.coins}</span><span class="egt" title="${tr('Fichas EG')}">${this.egIcon(16)}${egTokens(this.save)}</span>${awakenCoins(this.save) ? `<button class="awk-chip" id="m4awk" title="${tr('Monedas de Despertar')}">${this.awakenIcon(16)}${awakenCoins(this.save)}</button>` : ''}</div>
         <nav class="m4-tools">${this.tiktokLink()}
           <a class="m4-tool m4-itch" href="${CREATOR_GAMES_URL}" target="_blank" rel="noopener noreferrer" title="${tr('Otros juegos del creador')}" aria-label="${tr('Otros juegos del creador (se abre en una pestaña nueva)')}">${GAMEPAD_SVG}</a>
           <button class="m4-tool" data-go="devlog" title="${tr('Noticias')}">${uiIcon('news')}<span>${tr('Noticias')}</span>${unseenLog ? '<i class="m4-dot"></i>' : ''}</button>
@@ -1301,6 +1304,7 @@ export class App {
       if (go === 'pnevent') this.pennantEvent(); // v1.65
       if (go === 'thanksev') { this.gachaBanner = 'evento'; this.gacha(); } // 1.75
       if (go === 'collection') this.collection();
+      if (go === 'awaken') this.awakenPicker(); // 2.8
       if (go === 'gts') void this.gts(); // 1.8
       if (go === 'coop') this.coopLobby(); // pre-2.0
       if (go === 'friends') void this.friendsScreen();
@@ -1344,9 +1348,15 @@ export class App {
     void this.fillMenuClan(); // 1.93: the clan chip and the weekly clan prizes
     void this.claimBugBounty(); // 1.85: rewards for fixed bug reports
     this.notiBar(); // 1.88
+    document.getElementById('m4awk')?.addEventListener('click', () => this.awakenPicker());
+    { const rc = this.rewardCoach(); if (rc) { this.persist(); window.setTimeout(() => this.coachReveal(rc), 900); } } // 2.9: Tampo, when the five arrived some other way (GTS)
     if (onlineConfigured() && signedIn()) void this.gtsSync().catch(() => undefined); // 1.8: a trade that happened while away arrives here
     document.getElementById('wpclaim')?.addEventListener('click', (e) => { (e.target as HTMLButtonElement).disabled = true; this.claimPassNow(() => this.mainMenu()); });
     if (this.save.tutorial === 'pendiente' && this.save.onboardingDone) window.setTimeout(() => { if (this.screenKey === 'menu-mode') this.tutorial(); }, 400);
+    // 2.9 (author: «que avise, próximamente nuevo banner, a la gente que entra»): once per visit while it is still a secret
+    else if (sendokaiUpcoming(serverNow()) && this.save.onboardingDone && !App.sdTeaserShown) window.setTimeout(() => { if (this.screenKey === 'menu-mode') this.sendokaiTeaser(); }, 700);
+    // 2.8 (author): the Moneda de Despertar of the 200 registered players, explained once
+    else if (this.save.awakenGift200 && !this.save.awakenSeen && this.save.onboardingDone) window.setTimeout(() => { if (this.screenKey === 'menu-mode') this.awakenNotice(); }, 600);
     // 1.75 (author): the thank-you notice, once, while the Banner de agradecimiento is open
     else if (thanksActive(serverNow()) && !this.save.thanksSeen && this.save.onboardingDone) window.setTimeout(() => { if (this.screenKey === 'menu-mode') this.thanksNotice(); }, 600);
     else if (!this.save.roadIntroSeen && this.save.onboardingDone) window.setTimeout(() => { if (this.screenKey === 'menu-mode') this.roadIntro(); }, 700); // pre-2.0
@@ -1361,6 +1371,7 @@ export class App {
     if (passReady) steps.push({ go: 'pass', icon: 'ticket', text: tr('Reclama el premio del pase semanal') });
     if (seasonN) steps.push({ go: 'season', icon: 'star', text: tr('Reclama {n} niveles del pase de temporada', { n: seasonN }) });
     if (claims) steps.push({ go: 'collection', icon: 'cards', text: tr('Recoge las recompensas de la Colección') });
+    if (awakenCoins(this.save) && this.m.roster.some((p) => canAwaken(this.save, p))) steps.push({ go: 'awaken', icon: 'star', text: tr('Usa tu Moneda de Despertar: un HÉROE pasa a Campeón') });
     if (this.shopNews()) steps.push({ go: 'daily', icon: 'shop', text: tr('Mira los banners y marcos nuevos de la Tienda') });
     if (squad.length < SQUAD_SIZE && this.unlockedRoster().length > squad.length) steps.push({ go: 'squad', icon: 'team', text: tr('Completa tus {n} candidatos en Mi Equipo', { n: SQUAD_SIZE }) });
     if (this.save.tokens >= PULL_COST * 10) steps.push({ go: 'gacha', icon: 'capsule', text: tr('Tienes {n} fichas: haz una tirada ×10', { n: this.save.tokens }) });
@@ -1391,6 +1402,8 @@ export class App {
   private promoSlides() {
     const now = serverNow();
     const art = (ids: number[], size = 128) => ids.map((id, i) => `<span class="m5-who" style="--i:${i}">${this.mug(id, size as 64)}</span>`).join('');
+    // 2.9 (author: «el principal es Zak»): the Sendokai five with Zak in the middle, bigger and in front
+    const sdArt = () => sendokaiLineup().map((id, i) => `<span class="m5-who${id === SENDOKAI_EVENT.star ? ' sd-main' : ''}" style="--i:${i};--aura:${SENDOKAI_EVENT.aura[id] ?? '#ffb02e'}">${this.mug(id, 128 as 64)}</span>`).join('');
     const slides: { kicker: string; title: string; text: string; cta: string; color: string; art: string; tag?: string; act: () => void }[] = [];
     const news = allNews(true, serverNow())[0];
     if (thanksActive(now)) {
@@ -1405,6 +1418,14 @@ export class App {
       const d = bluelockDaysToStart(now);
       slides.unshift({ kicker: tr('PRÓXIMAMENTE'), title: tr('Nueva colaboración'), text: d > 1 ? tr('Faltan {d} días. ¿Quiénes serán?', { d }) : tr('¡Mañana! ¿Quiénes serán?'), cta: `${d > 1 ? tr('{d} días', { d }) : 'Mañana'}`, color: '#2a5ad8', tag: d > 1 ? tr('{d} DÍAS', { d }) : tr('MAÑANA'),
         art: `<span class="m5-soon"><span class="m5-sil">${art(BLUELOCK_EVENT.players)}</span><b class="m5-q">?</b></span>`, act: () => this.toast(d > 1 ? tr('La nueva colaboración llega en {d} días', { d }) : tr('La nueva colaboración llega mañana')) });
+    }
+    // 2.9 (author): InaZurvivors x Desafío Sendokai — the same: its slide once open, before only «Próximamente» and silhouettes
+    if (sendokaiActive(now)) slides.unshift({ kicker: tr('COLABORACIÓN · LIMITADO'), title: tr('InaZurvivors x Desafío Sendokai'), text: tr('Zak, Cloe, Kiet, Fenzy y Lon, solo en su banner. Ficha a los cinco y Tampo será tu entrenador. Termina en {x1}.', { x1: this.leftText(sendokaiLeftMs(now)) }), cta: tr('¡Fichar ahora!'), color: BANNERS.sendokai.color, tag: tr('NUEVO'),
+      art: `<span class="m5-bl m5-sd">${this.collabLogo('sendokai')}<span class="m5-bl-who">${sdArt()}</span></span>`, act: () => { this.gachaBanner = 'sendokai'; this.gacha(); } });
+    else if (sendokaiUpcoming(now)) {
+      const d = sendokaiDaysToStart(now);
+      slides.unshift({ kicker: tr('PRÓXIMAMENTE'), title: tr('Nueva colaboración'), text: d > 1 ? tr('Faltan {d} días. ¿Quiénes serán?', { d }) : tr('¡Mañana! ¿Quiénes serán?'), cta: `${d > 1 ? tr('{d} días', { d }) : 'Mañana'}`, color: '#ff7a1a', tag: d > 1 ? tr('{d} DÍAS', { d }) : tr('MAÑANA'),
+        art: `<span class="m5-soon m5-soon5"><span class="m5-sil">${sdArt()}</span><b class="m5-q">?</b></span>`, act: () => this.toast(d > 1 ? tr('La nueva colaboración llega en {d} días', { d }) : tr('La nueva colaboración llega mañana')) });
     }
     // 2.1 (author): the season pass — once open, its slide; before, «Próximo pase» with its date and the two stars in silhouette
     const sOpen = activeSeason(now), sNext = upcomingSeason(now);
@@ -1458,6 +1479,9 @@ export class App {
     if (vr.length) slides.unshift({ kicker: tr('PRÓXIMAMENTE'), title: 'Victory Road', text: tr('Diez futbolistas nuevos de Victory Road llegan muy pronto con su propia máquina. Todavía no se pueden fichar: ¿a quién quieres primero?'),
       cta: tr('Muy pronto'), color: '#19c3b4', tag: tr('MUY PRONTO'), art: `<span class="m5-vr">${[...vr].sort((a, b) => RARITY_ORDER.indexOf(b.rarity) - RARITY_ORDER.indexOf(a.rarity)).slice(0, 5).map((p, i) => `<span class="m5-who" style="--i:${i}">${this.vrMug(p, 128)}</span>`).join('')}</span>`,
       act: () => this.vrTeaserPoster() });
+    // 2.9 (author: «que salga como principal»): the new collab's slide, open or still a secret, goes first
+    const sd = slides.findIndex((x) => x.art.includes('m5-sd') || x.art.includes('m5-soon5'));
+    if (sd > 0) slides.unshift(...slides.splice(sd, 1));
     return slides;
   }
   private promoHtml(slides: ReturnType<App['promoSlides']>) {
@@ -1983,12 +2007,17 @@ export class App {
     const champUnlocks = [tr('{x1}: el límite de sus estadísticas sube de {x2} a {x3}', { x1: CHAMPION_LABEL[ch + 1], x2: statCapOf(this.save, p), x3: statCapOf(this.save, p) + CHAMPION_CAP }),
       tr('+{CHAMPION_STATS} a todas sus estadísticas y +{CHAMPION_TRAIN} puntos de entrenamiento para repartir', { CHAMPION_STATS, CHAMPION_TRAIN }),
       tr('+{x1}% daño y +{x2}% vida en partida', { x1: Math.round((ASC_BONUS.campeon.damage - 1) * 100), x2: Math.round((ASC_BONUS.campeon.hp - 1) * 100) }),
-      ch + 1 < CHAMPION_MAX ? tr('Después: {x1} ({x2} duplicados)', { x1: CHAMPION_LABEL[ch + 2], x2: CHAMPION_COSTS[ch + 1] }) : tr('Es el último nivel: Campeón++')];
+      ch + 1 < CHAMPION_MAX ? tr('Después: {x1} ({x2} duplicados)', { x1: CHAMPION_LABEL[ch + 2], x2: p.rarity === 'leyenda' ? CHAMPION_COSTS[ch + 1] : (ASC_COSTS[p.rarity] ?? ASC_COSTS.legendario).estrella }) : tr('Es el último nivel: Campeón++')];
     const unlocks = next?.step === 'campeon' ? champUnlocks : !next && ch ? [tr('{x1}: estadísticas hasta {x2} y {x3} puntos de entrenamiento', { x1: CHAMPION_LABEL[ch], x2: statCapOf(this.save, p), x3: trainMaxOf(this.save, id) })]
       : next?.step === 'estrella' ? starUnlocks : next?.step === 'heroe' || (!next && isHero(this.save, id))
       ? [tr('Técnica de HÉROE: {x1}', { x1: p.heroTech ? tTech(p.heroTech.name) : tr('ninguna documentada para este jugador') }), tr('{label} (habilidad original de InaZurvivors): {description}', { label: HERO_AURA.label, description: HERO_AURA.description }), tr('Marco dorado e insignia HÉROE en la colección')]
       : [up === curR ? tr('Ascendido: sigue siendo {x1}, con la bonificación de ascensión', { x1: RARITY_LABEL[up] }) : tr('Rareza {x1} (sin cambiar de personaje): sus estadísticas suben a las de un {x2}', { x1: RARITY_LABEL[up], x2: RARITY_LABEL[up] }),
         isTopRarity(up) ? tr('Después, la ascensión HÉROE ({x1} duplicados)', { x1: (ASC_COSTS[p.rarity] ?? ASC_COSTS.legendario).heroe }) : tr('Después, la siguiente ascensión: {x1} ({x2} duplicados)', { x1: RARITY_LABEL[rarityUp(up)], x2: ASC_COSTS[up].ascenso })];
+    // 2.8: a HÉROE (not a Leyenda) can be awakened to Campeón with a Moneda de Despertar
+    const awk = canAwaken(this.save, p), awkLv = awk ? awakenLevel(this.save, id) : 0, coins = awakenCoins(this.save);
+    const awkBox = awk ? `<div class="awk-box${coins ? ' ok' : ''}">${this.awakenIcon(34)}<div><b>${tr('Despertar: {x1} » {x2}', { x1: tr('HÉROE{x1}', { x1: hs ? ` ${'★'.repeat(hs)}` : '' }), x2: CHAMPION_LABEL[awkLv] })}</b>
+        <small>${tr('Con una Moneda de Despertar (tienes {n}): límite de estadísticas {x1}, +{x2} a todas, +{x3} puntos de entrenamiento y +{x4}% daño por nivel. Sigue siendo HÉROE.', { n: coins, x1: statCapOf(this.save, p) + CHAMPION_CAP * awkLv, x2: CHAMPION_STATS * awkLv, x3: CHAMPION_TRAIN * awkLv, x4: Math.round((ASC_BONUS.campeon.damage - 1) * 100) })}</small></div>
+        <button class="btn" id="awkgo" ${coins ? '' : 'disabled'}>${tr('Despertar')}</button></div>` : '';
     const box = document.createElement('div');
     box.className = 'tut-modal asc-modal';
     box.innerHTML = `<div class="panel asc-card${isHero(this.save, id) ? ' is-hero' : ''}" style="--rc:${RARITY_COLOR[curR]}">
@@ -2000,13 +2029,26 @@ export class App {
           <div class="asc-stats"><span>${tr('Daño en partida')}</span><b>${pct(now.damage)}</b>${next ? `<em>»</em><b class="up">${pct(after.damage)}</b>` : ''}
             <span>${tr('Vida aportada')}</span><b>${pct(now.hp)}</b>${next ? `<em>»</em><b class="up">${pct(after.hp)}</b>` : ''}</div>
           <ul class="gi-list">${unlocks.map((u) => `<li>${esc(u)}</li>`).join('')}</ul>
-          <div class="note">${tr('Los duplicados se consumen; las estrellas ya ganadas se conservan.')}</div></div></div>
+          <div class="note">${tr('Los duplicados se consumen; las estrellas ya ganadas se conservan.')}</div></div></div>${awkBox}
       <div class="tut-nav"><button class="btn small blue" id="ascclose">${tr('Cerrar')}</button><span class="spacer"></span>
         ${next ? `<button class="btn big" id="ascgo" ${spares >= next.cost ? '' : 'disabled'}>${tr('Ascender ({cost} duplicados)', { cost: next.cost })}</button>` : ''}</div></div>`;
     document.body.appendChild(box);
     mountPreviews();
     const close = () => { box.remove(); back(); };
     box.querySelector('#ascclose')!.addEventListener('click', close);
+    const awkGo = box.querySelector('#awkgo') as HTMLButtonElement | null;
+    awkGo?.addEventListener('click', () => this.armed(awkGo, async () => {
+      awkGo.disabled = true;
+      if (!awaken(this.save, p)) { sfx('error'); return; }
+      this.persist();
+      box.querySelector('.asc-card')!.classList.add('transform');
+      sfx('legend');
+      if (this.save.settings.particles !== 'desactivado') confetti(120);
+      await wait(1400);
+      box.remove();
+      await this.ascensionCard(p, 'campeon');
+      this.ascension(id, back);
+    }));
     const go = box.querySelector('#ascgo') as HTMLButtonElement | null;
     go?.addEventListener('click', () => this.armed(go, async () => {
       go.disabled = true; // one operation: the button can't fire twice while the animation plays
@@ -2526,16 +2568,18 @@ export class App {
     setMusicContext('menu');
     const owned = new Set(this.save.coaches?.owned ?? []), bench = this.save.coaches?.bench;
     const order = (c: CoachDef) => (owned.has(c.id) ? 0 : 100) - RARITY_ORDER.indexOf(c.rarity);
-    const cards = [...COACHES].sort((a, b2) => order(a) - order(b2)).map((c) => {
+    const shown = COACHES.filter((c) => c.machine !== 'sendokai' || owned.has(c.id) || !sendokaiUpcoming(serverNow())); // 2.9: a surprise until it opens
+    const cards = [...shown].sort((a, b2) => order(a) - order(b2)).map((c) => {
       const own = owned.has(c.id);
       return `<div class="co-card r-${c.rarity}${own ? '' : ' locked'}${bench === c.id ? ' on' : ''}" style="--rc:${RARITY_COLOR[c.rarity]}">
         ${this.coachArt(c, 112, !own)}<div class="co-card-tx"><small>${esc(c.team)}</small><b>${own ? esc(c.name) : '???'}</b><span class="rar ${c.rarity}">${RARITY_LABEL[c.rarity].toUpperCase()}</span>
         ${own ? `<p class="co-quote">«${esc(c.quote)}»</p>` : ''}${this.coachPassives(c)}
         ${own ? `<button class="btn small${bench === c.id ? ' blue' : ''}" data-bench="${c.id}">${bench === c.id ? tr('✔ En el banquillo') : tr('Al banquillo')}</button>`
+          : c.reward ? `<p class="co-where">${tr('🔒 Ficha a los {x1} de <b>{x2}</b> · {n}/{x1}', { x1: c.reward.length, x2: esc(this.machineLabel(c.machine)), n: c.reward.filter((id) => !!this.save.owned[String(id)]).length })}</p>`
           : `<p class="co-where">${tr('{x1} <b>{x2}</b> ({x3}% por cápsula)', { x1: tr('🔒 Sale en la máquina'), x2: esc(this.machineLabel(c.machine)), x3: Math.round(COACH_PULL_CHANCE * 100) })}</p>`}</div></div>`;
     }).join('');
     this.show(`<div class="screen coaches-screen">${this.titlebar('Entrenadores', back === 'squad' ? tr('Mi Equipo') : back === 'road' ? tr('Road to FF') : 'Menú')}
-      <div class="panel co-head"><b>${tr('{size} de {COACHESLength} entrenadores', { size: owned.size, COACHESLength: COACHES.length })}</b><p class="note">${tr('Uno se sienta en el <b>banquillo</b> y da sus pasivas a todo el equipo durante la partida: su formación, objetos raros, afinidad con un elemento, daño, defensa o técnicas combinadas.')}</p></div>
+      <div class="panel co-head"><b>${tr('{size} de {COACHESLength} entrenadores', { size: owned.size, COACHESLength: shown.length })}</b><p class="note">${tr('Uno se sienta en el <b>banquillo</b> y da sus pasivas a todo el equipo durante la partida: su formación, objetos raros, afinidad con un elemento, daño, defensa o técnicas combinadas.')}</p></div>
       <div class="co-grid">${cards}</div></div>`);
     this.on('[data-back]', 'click', () => (back === 'squad' ? this.captainSelect() : back === 'road' ? this.roadScreen() : this.mainMenu()));
     this.on('[data-bench]', 'click', (_e, el) => {
@@ -2558,6 +2602,25 @@ export class App {
     </div></div>`;
   }
 
+  /** 2.9: «InaZurvivors x <collab>» with that collab's logo (generated/collab) */
+  private collabLogo(id: 'bluelock' | 'sendokai') {
+    if (id === 'bluelock') return this.blLogo();
+    const logo = this.m.collab?.[id];
+    return `<span class="bl-logo sd-logo"><img class="sd-iz" src="art/logo/logo.png" alt="InaZurvivors"><i class="bl-x">×</i>${logo ? `<img src="${logo}" alt="${tr('Desafío Sendokai')}">` : `<b>${tr('Desafío Sendokai')}</b>`}</span>`;
+  }
+  /** 2.9: the Sendokai banner's reward: Tampo the coach for owning the five */
+  private sdRewards() {
+    const tampo = COACH_BY_ID.get('tampo'), n = sendokaiOwned(this.save), done = !!this.save.coaches?.owned.includes('tampo');
+    return tampo ? `<div class="bl-rewards"><small>${tr('RECOMPENSA DE LA COLABORACIÓN')}</small><div><span class="bl-rw sd-rw${done ? ' done' : ''}"><span class="bl-rw-art">${this.coachArt(tampo, 40, !done && n < SENDOKAI_EVENT.players.length)}</span>
+      <span><b>${tr('Tampo, entrenador {x1}', { x1: RARITY_LABEL[tampo.rarity] })}</b><em>${done ? tr('¡Conseguido! Ya está en Entrenadores') : tr('Ficha a los cinco · {n}/{x1}', { n, x1: SENDOKAI_EVENT.players.length })}</em></span></span></div>${this.coachPassives(tampo)}</div>` : '';
+  }
+  /** 2.9: reward coaches (Tampo) that the collection has just earned; the first one goes to an empty bench */
+  private rewardCoach(): CoachDef | null {
+    const due = rewardCoachesDue((id) => !!this.save.owned[String(id)], this.save.coaches?.owned ?? []);
+    if (!due.length) return null;
+    this.save.coaches = { owned: [...(this.save.coaches?.owned ?? []), ...due.map((c) => c.id)], bench: this.save.coaches?.bench ?? due[0].id };
+    return due[0];
+  }
   /** author: «InaZurvivors x BlueLock» — the game's name, an x and the BlueLock logo */
   private blLogo() {
     const logo = this.m.collab?.bluelock;
@@ -3090,7 +3153,10 @@ export class App {
         <div class="panel cp-panel cp-choice"><span class="cp-big-ic">${uiIcon('team')}</span><b>${tr('Unirse')}</b><p class="note">${tr('Escribe el código que te ha pasado tu compañero.')}</p>
           <div class="cp-join"><input id="cpcode" maxlength="6" placeholder="${tr('CÓDIGO')}" autocomplete="off" spellcheck="false" value="${esc(state.join ?? '')}"><button class="btn big blue" id="cpjoin">${tr('Unirse')}</button></div></div></div>
       <div class="panel cp-panel"><h3>${tr('{x1}Amigos', { x1: uiIcon('team') })} <button class="btn small blue" id="cpfriendsbtn">${tr('Gestionar amigos')}</button></h3><div class="cp-friends" id="cpfriends"><p class="note">${tr('Cargando amigos…')}</p></div></div>`;
-    this.show(`<div class="screen coop-screen">${this.titlebar(tr('Cooperativo'), tr('Menú'))}${hero}${state.error ? `<p class="cp-err">${esc(state.error)}</p>` : ''}${body}</div>`);
+    // 2.8 (author): co-op goes on in endless survival for now, and nobody knows yet how many effects two teams can take
+    const inf = `<div class="panel cp-panel cp-inf"><span class="cp-inf-ic">∞</span><div><b>${tr('De momento, el cooperativo es infinito')}</b>
+        <p>${tr('Al vencer al jefe la partida sigue en supervivencia infinita. Aún no sabemos cuántos efectos a la vez aguanta con dos equipos: si se pone lenta o se corta, repórtalo desde el 🐞.')}</p></div></div>`;
+    this.show(`<div class="screen coop-screen">${this.titlebar(tr('Cooperativo'), tr('Menú'))}${hero}${inf}${state.error ? `<p class="cp-err">${esc(state.error)}</p>` : ''}${body}</div>`);
     this.on('[data-back]', 'click', () => { this.coopAbort?.abort(); this.mainMenu(); });
     const fail = (e: unknown) => { this.coopAbort = null; if ((e as Error).message !== 'cancelado') this.coopLobby({ error: (e as Error).message }); };
     const adopt = (l: CoopLink) => { this.coopAbort = null; this.coop = l; this.coopPartner = null; this.coopLobby(); };
@@ -4010,6 +4076,7 @@ export class App {
     resetStars185(this.save, this.m.roster); // 1.85
     compensateDrakul153(this.save);
     creatorGiftINA483(this.save); // 2.3
+    giveAwakenGift(this.save); // 2.8
     this.jadenNotice(compensateJaden202(this.save, this.byId.get(JADEN_ID)) + compensateJaden3(this.save, this.byId.get(JADEN_ID))); // 2.02, 2.3
     if (this.save.auras) sanitizeAuras(this.save, this.byId); // v1.5
     this.trimAllTraining(this.save, this.m.roster);
@@ -5250,6 +5317,94 @@ export class App {
   }
 
   /** 1.75 (author): «¡Gracias por ser más de 50 jugando!» — the Banner de agradecimiento and the code GRACIAS, shown once. */
+  /** 2.8 (author: «un recolor de alguna ficha»): the Moneda de Despertar is the red star coin of the machine, repainted
+   *  at runtime in the Campeón colours (violet field, gold ring and star), so no new picture has to ship */
+  private awakenSrc = '';
+  private awakenArt() {
+    const from = this.cap('coin_rojo');
+    if (this.awakenSrc || !from) return;
+    const img = new Image();
+    img.onload = () => {
+      const c = document.createElement('canvas'); c.width = img.width; c.height = img.height;
+      const g = c.getContext('2d')!; g.drawImage(img, 0, 0);
+      const d = g.getImageData(0, 0, c.width, c.height), px = d.data;
+      for (let i = 0; i < px.length; i += 4) {
+        if (!px[i + 3]) continue;
+        const r = px[i] / 255, gr = px[i + 1] / 255, b = px[i + 2] / 255, v = Math.max(r, gr, b), n = Math.min(r, gr, b);
+        let h = 0; if (v !== n) h = v === r ? ((gr - b) / (v - n) + 6) % 6 : v === gr ? (b - r) / (v - n) + 2 : (r - gr) / (v - n) + 4;
+        h /= 6; let sat = v ? (v - n) / v : 0, val = v;
+        if (h < 0.03 || h > 0.95) h = 0.78; // the red field turns violet
+        else { h = 0.12; sat = Math.min(1, sat * 2.6); val = Math.min(1, val * 1.08); } // the cream ring and star turn gold
+        const k = (m: number) => { const x = (m + h * 6) % 6; return val - val * sat * Math.max(0, Math.min(x, 4 - x, 1)); };
+        px[i] = Math.round(k(5) * 255); px[i + 1] = Math.round(k(3) * 255); px[i + 2] = Math.round(k(1) * 255);
+      }
+      g.putImageData(d, 0, 0);
+      this.awakenSrc = c.toDataURL();
+      document.querySelectorAll<HTMLImageElement>('img.awk-ic').forEach((el) => { el.src = this.awakenSrc; el.classList.remove('raw'); });
+    };
+    img.src = from;
+  }
+  private awakenIcon(size = 18) {
+    this.awakenArt();
+    const src = this.awakenSrc || this.cap('coin_rojo');
+    return src ? `<img class="awk-ic${this.awakenSrc ? '' : ' raw'}" src="${src}" alt="${tr('Moneda de Despertar')}" style="width:${size}px;height:${size}px">` : '<b class="awk-ic">✦</b>';
+  }
+  /** 2.9: «Próximamente, nuevo banner»: the five as silhouettes (Zak in the middle), the live countdown, never a name */
+  private static sdTeaserShown = false;
+  private sendokaiTeaser() {
+    if (document.querySelector('.sd-teaser')) return;
+    App.sdTeaserShown = true;
+    const start = Date.parse(SENDOKAI_EVENT.start);
+    const when = new Date(start).toLocaleString(locale(), { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' });
+    const box = document.createElement('div');
+    box.className = 'tut-modal sd-teaser';
+    box.innerHTML = `<div class="panel"><small class="sd-t-kick">${tr('PRÓXIMAMENTE')}</small><h2>${tr('¡Nuevo banner de colaboración!')}</h2>
+      <div class="sd-t-sil">${sendokaiLineup().map((id) => `<span class="sd-t-who${id === SENDOKAI_EVENT.star ? ' sd-main' : ''}">${this.mug(id, 128 as 64)}</span>`).join('')}<b class="sd-t-q">?</b></div>
+      <p>${tr('Cinco futbolistas nuevos y un entrenador llegan el <b>{when}</b>. ¿Quiénes serán?', { when })}</p>
+      <div class="sd-t-left">${uiIcon('clock')}<b id="sdtleft">${this.leftText(Math.max(0, start - serverNow().getTime()))}</b></div>
+      <p class="note">${tr('Ve guardando fichas de evento: se ganan en Rango S o X.')}</p>
+      <div class="tut-nav"><span class="spacer"></span><button class="btn" id="sdtok">${tr('¡Qué ganas!')}</button><span class="spacer"></span></div></div>`;
+    document.body.appendChild(box);
+    const tick = window.setInterval(() => {
+      const el = document.getElementById('sdtleft');
+      if (!el) { window.clearInterval(tick); return; }
+      el.textContent = this.leftText(Math.max(0, start - serverNow().getTime()));
+    }, 1000);
+    box.querySelector('#sdtok')!.addEventListener('click', () => { window.clearInterval(tick); box.remove(); });
+    sfx('legend');
+  }
+  /** 2.8: the gift's notice, once */
+  private awakenNotice() {
+    if (document.querySelector('.awk-notice')) return;
+    const heroes = this.m.roster.filter((p) => canAwaken(this.save, p));
+    const box = document.createElement('div');
+    box.className = 'tut-modal awk-notice';
+    box.innerHTML = `<div class="panel"><div class="awk-big">${this.awakenIcon(96)}</div><h2>${tr('¡Ya somos más de 200 registrados!')}</h2>
+      <p>${tr('Para celebrarlo te regalamos una <b>Moneda de Despertar</b>: convierte a uno de tus HÉROES en <b>Campeón</b>.')}</p>
+      <p>${tr('Sus estrellas de héroe cuentan: HÉROE pasa a Campeón, HÉROE ★ a Campeón+ y HÉROE ★★ o más a Campeón++. Sigue siendo HÉROE, con su técnica y su aura.')}</p>
+      ${heroes.length ? `<div class="th-row">${heroes.slice(0, 8).map((p) => this.mug(p.id, 44)).join('')}</div>` : `<p class="note">${tr('Aún no tienes ningún HÉROE: guárdala y úsala cuando asciendas a uno (los Leyenda ya tienen su propio Camino del Campeón).')}</p>`}
+      <div class="tut-nav"><button class="btn small blue" id="awkclose">${tr('Cerrar')}</button><span class="spacer"></span>${heroes.length ? `<button class="btn" id="awkgo">${tr('Elegir HÉROE')}</button>` : ''}</div></div>`;
+    const done = () => { box.remove(); this.save.awakenSeen = true; this.persist(); };
+    box.querySelector('#awkclose')!.addEventListener('click', done);
+    box.querySelector('#awkgo')?.addEventListener('click', () => { done(); this.awakenPicker(); });
+    document.body.appendChild(box);
+    sfx('legend');
+  }
+  /** 2.8: the HÉROES that can be awakened; picking one opens his ascension card, where the coin is spent */
+  private awakenPicker() {
+    document.querySelector('.awk-picker')?.remove();
+    const heroes = this.m.roster.filter((p) => canAwaken(this.save, p)).sort((a, b) => awakenLevel(this.save, b.id) - awakenLevel(this.save, a.id));
+    const box = document.createElement('div');
+    box.className = 'tut-modal awk-picker';
+    box.innerHTML = `<div class="panel"><h2>${this.awakenIcon(28)} ${tr('Monedas de Despertar: {n}', { n: awakenCoins(this.save) })}</h2>
+      ${heroes.length ? `<p class="note">${tr('Elige el HÉROE que despertará como Campeón.')}</p><div class="awk-list">${heroes.map((p) => `<button class="awk-pl" data-awk="${p.id}">${this.mug(p.id, 48)}<b>${esc(p.name)}</b><span>${this.rar(p)} <em>»</em> <span class="rar heroe campeon c${awakenLevel(this.save, p.id)}">${CHAMPION_LABEL[awakenLevel(this.save, p.id)]}</span></span></button>`).join('')}</div>`
+        : `<p class="note">${tr('Aún no tienes ningún HÉROE: guárdala y úsala cuando asciendas a uno (los Leyenda ya tienen su propio Camino del Campeón).')}</p>`}
+      <div class="tut-nav"><button class="btn small blue" id="awkclose">${tr('Cerrar')}</button></div></div>`;
+    box.querySelector('#awkclose')!.addEventListener('click', () => box.remove());
+    box.querySelectorAll<HTMLElement>('[data-awk]').forEach((el) => el.addEventListener('click', () => { box.remove(); this.ascension(Number(el.dataset.awk), () => this.mainMenu()); }));
+    document.body.appendChild(box);
+  }
+
   private thanksNotice() {
     if (document.querySelector('.thanks-notice')) return;
     const stars = bannerPool(this.m.roster, 'evento').filter((p) => p.exclusive);
@@ -6242,8 +6397,8 @@ export class App {
     const active = this.startOf(d);
     const reps = Array.from({ length: Math.max(4, d.techniques.length) }, (_, i) => d.techniques[i]); // GO players can know more than 4
     return `<div class="panel detail r-${d.rarity}${isHero(this.save, d.id) ? ' is-hero' : ''}" style="--rc:${RARITY_COLOR[d.rarity]}"><div class="art">${this.mug(d.id, 128)}${charCanvas(d.id, 3, 12)}</div><div>
-      <h3>${esc(d.name)} “${esc(d.nickname)}” ${this.rar(d)} ${this.elem(d)}</h3>
-      <div class="note">${POS_LABEL[d.position]} · ${esc(d.teams.filter((t) => (this.m.mainTeams ?? []).includes(t)).slice(0, 5).map(teamLabel).join(', ') || (d.exclusive === 'bluelock' ? tr('Colaboración InaZurvivors x BlueLock') : d.exclusive === 'evento' ? tr('Colaboración · Banner de agradecimiento') : tr('Jugador de Fichatrón / Ojeador')))}${(() => { const sg = [...new Set(d.teams.map(sagaOf).filter(Boolean))]; return sg.length ? ` · Saga: ${esc(sg.join(', '))}` : ''; })()}</div>
+      <h3>${esc(d.name)}${d.nickname && d.nickname !== d.name ? ` “${esc(d.nickname)}”` : ""} ${this.rar(d)} ${this.elem(d)}</h3>
+      <div class="note">${POS_LABEL[d.position]} · ${esc(d.teams.filter((t) => (this.m.mainTeams ?? []).includes(t)).slice(0, 5).map(teamLabel).join(', ') || (d.exclusive === 'bluelock' ? tr('Colaboración InaZurvivors x BlueLock') : d.exclusive === 'sendokai' ? tr('Colaboración InaZurvivors x Desafío Sendokai') : d.exclusive === 'evento' ? tr('Colaboración · Banner de agradecimiento') : tr('Jugador de Fichatrón / Ojeador')))}${(() => { const sg = [...new Set(d.teams.map(sagaOf).filter(Boolean))]; return sg.length ? ` · Saga: ${esc(sg.join(', '))}` : ''; })()}</div>
       ${o ? `<p><button class="btn small blue" data-compare="${d.id}">${this.compareWith === d.id ? tr('Elige otro futbolista para comparar…') : tr('⇄ Comparar con otro')}</button></p>` : ''}
       ${o ? this.starPanel(d) : ''}
       ${o && (nextStep(this.save, d) || isHero(this.save, d.id) || championOf(this.save, d.id)) ? `<p><button class="btn ${nextStep(this.save, d) ? 'big' : 'blue'}" data-ascend="${d.id}">${!nextStep(this.save, d) ? (championOf(this.save, d.id) ? tr('★ Ver {x1}', { x1: CHAMPION_LABEL[championOf(this.save, d.id)] }) : tr('★ Ver HÉROE')) : nextStep(this.save, d)!.step === 'campeon' ? `♛ ${CHAMPION_LABEL[championOf(this.save, d.id) + 1]} (${sparesOf(this.save, d.id)}/${nextStep(this.save, d)!.cost})` : nextStep(this.save, d)!.step === 'estrella' ? tr('★ Estrella de héroe ({sparesOf}/{x1})', { sparesOf: sparesOf(this.save, d.id), x1: nextStep(this.save, d)!.cost }) : tr('▲ Ascensión ({sparesOf}/{x1})', { sparesOf: sparesOf(this.save, d.id), x1: nextStep(this.save, d)!.cost })}</button></p>` : ''}
@@ -6271,11 +6426,13 @@ export class App {
   /** 1.88: a pull is only in progress while its knob turns or its capsule is on screen; a lost one frees the machine */
   private pullBusy() { return this.pulling && (performance.now() - this.pullAt < 5000 || !!this.root.querySelector('.reveal')); }
   gacha() {
-    const thanksOpen = thanksActive(serverNow()), blOpen = bluelockActive(serverNow());
+    const thanksOpen = thanksActive(serverNow()), blOpen = bluelockActive(serverNow()), sdOpen = sendokaiActive(serverNow());
     if (this.gachaBanner === 'evento' && !thanksOpen) this.gachaBanner = blOpen ? 'bluelock' : 'ff'; // 1.75: only while the event is open
     if (this.gachaBanner === 'bluelock' && !blOpen) this.gachaBanner = 'ff'; // author: InaZurvivors x BlueLock, only while it is open
+    if (this.gachaBanner === 'sendokai' && !sdOpen) this.gachaBanner = 'ff'; // 2.9: InaZurvivors x Desafío Sendokai, the same
     const banner = BANNERS[this.gachaBanner];
-    const ev = banner.id === 'evento' || banner.id === 'bluelock', wallet = ev ? this.save.eventTokens ?? 0 : this.save.tokens, unit = ev ? tr('fichas de evento') : 'fichas';
+    const collab = banner.id === 'bluelock' || banner.id === 'sendokai' ? banner.id : null;
+    const ev = banner.id === 'evento' || !!collab, wallet = ev ? this.save.eventTokens ?? 0 : this.save.tokens, unit = ev ? tr('fichas de evento') : 'fichas';
     const teams = teamChoices(this.m.roster, this.m.mainTeams ?? []);
     if (banner.id === 'equipo' && !teams.some((t) => t.team === this.gachaTeam)) this.gachaTeam = (teams.find((t) => t.team === this.save.favoriteTeam) ?? teams[0])?.team ?? '';
     const pool = bannerPool(this.m.roster, banner.id, this.gachaTeam);
@@ -6284,7 +6441,7 @@ export class App {
     const each = perPlayerOdds(pool, banner.id, hot);
     const price = bannerPrice(pool, banner.id); // Fix 1.31: by how many Míticos the machine holds
     const PULL_COST = price.cost, MULTI_COST = price.multiCost, HUNDRED_COST = MULTI_COST * 10; // 2.01: ×100 = ten ×10
-    const tabs = BANNER_ORDER.filter((b) => (b !== 'evento' || thanksOpen) && (b !== 'bluelock' || blOpen)).map((b) => {
+    const tabs = BANNER_ORDER.filter((b) => (b !== 'evento' || thanksOpen) && (b !== 'bluelock' || blOpen) && (b !== 'sendokai' || sdOpen)).map((b) => {
       const bp = bannerPool(this.m.roster, b, this.gachaTeam);
       const pr = b === 'equipo' ? { cost: BANNERS.equipo.cost } : bannerPrice(bp, b);
       const star = featured(bp, 1)[0]; // v1.4: each machine shows its best player
@@ -6294,7 +6451,10 @@ export class App {
     }).join('');
     const teamSel = banner.id === 'equipo' ? `<label class="team-sel">${tr('Equipo:')} <select id="gteam">${teams.map((t) => `<option value="${esc(t.team)}" ${t.team === this.gachaTeam ? 'selected' : ''}>${esc(teamLabel(t.team))} (${t.size})</option>`).join('')}</select></label>` : '';
     // the special banner shows all its stars
-    const feat = featured(pool, ev ? pool.filter((p) => p.exclusive).length : 5).map((p) => `<span class="feat r-${p.rarity}" style="--rc:${RARITY_COLOR[p.rarity]}" title="${esc(p.name)}">${this.mug(p.id, 48)}<small>${esc(p.name)}</small></span>`).join('');
+    const featList = featured(pool, ev ? pool.filter((p) => p.exclusive).length : 5);
+    if (collab === 'sendokai') featList.sort((a, b) => Number(b.id === SENDOKAI_EVENT.star) - Number(a.id === SENDOKAI_EVENT.star)); // 2.9: Zak first, the main one
+    const feat = featList.map((p) => { const main = collab === 'sendokai' && p.id === SENDOKAI_EVENT.star;
+      return `<span class="feat r-${p.rarity}${main ? ' sd-main' : ''}" style="--rc:${RARITY_COLOR[p.rarity]}${collab === 'sendokai' ? `;--aura:${SENDOKAI_EVENT.aura[p.id] ?? '#ffb02e'}` : ''}" title="${esc(p.name)}">${this.mug(p.id, collab === 'sendokai' ? 96 : 48)}<small>${esc(p.name)}</small></span>`; }).join('');
     const odds = RARITY_ORDER.map((r) => `<div class="odd"><span class="rar ${r}">${RARITY_LABEL[r].toUpperCase()}</span><i style="--w:${Math.max(1.5, real[r])}%;--c:${RARITY_COLOR[r]}"></i><b>${real[r] ? tr('{x1}% · c/u {x2}%', { x1: (+real[r].toFixed(2)).toLocaleString(locale()), x2: (+each[r].toFixed(3)).toLocaleString(locale()) }) : tr('vacía')}</b></div>`).join('');
     const empty = RARITY_ORDER.filter((r) => !real[r]).map((r) => RARITY_LABEL[r]);
     const hist = (this.save.gachaHistory ?? []).slice(0, 12).map((h) => {
@@ -6307,13 +6467,14 @@ export class App {
     this.show(`<div class="screen gacha-screen">${this.titlebar(tr('Máquina de fichajes'), 'Menú')}
       ${thanksOpen && !ev ? `<button class="pn-eventcta thanks-cta" id="thanksev"><span class="th-faces">${bannerPool(this.m.roster, 'evento').filter((p) => p.exclusive).slice(0, 5).map((p) => this.mug(p.id, 40)).join('')}</span><span><small>${tr('EVENTO · TERMINA EN {x1}', { x1: this.leftText(thanksLeftMs(serverNow())) })}</small><b>${tr('Banner de agradecimiento')}</b><em>${tr('Ataque a los Titanes, Los Siete Pecados Capitales y Axel Encapuchado · {cost} fichas de evento la tirada', { cost: THANKS_EVENT.cost })}</em></span></button>` : ''}
       ${blOpen && banner.id !== 'bluelock' ? `<button class="pn-eventcta bl-cta" id="blev"><span class="th-faces">${BLUELOCK_EVENT.players.map((id) => this.mug(id, 40)).join('')}</span><span><small>${tr('COLABORACIÓN · TERMINA EN {x1}', { x1: this.leftText(bluelockLeftMs(serverNow())) })}</small><b>${tr('InaZurvivors x BlueLock')}</b><em>${tr('Nagi e Isagi · {cost} fichas de evento la tirada', { cost: BLUELOCK_EVENT.cost })}</em></span></button>` : ''}
+      ${sdOpen && banner.id !== 'sendokai' ? `<button class="pn-eventcta bl-cta sd-cta" id="sdev"><span class="th-faces">${SENDOKAI_EVENT.players.map((id) => this.mug(id, 40)).join('')}</span><span><small>${tr('COLABORACIÓN · TERMINA EN {x1}', { x1: this.leftText(sendokaiLeftMs(serverNow())) })}</small><b>${tr('InaZurvivors x Desafío Sendokai')}</b><em>${tr('Los cinco Sen-Kuns y Tampo de entrenador · {cost} fichas de evento la tirada', { cost: SENDOKAI_EVENT.cost })}</em></span></button>` : ''}
       ${eventActive(serverNow()) ? `<button class="pn-eventcta" id="pnevent"><span class="pn-cta-art">${pennantSvg('supernova', 44)}</span><span><small>${tr('EVENTO · TERMINA EN {x1}', { x1: this.eventLeftText(serverNow()) })}</small><b>${tr('Banners de leyenda')}</b><em>${tr('Se paga con monedas · Mítico al 3%')}</em></span></button>` : ''}
       ${this.m.vrTeaser?.length ? `<button class="pn-eventcta vr-cta" id="vrsoon"><span class="th-faces">${this.m.vrTeaser.slice(0, 5).map((p) => this.vrMug(p, 40)).join('')}</span><span><small>${tr('PRÓXIMAMENTE')}</small><b>Victory Road</b><em>${tr('{n} futbolistas · todavía no se pueden fichar', { n: this.m.vrTeaser.length })}</em></span></button>` : ''}
       <div class="banner-tabs">${tabs}${this.m.vrTeaser?.length ? `<button class="banner-tab bt4 bt-soon" data-vrsoon style="--bc:#19c3b4"><i class="bt-hot">${tr('MUY PRONTO')}</i><span class="bt-art">${this.vrMug(this.m.vrTeaser[0], 64)}</span>
         <span class="bt-tx"><b>Victory Road</b><small>${esc(this.m.vrTeaser.filter((p) => p.rarity === 'leyenda').map((p) => p.nickname).join(', '))}…</small></span><em class="bt-price">${uiIcon('lock')}</em></button>` : ''}</div>
-      <div class="banner-head bh4${banner.id === 'bluelock' ? ' bh-bl' : ''}" style="--bc:${banner.color}"><div class="bh-tx"><small>${banner.id === 'bluelock' ? tr('COLABORACIÓN') : tr('MÁQUINA')}</small>${banner.id === 'bluelock' ? this.blLogo() : `<b>${esc(banner.label)}</b>`}<span>${tr('{tagline} · {poolLength} futbolistas', { tagline: esc(banner.tagline), poolLength: pool.length })}</span> ${teamSel}
-          <div class="bh-chips"><span>${uiIcon('capsule')}×1 · <b>${PULL_COST}</b>${ev ? tr(' de evento') : ''}</span><span>${uiIcon('capsule')}×10 · <b>${MULTI_COST}</b>${ev ? tr(' de evento') : ''}</span><span>${uiIcon('capsule')}×100 · <b>${HUNDRED_COST}</b>${ev ? tr(' de evento') : ''}</span>${ev ? `<span>${tr('Termina en')} <b>${this.leftText(banner.id === 'bluelock' ? bluelockLeftMs(serverNow()) : thanksLeftMs(serverNow()))}</b></span>` : ''}<span class="ok">${tr('×10: Épico o mejor asegurado')}</span>${hot ? `<span class="hot">${tr('★ Destacada hoy: Épico ×{x1} · Legendario, Mítico y Leyenda ×{x2}', { x1: String(FEATURED_BOOST.epico).replace('.', ','), x2: String(FEATURED_BOOST.legendario).replace('.', ',') })}</span>` : ''}</div>
-          <details class="rk-how"><summary>${tr('{x1}Precio y reglas', { x1: uiIcon('help') })}</summary><div>${ev ? tr('Los futbolistas especiales solo salen aquí, con {x1} Comunes, Raros y Épicos de relleno. Se paga con fichas de evento: cada partida en Rango S o X te da tantas como fichas normales mientras dura el evento.', { x1: pool.filter((p) => !p.exclusive).length }) : banner.id === 'equipo' ? tr('Solo futbolistas del equipo elegido; las rarezas altas tienen un tope por jugador.') : tr('Cada futbolista sale en una sola máquina: la de la primera saga en la que aparece. Precio según sus Míticos ({mythics}): sin estrellas 5 · sin Míticos 10 · de 1 a 5 Míticos 15 · 6 o más 20.', { mythics: price.mythics })}</div></details>${banner.id === 'bluelock' ? this.blRewards() : ''}</div>
+      <div class="banner-head bh4${collab ? ' bh-bl' : ''}${collab === 'sendokai' ? ' bh-sd' : ''}" style="--bc:${banner.color}"><div class="bh-tx"><small>${collab ? tr('COLABORACIÓN') : tr('MÁQUINA')}</small>${collab ? this.collabLogo(collab) : `<b>${esc(banner.label)}</b>`}<span>${tr('{tagline} · {poolLength} futbolistas', { tagline: esc(banner.tagline), poolLength: pool.length })}</span> ${teamSel}
+          <div class="bh-chips"><span>${uiIcon('capsule')}×1 · <b>${PULL_COST}</b>${ev ? tr(' de evento') : ''}</span><span>${uiIcon('capsule')}×10 · <b>${MULTI_COST}</b>${ev ? tr(' de evento') : ''}</span><span>${uiIcon('capsule')}×100 · <b>${HUNDRED_COST}</b>${ev ? tr(' de evento') : ''}</span>${ev ? `<span>${tr('Termina en')} <b>${this.leftText(banner.id === 'bluelock' ? bluelockLeftMs(serverNow()) : banner.id === 'sendokai' ? sendokaiLeftMs(serverNow()) : thanksLeftMs(serverNow()))}</b></span>` : ''}<span class="ok">${tr('×10: Épico o mejor asegurado')}</span>${hot ? `<span class="hot">${tr('★ Destacada hoy: Épico ×{x1} · Legendario, Mítico y Leyenda ×{x2}', { x1: String(FEATURED_BOOST.epico).replace('.', ','), x2: String(FEATURED_BOOST.legendario).replace('.', ',') })}</span>` : ''}</div>
+          <details class="rk-how"><summary>${tr('{x1}Precio y reglas', { x1: uiIcon('help') })}</summary><div>${ev ? tr('Los futbolistas especiales solo salen aquí, con {x1} Comunes, Raros y Épicos de relleno. Se paga con fichas de evento: cada partida en Rango S o X te da tantas como fichas normales mientras dura el evento.', { x1: pool.filter((p) => !p.exclusive).length }) : banner.id === 'equipo' ? tr('Solo futbolistas del equipo elegido; las rarezas altas tienen un tope por jugador.') : tr('Cada futbolista sale en una sola máquina: la de la primera saga en la que aparece. Precio según sus Míticos ({mythics}): sin estrellas 5 · sin Míticos 10 · de 1 a 5 Míticos 15 · 6 o más 20.', { mythics: price.mythics })}</div></details>${banner.id === 'bluelock' ? this.blRewards() : banner.id === 'sendokai' ? this.sdRewards() : ''}</div>
         <div class="feat-row"><small>${tr('DESTACADOS')}</small><div>${feat}</div></div>${this.machineCoaches(banner.id)}</div>
       <div class="ie3-machine">${has ? `<div class="ds-top"><img id="globe" src="${this.cap('globe0')}" alt=""></div>
         <div class="ds-bottom" style="background-image:url(${this.cap('panel_bottom')})">
@@ -6353,6 +6514,7 @@ export class App {
     const pick = (b: BannerId) => { if (this.pullBusy()) return; this.pulling = false; this.gachaBanner = b; this.gacha(); };
     this.onTap('#thanksev', () => pick('evento'));
     this.onTap('#blev', () => pick('bluelock'));
+    this.onTap('#sdev', () => pick('sendokai'));
     this.onTap('#vrsoon, [data-vrsoon]', () => this.vrTeaserPoster()); // 2.6: only the poster: they can't be pulled
     this.onTap('[data-banner]', (el) => pick(el.dataset.banner as BannerId));
     document.getElementById('gteam')?.addEventListener('change', (e) => { this.gachaTeam = (e.target as HTMLSelectElement).value; this.gacha(); });
@@ -6364,11 +6526,11 @@ export class App {
       const bpool = bannerPool(this.m.roster, b.id, this.gachaTeam);
       const bp = bannerPrice(bpool, b.id);
       const claimsBefore = new Set(this.teamClaimList().map((c) => `${c.team}|${c.kind}`));
-      const res = pull(bpool, this.save, Number(el.dataset.pull) as 1 | 10 | 100, Math.random, { cost: bp.cost, multiCost: bp.multiCost, odds: rarityOdds(bpool, b.id, featuredMachine(serverNow()) === b.id), currency: b.id === 'evento' || b.id === 'bluelock' ? 'eventTokens' : 'tokens' });
+      const res = pull(bpool, this.save, Number(el.dataset.pull) as 1 | 10 | 100, Math.random, { cost: bp.cost, multiCost: bp.multiCost, odds: rarityOdds(bpool, b.id, featuredMachine(serverNow()) === b.id), currency: b.id === 'evento' || b.id === 'bluelock' || b.id === 'sendokai' ? 'eventTokens' : 'tokens' });
       if (!res) { this.pulling = false; return; }
       recordHistory(this.save, res);
       addCounter(this.save, 'news', res.filter((x) => x.isNew).length);
-      const coachGot = this.rollCoach(b.id, res.length); // pre-2.0
+      const coachGot = this.rollCoach(b.id, res.length) ?? this.rewardCoach(); // pre-2.0; 2.9: Tampo for the five
       this.persist();
       this.root.querySelectorAll<HTMLButtonElement>('[data-pull], [data-back]').forEach((b) => (b.disabled = true));
       try {
@@ -7295,7 +7457,7 @@ export class App {
       asc: Object.fromEntries(candidates.map((p) => [String(p.id), { ...ascMultipliers(this.save, p), hero: isHero(this.save, p.id) || championOf(this.save, p.id) > 0 }])),
       manifest: this.m, map, team: runTeam, unlocked: runUnlocked, auras: runAuras, stars, settings: this.save.settings,
       perks: (() => { const e = applyGear(perkEffects(this.save), this.save, this.gear); kitBonus(this.save.kit, this.m.roster).apply(e); applyCoachPerks(this.benchCoach(), e); return e; })(),
-      coach: coachRun(this.benchCoach()), // pre-2.0: his formation and element
+      coach: coachRun(this.benchCoach(), runTeam.map((p) => p.id)), // pre-2.0: his formation and element; 2.9: Tampo counts the pitch
       // 2.1: the season pass's Llave dorada (×2 in co-op), only while a season is open and the key isn't owned
       goldKey: training ? undefined : { chance: goldKeyChance(this.save, serverNow(), !!coop), texture: this.m.pase?.dorada ?? null },
       sector: this.runSector, // 2.2
