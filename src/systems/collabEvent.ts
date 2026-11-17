@@ -65,3 +65,8 @@ export const sendokaiUpcoming = (now: number | Date) => +now < sendokaiStart();
 export const sendokaiLeftMs = (now: number | Date) => Math.max(0, sendokaiEnd() - +now);
 export const sendokaiDaysToStart = (now: number | Date) => Math.max(0, Math.ceil((sendokaiStart() - +now) / DAY));
 export const sendokaiOwned = (s: SaveData) => SENDOKAI_EVENT.players.filter((id) => !!s.owned[String(id)]).length;
+/** the celebration, like BlueLock's: its banner for 3 wins while it is open, its frame for owning the five (pennants.ts) */
+export const SENDOKAI_WINS_FOR_BANNER = 3;
+export function recordSendokaiWin(s: SaveData, now: number | Date) {
+  if (sendokaiActive(now)) s.sdWins = (s.sdWins ?? 0) + 1;
+}

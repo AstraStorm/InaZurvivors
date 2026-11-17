@@ -15,10 +15,16 @@ let uid = 0;
  *  renames every resource (a/<hash>), so the app hands over the manifest's paths with setPennantLogos (2.2: before, the
  *  logo 404'd on the web) */
 let BL_LOGO = 'generated/collab/bluelock.webp';
+/** 2.9: Desafío Sendokai's logo, the same way */
+let SD_LOGO = 'generated/collab/sendokai.webp';
+/** (author: «en la etiqueta que solo salga DESAFÍO»): the word alone, for the thin plates of its banner and frame */
+let SD_PLATE = 'generated/collab/sendokai_desafio.webp';
 /** 2.2: the two sides' logos (tools/sector_logos.py, from the author's files) */
 const SIDE_LOGO = { sector: 'generated/sector/sector_quinto.png', resistencia: 'generated/sector/resistencia.png' };
-export function setPennantLogos(p: { bluelock?: string; sector?: string; resistencia?: string }) {
+export function setPennantLogos(p: { bluelock?: string; sendokai?: string; sendokaiPlate?: string; sector?: string; resistencia?: string }) {
+  if (p.sendokaiPlate) SD_PLATE = p.sendokaiPlate;
   if (p.bluelock) BL_LOGO = p.bluelock;
+  if (p.sendokai) SD_LOGO = p.sendokai;
   if (p.sector) SIDE_LOGO.sector = p.sector;
   if (p.resistencia) SIDE_LOGO.resistencia = p.resistencia;
 }
@@ -32,7 +38,9 @@ const PN_DIR = 'art/pn/';
 const hasArt = (id: string) => !!PN_RASTER.banners[id];
 /** 16.7: a frame drawn by the author (round, also around the square profile icons, which are then cut round) */
 export const hasFrameArt = (id: string | null | undefined) => !!(id && PN_RASTER.frames[id]);
-const LOGO_OF: Partial<Record<PennantEmblem, () => string>> = { bluelock: () => BL_LOGO, sector: () => SIDE_LOGO.sector, resistencia: () => SIDE_LOGO.resistencia };
+/** the logo for a plate across the drawing (its own short version when the logo has one) */
+const plateLogo = (p: PennantDef) => (p.emblem === 'sendokai' ? SD_PLATE : LOGO_OF[p.emblem]?.());
+const LOGO_OF: Partial<Record<PennantEmblem, () => string>> = { bluelock: () => BL_LOGO, sendokai: () => SD_LOGO, sector: () => SIDE_LOGO.sector, resistencia: () => SIDE_LOGO.resistencia };
 /** the emblem as art: the animated strip when there is one (steps through its frames), the still image otherwise */
 function emblemArt(p: PennantDef, cls = ''): string {
   const n = PN_RASTER.banners[p.id]?.anim;
@@ -169,18 +177,26 @@ function emblem(e: PennantEmblem, a: string, C = 'translate(50 52)'): string {
     case 'creador': return `<g transform="${C}"><rect x="-26" y="-19" width="52" height="38" rx="11" fill="#ff2a5a" stroke="#2a0410" stroke-width="2.2"/><rect x="-21" y="-14" width="42" height="10" rx="5" fill="#fff" opacity=".18"/><path d="M-7,-10 L11,0 L-7,10 Z" fill="${a}" stroke="#2a0410" stroke-width="1.6" stroke-linejoin="round"/><path d="M22,-26 L24,-21 L29,-19 L24,-17 L22,-12 L20,-17 L15,-19 L20,-21 Z" fill="#ffe94a"/></g>`;
     // 2.2: the sides of the Sector Quinto, their logos as they are (the Sector's is a wide shield)
     case 'sector': return `<g transform="${C}"><image href="${SIDE_LOGO.sector}" x="-30" y="-18" width="60" height="36" preserveAspectRatio="xMidYMid meet"/></g>`;
+    case 'sendokai': return `<g transform="${C}"><image href="${SD_LOGO}" x="-30" y="-19" width="60" height="38" preserveAspectRatio="xMidYMid meet"/></g>`;
     case 'resistencia': return `<g transform="${C}"><image href="${SIDE_LOGO.resistencia}" x="-22" y="-23" width="44" height="46" preserveAspectRatio="xMidYMid meet"/></g>`;
     case 'bluelock': return `<g transform="${C}"><rect x="-34" y="-11" width="68" height="22" rx="4" fill="#eef8ff" stroke="${a}" stroke-width="2.5"/><rect x="-31.5" y="-8.5" width="63" height="17" rx="2.5" fill="none" stroke="#1f5bff" stroke-width="1" opacity=".5"/><image href="${BL_LOGO}" x="-31" y="-7" width="62" height="13.5" preserveAspectRatio="xMidYMid meet"/></g>`;
   }
 }
 
+/** 2.9: the logo over a pennant's measured plate. The drawing is fitted (contain) in the W × H box: with a lower aspect
+ *  than the box it fills the width and leaves a band above and below, which the plate's position takes into account */
+function plateStyle(pp: { x: number; y: number; w: number; h: number }, ar: number) {
+  const box = H / W, k = Math.min(1, box / ar), top = (box - ar * k) / 2, left = (1 - k) / 2;
+  const pct = (v: number) => `${(v * 100).toFixed(2)}%`;
+  return `left:${pct(left + (pp.x + pp.w / 2) * k)};top:${pct((top + (pp.y + pp.h / 2) * ar * k) / box)};width:${pct(pp.w * k * 0.9)};height:${pct(pp.h * ar * k / box * 1.25)}`;
+}
 /** A banner as SVG; `size` is its width in px (height follows). Unknown id → empty string. */
 export function pennantSvg(def: PennantDef | string | undefined, size = 48): string {
   const p = typeof def === 'string' ? PENNANT_BY_ID.get(def) : def;
   if (!p) return '';
   if (hasArt(p.id)) { // 16.7: the drawn pennant, swaying from its rod; Épico and up with a shine across the cloth
-    const logo = LOGO_OF[p.emblem]?.();
-    return `<span class="pennant pn-art pn-${p.rarity}" role="img" aria-label="${p.name}" style="width:${size}px;height:${Math.round(size * H / W)}px;--rc:${RARITY_COLOR[p.rarity]}"><img src="${PN_DIR}${p.id}.webp" alt="">${logo ? `<img class="pna-logo" src="${logo}" alt="">` : ''}<i class="pna-shine"></i></span>`;
+    const logo = plateLogo(p), pp = PN_RASTER.banners[p.id]?.plate; // 2.9: a plate measured on the drawing
+    return `<span class="pennant pn-art pn-${p.rarity}" role="img" aria-label="${p.name}" style="width:${size}px;height:${Math.round(size * H / W)}px;--rc:${RARITY_COLOR[p.rarity]}"><img src="${PN_DIR}${p.id}.webp" alt="">${logo ? `<img class="pna-logo${pp ? ' on-plate' : ''}" src="${logo}" alt=""${pp ? ` style="${plateStyle(pp, PN_RASTER.banners[p.id].ar)}"` : ''}>` : ''}<i class="pna-shine"></i></span>`;
   }
   const id = `pn${++uid}`;
   const frame = p.rarity === 'leyenda' ? `url(#${id}r)` : RARITY_COLOR[p.rarity];
@@ -329,12 +345,14 @@ function frameArt(p: PennantDef, a: (typeof PN_RASTER.frames)[string]): string {
   // the hole a bit wider than the avatar (100): the ring sits around the face instead of over its edge (author: «tapan mucho»)
   // FRAME_DROP: the drawing sits a little low on the avatar, the face then reads higher in the ring (author: «bájalos un poquito»)
   // the frames with a logo plate on their lower edge sit lower still, so the plate stays under the chin
-  const iw = FRAME_HOLE / a.d, ih = iw * a.ar, x = FC - a.cx * iw, y = FC - a.cy * ih + FRAME_DROP + (a.plate ? 7 : 0);
+  const iw = FRAME_HOLE / a.d, ih = iw * a.ar, x = FC - a.cx * iw, y = FC - a.cy * ih + FRAME_DROP + (p.emblem === 'sendokai' ? -5 /* (author: «sube más el marco») */ : a.plate ? 7 : 0);
   const r = PENNANT_RANK[p.rarity];
-  const logo = LOGO_OF[p.emblem]?.();
+  const logo = plateLogo(p);
   // the logo goes on the frame's blank plate, measured by tools/gpt_pennants.py (a little inside its edges)
   const pl = a.plate;
-  const plate = logo && pl ? `<image class="fa-logo" href="${logo}" x="${(x + (pl.x + pl.w * 0.2) * iw).toFixed(1)}" y="${(y + (pl.y + pl.h * 0.2) * ih).toFixed(1)}" width="${(pl.w * 0.6 * iw).toFixed(1)}" height="${(pl.h * 0.6 * ih).toFixed(1)}" preserveAspectRatio="xMidYMid meet"/>` : '';
+  // 2.9: a tall logo (Desafío Sendokai's) on a thin plate would be tiny at 60%: it may stand out over the plate's edges
+  const lh = p.emblem === 'sendokai' ? 1.25 : 0.6;
+  const plate = logo && pl ? `<image class="fa-logo" href="${logo}" x="${(x + (pl.x + pl.w * (p.emblem === 'sendokai' ? 0.1 : 0.2)) * iw).toFixed(1)}" y="${(y + (pl.y + pl.h * (1 - lh) / 2) * ih).toFixed(1)}" width="${(pl.w * (p.emblem === 'sendokai' ? 0.8 : 0.6) * iw).toFixed(1)}" height="${(pl.h * lh * ih).toFixed(1)}" preserveAspectRatio="xMidYMid meet"/>` : '';
   const tw = r >= 2 ? [30, 140, 230, 320].map((deg, k) => {
     const t = deg * Math.PI / 180, R = 64;
     return `<g class="fa-tw" style="--k:${k}" transform="translate(${(FC + R * Math.cos(t)).toFixed(1)} ${(FC + R * Math.sin(t)).toFixed(1)})"><path d="M0,-6 L1.4,-1.4 L6,0 L1.4,1.4 L0,6 L-1.4,1.4 L-6,0 L-1.4,-1.4 Z" fill="#fff"/></g>`;

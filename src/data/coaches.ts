@@ -19,7 +19,9 @@ export type CoachPassive =
   | { kind: 'combinadas'; damage: number }
   /** 2.9 (author): Tampo, by how many of `players` are on the pitch (Auras don't count): with all of them `damage` and
    *  `taken` in his formation, a share less for each one missing, `least` of both with none */
-  | { kind: 'sendokai'; formation: FormationId; players: number[]; damage: number; taken: number; least: number };
+  | { kind: 'sendokai'; formation: FormationId; players: number[]; damage: number; taken: number; least: number }
+  /** 3.0: Lina Schiller Alius (Piedra Alius): the Alius footballers on the pitch attack faster (game/aliusEngine.ts) */
+  | { kind: 'alius'; attackSpeed: number };
 
 export interface CoachDef {
   id: string; name: string; team: string; rarity: Rarity; machine: BannerId;
@@ -28,6 +30,8 @@ export interface CoachDef {
   passives: CoachPassive[];
   /** 2.9: a coach that no machine gives: he joins whoever owns all these footballers */
   reward?: number[];
+  /** 3.0: a coach no machine gives: unlocked at the Altar de la Piedra Alius (data/alius.json key) */
+  altar?: string;
 }
 
 export const COACHES: CoachDef[] = [
@@ -69,12 +73,17 @@ export const COACHES: CoachDef[] = [
   { id: 'tampo', name: 'Tampo', team: 'Desafío Sendokai', rarity: 'mitico', machine: 'sendokai', reward: [900600, 900601, 900602, 900603, 900604],
     quote: tr('El maestro sendokai más sabio: entrenó a los Sen-Kuns para salvar la Tierra.'),
     passives: [{ kind: 'sendokai', formation: 'equilibrada', players: [900600, 900601, 900602, 900603, 900604], damage: 0.5, taken: 0.25, least: 0.025 }] },
+  // 3.0 (author): Lina Schiller corrupted by the Piedra Alius; only from the Altar (machine 'alius' is just her saga: altar keeps
+  // her out of every pull). Her passive works from the coach's bench only.
+  { id: 'lina-alius', name: 'Lina Schiller Alius', team: 'Piedra Alius', rarity: 'mitico', machine: 'alius', altar: 'lina',
+    quote: tr('Directora del Eclipse: dirige a los corrompidos por la Piedra Alius.'),
+    passives: [{ kind: 'alius', attackSpeed: 0.05 }] },
 ];
 export const COACH_BY_ID = new Map(COACHES.map((c) => [c.id, c]));
 
 /** chance per pull of a coach of the machine (only coaches not owned yet; none once all of them are) */
 export const COACH_PULL_CHANCE = 0.02;
-export const coachesOfMachine = (m: BannerId) => COACHES.filter((c) => c.machine === m && !c.reward);
+export const coachesOfMachine = (m: BannerId) => COACHES.filter((c) => c.machine === m && !c.reward && !c.altar);
 /** 2.9: the reward coaches whose footballers are all owned and who aren't yet */
 export const rewardCoachesDue = (owned: (id: number) => boolean, have: string[]) => COACHES.filter((c) => c.reward && !have.includes(c.id) && c.reward.every(owned));
 
@@ -88,10 +97,11 @@ export function passiveText(p: CoachPassive): string {
     case 'dano': return tr('+{pct} daño de todo el equipo', { pct: pct(p.damage) });
     case 'defensa': return tr('−{pct} daño recibido', { pct: pct(p.taken) });
     case 'combinadas': return tr('+{pct} daño de las técnicas combinadas', { pct: pct(p.damage) });
+    case 'alius': return tr('Los futbolistas Alius en el campo atacan un {pct} más rápido (no cuenta para la Resonancia Alius)', { pct: pct(p.attackSpeed) });
     case 'sendokai': return tr('Formación {x1}: con los {n} de Desafío Sendokai en el campo, +{x2} daño y −{x3} daño recibido; menos por cada uno que falte y {x4} sin ninguno (las Auras no cuentan)', { x1: FORMATION_LABEL[p.formation], n: p.players.length, x2: pct(p.damage), x3: pct(p.taken), x4: `${(p.least * 100).toLocaleString(locale())}%` });
   }
 }
-export const PASSIVE_ICON: Record<CoachPassive['kind'], string> = { formacion: '▦', objetos: '✪', afinidad: '◆', dano: '⚔', defensa: '⛨', combinadas: '🔗', sendokai: '✦' };
+export const PASSIVE_ICON: Record<CoachPassive['kind'], string> = { formacion: '▦', objetos: '✪', afinidad: '◆', dano: '⚔', defensa: '⛨', combinadas: '🔗', sendokai: '✦', alius: '◈' };
 
 /** what the run needs from the equipped coach (ArenaScene: formation and element; the rest goes into the perks) */
 export interface CoachRun { id: string; formation: { id: FormationId; damage: number; taken: number } | null; element: { element: string; damage: number } | null }

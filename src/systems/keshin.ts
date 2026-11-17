@@ -8,6 +8,7 @@
  * Levels I (no symbol), II, III, IV, V and Ω; reaching level L costs L-1 Fichas EG, unlocking costs KESHIN_UNLOCK_COST.
  * Everything is in save.keshin (player id -> level); never in the manifest.
  */
+import { baseIdOf, isAliusId } from '../data/alius';
 import type { RosterEntry, Technique, TechType } from '../data/manifest';
 import type { SaveData } from './save';
 import type { StatKey } from './training';
@@ -189,7 +190,7 @@ export const KESHIN_BY_ID = new Map(KESHINS.map((k) => [k.id, k]));
 const BY_HOLDER = new Map(KESHINS.flatMap((k) => k.holders.map((h) => [h.id, k] as const)));
 
 /** the warrior spirit this footballer can call (null: none) */
-export const keshinOf = (id: number) => BY_HOLDER.get(id) ?? null;
+export const keshinOf = (id: number) => BY_HOLDER.get(baseIdOf(id)) ?? null; // 3.0: an Alius calls his original's spirit
 /** level of his spirit (0 = not unlocked) */
 export const keshinLevel = (save: SaveData, id: number) => (keshinOf(id) ? Math.max(0, Math.min(KESHIN_MAX, Math.floor(save.keshin?.[String(id)] ?? 0))) : 0);
 export const egTokens = (save: SaveData) => save.egTokens ?? 0;
@@ -198,6 +199,7 @@ export const nextCost = (save: SaveData, id: number) => { const lv = keshinLevel
 
 export type KeshinBuy = 'ok' | 'none' | 'notOwned' | 'max' | 'poor';
 export function canLevel(save: SaveData, id: number): KeshinBuy {
+  if (isAliusId(id)) return 'none'; // 3.0: an Alius plays with his original's progress: upgrades go to the original
   if (!keshinOf(id)) return 'none';
   if (!save.owned[String(id)]) return 'notOwned';
   const c = nextCost(save, id);

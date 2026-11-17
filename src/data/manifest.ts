@@ -75,6 +75,8 @@ export interface RosterEntry {
   aura?: import('../systems/auras').AuraLink;
   /** 2.0: the warrior spirit he calls in this run and its level (keshin.ts keshinForRun); never in the manifest */
   keshin?: import('../systems/keshin').KeshinRun;
+  /** 3.0: an Alius footballer's original teams (his own `teams` is only the Alius group): club chemistry on the pitch */
+  baseTeams?: string[];
   /** 1.83: lowest value of a stat whatever the rarity band gives (rosterFixes.ts statFloor) */
   statFloor?: Partial<Record<string, number>>;
 }
@@ -175,6 +177,8 @@ export interface Manifest {
   eg?: { ficha: string; insignia: string; levels: Record<string, string>; spirits: Record<string, string> } | null;
   /** 2.6: the Victory Road teaser (tools/vr_teaser.py): its footballers' faces and data, NOT roster entries (nobody can pull them) */
   vrTeaser?: { id: number; name: string; nickname: string; rarity: Rarity; position: string; element: string; mug: string }[] | null;
+  /** 3.0: the Alius head portraits, their bodyshots with no kit and torso skin ramps (tools/alius_assets.py, data/alius.ts) */
+  alius?: import('./alius').AliusArt | null;
   /** 2.1: the season pass keys (tools/pase_assets.py) */
   pase?: { normal: string; dorada: string } | null;
   /** the original element icons (Sprites Inazuma/Elementos), by element name */

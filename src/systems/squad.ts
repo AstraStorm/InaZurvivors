@@ -6,6 +6,8 @@ import { RARITY_ORDER, type RosterEntry } from '../data/manifest';
 import { SQUAD_SLOTS, type SaveData, type SquadPreset } from './save';
 import { carrierOf, releaseAsAura, removeAura } from './auras';
 import { clashWith } from './identity';
+import { aliusCapProblem } from './aliusSave';
+import { ALIUS_CONFIG, isAliusId } from '../data/alius';
 import { tr } from '../i18n/i18n';
 
 export const SQUAD_SIZE = 7;
@@ -37,9 +39,11 @@ export function fillSquad(save: SaveData, roster: RosterEntry[]) {
   const extra = roster.filter((p) => save.owned[String(p.id)] && !inSquad.has(p.id) && carrierOf(save, p.id) === null) // v1.5: Auras stay Auras
     .sort((a, b) => rank(b) - rank(a) || (save.owned[String(b.id)].stars - save.owned[String(a.id)].stars) || a.id - b.id);
   const auras = Object.values(save.auras ?? {}).map((a) => byId.get(a)).filter((x): x is RosterEntry => !!x);
+  let alius = [...squad, ...auras].filter((p) => isAliusId(p.id)).length;
   for (const p of extra) {
     if (squad.length >= SQUAD_SIZE) break;
     if (clashWith(p, [...squad, ...auras])) continue; // 1.8
+    if (isAliusId(p.id)) { if (alius >= ALIUS_CONFIG.maxEquipped) continue; alius++; } // 3.0: the Alius limit
     squad.push(p);
   }
   setSquad(save, squad.map((p) => p.id));
@@ -70,6 +74,7 @@ export function squadClash(save: SaveData, byId: Map<number, RosterEntry>, slot:
  *  clashes with (1.8: the same character), and then changes nothing. */
 export function placeInSquad(save: SaveData, byId: Map<number, RosterEntry>, slot: number, id: number): RosterEntry | null {
   if (!save.owned[String(id)]) return null;
+  if (squadAliusProblem(save, byId, slot, id)) return null; // 3.0: the screens ask squadAliusProblem first; this only keeps the limit
   const clash = squadClash(save, byId, slot, id);
   if (clash) return clash;
   releaseAsAura(save, id); // v1.5: one copy, one place: an Aura that goes into the squad stops being an Aura
@@ -81,6 +86,17 @@ export function placeInSquad(save: SaveData, byId: Map<number, RosterEntry>, slo
   else ids.push(id);
   setSquad(save, ids);
   return null;
+}
+
+/** 3.0: why `id` can't take `slot` because of the Alius limit (whoever leaves that slot, and his Aura, stop counting); null = he can */
+export function squadAliusProblem(save: SaveData, byId: Map<number, RosterEntry>, slot: number, id: number): string | null {
+  if (!isAliusId(id)) return null;
+  const ids = squadOf(save, byId).map((p) => p.id);
+  if (ids.includes(id)) return null; // a swap inside the squad
+  const leaving = slot < ids.length ? ids[slot] : null;
+  const auras = { ...(save.auras ?? {}) };
+  if (leaving !== null) delete auras[String(leaving)]; // whoever leaves the slot takes his Aura with him (placeInSquad)
+  return aliusCapProblem({ ...save, auras }, id, leaving);
 }
 
 /** 1.76 (author): a footballer who leaves the squad also takes his Aura off. */

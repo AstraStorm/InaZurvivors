@@ -4,6 +4,7 @@
  * specific player of a higher rarity is always rarer than a specific player of the rarity below (a given Mítico is at most
  * half as likely as a given Legendario, a Leyenda half a Mítico); the share taken away from the top falls to Común.
  */
+import { ALIUS_EXCLUSIVE } from '../data/alius';
 import type { Rarity, RosterEntry } from '../data/manifest';
 import { RARITY_ORDER } from '../data/manifest';
 import { sagaOf } from '../data/sagas';
@@ -110,7 +111,7 @@ export function bluelockFiller(roster: RosterEntry[]): RosterEntry[] {
 export function bannerPool(roster: RosterEntry[], banner: BannerId, team?: string): RosterEntry[] {
   // pre-2.0: «road» exclusives (Jaden Evans) come only from Road to Fútbol Frontier, never from a machine
   // 2.02: «proximamente» footballers can't be got anywhere yet; 2.1: «pase» ones only from the season pass
-  if (banner === 'evento') return roster.filter((p) => (p.exclusive && p.exclusive !== 'road' && p.exclusive !== 'bluelock' && p.exclusive !== 'sendokai' && p.exclusive !== 'proximamente' && p.exclusive !== 'pase') || (EVENT_FILLER_IDS.includes(p.id) && EVENT_FILLER.includes(p.rarity)));
+  if (banner === 'evento') return roster.filter((p) => (p.exclusive && p.exclusive !== 'road' && p.exclusive !== 'bluelock' && p.exclusive !== 'sendokai' && p.exclusive !== 'proximamente' && p.exclusive !== 'pase' && p.exclusive !== ALIUS_EXCLUSIVE) || (EVENT_FILLER_IDS.includes(p.id) && EVENT_FILLER.includes(p.rarity)));
   // (author) InaZurvivors x BlueLock: its two footballers and the morralla
   if (banner === 'bluelock') return [...roster.filter((p) => p.exclusive === 'bluelock'), ...bluelockFiller(roster)];
   // 2.9: InaZurvivors x Desafío Sendokai, the same way

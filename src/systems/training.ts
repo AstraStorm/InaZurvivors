@@ -11,6 +11,7 @@
  * of the rarity he reaches (+2 when the rarity doesn't change), HÉROE adds 3 more, and training adds up to 20 points
  * spread by hand, paid with Fichas de entrenamiento (runs, missions, achievements).
  */
+import { isAliusId } from '../data/alius';
 import type { Rarity, RosterEntry } from '../data/manifest';
 import type { SaveData } from './save';
 
@@ -124,6 +125,7 @@ export function playerStats(save: SaveData, p: StatEntry, effective: Rarity, her
 /** Spends one Ficha de entrenamiento on a stat of an owned footballer; false when it isn't possible (`room`: trainRoom of
  *  that stat — Fix 1.31: a stat already at 99 takes no more points). */
 export function trainStat(save: SaveData, id: number, key: StatKey, room = Infinity): boolean {
+  if (isAliusId(id)) return false; // 3.0: an Alius plays with his original's progress: upgrades go to the original
   const o = save.owned[String(id)];
   if (!o || room <= 0 || (save.trainTokens ?? 0) < 1 || trainingUsed(save, id) >= trainMaxOf(save, id) || !STAT_KEYS.includes(key)) return false;
   o.train = { ...(o.train ?? {}), [key]: (o.train?.[key] ?? 0) + 1 };
@@ -133,6 +135,7 @@ export function trainStat(save: SaveData, id: number, key: StatKey, room = Infin
 
 /** Takes back every training point of a footballer and returns the fichas (free: training is a choice, not a trap). */
 export function resetTraining(save: SaveData, id: number): number {
+  if (isAliusId(id)) return 0; // 3.0: an Alius plays with his original's progress: upgrades go to the original
   const o = save.owned[String(id)];
   if (!o?.train) return 0;
   const n = trainingUsed(save, id);

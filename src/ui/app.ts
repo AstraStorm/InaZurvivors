@@ -27,7 +27,7 @@ import { evolutionLabel, evolvesAt, comboLabel } from '../systems/evolution';
 import { modDef } from '../systems/runmods';
 import { FORMATIONS, FORMATION_ORDER, type FormationId } from '../systems/formations';
 import { CATEGORY_BONUS, MILESTONES, PERKS, PERK_CATEGORIES, buyPerk, categoryLevels, perkCost, perkLevel, perkEffects, perkValue, refundPerks, spentOn, type PerkCategory } from '../systems/perks';
-import { MISSIONS, addCounter, claimAllMissions, claimMission, recordCollection, isClaimable, isClaimed, missionProgress, pendingClaims, recordRun, rollPeriods, setPeriodClock, type MissionKind } from '../systems/missions';
+import { dayKey, MISSIONS, addCounter, claimAllMissions, claimMission, recordCollection, isClaimable, isClaimed, missionProgress, pendingClaims, recordRun, rollPeriods, setPeriodClock, type MissionKind } from '../systems/missions';
 import { MAX_TECH_BOOST, boostCost, buyTechBoost, buyTechUnlock, isBought, isLocked, unlockCost } from '../systems/shop';
 import { GEAR_SLOTS, applyGear, buildGear, buyGear, equipGear, type GearItem } from '../systems/gear';
 import { SAGAS, sagaOf, setTeamLabels, setTeamSagas, teamLabel, teamNames } from '../data/sagas';
@@ -62,7 +62,7 @@ import { ALTAR_COLOR, ALTAR_ICON, ALTAR_INFO, ALTAR_LABEL, ALTAR_MODE, ALTAR_REW
 import { adaptedPassive, passiveText, talentChanges, talentText } from '../systems/talents';
 import { adminSuggestions, adminUpdateSuggestion, claimBugNotices, claimBugRewards, claimSuggestionNotices, mySuggestions, redeemCode, submitSuggestion, type SuggestionRow } from '../online/client';
 import { THANKS_EVENT, addThanksTokens, thanksActive, thanksLeftMs, thanksTokens } from '../systems/thanksEvent';
-import { BLUELOCK_EVENT, BLUELOCK_WINS_FOR_BANNER, SENDOKAI_EVENT, bluelockActive, bluelockDaysToStart, bluelockLeftMs, bluelockUpcoming, recordBluelockWin, sendokaiActive, sendokaiDaysToStart, sendokaiLeftMs, sendokaiLineup, sendokaiOwned, sendokaiUpcoming } from '../systems/collabEvent';
+import { BLUELOCK_EVENT, BLUELOCK_WINS_FOR_BANNER, SENDOKAI_EVENT, bluelockActive, bluelockDaysToStart, bluelockLeftMs, bluelockUpcoming, recordBluelockWin, sendokaiActive, sendokaiDaysToStart, sendokaiLeftMs, sendokaiLineup, sendokaiOwned, sendokaiUpcoming, recordSendokaiWin, SENDOKAI_WINS_FOR_BANNER } from '../systems/collabEvent';
 import { gtsDeposit, gtsFeed, gtsMine, gtsSearch, gtsTake, gtsWithdraw, type GtsOffer } from '../online/client';
 import { submitTierlist, tierlistFeed, type TierlistRow } from '../online/client';
 import { championOfRows, clanInfo, clanOf, clanAnswer, clanCancelRequest, clanClaimMission, clanClaimPrizes, clanCreate, clanKick, clanLastWeek, clanLeave, clanRanking, clanRequest, clanRequests, clanSearch, clanSetRole, clanSubmitRun, clanUpdate, myClan, myClanRequests, type ClanMember, type ClanMission, type ClanPrize, type ClanRole, type MyClan } from '../online/client';
@@ -71,6 +71,9 @@ import { cleanTiers, placeIn, tierCount, topicLabel, TIER_COLOR, TIER_MAX, TIER_
 import { CoopLink, type CoopMsg } from '../online/coop';
 import { coopInvite, coopInvitesClaim, coopStatus, type CoopStatus, friendHeartbeat, friendList, friendRemove, friendRequest, friendRespond, lobbyInfo, type FriendRow, type LobbyInfo } from '../online/client';
 import type { CoopRun } from '../game/coopArena';
+import { ALIUS, ALIUS_BY_ID, ALIUS_BY_KEY, ALIUS_CONFIG, ALIUS_PASSIVES, ALIUS_TEAM, isAliusId, passiveTextAt, recolourTorsoSkin, type AliusDef } from '../data/alius';
+import { aliusRun, aliusStatus, originalOk, resonanceState, unlockedCount, type AliusStatus } from '../systems/alius';
+import { aliusStones, awardAliusStones, unlockAlius, undoUnlock } from '../systems/aliusSave';
 import { applyCoachPerks, COACH_BY_ID, COACH_PULL_CHANCE, COACHES, coachesOfMachine, rewardCoachesDue, coachRun, PASSIVE_ICON, passiveText as coachPassiveText, type CoachDef } from '../data/coaches';
 import { clashWith } from '../systems/identity';
 import { applyGtsLedger, canLeave, gtsBanned, gtsError, gtsSlots, gtsSpare, type GtsRow } from '../systems/gts';
@@ -81,7 +84,7 @@ import { accountId, adminBugReports, adminMetrics, adminPlayerStats, adminUpdate
 import { backup, linkPlan, progressOf, summarize, type SaveSummary } from '../online/cloudSync';
 import { epochOf, freshProgress, resetSummary } from '../systems/resetProgress';
 import { scoreOf, localBoard, mapMult, recordBest } from '../systems/leaderboard';
-import { coachRequirement, emblemUnlocked, iconAllowed, DEFAULT_EMBLEM } from '../systems/profileUnlocks';
+import { coachRequirement, emblemUnlocked, iconAllowed, machineCoachIcon, machineCoachIcons, DEFAULT_EMBLEM } from '../systems/profileUnlocks';
 import { INTRO } from './cinematics';
 import { SIGNATURE } from '../data/signatures';
 import { bindStick, initGamepad } from './gamepad';
@@ -91,7 +94,7 @@ import { FRAMES, isFrame, isNewPennant, PENNANTS, PENNANT_BY_ID, PENNANT_EVENT, 
 import { buyPennant, equipFrame, equippedFrame, equipPennant, equippedPennant, eventActive, eventLeftMs, eventOdds, givePennant, grantAchievementPennants, hasPennant, pullEvent, visiblePennant, type PennantPull } from '../systems/pennants';
 import { MASTERY_BONUS, MASTERY_USES, masteryLevel, recordMastery } from '../systems/mastery';
 import { MAX_TEAM, canStartWith, startingTech, type Card } from '../systems/cards';
-import { clearSquad, renameSquad, savedSquads, setSquad, SQUAD_SIZE, fillSquad, makeCaptain, placeInSquad, removeFromSquad, squadOf, switchSquad, syncActiveSquad } from '../systems/squad';
+import { clearSquad, renameSquad, savedSquads, setSquad, SQUAD_SIZE, fillSquad, makeCaptain, placeInSquad, removeFromSquad, squadOf, switchSquad, syncActiveSquad, squadAliusProblem } from '../systems/squad';
 import type { ArenaInit, ArenaScene, HudState, MarkerState, Poi, TrainingSetup } from '../game/ArenaScene';
 import type { LobbyInit, LobbyPlayer } from '../game/LobbyScene';
 import type { ReplayInit, ReplayScene } from '../game/ReplayScene';
@@ -215,7 +218,7 @@ export class App {
   private mugW: number[] = [];
   private iconW: number;
   private collectionFilter = { q: '', rarity: '', team: '', pos: '', element: '', saga: '', owned: false, upgrade: false };
-  private collectionView: 'equipos' | 'todos' | 'fichatron' = 'equipos';
+  private collectionView: 'equipos' | 'todos' | 'fichatron' | 'alius' = 'equipos';
   private collectionLimit = 36;
   /** Fix 1.22: first footballer of a comparison, waiting for the second */
   private compareWith: number | null = null;
@@ -241,7 +244,7 @@ export class App {
   constructor(private game: Phaser.Game, private m: Manifest, private save: SaveData,
     private mugFrames: Frames, private iconFrames: Frames) {
     // 2.2: the logos inside banners and frames, by the manifest's paths (the published build renames every file)
-    setPennantLogos({ bluelock: m.collab?.bluelock, sector: m.sector?.sector, resistencia: m.sector?.resistencia });
+    setPennantLogos({ bluelock: m.collab?.bluelock, sendokai: m.collab?.sendokai, sendokaiPlate: m.collab?.sendokai_desafio, sector: m.sector?.sector, resistencia: m.sector?.resistencia });
     // author: InaZurvivors x BlueLock is a surprise until it opens — its footballers stay out of the encyclopedia, lists
     // and searches (unless already owned, e.g. the QA accounts); the menu teaser only shows their silhouettes
     if (bluelockUpcoming(serverNow())) m.roster = m.roster.filter((p) => p.exclusive !== 'bluelock' || !!save.owned[String(p.id)]);
@@ -665,17 +668,19 @@ export class App {
   private async drawKitPortrait(key: string, id: number, group: number, t: { kind: number; build: number; variant: number }) {
     try {
       if (!this.portraitFrames) this.portraitFrames = (await (await fetch(this.m.atlases.portraits!.json)).json()).frames as Frames;
-      const fr = this.portraitFrames[String(id)];
+      const al = this.aliusArt(id); // 3.0: an Alius wears the kit with his own head and his portrait's skin
+      const fr = al ? null : this.portraitFrames[String(id)];
       const have = new Set(this.m.kitBusts ?? []);
       const base = group * 1000000 + t.kind * 10000;
       const bust = [base + t.build * 100 + t.variant, base + t.build * 100, base].find((k) => have.has(k));
-      if (!fr || bust === undefined) { this.kitShots.set(key, ''); return; }
-      const [torso, sheet] = await Promise.all([this.loadImg(this.m.kitBustFiles?.[bust] ?? `generated/kitbusts/${bust}.png`), this.loadImg(this.m.atlases.portraits!.images[fr.sheet ?? 0])]);
+      if ((!fr && !al) || bust === undefined) { this.kitShots.set(key, ''); return; }
+      const [torso, sheet] = await Promise.all([this.loadImg(this.m.kitBustFiles?.[bust] ?? `generated/kitbusts/${bust}.png`), this.loadImg(al ? al.head : this.m.atlases.portraits!.images[fr!.sheet ?? 0])]);
       const c = document.createElement('canvas');
       c.width = c.height = 64;
       const g = c.getContext('2d')!;
       g.drawImage(torso, 0, 0);
-      g.drawImage(sheet, fr.frame.x, fr.frame.y, 64, 64, 0, 0, 64, 64);
+      if (al?.skin) { const d = g.getImageData(0, 0, 64, 64); recolourTorsoSkin(d.data, 64, 64, al.skin); g.putImageData(d, 0, 0); }
+      if (al) g.drawImage(sheet, 0, 0, 64, 64); else g.drawImage(sheet, fr!.frame.x, fr!.frame.y, 64, 64, 0, 0, 64, 64);
       const url = c.toDataURL();
       this.kitShots.set(key, url);
       if (this.save.kit && key.startsWith(`${this.save.kit}:`)) {
@@ -724,9 +729,14 @@ export class App {
     box.querySelectorAll('[data-vrgo]').forEach((b) => b.addEventListener('click', () => close(false)));
     box.querySelector('[data-vrnews]')!.addEventListener('click', () => close(true));
   }
+  /** 3.0: the art of an Alius footballer (tools/alius_assets.py) or of the Alius coach by key; null for anyone else */
+  private aliusArt(id: number) { const a = ALIUS_BY_ID.get(id); return a ? this.m.alius?.[a.key] ?? null : null; }
   mug(id: number, size = 64) {
     const kitted = this.kitPortrait(id);
     if (kitted) return `<span class="mug" data-kitmug="${id}" style="width:${size}px;height:${size}px;background-image:url(${kitted});background-size:100% 100%"></span>`;
+    // 3.0: an Alius has his own portrait file (64 px, drawn pixelated like every .mug); no mugshot sheet frame
+    const al = this.aliusArt(id);
+    if (al) return `<span class="mug al-mug" data-kitmug="${id}" style="width:${size}px;height:${size}px;background-image:url(${al.bust ?? al.head});background-size:100% 100%"></span>`;
     const entry = this.mugFrames[String(id)], f = entry?.frame;
     if (!f) return `<span class="mug" style="width:${size}px;height:${size}px"></span>`;
     const k = size / 64;
@@ -742,8 +752,10 @@ export class App {
   }
   private profileIcon(size = 56, ic: { kind: 'emblem' | 'player' | 'coach'; id: number } | null = this.save.profile.icon) {
     if (ic?.kind === 'player' && this.byId.has(ic.id)) return `<span class="avatar" style="width:${size}px;height:${size}px">${this.mug(ic.id, size as 64)}</span>`;
+    // machine coaches (Mi Equipo) have their own icon ids (profileUnlocks.machineCoachIcon)
+    const mc = ic?.kind === 'coach' ? this.m.coaches?.find((c) => machineCoachIcon(c.id) === ic.id) : undefined;
     const list = ic?.kind === 'coach' ? this.m.profile?.coaches : this.m.profile?.emblems;
-    const e = (ic ? list?.find((x) => (ic.kind === 'coach' ? x.index : x.teamId) === ic.id) : undefined) ?? this.m.profile?.emblems?.[0];
+    const e = mc ?? (ic ? list?.find((x) => (ic.kind === 'coach' ? x.index : x.teamId) === ic.id) : undefined) ?? this.m.profile?.emblems?.[0];
     return `<span class="avatar" style="width:${size}px;height:${size}px">${e ? `<img src="${e.texture}" alt="">` : ''}</span>`;
   }
 
@@ -1232,7 +1244,7 @@ export class App {
           ${group('g-club', 'perks', tr('HAZ MÁS FUERTE A TU EQUIPO'), tile('collection', 'cards', tr('COLECCIÓN'), claims ? tr('¡Recompensas!') : tr('Asciende y pon estrellas'), claims, !!claims)
             + `<button class="m4-tile eg-tile" data-go="keshin" title="${esc(tip('keshin'))}"><span class="m4-ic m4-art">${this.menuArt('keshin')}</span><span class="m4-tx"><b>${tr('ESPÍRITUS')}</b><small>${tr('{egTokens} Fichas EG', { egTokens: egTokens(this.save) })}</small></span></button>`
             + tile('perks', 'perks', tr('MEJORAS'), tr('Vida, daño, imán…')) + tile('shop', 'bolt', tr('TÉCNICAS'), tr('Manuales para tu equipo'))
-            + tile('gear', 'boot', tr('EQUIPAMIENTO'), tr('Botas, guantes…')) + tile('coaches', 'whistle', tr('ENTRENADORES'), tr('{x1} de {COACHESLength}', { x1: this.save.coaches?.owned.length ?? 0, COACHESLength: COACHES.length }))
+            + tile('gear', 'boot', tr('EQUIPAMIENTO'), tr('Botas, guantes…')) + tile('alius', 'star', tr('ALTAR ALIUS'), tr('{x1} piedras · {x2}/{x3}', { x1: aliusStones(this.save), x2: unlockedCount(this.save), x3: ALIUS.length }), ALIUS.some((a) => aliusStatus(this.save, this.m.roster, a) === 'disponible') ? 1 : 0) + tile('coaches', 'whistle', tr('ENTRENADORES'), tr('{x1} de {COACHESLength}', { x1: this.save.coaches?.owned.length ?? 0, COACHESLength: COACHES.length }))
             + tile('kits', 'shirt', tr('EQUIPACIONES'), tr('Uniforme y escudo')) + tile('training', 'target', tr('ENTRENAMIENTO'), tr('Prueba técnicas')))}
           ${group('g-sign', 'capsule', tr('CONSIGUE FUTBOLISTAS'), tile('gacha', 'capsule', tr('MÁQUINA'), tr('{tokens} fichas', { tokens: this.save.tokens })) + (thanksActive(serverNow()) ? tile('thanksev', 'gift', tr('AGRADECIMIENTO'), tr('{x1} fichas de evento', { x1: this.save.eventTokens ?? 0 }), 0, true) : '') + (eventActive(serverNow()) ? tile('pnevent', 'gift', tr('EVENTO'), tr('Banners de leyenda'), 0, true) : '') + (this.shopNews() ? tile('daily', 'shop', tr('TIENDA'), tr('¡Banners y marcos nuevos!'), 0, true, tr('NUEVO')) : tile('daily', 'shop', tr('TIENDA'), tr('Ofertas del día'))) + tile('gts', 'gts', tr('GTS'), tr('Intercambia online')) + tile('codes', 'key', tr('CÓDIGOS'), tr('Canjea regalos')))}
           ${group('g-mode', 'play', tr('MODOS DE JUEGO'), tile('road', 'flag', tr('ROAD TO FF'), this.save.road?.active ? tr('Partido {x1} en juego', { x1: this.save.road.active.level + 1 }) : tr('Arenas seguidas'), 0, !!this.save.road?.active)
@@ -1297,6 +1309,7 @@ export class App {
       if (go === 'squad') this.captainSelect();
       if (go === 'training') this.trainingField(); // v1.6
       if (go === 'coaches') this.coachesScreen(); // pre-2.0
+      if (go === 'alius') this.aliusAltar(); // 3.0
       if (go === 'keshin') this.keshinScreen(); // 2.0
       if (go === 'road') this.roadScreen();
       if (go === 'tierlist') this.tierlistScreen(); // 1.9
@@ -2575,6 +2588,7 @@ export class App {
         ${this.coachArt(c, 112, !own)}<div class="co-card-tx"><small>${esc(c.team)}</small><b>${own ? esc(c.name) : '???'}</b><span class="rar ${c.rarity}">${RARITY_LABEL[c.rarity].toUpperCase()}</span>
         ${own ? `<p class="co-quote">«${esc(c.quote)}»</p>` : ''}${this.coachPassives(c)}
         ${own ? `<button class="btn small${bench === c.id ? ' blue' : ''}" data-bench="${c.id}">${bench === c.id ? tr('✔ En el banquillo') : tr('Al banquillo')}</button>`
+          : c.altar ? `<p class="co-where">${tr('🔒 Desbloquéala en el <b>Altar de la Piedra Alius</b>')}</p>`
           : c.reward ? `<p class="co-where">${tr('🔒 Ficha a los {x1} de <b>{x2}</b> · {n}/{x1}', { x1: c.reward.length, x2: esc(this.machineLabel(c.machine)), n: c.reward.filter((id) => !!this.save.owned[String(id)]).length })}</p>`
           : `<p class="co-where">${tr('{x1} <b>{x2}</b> ({x3}% por cápsula)', { x1: tr('🔒 Sale en la máquina'), x2: esc(this.machineLabel(c.machine)), x3: Math.round(COACH_PULL_CHANCE * 100) })}</p>`}</div></div>`;
     }).join('');
@@ -2611,7 +2625,12 @@ export class App {
   /** 2.9: the Sendokai banner's reward: Tampo the coach for owning the five */
   private sdRewards() {
     const tampo = COACH_BY_ID.get('tampo'), n = sendokaiOwned(this.save), done = !!this.save.coaches?.owned.includes('tampo');
-    return tampo ? `<div class="bl-rewards"><small>${tr('RECOMPENSA DE LA COLABORACIÓN')}</small><div><span class="bl-rw sd-rw${done ? ' done' : ''}"><span class="bl-rw-art">${this.coachArt(tampo, 40, !done && n < SENDOKAI_EVENT.players.length)}</span>
+    const wins = Math.min(this.save.sdWins ?? 0, SENDOKAI_WINS_FOR_BANNER);
+    const item = (art: string, label: string, got: boolean, prog: string) =>
+      `<span class="bl-rw${got ? ' done' : ''}"><span class="bl-rw-art">${art}</span><span><b>${label}</b><em>${got ? tr('¡Conseguido! Póntelo en tu Perfil') : prog}</em></span></span>`;
+    const pn = item(pennantSvg('colab-sendokai', 30), tr('Banner InaZurvivors x Desafío Sendokai'), hasPennant(this.save, 'colab-sendokai'), tr('Gana {x1} partidas · {wins}/{x1}', { x1: SENDOKAI_WINS_FOR_BANNER, wins }))
+      + item(`<span class="bl-rw-fr">${frameSvg('marco-sendokai')}</span>`, tr('Marco Desafío Sendokai'), hasPennant(this.save, 'marco-sendokai'), tr('Ficha a los cinco · {n}/{x1}', { n, x1: SENDOKAI_EVENT.players.length }));
+    return tampo ? `<div class="bl-rewards"><small>${tr('RECOMPENSAS DE LA COLABORACIÓN')}</small><div>${pn}<span class="bl-rw sd-rw${done ? ' done' : ''}"><span class="bl-rw-art">${this.coachArt(tampo, 40, !done && n < SENDOKAI_EVENT.players.length)}</span>
       <span><b>${tr('Tampo, entrenador {x1}', { x1: RARITY_LABEL[tampo.rarity] })}</b><em>${done ? tr('¡Conseguido! Ya está en Entrenadores') : tr('Ficha a los cinco · {n}/{x1}', { n, x1: SENDOKAI_EVENT.players.length })}</em></span></span></div>${this.coachPassives(tampo)}</div>` : '';
   }
   /** 2.9: reward coaches (Tampo) that the collection has just earned; the first one goes to an empty bench */
@@ -5208,6 +5227,7 @@ export class App {
           <div class="rs-card rs-wide${ch.bonus ? ' on' : ''}" style="--ec:#7dff9a;--p:${Math.min(1, ch.count / Math.max(1, ch.goal))}"><span class="rs-ring">${this.tmIcon('chemistry')}</span><div class="rs-body"><b>${tr('Química de club')}</b><span class="rs-steps">${Array.from({ length: ch.goal }, (_, i) => `<i class="${i < ch.count ? 'on' : ''}"></i>`).join('')}</span><small>${tr('{hint} (equipación {x1})', { hint: esc(ch.hint), x1: esc(teamLabel(kit)) })}</small></div><em class="rs-bonus">${ch.bonus ? `+${Math.round(ch.bonus * 100)}%` : `${ch.count}/${ch.goal}`}</em></div>
           ${cap ? `<div class="rs-card rs-wide${cap.bonus ? ' on' : ''}" style="--ec:${ELEMENT_COLOR[String(cap.element)] ?? '#ffe27a'};--p:${cap.bonus ? 1 : 0}"><span class="rs-ring">${this.menuArt('captain', 'tm-ic')}</span><div class="rs-body"><b>${esc(cap.label)}</b><small>${esc(cap.hint)}</small></div><em class="rs-bonus">${cap.bonus ? `+${(cap.bonus * 100).toFixed(1).replace('.', ',')}%` : '—'}</em></div>`
             : `<div class="rs-card rs-wide" style="--ec:#ffe27a;--p:0"><span class="rs-ring">${this.menuArt('captain', 'tm-ic')}</span><div class="rs-body"><b>${tr('Sinergia elemental')}</b><small>${tr('Compra la mejora «Sinergia elemental»: más daño por cada compañero del elemento del capitán.')}</small></div><em class="rs-bonus">—</em></div>`}
+          ${(() => { const r = resonanceState(this.save); return r.n ? `<div class="rs-card rs-wide al-rs${r.on ? ' on' : ''}" style="--ec:#9a4dff;--p:${r.n / 3}"><span class="rs-ring">${this.stoneIcon(26)}</span><div class="rs-body"><b>${tr('Resonancia Alius')}</b><span class="rs-steps">${[0, 1, 2].map((i) => `<i class="${i < r.n ? 'on' : ''}"></i>`).join('')}</span><small>${r.on ? tr('Tres Alius: sus ataques hacen un {x1} más con uno en el campo', { x1: `${Math.round(ALIUS_CONFIG.resonanceDamage * 100)}%` }) : tr('{n}/3 futbolistas Alius equipados (máximo {max})', { n: r.n, max: ALIUS_CONFIG.maxEquipped })}</small></div><em class="rs-bonus">${r.on ? `+${Math.round(ALIUS_CONFIG.resonanceDamage * 100)}%` : `${r.n}/3`}</em></div>` : ''; })()}
         </div></section></div>`;
   }
 
@@ -5775,6 +5795,8 @@ export class App {
         const slot = Number(s0.over.dataset.slot);
         const target = (s0.over.querySelector('.pcard') ?? s0.over).getBoundingClientRect();
         fly(target, () => {
+          const capWhy = squadAliusProblem(this.save, this.byId, slot, s0.id); // 3.0
+          if (capWhy) { this.toast(capWhy, 3800); sfx('error'); this.captainSelect(); return; }
           const clash = placeInSquad(this.save, this.byId, slot, s0.id);
           if (clash) { this.toast(tr('{x1} es el mismo personaje que {clashName}: no pueden estar los dos en tu equipo.', { x1: this.byId.get(s0.id)?.name ?? '', clashName: clash.name }), 3800); sfx('error'); this.captainSelect(); return; }
           this.persist(); sfx('powerup'); this.squadPicked = false; this.squadLanded = slot;
@@ -5838,6 +5860,8 @@ export class App {
           removeFromSquad(this.save, this.byId, id); sfx('click');
         } else if (this.squadPicked || squad.length < SQUAD_SIZE) {
           const was = carrierOf(this.save, id); // v1.5: an Aura that joins the squad stops being an Aura: say so
+          const capWhy = squadAliusProblem(this.save, this.byId, this.squadPicked ? this.squadSlot : squad.length, id); // 3.0
+          if (capWhy) { this.toast(capWhy, 3800); sfx('error'); return; }
           const clash = placeInSquad(this.save, this.byId, this.squadPicked ? this.squadSlot : squad.length, id);
           if (clash) { this.toast(tr('{x1} es el mismo personaje que {clashName}: no pueden estar los dos en tu equipo.', { x1: this.byId.get(id)?.name ?? '', clashName: clash.name }), 3800); sfx('error'); return; }
           sfx('powerup');
@@ -6012,17 +6036,19 @@ export class App {
     // the index shows the teams of the story; everyone else is a Fichatrón scout, still fully playable (their ROM groups stay in the data)
     const main = new Set(this.m.mainTeams ?? []);
     const allTeams = [...new Set(this.m.roster.flatMap((p) => p.teams))].filter((t) => main.has(t)).sort();
-    const scouts = this.m.roster.filter((p) => !p.teams.some((t) => main.has(t)));
+    const scouts = this.m.roster.filter((p) => !p.teams.some((t) => main.has(t)) && !isAliusId(p.id));
     const elements = [...new Set(this.m.roster.map((p) => String(p.element)))];
     const filtered = this.m.roster.filter((p) => (!f.rarity || p.rarity === f.rarity) && (!f.pos || p.position === f.pos)
       && (!f.element || String(p.element) === f.element) && (!f.team || p.teams.includes(f.team))
-      && (this.collectionView !== 'fichatron' || f.q !== '' || !p.teams.some((t) => main.has(t)))
+      && (this.collectionView !== 'fichatron' || f.q !== '' || (!p.teams.some((t) => main.has(t)) && !isAliusId(p.id)))
+      && (this.collectionView !== 'alius' || p.teams.includes(ALIUS_TEAM))
       && (!f.saga || p.teams.some((t) => sagaOf(t) === f.saga)) && (!f.owned || this.owned(p.id)) && (!f.upgrade || this.canUpgrade(p))
       && (!f.q || `${p.name} ${p.nickname}`.toLowerCase().includes(f.q.toLowerCase())))
       // 1.76 (author): by rarity (HÉROE first, then the rarity each one really has), owned before locked, then by name
       .sort((a, b) => this.rarityRank(b) - this.rarityRank(a) || Number(!!this.owned(b.id)) - Number(!!this.owned(a.id)) || a.name.localeCompare(b.name, 'es'));
     const select = (id: string, label: string, opts: [string, string][], cur: string) => `<select id="${id}"><option value="">${label}</option>${opts.map(([v, l]) => `<option value="${esc(v)}" ${cur === v ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select>`;
     const showTeams = this.collectionView === 'equipos' && !f.team && !f.q && !f.upgrade;
+    if (this.collectionView === 'alius') this.collectionLimit = Math.max(this.collectionLimit, 30); // 3.0: the 28 at once
     const upgradable = this.m.roster.filter((p) => this.canUpgrade(p)).length;
     const rewardOk = (team: string, k: TeamRewardKind) => k !== 'kit' || !!this.m.kits?.[team];
     const teamClaims = allTeams.reduce((n, t) => n + (['crest', 'kit', 'captain'] as TeamRewardKind[]).filter((k) => rewardOk(t, k) && canClaim(this.save, this.m.roster, t, k)).length, 0);
@@ -6045,7 +6071,8 @@ export class App {
         ${(() => { const n = ascendableCount(this.save, this.m.roster); return n ? `<button class="rw-all asc-all" id="ascall" title="${tr('Asciende a todos los que tienen duplicados suficientes')}"><i class="m4-shine"></i>${tr('ASCENDER TODOS<em>{n}</em>', { n })}</button>` : ''; })()}</div>
       ${d && this.compareWith && this.compareWith !== d.id && this.byId.get(this.compareWith) ? this.compareHtml(this.byId.get(this.compareWith)!, d) : ''}
       ${d ? this.playerDetail(d) : ''}
-      <div class="mis-top"><div class="seg" id="views"><button data-v="equipos" class="${this.collectionView === 'equipos' ? 'on' : ''}">${tr('Por equipos')}</button><button data-v="fichatron" class="${this.collectionView === 'fichatron' ? 'on' : ''}">${tr('Fichatrón')}</button><button data-v="todos" class="${this.collectionView === 'todos' ? 'on' : ''}">${tr('Todos')}</button></div>
+      <div class="mis-top"><div class="seg" id="views"><button data-v="equipos" class="${this.collectionView === 'equipos' ? 'on' : ''}">${tr('Por equipos')}</button><button data-v="fichatron" class="${this.collectionView === 'fichatron' ? 'on' : ''}">${tr('Fichatrón')}</button><button data-v="todos" class="${this.collectionView === 'todos' ? 'on' : ''}">${tr('Todos')}</button><button data-v="alius" class="al-view ${this.collectionView === 'alius' ? 'on' : ''}">${tr('Alius {x1}/{x2}', { x1: this.m.roster.filter((p) => isAliusId(p.id) && this.owned(p.id)).length, x2: this.m.roster.filter((p) => isAliusId(p.id)).length })}</button></div>
+        ${this.collectionView === 'alius' ? `<span class="note">${tr('Transformaciones de la Piedra Alius: se desbloquean en el Altar. Toca una bloqueada para ir al Altar.')}</span>` : ''}
         ${this.collectionView === 'fichatron' ? `<span class="note">${tr('Jugadores de Fichatrón / Ojeadores: {x1} de {scoutsLength}. No pertenecen a un equipo de la historia, pero juegan igual que los demás.', { x1: scouts.filter((p) => this.owned(p.id)).length, scoutsLength: scouts.length })}</span>` : ''}
 </div>
       ${f.team ? `<button class="btn small blue" id="clearteam">${tr('◀ Ver equipos')}</button>${this.teamHeader(f.team)}` : ''}
@@ -6060,7 +6087,13 @@ export class App {
       ${showTeams ? teamCards : `<div class="grid">${list.map((p) => this.pcard(p, { locked: !this.owned(p.id), sel: p.id === detailId })).join('')}</div>
         ${filtered.length > list.length ? `<p style="text-align:center"><button class="btn blue" id="more">${tr('Ver más ({x1})', { x1: filtered.length - list.length })}</button></p>` : ''}`}</div>`);
     this.on('[data-back]', 'click', () => this.mainMenu());
-    this.on('.pcard[data-id]', 'click', (_e, el) => { if (this.owned(Number(el.dataset.id))) { this.collection(Number(el.dataset.id)); this.root.querySelector('.screen')?.scrollTo(0, 0); } });
+    this.on('.pcard[data-id]', 'click', (_e, el) => {
+      const id = Number(el.dataset.id);
+      if (!this.owned(id) && isAliusId(id)) { this.aliusAltar(ALIUS_BY_ID.get(id)!.key); return; } // 3.0: a locked Alius opens the Altar
+      if (this.owned(id)) { this.collection(id); this.root.querySelector('.screen')?.scrollTo(0, 0); }
+    });
+    this.on('[data-alorig]', 'click', (_e, el) => this.collection(Number(el.dataset.alorig)));
+    this.on('[data-altar]', 'click', (_e, el) => this.aliusAltar(el.dataset.altar));
     this.on('[data-keshin]', 'click', (_e, el) => this.keshinScreen(Number(el.dataset.keshin), Number(el.dataset.keshin))); // 2.0
     this.on('[data-ascend]', 'click', (_e, el) => this.ascension(Number(el.dataset.ascend), () => this.collection(Number(el.dataset.ascend))));
     this.on('[data-starbuy]', 'click', (_e, el) => this.starStatPicker(Number(el.dataset.starbuy), 'buy')); // 1.84
@@ -6099,7 +6132,7 @@ export class App {
       this.collection(detailId);
       this.rewardSummary(tr('¡Recompensas de equipo!'), [`${n('crest')} escudos`, `${n('kit')} equipaciones`, tr('{x1} duplicados de capitán', { x1: n('captain') })].filter((l) => !l.startsWith('0 ')).concat(this.claimText(got)));
     });
-    this.on('#views button', 'click', (_e, el) => { this.collectionView = el.dataset.v as 'equipos' | 'todos' | 'fichatron'; f.team = ''; this.collection(); });
+    this.on('#views button', 'click', (_e, el) => { this.collectionView = el.dataset.v as 'equipos' | 'todos' | 'fichatron' | 'alius'; f.team = ''; this.collection(); });
     document.getElementById('clearteam')?.addEventListener('click', () => { f.team = ''; this.collectionView = 'equipos'; this.collection(); });
     document.getElementById('more')?.addEventListener('click', () => {
       const y = this.root.querySelector('.screen')!.scrollTop;
@@ -6392,6 +6425,7 @@ export class App {
   }
 
   private playerDetail(d: RosterEntry) {
+    if (isAliusId(d.id)) return this.aliusDetail(d); // 3.0
     const o = this.owned(d.id);
     const statNames: Record<string, string> = { kick: 'Tiro', body: 'Físico', guard: 'Defensa', control: 'Control', speed: 'Velocidad', guts: 'Agallas', stamina: 'Aguante' };
     const active = this.startOf(d);
@@ -6413,6 +6447,115 @@ export class App {
         ${this.trainingHtml(d)}
         <div class="stat-explain">${STAT_INFO.map((s) => { const add = sp.add[s.key] ?? 0, own = sp.own?.[s.key as StatKey] ?? eff[s.key]; return `<div><b>${s.name} ${eff[s.key] ?? '—'}${add ? ` <small class="ai-break">${own} + <i>${tr('{add} Aura', { add })}</i> = ${eff[s.key]}/${EFFECTIVE_STAT_MAX}</small>` : ''}</b><span>${esc(s.what(eff[s.key] ?? 60))}</span></div>`; }).join('')}</div>
         <div class="note">${tr('Valores centrados en 60: por encima suman, por debajo restan. Cada técnica usa las estadísticas de su futbolista. Lo propio llega a 99; con un Aura, hasta {EFFECTIVE_STAT_MAX}.', { EFFECTIVE_STAT_MAX })}</div><div class="bars-mini">${Object.entries(eff).map(([k, v]) => `<span>${statNames[k] ?? k}</span><i style="width:${Math.min(100, v / EFFECTIVE_STAT_MAX * 100)}%"></i>`).join('')}</div>${d.statsSource === 'derivado' ? `<div class="note">${tr('Estadísticas estimadas por posición y rareza: las de IE3 aún no se han descifrado.')}</div>` : ''}`; })() : ''}
+      </div></div>`;
+  }
+
+  // ------------------------------------------------------------- 3.0 Altar de la Piedra Alius
+  /** the Piedra Alius art (the author's sprite, tools/alius_assets.py); a drawn fallback while the file is missing */
+  private stoneIcon(size = 20) {
+    const src = this.m.alius?._piedra?.head;
+    return src ? `<img class="al-stone" src="${src}" alt="" style="width:${size}px;height:${size}px">` : `<span class="al-stone al-stone-fb" style="width:${size}px;height:${size}px">${uiIcon('star')}</span>`;
+  }
+  /** portrait of an Alius by key: his bodyshot (or Lina's head) */
+  private aliusMug(a: AliusDef, size: number) {
+    if (a.id !== undefined) return this.mug(a.id, size);
+    const art = this.m.alius?.[a.key];
+    return `<span class="mug al-mug" style="width:${size}px;height:${size}px;background-image:url(${art?.head ?? ''});background-size:100% 100%"></span>`;
+  }
+  /** portrait of the original: the footballer's mugshot, or Lina's profile portrait */
+  private originalMug(a: AliusDef, size: number) {
+    if (a.base !== undefined) return this.mug(a.base, size);
+    const c = this.m.profile?.coaches?.find((x) => x.index === 1076);
+    return `<span class="mug" style="width:${size}px;height:${size}px;background-image:url(${c?.texture ?? ''});background-size:100% 100%"></span>`;
+  }
+  private aliusStatusLabel(st: AliusStatus) {
+    return ({ 'sin-original': tr('Falta el original'), 'sin-piedras': tr('Faltan Piedras Alius'), disponible: tr('¡Disponible!'), desbloqueado: tr('Desbloqueado') } as Record<AliusStatus, string>)[st];
+  }
+  private aliusSel = 'kira';
+  aliusAltar(key?: string) {
+    setMusicContext('collection');
+    if (key && ALIUS_BY_KEY.has(key)) this.aliusSel = key;
+    const a = ALIUS_BY_KEY.get(this.aliusSel) ?? ALIUS[0];
+    const stones = aliusStones(this.save), cost = ALIUS_CONFIG.unlockCost;
+    const st = aliusStatus(this.save, this.m.roster, a), orig = originalOk(this.save, this.m.roster, a);
+    const base = a.base !== undefined ? this.byId.get(a.base) : undefined;
+    const def = ALIUS_PASSIVES[a.passive];
+    const res = resonanceState(this.save);
+    const techs = base ? base.techniques : [];
+    const card = (x: AliusDef) => {
+      const s2 = aliusStatus(this.save, this.m.roster, x);
+      return `<button class="al-card st-${s2}${x.key === a.key ? ' sel' : ''}" data-alk="${x.key}"><span class="al-card-art">${this.aliusMug(x, 64)}</span>
+        <b>${esc(x.baseName.trim())}</b><small>${esc(x.title)}</small><em class="al-chip st-${s2}">${s2 === 'desbloqueado' ? '✔ ' : s2 === 'sin-original' ? uiIcon('lock') : ''}${esc(this.aliusStatusLabel(s2))}</em></button>`;
+    };
+    const devStones = import.meta.env.DEV && location.hostname !== 'localhost'; // pruebas: never on the author's localhost save
+    this.show(`<div class="screen al-screen">${this.titlebar('Altar de la Piedra Alius', 'Menú')}
+      <div class="al-hero"><i class="al-glow"></i><div class="al-hero-tx"><small>${tr('PIEDRA ALIUS')}</small><b>${tr('ALTAR DE LA PIEDRA ALIUS')}</b>
+        <p>${tr('El poder de la Piedra Alius corrompe para siempre a algunos futbolistas: versiones oscuras con su propia pasiva. El original sigue en tu colección.')}</p></div>
+        <div class="al-purse"><span class="al-purse-n">${this.stoneIcon(34)}<b>${stones}</b></span><small>${tr('Piedras Alius')}</small>
+          <span class="al-purse-sub">${tr('{n} de {total} transformaciones', { n: unlockedCount(this.save), total: ALIUS.length })}</span>
+          ${devStones ? `<button class="btn small" id="aldev" title="Solo en desarrollo">+10 (pruebas)</button>` : ''}</div></div>
+      <div class="panel al-sel st-${st}">
+        <div class="al-duo"><div class="al-from">${this.originalMug(a, 112)}<small>${tr('ORIGINAL')}</small></div><i class="al-arrow">»</i>
+          <div class="al-to${st === 'desbloqueado' ? ' on' : ''}">${this.aliusMug(a, 112)}<small>${tr('ALIUS')}</small></div></div>
+        <div class="al-info"><small class="al-title">${esc(a.title)}</small><h3>${esc(a.baseName.trim())} <span class="al-tag">Alius</span>${base ? ` ${this.rar(base)} ${this.elem(base)}` : ` <span class="al-tag coach">${tr('Entrenadora')}</span>`}</h3>
+          <div class="al-passive"><b>${esc(def.name)}</b><p>${esc(passiveTextAt(def))}</p>
+            ${a.coach ? `<p class="note">${tr('Funciona solo desde el banquillo de entrenador.')}</p>` : `<p class="note">${tr('Como Aura: {x1} de su efecto. En el banquillo no actúa.', { x1: `${Math.round(ALIUS_CONFIG.slotScale.aura * 100)}%` })}</p>`}</div>
+          ${base ? `<div class="al-techs"><small>${tr('Supertécnicas conservadas del original')}</small><div>${techs.map((t) => `<span class="al-tech" style="--ec:${ELEMENT_COLOR[t.element ?? ''] ?? '#8a9bbd'}">${elementIcon(t.element, 12)}${esc(tTech(t.name))}</span>`).join('')}</div>
+            <p class="note">${tr('Mismas estadísticas, elemento, técnicas y progreso que {x1}: lo que mejores en el original, lo tiene el Alius.', { x1: esc(a.baseName.trim()) })}</p></div>` : ''}
+          <div class="al-req"><span class="${orig.ok ? 'ok' : 'bad'}">${orig.ok ? '✔' : '✘'} ${esc(orig.label)}</span>
+            <span class="${stones >= cost ? 'ok' : 'bad'}">${stones >= cost ? '✔' : '✘'} ${this.stoneIcon(14)} ${tr('{cost} Piedras Alius (tienes {stones})', { cost, stones })}</span></div>
+          ${st === 'desbloqueado' ? `<p class="al-done">${tr('✔ Transformación desbloqueada')}</p>${a.id !== undefined ? `<button class="btn blue" data-alcard="${a.id}">${tr('Ver su ficha')}</button>` : `<button class="btn blue" id="alcoach">${tr('Ir a Entrenadores')}</button>`}`
+            : `<button class="btn big al-go" id="alunlock" ${st === 'disponible' ? '' : 'disabled'}>${this.stoneIcon(18)} ${tr('Corromper por {cost}', { cost })}</button>`}</div></div>
+      <div class="panel al-res${res.on ? ' on' : ''}"><b>${tr('RESONANCIA ALIUS')}</b> <span>${tr('{n}/3 Alius en tu equipo', { n: res.n })}</span>
+        <p class="note">${tr('Con exactamente tres futbolistas Alius equipados (titulares, banquillo y Auras; la entrenadora no cuenta) y al menos uno en el campo, sus ataques hacen un {x1} más. Máximo {max} Alius en el equipo.', { x1: `${Math.round(ALIUS_CONFIG.resonanceDamage * 100)}%`, max: ALIUS_CONFIG.maxEquipped })}</p></div>
+      <div class="al-grid">${ALIUS.map(card).join('')}</div></div>`);
+    this.on('[data-back]', 'click', () => this.mainMenu());
+    this.on('[data-alk]', 'click', (_e, el) => { sfx('click'); this.aliusAltar(el.dataset.alk); });
+    this.on('[data-alcard]', 'click', (_e, el) => this.collection(Number(el.dataset.alcard)));
+    document.getElementById('alcoach')?.addEventListener('click', () => this.coachesScreen());
+    document.getElementById('aldev')?.addEventListener('click', () => { this.save.alius = { ...(this.save.alius ?? { unlocked: [] }), stones: aliusStones(this.save) + 10 }; this.persist(); this.aliusAltar(); });
+    const btn = document.getElementById('alunlock');
+    if (btn) btn.addEventListener('click', () => this.armed(btn, () => this.unlockAliusNow(a)));
+  }
+  /** the transformation: checked and paid at once; a save that can't be written is undone (no stone lost) */
+  private unlockAliusNow(a: AliusDef) {
+    const r = unlockAlius(this.save, a.key, originalOk(this.save, this.m.roster, a).ok);
+    if (!r.ok) { this.toast(r.why, 3500); sfx('error'); return; }
+    syncActiveSquad(this.save);
+    if (!storeSave(this.save)) { undoUnlock(this.save, a.key); this.toast(tr('No se pudo guardar: no se ha gastado ninguna piedra.'), 4000); sfx('error'); return; }
+    void this.pushCloud();
+    this.aliusRite(a);
+  }
+  /** a short corruption scene with the two portraits (CSS only: no new art) */
+  private aliusRite(a: AliusDef) {
+    const box = document.createElement('div');
+    box.className = 'al-rite';
+    box.innerHTML = `<i class="al-rite-rays"></i><div class="al-rite-mugs"><span class="al-rite-from">${this.originalMug(a, 160)}</span><span class="al-rite-to">${this.aliusMug(a, 160)}</span></div>
+      <small>${tr('¡TRANSFORMACIÓN ALIUS!')}</small><b>${esc(a.baseName.trim())} · ${esc(a.title)}</b><em>${esc(ALIUS_PASSIVES[a.passive].name)}</em>`;
+    document.body.appendChild(box);
+    sfx('boom');
+    window.setTimeout(() => sfx('legend'), 900);
+    if (this.save.settings.particles !== 'desactivado') window.setTimeout(() => confetti(24), 950);
+    const close = () => { box.classList.add('out'); window.setTimeout(() => box.remove(), 350); this.aliusAltar(a.key); };
+    const t = window.setTimeout(close, 2600);
+    box.addEventListener('click', () => { window.clearTimeout(t); close(); });
+  }
+  /** an Alius footballer's card: his own portrait, title and passive; his progress is his original's (no upgrade buttons) */
+  private aliusDetail(d: RosterEntry) {
+    const a = ALIUS_BY_ID.get(d.id)!, base = this.byId.get(a.base!)!;
+    const def = ALIUS_PASSIVES[a.passive];
+    const st = this.statsOf(d);
+    const statNames: Record<string, string> = { kick: 'Tiro', body: 'Físico', guard: 'Defensa', control: 'Control', speed: 'Velocidad', guts: 'Agallas', stamina: 'Aguante' };
+    return `<div class="panel detail al-detail r-${d.rarity}" style="--rc:${RARITY_COLOR[d.rarity]}"><div class="art">${this.mug(d.id, 128)}${charCanvas(d.id, 3, 12)}</div><div>
+      <small class="al-title">${esc(a.title)}</small>
+      <h3>${esc(d.name)} ${this.rar(d)} ${this.elem(d)}</h3>
+      <div class="note">${tr('Versión Alius de {x1} · {x2}', { x1: esc(base.name), x2: POS_LABEL[d.position] ?? d.position })}</div>
+      <div class="al-passive"><b>${esc(def.name)}</b><p>${esc(passiveTextAt(def))}</p><p class="note">${tr('Como Aura: {x1} de su efecto.', { x1: `${Math.round(ALIUS_CONFIG.slotScale.aura * 100)}%` })}</p></div>
+      <p class="note">${tr('Juega con el progreso de {x1} (estrellas, ascensión, HÉROE, entrenamiento y técnicas compradas): mejóralo a él.', { x1: esc(base.name) })}</p>
+      <p><button class="btn small blue" data-alorig="${base.id}">${tr('Ver a {x1}', { x1: esc(base.name) })}</button> <button class="btn small" data-altar="${a.key}">${tr('Altar Alius')}</button></p>
+      <h3 style="margin-top:8px">${tr('Supertécnicas (las del original)')}</h3>
+      ${d.techniques.map((t) => `<div class="rep">${this.techHtml(t)}</div>`).join('')}
+      ${st ? `<h3 style="margin-top:8px">${tr('Estadísticas · media {statMean}', { statMean: statMean(st) })}</h3><div class="bars-mini">${Object.entries(st).map(([k, v]) => `<span>${statNames[k] ?? k}</span><i style="width:${Math.min(100, v / EFFECTIVE_STAT_MAX * 100)}%"></i><b>${v}</b>`).join('')}</div>` : ''}
       </div></div>`;
   }
 
@@ -7235,7 +7378,10 @@ export class App {
     const items: Pick[] = tab === 'emblem'
       ? (this.m.profile?.emblems ?? []).map((e) => ({ id: e.teamId!, html: `<img src="${e.texture}" alt="">`, label: e.name, ok: emblemUnlocked(this.save, e), why: tr('Reclama el escudo en la Enciclopedia (3 futbolistas del equipo)') }))
         .sort((a, b) => Number(b.ok) - Number(a.ok))
-      : tab === 'coach' ? (this.m.profile?.coaches ?? []).map((e, k) => { const r = coachRequirement(this.save, this.m.roster, k); return { id: e.index!, html: `<img src="${e.texture}" alt="">`, label: e.name, ok: r.ok, why: r.label }; })
+      : tab === 'coach' ? [...(this.m.profile?.coaches ?? []).map((e) => { const r = coachRequirement(this.save, this.m.roster, e.index!); return { id: e.index!, html: `<img src="${e.texture}" alt="">`, label: e.name, ok: r.ok, why: r.label }; }),
+        // (author) the coaches of the machines, only once owned; the ones not out yet (Destin, Tampo before his event) don't show
+        ...machineCoachIcons(this.save, +serverNow()).flatMap(({ coach, icon, ok, why }) => { const t = this.m.coaches?.find((c) => c.id === coach.id)?.texture; return t ? [{ id: icon, html: `<img src="${t}" alt="">`, label: coach.name, ok, why }] : []; })]
+          .sort((a, b) => Number(b.ok) - Number(a.ok))
         : this.unlockedRoster().map((p) => ({ id: p.id, html: this.mug(p.id, 48), label: p.name, ok: true, why: '' }));
     const got = items.filter((x) => x.ok).length;
     const st = this.save.stats;
@@ -7458,6 +7604,8 @@ export class App {
       manifest: this.m, map, team: runTeam, unlocked: runUnlocked, auras: runAuras, stars, settings: this.save.settings,
       perks: (() => { const e = applyGear(perkEffects(this.save), this.save, this.gear); kitBonus(this.save.kit, this.m.roster).apply(e); applyCoachPerks(this.benchCoach(), e); return e; })(),
       coach: coachRun(this.benchCoach(), runTeam.map((p) => p.id)), // pre-2.0: his formation and element; 2.9: Tampo counts the pitch
+      // 3.0: the Piedra Alius passives of the squad (pitch at 100 %, Auras through their carriers) and Lina from the bench
+      alius: aliusRun(this.save, [...new Set([...team, ...candidates].map((p) => p.id))], this.save.auras ?? {}, this.save.coaches?.bench),
       // 2.1: the season pass's Llave dorada (×2 in co-op), only while a season is open and the key isn't owned
       goldKey: training ? undefined : { chance: goldKeyChance(this.save, serverNow(), !!coop), texture: this.m.pase?.dorada ?? null },
       sector: this.runSector, // 2.2
@@ -7812,7 +7960,8 @@ export class App {
     const alt = document.getElementById('altar')!;
     this.renderEvent(s, alt);
     const labels: Record<string, string> = { escudo: 'Escudo', xp: tr('Exp ×2'), dano: tr('Daño +50%'), recarga: tr('Recarga -40%'), velocidad: tr('Velocidad +30%') };
-    document.getElementById('buffs')!.innerHTML = s.buffs.map((b) => `<span class="buff b-${b.id}"><i style="width:${b.left / b.total * 100}%"></i>${b.label ?? labels[b.id] ?? DROPS.find((d) => d.id === b.id)?.label ?? ''}</span>`).join('');
+    document.getElementById('buffs')!.innerHTML = s.buffs.map((b) => `<span class="buff b-${b.id}"><i style="width:${b.left / b.total * 100}%"></i>${b.label ?? labels[b.id] ?? DROPS.find((d) => d.id === b.id)?.label ?? ''}</span>`).join('')
+      + (s.alius ?? []).map((b) => `<span class="buff b-alius"><i style="width:${Math.min(1, b.left / b.total) * 100}%"></i>${esc(b.label)}</span>`).join(''); // 3.0
     document.getElementById('hurt')!.classList.toggle('on', this.save.settings.flashes && s.now - s.hurtAt < 0.12);
     if (s.formationChangedAt > 0 && s.formationChangedAt !== this.lastBannerAt) {
       this.lastBannerAt = s.formationChangedAt;
@@ -8206,6 +8355,9 @@ export class App {
     const evTokens = thanksTokens(r.rank, tokenTotal, serverNow()); // 1.75: Rango S / X while the Banner de agradecimiento is open
     addThanksTokens(this.save, evTokens);
     if (r.victory) recordBluelockWin(this.save, serverNow()); // (author) 3 wins while it is open: the BlueLock banner
+    if (r.victory) recordSendokaiWin(this.save, serverNow()); // 2.9: and the Desafío Sendokai one
+    // 3.0: Piedras Alius for a won arena (by rank, a daily cap; never in the Juegos del Clan or training)
+    const aliusGot = this.clanMatch || this.lastRunTraining ? 0 : awardAliusStones(this.save, r, dayKey(new Date(serverNow())));
     const cap = this.byId.get(r.teamIds?.[0] ?? -1);
     r.captainEra = cap ? eraOf(cap) : undefined;
     r.favoriteOnPitch = (r.teamIds ?? []).filter((id) => this.save.favoriteTeam && this.byId.get(id)?.teams.includes(this.save.favoriteTeam)).length;
@@ -8268,7 +8420,8 @@ export class App {
       ${trainTotal ? `<table class="rewards trn">${training.map((x, i) => `<tr class="rrow" style="--d:${1000 + i * 110}ms"><td>${esc(x.label)}</td><td>+${x.coins}</td></tr>`).join('')}
         <tr class="rrow total" style="--d:${1000 + training.length * 110}ms"><td><b>${tr('Fichas de entrenamiento')}</b></td><td><b>+${trainTotal}</b></td></tr></table>` : ''}
       ${eg.length ? `<table class="rewards egr">${eg.map((x, i) => `<tr class="rrow" style="--d:${1100 + i * 110}ms"><td>${esc(x.label)}</td><td>+${x.coins}</td></tr>`).join('')}
-        <tr class="rrow total" style="--d:${1100 + eg.length * 110}ms"><td><b>${tr('{egIcon} Fichas EG', { egIcon: this.egIcon(14) })}</b></td><td><b>+${eg.reduce((a, x) => a + x.coins, 0)}</b></td></tr></table>` : ''}</div>
+        <tr class="rrow total" style="--d:${1100 + eg.length * 110}ms"><td><b>${tr('{egIcon} Fichas EG', { egIcon: this.egIcon(14) })}</b></td><td><b>+${eg.reduce((a, x) => a + x.coins, 0)}</b></td></tr></table>` : ''}
+      ${aliusGot ? `<table class="rewards alr"><tr class="rrow total" style="--d:1200ms"><td><b>${this.stoneIcon(14)} ${tr('Piedras Alius')}</b></td><td><b>+${aliusGot}</b></td></tr></table>` : ''}</div>
       <div class="result-wallet"><span class="tokens">${this.save.tokens - tokenTotal}</span><span class="coins">${this.save.coins - total}</span></div>
       <p class="note">${tr('Colección: {owned} de {rosterLength} futbolistas · Una tirada cuesta {PULL_COST} fichas', { owned, rosterLength: this.m.roster.length, PULL_COST })}</p>
       ${pending ? `<p class="newtag">${tr('¡Tienes {pending} {x1} por cobrar!', { pending, x1: pending === 1 ? 'misión' : 'misiones' })}</p>` : ''}

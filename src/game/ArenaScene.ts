@@ -1,3 +1,4 @@
+import { AliusEngine, type AlMarks, type AliusRunCfg } from './aliusEngine';
 import Phaser from 'phaser';
 import type { Manifest, MapInfo, RosterEntry, Technique, UnitInfo } from '../data/manifest';
 import { Footballer, bodyKey, headKey } from './Footballer';
@@ -97,6 +98,8 @@ export interface HudState {
   kills: number; team: HudMember[]; boss: { name: string; hp: number; maxHp: number; title: string; phase: number; rival: boolean } | null;
   rerolls: number; formation: FormationId; formationChangedAt: number; hurtAt: number; healAt?: number; now: number;
   buffs: { id: BuffId; left: number; total: number; label?: string }[];
+  /** 3.0: the Piedra Alius team states (Resonancia, barrier, protections, charges) */
+  alius?: { label: string; left: number; total: number }[];
   runCoins: number; runTokens: number; shield: number;
   resonance: { element: string; bonus: number }[];
   /** Fix 1.31: every team synergy with its progress (synergy.ts), for the big HUD panel */
@@ -189,6 +192,8 @@ export interface ArenaInit {
   record?: { kit: string | null; version: string };
   /** 2.2: the Sector Quinto event (sector.ts sectorRun): decrees by element, damage taken, tougher rivals, SEED */
   sector?: SectorRun | null;
+  /** 3.0: the Piedra Alius passives of this run (systems/alius.ts aliusRun; game/aliusEngine.ts) */
+  alius?: AliusRunCfg;
 }
 
 /** v1.6: what the training field puts on the pitch: each footballer's active techniques with their levels, and combos */
@@ -240,6 +245,8 @@ interface Enemy {
   curseUntil?: number;
   /** 2.2: a SEED of the Sector Quinto: the Sector's logo over its head and a blue ring at its feet */
   seed?: { logo?: Phaser.GameObjects.Image; ring: Phaser.GameObjects.Ellipse };
+  /** 3.0: Alius slows, marks and stacks on this rival (aliusEngine.ts); they go with it */
+  al?: AlMarks;
 }
 
 /** width in radians of the opening of a shock wave */
@@ -258,6 +265,8 @@ interface Projectile {
   level: number; explode: boolean; scale: number; targetY?: number; phase: number; dragon: boolean; recipe: Recipe; blast: number; exploded?: boolean;
   /** Fix 1.53: La Tierra's comets leave a streak of light instead of the element trail */
   comet?: boolean;
+  /** 3.0: whose shot it is (the Alius passives count his hits); none for combined techniques */
+  owner?: Member;
 }
 /** x/y is the real position; the image only adds a bob on top while it rests, so nothing fights the pull */
 interface Pickup { id?: number; img: Phaser.GameObjects.Image; kind: 'xp' | 'item'; value: number; drop?: DropDef; pulled: boolean; x: number; y: number; speed: number; born: number }
@@ -342,6 +351,11 @@ export class ArenaScene extends Phaser.Scene {
   /** (author) an ultimate stops the game while its scene plays (performance.now ms) */
   private cineUntil = 0;
   private lure: { x: number; y: number; until: number } | null = null;
+  /** 3.0: the Piedra Alius passives (null without Alius); `hitBy` = the footballer whose attack is landing now, `secondary` =
+   *  a hit made by a passive itself (it never triggers passives again) */
+  private alius: AliusEngine<Enemy, Member> | null = null;
+  private hitBy: Member | null = null;
+  private secondary = false;
   private heading = 0;
   private capVx = 0;
   private capVy = 0;
@@ -453,6 +467,88 @@ export class ArenaScene extends Phaser.Scene {
     if (gk && !this.textures.exists('pase:dorada')) this.load.image('pase:dorada', gk);
   }
 
+  // ------------------------------------------------------------- 3.0 Piedra Alius
+  /**
+   * The Alius engine of this run, and the attribution of hits: an attack's delayed hits (timers and tweens started while a
+   * footballer's technique runs) still count as his, so per-footballer passives see every hit of his own techniques.
+   */
+  private setupAlius() {
+    this.hitBy = null; this.secondary = false;
+    const cfg = this.cfg.alius;
+    this.alius = cfg && (cfg.sources.length || cfg.linaSpeed || cfg.resonance) ? new AliusEngine<Enemy, Member>({
+      runTime: () => this.runTime,
+      enemies: () => this.enemies,
+      members: () => this.members,
+      hp: () => this.hp, maxHp: () => this.maxHp,
+      heal: (n) => this.healBy(n),
+      basic: (m) => this.basicDamage(m),
+      strike: (e, dmg, by, kx = 0, ky = 0) => {
+        const prev = this.secondary, pb = this.hitBy;
+        this.secondary = true; this.hitBy = by;
+        try { this.hit(e, dmg, kx, ky, 'sombra'); } finally { this.secondary = prev; this.hitBy = pb; }
+      },
+      delay: (ms, fn) => { this.time.delayedCall(ms, fn); },
+      rand: () => this.rng.frac(),
+      fx: {
+        ring: (x, y, r, c, ms, w) => this.fx.ring(x, y, r, c, ms, w),
+        label: (x, y, t, c) => this.fx.label(x, y, t, c),
+        line: (x0, y0, x1, y1, c, w) => {
+          const g = this.add.graphics().setDepth(9000);
+          g.lineStyle(w, c, 0.85).lineBetween(x0, y0, x1, y1);
+          g.lineStyle(Math.max(2, w / 3), 0xffffff, 0.7).lineBetween(x0, y0, x1, y1);
+          this.tweens.add({ targets: g, alpha: 0, duration: 320, onComplete: () => g.destroy() });
+        },
+        star: (x0, y0, x1, y1, c, ms) => {
+          const st = this.add.star(x0, y0, 5, 3, 7, c).setDepth(9000);
+          this.tweens.add({ targets: st, x: x1, y: y1, angle: 360, duration: ms, onComplete: () => st.destroy() });
+        },
+        illusion: (m, ms) => this.aliusIllusion(m, ms),
+      },
+    }, cfg) : null;
+    const clock = this.time as Phaser.Time.Clock & { __byWrapped?: boolean };
+    if (!clock.__byWrapped) {
+      clock.__byWrapped = true;
+      const dc = clock.delayedCall.bind(clock);
+      clock.delayedCall = ((delay: number, cb: (...a: unknown[]) => void, args?: unknown[], scope?: unknown) => {
+        const by = this.hitBy;
+        if (!by || typeof cb !== 'function') return dc(delay, cb, args, scope);
+        return dc(delay, (...a: unknown[]) => { const prev = this.hitBy; this.hitBy = by; try { cb.apply(scope ?? this, a); } finally { this.hitBy = prev; } }, args, scope);
+      }) as typeof clock.delayedCall;
+      const tw = this.tweens as Phaser.Tweens.TweenManager & { __byWrapped?: boolean };
+      const add = tw.add.bind(tw);
+      tw.add = ((config: Record<string, unknown>) => {
+        const by = this.hitBy;
+        if (by && config && typeof config === 'object' && !Array.isArray(config)) {
+          for (const k of ['onComplete', 'onUpdate', 'onYoyo', 'onRepeat', 'onStart']) {
+            const fn = config[k];
+            if (typeof fn !== 'function') continue;
+            const scene = this; // eslint-disable-line @typescript-eslint/no-this-alias
+            config[k] = function (this: unknown, ...a: unknown[]) { const prev = scene.hitBy; scene.hitBy = by; try { return (fn as (...x: unknown[]) => unknown).apply(this, a); } finally { scene.hitBy = prev; } };
+          }
+        }
+        return add(config as never);
+      }) as typeof tw.add;
+    }
+  }
+  /** a footballer's basic attack: the damage of his first active (non-talent) technique as it is now */
+  private basicDamage(m: Member) {
+    for (let i = 0; i < m.state.slots.length; i++) { const t = this.activeTech(m, i); if (t && t.type !== 'talento') return this.stats(m, i).damage; }
+    return 10;
+  }
+  /** Mil ilusiones: a see-through violet copy of the footballer that holds still where the rivals are lured */
+  private aliusIllusion(m: Member, ms: number) {
+    const body = this.cfg.manifest.bodies[m.entry.body] ?? this.cfg.manifest.bodies.field;
+    if (!body || !this.textures.exists(headKey(m.entry.id))) return;
+    const side = this.rng.frac() < 0.5 ? -40 : 40;
+    const clone = new Footballer(this, m.entry, body, m.f.x + side, m.f.y);
+    clone.dir = m.f.dir; clone.update(0);
+    for (const o of clone.container.list as Phaser.GameObjects.Sprite[]) o.setTint(0x8a5aff);
+    clone.container.setAlpha(0).setDepth(m.f.y);
+    const ring = this.add.ellipse(m.f.x + side, m.f.y, 30, 12, 0x6a3aff, 0.35).setDepth(m.f.y - 1);
+    this.tweens.add({ targets: clone.container, alpha: 0.6, duration: 180 });
+    this.time.delayedCall(ms, () => this.tweens.add({ targets: [clone.container, ring], alpha: 0, duration: 260, onComplete: () => { clone.destroy(); ring.destroy(); } }));
+  }
+
   create() {
     const { map, settings } = this.cfg;
     this.game.events.once(Phaser.Core.Events.POST_RENDER, () => this.cfg.hooks.ready?.()); // the loading screen goes once the pitch is drawn
@@ -460,6 +556,7 @@ export class ArenaScene extends Phaser.Scene {
     this.arena.build();
     this.fx = new Fx(this, { ...settings }); // a copy: adaptive quality must not change the saved settings
     this.fx.combo.onRank = (r) => this.comboUltCharge(r); // 2.0: bursts charge the ultimate a little
+    this.setupAlius();
     setLowPower(false); setNatureLowPower(false); this.lowFps = 0; this.synergySeen.clear();
     this.xp = Math.floor(this.xpNext() * this.cfg.perks.startXpFrac); // «Ventaja inicial»
     this.cameras.main.setBounds(0, 0, this.arena.widthPx, this.arena.heightPx).setZoom(this.zoomFor()).setBackgroundColor(map.ambience);
@@ -740,6 +837,7 @@ export class ArenaScene extends Phaser.Scene {
       this.moveTeam(dt);
       this.runTechniques(dt);
       this.runCombos(dt);
+      this.alius?.tick(dt); // 3.0
     }
     this.updateProjectiles(dt);
     if (this.coop?.role !== 'guest') this.spawn(dt); // the guest's rivals are the host's
@@ -877,7 +975,7 @@ export class ArenaScene extends Phaser.Scene {
     this.members.slice(1).forEach((m) => {
       const fc = m.f.container;
       if (m.dash) {
-        this.updateDash(m, dt);
+        this.hitBy = m; this.updateDash(m, dt); this.hitBy = null; // 3.0: his dribble's hits are his
         m.f.update(dt);
         m.vx = m.vy = 0;
         return;
@@ -946,11 +1044,16 @@ export class ArenaScene extends Phaser.Scene {
         if (this.runTime >= m.windup.until) {
           const i = m.windup.i;
           m.windup = null;
+          this.hitBy = m; // 3.0: his shot's hits are his
           this.fireShot(m, i, ox, oy);
+          this.hitBy = null;
         }
         continue;
       }
-      m.state.slots.forEach((_, i) => this.castSlot(m, i, dt, ox, oy));
+      const mdt = dt * (this.alius?.attackSpeed(m) ?? 1); // 3.0: Lina Schiller Alius
+      this.hitBy = m;
+      m.state.slots.forEach((_, i) => this.castSlot(m, i, mdt, ox, oy));
+      this.hitBy = null;
     }
     if (this.ultWanted !== false && this.castUlt()) this.ultWanted = false;
   }
@@ -1061,6 +1164,7 @@ export class ArenaScene extends Phaser.Scene {
       const elementKey = t.element ?? 'neutro';
       this.techUses[elementKey] = (this.techUses[elementKey] ?? 0) + 1;
       if (t.aura !== undefined) this.auraTechUses++;
+      this.alius?.onAttack(m); // 3.0
     };
     if (/colmillo de pantera/i.test(t.name)) {
       // signature move, deliberately strong: lunges at the closest rival and bites everything in a wide area
@@ -2177,7 +2281,7 @@ export class ArenaScene extends Phaser.Scene {
         else if (def.effect === 'equipo-definitivo') { if (off === 0) ultimateElevenShot(this, ball, level); else { ball.setVisible(false); aura.setVisible(false); } }
         else if (def.effect === 'escena-nocturna') { nocturneShot(this, ball, level); aura.setVisible(false); }
         else if (lastResort) { lastResortShot(this, lastResort, ball, level); aura.setVisible(false); }
-        this.projectiles.push({ ball, aura, x: mx, y: my, vx: Math.cos(ang) * speed, vy: Math.sin(ang) * speed, t: 0,
+        this.projectiles.push({ owner: this.hitBy ?? undefined, ball, aura, x: mx, y: my, vx: Math.cos(ang) * speed, vy: Math.sin(ang) * speed, t: 0,
           traj: twin ? 'espiral' : 'recta' as Trajectory, style: twin && off > 0 ? 'hielo' : style,
           // 1.76: Big Bang explodes on the first rival it touches, over the area its explosion is drawn on (it pierced
           // 5-9 rivals first and hit only 46-70 px round the blast, so it rarely seemed to hit in an area)
@@ -2210,7 +2314,7 @@ export class ArenaScene extends Phaser.Scene {
       const ang = aim + (k / n) * Math.PI * 2, speed = 240;
       const aura = this.add.circle(cx, cy, 7 * scale, 0x9fdcff, 0.45).setDepth(8900).setBlendMode(Phaser.BlendModes.ADD);
       const ball = this.add.image(cx, cy, cometTex(this)).setScale(scale * 0.7).setDepth(8901);
-      this.projectiles.push({ ball, aura, x: cx, y: cy, vx: Math.cos(ang) * speed, vy: Math.sin(ang) * speed, t: 0, traj: 'recta', style: 'hielo',
+      this.projectiles.push({ owner: this.hitBy ?? undefined, ball, aura, x: cx, y: cy, vx: Math.cos(ang) * speed, vy: Math.sin(ang) * speed, t: 0, traj: 'recta', style: 'hielo',
         damage, pierce, life: 1300, hits: new Set(), knock: 110, level, explode: true, scale, phase: k, dragon: false, recipe, blast: 26 + level * 3, comet: true });
     }
   }
@@ -2225,6 +2329,7 @@ export class ArenaScene extends Phaser.Scene {
     m.cds[i] = s.cooldownMs;
     m.maxCd[i] = s.cooldownMs;
     if (!target) return;
+    this.alius?.onAttack(m); // 3.0: a shot is one attack
     this.coop?.shot({ name: t.name, element: t.element === null || t.element === undefined ? null : String(t.element), power: t.power ?? 0, rarity: this.fxRarity(m.entry), x: Math.round(ox), y: Math.round(oy), tx: Math.round(target.pos.x), ty: Math.round(target.pos.y - 12), lv });
     this.rec?.event(this.runTime, { k: 'shot', n: t.name, e: t.element === null || t.element === undefined ? null : String(t.element), p: t.power ?? 0, r: this.fxRarity(m.entry), x: Math.round(ox), y: Math.round(oy), tx: Math.round(target.pos.x), ty: Math.round(target.pos.y - 12), lv });
     const style = m.styles[i];
@@ -2324,7 +2429,7 @@ export class ArenaScene extends Phaser.Scene {
       if (s189 && k === 0) solo189Shot(this, s189, ball, lv);
       // Fix 1.51: Big Bang always explodes, over twice the usual area (its explosion fills the screen)
       const bigBang = anime === 'bigbang';
-      this.projectiles.push({ ball, aura, x, y, vx, vy, t: 0, traj, style, damage: s.damage, pierce: bigBang ? 0 : s.pierce, life: 1500,
+      this.projectiles.push({ owner: this.hitBy ?? undefined, ball, aura, x, y, vx, vy, t: 0, traj, style, damage: s.damage, pierce: bigBang ? 0 : s.pierce, life: 1500,
         hits: new Set(), knock: s.knockback, level: lv, explode: bigBang || big || s.explodes || recipe.tier >= 2, scale, targetY, phase: k * 1.7,
         dragon: recipe.id === 'dragon', recipe, blast: bigBang ? Math.max(140, s.radius * 2.4 + 30) : s.radius }); // 1.76: Big Bang bursts on the first rival
     }
@@ -2374,6 +2479,7 @@ export class ArenaScene extends Phaser.Scene {
 
   private updateProjectiles(dt: number) {
     for (const p of this.projectiles) {
+      this.hitBy = p.owner ?? null; // 3.0: the shot's hits are its kicker's
       p.life -= dt;
       p.t += dt / 1000;
       p.x += p.vx * dt / 1000;
@@ -2428,6 +2534,7 @@ export class ArenaScene extends Phaser.Scene {
     this.projectiles = this.projectiles.filter((p) => {
       if (p.life > 0) return true;
       if (p.explode && !p.exploded) this.explode(p, p.ball.x, p.ball.y, false); // a spent shot still lands its finish
+      this.hitBy = null;
       p.ball.destroy();
       p.aura.destroy();
       return false;
@@ -2595,6 +2702,8 @@ export class ArenaScene extends Phaser.Scene {
       const bd = (cap.x - e.pos.x) ** 2 + (cap.y - e.pos.y) ** 2;
       const pc = this.coop?.partnerCaptain(); // pre-2.0: the partner's captain when he is closer (or the host is down)
       if (pc && (this.down || (pc.x - e.pos.x) ** 2 + (pc.y - e.pos.y) ** 2 < bd)) { tx = pc.x; ty = pc.y; }
+      const lured = this.alius?.lure(e); // 3.0: Mil ilusiones
+      if (lured) { tx = lured.x; ty = lured.y; }
       const chasing = tx !== cap.x || ty !== cap.y;
       const target: Member = this.members[0];
       const guarded = this.members[0].guardUntil > this.runTime && bd < (12 + e.radius) ** 2; // the captain's dribble
@@ -2612,6 +2721,7 @@ export class ArenaScene extends Phaser.Scene {
         [fx, fy] = norm(tx + this.capVx * 0.8 * lead + -fy * e.side! * 70 - e.pos.x, ty + this.capVy * 0.8 * lead + fx * e.side! * 70 - e.pos.y);
       }
       if (e.variant === 'shooter' && dist < 110) { fx = -fx * 0.7; fy = -fy * 0.7; }
+      if (this.alius?.confused(e)) [fx, fy] = [-fy, fx]; // 3.0: Máscara fantasma, it wanders off sideways
       const held = this.freezeUntil <= this.runTime && (e.variant === 'shooter' || e.variant === 'bomber') && this.rivalBehaviour(e, dist, dt);
       if (e.dead) continue;
       if (e.poison && e.poison.until > this.runTime) {
@@ -2619,7 +2729,7 @@ export class ArenaScene extends Phaser.Scene {
         if (e.poison.acc >= 1) { const v = Math.floor(e.poison.acc); e.poison.acc -= v; this.hit(e, v, 0, 0, 'tierra'); if (e.dead) continue; }
       }
       const webbed = (e.webUntil ?? 0) > this.runTime && e.kind !== 'boss'; // bosses tear the web: only slowed
-      const spd = this.freezeUntil > this.runTime || held || webbed ? 0 : e.speed * (e.slowUntil > this.runTime ? 0.6 : 1);
+      const spd = this.freezeUntil > this.runTime || held || webbed ? 0 : e.speed * (e.slowUntil > this.runTime ? 0.6 : 1) * (this.alius?.speedMul(e) ?? 1); // 3.0: Alius slows, capped
       if (this.lure && this.lure.until > this.runTime) { tx = this.lure.x; ty = this.lure.y; }
       this.arena.move(e.sprite, (fx * spd + e.knockX) * dt / 1000, (fy * spd + e.knockY) * dt / 1000, 4);
       e.knockX *= 0.86; e.knockY *= 0.86;
@@ -2666,12 +2776,19 @@ export class ArenaScene extends Phaser.Scene {
     taken *= this.formationTactic().taken;
     if (this.cfg.coach?.formation?.id === this.formation) taken *= 1 - this.cfg.coach.formation.taken; // pre-2.0: his formation
     if (this.cfg.sector) taken *= this.cfg.sector.takenMult; // 2.2: an accepted «muro» decree
+    if (this.alius) taken *= this.alius.takenMult(); // 3.0: Mano demoníaca, Eclipse protector, Fortaleza negra (capped together)
     this.invulnUntil = this.runTime + 0.3;
     const gloves = this.members.some((m) => m.entry.position === 'GK') ? 1 - this.cfg.perks.gloveReduction : 1;
     const scaled = raw * capTaken((1 - shield) * gloves * statTaken(target.entry) * (1 + this.talents().taken) * this.cfg.perks.damageTakenMult * (this.buffOn('escudo') ? 1 - SHIELD_REDUCTION : 1)) * taken;
     // Fix 1.31: flat negation (Blindaje + Equipación reforzada), never more than half of the hit
     const flat = Math.min((this.cfg.perks.flatArmor ?? 0) + this.mods.armor, scaled * 0.5);
-    const dmg = Math.max(1, Math.round(scaled - flat));
+    let dmg = Math.max(1, Math.round(scaled - flat));
+    if (this.alius) { // 3.0: Muro carmesí's barrier takes what it can, then the passives that answer a hit
+      const left = Math.round(this.alius.absorb(dmg));
+      if (left < dmg && this.cfg.settings.damageNumbers) this.fx.label(target.f.x, target.f.y - 44, tr('¡Muro! -{x1}', { x1: dmg - left }), '#ff4d6d');
+      dmg = left;
+      this.alius.afterHurt(dmg);
+    }
     this.hp -= dmg;
     this.hurtAt = this.runTime;
     this.lastHit = { ...src, dmg, at: this.runTime };
@@ -3171,6 +3288,8 @@ export class ArenaScene extends Phaser.Scene {
 
   private hit(e: Enemy, dmg: number, kx: number, ky: number, style: FxStyle, crit = false) {
     if (e.dead) return;
+    const by = this.alius && !this.secondary ? this.hitBy : null; // 3.0: a passive's own hits never trigger passives
+    if (by) dmg *= this.alius!.damageMult(by, e);
     const p = this.cfg.perks;
     const tf = this.talents();
     if (this.rng.frac() < capCrit(p.critChance + tf.crit)) { dmg *= 1.8 + Math.min(1.2, tf.critDamage); crit = true; }
@@ -3212,7 +3331,8 @@ export class ArenaScene extends Phaser.Scene {
       sfx('crit');
     } else sfx('hit');
     if (crit && v >= 60 || e.kind === 'boss' && v >= 80) this.hitstop(e.kind === 'boss' ? 70 : 45);
-    if (e.hp <= 0) this.kill(e, style);
+    if (by && this.members.includes(by)) this.alius!.onHit(by, e, v); // 3.0
+    if (e.hp <= 0 && !e.dead) { this.kill(e, style); if (by && this.members.includes(by)) this.alius!.onKill(by, e); }
   }
 
   /**
@@ -3962,6 +4082,7 @@ export class ArenaScene extends Phaser.Scene {
         rival: this.altarRival ? { id: this.altarRival.entry?.id ?? null, name: this.altarRival.unit.name, team: this.altarRival.entry?.teams[0] ?? '' } : null, progress: this.altar.progress, goal: this.altar.goal,
         timeLeft: this.altar.timeLeft, dist: Math.round(Math.hypot(this.altar.x - this.members[0].f.x, this.altar.y - this.members[0].f.y) / 32) } : null,
       buffs: [...this.buffs].filter(([, b]) => b.until > this.runTime).map(([id, b]) => ({ id, left: b.until - this.runTime, total: b.total, label: this.boostLabel(id) })),
+      alius: this.alius?.hud() ?? [], // 3.0
       endless: this.endless ? { mult: this.endlessScaleNow().hp, sec: this.runTime - this.endless.since, phase: endlessPhase(this.endlessMin()).name } : null,
       combos: [...this.combos].map(([id, s]) => { const d = COMBOS.find((x) => x.id === id)!; return { name: d.name, level: s.level, cd: Math.max(0, Math.min(1, s.cd / d.cooldownMs)) }; }),
       comboGoals: goals.map((g) => ({ id: g.combo.id, name: g.combo.name, complete: g.complete, ready: g.ready, parts: g.parts })),
@@ -4269,7 +4390,8 @@ export class ArenaScene extends Phaser.Scene {
       formation: this.formation, team: this.members.map((m) => ({ name: m.entry.name, x: Math.round(m.f.x), y: Math.round(m.f.y) })),
       projectiles: this.projectiles.length, guardBlocks: this.guardBlocks, hitsTaken: { ...this.hitsTaken }, maxHp: this.maxHp,
       dashing: this.members.filter((m) => m.dash).length, rank: this.rank.id, shots: this.shots.length, hazards: this.hazards.length,
-      combos: Object.fromEntries(this.combos), elites: this.enemies.filter((e) => e.variant === 'elite').length, runners: this.enemies.filter((e) => e.variant === 'runner').length };
+      combos: Object.fromEntries(this.combos), elites: this.enemies.filter((e) => e.variant === 'elite').length, runners: this.enemies.filter((e) => e.variant === 'runner').length,
+      alius: this.alius ? { procs: { ...this.alius.procs }, hud: this.alius.hud() } : null };
   }
 }
 

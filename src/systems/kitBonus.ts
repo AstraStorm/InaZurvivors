@@ -47,7 +47,8 @@ export function kitBonus(team: string, roster: RosterEntry[]): KitBonus {
 }
 
 /** Club chemistry multiplier for a squad on the pitch wearing `team`'s kit. */
-export function chemistry(team: string, onPitch: Pick<RosterEntry, 'teams'>[]) {
+export function chemistry(team: string, onPitch: Pick<RosterEntry, 'teams' | 'baseTeams'>[]) {
   const key = team || 'Raimon';
-  return onPitch.filter((p) => p.teams.includes(key)).length >= CLUB_CHEMISTRY.min ? CLUB_CHEMISTRY.damage : 1;
+  // 3.0: an Alius plays for his original's club
+  return onPitch.filter((p) => (p.baseTeams ?? p.teams).includes(key)).length >= CLUB_CHEMISTRY.min ? CLUB_CHEMISTRY.damage : 1;
 }

@@ -6,7 +6,7 @@ import { EVENT_POOL, FRAMES as ALL_FRAMES, PENNANTS as ALL_PENNANTS, PENNANT_EVE
 const PENNANTS = ALL_PENNANTS.filter((p) => p.source !== 'codigo' && p.source !== 'colab' && p.source !== 'pase' && p.source !== 'temporada'), FRAMES = ALL_FRAMES.filter((p) => p.source !== 'codigo' && p.source !== 'colab' && p.source !== 'pase' && p.source !== 'temporada'); // 2.1: the season pass ones are counted in seasonPass.test.ts
 import { buyPennant, equipFrame, equippedFrame, equipPennant, equippedPennant, eventActive, eventEnd, eventOdds, eventStart, grantAchievementPennants, pullEvent } from '../src/systems/pennants';
 import { exportSave, importSave, newSave, validate } from '../src/systems/save';
-import { BLUELOCK_EVENT, recordBluelockWin } from '../src/systems/collabEvent';
+import { BLUELOCK_EVENT, SENDOKAI_EVENT, recordBluelockWin, recordSendokaiWin } from '../src/systems/collabEvent';
 
 describe('banners', () => {
   it('fifteen: 3 shop (común, raro, épico), 2 achievements (legendario, leyenda), 10 event with one Mítico only there', () => {
@@ -122,5 +122,23 @@ describe('InaZurvivors x BlueLock celebration', () => {
     expect(validate(s).blWins).toBe(2);
     (s as unknown as { blWins: unknown }).blWins = -4;
     expect('blWins' in validate(s)).toBe(false);
+  });
+});
+
+describe('InaZurvivors x Desafío Sendokai celebration (2.9)', () => {
+  const open = Date.parse(SENDOKAI_EVENT.start) + 3_600_000;
+  it('the banner needs 3 wins while the collab is open; the frame, the five', () => {
+    const s = newSave([], null);
+    recordSendokaiWin(s, Date.parse(SENDOKAI_EVENT.start) - 1); // before it opens: does not count
+    recordSendokaiWin(s, open); recordSendokaiWin(s, open);
+    expect(grantAchievementPennants(s, [])).toEqual([]);
+    recordSendokaiWin(s, open);
+    expect(grantAchievementPennants(s, []).map((p) => p.id)).toEqual(['colab-sendokai']);
+    for (const id of SENDOKAI_EVENT.players.slice(0, 4)) s.owned[String(id)] = { stars: 0, copies: 1, obtainedAt: '' };
+    expect(grantAchievementPennants(s, [])).toEqual([]);
+    s.owned[String(SENDOKAI_EVENT.players[4])] = { stars: 0, copies: 1, obtainedAt: '' };
+    expect(grantAchievementPennants(s, []).map((p) => p.id)).toEqual(['marco-sendokai']);
+    expect(equipFrame(s, 'marco-sendokai') && equipPennant(s, 'colab-sendokai')).toBe(true);
+    expect(validate(s).sdWins).toBe(3);
   });
 });

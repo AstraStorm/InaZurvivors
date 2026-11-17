@@ -397,6 +397,25 @@ describe('economy guard of the cloud save (Fix 1.23)', () => {
   });
   it('the cap is not callable from the API', async () => {
     await expect(api('astra', `select private.economy_cap('{}'::jsonb, null, null, null)`)).rejects.toThrow();
+    await expect(api('astra', `select private.alius_cap('{}'::jsonb, null, null)`)).rejects.toThrow();
+  });
+  it('3.0 Piedras Alius: forged stones are cut, every new transformation must be paid, old ones stay', async () => {
+    const cap = async (nw: string, old: string | null, ago: string) => ((await db.query(`select private.alius_cap($1::jsonb, $2::jsonb, now() - $3::interval) as c`, [nw, old, ago])).rows[0] as { c: { alius: { stones: number; unlocked: string[] } } }).c.alius;
+    // honest: 25 stones, one transformation paid (25 -> 15)
+    expect(await cap('{"alius":{"stones":15,"unlocked":["kira"]}}', '{"alius":{"stones":25,"unlocked":[]}}', '1 minute')).toEqual({ stones: 15, unlocked: ['kira'] });
+    // forged: 999 stones and four unpaid transformations from nothing
+    const f = await cap('{"alius":{"stones":999,"unlocked":["kira","sol","byron","lina"]}}', '{"alius":{"stones":0,"unlocked":[]}}', '1 minute');
+    expect(f.stones).toBeLessThanOrEqual(6);
+    expect(f.unlocked).toEqual([]);
+    // what was unlocked before is never taken away; a new one with no stones to pay it is dropped
+    expect(await cap('{"alius":{"stones":0,"unlocked":["kira","sol"]}}', '{"alius":{"stones":0,"unlocked":["kira"]}}', '1 minute')).toEqual({ stones: 0, unlocked: ['kira'] });
+    // a save from before 3.0 passes untouched
+    expect((await db.query(`select private.alius_cap('{"coins":5}'::jsonb, null, null) as c`)).rows[0]).toEqual({ c: { coins: 5 } });
+    // and through put_save
+    await db.query(`delete from public.saves where user_id = $1`, [ids.astra]);
+    await api('astra', `select public.put_save('{"alius":{"stones":500,"unlocked":["kira"]}}'::jsonb, 0)`);
+    const got = (await as('astra', `select data->'alius' as a from public.get_save()`)).rows[0] as { a: { stones: number; unlocked: string[] } };
+    expect(got.a.stones + got.a.unlocked.length * 10).toBeLessThanOrEqual(60);
   });
 });
 describe('promotional codes (Fix 1.12)', () => {

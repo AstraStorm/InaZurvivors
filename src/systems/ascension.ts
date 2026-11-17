@@ -10,6 +10,7 @@
  * Fix 1.31 (author's request): a Mítico or Leyenda has no rarity to climb, so its ascension IS the HÉROE; and every
  * HÉROE can then earn up to 3 hero stars (★ de héroe) with more duplicates. migrateHeroes131 converts older saves.
  */
+import { isAliusId } from '../data/alius';
 import type { Rarity, RosterEntry } from '../data/manifest';
 import { RARITY_ORDER } from '../data/manifest';
 import type { SaveData } from './save';
@@ -63,6 +64,7 @@ export const isHero = (save: SaveData, id: number) => !!save.owned[String(id)]?.
 
 /** Next ascension step and its cost, or null when the player can't ascend any further (or isn't owned). */
 export function nextStep(save: SaveData, p: Pick<RosterEntry, 'id' | 'rarity'>): { step: AscStep; cost: number } | null {
+  if (isAliusId(p.id)) return null; // 3.0: an Alius plays with his original's progress: upgrades go to the original
   const o = save.owned[String(p.id)];
   if (!o) return null;
   // 1.8: a Leyenda climbs Campeón, Campeón+ and Campeón++ instead of HÉROE
@@ -83,6 +85,7 @@ export function nextStep(save: SaveData, p: Pick<RosterEntry, 'id' | 'rarity'>):
 
 /** Spends the duplicates and applies the step. Returns false (and changes nothing) when it isn't possible. */
 export function ascend(save: SaveData, p: Pick<RosterEntry, 'id' | 'rarity'>): AscStep | false {
+  if (isAliusId(p.id)) return false; // 3.0: an Alius plays with his original's progress: upgrades go to the original
   const next = nextStep(save, p);
   if (!next || sparesOf(save, p.id) < next.cost) return false;
   const o = save.owned[String(p.id)];
@@ -105,6 +108,7 @@ export const awakenLevel = (save: SaveData, id: number) => Math.min(CHAMPION_MAX
 export const canAwaken = (save: SaveData, p: Pick<RosterEntry, 'id' | 'rarity'>) =>
   p.rarity !== 'leyenda' && isHero(save, p.id) && championOf(save, p.id) === 0;
 export function awaken(save: SaveData, p: Pick<RosterEntry, 'id' | 'rarity'>): number {
+  if (isAliusId(p.id)) return 0; // 3.0: an Alius plays with his original's progress: upgrades go to the original
   if (!canAwaken(save, p) || awakenCoins(save) < 1) return 0;
   const lv = awakenLevel(save, p.id);
   save.awakenCoins = awakenCoins(save) - 1;

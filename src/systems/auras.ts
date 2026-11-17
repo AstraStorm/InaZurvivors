@@ -16,6 +16,8 @@
  *     own element (captain synergy and the rest still read that one).
  *   - combined techniques: an Aura counts as a participant of the combined techniques it takes part in (combos.ts).
  */
+import { baseIdOf } from '../data/alius';
+import { aliusCapProblem } from './aliusSave';
 import { RARITY_ORDER, type Rarity, type RosterEntry, type Technique } from '../data/manifest';
 import { AURA_BONDS, BOND_PCT, type AuraBond } from '../data/auraBonds';
 import { COMBOS, playsAs } from './combos';
@@ -52,6 +54,7 @@ export const carrierOf = (save: SaveData, auraId: number): number | null => {
 };
 
 export function bondOf(a: number, b: number): AuraBond | null {
+  a = baseIdOf(a); b = baseIdOf(b); // 3.0: an Alius keeps his original's compatibilities
   return AURA_BONDS.find((x) => (x.a === a && x.b === b) || (x.a === b && x.b === a)) ?? null;
 }
 
@@ -65,6 +68,8 @@ export function auraProblem(save: SaveData, carrier: Pick<RosterEntry, 'id'>, au
   if (save.auras?.[String(aura.id)] !== undefined) return tr('{auraName} ya lleva un Aura: las Auras no se encadenan.', { auraName: aura.name });
   if (carrierOf(save, carrier.id) !== null) return tr('Este futbolista ya es el Aura de otro: no puede llevar una.');
   if (squad.includes(aura.id) && squad[0] === aura.id) return tr('{auraName} es tu capitán: elige otro capitán antes.', { auraName: aura.name });
+  const cap = aliusCapProblem(save, aura.id); // 3.0: the Alius limit counts the Auras too
+  if (cap) return cap;
   if (byId) { // 1.8: no two of the same character, as Auras either
     const others = [...squad.filter((x) => x !== aura.id), ...Object.entries(save.auras ?? {}).filter(([c, a]) => Number(c) !== carrier.id && a !== aura.id).map(([, a]) => a)];
     const clash = clashWith(aura, [carrier.id, ...others].map((x) => byId.get(x)).filter((x): x is Pick<RosterEntry, 'id' | 'name'> => !!x));

@@ -40,8 +40,8 @@ export function resonances(activeElements: (string | null | undefined)[]): Syner
   }).sort((a, b) => b.bonus - a.bonus || b.count - a.count);
 }
 
-export function chemistrySynergy(kitTeam: string, label: string, onPitch: Pick<RosterEntry, 'teams'>[]): Synergy {
-  const key = kitTeam || 'Raimon', n = onPitch.filter((p) => p.teams.includes(key)).length;
+export function chemistrySynergy(kitTeam: string, label: string, onPitch: Pick<RosterEntry, 'teams' | 'baseTeams'>[]): Synergy {
+  const key = kitTeam || 'Raimon', n = onPitch.filter((p) => (p.baseTeams ?? p.teams).includes(key)).length; // 3.0: an Alius counts for his original's club
   const on = n >= CLUB_CHEMISTRY.min;
   return { key: 'chem', kind: 'quimica', label: tr('Química de club · {label}', { label }), bonus: on ? CLUB_CHEMISTRY.damage - 1 : 0, count: n, goal: CLUB_CHEMISTRY.min,
     next: on ? undefined : CLUB_CHEMISTRY.damage - 1, hint: on ? tr('{n} de {label} en el campo: +{x1}% daño', { n, label, x1: Math.round((CLUB_CHEMISTRY.damage - 1) * 100) }) : tr('{n}/{min} de {label} en el campo → +{x1}% daño', { n, min: CLUB_CHEMISTRY.min, label, x1: Math.round((CLUB_CHEMISTRY.damage - 1) * 100) }) };

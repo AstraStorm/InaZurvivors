@@ -1,0 +1,90 @@
+/* 3.0 Altar de la Piedra Alius (app.ts aliusAltar, aliusDetail, aliusRite). Navy, Alius violet, black and a little crimson;
+   the panels, buttons, rarity chips and fonts are the game's own. Portraits stay pixelated (.mug). */
+:root { --al-navy: #0d1030; --al-violet: #9a4dff; --al-violet2: #5a2a9a; --al-crimson: #d0103a; }
+
+.al-screen { --frame: var(--al-violet2); }
+.al-hero { position: relative; display: flex; gap: 16px; align-items: center; justify-content: space-between; overflow: hidden;
+  margin: 8px 0 12px; padding: 16px 18px; border: 3px solid var(--al-violet2); border-radius: 10px;
+  background: radial-gradient(120% 140% at 85% 50%, #2a1050 0%, var(--al-navy) 55%, #05060f 100%); box-shadow: 0 0 24px #9a4dff33 inset; }
+.al-glow { position: absolute; inset: -40%; background: conic-gradient(from 0deg, transparent, #9a4dff22, transparent 30%, #d0103a18, transparent 60%); animation: alSpin 14s linear infinite; pointer-events: none; }
+.al-hero-tx { position: relative; max-width: 620px; }
+.al-hero-tx small { color: #c79bff; letter-spacing: 2px; font-size: 10px; }
+.al-hero-tx b { display: block; font-size: 20px; color: #fff; text-shadow: 0 2px 0 #000, 0 0 12px #9a4dff; margin: 4px 0 6px; }
+.al-hero-tx p { margin: 0; font-size: 11px; line-height: 1.6; color: #d8d0f0; }
+.al-purse { position: relative; display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 150px; padding: 10px 12px;
+  background: #05060fcc; border: 2px solid var(--al-violet); border-radius: 8px; }
+.al-purse-n { display: flex; align-items: center; gap: 8px; } .al-purse-n b { font-size: 26px; color: #fff; text-shadow: 0 0 10px #9a4dff; }
+.al-purse small { color: #c79bff; font-size: 10px; } .al-purse-sub { font-size: 9px; color: #9aa3c8; }
+.al-stone { display: inline-block; vertical-align: middle; image-rendering: pixelated; }
+.al-stone-fb { color: var(--al-violet); filter: drop-shadow(0 0 4px #9a4dff); } .al-stone-fb svg { width: 100%; height: 100%; }
+
+.al-sel { display: grid; grid-template-columns: auto 1fr; gap: 18px; align-items: start; border-color: var(--al-violet2);
+  background: linear-gradient(160deg, #141638 0%, #0a0b1e 100%); }
+.al-duo { display: flex; align-items: center; gap: 10px; }
+.al-from, .al-to { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 6px; border-radius: 8px; border: 2px solid #2a2f5a; background: #05060f; }
+.al-from small, .al-to small { font-size: 9px; color: #9aa3c8; }
+.al-to { border-color: var(--al-violet2); box-shadow: 0 0 14px #9a4dff44; }
+.al-to.on { border-color: var(--al-violet); box-shadow: 0 0 18px #9a4dffaa; } .al-to.on small { color: #c79bff; }
+.al-arrow { font-style: normal; font-size: 22px; color: var(--al-crimson); text-shadow: 0 0 8px #d0103a; }
+.al-info h3 { margin: 2px 0 8px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.al-title { color: #ff4d6d; letter-spacing: 1px; font-size: 10px; }
+.al-tag { font-size: 9px; padding: 2px 6px; border-radius: 4px; background: var(--al-violet2); color: #fff; border: 1px solid var(--al-violet); }
+.al-tag.coach { background: #3a1020; border-color: var(--al-crimson); }
+.al-passive { padding: 8px 10px; margin: 6px 0; border-left: 4px solid var(--al-violet); background: #9a4dff14; border-radius: 4px; }
+.al-passive b { color: #c79bff; font-size: 12px; } .al-passive p { margin: 4px 0 0; font-size: 11px; line-height: 1.55; }
+.al-techs small { color: #9aa3c8; font-size: 10px; } .al-techs > div { display: flex; flex-wrap: wrap; gap: 4px; margin: 4px 0; }
+.al-tech { display: inline-flex; align-items: center; gap: 4px; font-size: 10px; padding: 3px 6px; border-radius: 4px; border: 1px solid var(--ec); background: #0006; }
+.al-req { display: flex; flex-wrap: wrap; gap: 10px; margin: 8px 0; font-size: 11px; } .al-req .ok { color: #7dff9a; } .al-req .bad { color: #ff7a8a; }
+.al-go { background: linear-gradient(180deg, #7a3ad0, #3a1070); border-color: var(--al-violet); color: #fff; display: inline-flex; align-items: center; gap: 6px; }
+.al-go:disabled { filter: grayscale(.8); opacity: .6; cursor: not-allowed; }
+.al-go[data-armed] { background: linear-gradient(180deg, #d0103a, #6a0820); }
+.al-done { color: #7dff9a; margin: 8px 0; }
+
+.al-res { border-color: #2a2f5a; } .al-res.on { border-color: var(--al-violet); box-shadow: 0 0 14px #9a4dff55; }
+.al-res b { color: #c79bff; }
+
+.al-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(124px, 1fr)); gap: 8px; margin-top: 10px; }
+.al-card { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 8px 6px; cursor: pointer; color: #fff; font: inherit;
+  background: linear-gradient(180deg, #151838, #090a1a); border: 2px solid #2a2f5a; border-radius: 8px; transition: transform .12s, border-color .12s; }
+.al-card:hover { transform: translateY(-2px); border-color: var(--al-violet2); }
+.al-card.sel { border-color: var(--al-violet); box-shadow: 0 0 12px #9a4dff88; }
+.al-card b { font-size: 10px; text-align: center; } .al-card small { font-size: 8px; color: #ff8aa0; text-align: center; min-height: 2.2em; }
+.al-card-art { border-radius: 6px; background: radial-gradient(circle, #2a1050, #05060f); }
+.al-card.st-sin-original .al-card-art .mug { filter: brightness(.25) saturate(0); }
+.al-card.st-sin-piedras .al-card-art .mug { filter: saturate(.4) brightness(.7); }
+.al-card.st-desbloqueado { border-color: var(--al-violet2); }
+.al-chip { font-style: normal; font-size: 8px; padding: 2px 5px; border-radius: 3px; display: inline-flex; gap: 3px; align-items: center; }
+.al-chip .uic { width: 9px; height: 9px; }
+.al-chip.st-sin-original { background: #2a2a3a; color: #9aa3c8; } .al-chip.st-sin-piedras { background: #3a1020; color: #ff8aa0; }
+.al-chip.st-disponible { background: #5a2a9a; color: #fff; animation: alPulse 1.4s ease-in-out infinite; } .al-chip.st-desbloqueado { background: #123a22; color: #7dff9a; }
+
+.al-detail { border-color: var(--al-violet2); background: linear-gradient(160deg, #141638 0%, #0a0b1e 100%); }
+.col-screen .seg .al-view.on { background: var(--al-violet2); }
+.rs-card.al-rs .al-stone { width: 26px; height: 26px; }
+.rewards.alr td b { display: inline-flex; align-items: center; gap: 4px; }
+.buff.b-alius { border-color: var(--al-violet); background: #2a1050cc; color: #e2d0ff; } .buff.b-alius i { background: #9a4dff66; }
+
+/* the corruption scene */
+.al-rite { position: fixed; inset: 0; z-index: 9000; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+  background: radial-gradient(circle, #2a105099, #000000ee 70%); animation: alIn .25s ease-out; cursor: pointer; overflow: hidden; }
+.al-rite.out { animation: alOut .35s ease-in forwards; }
+.al-rite-rays { position: absolute; inset: -50%; background: repeating-conic-gradient(#9a4dff22 0 8deg, transparent 8deg 22deg); animation: alSpin 6s linear infinite; }
+.al-rite-mugs { position: relative; width: 160px; height: 160px; }
+.al-rite-mugs > span { position: absolute; inset: 0; }
+.al-rite-from { animation: alFrom 1.1s ease-in forwards; }
+.al-rite-to { opacity: 0; animation: alTo .5s .85s ease-out forwards; filter: drop-shadow(0 0 16px #9a4dff); }
+.al-rite small { position: relative; color: #ff4d6d; letter-spacing: 3px; font-size: 12px; text-shadow: 0 0 10px #d0103a; }
+.al-rite b { position: relative; color: #fff; font-size: 16px; text-shadow: 0 2px 0 #000, 0 0 14px #9a4dff; text-align: center; }
+.al-rite em { position: relative; font-style: normal; color: #c79bff; font-size: 11px; }
+@keyframes alSpin { to { transform: rotate(360deg); } }
+@keyframes alPulse { 50% { box-shadow: 0 0 8px #9a4dff; } }
+@keyframes alIn { from { opacity: 0; } }
+@keyframes alOut { to { opacity: 0; } }
+@keyframes alFrom { 0% { filter: none; } 55% { filter: brightness(1.6) hue-rotate(220deg) saturate(2); transform: scale(1.04); } 80% { transform: translateX(-3px); } 85% { transform: translateX(3px); } 100% { filter: brightness(3) saturate(0); opacity: 0; transform: scale(1.12); } }
+@keyframes alTo { from { opacity: 0; transform: scale(.8); } to { opacity: 1; transform: none; } }
+.reduced-motion .al-glow, .reduced-motion .al-rite-rays, .reduced-motion .al-chip.st-disponible { animation: none; }
+
+@media (max-width: 640px) {
+  .al-hero { flex-direction: column; align-items: stretch; } .al-sel { grid-template-columns: 1fr; } .al-duo { justify-content: center; }
+  .al-grid { grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); }
+}

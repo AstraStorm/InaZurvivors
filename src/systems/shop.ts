@@ -1,4 +1,5 @@
 /** Technique shop. Only touches a player's own repertoire, and is separate from upgrades earned inside a run. */
+import { isAliusId } from '../data/alius';
 import type { RosterEntry, Technique } from '../data/manifest';
 import { SHOP_ONLY_LEVEL } from './cards';
 import type { SaveData } from './save';
@@ -15,6 +16,7 @@ export const isLocked = (t: Technique) => t.unlockLevel >= SHOP_ONLY_LEVEL;
 
 /** Unlocks a technique of this player's repertoire: from then on it can be offered from the first level of a run. */
 export function buyTechUnlock(s: SaveData, p: RosterEntry, index: number): boolean {
+  if (isAliusId(p.id)) return false; // 3.0: an Alius plays with his original's progress: upgrades go to the original
   const t = p.techniques[index];
   if (!t || !s.owned[String(p.id)] || isBought(s, p.id, index)) return false;
   const cost = unlockCost(t);

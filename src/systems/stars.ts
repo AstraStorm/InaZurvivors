@@ -8,6 +8,7 @@
  *     duplicates in the ascension; each one gives a limit pick and counts as a star (damage and HP) in a run.
  * Stars earned before 1.84 keep their bonus and get their limit picks for free (pendingPicks).
  */
+import { isAliusId } from '../data/alius';
 import type { RosterEntry } from '../data/manifest';
 import { ASC_COSTS, HERO_STARS_MAX, championOf, isHero, rarityUp } from './ascension';
 import type { Rarity } from '../data/manifest';
@@ -32,6 +33,7 @@ export interface NextStar { kind: 'star' | 'extra'; n: number; cost: number; cop
 
 /** The next star this footballer can buy, or null when there is none (all bought, or extra stars not unlocked). */
 export function nextStar(save: SaveData, p: P): NextStar | null {
+  if (isAliusId(p.id)) return null; // 3.0: an Alius plays with his original's progress: upgrades go to the original
   const o = save.owned[String(p.id)];
   if (!o) return null;
   if (o.stars < MAX_STARS) {
@@ -54,6 +56,7 @@ export function pendingPicks(save: SaveData, id: number): number {
 
 /** Gives one pending pick to `stat`. */
 export function assignPick(save: SaveData, id: number, stat: StatKey): boolean {
+  if (isAliusId(id)) return false; // 3.0: an Alius plays with his original's progress: upgrades go to the original
   const o = save.owned[String(id)];
   if (!o || !STAT_KEYS.includes(stat) || pendingPicks(save, id) <= 0) return false;
   const caps = o.starCaps ?? {};
@@ -63,6 +66,7 @@ export function assignPick(save: SaveData, id: number, stat: StatKey): boolean {
 
 /** Buys the next star (coins, and duplicates for the first 5) and gives its +5 to `stat`. False when it isn't possible. */
 export function buyStar(save: SaveData, p: P, stat: StatKey): NextStar['kind'] | false {
+  if (isAliusId(p.id)) return false; // 3.0: an Alius plays with his original's progress: upgrades go to the original
   const next = nextStar(save, p);
   if (!next || !next.copiesOk || !next.coinsOk || !STAT_KEYS.includes(stat)) return false;
   const o = save.owned[String(p.id)];
@@ -125,6 +129,7 @@ export function restoreHeroStars188(save: SaveData, roster: Pick<RosterEntry, 'i
 
 /** 1.85 (author): several stars at once, one stat each (in order); stops at the first that can't be bought. Returns how many. */
 export function buyStars(save: SaveData, p: P, stats: StatKey[]): number {
+  if (isAliusId(p.id)) return 0; // 3.0: an Alius plays with his original's progress: upgrades go to the original
   let n = 0;
   for (const k of stats) { if (!buyStar(save, p, k)) break; n++; }
   return n;

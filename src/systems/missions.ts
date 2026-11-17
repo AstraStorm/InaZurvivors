@@ -2,6 +2,7 @@
  * Missions: run, daily, weekly and permanent achievements. Rewards are claimed with a button and each claim id is stored,
  * so nothing pays twice. Daily resets at local midnight, weekly on local Monday 00:00 (keys are local calendar dates).
  */
+import { isAliusId } from '../data/alius';
 import type { RunResult } from './economy';
 import type { SaveData } from './save';
 import { tr } from '../i18n/i18n';
@@ -173,10 +174,11 @@ export const MISSIONS: MissionDef[] = [
  * teams. Called when the missions screen opens and after pulls or ascensions.
  */
 export function recordCollection(s: SaveData, roster: { id: number; teams: string[]; rarity?: string; era?: string }[], mainTeams: string[], auraMax = 0) {
-  const owned = Object.values(s.owned);
+  // 3.0: an Alius is a mirror of his original's record: never counted twice (collection, HÉROES, training)
+  const owned = Object.entries(s.owned).filter(([k]) => !isAliusId(Number(k))).map(([, o]) => o);
   const c = s.missions.counters;
   // v1.5: rarities and eras owned, progression already made, and the Aura milestones (best only ever goes up)
-  const have = roster.filter((p) => s.owned[String(p.id)]);
+  const have = roster.filter((p) => s.owned[String(p.id)] && !isAliusId(p.id));
   c.col_legend = have.filter((p) => p.rarity === 'legendario').length;
   c.col_mitico = have.filter((p) => p.rarity === 'mitico').length;
   c.col_leyenda = have.filter((p) => p.rarity === 'leyenda').length;
@@ -301,7 +303,7 @@ export function claimMission(s: SaveData, id: string, mult = 1, roster?: { id: n
   s.trainTokens = (s.trainTokens ?? 0) + (d.train ?? 0);
   if (d.dupe && roster) {
     // the owned Legendary/Mythic with the fewest copies: the copy helps the ascension that is furthest away
-    const pick = roster.filter((p) => (p.rarity === 'legendario' || p.rarity === 'mitico' || p.rarity === 'leyenda') && s.owned[String(p.id)])
+    const pick = roster.filter((p) => (p.rarity === 'legendario' || p.rarity === 'mitico' || p.rarity === 'leyenda') && s.owned[String(p.id)] && !isAliusId(p.id)) // 3.0: never an Alius mirror
       .sort((a, b) => s.owned[String(a.id)].copies - s.owned[String(b.id)].copies)[0];
     if (pick) { const o = s.owned[String(pick.id)]; o.copies += 1; s.missions.lastDupe = pick.id; } // 1.86: no free star (stars are bought, 1.84)
   }

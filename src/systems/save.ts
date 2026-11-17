@@ -1,6 +1,7 @@
 import { RARITY_ORDER, type Rarity } from '../data/manifest';
 import { PENNANT_BY_ID } from '../data/pennants';
 import { COACH_BY_ID } from '../data/coaches';
+import { sanitizeAliusState, syncAliusOwned, trimAliusCap, type AliusSave } from './aliusSave';
 /** Local save with schema version + migrations + validation. Pure logic + a thin localStorage adapter.
  *  Never destroys data: an unreadable save is set aside under a recovery key and the last good copy is tried first. */
 
@@ -77,10 +78,14 @@ export interface SaveData {
   awakenCoins?: number;
   awakenGift200?: boolean;
   awakenSeen?: boolean;
+  /** 3.0: Piedras Alius, the transformations unlocked at the Altar and the stones earned today (aliusSave.ts) */
+  alius?: AliusSave;
   /** (author) Fichas de evento: they only pay the Banner de agradecimiento (thanksEvent.ts) */
   eventTokens?: number;
   /** (author) runs won while InaZurvivors x BlueLock is open: 3 give its banner (collabEvent.ts) */
   blWins?: number;
+  /** 2.9: the same for InaZurvivors x Desafío Sendokai */
+  sdWins?: number;
   /** the thank-you notice of the Banner de agradecimiento was closed */
   thanksSeen?: boolean;
   /** v1.5: achievements already announced with the «¡LOGRO!» banner (each one only once) */
@@ -382,6 +387,8 @@ export function validate(s: SaveData): SaveData {
   } else delete s.sector;
   s.blWins = Math.max(0, Math.floor(num(s.blWins, 0)));
   if (!s.blWins) delete s.blWins;
+  s.sdWins = Math.max(0, Math.floor(num(s.sdWins, 0)));
+  if (!s.sdWins) delete s.sdWins;
   // 2.0: spirit levels 1-6 by footballer id (which footballers really have one is checked where it is used, keshin.ts)
   const ks: Record<string, number> = {};
   for (const [k, v] of Object.entries(obj(s.keshin) ?? {})) { const lv = Math.min(6, Math.max(0, Math.floor(num(v, 0)))); if (/^\d+$/.test(k) && lv) ks[k] = lv; }
@@ -433,6 +440,10 @@ export function validate(s: SaveData): SaveData {
     }
   }
   s.owned = owned;
+  // 3.0: the Alius state, and the Alius footballers owned as mirrors of their originals (before the squad is checked)
+  const al = sanitizeAliusState(s.alius);
+  if (al) s.alius = al; else delete s.alius;
+  syncAliusOwned(s);
   if (!Array.isArray(s.clearedMaps)) s.clearedMaps = [];
   if (!obj(s.upgrades)) s.upgrades = {};
   if (!Array.isArray(s.missions?.claimed)) s.missions = emptyMissions();
@@ -496,6 +507,8 @@ export function validate(s: SaveData): SaveData {
     while (s.squads.length < SQUAD_SLOTS) s.squads.push({ name: `Equipo ${s.squads.length + 1}`, squad: [] });
     s.activeSquad = Math.max(0, Math.min(SQUAD_SLOTS - 1, Math.floor(num(s.activeSquad, 0))));
   } else { delete s.squads; delete s.activeSquad; }
+  syncAliusOwned(s); // 3.0: once more, now that the coaches are clean (Lina)
+  trimAliusCap(s); // 3.0: never more Alius in the team than the limit
   // 1.8: GTS ledger marks: short strings only
   const gt = obj(s.gts);
   if (gt && Array.isArray(gt.applied)) s.gts = { applied: (gt.applied as unknown[]).filter((x): x is string => typeof x === 'string' && /^[dwrt]:\d{1,12}$/.test(x)).slice(-400) };
@@ -550,6 +563,7 @@ export function loadSave(starterIds: number[], captainId: number | null): SaveDa
 }
 
 export function storeSave(s: SaveData): boolean {
+  syncAliusOwned(s); // 3.0: the Alius mirrors always follow their originals
   try {
     const prev = localStorage.getItem(KEY);
     if (prev) localStorage.setItem(BACKUP, prev);

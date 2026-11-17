@@ -3,7 +3,7 @@ import type { Rarity, RosterEntry } from '../data/manifest';
 import { EVENT_POOL, isFrame, PENNANT_BY_ID, PENNANT_EVENT, type PennantDef } from '../data/pennants';
 import type { SaveData } from './save';
 import { clanShopPennants, clanWeekKey } from './clans';
-import { BLUELOCK_WINS_FOR_BANNER, bluelockActive, bluelockPairOwned } from './collabEvent';
+import { BLUELOCK_WINS_FOR_BANNER, SENDOKAI_EVENT, SENDOKAI_WINS_FOR_BANNER, bluelockActive, bluelockPairOwned, sendokaiActive, sendokaiOwned } from './collabEvent';
 import { serverNow } from '../online/serverTime';
 
 export const COLLECTION_PENNANT_AT = 200;
@@ -24,7 +24,7 @@ export const equippedFrame = (s: SaveData): PennantDef | undefined => {
 export const givePennant = (s: SaveData, id: string) => { if (PENNANT_BY_ID.has(id)) give(s, id); };
 /** 1.81: a code's banner or frame only exists for whoever owns it */
 export const visiblePennant = (s: SaveData, p: PennantDef) => (p.source !== 'codigo' && p.source !== 'clan' && p.source !== 'colab' && p.source !== 'pase' && p.source !== 'temporada' && p.source !== 'sector') || hasPennant(s, p.id)
-  || (p.source === 'colab' && bluelockActive(serverNow())) // (author) the BlueLock ones: a surprise until it opens, then only for who earned them
+  || (p.source === 'colab' && (p.emblem === 'sendokai' ? sendokaiActive(serverNow()) : bluelockActive(serverNow()))) // (author) the collab ones: a surprise until it opens, then only for who earned them
   || (p.source === 'clan' && clanShopPennants(clanWeekKey(new Date())).includes(p.id)); // 1.94: a clan one, the week it is on sale
 
 function give(s: SaveData, id: string) {
@@ -63,7 +63,8 @@ export function grantAchievementPennants(s: SaveData, roster: Pick<RosterEntry, 
   const owned = Object.keys(s.owned);
   const leyenda = roster.some((p) => p.rarity === 'leyenda' && s.owned[String(p.id)]);
   for (const [id, ok] of [['caravana', owned.length >= COLLECTION_PENNANT_AT], ['marco-caravana', owned.length >= COLLECTION_PENNANT_AT], ['once-leyenda', leyenda], ['marco-leyenda', leyenda],
-    ['colab-bluelock', (s.blWins ?? 0) >= BLUELOCK_WINS_FOR_BANNER], ['marco-bluelock', bluelockPairOwned(s)]] as const) {
+    ['colab-bluelock', (s.blWins ?? 0) >= BLUELOCK_WINS_FOR_BANNER], ['marco-bluelock', bluelockPairOwned(s)],
+    ['colab-sendokai', (s.sdWins ?? 0) >= SENDOKAI_WINS_FOR_BANNER], ['marco-sendokai', sendokaiOwned(s) >= SENDOKAI_EVENT.players.length]] as const) {
     if (ok && !hasPennant(s, id)) { give(s, id); out.push(PENNANT_BY_ID.get(id)!); }
   }
   return out;

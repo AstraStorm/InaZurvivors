@@ -311,7 +311,10 @@ export const COUNTERPARTS: Record<string, string[]> = {
   'Wolfram Vulpeen': ['Vulpeen MM'],
 };
 /** True when a roster name can play the part of a participant (himself or one of his counterparts). */
-export const playsAs = (name: string | undefined, player: string) => !!name && (name === player || !!COUNTERPARTS[player]?.includes(name));
+export const playsAs = (name: string | undefined, player: string) => {
+  const n = name?.replace(/ Alius$/, ''); // 3.0: an Alius takes part in his original's combined techniques
+  return !!n && (n === player || !!COUNTERPARTS[player]?.includes(n));
+};
 
 /** Highest priority first: the order in which learnable combinations are offered. */
 export const COMBOS_BY_PRIORITY = [...COMBOS].sort((a, b) => b.priority - a.priority);

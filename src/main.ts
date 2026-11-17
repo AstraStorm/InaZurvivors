@@ -29,8 +29,10 @@ import './styleUiSaga.css'; // 2.11: the saga's digits and badges
 import './styleSector.css'; // 2.2 Sector Quinto
 import './styleTeam21.css'; // 16.7 Mi Equipo
 import './styleAwaken.css'; // 2.8 Moneda de Despertar, co-op endless notice
+import './styleAlius.css'; // 3.0 Altar de la Piedra Alius
 import type { Manifest } from './data/manifest';
 import { applyRosterFixes } from './data/rosterFixes';
+import { addAliusRoster } from './data/alius';
 import { applyTechFixes } from './data/techFixes';
 import { localizeMaps } from './i18n/maps';
 import { ArenaScene } from './game/ArenaScene';
@@ -99,6 +101,7 @@ async function boot() {
   // quick footballer corrections (rarity, element, techniques) that ship without repackaging resources
   for (const w of applyRosterFixes(manifest)) console.warn('[rosterFixes]', w);
   applyTechFixes(manifest); // 1.76: fixed elements of some techniques
+  for (const w of addAliusRoster(manifest)) console.warn('[alius]', w); // 3.0: the Piedra Alius versions, cloned from their originals
   localizeMaps(manifest.maps); // 2.4: arena names and blurbs in the player's language
   progress(0.75, tr('Preparando caras y objetos…'));
   const [mugs, icons] = await Promise.all([

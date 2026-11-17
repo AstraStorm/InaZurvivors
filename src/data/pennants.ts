@@ -9,7 +9,7 @@ import { tr } from '../i18n/i18n';
 
 export type PennantSource = 'tienda' | 'logro' | 'evento' | 'codigo' | 'clan' | 'colab' | 'pase' | 'temporada' | 'sector';
 export type PennantPattern = 'franjas' | 'diagonal' | 'llamas' | 'estrellas' | 'arcoiris' | 'cuadros' | 'tiza' | 'olas' | 'rayos' | 'copos' | 'espiral' | 'nebulosa' | 'rejilla' | 'huracan' | 'ukiyo' | 'luna' | 'pelota';
-export type PennantEmblem = 'balon' | 'rayo' | 'llama' | 'caravana' | 'corona' | 'neumatico' | 'pizarra' | 'olas' | 'viento' | 'copo' | 'espiral' | 'mano' | 'reloj' | 'planeta' | 'ojo' | 'bluelock' | 'cuernos' | 'todopoderoso' | 'sector' | 'resistencia' | 'creador' | 'ukiyo' | 'luna' | 'pelota';
+export type PennantEmblem = 'balon' | 'rayo' | 'llama' | 'caravana' | 'corona' | 'neumatico' | 'pizarra' | 'olas' | 'viento' | 'copo' | 'espiral' | 'mano' | 'reloj' | 'planeta' | 'ojo' | 'bluelock' | 'sendokai' | 'cuernos' | 'todopoderoso' | 'sector' | 'resistencia' | 'creador' | 'ukiyo' | 'luna' | 'pelota';
 
 export interface PennantDef {
   id: string; name: string; rarity: Rarity; source: PennantSource;
@@ -72,6 +72,8 @@ export const PENNANTS: PennantDef[] = [
   // ---- (author) the InaZurvivors x BlueLock celebration: earned while the collab is open (systems/collabEvent.ts),
   //      with the BlueLock logo; hidden until it opens, kept for good by whoever earns it
   { id: 'colab-bluelock', name: tr('InaZurvivors x BlueLock'), rarity: 'mitico', source: 'colab', how: tr('gana 3 partidas mientras esté abierta'), c1: '#1f5bff', c2: '#02061a', accent: '#5fd8ff', pattern: 'rejilla', emblem: 'bluelock', tagline: tr('Ego, fútbol y un candado azul: la colaboración, en tu perfil.') },
+  // ---- 2.9 (author): the InaZurvivors x Desafío Sendokai celebration, the same way (the author's drawing, the series' logo)
+  { id: 'colab-sendokai', name: tr('InaZurvivors x Desafío Sendokai'), rarity: 'mitico', source: 'colab', how: tr('gana 3 partidas mientras esté abierta'), c1: '#ff7a1a', c2: '#3a1004', accent: '#ffd23f', pattern: 'llamas', emblem: 'sendokai', tagline: tr('Cinco Sen-Kuns y un maestro: la colaboración, en tu perfil.') },
   // ---- 2.1 (author): the season pass, Temporada 1 «Soy todopoderoso» (systems/seasonPass.ts); hidden until owned
   { id: 'pase-dominio', name: tr('Dominio de Zanark'), rarity: 'raro', source: 'pase', how: tr('Pase de la Temporada 1, nivel 20'), c1: '#0f6a72', c2: '#021a1e', accent: '#ff3a5a', pattern: 'diagonal', emblem: 'cuernos', tagline: tr('El territorio de Zanark: aquí manda él.') },
   { id: 'pase-cuernos', name: tr('Furia del Dominio'), rarity: 'epico', source: 'pase', how: tr('Pase de la Temporada 1, nivel 40'), c1: '#2a1a5a', c2: '#06021a', accent: '#5fe8f0', pattern: 'rayos', emblem: 'cuernos', tagline: tr('Cuernos al viento y ojos rojos: el Dominio de Zanark entra en el campo.') },
@@ -125,6 +127,8 @@ export const FRAMES: PennantDef[] = [
   { id: 'marco-t1-podio', kind: 'marco', name: tr('Marco del Podio (T1)'), rarity: 'legendario', source: 'temporada', how: tr('Top 3 del ranking de la Temporada 1'), wings: true, c1: '#e8ecff', c2: '#2a3060', accent: '#ffcc2a', pattern: 'estrellas', emblem: 'corona', tagline: tr('Alas de plata para el podio de la Temporada 1.') },
   // ---- (author) InaZurvivors x BlueLock: for whoever has both its footballers
   { id: 'marco-bluelock', kind: 'marco', name: tr('Marco BlueLock'), rarity: 'mitico', source: 'colab', how: tr('ficha a Nagi y a Isagi'), wings: true, c1: '#1f5bff', c2: '#02061a', accent: '#5fd8ff', pattern: 'rejilla', emblem: 'bluelock', tagline: tr('Cadenas azules y alas: Nagi e Isagi ya juegan en tu club.') },
+  // ---- 2.9 (author) InaZurvivors x Desafío Sendokai: the series' goal around the portrait, for whoever has the five
+  { id: 'marco-sendokai', kind: 'marco', name: tr('Marco Desafío Sendokai'), rarity: 'mitico', source: 'colab', how: tr('ficha a los cinco de Desafío Sendokai'), wings: true, c1: '#ff7a1a', c2: '#3a1004', accent: '#ffd23f', pattern: 'llamas', emblem: 'sendokai', tagline: tr('La portería del Sendokai alrededor de tu retrato: los cinco Sen-Kuns ya juegan en tu club.') },
   // ---- 2.3 (author): content creators, only through the code INA303
   { id: 'marco-creador', kind: 'marco', name: tr('Marco de Creador'), rarity: 'mitico', source: 'codigo', how: tr('Código de creadores de contenido'), wings: true, c1: '#ff3a7a', c2: '#1a0430', accent: '#ffffff', pattern: 'estrellas', emblem: 'creador', tagline: tr('Un botón de play con alas: el marco de quien graba InaZurvivors.') },
   // ---- 1.81 (author): only through the code INA483
