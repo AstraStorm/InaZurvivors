@@ -45,7 +45,7 @@ function tone(type: OscillatorType, f0: number, f1: number, dur: number, gain: n
   o.stop(t + dur + 0.02);
 }
 
-function noise(dur: number, gain: number, lp = 1200) {
+function noise(dur: number, gain: number, lp = 1200, delay = 0) {
   const a = ac();
   if (!a || volume <= 0) return;
   const buf = a.createBuffer(1, Math.floor(a.sampleRate * dur), a.sampleRate);
@@ -59,14 +59,14 @@ function noise(dur: number, gain: number, lp = 1200) {
   const g = a.createGain();
   g.gain.value = gain * volume * 0.5;
   s.connect(f).connect(g).connect(out!);
-  s.start();
+  s.start(a.currentTime + delay);
 }
 
 /** Rate-limited so dozens of hits per frame don't stack into noise. */
-export function sfx(name: 'kick' | 'hit' | 'crit' | 'sweep' | 'boom' | 'pickup' | 'levelup' | 'hurt' | 'reveal' | 'legend' | 'myth' | 'leyenda' | 'click' | 'whoosh' | 'magnet' | 'powerup' | 'evolve' | 'hover' | 'buy' | 'error' | 'alarm' | 'bossdrop', pitch = 1) {
+export function sfx(name: 'kick' | 'hit' | 'crit' | 'sweep' | 'boom' | 'pickup' | 'levelup' | 'hurt' | 'reveal' | 'legend' | 'myth' | 'leyenda' | 'click' | 'whoosh' | 'magnet' | 'powerup' | 'evolve' | 'hover' | 'buy' | 'error' | 'alarm' | 'bossdrop' | 'thunder' | 'zap', pitch = 1) {
   const now = performance.now();
   if (name === 'hover') return;
-  const gap = name === 'hit' ? 110 : name === 'crit' ? 140 : name === 'sweep' ? 600 : name === 'pickup' ? 90 : name === 'boom' ? 160 : 30;
+  const gap = name === 'thunder' ? 350 : name === 'zap' ? 70 : name === 'hit' ? 110 : name === 'crit' ? 140 : name === 'sweep' ? 600 : name === 'pickup' ? 90 : name === 'boom' ? 160 : 30;
   if (now - (lastPlayed.get(name) ?? 0) < gap) return;
   lastPlayed.set(name, now);
   switch (name) {
@@ -91,6 +91,14 @@ export function sfx(name: 'kick' | 'hit' | 'crit' | 'sweep' | 'boom' | 'pickup' 
     case 'error': tone('square', 180, 150, 0.14, 0.07); break;
     // 1.82: the boss alarm (a two-tone siren, three times) and its heavy landing
     case 'alarm': for (let k = 0; k < 3; k++) { tone('sawtooth', 520, 880, 0.32, 0.07, k * 0.7); tone('sawtooth', 880, 520, 0.3, 0.06, k * 0.7 + 0.34); } break;
+    // 3.0 (author: «añade sonidos de rayo cuando mejoras»): the crack of a lightning bolt, its crackle and the thunder rolling
+    // after it; `zap` is the short electric snap of a single small bolt
+    case 'thunder':
+      noise(0.1, 0.7, 2400); tone('sawtooth', 2200, 140, 0.2, 0.14);
+      [0.05, 0.11, 0.19].forEach((d, i) => tone('square', 1500 - i * 300, 260, 0.05, 0.08, d));
+      noise(1.5, 0.5, 220, 0.06); tone('sine', 72, 32, 1.3, 0.3, 0.06); noise(0.9, 0.25, 420, 0.35);
+      break;
+    case 'zap': { const v = 0.85 + Math.random() * 0.3; noise(0.05, 0.28, 2400); tone('square', 1700 * v, 380 * v, 0.07, 0.07); tone('square', 1150 * v, 260 * v, 0.05, 0.05, 0.04); break; }
     case 'bossdrop': noise(0.7, 0.45, 500); tone('sine', 90, 28, 0.9, 0.4); tone('square', 60, 40, 0.5, 0.08, 0.05); break;
   }
 }

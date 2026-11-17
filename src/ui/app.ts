@@ -40,8 +40,8 @@ const TRAIN_TEAM = 5, TRAIN_SLOTS = 4;
 import { CLUB_CHEMISTRY, kitBonus } from '../systems/kitBonus';
 import { squadPotential } from '../systems/synergy';
 import { championsTable, recordTriumph } from '../systems/hallOfFame';
-import { BUILD, CREATOR_GAMES_URL, CURRENT_PUBLIC, PUBLIC_RELEASES, PUBLIC_VERSION, TIKTOK_PATH, TIKTOK_URL, VERSION_LABEL } from '../data/release';
-import { allNews, latestNewsId, NEWS_KIND_LABEL, type NewsItem } from '../data/news';
+import { BUILD, CREATOR_GAMES_URL, CURRENT_PUBLIC, NEXT_RELEASE, PUBLIC_RELEASES, PUBLIC_VERSION, releaseByVersion, TIKTOK_PATH, TIKTOK_URL, VERSION_LABEL } from '../data/release';
+import { allNews, latestNewsId, NEWS_KIND_LABEL, type NewsItem, type NewsKind } from '../data/news';
 /** Fix 1.32: news text: escaped, **bold** allowed */
 const newsText = (t: string) => esc(t).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
 /** «Hoy», «Ayer», «Hace 3 días» or «2 nov» */
@@ -71,9 +71,9 @@ import { cleanTiers, placeIn, tierCount, topicLabel, TIER_COLOR, TIER_MAX, TIER_
 import { CoopLink, type CoopMsg } from '../online/coop';
 import { coopInvite, coopInvitesClaim, coopStatus, type CoopStatus, friendHeartbeat, friendList, friendRemove, friendRequest, friendRespond, lobbyInfo, type FriendRow, type LobbyInfo } from '../online/client';
 import type { CoopRun } from '../game/coopArena';
-import { ALIUS, ALIUS_BY_ID, ALIUS_BY_KEY, ALIUS_CONFIG, ALIUS_PASSIVES, ALIUS_TEAM, isAliusId, passiveTextAt, recolourTorsoSkin, type AliusDef } from '../data/alius';
+import { ALIUS, ALIUS_BY_ID, ALIUS_BY_KEY, ALIUS_CONFIG, ALIUS_EXCLUSIVE, ALIUS_PASSIVES, ALIUS_TEAM, TIER_LABEL, aliusLeftMs, aliusOpen, TIER_SHORT, isAliusId, passiveTextAt, recolourTorsoSkin, type AliusDef, type AliusPassiveId, type AliusTier } from '../data/alius';
 import { aliusRun, aliusStatus, originalOk, resonanceState, unlockedCount, type AliusStatus } from '../systems/alius';
-import { aliusStones, awardAliusStones, unlockAlius, undoUnlock } from '../systems/aliusSave';
+import { aliusStones, aliusTier, aliusTierUp, awardAliusStones, originalSpares, tierCost, unlockAlius, undoUnlock } from '../systems/aliusSave';
 import { applyCoachPerks, COACH_BY_ID, COACH_PULL_CHANCE, COACHES, coachesOfMachine, rewardCoachesDue, coachRun, PASSIVE_ICON, passiveText as coachPassiveText, type CoachDef } from '../data/coaches';
 import { clashWith } from '../systems/identity';
 import { applyGtsLedger, canLeave, gtsBanned, gtsError, gtsSlots, gtsSpare, type GtsRow } from '../systems/gts';
@@ -120,7 +120,7 @@ interface CoopProfile { coach?: string | null; name: string; icon: { kind: 'embl
 const GAMEPAD_SVG = '<svg class="dg-pad" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7h10a5 5 0 0 1 4.8 6.4l-1.2 4A2.8 2.8 0 0 1 15.9 18l-1.6-2H9.7l-1.6 2a2.8 2.8 0 0 1-4.7-.6l-1.2-4A5 5 0 0 1 7 7Zm0 3v1.5H5.5v1.5H7v1.5h1.5V13H10v-1.5H8.5V10H7Zm9.3.2a1.1 1.1 0 1 0 0 2.2 1.1 1.1 0 0 0 0-2.2Zm-2 2.3a1.1 1.1 0 1 0 0 2.2 1.1 1.1 0 0 0 0-2.2Z"/></svg>';
 const fmtTime = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
-const RARITY_COLOR: Record<Rarity, string> = { comun: '#9fb0c8', raro: '#4fb3ff', epico: '#b36bff', legendario: '#ffb020', mitico: '#ff4f8b', leyenda: '#fff6c8' };
+const RARITY_COLOR: Record<Rarity, string> = { comun: '#9fb0c8', raro: '#4fb3ff', epico: '#b36bff', legendario: '#ffb020', mitico: '#ff4f8b', leyenda: '#fff6c8', alius: '#9a4dff' };
 const ELEMENT_COLOR: Record<string, string> = { Fuego: '#ff6a2a', Aire: '#6ad8ff', Bosque: '#5ee05a', 'Montaña': '#d9a440', Neutro: '#c45aff' };
 // 2.3: not tr(): «DEF» is also the Guard stat (GRD)
 // 2.5 (author: «pon las banderitas en lo de 2.4 que da vueltas»): the languages' flags for the launch intro (drawn, so they look
@@ -250,6 +250,8 @@ export class App {
     if (bluelockUpcoming(serverNow())) m.roster = m.roster.filter((p) => p.exclusive !== 'bluelock' || !!save.owned[String(p.id)]);
     // 2.9 (author: «cuando lo subamos ha de estar en oculto»): the Sendokai five don't exist until their banner opens
     if (sendokaiUpcoming(serverNow())) m.roster = m.roster.filter((p) => p.exclusive !== 'sendokai' || !!save.owned[String(p.id)]);
+    // 3.0 (author: «la fecha es para el 25 de noviembre»): the Alius don't exist until the Altar opens
+    if (!aliusOpen(serverNow())) m.roster = m.roster.filter((p) => p.exclusive !== ALIUS_EXCLUSIVE || !!save.owned[String(p.id)]);
     // 2.02 (author): «próximamente» footballers are a secret: nowhere in the game until they are owned
     m.roster = m.roster.filter((p) => p.exclusive !== 'proximamente' || !!save.owned[String(p.id)]);
     // 2.1: the season pass footballers are a surprise until the season opens (the teaser shows them in silhouette)
@@ -680,7 +682,7 @@ export class App {
       const g = c.getContext('2d')!;
       g.drawImage(torso, 0, 0);
       if (al?.skin) { const d = g.getImageData(0, 0, 64, 64); recolourTorsoSkin(d.data, 64, 64, al.skin); g.putImageData(d, 0, 0); }
-      if (al) g.drawImage(sheet, 0, 0, 64, 64); else g.drawImage(sheet, fr!.frame.x, fr!.frame.y, 64, 64, 0, 0, 64, 64);
+      if (al) g.drawImage(sheet, al.offset?.[0] ?? 0, al.offset?.[1] ?? 0, 64, 64); else g.drawImage(sheet, fr!.frame.x, fr!.frame.y, 64, 64, 0, 0, 64, 64);
       const url = c.toDataURL();
       this.kitShots.set(key, url);
       if (this.save.kit && key.startsWith(`${this.save.kit}:`)) {
@@ -785,6 +787,7 @@ export class App {
     return p.stats ? withKeshinStats(playerStats(this.save, p, effectiveRarity(this.save, p), isHero(this.save, p.id)), keshinOf(p.id), keshinLevel(this.save, p.id)) : null;
   }
   private rar(p: RosterEntry) {
+    if (isAliusId(p.id)) return this.aliusRar(p.id); // 3.0: ALIUS and his category
     const r = effectiveRarity(this.save, p);
     // 1.8: a Leyenda's Campeón level
     const ch = championOf(this.save, p.id);
@@ -984,6 +987,26 @@ export class App {
     const bars = st ? `<div class="cc-stats">${statKeys.map((k) => `<span><small>${STAT_SHORT[k]}</small><i style="--v:${st[k]}%"></i><b>${st[k]}</b></span>`).join('')}</div>` : '<div class="cc-stats empty"></div>';
     const tier = hero ? 'heroe' : er;
     const champ = !locked && o ? championOf(this.save, p.id) : 0; // 1.84: Campeón, Campeón+ and Campeón++ look different
+    const al = ALIUS_BY_ID.get(p.id); // 3.0: an Alius gets a card of his own (styleAlius.css .pcard.alius)
+    if (al) {
+      const at = aliusTier(this.save, al.key), nx = !locked ? tierCost(p.baseRarity ?? 'leyenda', at) : null, can = nx !== null && originalSpares(this.save, al.base!) >= nx;
+      return `<div class="pcard cc alius al-t${at}${locked ? ' locked' : ''}${opts.sel ? ' sel' : ''}${opts.big ? ' big' : ''}" data-id="${p.id}" style="--rc:${RARITY_COLOR.alius};--ec:${ELEMENT_COLOR[e] ?? '#8a9bbd'}">
+      ${top ? `<div class="pc-top">${top}</div>` : ''}
+      <div class="cc-frame al-frame"><i class="al-fr-runes"></i><i class="al-fr-corner tl"></i><i class="al-fr-corner tr"></i><i class="al-fr-corner bl"></i><i class="al-fr-corner br"></i>
+        <div class="cc-face">
+          <div class="cc-art${locked ? ' dark' : ''}"><span class="al-pc-stone">${this.stoneIcon(28)}</span><i class="al-pc-mist"></i>
+            ${this.mug(p.id, opts.big ? 152 : 112)}${locked ? `<span class="qmark">?</span><span class="lock-tag">${tr('Altar Alius')}</span>` : opts.big || opts.anim !== undefined ? `<span class="minisprite">${charCanvas(p.id, 2, opts.anim ?? 4)}</span>` : ''}
+            <div class="cc-gem" title="${esc(e)}">${locked ? '' : elementIcon(e, 16)}</div>
+            ${st ? `<div class="cc-ovr al-ovr"><b>${statMean(st)}</b><small>${POS_LABEL[p.position] ?? p.position}</small></div>` : `<div class="cc-ovr pos"><small>${POS_LABEL[p.position] ?? p.position}</small></div>`}
+            <div class="cc-name al-name"><span>${esc(p.name.replace(/ Alius$/, ''))}</span></div></div>
+          <div class="al-title">${esc(al.title)}</div>
+          <div class="cc-rar al-rarrow">${this.aliusRar(p.id)}${locked ? '' : this.tierGems(at, 'mini')}${can ? `<span class="card-dup can-asc al-can" title="${tr('¡Puede subir de categoría!')}">▲</span>` : ''}</div>
+          <div class="al-pc-pass"><i>◆</i><span>${esc(ALIUS_PASSIVES[al.passive].name)}</span></div>
+          ${bars}
+        </div>
+        <i class="al-pc-sheen"></i><i class="pc-glare"></i>
+      </div></div>`;
+    }
     return `<div class="pcard cc t-${tier} r-${er}${champ ? ` champ champ-${champ}` : ''}${locked ? ' locked' : ''}${opts.sel ? ' sel' : ''}${opts.big ? ' big' : ''}${hero ? ' hero' : ''}" data-id="${p.id}" style="--rc:${RARITY_COLOR[er]};--ec:${ELEMENT_COLOR[e] ?? '#8a9bbd'}">
       ${top ? `<div class="pc-top">${top}</div>` : ''}
       <div class="cc-frame"><i class="cc-bevel"></i><i class="cc-crown"></i><i class="cc-orn tl"></i><i class="cc-orn tr"></i><i class="cc-orn bl"></i><i class="cc-orn br"></i>
@@ -1201,7 +1224,7 @@ export class App {
     const tips = new Map(guideEntries().map((g) => [g.id, g.what]));
     const TIP_ID: Record<string, string> = { shop: 'techshop', pass: 'weekly', lobby: 'lobby', gacha: 'gacha' };
     const tip = (go: string) => tips.get(TIP_ID[go] ?? go) ?? '';
-    const tile = (go: string, icon: UiIconName, label: string, sub: string, badge = 0, hot = false, tag = '') => `<button class="m4-tile${hot ? ' hot' : ''}" data-go="${go}"${tip(go) ? ` title="${esc(tip(go))}"` : ''}>${tag ? `<em class="m4-new">${tag}</em>` : ''}<span class="m4-ic${go === 'coaches' || this.menuArt(go) ? ' m4-art' : ''}">${go === 'coaches' ? this.tmIcon('whistle') : this.menuArt(go) || uiIcon(icon)}</span><span class="m4-tx"><b>${label}</b><small>${sub}</small></span>${badge ? `<span class="m4-badge">${badge}</span>` : ''}</button>`;
+    const tile = (go: string, icon: UiIconName, label: string, sub: string, badge = 0, hot = false, tag = '') => `<button class="m4-tile${hot ? ' hot' : ''}" data-go="${go}"${tip(go) ? ` title="${esc(tip(go))}"` : ''}>${tag ? `<em class="m4-new">${tag}</em>` : ''}<span class="m4-ic${go === 'coaches' || go === 'alius' || this.menuArt(go) ? ' m4-art' : ''}">${go === 'coaches' ? this.tmIcon('whistle') : go === 'alius' ? this.stoneIcon(40) : this.menuArt(go) || uiIcon(icon)}</span><span class="m4-tx"><b>${label}</b><small>${sub}</small></span>${badge ? `<span class="m4-badge">${badge}</span>` : ''}</button>`;
     const group = (cls: string, icon: UiIconName, title: string, tiles: string) => `<div class="m4-group ${cls}"><h4>${this.menuArt(cls, 'm4-hic') || uiIcon(icon)}<span>${title}</span></h4><div class="m4-grid">${tiles}</div></div>`;
     const squad = squadOf(this.save, this.byId);
     const unseenLog = this.save.devlogSeen !== newsKey();
@@ -1244,7 +1267,8 @@ export class App {
           ${group('g-club', 'perks', tr('HAZ MÁS FUERTE A TU EQUIPO'), tile('collection', 'cards', tr('COLECCIÓN'), claims ? tr('¡Recompensas!') : tr('Asciende y pon estrellas'), claims, !!claims)
             + `<button class="m4-tile eg-tile" data-go="keshin" title="${esc(tip('keshin'))}"><span class="m4-ic m4-art">${this.menuArt('keshin')}</span><span class="m4-tx"><b>${tr('ESPÍRITUS')}</b><small>${tr('{egTokens} Fichas EG', { egTokens: egTokens(this.save) })}</small></span></button>`
             + tile('perks', 'perks', tr('MEJORAS'), tr('Vida, daño, imán…')) + tile('shop', 'bolt', tr('TÉCNICAS'), tr('Manuales para tu equipo'))
-            + tile('gear', 'boot', tr('EQUIPAMIENTO'), tr('Botas, guantes…')) + tile('alius', 'star', tr('ALTAR ALIUS'), tr('{x1} piedras · {x2}/{x3}', { x1: aliusStones(this.save), x2: unlockedCount(this.save), x3: ALIUS.length }), ALIUS.some((a) => aliusStatus(this.save, this.m.roster, a) === 'disponible') ? 1 : 0) + tile('coaches', 'whistle', tr('ENTRENADORES'), tr('{x1} de {COACHESLength}', { x1: this.save.coaches?.owned.length ?? 0, COACHESLength: COACHES.length }))
+            + tile('gear', 'boot', tr('EQUIPAMIENTO'), tr('Botas, guantes…')) + (aliusOpen(serverNow()) ? tile('alius', 'star', tr('ALTAR ALIUS'), tr('{x1} piedras · {x2}/{x3}', { x1: aliusStones(this.save), x2: unlockedCount(this.save), x3: ALIUS.length }), ALIUS.some((a) => aliusStatus(this.save, this.m.roster, a) === 'disponible') ? 1 : 0)
+              : tile('alius', 'star', tr('PIEDRA ALIUS'), tr('25 de noviembre · 12:00'), 0, false, tr('PRONTO'))) + tile('coaches', 'whistle', tr('ENTRENADORES'), tr('{x1} de {COACHESLength}', { x1: this.save.coaches?.owned.length ?? 0, COACHESLength: COACHES.length }))
             + tile('kits', 'shirt', tr('EQUIPACIONES'), tr('Uniforme y escudo')) + tile('training', 'target', tr('ENTRENAMIENTO'), tr('Prueba técnicas')))}
           ${group('g-sign', 'capsule', tr('CONSIGUE FUTBOLISTAS'), tile('gacha', 'capsule', tr('MÁQUINA'), tr('{tokens} fichas', { tokens: this.save.tokens })) + (thanksActive(serverNow()) ? tile('thanksev', 'gift', tr('AGRADECIMIENTO'), tr('{x1} fichas de evento', { x1: this.save.eventTokens ?? 0 }), 0, true) : '') + (eventActive(serverNow()) ? tile('pnevent', 'gift', tr('EVENTO'), tr('Banners de leyenda'), 0, true) : '') + (this.shopNews() ? tile('daily', 'shop', tr('TIENDA'), tr('¡Banners y marcos nuevos!'), 0, true, tr('NUEVO')) : tile('daily', 'shop', tr('TIENDA'), tr('Ofertas del día'))) + tile('gts', 'gts', tr('GTS'), tr('Intercambia online')) + tile('codes', 'key', tr('CÓDIGOS'), tr('Canjea regalos')))}
           ${group('g-mode', 'play', tr('MODOS DE JUEGO'), tile('road', 'flag', tr('ROAD TO FF'), this.save.road?.active ? tr('Partido {x1} en juego', { x1: this.save.road.active.level + 1 }) : tr('Arenas seguidas'), 0, !!this.save.road?.active)
@@ -1282,6 +1306,8 @@ export class App {
     // 2.0 (author): the launch intro, once per browser, before anything else of the menu; 2.4 (author: «que salga en pantalla la
     // alerta al entrar x first time»): the current version's, so everyone sees the new one once
     if (this.launchPending()) window.setTimeout(() => { if (this.screenKey === 'menu-mode' && !this.game.scene.isActive('Arena')) this.launch20(); }, 300); // 2.6 showed the Victory Road poster here (vrTeaserPoster)
+    // 3.0: until the 25th, the meteor teaser once per browser (after the Sendokai one, which has the menu until it opens)
+    else if (NEXT_RELEASE?.version === '3.0' && !aliusOpen(serverNow()) && !sendokaiUpcoming(serverNow()) && this.save.onboardingDone && this.teaser30Pending()) window.setTimeout(() => { if (this.screenKey === 'menu-mode' && !this.game.scene.isActive('Arena')) this.launch30(true); }, 300);
     // 2.0: the Espíritus Guerreros are introduced once per save (no gift: Fichas EG are earned in rank X)
     if (giveKeshinGift(this.save)) {
       this.persist();
@@ -1309,7 +1335,7 @@ export class App {
       if (go === 'squad') this.captainSelect();
       if (go === 'training') this.trainingField(); // v1.6
       if (go === 'coaches') this.coachesScreen(); // pre-2.0
-      if (go === 'alius') this.aliusAltar(); // 3.0
+      if (go === 'alius') { if (aliusOpen(serverNow())) this.aliusAltar(); else this.launch30(true); } // 3.0: before the 25th, its teaser
       if (go === 'keshin') this.keshinScreen(); // 2.0
       if (go === 'road') this.roadScreen();
       if (go === 'tierlist') this.tierlistScreen(); // 1.9
@@ -1495,6 +1521,12 @@ export class App {
     // 2.9 (author: «que salga como principal»): the new collab's slide, open or still a secret, goes first
     const sd = slides.findIndex((x) => x.art.includes('m5-sd') || x.art.includes('m5-soon5'));
     if (sd > 0) slides.unshift(...slides.splice(sd, 1));
+    // 3.0 (author): La Piedra Alius, before anything else: «Próximamente» with the date, then the update itself
+    const stoneArt = `<span class="m5-al">${this.stoneIcon(92)}<span class="m5-al-who">${['kira', 'byron', 'nosaka'].map((k, i) => { const a = ALIUS_BY_KEY.get(k); return a ? `<span style="--i:${i}">${this.aliusMug(a, 104)}</span>` : ''; }).join('')}</span></span>`;
+    if (aliusOpen(now)) slides.unshift({ kicker: tr('NUEVA VERSIÓN'), title: tr('InaZurvivors 3.0 · La Piedra Alius'), text: tr('29 transformaciones con su propia pasiva, rareza Alius con tres categorías y el Altar para desbloquearlas. Toca para verlo.'),
+      cta: tr('Ir al Altar'), color: '#9a4dff', tag: '3.0', art: stoneArt, act: () => this.aliusAltar() });
+    else slides.unshift({ kicker: tr('PRÓXIMAMENTE · 25 NOV 12:00'), title: tr('InaZurvivors 3.0 · La Piedra Alius'), text: tr('Algo ha caído del cielo y algunos futbolistas ya no son los mismos. Faltan {x1}.', { x1: this.leftText(aliusLeftMs(now)) }),
+      cta: tr('Ver el avance'), color: '#9a4dff', tag: '3.0', art: stoneArt.replace('m5-al"', 'm5-al m5-al-soon"'), act: () => this.launch30(true) });
     return slides;
   }
   private promoHtml(slides: ReturnType<App['promoSlides']>) {
@@ -2055,7 +2087,7 @@ export class App {
       if (!awaken(this.save, p)) { sfx('error'); return; }
       this.persist();
       box.querySelector('.asc-card')!.classList.add('transform');
-      sfx('legend');
+      sfx('legend'); sfx('thunder'); // 3.0 (author): a bolt when a footballer goes up
       if (this.save.settings.particles !== 'desactivado') confetti(120);
       await wait(1400);
       box.remove();
@@ -2072,7 +2104,7 @@ export class App {
       this.persist();
       if (returned) window.setTimeout(() => this.toast(tr('Te devolvemos {returned} {x1} de entrenamiento: esas estadísticas ya llegan a su máximo', { returned, x1: returned === 1 ? 'punto' : 'puntos' }), 4500), 1600);
       box.querySelector('.asc-card')!.classList.add('transform');
-      sfx('legend');
+      sfx('legend'); sfx('thunder'); // 3.0 (author): a bolt when a footballer goes up
       if (this.save.settings.particles !== 'desactivado') confetti(step === 'ascenso' ? 50 : 90);
       await wait(1400);
       box.remove();
@@ -2581,7 +2613,8 @@ export class App {
     setMusicContext('menu');
     const owned = new Set(this.save.coaches?.owned ?? []), bench = this.save.coaches?.bench;
     const order = (c: CoachDef) => (owned.has(c.id) ? 0 : 100) - RARITY_ORDER.indexOf(c.rarity);
-    const shown = COACHES.filter((c) => c.machine !== 'sendokai' || owned.has(c.id) || !sendokaiUpcoming(serverNow())); // 2.9: a surprise until it opens
+    const shown = COACHES.filter((c) => (c.machine !== 'sendokai' || owned.has(c.id) || !sendokaiUpcoming(serverNow())) // 2.9: a surprise until it opens
+      && (!c.altar || owned.has(c.id) || aliusOpen(serverNow()))); // 3.0: Lina Alius, the same
     const cards = [...shown].sort((a, b2) => order(a) - order(b2)).map((c) => {
       const own = owned.has(c.id);
       return `<div class="co-card r-${c.rarity}${own ? '' : ' locked'}${bench === c.id ? ' on' : ''}" style="--rc:${RARITY_COLOR[c.rarity]}">
@@ -2925,6 +2958,7 @@ export class App {
         <button class="btn big es-ok">${tr('¡Genial!')}</button></div>`;
     document.body.appendChild(box);
     egAwaken(k.element, to >= KESHIN_MAX ? 'omega' : from ? 'up' : 'first'); // 2.1 (author): epic, and by its affinity
+    window.setTimeout(() => sfx('thunder'), 120); // 3.0 (author): and a bolt
     if (from) window.setTimeout(() => { // (author) a level up makes the frame burst and grow
       const fr = box.querySelector('.es-fw .eg-frame');
       if (fr) { fr.className = `eg-frame fl-${Math.min(KESHIN_MAX, to)} grow`; }
@@ -3003,6 +3037,7 @@ export class App {
    *  spirits' (and its news button replays it); 2.4 orbits the five languages, 2.5 the seven, with their flags */
   private launch20(version = PUBLIC_VERSION) {
     if (version === '2.8') { this.launch28(); return; }
+    if (version === '3.0') { this.launch30(false); return; }
     try { localStorage.setItem(`iz-launch-${version}`, '1'); } catch { /* private window: it may show again */ }
     const rel = PUBLIC_RELEASES.find((r) => r.version === version) ?? PUBLIC_RELEASES[0];
     const spirits = version === '2.0';
@@ -3081,6 +3116,179 @@ export class App {
     box.querySelectorAll('[data-l2go]').forEach((b) => b.addEventListener('click', () => close(false)));
     box.querySelector('[data-l2news]')!.addEventListener('click', () => close(true));
   }
+
+  private teaser30Pending() {
+    try { return localStorage.getItem('iz-teaser-3.0') !== '1'; } catch { return false; }
+  }
+  /** one of the 29 around the fallen stone: the original, and his Alius over him once the stone's bolt reaches him */
+  private l30Who(a: AliusDef, i: number) {
+    return `<div class="l30-who" data-l30who style="--i:${(i * 0.25).toFixed(2)}" title="${esc(a.baseName.trim())} Alius"><span class="l30-pic"><span class="l30-orig">${this.originalMug(a, 64)}</span><span class="l30-al">${this.aliusMug(a, 64)}</span><i class="l30-burst"></i></span></div>`;
+  }
+  /**
+   * 3.0 (author: «como que cae el meteorito de la piedra alius y entonces se van viendo como algunos jugadores se van
+   * transformando… que se vea lo del coop infinito. Y jugadores del victory road como segundo. Que diga que hay mecánicas
+   * de pasivas»; «que saliesen todos en la animación de la piedra»): the Piedra Alius falls as a meteor into the middle of
+   * all 29 (two rings around it) and its bolts turn them into their Alius one after another, sweeping round; then the 3.0 seal, the news (passives, categories, resonance, co-op infinito) and
+   * Victory Road as what comes next. Before 25 November it is the «Próximamente» teaser with the countdown (menu tile and
+   * carousel); from then on it is the launch intro, with a button to the Altar.
+   */
+  private launch30(soon = !aliusOpen(serverNow())) {
+    try { localStorage.setItem(soon ? 'iz-teaser-3.0' : 'iz-launch-3.0', '1'); } catch { /* private window: it may show again */ }
+    if (document.querySelector('.l30')) return;
+    const rel = releaseByVersion('3.0')!;
+    const vr = [...(this.m.vrTeaser ?? [])].sort((a, b) => RARITY_ORDER.indexOf(b.rarity) - RARITY_ORDER.indexOf(a.rarity)).slice(0, 6);
+    const lite = this.save.settings.particles === 'desactivado';
+    const box = document.createElement('div');
+    box.className = `l30${soon ? ' soon' : ''}`;
+    box.innerHTML = `<i class="l30-sky"></i><canvas class="l30-fx"></canvas><i class="l30-flash"></i>
+      <div class="l30-main">
+        <div class="l30-ring"><div class="l30-core"><i class="l30-crater"></i><span class="l30-stone">${this.stoneIcon(84)}</span></div>
+          ${ALIUS.map((a, i) => this.l30Who(a, i)).join('')}</div>
+        <div class="l30-head"><div class="l30-logo lg-host">${this.artLogo(true)}</div>
+          <div class="l30-seal"><b>3.0</b><em>${tr('LA PIEDRA ALIUS')}</em></div>
+          <div class="l30-date">${soon ? `<small>${tr('PRÓXIMAMENTE')}</small><b>${tr('25 DE NOVIEMBRE · 12:00')}</b><span data-l30left></span>` : `<b>${tr('¡YA DISPONIBLE!')}</b>`}</div></div>
+        <div class="l30-feats">${rel.features.filter((f) => f.icon !== '🛣️').map((f, i) => `<span style="--i:${i}"><i>${f.icon}</i><b>${esc(f.title)}</b><small>${esc(f.text)}</small></span>`).join('')}</div>
+        ${vr.length ? `<div class="l30-vr"><div class="l30-vr-tx"><small>${tr('Y DESPUÉS…')}</small><b>VICTORY ROAD</b><em>${tr('Muy pronto')}</em></div>
+          <div class="l30-vr-row">${vr.map((p, i) => `<span style="--i:${i};--rc:${RARITY_COLOR[p.rarity]}">${this.vrMug(p, 60)}</span>`).join('')}</div></div>` : ''}
+        <div class="l30-btns">${soon ? `<button class="btn big al-btn" data-l2go>${tr('¡Nos vemos el 25! ▶')}</button>`
+          : `<button class="btn big blue" data-l2news>${tr('Ver todas las novedades')}</button><button class="btn big al-btn" data-l30altar>${tr('Ir al Altar ▶')}</button>`}</div>
+      </div>
+      <button class="l2-skip" data-l2go>${tr('Saltar')}</button>`;
+    document.body.appendChild(box);
+    const left = box.querySelector<HTMLElement>('[data-l30left]');
+    const tickLeft = () => { if (left) left.textContent = tr('Faltan {x1}', { x1: this.leftText(aliusLeftMs(serverNow())) }); };
+    tickLeft();
+    const timer = window.setInterval(tickLeft, 15_000);
+
+    // the meteor, the shockwave, the beams to each footballer and the embers: one canvas over the sky, under the cards
+    const cv = box.querySelector<HTMLCanvasElement>('.l30-fx')!, g = cv.getContext('2d')!;
+    const fit = () => { const d = Math.min(2, window.devicePixelRatio || 1); cv.width = window.innerWidth * d; cv.height = window.innerHeight * d; g.setTransform(d, 0, 0, d, 0, 0); };
+    fit();
+    window.addEventListener('resize', fit);
+    const img = new Image();
+    img.src = this.m.alius?._piedra?.head ?? '';
+    const centre = (el: Element | null) => { const r = el?.getBoundingClientRect(); return r ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : { x: window.innerWidth / 2, y: window.innerHeight / 3 }; };
+    const core = box.querySelector('.l30-core'), whos = [...box.querySelectorAll<HTMLElement>('[data-l30who]')];
+    const ring = box.querySelector<HTMLElement>('.l30-ring')!, INNER = 12, angles: number[] = [];
+    const layout = () => {
+      const W = ring.clientWidth, H = ring.clientHeight, sz = Math.round(Math.max(30, Math.min(64, Math.min(W, H) * 0.115)));
+      whos.forEach((w, i) => {
+        const outer = i >= INNER, k = outer ? i - INNER : i, cnt = outer ? whos.length - INNER : INNER;
+        const a = -Math.PI / 2 + ((k + (outer ? 0.5 : 0)) / cnt) * Math.PI * 2;
+        const rx = (W / 2 - sz / 2 - 4) * (outer ? 1 : 0.6), ry = (H / 2 - sz / 2 - 4) * (outer ? 1 : 0.58);
+        w.style.left = `${(W / 2 + Math.cos(a) * rx - sz / 2).toFixed(1)}px`; w.style.top = `${(H / 2 + Math.sin(a) * ry - sz / 2).toFixed(1)}px`;
+        w.style.setProperty('--s', `${sz}px`);
+        angles[i] = (a + Math.PI / 2 + Math.PI * 2) % (Math.PI * 2) + (outer ? 0.001 : 0);
+      });
+    };
+    layout();
+    window.addEventListener('resize', layout);
+    // one after another, sweeping round from the top (inner and outer together), 0.1 s apart
+    const T_FIRST = 2.0, STEP = 0.1, turnAt: number[] = [];
+    [...whos.keys()].sort((x, y) => angles[x] - angles[y]).forEach((i, rank) => { turnAt[i] = T_FIRST + rank * STEP; });
+    const COLS = ['#f2dcff', '#c08aff', '#9a4dff', '#6f2bd9', '#5ee0ff'];
+    type Spark = { x: number; y: number; vx: number; vy: number; life: number; max: number; size: number; c: string; grav: number };
+    const sparks: Spark[] = [], rings: { x: number; y: number; t: number; c: string }[] = [];
+    const spark = (x: number, y: number, n: number, speed: number, grav = 0, size = 3) => {
+      for (let k = 0; k < (lite ? Math.ceil(n / 4) : n); k++) {
+        const a = Math.random() * Math.PI * 2, v = speed * (0.3 + Math.random() * 0.7), max = 0.5 + Math.random() * 0.9;
+        sparks.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: max, max, size: size * (0.5 + Math.random()), c: COLS[(Math.random() * COLS.length) | 0], grav });
+      }
+    };
+    const bolt = (a: { x: number; y: number }, b: { x: number; y: number }, w: number, col: string) => {
+      g.strokeStyle = col; g.lineWidth = w; g.beginPath(); g.moveTo(a.x, a.y);
+      const n = 9, nx = -(b.y - a.y), ny = b.x - a.x, l = Math.hypot(nx, ny) || 1;
+      for (let k = 1; k < n; k++) { const j = (Math.random() - 0.5) * 34; g.lineTo(a.x + (b.x - a.x) * k / n + nx / l * j, a.y + (b.y - a.y) * k / n + ny / l * j); }
+      g.lineTo(b.x, b.y); g.stroke();
+    };
+    const T_HIT = 1.4, T_TITLE = T_FIRST + whos.length * STEP + 0.5;
+    let hit = false, titled = false, last = performance.now();
+    const t0 = last;
+    const frame = (now: number) => {
+      if (!box.isConnected) return;
+      const t = (now - t0) / 1000, dt = Math.min(0.05, (now - last) / 1000), W = window.innerWidth, H = window.innerHeight;
+      last = now;
+      g.clearRect(0, 0, W, H);
+      g.globalCompositeOperation = 'lighter';
+      const c = centre(core);
+      if (t < T_HIT) { // the fall: from the top right corner, faster and faster, with a tail of fire
+        const k = t / T_HIT, e = k * k, sx = W * 0.92, sy = -90, x = sx + (c.x - sx) * e, y = sy + (c.y - sy) * e;
+        const halo = g.createRadialGradient(x, y, 0, x, y, 90 + k * 50);
+        halo.addColorStop(0, '#f3e2ffcc'); halo.addColorStop(0.35, '#a05cffaa'); halo.addColorStop(1, '#5a1fb000');
+        g.fillStyle = halo; g.beginPath(); g.arc(x, y, 90 + k * 50, 0, Math.PI * 2); g.fill();
+        const dx = c.x - sx, dy = c.y - sy, dl = Math.hypot(dx, dy);
+        for (let k2 = 0; k2 < (lite ? 2 : 7); k2++) sparks.push({ x: x + (Math.random() - 0.5) * 22, y: y + (Math.random() - 0.5) * 22, vx: -dx / dl * (180 + Math.random() * 260) + (Math.random() - 0.5) * 90, vy: -dy / dl * (180 + Math.random() * 260) + (Math.random() - 0.5) * 90, life: 0.6, max: 0.6, size: 4 + Math.random() * 6, c: COLS[(Math.random() * 4) | 0], grav: 0 });
+        if (img.complete && img.naturalWidth) {
+          g.globalCompositeOperation = 'source-over';
+          const h = 46 + k * 40, w = h * img.naturalWidth / img.naturalHeight;
+          g.save(); g.translate(x, y); g.rotate(t * 7); g.imageSmoothingEnabled = false; g.drawImage(img, -w / 2, -h / 2, w, h); g.restore();
+          g.globalCompositeOperation = 'lighter';
+        }
+      } else if (!hit) { // the impact
+        hit = true;
+        box.classList.add('hit');
+        sfx('boom'); sfx('thunder');
+        spark(c.x, c.y, 160, 900, 520, 4);
+        rings.push({ x: c.x, y: c.y, t, c: '#c08aff' }, { x: c.x, y: c.y, t: t + 0.12, c: '#5ee0ff' }, { x: c.x, y: c.y, t: t + 0.26, c: '#f2dcff' });
+      }
+      // the footballers, one after another: a bolt from the stone, a flash, and the Alius takes his place
+      turnAt.forEach((tt, i) => {
+        const who = whos[i];
+        if (!who || t < tt - 0.3 || t > tt + 0.15) return;
+        const p = centre(who.querySelector('.l30-pic'));
+        g.shadowColor = '#b06bff'; g.shadowBlur = 24;
+        bolt(c, p, 7, '#9a4dffcc'); bolt(c, p, 2.5, '#ffffff');
+        g.shadowBlur = 0;
+        if (t >= tt && !who.classList.contains('on')) {
+          who.classList.add('on');
+          sfx('zap');
+          if (tt === Math.max(...turnAt)) { sfx('legend'); sfx('thunder'); } else if (Math.round((tt - T_FIRST) / STEP) % 4 === 0) sfx('evolve');
+          spark(p.x, p.y, 26, 420, 260, 3);
+          rings.push({ x: p.x, y: p.y, t, c: '#c08aff' });
+        }
+      });
+      if (!titled && t >= T_TITLE) { titled = true; box.classList.add('titled'); sfx('reveal'); if (!lite) confetti(70); }
+      if (hit && !lite && Math.random() < 0.6) sparks.push({ x: c.x + (Math.random() - 0.5) * 60, y: c.y + 20, vx: (Math.random() - 0.5) * 40, vy: -60 - Math.random() * 90, life: 1.6, max: 1.6, size: 2 + Math.random() * 3, c: COLS[(Math.random() * 4) | 0], grav: -10 });
+      for (let k = rings.length - 1; k >= 0; k--) { // shockwaves
+        const r = rings[k], a = (t - r.t) / 0.9;
+        if (a < 0) continue;
+        if (a >= 1) { rings.splice(k, 1); continue; }
+        g.strokeStyle = r.c; g.globalAlpha = 1 - a; g.lineWidth = 10 * (1 - a) + 1;
+        g.beginPath(); g.ellipse(r.x, r.y, a * Math.max(W, H) * 0.55, a * Math.max(W, H) * 0.2, 0, 0, Math.PI * 2); g.stroke();
+      }
+      g.globalAlpha = 1;
+      for (let k = sparks.length - 1; k >= 0; k--) {
+        const p = sparks[k];
+        p.life -= dt;
+        if (p.life <= 0) { sparks.splice(k, 1); continue; }
+        p.vy += p.grav * dt; p.vx *= 0.985; p.vy *= 0.985; p.x += p.vx * dt; p.y += p.vy * dt;
+        g.globalAlpha = p.life / p.max; g.fillStyle = p.c;
+        g.beginPath(); g.arc(p.x, p.y, p.size * (0.4 + 0.6 * p.life / p.max), 0, Math.PI * 2); g.fill();
+      }
+      g.globalAlpha = 1;
+      g.globalCompositeOperation = 'source-over';
+      requestAnimationFrame(frame);
+    };
+    requestAnimationFrame(frame);
+    window.setTimeout(() => sfx('whoosh'), 250);
+
+    let closed = false;
+    const close = (then?: () => void) => {
+      if (closed) return; closed = true;
+      document.removeEventListener('keydown', onKey);
+      window.removeEventListener('resize', fit);
+      window.removeEventListener('resize', layout);
+      window.clearInterval(timer);
+      box.classList.add('out');
+      window.setTimeout(() => { box.remove(); then?.(); }, 420);
+    };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') close(); };
+    document.addEventListener('keydown', onKey);
+    box.querySelectorAll('[data-l2go]').forEach((b) => b.addEventListener('click', () => close()));
+    box.querySelector('[data-l2news]')?.addEventListener('click', () => close(() => this.devlog('version-3.0')));
+    box.querySelector('[data-l30altar]')?.addEventListener('click', () => close(() => this.aliusAltar()));
+  }
+
 
   private keshinIntro() {
     const box = document.createElement('div');
@@ -4155,6 +4363,8 @@ export class App {
 
   // ------------------------------------------------------------- news board (Fix 1.32)
   private newsSel = '';
+  /** 3.0 (author: «haz un filtro en el buzón por tipo de noticia»): the kind the list shows, or all of them / the unread */
+  private newsFilter: NewsKind | 'todas' | 'sinleer' = 'todas';
   /** Noticias: every news item on the left (tag, pinned, date, unread dot), the chosen one in full on the right. */
   devlog(sel?: string) {
     setMusicContext('menu');
@@ -4162,18 +4372,23 @@ export class App {
     // first visit to the board: the old updates count as read, only the news of this version shows as new
     if (!this.save.newsRead) this.save.newsRead = items.filter((n) => n.version && n.version !== PUBLIC_VERSION).map((n) => n.id);
     this.save.devlogSeen = newsKey();
-    const cur = items.find((n) => n.id === (sel ?? this.newsSel)) ?? items[0];
+    const read = new Set(this.save.newsRead);
+    const shown = items.filter((n) => this.newsFilter === 'todas' || (this.newsFilter === 'sinleer' ? !read.has(n.id) || n.id === (sel ?? this.newsSel) : n.kind === this.newsFilter));
+    const cur = items.find((n) => n.id === (sel ?? this.newsSel) && shown.includes(n)) ?? shown[0] ?? items[0];
     this.newsSel = cur?.id ?? '';
     if (cur && !this.save.newsRead.includes(cur.id)) this.save.newsRead = [...this.save.newsRead, cur.id].slice(-200);
     this.persist();
     const listTop = this.root.querySelector('.nb-list')?.scrollTop ?? 0;
-    const list = items.map((n) => `<button class="nb-item k-${n.kind}${n.id === cur?.id ? ' on' : ''}" data-news="${esc(n.id)}">
+    const kinds: (NewsKind | 'todas' | 'sinleer')[] = ['todas', 'sinleer', 'actualizacion', 'novedad', 'evento', 'fix', 'aviso'];
+    const count = (k: typeof kinds[number]) => k === 'todas' ? items.length : k === 'sinleer' ? items.filter((n) => !read.has(n.id)).length : items.filter((n) => n.kind === k).length;
+    const filter = `<div class="nb-filter" role="tablist">${kinds.filter((k) => k === 'todas' || k === 'sinleer' || count(k)).map((k) => `<button class="nb-f k-${k}${this.newsFilter === k ? ' on' : ''}" data-nf="${k}">${k === 'todas' ? tr('Todas') : k === 'sinleer' ? tr('Sin leer') : NEWS_KIND_LABEL[k]}<small>${count(k)}</small></button>`).join('')}</div>`;
+    const list = shown.length ? shown.map((n) => `<button class="nb-item k-${n.kind}${n.id === cur?.id ? ' on' : ''}" data-news="${esc(n.id)}">
         <span class="nb-ic">${this.newsLogo(n)}</span><span class="nb-txt"><span class="nb-meta"><em class="nb-tag">${NEWS_KIND_LABEL[n.kind]}</em>${n.pinned ? '<i class="nb-pin">📌</i>' : ''}<small>${esc(newsRelDate(n.date))}</small>${this.save.newsRead!.includes(n.id) ? '' : `<i class="nb-dot" title="${tr('Sin leer')}"></i>`}</span>
-        <b>${esc(n.title)}</b><small class="nb-sum">${esc(n.summary)}</small></span></button>`).join('');
+        <b>${esc(n.title)}</b><small class="nb-sum">${esc(n.summary)}</small></span></button>`).join('') : `<p class="note nb-empty">${tr('Nada por aquí: estás al día.')}</p>`;
     this.show(`<div class="screen news-board">${this.titlebar(tr('Noticias'), tr('Menú'))}
       <div class="nb-mast"><svg class="nb-mast-bolt" viewBox="0 0 60 100"><polygon points="38,0 6,56 26,56 16,100 56,38 34,38"/></svg><div><b>${tr('LA GACETA {x1}', { x1: '<span>INAZURVIVORS</span>' })}</b>
         <small>${tr('Noticias, avisos y todas las actualizaciones · {VERSION_LABEL}', { VERSION_LABEL: esc(VERSION_LABEL) })}</small></div><span class="nb-mast-n">${items.filter((x) => !this.save.newsRead!.includes(x.id)).length || '✔'}<small>${items.some((x) => !this.save.newsRead!.includes(x.id)) ? tr('sin leer') : tr('al día')}</small></span></div>
-      <div class="nb"><aside class="nb-list">${list}</aside><article class="nb-detail" id="nbdetail">${cur?.id === 'version-2-0-espiritus' ? `<p class="nb-replay"><button class="btn big" id="newsl2">${tr('▶ Ver la presentación de la 2.0')}</button></p>` : ''}${cur ? this.newsDetail(cur) : ''}</article></div></div>`);
+      ${filter}<div class="nb"><aside class="nb-list">${list}</aside><article class="nb-detail" id="nbdetail">${cur?.id === 'version-2-0-espiritus' ? `<p class="nb-replay"><button class="btn big" id="newsl2">${tr('▶ Ver la presentación de la 2.0')}</button></p>` : ''}${cur?.id === 'llega-3-0' || cur?.id === 'version-3.0' ? `<p class="nb-replay"><button class="btn big al-btn" id="newsl30">${tr('▶ Ver la presentación de la 3.0')}</button></p>` : ''}${cur ? this.newsDetail(cur) : ''}</article></div></div>`);
     const listEl = this.root.querySelector('.nb-list');
     if (listEl) listEl.scrollTop = listTop; // choosing an item keeps the list where it was
     this.on('[data-back]', 'click', () => this.mainMenu());
@@ -4181,6 +4396,8 @@ export class App {
     document.getElementById('newsplay')?.addEventListener('click', () => { this.mainMenu(); (this.root.querySelector('[data-go="play"]') as HTMLElement | null)?.click(); });
     document.getElementById('newsbug')?.addEventListener('click', () => this.bugReportModal());
     document.getElementById('newsl2')?.addEventListener('click', () => this.launch20('2.0')); // (author) the 2.0 intro, again
+    document.getElementById('newsl30')?.addEventListener('click', () => this.launch30()); // 3.0: its teaser, or the launch once out
+    this.on('[data-nf]', 'click', (_e, el) => { this.newsFilter = el.dataset.nf as typeof this.newsFilter; sfx('click'); this.devlog(); });
   }
 
   /**
@@ -5551,12 +5768,14 @@ export class App {
       // Fix 1.32 (author's choice): the slot keeps its radar and techniques, in a frame of its rarity, and can be dragged
       const er = effectiveRarity(this.save, p), split = p.stats ? this.statSplit(p) : null, st = split?.own ?? null;
       const ae = this.auraEntryOf(p.id), inh = ae ? inheritedTechs(p, ae) : [];
-      return `<div class="sq-slot ccs${ae ? ' has-aura' : ''} t-${isHero(this.save, p.id) ? 'heroe' : er} rs-${isHero(this.save, p.id) ? 'heroe' : er}${editing}${i === 0 ? ' cap' : ''}${isHero(this.save, p.id) ? ' hero' : ''}${this.squadLanded === i ? ' landed' : ''}" data-slot="${i}" data-drag="${p.id}" style="--rc:${RARITY_COLOR[er]};--ec:${ELEMENT_COLOR[String(p.element)] ?? '#8a9bbd'}">
+      const al = ALIUS_BY_ID.get(p.id); // 3.0: an Alius slot looks like an Alius card and shows his passive
+      return `<div class="sq-slot ccs${al ? ` alius al-t${aliusTier(this.save, al.key)}` : ''}${ae ? ' has-aura' : ''} t-${isHero(this.save, p.id) ? 'heroe' : er} rs-${isHero(this.save, p.id) ? 'heroe' : er}${editing}${i === 0 ? ' cap' : ''}${isHero(this.save, p.id) ? ' hero' : ''}${this.squadLanded === i ? ' landed' : ''}" data-slot="${i}" data-drag="${p.id}" style="--rc:${RARITY_COLOR[er]};--ec:${ELEMENT_COLOR[String(p.element)] ?? '#8a9bbd'}">
         ${i === 0 ? '<span class="captain-badge">C</span>' : `<button class="sq-act" data-captain="${p.id}" title="${tr('Hacer capitán')}">★</button>`}
         <button class="sq-act x" data-remove="${p.id}" title="${tr('Quitar')}">✕</button>
         <div class="sq-head">${this.egMedal(p.id)}<div class="sq-mug">${this.mug(p.id, 64)}${st ? `<span class="sq-ovr${ae ? ' aura' : ''}" title="${tr('Media{x1}', { x1: ae ? tr(' con su Aura') : '' })}">${statMean(split!.eff!)}</span>` : ''}</div></div>
         <b class="sq-name">${esc(p.name)}</b>
         <div class="sq-tags"><span class="pos">${POS_LABEL[p.position] ?? p.position}</span>${this.elem(p)}${this.rar(p)}</div>
+        ${al ? `<span class="sq-alpass" title="${esc(passiveTextAt(ALIUS_PASSIVES[al.passive]))}">${this.stoneIcon(14)} ${esc(ALIUS_PASSIVES[al.passive].name)}</span>` : ''}
         ${comboOf.get(p.name) ? `<span class="sq-combo" title="${tr('Técnica combinada: {x1}', { x1: esc(comboOf.get(p.name)!) })}">🔗 ${esc(comboOf.get(p.name)!)}</span>` : ''}
         ${st ? `<div class="sq-radar">${statRadar(st, STAT_SHORT, RARITY_COLOR[er], split!.add)}</div>` : ''}
         <div class="sq-techs"><small>${tr('TÉCNICA INICIAL')}</small>${p.techniques.slice(0, 5).map((t, ti) => { const usable = this.canStartWith(p, ti), on = this.startOf(p) === ti;
@@ -6071,7 +6290,7 @@ export class App {
         ${(() => { const n = ascendableCount(this.save, this.m.roster); return n ? `<button class="rw-all asc-all" id="ascall" title="${tr('Asciende a todos los que tienen duplicados suficientes')}"><i class="m4-shine"></i>${tr('ASCENDER TODOS<em>{n}</em>', { n })}</button>` : ''; })()}</div>
       ${d && this.compareWith && this.compareWith !== d.id && this.byId.get(this.compareWith) ? this.compareHtml(this.byId.get(this.compareWith)!, d) : ''}
       ${d ? this.playerDetail(d) : ''}
-      <div class="mis-top"><div class="seg" id="views"><button data-v="equipos" class="${this.collectionView === 'equipos' ? 'on' : ''}">${tr('Por equipos')}</button><button data-v="fichatron" class="${this.collectionView === 'fichatron' ? 'on' : ''}">${tr('Fichatrón')}</button><button data-v="todos" class="${this.collectionView === 'todos' ? 'on' : ''}">${tr('Todos')}</button><button data-v="alius" class="al-view ${this.collectionView === 'alius' ? 'on' : ''}">${tr('Alius {x1}/{x2}', { x1: this.m.roster.filter((p) => isAliusId(p.id) && this.owned(p.id)).length, x2: this.m.roster.filter((p) => isAliusId(p.id)).length })}</button></div>
+      <div class="mis-top"><div class="seg" id="views"><button data-v="equipos" class="${this.collectionView === 'equipos' ? 'on' : ''}">${tr('Por equipos')}</button><button data-v="fichatron" class="${this.collectionView === 'fichatron' ? 'on' : ''}">${tr('Fichatrón')}</button><button data-v="todos" class="${this.collectionView === 'todos' ? 'on' : ''}">${tr('Todos')}</button>${aliusOpen(serverNow()) ? `<button data-v="alius" class="al-view ${this.collectionView === 'alius' ? 'on' : ''}">${tr('Alius {x1}/{x2}', { x1: this.m.roster.filter((p) => isAliusId(p.id) && this.owned(p.id)).length, x2: this.m.roster.filter((p) => isAliusId(p.id)).length })}</button>` : ''}</div>
         ${this.collectionView === 'alius' ? `<span class="note">${tr('Transformaciones de la Piedra Alius: se desbloquean en el Altar. Toca una bloqueada para ir al Altar.')}</span>` : ''}
         ${this.collectionView === 'fichatron' ? `<span class="note">${tr('Jugadores de Fichatrón / Ojeadores: {x1} de {scoutsLength}. No pertenecen a un equipo de la historia, pero juegan igual que los demás.', { x1: scouts.filter((p) => this.owned(p.id)).length, scoutsLength: scouts.length })}</span>` : ''}
 </div>
@@ -6401,7 +6620,7 @@ export class App {
         const done = mode === 'buy' ? buyStars(this.save, p, order) : order.filter((k) => assignPick(this.save, id, k)).length;
         box.remove();
         if (!done) { sfx('error'); return; }
-        this.persist(); sfx(mode === 'buy' ? 'legend' : 'powerup');
+        this.persist(); sfx(mode === 'buy' ? 'legend' : 'powerup'); if (mode === 'buy') sfx('thunder'); // 3.0: a bolt with each star
         this.toast(mode === 'buy' ? `${p.name}: +${done} ${done === 1 ? 'estrella' : 'estrellas'}` : tr('{pName}: {done} {x1} de límite', { pName: p.name, done, x1: done === 1 ? 'mejora' : 'mejoras' }), 3000);
         this.collection(id);
       });
@@ -6451,10 +6670,10 @@ export class App {
   }
 
   // ------------------------------------------------------------- 3.0 Altar de la Piedra Alius
-  /** the Piedra Alius art (the author's sprite, tools/alius_assets.py); a drawn fallback while the file is missing */
+  /** the Piedra Alius (the author's sprite, tools/alius_assets.py); a drawn star only if the file is missing */
   private stoneIcon(size = 20) {
     const src = this.m.alius?._piedra?.head;
-    return src ? `<img class="al-stone" src="${src}" alt="" style="width:${size}px;height:${size}px">` : `<span class="al-stone al-stone-fb" style="width:${size}px;height:${size}px">${uiIcon('star')}</span>`;
+    return src ? `<img class="al-stone" src="${src}" alt="" style="height:${size}px;width:auto">` : `<span class="al-stone al-stone-fb" style="width:${size}px;height:${size}px">${uiIcon('star')}</span>`;
   }
   /** portrait of an Alius by key: his bodyshot (or Lina's head) */
   private aliusMug(a: AliusDef, size: number) {
@@ -6471,7 +6690,34 @@ export class App {
   private aliusStatusLabel(st: AliusStatus) {
     return ({ 'sin-original': tr('Falta el original'), 'sin-piedras': tr('Faltan Piedras Alius'), disponible: tr('¡Disponible!'), desbloqueado: tr('Desbloqueado') } as Record<AliusStatus, string>)[st];
   }
+  /** the three category gems of an Alius (lit up to his category; 1ª = all three) */
+  private tierGems(tier: AliusTier, cls = '') {
+    return `<span class="al-gems ${cls}" title="${esc(TIER_LABEL[tier])}">${[3, 2, 1].map((t) => `<i class="${t >= tier ? 'on' : ''}"></i>`).join('')}</span>`;
+  }
+  /** an Alius's rarity chip: ALIUS and his category */
+  private aliusRar(id: number) {
+    const a = ALIUS_BY_ID.get(id)!, t = aliusTier(this.save, a.key);
+    return `<span class="rar alius t${t}">ALIUS ${TIER_SHORT[t]}</span>`;
+  }
+  /**
+   * A passive as a panel of its own: trigger, numbers (as chips) and text; `k` the share it plays at (1 = pitch). Shows
+   * what changes as an Aura.
+   */
+  private passiveBox(id: AliusPassiveId, opts: { aura?: boolean; compact?: boolean } = {}) {
+    const def = ALIUS_PASSIVES[id], p = def.params;
+    const trig: Record<string, [string, string]> = { periodico: ['⟳', tr('Periódica')], ataque: ['⚔', tr('Al atacar')], impacto: ['✸', tr('Al golpear')], eliminacion: ['☠', tr('Al eliminar')],
+      vida: ['♥', tr('Con poca vida')], 'dano-recibido': ['⛨', tr('Al recibir daño')], entrenador: ['◈', tr('Desde el banquillo')] };
+    const [ic, tl] = trig[def.trigger] ?? ['◆', ''];
+    const s1 = (v: number) => `${Math.round(v * 10) / 10}`.replace('.', ',');
+    const chips = [p.every ? tr('cada {x1} s', { x1: s1(p.every) }) : '', p.cd ? tr('recarga {x1} s', { x1: s1(p.cd) }) : '', p.dur ? tr('dura {x1} s', { x1: s1(p.dur) }) : '', p.nth ? tr('cada {x1}.º', { x1: p.nth }) : '']
+      .filter(Boolean).map((c) => `<em>${esc(c)}</em>`).join('');
+    return `<div class="al-pbox t-${def.trigger}${opts.compact ? ' compact' : ''}"><span class="al-pic">${ic}</span><div class="al-pbody">
+      <div class="al-ptop"><small>${esc(tl)}</small><b>${esc(def.name)}</b></div><div class="al-pchips">${chips}</div>
+      <p>${esc(passiveTextAt(def))}</p>
+      ${opts.aura ? `<p class="al-paura">✦ ${tr('Como Aura ({x1}): {x2}', { x1: `${Math.round(ALIUS_CONFIG.slotScale.aura * 100)}%`, x2: esc(passiveTextAt(def, ALIUS_CONFIG.slotScale.aura)) })}</p>` : ''}</div></div>`;
+  }
   private aliusSel = 'kira';
+  private aliusFilter: 'todos' | 'disponibles' | 'desbloqueados' | 'bloqueados' = 'todos';
   aliusAltar(key?: string) {
     setMusicContext('collection');
     if (key && ALIUS_BY_KEY.has(key)) this.aliusSel = key;
@@ -6479,43 +6725,63 @@ export class App {
     const stones = aliusStones(this.save), cost = ALIUS_CONFIG.unlockCost;
     const st = aliusStatus(this.save, this.m.roster, a), orig = originalOk(this.save, this.m.roster, a);
     const base = a.base !== undefined ? this.byId.get(a.base) : undefined;
-    const def = ALIUS_PASSIVES[a.passive];
     const res = resonanceState(this.save);
-    const techs = base ? base.techniques : [];
+    const n = unlockedCount(this.save);
+    const tier = aliusTier(this.save, a.key);
     const card = (x: AliusDef) => {
-      const s2 = aliusStatus(this.save, this.m.roster, x);
-      return `<button class="al-card st-${s2}${x.key === a.key ? ' sel' : ''}" data-alk="${x.key}"><span class="al-card-art">${this.aliusMug(x, 64)}</span>
-        <b>${esc(x.baseName.trim())}</b><small>${esc(x.title)}</small><em class="al-chip st-${s2}">${s2 === 'desbloqueado' ? '✔ ' : s2 === 'sin-original' ? uiIcon('lock') : ''}${esc(this.aliusStatusLabel(s2))}</em></button>`;
+      const s2 = aliusStatus(this.save, this.m.roster, x), t2 = aliusTier(this.save, x.key);
+      return `<button class="al-card st-${s2}${x.key === a.key ? ' sel' : ''}${x.coach ? ' coach' : ''}" data-alk="${x.key}"><i class="al-card-glow"></i><span class="al-card-art">${this.aliusMug(x, 64)}</span>
+        ${s2 === 'desbloqueado' && x.id !== undefined ? this.tierGems(t2, 'mini') : ''}
+        <b>${esc(x.baseName.trim())}</b><small>${esc(x.title)}</small><em class="al-chip st-${s2}">${s2 === 'desbloqueado' ? (x.id !== undefined ? `✔ ${TIER_SHORT[t2]}` : '✔') : s2 === 'sin-original' ? uiIcon('lock') : ''}${s2 === 'desbloqueado' ? '' : esc(this.aliusStatusLabel(s2))}</em></button>`;
     };
+    const list = ALIUS.filter((x) => { const s2 = aliusStatus(this.save, this.m.roster, x); return this.aliusFilter === 'todos' || (this.aliusFilter === 'disponibles' ? s2 === 'disponible' : this.aliusFilter === 'desbloqueados' ? s2 === 'desbloqueado' : s2 === 'sin-original' || s2 === 'sin-piedras'); });
+    const count = (f: typeof this.aliusFilter) => ALIUS.filter((x) => { const s2 = aliusStatus(this.save, this.m.roster, x); return f === 'disponibles' ? s2 === 'disponible' : f === 'desbloqueados' ? s2 === 'desbloqueado' : s2 !== 'disponible' && s2 !== 'desbloqueado'; }).length;
+    // the category block of an unlocked footballer: his gems, the +10s and the next step paid with the original's duplicates
+    const tierBlock = (() => {
+      if (st !== 'desbloqueado' || a.id === undefined || !base) return '';
+      const next = tierCost(base.rarity, tier), spare = originalSpares(this.save, base.id), bonus = ALIUS_CONFIG.tierStats * (3 - tier);
+      return `<div class="al-tier t${tier}"><div class="al-tier-head">${this.tierGems(tier)}<b>${esc(TIER_LABEL[tier])}</b>${bonus ? `<em>+${bonus} ${tr('a todas sus estadísticas')}</em>` : ''}</div>
+        <div class="al-tier-steps">${([3, 2, 1] as AliusTier[]).map((t) => `<span class="${t >= tier ? 'on' : ''}${t === tier ? ' cur' : ''}"><b>${TIER_SHORT[t]}</b><small>${t === 3 ? tr('Transformación') : `+${ALIUS_CONFIG.tierStats * (3 - t)}`}</small></span>`).join('<i></i>')}</div>
+        ${next === null ? `<p class="al-done">${tr('★ Categoría máxima: el Alius más poderoso')}</p>`
+          : `<button class="btn big al-up" id="altier" ${spare >= next ? '' : 'disabled'}>▲ ${tr('Subir a {x1} · {cost} duplicados de {name} ({spare})', { x1: TIER_LABEL[(tier - 1) as AliusTier], cost: next, name: esc(a.baseName.trim()), spare })}</button>
+            <p class="note">${tr('Cada categoría suma +{x1} a todas sus estadísticas. Se paga con duplicados del original, como una ascensión.', { x1: ALIUS_CONFIG.tierStats })}</p>`}</div>`;
+    })();
     const devStones = import.meta.env.DEV && location.hostname !== 'localhost'; // pruebas: never on the author's localhost save
     this.show(`<div class="screen al-screen">${this.titlebar('Altar de la Piedra Alius', 'Menú')}
-      <div class="al-hero"><i class="al-glow"></i><div class="al-hero-tx"><small>${tr('PIEDRA ALIUS')}</small><b>${tr('ALTAR DE LA PIEDRA ALIUS')}</b>
-        <p>${tr('El poder de la Piedra Alius corrompe para siempre a algunos futbolistas: versiones oscuras con su propia pasiva. El original sigue en tu colección.')}</p></div>
-        <div class="al-purse"><span class="al-purse-n">${this.stoneIcon(34)}<b>${stones}</b></span><small>${tr('Piedras Alius')}</small>
-          <span class="al-purse-sub">${tr('{n} de {total} transformaciones', { n: unlockedCount(this.save), total: ALIUS.length })}</span>
+      <div class="al-hero"><i class="al-glow"></i><i class="al-runes"></i>
+        <div class="al-logo"><i class="al-logo-ring"></i><i class="al-logo-ring r2"></i><span class="al-logo-stone">${this.stoneIcon(120)}</span>${Array.from({ length: 8 }, (_, i) => `<i class="al-ember" style="--i:${i}"></i>`).join('')}</div>
+        <div class="al-hero-tx"><small>${tr('PIEDRA ALIUS')}</small><b>${tr('ALTAR DE LA PIEDRA ALIUS')}</b>
+          <p>${tr('El poder de la Piedra Alius corrompe para siempre a algunos futbolistas: versiones oscuras con su propia pasiva. El original sigue en tu colección.')}</p>
+          <div class="al-prog"><i style="width:${n / ALIUS.length * 100}%"></i><span>${tr('{n} de {total} transformaciones', { n, total: ALIUS.length })}</span></div>
+          <div class="al-legend"><span>${this.tierGems(3, 'mini')} 3ª · ${tr('al transformar')}</span><span>${this.tierGems(2, 'mini')} 2ª · +${ALIUS_CONFIG.tierStats}</span><span>${this.tierGems(1, 'mini')} 1ª · +${ALIUS_CONFIG.tierStats * 2}</span></div></div>
+        <div class="al-purse"><span class="al-purse-n">${this.stoneIcon(40)}<b>${stones}</b></span><small>${tr('Piedras Alius')}</small>
+          <span class="al-purse-sub">${tr('Ganas Piedras al superar arenas (rango B o más, máximo {x1} al día)', { x1: ALIUS_CONFIG.stones.dailyCap })}</span>
           ${devStones ? `<button class="btn small" id="aldev" title="Solo en desarrollo">+10 (pruebas)</button>` : ''}</div></div>
       <div class="panel al-sel st-${st}">
-        <div class="al-duo"><div class="al-from">${this.originalMug(a, 112)}<small>${tr('ORIGINAL')}</small></div><i class="al-arrow">»</i>
-          <div class="al-to${st === 'desbloqueado' ? ' on' : ''}">${this.aliusMug(a, 112)}<small>${tr('ALIUS')}</small></div></div>
-        <div class="al-info"><small class="al-title">${esc(a.title)}</small><h3>${esc(a.baseName.trim())} <span class="al-tag">Alius</span>${base ? ` ${this.rar(base)} ${this.elem(base)}` : ` <span class="al-tag coach">${tr('Entrenadora')}</span>`}</h3>
-          <div class="al-passive"><b>${esc(def.name)}</b><p>${esc(passiveTextAt(def))}</p>
-            ${a.coach ? `<p class="note">${tr('Funciona solo desde el banquillo de entrenador.')}</p>` : `<p class="note">${tr('Como Aura: {x1} de su efecto. En el banquillo no actúa.', { x1: `${Math.round(ALIUS_CONFIG.slotScale.aura * 100)}%` })}</p>`}</div>
-          ${base ? `<div class="al-techs"><small>${tr('Supertécnicas conservadas del original')}</small><div>${techs.map((t) => `<span class="al-tech" style="--ec:${ELEMENT_COLOR[t.element ?? ''] ?? '#8a9bbd'}">${elementIcon(t.element, 12)}${esc(tTech(t.name))}</span>`).join('')}</div>
-            <p class="note">${tr('Mismas estadísticas, elemento, técnicas y progreso que {x1}: lo que mejores en el original, lo tiene el Alius.', { x1: esc(a.baseName.trim()) })}</p></div>` : ''}
-          <div class="al-req"><span class="${orig.ok ? 'ok' : 'bad'}">${orig.ok ? '✔' : '✘'} ${esc(orig.label)}</span>
-            <span class="${stones >= cost ? 'ok' : 'bad'}">${stones >= cost ? '✔' : '✘'} ${this.stoneIcon(14)} ${tr('{cost} Piedras Alius (tienes {stones})', { cost, stones })}</span></div>
-          ${st === 'desbloqueado' ? `<p class="al-done">${tr('✔ Transformación desbloqueada')}</p>${a.id !== undefined ? `<button class="btn blue" data-alcard="${a.id}">${tr('Ver su ficha')}</button>` : `<button class="btn blue" id="alcoach">${tr('Ir a Entrenadores')}</button>`}`
-            : `<button class="btn big al-go" id="alunlock" ${st === 'disponible' ? '' : 'disabled'}>${this.stoneIcon(18)} ${tr('Corromper por {cost}', { cost })}</button>`}</div></div>
-      <div class="panel al-res${res.on ? ' on' : ''}"><b>${tr('RESONANCIA ALIUS')}</b> <span>${tr('{n}/3 Alius en tu equipo', { n: res.n })}</span>
-        <p class="note">${tr('Con exactamente tres futbolistas Alius equipados (titulares, banquillo y Auras; la entrenadora no cuenta) y al menos uno en el campo, sus ataques hacen un {x1} más. Máximo {max} Alius en el equipo.', { x1: `${Math.round(ALIUS_CONFIG.resonanceDamage * 100)}%`, max: ALIUS_CONFIG.maxEquipped })}</p></div>
-      <div class="al-grid">${ALIUS.map(card).join('')}</div></div>`);
+        <div class="al-duo"><div class="al-from">${this.originalMug(a, 112)}<small>${tr('ORIGINAL')}</small></div><i class="al-arrow"><b>»</b></i>
+          <div class="al-to${st === 'desbloqueado' ? ' on' : ''}">${this.aliusMug(a, 112)}<small>${tr('ALIUS')}${st === 'desbloqueado' && a.id !== undefined ? ` ${TIER_SHORT[tier]}` : ''}</small></div></div>
+        <div class="al-info"><small class="al-title">${esc(a.title)}</small><h3>${esc(a.baseName.trim())} ${a.id !== undefined ? this.aliusRar(a.id) : `<span class="al-tag coach">${tr('Entrenadora')}</span>`}${base ? ` ${this.elem(base)}` : ''}</h3>
+          ${this.passiveBox(a.passive, { aura: !a.coach })}
+          ${tierBlock}
+          ${base ? `<div class="al-techs"><small>${tr('Supertécnicas conservadas del original')}</small><div>${base.techniques.map((t) => `<span class="al-tech" style="--ec:${ELEMENT_COLOR[t.element ?? ''] ?? '#8a9bbd'}">${elementIcon(t.element, 12)}${esc(tTech(t.name))}</span>`).join('')}</div></div>` : ''}
+          ${st === 'desbloqueado' ? `${a.id !== undefined ? `<button class="btn blue" data-alcard="${a.id}">${tr('Ver su ficha')}</button>` : `<p class="al-done">${tr('✔ Transformación desbloqueada')}</p><button class="btn blue" id="alcoach">${tr('Ir a Entrenadores')}</button>`}`
+            : `<div class="al-req"><span class="${orig.ok ? 'ok' : 'bad'}">${orig.ok ? '✔' : '✘'} ${esc(orig.label)}</span>
+              <span class="${stones >= cost ? 'ok' : 'bad'}">${stones >= cost ? '✔' : '✘'} ${this.stoneIcon(16)} ${tr('{cost} Piedras Alius (tienes {stones})', { cost, stones })}</span></div>
+              <button class="btn big al-go" id="alunlock" ${st === 'disponible' ? '' : 'disabled'}>${this.stoneIcon(22)} ${tr('Corromper por {cost}', { cost })}</button>`}</div></div>
+      <div class="panel al-res${res.on ? ' on' : ''}"><span class="al-res-ic">${this.stoneIcon(28)}</span><div><b>${tr('RESONANCIA ALIUS')}</b> <span>${tr('{n}/3 Alius en tu equipo', { n: res.n })}</span>
+        <p class="note">${tr('Con exactamente tres futbolistas Alius equipados (titulares, banquillo y Auras; la entrenadora no cuenta) y al menos uno en el campo, sus ataques hacen un {x1} más. Máximo {max} Alius en el equipo.', { x1: `${Math.round(ALIUS_CONFIG.resonanceDamage * 100)}%`, max: ALIUS_CONFIG.maxEquipped })}</p></div></div>
+      <div class="seg al-tabs">${(['todos', 'disponibles', 'desbloqueados', 'bloqueados'] as const).map((f) => `<button data-alf="${f}" class="${this.aliusFilter === f ? 'on' : ''}">${({ todos: tr('Todos'), disponibles: tr('Disponibles'), desbloqueados: tr('Desbloqueados'), bloqueados: tr('Bloqueados') })[f]}${f === 'todos' ? '' : ` <em>${count(f)}</em>`}</button>`).join('')}</div>
+      <div class="al-grid">${list.map(card).join('') || `<p class="note">${tr('Nada por aquí todavía.')}</p>`}</div></div>`);
     this.on('[data-back]', 'click', () => this.mainMenu());
     this.on('[data-alk]', 'click', (_e, el) => { sfx('click'); this.aliusAltar(el.dataset.alk); });
+    this.on('[data-alf]', 'click', (_e, el) => { this.aliusFilter = el.dataset.alf as typeof this.aliusFilter; sfx('click'); this.aliusAltar(); });
     this.on('[data-alcard]', 'click', (_e, el) => this.collection(Number(el.dataset.alcard)));
     document.getElementById('alcoach')?.addEventListener('click', () => this.coachesScreen());
     document.getElementById('aldev')?.addEventListener('click', () => { this.save.alius = { ...(this.save.alius ?? { unlocked: [] }), stones: aliusStones(this.save) + 10 }; this.persist(); this.aliusAltar(); });
     const btn = document.getElementById('alunlock');
     if (btn) btn.addEventListener('click', () => this.armed(btn, () => this.unlockAliusNow(a)));
+    const up = document.getElementById('altier');
+    if (up) up.addEventListener('click', () => this.armed(up, () => this.tierUpNow(a)));
   }
   /** the transformation: checked and paid at once; a save that can't be written is undone (no stone lost) */
   private unlockAliusNow(a: AliusDef) {
@@ -6524,35 +6790,108 @@ export class App {
     syncActiveSquad(this.save);
     if (!storeSave(this.save)) { undoUnlock(this.save, a.key); this.toast(tr('No se pudo guardar: no se ha gastado ninguna piedra.'), 4000); sfx('error'); return; }
     void this.pushCloud();
-    this.aliusRite(a);
+    this.aliusCeremony(a, 'transform');
   }
-  /** a short corruption scene with the two portraits (CSS only: no new art) */
-  private aliusRite(a: AliusDef) {
+  /** one category up with the original's duplicates; a save that can't be written is undone */
+  private tierUpNow(a: AliusDef) {
+    const base = this.byId.get(a.base!)!;
+    const before = this.statsOf(this.byId.get(a.id!)!);
+    const snap = JSON.stringify({ o: this.save.owned[String(a.base)], t: this.save.alius?.tiers });
+    const r = aliusTierUp(this.save, a.key, base.rarity);
+    if (!r.ok) { this.toast(r.why, 3500); sfx('error'); return; }
+    if (!storeSave(this.save)) {
+      const back = JSON.parse(snap) as { o: SaveData['owned'][string]; t: Record<string, 1 | 2> | undefined };
+      this.save.owned[String(a.base)] = back.o; this.save.alius!.tiers = back.t;
+      this.toast(tr('No se pudo guardar: no se ha gastado ningún duplicado.'), 4000); sfx('error'); return;
+    }
+    void this.pushCloud();
+    this.aliusCeremony(a, 'tier', before);
+  }
+  /**
+   * The corruption and the category step, as one scene with weight (CSS and a small particle canvas; no new art): the
+   * Piedra Alius comes down spinning, the sigil lights up, the original cracks into shards and the Alius rises out of the
+   * flash; for a category step, his gems light up one by one and the stats count up +10. Click or wait to close.
+   */
+  private aliusCeremony(a: AliusDef, mode: 'transform' | 'tier', before: Record<string, number> | null = null) {
+    document.querySelector('.alc')?.remove();
+    const tier = aliusTier(this.save, a.key);
+    const after = mode === 'tier' && a.id !== undefined ? this.statsOf(this.byId.get(a.id)!) : null;
+    const shards = Array.from({ length: 9 }, (_, i) => `<span class="alc-shard" style="--i:${i};--a:${i * 40 + 10}deg">${this.originalMug(a, 168)}</span>`).join('');
     const box = document.createElement('div');
-    box.className = 'al-rite';
-    box.innerHTML = `<i class="al-rite-rays"></i><div class="al-rite-mugs"><span class="al-rite-from">${this.originalMug(a, 160)}</span><span class="al-rite-to">${this.aliusMug(a, 160)}</span></div>
-      <small>${tr('¡TRANSFORMACIÓN ALIUS!')}</small><b>${esc(a.baseName.trim())} · ${esc(a.title)}</b><em>${esc(ALIUS_PASSIVES[a.passive].name)}</em>`;
+    box.className = `alc ${mode}`;
+    box.innerHTML = `<canvas class="alc-fx"></canvas><i class="alc-vig"></i><i class="alc-flash"></i>
+      <div class="alc-stage"><i class="alc-sigil"></i><i class="alc-sigil s2"></i>
+        <span class="alc-stone">${this.stoneIcon(96)}</span>
+        ${mode === 'transform' ? `<div class="alc-from">${shards}</div>` : ''}
+        <div class="alc-to">${this.aliusMug(a, 168)}<i class="alc-aura"></i></div>
+      </div>
+      <div class="alc-tx"><small>${mode === 'transform' ? tr('¡TRANSFORMACIÓN ALIUS!') : tr('¡SUBE DE CATEGORÍA!')}</small>
+        <b>${esc(a.baseName.trim())}</b><em class="alc-title">${esc(a.title)}</em>
+        ${a.id !== undefined ? `<div class="alc-tier">${this.tierGems(tier)}<span>${esc(TIER_LABEL[tier])}</span></div>` : ''}
+        ${mode === 'transform' ? `<div class="alc-pass">${this.passiveBox(a.passive, { compact: true })}</div>`
+          : before && after ? `<div class="alc-stats">${Object.keys(after).map((k, i) => `<span style="--i:${i}"><small>${STAT_SHORT[k as keyof typeof STAT_SHORT] ?? k}</small><b data-from="${before[k]}" data-to="${after[k]}">${before[k]}</b><em>+${after[k] - before[k]}</em></span>`).join('')}</div>` : ''}
+        <p class="alc-skip">${tr('Toca para continuar')}</p></div>`;
     document.body.appendChild(box);
-    sfx('boom');
-    window.setTimeout(() => sfx('legend'), 900);
-    if (this.save.settings.particles !== 'desactivado') window.setTimeout(() => confetti(24), 950);
-    const close = () => { box.classList.add('out'); window.setTimeout(() => box.remove(), 350); this.aliusAltar(a.key); };
-    const t = window.setTimeout(close, 2600);
-    box.addEventListener('click', () => { window.clearTimeout(t); close(); });
+    // embers: drawn on one small canvas, pulled into the stone then thrown out with the flash
+    const cv = box.querySelector<HTMLCanvasElement>('.alc-fx')!, g = cv.getContext('2d');
+    const reduced = this.save.settings.reducedMotion || this.save.settings.particles === 'desactivado';
+    cv.width = innerWidth; cv.height = innerHeight;
+    const sr = box.querySelector('.alc-stage')!.getBoundingClientRect(); // the embers gather on the portrait
+    const cx = sr.left + sr.width / 2, cy = sr.top + sr.height / 2, burstAt = mode === 'transform' ? 1250 : 900;
+    const parts = reduced ? [] : Array.from({ length: 140 }, () => ({ a: Math.random() * Math.PI * 2, r: 200 + Math.random() * Math.max(cv.width, cv.height) * 0.5, v: 0.5 + Math.random(), s: 1 + Math.random() * 3, c: Math.random() < 0.75 ? '#b56bff' : '#ff3a6a' }));
+    const t0 = performance.now();
+    let raf = 0;
+    const draw = (now: number) => {
+      const t = now - t0;
+      if (!g || !box.isConnected) return;
+      g.clearRect(0, 0, cv.width, cv.height);
+      for (const p of parts) {
+        if (t < burstAt) p.r = Math.max(8, p.r * (1 - 0.012 * p.v * 3)); // drawn in
+        else p.r += p.v * 9; // thrown out
+        p.a += 0.02 * p.v;
+        const x = cx + Math.cos(p.a) * p.r, y = cy + Math.sin(p.a) * p.r * 0.8;
+        g.globalAlpha = t < burstAt ? 0.8 : Math.max(0, 1 - (t - burstAt) / 1400);
+        g.fillStyle = p.c;
+        g.fillRect(Math.round(x), Math.round(y), Math.ceil(p.s), Math.ceil(p.s)); // square pixels, like the rest of the game
+      }
+      if (t < 3600) raf = requestAnimationFrame(draw);
+    };
+    raf = requestAnimationFrame(draw);
+    sfx('whoosh');
+    window.setTimeout(() => sfx('powerup'), 450);
+    window.setTimeout(() => { sfx('boom'); sfx('thunder'); box.classList.add('burst'); }, burstAt);
+    window.setTimeout(() => sfx('legend'), burstAt + 350);
+    if (mode === 'tier') window.setTimeout(() => {
+      sfx('evolve');
+      box.querySelectorAll<HTMLElement>('.alc-stats b').forEach((b) => countUp(b, Number(b.dataset.from), Number(b.dataset.to), 700));
+    }, burstAt + 600);
+    if (!reduced) window.setTimeout(() => confetti(30), burstAt + 200);
+    let closed = false;
+    const close = () => {
+      if (closed) return; closed = true;
+      cancelAnimationFrame(raf);
+      box.classList.add('out');
+      window.setTimeout(() => box.remove(), 380);
+      this.aliusAltar(a.key);
+    };
+    const timer = window.setTimeout(close, mode === 'transform' ? 5200 : 4800);
+    window.setTimeout(() => box.addEventListener('click', () => { window.clearTimeout(timer); close(); }), 500); // a stray click doesn't skip it at once
   }
-  /** an Alius footballer's card: his own portrait, title and passive; his progress is his original's (no upgrade buttons) */
+  /** an Alius footballer's card: his own portrait, category and passive; the rest of his progress is his original's */
   private aliusDetail(d: RosterEntry) {
     const a = ALIUS_BY_ID.get(d.id)!, base = this.byId.get(a.base!)!;
-    const def = ALIUS_PASSIVES[a.passive];
-    const st = this.statsOf(d);
+    const st = this.statsOf(d), tier = aliusTier(this.save, a.key);
     const statNames: Record<string, string> = { kick: 'Tiro', body: 'Físico', guard: 'Defensa', control: 'Control', speed: 'Velocidad', guts: 'Agallas', stamina: 'Aguante' };
-    return `<div class="panel detail al-detail r-${d.rarity}" style="--rc:${RARITY_COLOR[d.rarity]}"><div class="art">${this.mug(d.id, 128)}${charCanvas(d.id, 3, 12)}</div><div>
+    const next = tierCost(base.rarity, tier), spare = originalSpares(this.save, base.id);
+    return `<div class="panel detail al-detail t${tier}"><i class="al-detail-glow"></i><div class="art">${this.mug(d.id, 128)}${charCanvas(d.id, 3, 12)}<span class="al-detail-stone">${this.stoneIcon(34)}</span></div><div>
       <small class="al-title">${esc(a.title)}</small>
-      <h3>${esc(d.name)} ${this.rar(d)} ${this.elem(d)}</h3>
+      <h3>${esc(d.name)} ${this.aliusRar(d.id)} ${this.elem(d)}</h3>
       <div class="note">${tr('Versión Alius de {x1} · {x2}', { x1: esc(base.name), x2: POS_LABEL[d.position] ?? d.position })}</div>
-      <div class="al-passive"><b>${esc(def.name)}</b><p>${esc(passiveTextAt(def))}</p><p class="note">${tr('Como Aura: {x1} de su efecto.', { x1: `${Math.round(ALIUS_CONFIG.slotScale.aura * 100)}%` })}</p></div>
+      ${this.passiveBox(a.passive, { aura: true })}
+      <div class="al-tier t${tier}"><div class="al-tier-head">${this.tierGems(tier)}<b>${esc(TIER_LABEL[tier])}</b>${tier < 3 ? `<em>+${ALIUS_CONFIG.tierStats * (3 - tier)} ${tr('a todas sus estadísticas')}</em>` : ''}</div>
+        ${next === null ? '' : `<p class="note">${tr('Siguiente: {x1} por {cost} duplicados de {name} (tienes {spare}).', { x1: TIER_LABEL[(tier - 1) as AliusTier], cost: next, name: esc(base.name), spare })}</p>`}</div>
       <p class="note">${tr('Juega con el progreso de {x1} (estrellas, ascensión, HÉROE, entrenamiento y técnicas compradas): mejóralo a él.', { x1: esc(base.name) })}</p>
-      <p><button class="btn small blue" data-alorig="${base.id}">${tr('Ver a {x1}', { x1: esc(base.name) })}</button> <button class="btn small" data-altar="${a.key}">${tr('Altar Alius')}</button></p>
+      <p><button class="btn small blue" data-alorig="${base.id}">${tr('Ver a {x1}', { x1: esc(base.name) })}</button> <button class="btn small al-go" data-altar="${a.key}">${this.stoneIcon(16)} ${tr('Altar Alius')}${next !== null && spare >= next ? ' ▲' : ''}</button></p>
       <h3 style="margin-top:8px">${tr('Supertécnicas (las del original)')}</h3>
       ${d.techniques.map((t) => `<div class="rep">${this.techHtml(t)}</div>`).join('')}
       ${st ? `<h3 style="margin-top:8px">${tr('Estadísticas · media {statMean}', { statMean: statMean(st) })}</h3><div class="bars-mini">${Object.entries(st).map(([k, v]) => `<span>${statNames[k] ?? k}</span><i style="width:${Math.min(100, v / EFFECTIVE_STAT_MAX * 100)}%"></i><b>${v}</b>`).join('')}</div>` : ''}
@@ -7962,6 +8301,14 @@ export class App {
     const labels: Record<string, string> = { escudo: 'Escudo', xp: tr('Exp ×2'), dano: tr('Daño +50%'), recarga: tr('Recarga -40%'), velocidad: tr('Velocidad +30%') };
     document.getElementById('buffs')!.innerHTML = s.buffs.map((b) => `<span class="buff b-${b.id}"><i style="width:${b.left / b.total * 100}%"></i>${b.label ?? labels[b.id] ?? DROPS.find((d) => d.id === b.id)?.label ?? ''}</span>`).join('')
       + (s.alius ?? []).map((b) => `<span class="buff b-alius"><i style="width:${Math.min(1, b.left / b.total) * 100}%"></i>${esc(b.label)}</span>`).join(''); // 3.0
+    // 3.0 (author: «que se vean bien las interfaces»): on narrow screens the buffs (the Resonancia Alius is always there)
+    // went over the captain's panel and the minimap over the pause button: each one goes right under the other
+    if (window.matchMedia('(max-width: 900px), (max-height: 520px)').matches) {
+      const vit = this.root.querySelector('.vitals')?.getBoundingClientRect(), pause = document.getElementById('pausebtn')?.getBoundingClientRect();
+      if (vit) document.getElementById('buffs')!.style.top = `${Math.round(vit.bottom + 6)}px`;
+      const mm = document.getElementById('minimap');
+      if (mm && pause && window.matchMedia('(max-width: 760px)').matches && !window.matchMedia('(max-height: 520px)').matches) { mm.style.top = `${Math.round(pause.bottom + 6)}px`; mm.style.right = '10px'; mm.style.left = 'auto'; }
+    }
     document.getElementById('hurt')!.classList.toggle('on', this.save.settings.flashes && s.now - s.hurtAt < 0.12);
     if (s.formationChangedAt > 0 && s.formationChangedAt !== this.lastBannerAt) {
       this.lastBannerAt = s.formationChangedAt;
@@ -8357,7 +8704,7 @@ export class App {
     if (r.victory) recordBluelockWin(this.save, serverNow()); // (author) 3 wins while it is open: the BlueLock banner
     if (r.victory) recordSendokaiWin(this.save, serverNow()); // 2.9: and the Desafío Sendokai one
     // 3.0: Piedras Alius for a won arena (by rank, a daily cap; never in the Juegos del Clan or training)
-    const aliusGot = this.clanMatch || this.lastRunTraining ? 0 : awardAliusStones(this.save, r, dayKey(new Date(serverNow())));
+    const aliusGot = this.clanMatch || this.lastRunTraining || !aliusOpen(serverNow()) ? 0 : awardAliusStones(this.save, r, dayKey(new Date(serverNow())));
     const cap = this.byId.get(r.teamIds?.[0] ?? -1);
     r.captainEra = cap ? eraOf(cap) : undefined;
     r.favoriteOnPitch = (r.teamIds ?? []).filter((id) => this.save.favoriteTeam && this.byId.get(id)?.teams.includes(this.save.favoriteTeam)).length;

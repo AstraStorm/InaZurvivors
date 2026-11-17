@@ -2,7 +2,8 @@
 import { tr } from '../i18n/i18n';
 
 export type Skin = [number, number, number][];
-export type Rarity = 'comun' | 'raro' | 'epico' | 'legendario' | 'mitico' | 'leyenda';
+/** 3.0: 'alius' = the Piedra Alius versions (above Leyenda; their stats come from their original, data/alius.ts) */
+export type Rarity = 'comun' | 'raro' | 'epico' | 'legendario' | 'mitico' | 'leyenda' | 'alius';
 export type TechType = 'tiro' | 'regate' | 'defensa' | 'parada' | 'talento';
 
 export interface SheetInfo {
@@ -77,6 +78,8 @@ export interface RosterEntry {
   keshin?: import('../systems/keshin').KeshinRun;
   /** 3.0: an Alius footballer's original teams (his own `teams` is only the Alius group): club chemistry on the pitch */
   baseTeams?: string[];
+  /** 3.0: an Alius footballer's original rarity: his stats are built at it (training.ts playerStats) */
+  baseRarity?: Rarity;
   /** 1.83: lowest value of a stat whatever the rarity band gives (rosterFixes.ts statFloor) */
   statFloor?: Partial<Record<string, number>>;
 }
@@ -209,9 +212,9 @@ export interface Manifest {
 }
 
 export const RARITY_LABEL: Record<Rarity, string> = {
-  comun: tr('Común'), raro: tr('Raro'), epico: tr('Épico'), legendario: tr('Legendario'), mitico: tr('Mítico'), leyenda: tr('Leyenda'),
+  comun: tr('Común'), raro: tr('Raro'), epico: tr('Épico'), legendario: tr('Legendario'), mitico: tr('Mítico'), leyenda: tr('Leyenda'), alius: tr('Alius'),
 };
-export const RARITY_ORDER: Rarity[] = ['comun', 'raro', 'epico', 'legendario', 'mitico', 'leyenda'];
+export const RARITY_ORDER: Rarity[] = ['comun', 'raro', 'epico', 'legendario', 'mitico', 'leyenda', 'alius'];
 
 /** Original item icon codes used by the game UI (pic3d/sp/io.pkb). */
 export const ICON = {

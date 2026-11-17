@@ -23,6 +23,7 @@ export const ASC_COSTS: Record<Rarity, Record<'ascenso' | 'heroe' | 'estrella', 
   // Fix 1.53 (author): HÉROE costs twice as much for footballers born Común, Raro or Épico (were 10 / 8 / 6)
   comun: { ascenso: 6, heroe: 20, estrella: 10 }, raro: { ascenso: 5, heroe: 16, estrella: 8 }, epico: { ascenso: 4, heroe: 12, estrella: 6 },
   legendario: { ascenso: 2, heroe: 4, estrella: 4 }, mitico: { ascenso: 0, heroe: 2, estrella: 3 }, leyenda: { ascenso: 0, heroe: 1, estrella: 2 },
+  alius: { ascenso: 0, heroe: 0, estrella: 0 }, // 3.0: an Alius climbs his own categories instead (aliusSave.ts aliusTierUp)
 };
 export const HERO_STARS_MAX = 3;
 /**

@@ -8,7 +8,7 @@ import type { Rarity } from '../data/manifest';
 import { PN_RASTER } from './pennantRaster';
 
 /** same colours as the rest of the UI (app.ts) */
-const RARITY_COLOR: Record<Rarity, string> = { comun: '#9fb0c8', raro: '#4fb3ff', epico: '#b36bff', legendario: '#ffb020', mitico: '#ff4f8b', leyenda: '#fff6c8' };
+const RARITY_COLOR: Record<Rarity, string> = { comun: '#9fb0c8', raro: '#4fb3ff', epico: '#b36bff', legendario: '#ffb020', mitico: '#ff4f8b', leyenda: '#fff6c8', alius: '#9a4dff' };
 
 let uid = 0;
 /** the BlueLock logo, relative like every generated asset (works under the GitHub Pages path too). The published build
@@ -376,7 +376,7 @@ function frameArt(p: PennantDef, a: (typeof PN_RASTER.frames)[string]): string {
 const FRAME_HOLE = 112, FRAME_DROP = 5;
 /** the frames whose drawing already has wings (or the ukiyo-e waves that play them) */
 const ART_WINGED = new Set(['marco-bluelock', 'marco-sector-quinto', 'marco-t1-campeon', 'marco-t1-podio', 'marco-creador', 'marco-ukiyo']);
-const PENNANT_RANK: Record<Rarity, number> = { comun: 0, raro: 1, epico: 2, legendario: 3, mitico: 4, leyenda: 5 };
+const PENNANT_RANK: Record<Rarity, number> = { comun: 0, raro: 1, epico: 2, legendario: 3, mitico: 4, leyenda: 5, alius: 6 };
 
 // ------------------------------------------------------------------ avatar frames (author: "marcos súper guays")
 /*

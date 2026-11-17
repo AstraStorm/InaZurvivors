@@ -16,12 +16,12 @@ export const MAX_STARS = 5;
  * footballer is and every rarity fills its five stars at a similar pace. Copies are also what ascension spends
  * (ascension.ts); only when nothing is left to spend them on (five stars and HÉROE) a copy turns into coins.
  */
-export const COPIES_PER_STAR: Record<Rarity, number> = { comun: 3, raro: 2, epico: 2, legendario: 1, mitico: 1, leyenda: 1 };
-export const DUPLICATE_REFUND_BY: Record<Rarity, number> = { comun: 10, raro: 20, epico: 40, legendario: 80, mitico: 150, leyenda: 250 };
+export const COPIES_PER_STAR: Record<Rarity, number> = { comun: 3, raro: 2, epico: 2, legendario: 1, mitico: 1, leyenda: 1, alius: 1 };
+export const DUPLICATE_REFUND_BY: Record<Rarity, number> = { comun: 10, raro: 20, epico: 40, legendario: 80, mitico: 150, leyenda: 250, alius: 250 };
 export const DUPLICATE_REFUND = DUPLICATE_REFUND_BY.comun; // the smallest, for texts
 
 /** Percent chance per pull; rarities must add up to 100. Leyenda is deliberately exceptional. */
-export const RARITY_WEIGHTS: Record<Rarity, number> = { comun: 50, raro: 29, epico: 14.5, legendario: 5, mitico: 1.3, leyenda: 0.2 };
+export const RARITY_WEIGHTS: Record<Rarity, number> = { comun: 50, raro: 29, epico: 14.5, legendario: 5, mitico: 1.3, leyenda: 0.2, alius: 0 };
 
 export type Rng = () => number;
 

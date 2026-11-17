@@ -4,10 +4,10 @@ import { describe, expect, it } from 'vitest';
 import type { Manifest, RosterEntry } from '../src/data/manifest';
 import { ALIUS, ALIUS_CONFIG, ALIUS_PASSIVES, ALIUS_PLAYERS, ALIUS_EXCLUSIVE, LINA_COACH, addAliusRoster, baseIdOf, passiveTextAt, recolourTorsoSkin, scaledParams, TORSO_SKIN_RAMP, type AliusPassiveId } from '../src/data/alius';
 import { newSave, migrate, validate } from '../src/systems/save';
-import { aliusCapProblem, awardAliusStones, equippedAlius, sanitizeAliusState, syncAliusOwned, trimAliusCap, undoUnlock, unlockAlius } from '../src/systems/aliusSave';
+import { aliusCapProblem, aliusTier, aliusTierUp, awardAliusStones, equippedAlius, sanitizeAliusState, syncAliusOwned, trimAliusCap, undoUnlock, unlockAlius } from '../src/systems/aliusSave';
 import { aliusRun } from '../src/systems/alius';
 import { ascend, nextStep } from '../src/systems/ascension';
-import { trainStat } from '../src/systems/training';
+import { playerStats, trainStat } from '../src/systems/training';
 import { buyStar } from '../src/systems/stars';
 import { charactersOf, sameCharacter } from '../src/systems/identity';
 import { playsAs } from '../src/systems/combos';
@@ -69,7 +69,8 @@ describe('roster clones', () => {
       expect(b.name.trim()).toBe(a.baseName.trim());
       expect(x.name).toBe(`${b.name.trim()} Alius`);
       expect(x.exclusive).toBe(ALIUS_EXCLUSIVE);
-      for (const k of ['rarity', 'element', 'position', 'body', 'stats', 'head', 'torso', 'skin', 'heroTech', 'gender', 'era'] as const) expect(x[k], `${a.key} ${k}`).toEqual(b[k]);
+      expect(x.rarity).toBe('alius'); expect(x.baseRarity).toBe(b.rarity); // author: all of them are rarity Alius
+      for (const k of ['element', 'position', 'body', 'stats', 'head', 'torso', 'skin', 'heroTech', 'gender', 'era'] as const) expect(x[k], `${a.key} ${k}`).toEqual(b[k]);
       expect(x.techniques).toEqual(b.techniques); // exactly the same techniques, levels and numbers
       expect(x.techniques[0]).not.toBe(b.techniques[0]); // ...as copies
       expect(x.baseTeams).toEqual(b.teams);
@@ -172,6 +173,32 @@ describe('save: stones, unlocks, mirrors', () => {
   });
 });
 
+describe('categories (3ª, 2ª, 1ª)', () => {
+  it('paid with duplicates of the original, +10 to every stat per step, never past 1ª', () => {
+    const s = newSave([], null);
+    owned(s, KIRA.base!, { copies: 4 }); // 3 duplicates
+    s.alius = { stones: 10, unlocked: [] };
+    unlockAlius(s, 'kira', true);
+    const base = { id: KIRA.base!, rarity: 'legendario', stats: { kick: 80, control: 80, guard: 60, body: 70, speed: 80, guts: 70, stamina: 70 } } as unknown as RosterEntry;
+    const al = { ...base, id: KIRA.id!, rarity: 'alius', baseRarity: 'legendario' } as RosterEntry;
+    const s3 = playerStats(s, al, 'alius', false);
+    expect(s3).toEqual(playerStats(s, base, 'legendario', false)); // 3ª: the original's stats
+    expect(aliusTier(s, 'kira')).toBe(3);
+    expect(aliusTierUp(s, 'kira', 'legendario').ok).toBe(false); // 3 spare < 4 (Legendario: HÉROE cost)
+    s.owned[String(KIRA.base)].copies = 5;
+    expect(aliusTierUp(s, 'kira', 'legendario')).toEqual({ ok: true, tier: 2 });
+    expect(s.owned[String(KIRA.base)].spent).toBe(4);
+    const s2 = playerStats(s, al, 'alius', false);
+    for (const k of Object.keys(s3)) expect(s2[k as keyof typeof s2]).toBe(Math.min(120, s3[k as keyof typeof s3] + ALIUS_CONFIG.tierStats));
+    expect(aliusTierUp(s, 'kira', 'legendario').ok).toBe(false); // 0 spare
+    s.owned[String(KIRA.base)].copies = 13;
+    expect(aliusTierUp(s, 'kira', 'legendario')).toEqual({ ok: true, tier: 1 });
+    expect(aliusTierUp(s, 'kira', 'legendario').ok).toBe(false); // already 1ª
+    expect(migrate(JSON.parse(JSON.stringify(s)), [], null).alius?.tiers).toEqual({ kira: 1 });
+    expect(sanitizeAliusState({ stones: 0, unlocked: [], tiers: { kira: 1, sol: 7 } })?.tiers).toBeUndefined(); // only unlocked ones, only 1 or 2
+  });
+});
+
 describe('run setup', () => {
   it('pitch 100 %, Aura 40 % through the carrier, no bench, three at most, the coach never counts for the Resonancia', () => {
     const s = newSave([], null);
@@ -203,7 +230,7 @@ function arena(passive: AliusPassiveId, opts: { scale?: number; enemies?: Partia
     heal: (n) => { heals.push(n); hp = Math.min(1000, hp + n); }, basic: () => 100,
     strike: (e, dmg) => { strikes.push({ id: e.id, dmg }); e.hp -= dmg; }, // like the arena: a strike never calls onHit again
     delay: (_ms, fn) => later.push(fn), rand: () => 0,
-    fx: { ring: noop, label: noop, line: noop, star: noop, illusion: noop },
+    fx: { ring: noop, label: noop, line: noop, star: noop, illusion: noop, passive: noop, cast: noop },
   }, cfg);
   return { eng, enemies, member, strikes, heals, run: () => { while (later.length) later.shift()!(); }, at: (x: number) => { t = x; eng.tick(16); }, setHp: (x: number) => { hp = x; } };
 }
@@ -379,5 +406,16 @@ describe('phase 4.1 skin on kit torsos', () => {
     expect([...px.slice(0, 3)]).toEqual([3, 3, 3]);
     expect([...px.slice(4, 7)]).toEqual([2, 2, 2]);
     expect([...px.slice(12, 15)]).toEqual(TORSO_SKIN_RAMP[1]); // apart from the skin: left alone
+  });
+});
+
+describe('3.0: the Altar opens on 25 November at 12:00 (Spain)', () => {
+  it('is closed until then and open from then on', async () => {
+    const { aliusOpen, aliusLeftMs, ALIUS_OPEN_AT } = await import('../src/data/alius');
+    const { releaseByVersion } = await import('../src/data/release');
+    expect(aliusOpen(Date.parse('2026-11-25T11:59:59+01:00'))).toBe(false);
+    expect(aliusOpen(Date.parse('2026-11-25T12:00:00+01:00'))).toBe(true);
+    expect(aliusLeftMs(Date.parse('2026-11-24T12:00:00+01:00'))).toBe(86_400_000);
+    expect(releaseByVersion('3.0')?.from).toBe(ALIUS_OPEN_AT); // the news and the version stamp open with the Altar
   });
 });

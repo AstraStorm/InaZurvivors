@@ -57,14 +57,40 @@ export interface AliusHost<E extends AlEnemy, M extends AlMember> {
     label(x: number, y: number, text: string, color: string): void;
     line(x0: number, y0: number, x1: number, y1: number, color: number, w: number): void;
     star(x0: number, y0: number, x1: number, y1: number, color: number, ms: number): void;
-    illusion(m: M, ms: number): void;
+    illusion(m: M, ms: number, x: number): void;
+    /** a passive's own effect at (x, y): x1/y1 for a second point (a beam's end, a soul's way), r for a radius */
+    passive(id: AliusPassiveId, x: number, y: number, o: { x1?: number; y1?: number; r?: number }): void;
+    /** the Alius whose passive went off: a flash in its colour on him, and its name when `named` */
+    cast(m: M, id: AliusPassiveId, named: boolean): void;
   };
   rand(): number;
 }
 
 interface SrcState { src: AliusSource; idx: number; p: Record<string, number>; next: number; n: number; armed: boolean; until: number; cd: number; below: boolean; lost: number; target: AlEnemy | null }
 
-const VIOLET = 0x9a4dff, CRIMSON = 0xd0103a, NAVY = 0x3a2a8a;
+const VIOLET = 0x9a4dff, CRIMSON = 0xd0103a;
+/** each passive's colour on the pitch: its bursts, the marks it leaves, the aura of its buff */
+export const PASSIVE_COLOR: Record<AliusPassiveId, number> = {
+  'muro-carmesi': CRIMSON, 'ojo-huracan': 0x8fd8ff, 'voluntad-eclipse': 0xff4d6d, 'rugido-abisal': 0x2fd0e0, 'colmillo-dragon': 0xb04dff,
+  'juicio-divino': 0xfff2a0, 'fractura-obsidiana': 0x6a5a8a, 'mano-demoniaca': CRIMSON, 'aliento-boreal': 0xbfeaff, 'angel-caido': 0xf0e6ff,
+  'explosion-destructora': 0xff5a2a, 'eclipse-protector': 0xffc94a, 'mil-ilusiones': 0x8a5aff, 'constelacion-negra': 0x7f9cff,
+  'corona-rota': 0xff2a5a, 'mascara-fantasma': 0xc79bff, 'directora-eclipse': 0xff8ad8, 'devorador-almas': 0xc79bff, 'eclipse-dorado': 0xffd23f,
+  'escarcha-eterna': 0xbfeaff, 'rosa-negra': CRIMSON, 'supernova-negra': VIOLET, 'cenizas-rey': 0xff8a3a, 'jaque-mate': 0xffffff,
+  'gravedad-oscura': 0x6a2aca, 'silencio-eterno': 0x8a8ad8, 'ojo-omnisciente': VIOLET, 'espejo-humeante': 0xc8c8e0, 'fortaleza-negra': 0x5a4aca,
+};
+/** what the arena draws every frame for the Alius (AliusEngine.visuals) */
+export interface AliusVisuals {
+  aliusIds: ReadonlySet<number>; resonance: boolean; lina: boolean;
+  field: { x: number; y: number; r: number } | null;
+  /** the barrier left, as a share of the maximum health */
+  barrier: number;
+  /** the damage reductions on: their colours */
+  shields: number[];
+  /** footballers with a buff on (their colour) or a charge ready (an orb) */
+  buffs: { owner: number; color: number }[]; armed: { owner: number; color: number }[];
+  /** colour of the mark slot `idx` of a rival (AlMarks.marks), and of a slow key */
+  markColor: number[]; slowColor(key: string): number;
+}
 /** immune to control: they don't get pushed, pulled, confused or lured, and their slows are capped low */
 export const controlImmune = (e: AlEnemy) => e.kind === 'boss' || !!e.rival;
 const normalRival = (e: AlEnemy) => e.kind === 'enemy' && !e.rival;
@@ -81,6 +107,9 @@ export class AliusEngine<E extends AlEnemy, M extends AlMember> {
   private aliusSet: Set<number>;
   /** proc counters for QA (window.__ies.alius) */
   readonly procs: Record<string, number> = {};
+  /** when each passive's name last floated (once every few seconds at most) */
+  private named: Record<string, number> = {};
+  private coronaAt = -9;
 
   constructor(private host: AliusHost<E, M>, private cfg: AliusRunCfg) {
     // the same passive never twice (an Alius and... himself as an Aura can't happen, but the cap is kept here as well)
@@ -92,6 +121,14 @@ export class AliusEngine<E extends AlEnemy, M extends AlMember> {
 
   get active() { return this.st.length > 0 || this.cfg.linaSpeed > 0 || this.cfg.resonance > 0; }
   private proc(id: string) { this.procs[id] = (this.procs[id] ?? 0) + 1; }
+  /** a passive went off: its effect at (x, y) and the signature on its Alius (his name for it, now and then) */
+  private vis(id: AliusPassiveId, x: number, y: number, m: M | null, o: { x1?: number; y1?: number; r?: number } = {}) {
+    this.host.fx.passive(id, x, y, o);
+    if (!m) return;
+    const rt = this.rt(), named = rt - (this.named[id] ?? -99) >= 4;
+    if (named) this.named[id] = rt;
+    this.host.fx.cast(m, id, named);
+  }
   private ownerOf(s: SrcState) { return this.host.members().find((m) => m.entry.id === s.src.owner) ?? null; }
   private mine(m: M) { return this.st.filter((s) => s.src.owner === m.entry.id); }
   private rt() { return this.host.runTime(); }
@@ -150,8 +187,9 @@ export class AliusEngine<E extends AlEnemy, M extends AlMember> {
         if (hpF >= p.below) s.below = false;
         else if (!s.below && rt >= s.cd) {
           s.below = true; s.cd = rt + p.cd; this.proc(id);
-          if (id === 'voluntad-eclipse') { s.until = rt + p.dur; this.host.fx.label(m.f.x, m.f.y - 40, 'VOLUNTAD DEL ECLIPSE', '#ff4d6d'); }
-          else { this.reduceFor(id, p.reduce, p.dur); this.host.fx.ring(m.f.x, m.f.y - 10, 34, CRIMSON, 600, 4); this.host.fx.label(m.f.x, m.f.y - 40, 'MANO DEMONÍACA', '#ff4d6d'); }
+          if (id === 'voluntad-eclipse') s.until = rt + p.dur;
+          else this.reduceFor(id, p.reduce, p.dur);
+          this.vis(id, m.f.x, m.f.y - 10, m);
         }
       }
     }
@@ -175,14 +213,14 @@ export class AliusEngine<E extends AlEnemy, M extends AlMember> {
     this.proc(id);
     switch (id) {
       case 'ojo-huracan':
-        fx.ring(me.x, me.y, p.radius, 0x8fd8ff, 420, 4);
+        this.vis(id, me.x, me.y, m, { r: p.radius });
         for (const e of this.around(me, p.radius)) {
           if (normalRival(e) || e.kind === 'miniboss') { const d = dist(e.pos, me) || 1, k = e.kind === 'miniboss' ? 0.3 : 1; e.knockX += (e.pos.x - me.x) / d * p.push * k; e.knockY += (e.pos.y - me.y) / d * p.push * k; }
           this.slow(e, id, p.slow, p.dur);
         }
         break;
       case 'rugido-abisal': {
-        fx.ring(me.x, me.y, p.radius, 0x2fd0e0, 520, 5);
+        this.vis(id, me.x, me.y, m, { r: p.radius });
         const dmg = this.host.basic(m) * p.damage;
         for (const e of this.around(me, p.radius)) { this.slow(e, id, p.slow, p.dur); this.host.strike(e, dmg, m); }
         break;
@@ -190,33 +228,33 @@ export class AliusEngine<E extends AlEnemy, M extends AlMember> {
       case 'juicio-divino': {
         let best: E | null = null;
         for (const e of this.around(me, p.range)) if (!best || e.hp > best.hp) best = e;
-        if (best) { marksOf(best).marks[s.idx] = rt + p.dur; fx.ring(best.pos.x, best.pos.y - 12, 20, 0xfff2a0, 700, 3); fx.label(best.pos.x, best.pos.y - 40, 'JUICIO', '#fff2a0'); }
+        if (best) { marksOf(best).marks[s.idx] = rt + p.dur; this.vis(id, best.pos.x, best.pos.y - 12, m, { x1: me.x, y1: me.y }); }
         break;
       }
       case 'rosa-negra': case 'ojo-omnisciente': {
         const special = (e: E) => e.variant === 'elite' || e.kind === 'miniboss' || e.kind === 'boss' || !!e.rival;
         const t = id === 'rosa-negra' ? this.nearest(me, p.range, normalRival) : this.nearest(me, p.range, special) ?? this.nearest(me, p.range);
-        if (t) { marksOf(t).marks[s.idx] = rt + p.dur; fx.ring(t.pos.x, t.pos.y - 12, 18, id === 'rosa-negra' ? CRIMSON : VIOLET, 700, 3); }
+        if (t) { marksOf(t).marks[s.idx] = rt + p.dur; this.vis(id, t.pos.x, t.pos.y - 12, m, { x1: me.x, y1: me.y }); }
         break;
       }
-      case 'eclipse-protector': this.reduceFor(id, p.reduce, p.dur); fx.ring(me.x, me.y, 40, 0xffc94a, 700, 4); break;
-      case 'fortaleza-negra': this.reduceFor(id, p.reduce, p.dur); s.until = rt + p.dur; fx.ring(me.x, me.y, 36, NAVY, 700, 5); break;
+      case 'eclipse-protector': this.reduceFor(id, p.reduce, p.dur); this.vis(id, me.x, me.y, m); break;
+      case 'fortaleza-negra': this.reduceFor(id, p.reduce, p.dur); s.until = rt + p.dur; this.vis(id, me.x, me.y, m); break;
       case 'mil-ilusiones': {
         const ms = Math.max(1, p.dur) * 1000;
         this.decoy = { x: m.f.x + (this.host.rand() < 0.5 ? -40 : 40), y: m.f.y, r: p.radius, until: rt + Math.max(1, p.dur) };
-        fx.illusion(m, ms);
+        fx.illusion(m, ms, this.decoy.x); // the copy stands where the rivals are really lured
+        this.vis(id, this.decoy.x, m.f.y - 10, m, { r: p.radius });
         break;
       }
       case 'gravedad-oscura': {
         const t = this.nearest(me, 200, normalRival);
         const c = t ? { x: t.pos.x, y: t.pos.y } : me;
         this.field = { x: c.x, y: c.y, r: p.radius, pull: p.pull, until: rt + p.dur };
-        fx.ring(c.x, c.y, p.radius, 0x5a2a9a, p.dur * 1000, 6);
+        this.vis(id, c.x, c.y, m, { r: p.radius });
         break;
       }
-      case 'eclipse-dorado': s.until = rt + p.dur; fx.ring(me.x, me.y, 30, 0xffd23f, 600, 4); fx.label(m.f.x, m.f.y - 40, 'ECLIPSE', '#ffd23f'); break;
-      case 'mascara-fantasma': case 'supernova-negra': s.armed = true; break;
-      case 'espejo-humeante': s.armed = true; fx.ring(me.x, me.y, 22, 0xb0b0c8, 500, 3); break;
+      case 'eclipse-dorado': s.until = rt + p.dur; this.vis(id, me.x, me.y, m); break;
+      case 'mascara-fantasma': case 'supernova-negra': case 'espejo-humeante': s.armed = true; fx.ring(me.x, me.y, 22, PASSIVE_COLOR[id], 500, 3); break; // its orb shows it ready
       default: break;
     }
   }
@@ -233,7 +271,7 @@ export class AliusEngine<E extends AlEnemy, M extends AlMember> {
         const t = this.nearest(me, p.length);
         if (!t) continue;
         const ang = Math.atan2(t.pos.y - 10 - me.y, t.pos.x - me.x), x1 = me.x + Math.cos(ang) * p.length, y1 = me.y + Math.sin(ang) * p.length;
-        this.host.fx.line(me.x, me.y, x1, y1, 0x6a1a9a, 10);
+        this.vis(id, me.x, me.y, m, { x1, y1, r: p.width });
         const L = p.length;
         for (const e of [...this.host.enemies()]) {
           if (e.dead) continue;
@@ -242,6 +280,7 @@ export class AliusEngine<E extends AlEnemy, M extends AlMember> {
         }
       } else {
         const ts = [...this.host.enemies()].filter((e) => !e.dead && dist(e.pos, me) < p.range).sort((a, b) => dist(a.pos, me) - dist(b.pos, me)).slice(0, p.count);
+        if (ts.length) this.vis(id, me.x, me.y, m);
         for (let i = 0; i < p.count && ts.length; i++) {
           const t = ts[i % ts.length];
           this.host.fx.star(me.x, me.y, t.pos.x, t.pos.y - 12, 0x7f9cff, 220);
@@ -260,7 +299,10 @@ export class AliusEngine<E extends AlEnemy, M extends AlMember> {
     for (const s of this.mine(by)) {
       const p = s.p, id = s.src.passive;
       if ((id === 'voluntad-eclipse' || id === 'devorador-almas') && s.until > rt) k *= 1 + p.damage;
-      else if (id === 'corona-rota' && e.hp > e.maxHp * p.above) k *= 1 + p.damage;
+      else if (id === 'corona-rota' && e.hp > e.maxHp * p.above) {
+        k *= 1 + p.damage;
+        if (rt - this.coronaAt > 0.7) { this.coronaAt = rt; this.vis(id, e.pos.x, e.pos.y - 12, by); } // the crown breaks on the healthy ones
+      }
       else if ((id === 'juicio-divino' || id === 'rosa-negra' || id === 'ojo-omnisciente') && (e.al?.marks[s.idx] ?? 0) > rt) k *= 1 + p.damage;
       else if (id === 'fortaleza-negra' && s.armed) { s.armed = false; k *= 1 + p.bonus; this.proc('fortaleza-negra:golpe'); }
     }
@@ -274,7 +316,7 @@ export class AliusEngine<E extends AlEnemy, M extends AlMember> {
       const p = s.p, id = s.src.passive;
       switch (id) {
         case 'aliento-boreal':
-          if (++s.n % p.nth === 0) { this.proc(id); if (controlImmune(e)) this.slow(e, id, p.bossSlow, p.bossDur); else this.slow(e, id, p.slow, p.dur); }
+          if (++s.n % p.nth === 0) { this.proc(id); this.vis(id, e.pos.x, e.pos.y - 12, by); if (controlImmune(e)) this.slow(e, id, p.bossSlow, p.bossDur); else this.slow(e, id, p.slow, p.dur); }
           break;
         case 'fractura-obsidiana': {
           const a = marksOf(e);
@@ -282,7 +324,7 @@ export class AliusEngine<E extends AlEnemy, M extends AlMember> {
           a.stacks[s.idx] = (a.stacks[s.idx] ?? 0) + 1;
           if (a.stacks[s.idx] >= p.marks) {
             a.stacks[s.idx] = 0; a.cd[s.idx] = rt + p.cd; this.proc(id);
-            this.host.fx.ring(e.pos.x, e.pos.y - 12, 16, 0x1a1a2a, 300, 4);
+            this.vis(id, e.pos.x, e.pos.y - 12, by);
             this.host.strike(e, this.host.basic(by) * p.damage, by);
           }
           break;
@@ -290,7 +332,7 @@ export class AliusEngine<E extends AlEnemy, M extends AlMember> {
         case 'escarcha-eterna': {
           const a = marksOf(e);
           a.stacks[s.idx] = (a.stacks[s.idx] ?? 0) + 1;
-          if (a.stacks[s.idx] >= p.stacks) { a.stacks[s.idx] = 0; this.proc(id); this.slow(e, id, controlImmune(e) ? p.bossSlow : p.slow, p.dur); this.host.fx.ring(e.pos.x, e.pos.y - 12, 14, 0xbfeaff, 300, 3); }
+          if (a.stacks[s.idx] >= p.stacks) { a.stacks[s.idx] = 0; this.proc(id); this.slow(e, id, controlImmune(e) ? p.bossSlow : p.slow, p.dur); this.vis(id, e.pos.x, e.pos.y - 12, by); }
           break;
         }
         case 'cenizas-rey': case 'silencio-eterno': {
@@ -299,29 +341,30 @@ export class AliusEngine<E extends AlEnemy, M extends AlMember> {
           a.stacks[s.idx] = Math.min(p.stacks, (a.stacks[s.idx] ?? 0) + 1);
           a.last[s.idx] = rt;
           this.slow(e, id, p.slow * a.stacks[s.idx], life);
+          if (a.stacks[s.idx] === p.stacks && this.host.rand() < 0.25) this.host.fx.passive(id, e.pos.x, e.pos.y - 12, {}); // full: it shows now and then
           break;
         }
         case 'mascara-fantasma':
           if (!s.armed) break;
           s.armed = false; this.proc(id);
           if (controlImmune(e)) this.slow(e, id, p.bossSlow, 2);
-          else { marksOf(e).confused = rt + p.dur; this.host.fx.label(e.pos.x, e.pos.y - 34, '?', '#c79bff'); }
+          else marksOf(e).confused = rt + p.dur;
+          this.vis(id, e.pos.x, e.pos.y - 12, by);
           break;
         case 'supernova-negra':
           if (!s.armed) break;
           s.armed = false; this.proc(id);
-          this.host.fx.ring(e.pos.x, e.pos.y - 12, p.radius, 0x2a0a4a, 500, 8);
-          this.host.fx.ring(e.pos.x, e.pos.y - 12, p.radius * 0.6, VIOLET, 400, 4);
+          this.vis(id, e.pos.x, e.pos.y - 12, by, { r: p.radius });
           for (const x of this.around(e.pos, p.radius)) this.host.strike(x, this.host.basic(by) * p.damage, by);
           break;
         case 'eclipse-dorado':
-          if (s.until > rt && this.host.rand() < p.chance) { this.proc(id); this.host.delay(90, () => { if (!e.dead) this.host.strike(e, dmg * p.damage, by); }); }
+          if (s.until > rt && this.host.rand() < p.chance) { this.proc(id); this.host.fx.passive(id, e.pos.x, e.pos.y - 12, {}); this.host.delay(90, () => { if (!e.dead) this.host.strike(e, dmg * p.damage, by); }); }
           break;
         case 'jaque-mate':
           if (s.target !== e) { s.target = e; s.n = 0; }
           if (++s.n >= p.nth && rt >= s.cd) {
             s.n = 0; s.cd = rt + p.cd; this.proc(id);
-            this.host.fx.label(e.pos.x, e.pos.y - 40, 'JAQUE MATE', '#ffffff');
+            this.vis(id, e.pos.x, e.pos.y - 12, by);
             this.host.strike(e, this.host.basic(by) * p.damage, by);
           }
           break;
@@ -335,15 +378,15 @@ export class AliusEngine<E extends AlEnemy, M extends AlMember> {
     const rt = this.rt();
     for (const s of this.mine(by)) {
       const p = s.p, id = s.src.passive;
-      if (id === 'angel-caido' && rt >= s.cd) { s.cd = rt + p.cd; this.proc(id); this.host.heal(this.host.maxHp() * p.heal); }
+      if (id === 'angel-caido' && rt >= s.cd) { s.cd = rt + p.cd; this.proc(id); this.host.heal(this.host.maxHp() * p.heal); this.vis(id, by.f.x, by.f.y - 10, by, { x1: e.pos.x, y1: e.pos.y - 12 }); }
       else if (id === 'explosion-destructora' && this.host.rand() < p.chance) {
         this.proc(id);
         const c = { x: e.pos.x, y: e.pos.y }, dmg = this.host.basic(by) * p.damage;
-        this.host.fx.ring(c.x, c.y - 8, p.radius, 0xff4a2a, 380, 6);
+        this.vis(id, c.x, c.y - 8, by, { r: p.radius });
         this.host.delay(60, () => { for (const x of this.around(c, p.radius)) this.host.strike(x, dmg, by); });
       } else if (id === 'devorador-almas' && ++s.n % p.kills === 0 && s.until <= rt) { // never refreshed while it lasts
         s.until = rt + p.dur; this.proc(id);
-        this.host.fx.label(by.f.x, by.f.y - 40, 'DEVORADOR DE ALMAS', '#c79bff');
+        this.vis(id, by.f.x, by.f.y - 10, by, { x1: e.pos.x, y1: e.pos.y - 12 });
       }
     }
   }
@@ -374,15 +417,14 @@ export class AliusEngine<E extends AlEnemy, M extends AlMember> {
         if (s.lost >= this.host.maxHp() * p.loss && rt >= s.cd && this.barrier <= 0) {
           s.lost = 0; s.cd = rt + p.cd; this.proc(id);
           this.barrier = this.host.maxHp() * p.shield;
-          this.host.fx.ring(m.f.x, m.f.y - 10, 32, CRIMSON, 700, 5);
-          this.host.fx.label(m.f.x, m.f.y - 40, 'MURO CARMESÍ', '#ff4d6d');
+          this.vis(id, m.f.x, m.f.y - 10, m);
         }
       } else if (id === 'espejo-humeante' && s.armed) {
         s.armed = false;
         const t = this.nearest({ x: m.f.x, y: m.f.y - 10 }, p.range);
         if (t) {
           this.proc(id);
-          this.host.fx.star(m.f.x, m.f.y - 10, t.pos.x, t.pos.y - 12, 0xd8d8f0, 200);
+          this.vis(id, m.f.x, m.f.y - 10, m, { x1: t.pos.x, y1: t.pos.y - 12 });
           const dmg2 = this.host.basic(m) * p.damage;
           this.host.delay(200, () => { if (!t.dead) this.host.strike(t, dmg2, m); });
         }
@@ -395,6 +437,27 @@ export class AliusEngine<E extends AlEnemy, M extends AlMember> {
 
   /** the Resonancia is on: three Alius footballers equipped and at least one on the pitch */
   resonanceOn() { return this.cfg.resonance > 0 && this.host.members().some((m) => this.aliusSet.has(m.entry.id)); }
+
+  /** what the arena draws every frame: auras, the field, the barrier, shields, buffs, charges and the colours of marks */
+  visuals(): AliusVisuals {
+    const rt = this.rt(), markColor: number[] = [];
+    for (const s of this.st) markColor[s.idx] = PASSIVE_COLOR[s.src.passive];
+    const buffs: AliusVisuals['buffs'] = [], armed: AliusVisuals['armed'] = [];
+    for (const s of this.st) {
+      const id = s.src.passive;
+      if ((id === 'voluntad-eclipse' || id === 'devorador-almas' || id === 'eclipse-dorado' || id === 'fortaleza-negra') && s.until > rt) buffs.push({ owner: s.src.owner, color: PASSIVE_COLOR[id] });
+      if (s.armed && (id === 'espejo-humeante' || id === 'fortaleza-negra' || id === 'mascara-fantasma' || id === 'supernova-negra')) armed.push({ owner: s.src.owner, color: PASSIVE_COLOR[id] });
+    }
+    const g = this.field && this.field.until > rt ? this.field : null;
+    return {
+      aliusIds: this.aliusSet, resonance: this.resonanceOn(), lina: this.cfg.linaSpeed > 0,
+      field: g ? { x: g.x, y: g.y, r: g.r } : null,
+      barrier: this.barrier / Math.max(1, this.host.maxHp()),
+      shields: this.reductions.filter((r) => r.until > rt).map((r) => PASSIVE_COLOR[r.key as AliusPassiveId] ?? VIOLET),
+      buffs, armed, markColor,
+      slowColor: (key) => PASSIVE_COLOR[key as AliusPassiveId] ?? VIOLET,
+    };
+  }
 
   /** what the HUD shows: the team's Alius states with their time left */
   hud(): { label: string; left: number; total: number }[] {

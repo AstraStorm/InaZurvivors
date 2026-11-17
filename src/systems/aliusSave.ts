@@ -9,10 +9,11 @@
  *   it too). His repertoire purchases and warrior spirit level mirror the original's the same way.
  * - At most ALIUS_CONFIG.maxEquipped Alius footballers in the squad of seven plus the Auras; extra ones are dropped.
  */
-import { ALIUS, ALIUS_BY_ID, ALIUS_BY_KEY, ALIUS_CONFIG, ALIUS_PLAYERS, LINA_COACH, isAliusId } from '../data/alius';
+import { ALIUS, ALIUS_BY_ID, ALIUS_BY_KEY, ALIUS_CONFIG, ALIUS_PLAYERS, LINA_COACH, isAliusId, type AliusTier } from '../data/alius';
 import type { SaveData } from './save';
 
-export interface AliusSave { stones: number; unlocked: string[]; day?: { key: string; got: number } }
+/** `tiers`: category of each unlocked Alius above the 3ª he starts at (2 or 1); absent = 3ª */
+export interface AliusSave { stones: number; unlocked: string[]; day?: { key: string; got: number }; tiers?: Record<string, 1 | 2> }
 
 /** the save's Alius state, cleaned (known keys once each, whole non-negative stones) */
 export function sanitizeAliusState(v: unknown): AliusSave | undefined {
@@ -23,6 +24,12 @@ export function sanitizeAliusState(v: unknown): AliusSave | undefined {
   const d = o.day as Record<string, unknown> | undefined;
   const out: AliusSave = { stones, unlocked };
   if (d && typeof d.key === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d.key)) out.day = { key: d.key, got: Math.max(0, Math.floor(Number(d.got) || 0)) };
+  const t = o.tiers as Record<string, unknown> | undefined;
+  if (t && typeof t === 'object') {
+    const tiers: Record<string, 1 | 2> = {};
+    for (const [k, v] of Object.entries(t)) if (unlocked.includes(k) && ALIUS_BY_KEY.get(k)?.id !== undefined && (v === 1 || v === 2)) tiers[k] = v;
+    if (Object.keys(tiers).length) out.tiers = tiers;
+  }
   return out;
 }
 
@@ -145,6 +152,38 @@ export function awardAliusStones(s: SaveData, r: { victory: boolean; rank?: stri
   st.day.got += got;
   st.stones += got;
   return got;
+}
+
+/** category of an Alius by key: 3 at the transformation, then 2 and 1 */
+export const aliusTier = (s: SaveData, key: string): AliusTier => s.alius?.tiers?.[key] ?? 3;
+/** duplicates of the original the next category costs (null at 1ª) */
+export function tierCost(baseRarity: string, tier: AliusTier): number | null {
+  if (tier === 1) return null;
+  const c = ALIUS_CONFIG.tierCost[baseRarity] ?? ALIUS_CONFIG.tierCost.leyenda;
+  return tier === 3 ? c[0] : c[1];
+}
+/** unused duplicates of an Alius's original (the ones a category step spends) */
+export const originalSpares = (s: SaveData, baseId: number) => {
+  const o = s.owned[String(baseId)];
+  return o ? Math.max(0, o.copies - 1 - (o.spent ?? 0)) : 0;
+};
+export type TierResult = { ok: true; tier: AliusTier } | { ok: false; why: string };
+/** One category up, paid with duplicates of the original (counted as spent, like an ascension); checks first. */
+export function aliusTierUp(s: SaveData, key: string, baseRarity: string): TierResult {
+  const a = ALIUS_BY_KEY.get(key);
+  if (!a || a.id === undefined || a.base === undefined) return { ok: false, why: 'Solo los futbolistas Alius suben de categoría.' };
+  if (!isUnlocked(s, key)) return { ok: false, why: 'Primero desbloquea la transformación.' };
+  const tier = aliusTier(s, key), cost = tierCost(baseRarity, tier);
+  if (cost === null) return { ok: false, why: 'Ya está en 1ª categoría.' };
+  const o = s.owned[String(a.base)];
+  if (!o) return { ok: false, why: `Necesitas a ${a.baseName.trim()} en tu colección.` };
+  const spare = originalSpares(s, a.base);
+  if (spare < cost) return { ok: false, why: `Te faltan duplicados de ${a.baseName.trim()} (${spare}/${cost}).` };
+  o.spent = (o.spent ?? 0) + cost;
+  const st = aliusState(s);
+  st.tiers = { ...(st.tiers ?? {}), [key]: (tier - 1) as 1 | 2 };
+  syncAliusOwned(s);
+  return { ok: true, tier: (tier - 1) as AliusTier };
 }
 
 /** an Alius id's registry entry (or undefined): re-exported for the systems that guard upgrades */

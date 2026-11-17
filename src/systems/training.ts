@@ -11,15 +11,15 @@
  * of the rarity he reaches (+2 when the rarity doesn't change), HÉROE adds 3 more, and training adds up to 20 points
  * spread by hand, paid with Fichas de entrenamiento (runs, missions, achievements).
  */
-import { isAliusId } from '../data/alius';
-import type { Rarity, RosterEntry } from '../data/manifest';
+import { ALIUS_BY_ID, ALIUS_CONFIG, isAliusId } from '../data/alius';
+import { RARITY_ORDER, type Rarity, type RosterEntry } from '../data/manifest';
 import type { SaveData } from './save';
 
 export const STAT_KEYS = ['kick', 'control', 'guard', 'body', 'speed', 'guts', 'stamina'] as const;
 export type StatKey = (typeof STAT_KEYS)[number];
 /** centre of the band of means of each rarity; a footballer lands within ±BAND of it */
 // Fix 1.31 (author's request): Legendarios in the 80s, Míticos around 90; the band narrows to ±2 so rarities still never overlap
-export const RARITY_STAT_MEAN: Record<Rarity, number> = { comun: 50, raro: 59, epico: 70, legendario: 83, mitico: 89, leyenda: 98 };
+export const RARITY_STAT_MEAN: Record<Rarity, number> = { comun: 50, raro: 59, epico: 70, legendario: 83, mitico: 89, leyenda: 98, alius: 98 };
 export const BAND = 2;
 export const TRAIN_MAX = 20;
 export const STAT_MAX = 99;
@@ -75,12 +75,15 @@ export const trainingUsed = (save: SaveData, id: number) => Object.values(traini
  * What the game uses: rebuilt stats at the player's effective rarity (ascension included), HÉROE bonus and training.
  * `effective` and `hero` come from ascension.ts (passed in to keep this module free of cycles).
  */
-type StatEntry = Pick<RosterEntry, 'id' | 'stats' | 'rarity'> & { position?: string; statFloor?: RosterEntry['statFloor'] };
+type StatEntry = Pick<RosterEntry, 'id' | 'stats' | 'rarity'> & { position?: string; statFloor?: RosterEntry['statFloor']; baseRarity?: Rarity };
 
 /** The stats before training: rarity band, position, ascension, HÉROE and hero stars. */
 export function baseStats(save: SaveData, p: StatEntry, effective: Rarity, hero: boolean): Record<StatKey, number> {
   const o = save.owned[String(p.id)];
-  const sameRarityAscended = !!o?.ascMitico && effective === p.rarity;
+  // 3.0: an Alius (rarity Alius) is built at his original's rarity, with the original's ascension (his record mirrors it)
+  const own = p.baseRarity ?? p.rarity;
+  if (effective === 'alius') effective = o?.ascMitico && RARITY_ORDER.indexOf(o.ascRarity ?? 'mitico') >= RARITY_ORDER.indexOf(own) ? o.ascRarity ?? 'mitico' : own;
+  const sameRarityAscended = !!o?.ascMitico && effective === own;
   // Fix 1.31: each hero star adds 1 to every stat
   const out = rebuildStats(p.stats, effective, (sameRarityAscended ? 2 : 0) + (hero ? 3 + Math.min(3, o?.heroStars ?? 0) : 0) + CHAMPION_STATS * championLevel(save, p.id), p.position, statCapOf(save, p));
   // 1.83 (author): a stat fixed by hand (Nae's speed 95) is never below that
@@ -119,8 +122,14 @@ export function playerStats(save: SaveData, p: StatEntry, effective: Rarity, her
   const out = baseStats(save, p, effective, hero);
   const t = trainingOf(save, p.id);
   for (const k of STAT_KEYS) out[k] = Math.min(statCapOf(save, p, k), out[k] + (t[k] ?? 0));
+  // 3.0 (author): each Alius category above the 3ª adds ALIUS_CONFIG.tierStats to every stat (up to the effective 120)
+  const al = ALIUS_BY_ID.get(p.id);
+  const steps = al ? 3 - (save.alius?.tiers?.[al.key] ?? 3) : 0;
+  if (steps > 0) for (const k of STAT_KEYS) out[k] = Math.min(ALIUS_STAT_MAX, out[k] + ALIUS_CONFIG.tierStats * steps);
   return out;
 }
+/** the most an Alius category can take a stat to: the effective limit of an Aura (auras.ts EFFECTIVE_STAT_MAX) */
+const ALIUS_STAT_MAX = 120;
 
 /** Spends one Ficha de entrenamiento on a stat of an owned footballer; false when it isn't possible (`room`: trainRoom of
  *  that stat — Fix 1.31: a stat already at 99 takes no more points). */

@@ -12,7 +12,7 @@ import { grantCopy } from './gacha';
 import { dayKey, weekKey } from './missions';
 import type { SaveData } from './save';
 
-export const PRICE: Record<Rarity, number> = { comun: 200, raro: 600, epico: 1800, legendario: 6000, mitico: 25000, leyenda: 0 };
+export const PRICE: Record<Rarity, number> = { comun: 200, raro: 600, epico: 1800, legendario: 6000, mitico: 25000, leyenda: 0, alius: 0 };
 export type OfferTag = 'diaria' | 'destacado' | 'favorito' | 'semanal';
 
 /** Weighted rarities of a slot; the first rarity with someone left is used if the rolled one is empty. */

@@ -31,6 +31,26 @@ export interface NewsItem { id: string; kind: NewsKind; date: string; title: str
 export const NEWS_KIND_LABEL: Record<NewsKind, string> = { novedad: tr('NOVEDAD'), aviso: tr('AVISO'), actualizacion: tr('ACTUALIZACIÓN'), fix: tr('FIX'), evento: tr('EVENTO') };
 
 export const AUTHOR_NEWS: NewsItem[] = [
+  // 3.0 (author: «haz una entrada para la 3.0»): the announcement, pinned, with the date; its button replays the presentation
+  {
+    id: 'llega-3-0', kind: 'novedad', date: '2026-11-17', icon: '☄️', pinned: true, from: '2026-11-17T12:00:00+01:00',
+    title: tr('Llega la 3.0: La Piedra Alius (25 de noviembre)'),
+    summary: tr('El 25 de noviembre a las 12:00 cae la Piedra Alius: 29 transformaciones con su propia pasiva, la rareza Alius con tres categorías y el Altar para desbloquearlas.'),
+    blocks: [
+      { callout: 'info', text: tr('La **3.0** sale el **25 de noviembre a las 12:00**. Hasta entonces, en el menú puedes ver el avance.') },
+      { h: tr('La Piedra Alius'), icon: '☄️' },
+      { p: tr('Un meteorito ha traído la **Piedra Alius** y algunos futbolistas ya no son los mismos. Hay **29 transformaciones**: **28 futbolistas** y **Lina Schiller**, que llega como **entrenadora**.') },
+      { list: [tr('Se desbloquean **para siempre** en el **Altar de la Piedra Alius** con **10 Piedras Alius** cada una.'), tr('Necesitas tener al **futbolista original**: el Alius hereda sus técnicas, sus estadísticas y su elemento.'), tr('Las **Piedras Alius** se ganan superando arenas en **rango B o más** (hasta **3 al día**).')] },
+      { h: tr('Pasivas exclusivas'), icon: '✨' },
+      { p: tr('Cada Alius trae una **pasiva que nadie más tiene**, y se ve en el campo: explosiones, columnas de luz, la mordida del dragón, espejos, hielo, un agujero negro… En el campo funciona al **100 %** y como **Aura** al **40 %**.') },
+      { h: tr('Rareza Alius y categorías'), icon: '💠' },
+      { p: tr('Todos son de rareza **Alius**. Empiezan en **3ª categoría** y suben a **2ª** y **1ª** con **duplicados del original**: **+10 a todas las estadísticas** en cada subida.') },
+      { callout: 'nuevo', text: tr('**Resonancia Alius**: con **tres Alius** en el equipo (el máximo), sus ataques hacen un **3 %** más.') },
+      { divider: true },
+      { h: tr('Y además'), icon: '🤝' },
+      { list: [tr('El **cooperativo** sigue siendo **infinito**: al vencer al jefe, la partida continúa.'), tr('Y después… **Victory Road**: diez futbolistas nuevos, muy pronto.')] },
+    ],
+  },
   // 2.1 (author): the season pass opens with the BlueLock collab; until then the news only tells how it works (who the two
   // footballers are stays a secret: the menu shows them in silhouette)
   {
@@ -284,7 +304,7 @@ export const AUTHOR_NEWS: NewsItem[] = [
     ],
   },
   {
-    id: 'banner-agradecimiento', kind: 'evento', date: '2026-11-04', icon: '♥', pinned: true,
+    id: 'banner-agradecimiento', kind: 'evento', date: '2026-11-04', icon: '♥', // 3.0 (author): no longer pinned
     title: tr('¡Gracias por ser más de 50 jugando!'),
     summary: tr('Banner de agradecimiento durante 7 días, con futbolistas que solo salen ahí, y el código GRACIAS.'),
     blocks: [

@@ -74,7 +74,7 @@ export const TEAM_MIN_PLAYERS = 8;
  */
 /** Fix 1.53 (author): the premium Chrono Stone machine has its own odds, far fewer Raros */
 const BANNER_WEIGHTS: Partial<Record<BannerId, Record<Rarity, number>>> = {
-  chrono: { comun: 0, raro: 55, epico: 30, legendario: 11, mitico: 4, leyenda: 0 },
+  chrono: { comun: 0, raro: 55, epico: 30, legendario: 11, mitico: 4, leyenda: 0, alius: 0 },
 };
 
 const SMALL_CAP: Partial<Record<BannerId, Partial<Record<Rarity, number>>>> = {

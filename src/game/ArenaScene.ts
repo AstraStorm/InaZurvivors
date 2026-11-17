@@ -1,4 +1,5 @@
-import { AliusEngine, type AlMarks, type AliusRunCfg } from './aliusEngine';
+import { AliusEngine, PASSIVE_COLOR, type AlMarks, type AliusRunCfg } from './aliusEngine';
+import { ALIUS_PASSIVES, type AliusPassiveId } from '../data/alius';
 import Phaser from 'phaser';
 import type { Manifest, MapInfo, RosterEntry, Technique, UnitInfo } from '../data/manifest';
 import { Footballer, bodyKey, headKey } from './Footballer';
@@ -354,6 +355,8 @@ export class ArenaScene extends Phaser.Scene {
   /** 3.0: the Piedra Alius passives (null without Alius); `hitBy` = the footballer whose attack is landing now, `secondary` =
    *  a hit made by a passive itself (it never triggers passives again) */
   private alius: AliusEngine<Enemy, Member> | null = null;
+  /** 3.0: what the Alius leave on the pitch every frame: under the players (auras, slows, the field) and over them (marks, orbs, shields) */
+  private alGfx: { ground: Phaser.GameObjects.Graphics; top: Phaser.GameObjects.Graphics } | null = null;
   private hitBy: Member | null = null;
   private secondary = false;
   private heading = 0;
@@ -502,9 +505,13 @@ export class ArenaScene extends Phaser.Scene {
           const st = this.add.star(x0, y0, 5, 3, 7, c).setDepth(9000);
           this.tweens.add({ targets: st, x: x1, y: y1, angle: 360, duration: ms, onComplete: () => st.destroy() });
         },
-        illusion: (m, ms) => this.aliusIllusion(m, ms),
+        illusion: (m, ms, x) => this.aliusIllusion(m, ms, x),
+        passive: (id, x, y, o) => this.aliusPassiveFx(id, x, y, o),
+        cast: (m, id, named) => this.aliusCast(m, id, named),
       },
     }, cfg) : null;
+    this.alPlates.clear();
+    this.alGfx = this.alius ? { ground: this.add.graphics().setDepth(-9600), top: this.add.graphics().setDepth(8900) } : null;
     const clock = this.time as Phaser.Time.Clock & { __byWrapped?: boolean };
     if (!clock.__byWrapped) {
       clock.__byWrapped = true;
@@ -530,16 +537,222 @@ export class ArenaScene extends Phaser.Scene {
       }) as typeof tw.add;
     }
   }
+  /**
+   * 3.0 (author: «la pasiva no es visual… haz un efecto visual»): each passive's own effect when it goes off, built from
+   * the arena's Fx pieces in the passive's colour (aliusEngine PASSIVE_COLOR): blasts, beams from the sky, the dragon's
+   * bite, wings, the demon hand, ice, petals, mirrors, a black hole... Particle-heavy parts obey the particles setting.
+   */
+  private aliusPassiveFx(id: AliusPassiveId, x: number, y: number, o: { x1?: number; y1?: number; r?: number }) {
+    const fx = this.fx, c = PASSIVE_COLOR[id], r = o.r ?? 40;
+    const beam = (x0: number, y0: number, x1: number, y1: number, col: number, w: number, ms: number) => {
+      const g = this.add.graphics().setDepth(8850).setBlendMode(Phaser.BlendModes.ADD);
+      g.lineStyle(w * 1.8, col, 0.35).lineBetween(x0, y0, x1, y1);
+      g.lineStyle(w, col, 0.9).lineBetween(x0, y0, x1, y1);
+      g.lineStyle(Math.max(2, w / 3), 0xffffff, 0.9).lineBetween(x0, y0, x1, y1);
+      this.tweens.add({ targets: g, alpha: 0, duration: ms, ease: 'Cubic.easeIn', onComplete: () => g.destroy() });
+    };
+    const skyBeam = (col: number, w: number) => { // a column of light falling on (x, y)
+      const b = this.add.rectangle(x, y + 6, w, 150, col, 0.55).setOrigin(0.5, 1).setBlendMode(Phaser.BlendModes.ADD).setDepth(8850).setScale(0.2, 1);
+      this.tweens.add({ targets: b, scaleX: 1, alpha: { from: 0.9, to: 0 }, duration: 520, ease: 'Cubic.easeOut', onComplete: () => b.destroy() });
+    };
+    const wisp = (x0: number, y0: number, col: number, ms: number) => { // a soul flying from (x0, y0) to (x, y)
+      const st = this.add.star(x0, y0, 5, 2, 6, col).setDepth(8860).setBlendMode(Phaser.BlendModes.ADD);
+      this.tweens.add({ targets: st, x, y, angle: 540, scale: 0.4, duration: ms, ease: 'Sine.easeIn', onComplete: () => st.destroy() });
+    };
+    switch (id) {
+      case 'explosion-destructora':
+        fx.flashDisc(x, y, r * 0.9, 0xffd23f, 240); fx.ring(x, y, r, c, 420, 7); fx.ring(x, y, r * 0.55, 0xffe08a, 300, 4);
+        fx.rays(x, y, 12, r * 1.3, 0xffb040, 380); fx.burst('fuego', x, y, 34, 220); fx.burst('fuego', x, y, 14, 140, true); fx.shake(0.004, 140);
+        break;
+      case 'supernova-negra':
+        fx.implode(x, y, r * 1.3, 0x2a0a4a, 200);
+        this.time.delayedCall(190, () => { fx.flashDisc(x, y, r, 0xd8a8ff, 280); fx.ring(x, y, r, c, 460, 8); fx.rays(x, y, 14, r * 1.5, 0xe0c0ff, 440); fx.burst('sombra', x, y, 34, 220); fx.shake(0.004, 140); });
+        break;
+      case 'rugido-abisal':
+        fx.ring(x, y, r, c, 560, 7); fx.ring(x, y, r * 0.7, 0xbffcff, 460, 4); fx.ring(x, y, r * 0.4, c, 360, 3);
+        fx.burst('hielo', x, y, 24, 200); fx.shake(0.003, 120);
+        break;
+      case 'ojo-huracan':
+        fx.tornado(x, y + 10, 'viento', 6, 620); fx.ring(x, y, r, c, 460, 5); fx.burst('viento', x, y, 26, 230);
+        break;
+      case 'colmillo-dragon': {
+        const x1 = o.x1 ?? x, y1 = o.y1 ?? y;
+        beam(x, y, x1, y1, c, (o.r ?? 12) * 1.2, 380);
+        fx.summon('fx:dragon', (x + x1) / 2, (y + y1) / 2, c, 1.3, 520);
+        for (let k = 1; k <= 4; k++) fx.burst('sombra', x + (x1 - x) * k / 4, y + (y1 - y) * k / 4, 6, 110);
+        fx.shake(0.003, 100);
+        break;
+      }
+      case 'juicio-divino': skyBeam(c, 22); fx.flashDisc(x, y, 18, c, 320); fx.rays(x, y, 10, 44, c, 460); fx.burst('energia', x, y, 16, 110); break;
+      case 'rosa-negra': fx.orbit(x, y, 'fx:leaf', c, 8, 30, 620); fx.implode(x, y, 26, c, 420); fx.burst('sombra', x, y, 12, 80); break;
+      case 'ojo-omnisciente': fx.implode(x, y, 32, c, 420); fx.rays(x, y, 8, 34, 0xe0c0ff, 360); fx.flashDisc(x, y, 12, c, 260); break;
+      case 'fractura-obsidiana': fx.flashDisc(x, y, 18, 0xffffff, 140); fx.rays(x, y, 8, 34, 0xb0a0e0, 280); fx.burst('tierra', x, y, 18, 170, true); fx.shake(0.002, 70); break;
+      case 'escarcha-eterna': case 'aliento-boreal':
+        fx.flashDisc(x, y, 16, 0xffffff, 180); fx.ring(x, y, 24, c, 380, 4); fx.burst('hielo', x, y, 20, 140); fx.burst('hielo', x, y, 8, 90, true);
+        break;
+      case 'cenizas-rey': fx.burst('fuego', x, y, 10, 70, true); fx.ring(x, y, 16, c, 300, 2); break;
+      case 'silencio-eterno': fx.implode(x, y, 22, c, 360); fx.burst('sombra', x, y, 8, 50); break;
+      case 'mascara-fantasma': fx.implode(x, y, 26, c, 320); fx.burst('sombra', x, y, 14, 90); fx.label(x, y - 24, '?', '#c79bff'); break;
+      case 'jaque-mate': {
+        fx.flashDisc(x, y, 24, 0xffffff, 220);
+        beam(x - 18, y - 18, x + 18, y + 18, 0xffffff, 4, 360); beam(x + 18, y - 18, x - 18, y + 18, 0xffffff, 4, 360);
+        fx.rays(x, y, 8, 46, 0xffffff, 340); fx.shake(0.003, 90);
+        break;
+      }
+      case 'eclipse-dorado': fx.ring(x, y, 18, c, 300, 3); fx.burst('energia', x, y, 8, 70, true); break;
+      case 'corona-rota': fx.rays(x, y, 6, 24, c, 240); fx.burst('fuego', x, y, 6, 70); break;
+      case 'angel-caido':
+        if (o.x1 !== undefined) wisp(o.x1, o.y1 ?? y, 0xffffff, 360);
+        fx.summon('fx:wings', x, y - 4, c, 1.4, 700); fx.pillar(x, y + 10, 0xffffff, 5); fx.burst('energia', x, y, 18, 110);
+        break;
+      case 'devorador-almas':
+        for (let k = 0; k < 5; k++) this.time.delayedCall(k * 70, () => wisp((o.x1 ?? x) + (Math.random() - 0.5) * 30, (o.y1 ?? y) + (Math.random() - 0.5) * 20, c, 380));
+        fx.tornado(x, y + 10, 'sombra', 5, 640); fx.gather(x, y, c, 0xffffff, 16, 50, 420);
+        break;
+      case 'gravedad-oscura': fx.blackHole(x, y, r * 1.6, 4, 2600); fx.gather(x, y, c, 0x2a0a4a, 20, r, 600); break;
+      case 'mil-ilusiones': fx.flashDisc(x, y, 18, c, 260); fx.burst('sombra', x, y, 18, 110); break;
+      case 'constelacion-negra': fx.rays(x, y, 10, 36, c, 320); fx.burst('energia', x, y, 14, 110); break;
+      case 'espejo-humeante':
+        if (o.x1 !== undefined) { beam(x, y, o.x1, o.y1 ?? y, c, 5, 300); fx.burst('viento', o.x1, o.y1 ?? y, 14, 110); fx.flashDisc(o.x1, o.y1 ?? y, 14, 0xffffff, 200); }
+        fx.flashDisc(x, y, 16, 0xffffff, 180);
+        break;
+      case 'mano-demoniaca': fx.hand(x, y + 14, 3, c); fx.ring(x, y, 40, c, 700, 5); fx.burst('fuego', x, y, 16, 120); break;
+      case 'muro-carmesi': fx.flashDisc(x, y, 34, c, 320); fx.ring(x, y, 40, c, 700, 6); fx.rays(x, y, 10, 44, 0xff8aa0, 420); break;
+      case 'voluntad-eclipse': fx.tornado(x, y + 10, 'fuego', 6, 640); fx.flashDisc(x, y, 28, c, 300); fx.rays(x, y, 10, 50, c, 460); fx.shake(0.003, 120); break;
+      case 'eclipse-protector': case 'fortaleza-negra':
+        fx.flashDisc(x, y, 30, c, 300); fx.ring(x, y, 44, c, 720, 6); fx.ring(x, y, 30, 0xffffff, 520, 2); fx.rays(x, y, 12, 48, c, 460);
+        break;
+      default: break;
+    }
+  }
+  /** the name ribbon over each Alius (one at a time: a new one replaces his last) */
+  private alPlates = new Map<number, Phaser.GameObjects.Container>();
+  /**
+   * The Alius whose passive went off: a column and a flash in its colour, and now and then its name (author: «que se vean
+   * bien sin molestar y tengan efectos especiales»): a small slanted ribbon in the passive's colour that snaps open with
+   * sparks, a shine runs across it, the gem turns, and it rises and dissolves into sparks a second later.
+   */
+  private aliusCast(m: Member, id: AliusPassiveId, named: boolean) {
+    const c = PASSIVE_COLOR[id], x = m.f.x, y = m.f.y;
+    this.fx.pillar(x, y, c, 5);
+    this.fx.flashDisc(x, y - 14, 16, c, 220);
+    this.fx.burst('sombra', x, y - 14, 10, 90);
+    if (!named) return;
+    this.alPlates.get(m.entry.id)?.destroy();
+    const hex = `#${c.toString(16).padStart(6, '0')}`, py = y - 54;
+    const t = this.add.text(5, 0, ALIUS_PASSIVES[id]?.name ?? id, { fontFamily: '"Press Start 2P"', fontSize: '7px', color: '#ffffff', stroke: '#12041f', strokeThickness: 3, resolution: 2 })
+      .setOrigin(0.5).setShadow(0, 0, hex, 8, true, true);
+    const w = Math.ceil(t.width) + 24, h = 14, k = 5; // k: the slant
+    const rib = this.add.graphics();
+    rib.fillStyle(0x12041f, 0.72).fillPoints([new Phaser.Math.Vector2(-w / 2 + k, -h / 2), new Phaser.Math.Vector2(w / 2 + k, -h / 2), new Phaser.Math.Vector2(w / 2 - k, h / 2), new Phaser.Math.Vector2(-w / 2 - k, h / 2)], true);
+    rib.fillStyle(c, 0.95).fillPoints([new Phaser.Math.Vector2(-w / 2 + k, -h / 2), new Phaser.Math.Vector2(-w / 2 + k + 4, -h / 2), new Phaser.Math.Vector2(-w / 2 - k + 4, h / 2), new Phaser.Math.Vector2(-w / 2 - k, h / 2)], true);
+    rib.lineStyle(1, c, 0.9).strokePoints([new Phaser.Math.Vector2(-w / 2 + k, -h / 2), new Phaser.Math.Vector2(w / 2 + k, -h / 2), new Phaser.Math.Vector2(w / 2 - k, h / 2), new Phaser.Math.Vector2(-w / 2 - k, h / 2)], true);
+    rib.lineStyle(1, 0xffffff, 0.35).lineBetween(-w / 2 + k + 5, -h / 2 + 1, w / 2 + k - 2, -h / 2 + 1);
+    const glow = this.add.rectangle(0, 0, w + 10, h + 8, c, 0.18).setBlendMode(Phaser.BlendModes.ADD);
+    const shine = this.add.rectangle(-w / 2, 0, 5, h + 2, 0xffffff, 0).setAngle(20).setBlendMode(Phaser.BlendModes.ADD);
+    const gem = this.add.star(-w / 2 + 2, 0, 4, 2.2, 5.5, 0xffffff).setStrokeStyle(1.5, c, 1);
+    const plate = this.add.container(x, py, [glow, rib, shine, t, gem]).setDepth(9600).setScale(0, 1).setAlpha(0.95);
+    this.alPlates.set(m.entry.id, plate);
+    this.fx.burst('sombra', x, py, 10, 70); this.fx.burst('energia', x, py, 5, 50, true);
+    this.tweens.add({ targets: plate, scaleX: 1, duration: 170, ease: 'Back.easeOut' });
+    this.tweens.add({ targets: shine, x: w / 2, alpha: { from: 0.75, to: 0 }, delay: 160, duration: 420, ease: 'Sine.easeInOut' });
+    this.tweens.add({ targets: gem, angle: 180, duration: 900, ease: 'Cubic.easeOut' });
+    this.tweens.add({ targets: glow, alpha: { from: 0.35, to: 0.08 }, yoyo: true, repeat: 1, duration: 280 });
+    this.tweens.add({ targets: plate, y: py - 10, alpha: 0, scaleX: 1.15, delay: 1050, duration: 360, ease: 'Cubic.easeIn',
+      onStart: () => { if (plate.active) this.fx.burst('sombra', plate.x, plate.y, 8, 60); },
+      onComplete: () => { plate.destroy(); if (this.alPlates.get(m.entry.id) === plate) this.alPlates.delete(m.entry.id); } });
+  }
+  /**
+   * 3.0: what the Alius leave on the pitch every frame. Under the players: the corruption aura of every Alius on the pitch
+   * (brighter with the Resonancia, a pink rim with Lina), the aura of a buff on, the gravity field turning, the ring of a
+   * slowed rival. Over them: the marks over the marked rivals, the stacks, the confused ones' swirl, the charges ready
+   * (an orb) and the captain's shields and barrier. Two cleared graphics: no objects are created per frame.
+   */
+  private drawAlius() {
+    const al = this.alius, gx = this.alGfx;
+    if (!al || !gx) return;
+    const v = al.visuals(), g = gx.ground, top = gx.top, t = this.runTime, pulse = 0.5 + 0.5 * Math.sin(t * 4);
+    g.clear(); top.clear();
+    const byId = new Map(this.members.map((m) => [m.entry.id, m]));
+    for (const m of this.members) {
+      if (!v.aliusIds.has(m.entry.id)) continue;
+      const x = m.f.x, y = m.f.y + 2, rc = v.resonance ? 0xd4a4ff : 0x9a4dff;
+      g.fillStyle(0x2a0a4a, 0.5).fillEllipse(x, y, 34, 12);
+      g.lineStyle(2, rc, 0.45 + 0.45 * pulse).strokeEllipse(x, y, 30 + pulse * 8, 10 + pulse * 3);
+      if (v.lina) g.lineStyle(1, 0xff8ad8, 0.7).strokeEllipse(x, y, 42, 15);
+      this.fx.trail('sombra', x + (Math.random() - 0.5) * 16, y - 8, v.resonance ? 0.12 : 0.06);
+    }
+    for (const b of v.buffs) {
+      const m = byId.get(b.owner);
+      if (!m) continue;
+      g.lineStyle(3, b.color, 0.5 + 0.4 * pulse).strokeEllipse(m.f.x, m.f.y + 2, 46 + pulse * 6, 16 + pulse * 2);
+      top.lineStyle(2, b.color, 0.35 + 0.3 * pulse).strokeCircle(m.f.x, m.f.y - 16, 20 + pulse * 3);
+      this.fx.trail('energia', m.f.x + (Math.random() - 0.5) * 20, m.f.y - 10, 0.15);
+    }
+    for (const b of v.armed) {
+      const m = byId.get(b.owner);
+      if (!m) continue;
+      const ox = m.f.x + Math.cos(t * 5) * 12, oy = m.f.y - 42 + Math.sin(t * 5) * 3;
+      top.fillStyle(b.color, 0.3).fillCircle(ox, oy, 7).fillStyle(b.color, 1).fillCircle(ox, oy, 3.5).fillStyle(0xffffff, 0.9).fillCircle(ox - 1, oy - 1, 1.2);
+    }
+    const cap = this.members[0];
+    if (cap) {
+      v.shields.forEach((col, i) => {
+        top.lineStyle(2, col, 0.4 + 0.3 * pulse).strokeCircle(cap.f.x, cap.f.y - 14, 26 + i * 6);
+        for (let k = 0; k < 3; k++) { const a = t * 2 + i + k * 2.09; top.fillStyle(col, 0.9).fillCircle(cap.f.x + Math.cos(a) * (26 + i * 6), cap.f.y - 14 + Math.sin(a) * (26 + i * 6), 2.5); }
+      });
+      if (v.barrier > 0) { // Muro carmesí: a hexagonal wall, fainter as it is used up
+        const k = Math.min(1, v.barrier / 0.08), R = 32, pts: Phaser.Math.Vector2[] = [];
+        for (let i = 0; i < 6; i++) { const a = i * Math.PI / 3 + t * 0.6; pts.push(new Phaser.Math.Vector2(cap.f.x + Math.cos(a) * R, cap.f.y - 14 + Math.sin(a) * R)); }
+        top.fillStyle(PASSIVE_COLOR['muro-carmesi'], 0.1 + 0.12 * k).fillPoints(pts, true).lineStyle(2, PASSIVE_COLOR['muro-carmesi'], 0.5 + 0.4 * k).strokePoints(pts, true);
+      }
+    }
+    if (v.field) { // Gravedad oscura: arcs turning inwards around a dark core
+      const f = v.field;
+      g.fillStyle(0x12041f, 0.45).fillCircle(f.x, f.y, f.r * 0.3);
+      for (let k = 0; k < 4; k++) {
+        const a0 = -t * (2.5 + k * 0.6) + k * 1.6, rr = f.r * (0.35 + k * 0.2);
+        g.lineStyle(3 - k * 0.5, k % 2 ? 0x9a4dff : 0x6a2aca, 0.75 - k * 0.12).beginPath().arc(f.x, f.y, rr, a0, a0 + 2.2).strokePath();
+        g.beginPath().arc(f.x, f.y, rr, a0 + Math.PI, a0 + Math.PI + 2.2).strokePath();
+      }
+      g.lineStyle(1, 0x9a4dff, 0.4).strokeCircle(f.x, f.y, f.r);
+    }
+    for (const e of this.enemies) {
+      const a = e.al;
+      if (e.dead || !a) continue;
+      const ex = e.pos.x, ey = e.pos.y;
+      let markI = 0;
+      for (const k in a.marks) { // a turning seal over the head of a marked rival
+        if (a.marks[k] <= t) continue;
+        const col = v.markColor[+k] ?? 0x9a4dff, hy = ey - 36 - markI * 12, ang = t * 3 + markI;
+        top.lineStyle(2, col, 0.9).strokeCircle(ex, hy, 6.5);
+        const tri = [0, 1, 2].map((i) => new Phaser.Math.Vector2(ex + Math.cos(ang + i * 2.09) * 5, hy + Math.sin(ang + i * 2.09) * 5));
+        top.lineStyle(1.5, col, 0.9).strokePoints(tri, true);
+        markI++;
+      }
+      let si = 0;
+      for (const k in a.stacks) { // stacks building up: pips over the head
+        const n = Math.min(5, a.stacks[k] ?? 0);
+        if (!n) continue;
+        const col = v.markColor[+k] ?? 0x9a4dff;
+        for (let i = 0; i < n; i++) top.fillStyle(col, 0.95).fillCircle(ex - (n - 1) * 3 + i * 6, ey - 28 - si * 6, 2);
+        si++;
+      }
+      const slowKey = Object.keys(a.slows).find((k) => a.slows[k].until > t);
+      if (slowKey) { const col = v.slowColor(slowKey); g.fillStyle(col, 0.18).fillEllipse(ex, ey + 2, 26, 9).lineStyle(2, col, 0.65).strokeEllipse(ex, ey + 2, 26, 9); }
+      if (a.confused > t) for (let i = 0; i < 3; i++) { const ang = t * 6 + i * 2.09; top.fillStyle(0xc79bff, 0.9).fillCircle(ex + Math.cos(ang) * 8, ey - 32 + Math.sin(ang) * 3, 2); }
+    }
+  }
   /** a footballer's basic attack: the damage of his first active (non-talent) technique as it is now */
   private basicDamage(m: Member) {
     for (let i = 0; i < m.state.slots.length; i++) { const t = this.activeTech(m, i); if (t && t.type !== 'talento') return this.stats(m, i).damage; }
     return 10;
   }
   /** Mil ilusiones: a see-through violet copy of the footballer that holds still where the rivals are lured */
-  private aliusIllusion(m: Member, ms: number) {
+  private aliusIllusion(m: Member, ms: number, x: number) {
     const body = this.cfg.manifest.bodies[m.entry.body] ?? this.cfg.manifest.bodies.field;
     if (!body || !this.textures.exists(headKey(m.entry.id))) return;
-    const side = this.rng.frac() < 0.5 ? -40 : 40;
+    const side = x - m.f.x; // where the engine put the decoy
     const clone = new Footballer(this, m.entry, body, m.f.x + side, m.f.y);
     clone.dir = m.f.dir; clone.update(0);
     for (const o of clone.container.list as Phaser.GameObjects.Sprite[]) o.setTint(0x8a5aff);
@@ -839,6 +1052,7 @@ export class ArenaScene extends Phaser.Scene {
       this.runCombos(dt);
       this.alius?.tick(dt); // 3.0
     }
+    this.drawAlius(); // 3.0: auras, marks, shields, the field
     this.updateProjectiles(dt);
     if (this.coop?.role !== 'guest') this.spawn(dt); // the guest's rivals are the host's
     this.flowAcc += dt;

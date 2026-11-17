@@ -105,7 +105,7 @@ describe('gacha', () => {
   it('2.01: ×100 costs ten ×10 and guarantees an Épico+ in every block of ten', () => {
     const s = newSave([], null);
     const big = [...Array.from({ length: 30 }, (_, i) => P(100 + i, 'comun')), P(200, 'epico')];
-    const odds = { comun: 100, raro: 0, epico: 1e-9, legendario: 0, mitico: 0, leyenda: 0 }; // an Épico only through the guarantee
+    const odds = { comun: 100, raro: 0, epico: 1e-9, legendario: 0, mitico: 0, leyenda: 0, alius: 0 }; // an Épico only through the guarantee
     s.tokens = MULTI_COST * 10 - 1;
     expect(pull(big, s, 100, Math.random, { odds })).toBeNull();
     s.tokens = MULTI_COST * 10;
@@ -500,8 +500,9 @@ describe('v2.5 economy and rewards', () => {
   const pool = [mk(1, 'epico', ['A']), mk(2, 'comun', ['A', 'B']), mk(3, 'comun', ['A']), mk(4, 'raro', ['A'])];
   const own = (s: ReturnType<typeof newSave>, ...ids: number[]) => ids.forEach((i) => { s.owned[String(i)] = { stars: 0, copies: 1, obtainedAt: 'x' }; });
 
-  it('six rarities add up to 100 and Leyenda is exceptional', () => {
-    expect(Object.keys(RARITY_WEIGHTS)).toHaveLength(6);
+  it('six rarities add up to 100 and Leyenda is exceptional (3.0: Alius only from the Altar, weight 0)', () => {
+    expect(Object.keys(RARITY_WEIGHTS)).toHaveLength(7);
+    expect(RARITY_WEIGHTS.alius).toBe(0);
     expect(Object.values(RARITY_WEIGHTS).reduce((a, b) => a + b, 0)).toBeCloseTo(100);
     expect(RARITY_WEIGHTS.leyenda).toBeLessThan(0.5);
   });
@@ -1065,14 +1066,16 @@ describe('reiniciar progreso', () => {
 
 describe('versión pública y reportes de bugs', () => {
   it('the public news start at v1.0 and no internal version leaks into them', async () => {
-    const { PUBLIC_RELEASES, PUBLIC_VERSION, RELEASED, VERSION_LABEL, BUILD, TIKTOK_URL } = await import('../src/data/release');
-    expect(PUBLIC_VERSION).toBe('2.8');
-    expect(PUBLIC_RELEASES.map((r) => r.version)).toEqual(['2.8', '2.7', '2.6', '2.5', '2.4', '2.3', '2.2', '2.1', '2.02', '2.01', '2.0', '1.94-pre2.0', '1.93-pre2.0', '1.92-pre2.0', '1.91-pre2.0', '1.9', '1.88', '1.87', '1.86', '1.85', '1.84', '1.83', '1.82', '1.81', '1.8', '1.77', '1.76', '1.75', '1.7', '1.66', '1.65', '1.6', '1.53', '1.52', '1.51', '1.5', '1.41', '1.4', '1.32', '1.31', '1.3', '1.22', '1.21', '1.2', '1.12', '1.11', '1.1', '1.0']); // newest first, starting at v1.0
+    const { PUBLIC_RELEASES, PUBLIC_VERSION, NEXT_RELEASE, RELEASED, VERSION_LABEL, BUILD, TIKTOK_URL } = await import('../src/data/release');
+    const live30 = Date.now() >= Date.parse('2026-11-25T12:00:00+01:00'); // 3.0 (author): out on 25 November at 12:00
+    expect(PUBLIC_VERSION).toBe(live30 ? '3.0' : '2.8');
+    expect(NEXT_RELEASE?.version ?? null).toBe(live30 ? null : '3.0');
+    expect(PUBLIC_RELEASES.map((r) => r.version)).toEqual([...(live30 ? ['3.0'] : []), '2.8', '2.7', '2.6', '2.5', '2.4', '2.3', '2.2', '2.1', '2.02', '2.01', '2.0', '1.94-pre2.0', '1.93-pre2.0', '1.92-pre2.0', '1.91-pre2.0', '1.9', '1.88', '1.87', '1.86', '1.85', '1.84', '1.83', '1.82', '1.81', '1.8', '1.77', '1.76', '1.75', '1.7', '1.66', '1.65', '1.6', '1.53', '1.52', '1.51', '1.5', '1.41', '1.4', '1.32', '1.31', '1.3', '1.22', '1.21', '1.2', '1.12', '1.11', '1.1', '1.0']); // newest first, starting at v1.0
     expect(PUBLIC_RELEASES.at(-1)!.title).toBe('InaZurvivors v1.0 — ¡Comienza la aventura!');
-    expect(JSON.stringify(PUBLIC_RELEASES)).not.toMatch(/\bv?(?:[34]\.\d|2\.9)\b/); // 2.0 is public now; internal tags stay out
+    expect(JSON.stringify(PUBLIC_RELEASES)).not.toMatch(/\bv?(?:4\.\d|3\.[1-9]|2\.9)\b/); // 2.0 is public now; internal tags stay out
     expect(BUILD).not.toBe('1.0');
     expect(RELEASED).toBe(true); // (author) 2.0: no more «pre»
-    expect(VERSION_LABEL).toBe('v2.8');
+    expect(VERSION_LABEL).toBe(live30 ? 'v3.0' : 'v2.8');
     expect(TIKTOK_URL).toBe('https://www.tiktok.com/@aastra.__');
   });
   it('the news board shows fixes (two decimals) in their own colour, updates in green', async () => {

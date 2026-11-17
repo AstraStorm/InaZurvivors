@@ -7,10 +7,8 @@
 import { CHANGELOG } from './changelog';
 import { tr } from '../i18n/i18n';
 
-export const PUBLIC_VERSION = '2.8';
 export const BUILD = CHANGELOG[0].version;
 export const RELEASED = true; // (author) 2.0: the «pre» phase is over
-export const VERSION_LABEL = RELEASED ? `v${PUBLIC_VERSION}` : `v${PUBLIC_VERSION} · pre-lanzamiento`;
 export const TIKTOK_URL = 'https://www.tiktok.com/@aastra.__';
 /** the author's other games (informative only: no donations or payments inside InaZurvivors) */
 export const CREATOR_GAMES_URL = 'https://astrastorm.itch.io/';
@@ -27,10 +25,27 @@ export interface PublicRelease {
   /** each card says what is there; `online` cards need the online service of the build */
   features: { icon: string; title: string; text: string; online?: boolean }[];
   start: string[];
+  /** 3.0: a version announced for a day and hour (ISO) stays out of the game, the news and the version stamp until then */
+  from?: string;
 }
 
 /** Public news, newest first. Starts at v1.0: the internal versions before it are not part of the public history. */
-export const PUBLIC_RELEASES: PublicRelease[] = [
+const ALL_RELEASES: PublicRelease[] = [
+  {
+    version: '3.0', date: '2026-11-25', from: '2026-11-25T12:00:00+01:00',
+    title: tr("InaZurvivors 3.0 — La Piedra Alius"),
+    tagline: tr("Ha caído la Piedra Alius"),
+    intro: tr("Un meteorito ha traído la Piedra Alius y algunos futbolistas ya no son los mismos. 29 transformaciones con su propia pasiva, una rareza nueva con tres categorías y el Altar de la Piedra Alius para desbloquearlas para siempre."),
+    features: [
+      { icon: '☄️', title: tr("29 transformaciones Alius"), text: tr("28 futbolistas y Lina Schiller, que llega como entrenadora. Se desbloquean para siempre en el Altar con Piedras Alius.") },
+      { icon: '✨', title: tr("Pasivas exclusivas"), text: tr("Cada Alius trae una pasiva que nadie más tiene: explosiones, espejos, eclipses, gravedad… En el campo al 100 %, como Aura al 40 %.") },
+      { icon: '💠', title: tr("Rareza Alius y categorías"), text: tr("Empiezan en 3ª categoría y suben a 2ª y 1ª con duplicados del original: +10 a todas las estadísticas en cada subida.") },
+      { icon: '🔮', title: tr("Resonancia Alius"), text: tr("Hasta tres Alius en el equipo. Con los tres, sus ataques hacen un 3 % más.") },
+      { icon: '🤝', title: tr("Cooperativo infinito"), text: tr("Juega con un amigo y, al vencer al jefe, la partida sigue en supervivencia infinita.") },
+      { icon: '🛣️', title: tr("Después: Victory Road"), text: tr("Los futbolistas de Victory Road son lo siguiente. Muy pronto.") },
+    ],
+    start: [tr("Gana arenas en rango B o más para conseguir Piedras Alius."), tr("Abre el Altar Alius del menú y transforma a tu primer futbolista.")],
+  },
   {
     version: '2.8', date: '2026-11-15',
     title: tr("InaZurvivors 2.8 — Nuevo aspecto"),
@@ -792,6 +807,13 @@ export const PUBLIC_RELEASES: PublicRelease[] = [
     start: [tr('Entra con Google o juega como invitado'), tr('Crea tu perfil'), tr('Elige tu club favorito'), tr('Consigue tus 5 primeros futbolistas'), tr('Prepara tu plantilla'), tr('Sobrevive, recluta y mejora tus técnicas')],
   },
 ];
+/** the versions already out (read once when the game loads: whoever is in at 12:00 sees the 3.0 when they reload) */
+export const PUBLIC_RELEASES = ALL_RELEASES.filter((r) => !r.from || Date.now() >= Date.parse(r.from));
+/** a version announced but not out yet (the 3.0 presentation, in its «Próximamente» form) */
+export const NEXT_RELEASE = ALL_RELEASES.find((r) => r.from && Date.now() < Date.parse(r.from)) ?? null;
+export const releaseByVersion = (v: string) => ALL_RELEASES.find((r) => r.version === v);
+export const PUBLIC_VERSION = PUBLIC_RELEASES[0].version;
+export const VERSION_LABEL = RELEASED ? `v${PUBLIC_VERSION}` : `v${PUBLIC_VERSION} · pre-lanzamiento`;
 export const CURRENT_PUBLIC = PUBLIC_RELEASES[0];
 /** real captures of the game, in public/devlog */
 export const DEVLOG_SHOTS = [

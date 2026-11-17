@@ -30,6 +30,14 @@ export const ALIUS_EXCLUSIVE = 'piedra-alius';
 export const ALIUS_TEAM = 'Piedra_Alius';
 
 export const isAliusId = (id: number) => ALIUS_BY_ID.has(id);
+/** 3.0 (author: «la fecha es para el 25 de noviembre»): the Altar and the Alius are a secret until then, 12:00 Spain */
+export const ALIUS_OPEN_AT = '2026-11-25T12:00:00+01:00';
+export const aliusOpen = (now: number | Date) => +now >= Date.parse(ALIUS_OPEN_AT);
+export const aliusLeftMs = (now: number | Date) => Math.max(0, Date.parse(ALIUS_OPEN_AT) - +now);
+/** category of an Alius: 3 (3ª, at the transformation), 2 or 1 (1ª, the top one) */
+export type AliusTier = 1 | 2 | 3;
+export const TIER_LABEL: Record<AliusTier, string> = { 3: tr('3ª CATEGORÍA'), 2: tr('2ª CATEGORÍA'), 1: tr('1ª CATEGORÍA') };
+export const TIER_SHORT: Record<AliusTier, string> = { 3: 'III', 2: 'II', 1: 'I' };
 /** the original of an Alius id; any other id is its own original */
 export const baseIdOf = (id: number) => ALIUS_BY_ID.get(id)?.base ?? id;
 
@@ -53,6 +61,12 @@ export const ALIUS_CONFIG = {
   /** total slow of Alius effects on a normal rival, and on a boss or rival captain (the control-immune ones) */
   maxSlow: 0.6,
   maxBossSlow: 0.15,
+  /**
+   * Categories (author): the transformation gives 3ª categoría, then 2ª and 1ª (the «++»), paid with duplicates of the
+   * original like his ascension (HÉROE cost, then HÉROE + a hero star); each step adds `tierStats` to every stat.
+   */
+  tierStats: 10,
+  tierCost: { comun: [20, 30], raro: [16, 24], epico: [12, 18], legendario: [4, 8], mitico: [2, 5], leyenda: [1, 3], alius: [1, 3] } as Record<string, [number, number]>,
   /** Piedras Alius for a won arena by rank (an existing reward: the victory), at most `dailyCap` a day */
   stones: { perWin: { C: 0, B: 1, A: 1, S: 2, X: 2, Z: 3 } as Record<string, number>, dailyCap: 3 },
 };
@@ -173,7 +187,7 @@ export function recolourTorsoSkin(px: Uint8ClampedArray, w: number, h: number, r
 }
 
 /** manifest `alius` (tools/alius_assets.py): each Alius's head file, bodyshot with no kit, and torso skin ramp */
-export type AliusArt = Record<string, { head: string; bust?: string; skin: [number, number, number][] | null; face?: number[] | null; review?: string }>;
+export type AliusArt = Record<string, { head: string; bust?: string; skin: [number, number, number][] | null; face?: number[] | null; review?: string; offset?: [number, number] }>;
 
 /**
  * Adds the Alius footballers to the roster: each one a copy of his original (after rosterFixes, so the same corrections)
@@ -193,6 +207,8 @@ export function addAliusRoster(m: Manifest): string[] {
       // their own team only: an Alius never counts towards his original's team rewards, collection goals or kit elements;
       // on the pitch he keeps his original's club chemistry (baseTeams, kitBonus.ts / synergy.ts)
       ...b, id: a.id!, name: `${b.name.trim()} Alius`, nickname: b.nickname, exclusive: ALIUS_EXCLUSIVE, teams: [ALIUS_TEAM], baseTeams: [...b.teams],
+      // author: all of them are rarity Alius; their stats are still built at the original's rarity (training.ts)
+      rarity: 'alius', baseRarity: b.rarity,
       techniques: b.techniques.map((t) => ({ ...t })), heroTech: b.heroTech ? { ...b.heroTech } : undefined,
       stats: b.stats ? { ...b.stats } : null, statFloor: b.statFloor ? { ...b.statFloor } : undefined,
       starter: false, startUnlocked: false,
