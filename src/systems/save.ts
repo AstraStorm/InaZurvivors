@@ -1,5 +1,6 @@
 import { RARITY_ORDER, type Rarity } from '../data/manifest';
 import { PENNANT_BY_ID } from '../data/pennants';
+import type { AutoPick } from './autoPick';
 import { COACH_BY_ID } from '../data/coaches';
 import { sanitizeAliusState, syncAliusOwned, trimAliusCap, type AliusSave } from './aliusSave';
 /** Local save with schema version + migrations + validation. Pure logic + a thin localStorage adapter.
@@ -77,6 +78,8 @@ export interface SaveData {
   /** 2.8: Monedas de Despertar (a HÉROE becomes Campeón, ascension.ts awaken) and the gift of the 200 registered players */
   awakenCoins?: number;
   awakenGift200?: boolean;
+  /** 3.0: the Desafío del Despertar (awakenEvent.ts): arenas won on rank A+ while it is open, and whether its coin was paid */
+  awakenEv30?: { wins: number; done?: boolean };
   awakenSeen?: boolean;
   /** 3.0: Piedras Alius, the transformations unlocked at the Altar and the stones earned today (aliusSave.ts) */
   alius?: AliusSave;
@@ -236,6 +239,8 @@ export interface Settings {
   lang?: '' | 'es' | 'en' | 'fr' | 'it' | 'de' | 'ca' | 'pt';
   /** 2.3: vibration on phones at the key moments of a run (game/haptics.ts); absent = yes */
   vibration?: boolean;
+  /** 3.0: the level-up cards pick themselves in this order (autoPick.ts); absent = off */
+  autoPick?: Partial<AutoPick>;
 }
 
 export const DEFAULT_SETTINGS: Settings = { volume: 0.5, musicVolume: 0.45, muted: false, menuTrack: '', battleTrack: '', particles: 'completo',
@@ -397,6 +402,9 @@ export function validate(s: SaveData): SaveData {
   s.awakenCoins = Math.max(0, Math.floor(num(s.awakenCoins, 0)));
   if (!s.awakenCoins) delete s.awakenCoins;
   if (s.awakenGift200 !== true) delete s.awakenGift200;
+  if (s.awakenEv30 && typeof s.awakenEv30 === 'object') {
+    s.awakenEv30 = { wins: Math.max(0, Math.floor(num(s.awakenEv30.wins, 0))), ...(s.awakenEv30.done === true ? { done: true } : {}) };
+  } else delete s.awakenEv30;
   if (s.awakenSeen !== true) delete s.awakenSeen;
   const owned: Record<string, OwnedPlayer> = {};
   for (const [k, v] of Object.entries(obj(s.owned) ?? {})) {

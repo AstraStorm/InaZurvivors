@@ -5,6 +5,7 @@
  */
 import { tr } from '../i18n/i18n';
 import type { Rarity } from '../data/manifest';
+import type { SeasonReward } from '../systems/seasonPass';
 
 const URL_ = (import.meta.env?.VITE_SUPABASE_URL as string | undefined) ?? '';
 const KEY = (import.meta.env?.VITE_SUPABASE_ANON_KEY as string | undefined) ?? '';
@@ -199,6 +200,18 @@ export const myPosition = async (q: BoardQuery) => (await rpc<BoardRow[]>('my_po
 
 export const submitScore = (runId: string, map: string, rank: string, timeSec: number, damage: number, captainId: number) =>
   rpc<string>('submit_score', { p_run_id: runId, p_map: map, p_rank: rank, p_time_sec: Math.floor(timeSec), p_damage: Math.floor(damage), p_captain_id: captainId });
+
+/** 3.0: the season pass on the server (migration season_pass_server): keys, EXP and claimed levels live there */
+export interface ServerSeasonState { id: string; xp: number; normal: boolean; gold: boolean; claimedNormal: number[]; claimedPremium: number[] }
+export const seasonState = () => rpc<ServerSeasonState | null>('season_state', {});
+export const seasonRunStart = (runId: string, coop: boolean) => rpc<{ season: string; coop: boolean } | null>('season_run_start', { p_run_id: runId, p_coop: coop });
+/** about every half minute of a run: the server rolls the Llave dorada for the rivals knocked out since the last time */
+export const seasonRunTick = (runId: string, kills: number) => rpc<{ dropped: boolean }>('season_run_tick', { p_run_id: runId, p_kills: Math.floor(kills) });
+export const seasonRunFinish = (runId: string, timeSec: number, rank: string, kills: number) =>
+  rpc<ServerSeasonState & { gained: number; dropped: boolean; duplicate?: boolean }>('season_run_finish', { p_run_id: runId, p_time_sec: Math.floor(timeSec), p_rank: rank, p_kills: Math.floor(kills) });
+export const seasonClaimLevels = (track: 'normal' | 'premium', levels: number[]) =>
+  rpc<{ track: 'normal' | 'premium'; level: number; reward: SeasonReward }[]>('season_claim', { p_track: track, p_levels: levels });
+export const seasonBuyNormalKey = () => rpc<ServerSeasonState>('season_buy_normal_key', {});
 
 export const putCloudSave = (data: unknown, expected: number) => rpc<number>('put_save', { p_data: data, p_expected: expected });
 export interface CloudSave { data: unknown; version: number; updated_at: string }

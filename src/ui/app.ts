@@ -11,8 +11,8 @@ import { serverNow, syncServerTime, timeSource, trustedClock } from '../online/s
 import { PASS, PASS_TOTAL, claimPass, passStatus, type PassReward } from '../systems/weeklyPass';
 import { applyReward, codePlayer, creatorGiftINA483, hasRedeemed, INA483_ODDS, normalizeCode, redeemLocal, type CodeReward } from '../systems/promo';
 import { LOSE_PRIZE, matchDecree, paySectorPrize, REBEL_ENEMY_HP, REBEL_POINTS, SECTOR_START, sectorOf, sectorOpen, sectorRun, sectorWeek, sectorWeekEnd, SIDES, weeklyDecree, WIN_PRIZE, type MatchDecree, type SectorRun, type SideId } from '../systems/sector';
-import { activeSeason, addRunXp, buyNormalKey, canClaim as canClaimLevel, claimable, claimLevel, daysTo, giveGoldKey, goldKeyChance, levelOf, levelProgress, rowOpen, seasonEnd, seasonOf, seasonStart, upcomingSeason,
-  GOLD_KEY_CHANCE, GOLD_KEY_COOP, LEVEL_XP, LEVELS, MULTI_FICHAS, NORMAL_KEY_PRICE, RANK_PRIZES, RANK_XP, SEASONS, XP_PER_MIN, passPlayersHidden, payRankPrize, type Granted, type SeasonReward, type SeasonTrack } from '../systems/seasonPass';
+import { activeSeason, addRunXp, adoptServerSeason, buyNormalKey, payLevel, canClaim as canClaimLevel, claimable, claimLevel, daysTo, giveGoldKey, goldKeyChance, levelOf, levelProgress, rowOpen, seasonEnd, seasonOf, seasonStart, upcomingSeason,
+  GOLD_KEY_CHANCE, GOLD_KEY_COOP, LEVEL_XP, LEVELS, PASS_SERVER_AT, MULTI_FICHAS, NORMAL_KEY_PRICE, RANK_PRIZES, RANK_XP, SEASONS, XP_PER_MIN, passPlayersHidden, payRankPrize, type Granted, type SeasonDef, type SeasonReward, type SeasonTrack } from '../systems/seasonPass';
 import { claimSeasonRewards } from '../online/client';
 import { clearRoad, compensateJaden202, compensateJaden3, jadenProgress, JADEN_EVERY, JADEN_FIRST, JADEN_ID, ROAD_BY_ID, ROAD_DIFFS, ROAD_SQUAD, roadEligible, roadMatchSec, roadOf, type RoadDiff } from '../systems/road';
 import { BANNERS, BANNER_ORDER, bannerPool, bannerPrice, eraOf, featured, featuredMachine, FEATURED_BOOST, perPlayerOdds, rarityOdds, teamChoices, type BannerId } from '../systems/banners';
@@ -80,7 +80,7 @@ import { applyGtsLedger, canLeave, gtsBanned, gtsError, gtsSlots, gtsSpare, type
 import { fmtNum, getLang, LANGS, locale, resolveLang, setLang, tr, type Lang } from '../i18n/i18n';
 import { tEl, tTech } from '../i18n/data';
 import { buzz, HAPTIC, setHaptics } from '../game/haptics';
-import { accountId, adminBugReports, adminMetrics, adminPlayerStats, adminUpdateBug, amIAdmin, consumeAuthRedirect, deleteAccount, deleteMyBugReports, deleteShot, myBugReports, notifyBug, shotUrl, submitBugReport, uploadShot, getCloudSave, leaderboard, myPosition, passHolders, sectorSides, profileBanners, profileFrames, sectorClaim, sectorCredit, sectorJoin, sectorStatus, type SectorPrize, type SectorStatus, publicProfile, type PublicProfile, myProfile, onlineConfigured, putCloudSave, reserveUsername, resetMyProgress, signedEmail, signedIn, signInWithGoogle, signOut, submitScore, usernameAvailable, type BoardQuery, type BoardRow, type BugFilter, type BugRow, type CloudSave } from '../online/client';
+import { accountId, adminBugReports, adminMetrics, adminPlayerStats, adminUpdateBug, amIAdmin, consumeAuthRedirect, deleteAccount, deleteMyBugReports, deleteShot, myBugReports, notifyBug, shotUrl, submitBugReport, uploadShot, getCloudSave, leaderboard, seasonBuyNormalKey, seasonClaimLevels, seasonRunFinish, seasonRunStart, seasonRunTick, seasonState, myPosition, passHolders, sectorSides, profileBanners, profileFrames, sectorClaim, sectorCredit, sectorJoin, sectorStatus, type SectorPrize, type SectorStatus, publicProfile, type PublicProfile, myProfile, onlineConfigured, putCloudSave, reserveUsername, resetMyProgress, signedEmail, signedIn, signInWithGoogle, signOut, submitScore, usernameAvailable, type BoardQuery, type BoardRow, type BugFilter, type BugRow, type CloudSave } from '../online/client';
 import { backup, linkPlan, progressOf, summarize, type SaveSummary } from '../online/cloudSync';
 import { epochOf, freshProgress, resetSummary } from '../systems/resetProgress';
 import { scoreOf, localBoard, mapMult, recordBest } from '../systems/leaderboard';
@@ -94,6 +94,8 @@ import { FRAMES, isFrame, isNewPennant, PENNANTS, PENNANT_BY_ID, PENNANT_EVENT, 
 import { buyPennant, equipFrame, equippedFrame, equipPennant, equippedPennant, eventActive, eventLeftMs, eventOdds, givePennant, grantAchievementPennants, hasPennant, pullEvent, visiblePennant, type PennantPull } from '../systems/pennants';
 import { MASTERY_BONUS, MASTERY_USES, masteryLevel, recordMastery } from '../systems/mastery';
 import { MAX_TEAM, canStartWith, startingTech, type Card } from '../systems/cards';
+import { AUTO_HEAL_BELOW, autoChoose, autoSettings, moveKind, type AutoKind } from '../systems/autoPick';
+import { AWAKEN_EVENT, awakenEventActive, awakenEventDone, awakenEventLeftMs, awakenEventWins, recordAwakenWin } from '../systems/awakenEvent';
 import { clearSquad, renameSquad, savedSquads, setSquad, SQUAD_SIZE, fillSquad, makeCaptain, placeInSquad, removeFromSquad, squadOf, switchSquad, syncActiveSquad, squadAliusProblem } from '../systems/squad';
 import type { ArenaInit, ArenaScene, HudState, MarkerState, Poi, TrainingSetup } from '../game/ArenaScene';
 import type { LobbyInit, LobbyPlayer } from '../game/LobbyScene';
@@ -447,6 +449,7 @@ export class App {
       else if (plan === 'elegir' && cloud && this.save.cloudVersion !== cloud.version) return () => { void this.linkCloud(true).then(() => { if (document.querySelector('.menu-root')) this.mainMenu(); }); };
       else if (this.save.onboardingDone) await this.linkCloud();
       void this.linkGuestCodes();
+      void this.seasonSync(); // 3.0: the pass as the server keeps it
       this.claimName();
       storeSave(this.save);
       return null;
@@ -1411,6 +1414,9 @@ export class App {
     if (seasonN) steps.push({ go: 'season', icon: 'star', text: tr('Reclama {n} niveles del pase de temporada', { n: seasonN }) });
     if (claims) steps.push({ go: 'collection', icon: 'cards', text: tr('Recoge las recompensas de la Colección') });
     if (awakenCoins(this.save) && this.m.roster.some((p) => canAwaken(this.save, p))) steps.push({ go: 'awaken', icon: 'star', text: tr('Usa tu Moneda de Despertar: un HÉROE pasa a Campeón') });
+    if (awakenEventActive(serverNow()) && !awakenEventDone(this.save)) { // 3.0
+      steps.unshift({ go: 'play', icon: 'star', text: tr('Desafío del Despertar: gana {x1} partidas en rango A o más ({wins}/{x1}) y llévate una Moneda de Despertar · quedan {x2}', { x1: AWAKEN_EVENT.wins, wins: awakenEventWins(this.save), x2: this.leftText(awakenEventLeftMs(serverNow())) }) });
+    }
     if (this.shopNews()) steps.push({ go: 'daily', icon: 'shop', text: tr('Mira los banners y marcos nuevos de la Tienda') });
     if (squad.length < SQUAD_SIZE && this.unlockedRoster().length > squad.length) steps.push({ go: 'squad', icon: 'team', text: tr('Completa tus {n} candidatos en Mi Equipo', { n: SQUAD_SIZE }) });
     if (this.save.tokens >= PULL_COST * 10) steps.push({ go: 'gacha', icon: 'capsule', text: tr('Tienes {n} fichas: haz una tirada ×10', { n: this.save.tokens }) });
@@ -4781,11 +4787,68 @@ export class App {
   // ---- 2.1 (author): the season pass (systems/seasonPass.ts)
   /** a run's pass EXP (not training), said in a toast; levels gained are shown in the pass */
   private seasonRunXp(r: RunResult & { level: number }) {
+    window.clearInterval(this.passTick);
     if (this.lastRunTraining) return;
+    const def = activeSeason(serverNow());
+    if (def && this.passOnline() && r.runId) { // 3.0: with an account the server works the EXP out
+      const from = levelOf(seasonOf(this.save, def).xp);
+      void seasonRunFinish(r.runId, r.timeSec, r.rank ?? 'C', r.kills ?? 0).then((f) => {
+        adoptServerSeason(this.save, def, f);
+        this.persist();
+        const to = levelOf(f.xp);
+        if (f.gained) window.setTimeout(() => this.toast(to > from ? tr('Pase de temporada: +{xp} EXP · ¡nivel {to}!', { xp: f.gained, to }) : tr('Pase de temporada: +{xp} EXP', { xp: f.gained }), 3500), 900);
+      }).catch((e: Error) => console.warn('[pase]', e.message)); // a run the server never saw begin (offline at the start) gives no EXP
+      return;
+    }
     const got = addRunXp(this.save, r.timeSec, (r.rank ?? 'C') as Rank, serverNow());
     if (!got || !got.xp) return;
     this.persist();
     window.setTimeout(() => this.toast(got.to > got.from ? tr('Pase de temporada: +{xp} EXP · ¡nivel {to}!', { xp: got.xp, to: got.to }) : tr('Pase de temporada: +{xp} EXP', { xp: got.xp }), 3500), 900);
+  }
+
+  /** 3.0: with an account the pass lives on the server from 3.0 on (migration season_pass_server); a guest's stays in the save */
+  private passOnline() { return onlineConfigured() && signedIn() && +serverNow() >= Date.parse(PASS_SERVER_AT) && !!activeSeason(serverNow()); }
+  private passTick = 0;
+  /** 3.0: the server learns when the run began and, about every half minute, rolls the Llave dorada for the rivals knocked out */
+  private passRunStart(init: ArenaInit, coop: boolean | null) {
+    window.clearInterval(this.passTick);
+    const runId = crypto.randomUUID?.();
+    if (coop === null || !runId || !this.passOnline()) return;
+    init.runId = runId;
+    if (init.goldKey) init.goldKey.chance = 0; // never rolled here: the server tells the scene (goldKeyNow)
+    void seasonRunStart(runId, coop).catch((e: Error) => console.warn('[pase]', e.message));
+    this.passTick = window.setInterval(() => {
+      const a = this.arena();
+      if (!a?.scene.isActive()) return;
+      void seasonRunTick(runId, a.knockOuts).then((t) => { if (t.dropped) this.arena()?.goldKeyNow(); }).catch(() => undefined);
+    }, 30_000);
+  }
+  /** 3.0: the server's pass into the save (keys, EXP, claimed levels) */
+  private async seasonSync() {
+    const def = activeSeason(serverNow());
+    if (!def || !this.passOnline()) return;
+    try { adoptServerSeason(this.save, def, await seasonState()); this.persist(); } catch (e) { console.warn('[pase]', (e as Error).message); }
+  }
+  private seasonSyncedAt = 0;
+  private seasonBusy = false;
+  /** the Llave normal: with an account the server sells it (the coins must already be in the cloud save) */
+  private buyPassKey(msg: string, after: () => void) {
+    const def = activeSeason(serverNow());
+    if (!def || !this.passOnline()) {
+      if (buyNormalKey(this.save, serverNow())) { this.persist(); sfx('buy'); this.toast(msg, 4000); } else sfx('error');
+      after();
+      return;
+    }
+    if (seasonOf(this.save, def).normal || this.save.coins < NORMAL_KEY_PRICE || this.seasonBusy) { sfx('error'); return; }
+    this.seasonBusy = true;
+    void seasonBuyNormalKey().then((srv) => {
+      if (!seasonOf(this.save, def).normal) this.save.coins -= NORMAL_KEY_PRICE;
+      adoptServerSeason(this.save, def, srv);
+      this.persist(); sfx('buy'); this.toast(msg, 4000);
+    }).catch((e: Error) => {
+      sfx('error');
+      this.toast(/not_enough_coins/.test(e.message) ? tr('Tus monedas aún se están guardando en la nube. Prueba otra vez en unos segundos.') : tr('Pase: {message}', { message: e.message }), 4500);
+    }).finally(() => { this.seasonBusy = false; after(); });
   }
 
   /** the Llave dorada dropped in a run: unlocked at once, the big notice over the HUD */
@@ -4834,10 +4897,40 @@ export class App {
   private seasonClaim(levels: [SeasonTrack, number][]) {
     const def = activeSeason(serverNow());
     if (!def) return;
+    if (this.passOnline()) { void this.seasonClaimOnline(def, levels); return; }
     const got: Granted[] = [];
     let waiting = false;
     for (const [track, lv] of levels) { const g = claimLevel(this.save, def, track, lv, this.byId); if (g) got.push(g); else waiting = true; }
-    if (!got.length) { if (waiting) this.toast(tr('Recarga el juego para recibir este premio.')); sfx('error'); return; }
+    this.seasonGranted(got, waiting);
+  }
+
+  /** 3.0: with an account the server pays the levels (season_claim) and the save takes exactly what it answered */
+  private async seasonClaimOnline(def: SeasonDef, levels: [SeasonTrack, number][]) {
+    if (this.seasonBusy) return;
+    this.seasonBusy = true;
+    const got: Granted[] = [];
+    let waiting = false, asked = 0;
+    try {
+      for (const track of ['normal', 'premium'] as SeasonTrack[]) {
+        const want = levels.filter(([t, lv]) => t === track && canClaimLevel(seasonOf(this.save, def), t, lv)).map(([, lv]) => lv).filter((lv) => {
+          const rw = def[track][lv - 1]; // a footballer not loaded in this session waits (nothing is asked for)
+          if (rw?.kind === 'jugador' && !this.byId.has(rw.id)) { waiting = true; return false; }
+          return true;
+        });
+        if (!want.length) continue;
+        asked += want.length;
+        for (const c of await seasonClaimLevels(track, want)) got.push(payLevel(this.save, def, c.track, c.level, c.reward, this.byId));
+      }
+    } catch (e) {
+      this.toast(tr('Pase: {message}', { message: (e as Error).message }), 4000);
+    } finally { this.seasonBusy = false; }
+    if (got.length < asked) await this.seasonSync(); // the server saw something else (another device, an old copy): its pass wins
+    this.seasonGranted(got, waiting);
+  }
+
+  /** what some claimed levels gave, in one toast (and a footballer's arrival on its own) */
+  private seasonGranted(got: Granted[], waiting: boolean) {
+    if (!got.length) { if (waiting) this.toast(tr('Recarga el juego para recibir este premio.')); sfx('error'); this.seasonScreen(); return; }
     this.persist();
     sfx(got.some((g) => g.player && (g.player.rarity === 'leyenda' || g.player.rarity === 'legendario')) ? 'legend' : 'buy');
     const sum = { monedas: 0, fichas: 0, eg: 0 };
@@ -4860,6 +4953,10 @@ export class App {
     setMusicContext('menu');
     const now = serverNow(), def = activeSeason(now);
     if (!def) { this.toast(tr('El pase de temporada aún no ha empezado.')); this.mainMenu(); return; }
+    if (this.passOnline() && Date.now() - this.seasonSyncedAt > 60_000) { // 3.0: shown at once, then refreshed from the server
+      this.seasonSyncedAt = Date.now();
+      void this.seasonSync().then(() => { if (document.querySelector('.sp-head')) this.seasonScreen(); });
+    }
     const st = seasonOf(this.save, def), lv = levelOf(st.xp), keys = this.m.pase;
     const ready = (['normal', 'premium'] as SeasonTrack[]).reduce((n, t) => n + claimable(st, t).length, 0);
     const cell = (track: SeasonTrack, level: number) => {
@@ -4919,8 +5016,7 @@ export class App {
     document.getElementById('spall')?.addEventListener('click', () => this.seasonClaim((['normal', 'premium'] as SeasonTrack[]).flatMap((t) => claimable(st, t).map((n) => [t, n] as [SeasonTrack, number]))));
     const buy = document.getElementById('spbuy');
     if (buy) buy.addEventListener('click', () => this.armed(buy, () => {
-      if (buyNormalKey(this.save, serverNow())) { this.persist(); sfx('buy'); this.toast(tr('¡Llave normal! La fila normal del pase está abierta.'), 3500); } else sfx('error');
-      this.seasonScreen();
+      this.buyPassKey(tr('¡Llave normal! La fila normal del pase está abierta.'), () => this.seasonScreen());
     }));
   }
 
@@ -6483,8 +6579,7 @@ export class App {
     document.getElementById('pnevent')?.addEventListener('click', () => this.pennantEvent());
     const sk = document.getElementById('shopkey'); // 2.1
     if (sk) sk.addEventListener('click', () => this.armed(sk, () => {
-      if (buyNormalKey(this.save, serverNow())) { this.persist(); sfx('buy'); this.toast(tr('¡Llave normal! Abre el pase desde Competición > Temporada.'), 4000); } else sfx('error');
-      this.dailyShop();
+      this.buyPassKey(tr('¡Llave normal! Abre el pase desde Competición > Temporada.'), () => this.dailyShop());
     }));
     this.on('[data-pnbuy]', 'click', (_e, el) => this.armed(el, () => {
       const d = PENNANT_BY_ID.get(el.dataset.pnbuy!);
@@ -7636,7 +7731,9 @@ export class App {
 
   options() {
     setMusicContext('menu');
-    const s = this.save.settings;
+    const s = this.save.settings, ap = autoSettings(s.autoPick);
+    const autoLabel = (k: AutoKind) => ({ combo: tr('Técnica combinada'), recruit: tr('Fichar futbolista'), upgrade: tr('Subir técnica'), learn: tr('Aprender técnica'),
+      passive: tr('Pasiva'), stat: tr('Estadística'), heal: tr('Curación') })[k];
     const seg = (id: string, vals: [string, string][], cur: string) => `<div class="seg" data-seg="${id}">${vals.map(([v, l]) => `<button data-v="${v}" class="${cur === v ? 'on' : ''}">${l}</button>`).join('')}</div>`;
     this.show(`<div class="screen">${this.titlebar(tr('Opciones'), tr('Menú'))}<div class="panel">
       <h3>${tr('Sonido')}</h3>
@@ -7662,6 +7759,11 @@ export class App {
       <div class="opt-row"><span>${tr('Tutorial')}</span><button class="btn small blue" id="tutagain">${tr('Ver otra vez')}</button></div>
       <div class="opt-row"><span>${tr('Recorrido por el menú')}</span><button class="btn small blue" id="touragain">${tr('Ver otra vez')}</button></div>
       <div class="opt-row"><span>${tr('Explicar cada pantalla la primera vez que la abro')}</span>${seg('tips', [['on', tr('Sí')], ['off', tr('No')]], this.save.tipsOff ? 'off' : 'on')}</div>
+      <h3 style="margin-top:12px">${tr('Mejoras automáticas')}</h3>
+      <div class="opt-row"><span>${tr('Elegir las mejoras solas')}<small class="opt-note">${tr('Al subir de nivel se coge la mejor carta según este orden. También se activa con el botón AUTO de las cartas.')}</small></span>${seg('autoPick', [['1', tr('Sí')], ['0', tr('No')]], ap.on ? '1' : '0')}</div>
+      <div class="opt-row"><span>${tr('Curar primero con poca vida')}<small class="opt-note">${tr('Por debajo del {x1} % de vida la curación pasa delante.', { x1: Math.round(AUTO_HEAL_BELOW * 100) })}</small></span>${seg('autoHeal', [['1', tr('Sí')], ['0', tr('No')]], ap.healBelow > 0 ? '1' : '0')}</div>
+      <ol class="auto-order">${ap.order.map((k, i) => `<li><b>${i + 1}</b><span>${esc(autoLabel(k))}</span>
+        <button class="btn small blue" data-automove="${k}" data-by="-1" ${i ? '' : 'disabled'} aria-label="${tr('Subir')}">▲</button><button class="btn small blue" data-automove="${k}" data-by="1" ${i < ap.order.length - 1 ? '' : 'disabled'} aria-label="${tr('Bajar')}">▼</button></li>`).join('')}</ol>
       <h3 style="margin-top:12px">${tr('Privacidad')}</h3>
       <div class="opt-row"><span>${tr('Compartir mis partidas')}<small class="opt-note">${tr('Con la sesión iniciada, cada partida en solitario se graba (posiciones, técnicas y cartas, sin nada personal) para que el autor vea cómo se juega y equilibre el juego. Se guardan tus 3 últimas y las de tus marcas del ranking.')}</small></span>${seg('shareReplays', [['1', tr('Sí')], ['0', tr('No')]], s.shareReplays === false ? '0' : '1')}</div>
       <h3 style="margin-top:12px">${tr('Copia de seguridad')}</h3>
@@ -7718,6 +7820,12 @@ export class App {
         this.toast((err as Error).message);
       }
     });
+    this.on('[data-automove]', 'click', (_e, el) => {
+      s.autoPick = moveKind(ap, el.dataset.automove as AutoKind, Number(el.dataset.by) as -1 | 1);
+      sfx('click');
+      this.persist();
+      this.options();
+    });
     this.on('[data-seg] button', 'click', (_e, el) => {
       const key = el.parentElement!.dataset.seg!;
       const v = el.dataset.v!;
@@ -7726,6 +7834,8 @@ export class App {
       if (key === 'flashes') s.flashes = v === '1';
       if (key === 'damageNumbers') s.damageNumbers = v === '1';
       if (key === 'vibration') { s.vibration = v === '1'; if (s.vibration) buzz(40); }
+      if (key === 'autoPick') s.autoPick = { ...ap, on: v === '1' }; // 3.0
+      if (key === 'autoHeal') s.autoPick = { ...ap, healBelow: v === '1' ? AUTO_HEAL_BELOW : 0 };
       if (key === 'shareReplays') s.shareReplays = v === '1';
       if (key === 'muted') s.muted = v === '1';
       if (key === 'reducedMotion') { s.reducedMotion = v === '1'; this.applyMotion(); }
@@ -8009,6 +8119,7 @@ export class App {
     const loader = showRunLoader(this.m, runTeam, map.name, kitInfo?.field ?? null);
     init.hooks.loading = (p: number) => loader.progress(p);
     init.hooks.ready = () => loader.done();
+    this.passRunStart(init, training ? null : !!coop);
     if (training) document.getElementById('hud')?.insertAdjacentHTML('beforeend', `<div class="train-tag">${tr('ENTRENAMIENTO · sin daño ni recompensas · Pausa para salir')}</div>`);
     this.game.scene.start('Arena', init);
   }
@@ -8559,9 +8670,9 @@ export class App {
     return new Promise((resolve) => {
       let chosen = false;
       const shownAt = performance.now();
-      const pick = (el: HTMLElement, cs: Card[]) => {
+      const pick = (el: HTMLElement, cs: Card[], auto = false) => {
         if (chosen) return;
-        if (performance.now() < Number(el.closest<HTMLElement>('.lvc')?.dataset.ready ?? 0)) return; // still turning over: no picks by accident
+        if (!auto && performance.now() < Number(el.closest<HTMLElement>('.lvc')?.dataset.ready ?? 0)) return; // still turning over: no picks by accident
         chosen = true;
         window.removeEventListener('keydown', keys, true);
         el.classList.add('picked');
@@ -8586,7 +8697,8 @@ export class App {
         this.root.insertAdjacentHTML('beforeend', `<div class="levelup${first ? ' first' : ''}" id="lvl"><div class="lv-rays"></div>
           <div class="lv-title"><span>${level ? tr('¡NIVEL {level}!', { level }) : tr('¡RECOMPENSA!')}</span><small>${tr('Elige una mejora para tu equipo')}</small></div>
           <div class="lv-cards n${cs.length}">${cs.map((c, i) => this.cardHtml(c, i)).join('')}</div>
-          <div class="lv-bottom"><button class="btn big blue reroll" id="reroll" ${left > 0 ? '' : 'disabled'}>${tr('⟳ CAMBIAR CARTAS')} <span class="rr-count">${left}</span></button></div></div>`);
+          <div class="lv-bottom"><button class="btn big blue reroll" id="reroll" ${left > 0 ? '' : 'disabled'}>${tr('⟳ CAMBIAR CARTAS')} <span class="rr-count">${left}</span></button>
+          <button class="btn big lv-auto${auto().on ? ' on' : ''}" id="lvauto" title="${tr('Las mejoras se eligen solas según tu orden de Opciones')}">${auto().on ? tr('AUTO ✓') : tr('AUTO')}</button></div></div>`);
         mountPreviews();
         const modal = document.getElementById('lvl')!;
         current = cs;
@@ -8623,7 +8735,23 @@ export class App {
           const next = reroll();
           if (next.length) render(next, left - 1, false);
         });
+        // 3.0: automatic cards (systems/autoPick.ts): the choice is shown a moment, then taken; a click before that wins
+        const autoPick = () => {
+          const i = autoChoose(cs, auto(), this.arena()?.hpShare ?? 1);
+          const el = modal.querySelector<HTMLElement>(`.lvcard[data-i="${i}"]`);
+          if (!el) return;
+          el.closest('.lvc')?.classList.add('sel');
+          window.setTimeout(() => pick(el, cs, true), 650);
+        };
+        document.getElementById('lvauto')?.addEventListener('click', () => {
+          const a = auto();
+          this.save.settings.autoPick = { ...a, on: !a.on };
+          this.persist();
+          if (!a.on) { modal.querySelector('#lvauto')?.classList.add('on'); autoPick(); } else render(cs, left, false);
+        });
+        if (auto().on) window.setTimeout(autoPick, 500);
       };
+      const auto = () => autoSettings(this.save.settings.autoPick);
       render(cards, rerolls, true);
     });
   }
@@ -8735,6 +8863,10 @@ export class App {
     addThanksTokens(this.save, evTokens);
     if (r.victory) recordBluelockWin(this.save, serverNow()); // (author) 3 wins while it is open: the BlueLock banner
     if (r.victory) recordSendokaiWin(this.save, serverNow()); // 2.9: and the Desafío Sendokai one
+    // 3.0: Desafío del Despertar, 5 arenas won on rank A+ in the first week give a Moneda de Despertar
+    if (r.victory && !this.lastRunTraining && !this.clanMatch && recordAwakenWin(this.save, (r.rank ?? 'C') as Rank, serverNow())) {
+      window.setTimeout(() => { sfx('legend'); this.toast(tr('¡Desafío del Despertar completado! +1 Moneda de Despertar: un HÉROE puede pasar a Campeón.'), 6000); }, 1800);
+    }
     // 3.0: Piedras Alius for a won arena (by rank, a daily cap; never in the Juegos del Clan or training)
     const aliusGot = this.clanMatch || this.lastRunTraining || !aliusOpen(serverNow()) ? 0 : awardAliusStones(this.save, r, dayKey(new Date(serverNow())));
     const cap = this.byId.get(r.teamIds?.[0] ?? -1);

@@ -43,6 +43,9 @@ export interface SeasonDef {
   stars: number[];
 }
 
+/** 3.0 (author: «lo demás se suba en la 3.0 programada»): from this hour an account's pass lives on the server
+ *  (migration season_pass_server, private.pass_server); before it, as in 2.1, the save keeps it */
+export const PASS_SERVER_AT = '2026-11-25T12:00:00+01:00';
 export const LEVELS = 125;
 export const LEVEL_XP = 140;
 /** EXP per minute played, before the rank */
@@ -193,7 +196,13 @@ export function claimLevel(s: SaveData, def: SeasonDef, track: SeasonTrack, leve
   if (!reward) return null;
   // a footballer not loaded in this session (the game was opened before the season): nothing is spent, it waits
   if (reward.kind === 'jugador' && !byId.has(reward.id)) return null;
-  claimedOf(st, track).push(level);
+  return payLevel(s, def, track, level, reward, byId);
+}
+
+/** pays one level of one row into the save (with an account the server has already granted it: season_claim) */
+export function payLevel(s: SaveData, def: SeasonDef, track: SeasonTrack, level: number, reward: SeasonReward, byId: Map<number, RosterEntry>): Granted {
+  const st = seasonOf(s, def);
+  if (!claimedOf(st, track).includes(level)) claimedOf(st, track).push(level);
   const out: Granted = { reward };
   switch (reward.kind) {
     case 'monedas': s.coins += reward.n; break;
@@ -208,4 +217,20 @@ export function claimLevel(s: SaveData, def: SeasonDef, track: SeasonTrack, leve
     case 'banner': case 'marco': out.isNew = !hasPennant(s, reward.id); givePennant(s, reward.id); break;
   }
   return out;
+}
+
+/** 3.0: the pass as the server keeps it (season_state, season_run_finish; migration season_pass_server) */
+export interface ServerSeason { id: string; xp: number; normal: boolean; gold: boolean; claimedNormal: number[]; claimedPremium: number[] }
+/** with an account the server's pass replaces the save's (keys, EXP, claimed levels); goldSeen stays the save's, and a key
+ *  that has just arrived gets its unlock screen. Returns whether the Llave dorada is new. */
+export function adoptServerSeason(s: SaveData, def: SeasonDef, srv: ServerSeason | null): boolean {
+  if (!srv || srv.id !== def.id) return false;
+  const st = seasonOf(s, def), newGold = srv.gold && !st.gold;
+  st.xp = Math.max(0, Math.min(LEVELS * LEVEL_XP, Math.floor(srv.xp)));
+  st.normal = !!srv.normal;
+  st.gold = !!srv.gold;
+  st.claimedNormal = [...(srv.claimedNormal ?? [])];
+  st.claimedPremium = [...(srv.claimedPremium ?? [])];
+  if (newGold) st.goldSeen = false;
+  return newGold;
 }

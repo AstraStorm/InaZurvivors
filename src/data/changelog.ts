@@ -15,6 +15,14 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: '17.13', date: '2026-11-18', title: '2.9 Mejoras automáticas; 3.0 programada: pase en el servidor y Desafío del Despertar',
+    features: ['Mejoras automáticas (autor: «que puedas elegir prioridad, para la gente que se quede afk»): systems/autoPick.ts, botón AUTO en las cartas y orden en Opciones; curar primero bajo el 35 % de vida.',
+      'Notas de la 2.9: premios de clan 600k/300k/150k/60k y Sector Quinto 600k/200k (migración bigger_coin_prizes, ya aplicada).',
+      'Pase en el servidor (informe de seguridad del autor; migración season_pass_server): llaves, EXP, Llave dorada y reclamaciones por RPC; se enciende el 25-11 12:00 (private.pass_server y seasonPass.PASS_SERVER_AT), antes todo igual que en la 2.1.',
+      'Desafío del Despertar (autor: «otra ficha de despertar para la 3.0»): systems/awakenEvent.ts, 25-11 → 2-12, 5 victorias en rango A+ = 1 Moneda de Despertar.'],
+    fixes: ['tests/online.test.ts esperaba el premio TOP 1 de clan antiguo (rompía el build de GitHub).'], visuals: [], balance: [],
+  },
+  {
     version: '17.0', date: '2026-11-15', title: '2.8 Nuevo aspecto: arte del autor (ChatGPT) en logo, menú, banners, marcos; Mi Equipo; coop infinito',
     features: ['Pack de UI del autor hecho con ChatGPT (D:/Sprites Inazuma/GPT): tools/gpt_ui.py (iconos del menú, logo Ina/Z/urvivors con la Z animada, botones y paneles 9-slice) y tools/gpt_pennants.py (banderín, emblema, cinta y emblema animado de cada banner; cada marco con su agujero y placa medidos; alas).',
       'Logo: en la entrada la Z cae sola, chispea y las palabras se unen; en el menú quieto. Salida de la pantalla de título rehecha.',

@@ -189,6 +189,8 @@ export interface ArenaInit {
   road?: boolean;
   /** 2.1: the season pass's Llave dorada: chance per rival knocked out (already ×2 in co-op) and its picture; absent = none */
   goldKey?: { chance: number; texture: string | null };
+  /** 3.0: the run's id, when the app already gave it to the server (season_run_start); absent = a new one here */
+  runId?: string;
   /** 2.02: record the run (replay.ts) with this kit and game version in its header; the app uploads it at the end */
   record?: { kit: string | null; version: string };
   /** 2.2: the Sector Quinto event (sector.ts sectorRun): decrees by element, damage taken, tougher rivals, SEED */
@@ -428,7 +430,7 @@ export class ArenaScene extends Phaser.Scene {
     this.rank = rankDef(data.rank); this.shots = []; this.hazards = []; this.nextHazardAt = 20; this.wavePhase = ''; this.stretchAnnounced = false; this.combos = new Map(); this.slowmoUntil = 0; this.hitstopUntil = 0; this.nextHitstop = 0; this.recentKills = []; this.nextSweepCheer = 0; this.endless = null; this.secondWindUsed = false; this.altarsDone = 0; this.damageDealt = 0; this.dismissed = new Set();
     this.rec = null; this.ultLog = new Map(); this.ultWin = null; this.goldChance = data.goldKey?.chance ?? 0;
     this.coop = null; this.down = false; this.nextEnemyId = 1; this.nextPickupId = 1; this.coopResumePending = false; this.coopPendingLevels = 0;
-    this.runId = crypto.randomUUID?.() ?? `${Date.now()}-${Math.random()}`; this.spawnAcc = 1.2; // first rivals within a second or two
+    this.runId = data.runId ?? crypto.randomUUID?.() ?? `${Date.now()}-${Math.random()}`; this.spawnAcc = 1.2; // first rivals within a second or two
     this.bonusTokens = 0; this.altar = null; this.altarGfx = []; this.altarLook = null; this.altarTag = null; this.rival = null; this.altarRival = null; this.fxCache = null; this.fxAt = -1; this.reviveUsed = false; this.shocks = []; this.campSince = 0; this.campWarned = false; this.nextCampHit = 0; this.nextSurround = 60; this.lastMagnetAt = -MAGNET_GAP_SEC; this.nextAltarAt = FIRST_ALTAR_SEC; this.altarKills = 0; this.freezeUntil = 0; this.lure = null;
     setVolume(data.settings.volume);
   }
@@ -4535,6 +4537,12 @@ export class ArenaScene extends Phaser.Scene {
    * 2.1: the Llave dorada (season pass premium). It jumps out of the rival with a golden flash, hangs a moment and flies
    * into the captain; then the app shows «¡Has obtenido el pase premium!». Only once per run.
    */
+  /** 3.0: rivals knocked out so far (the app reports them to the server, which rolls the Llave dorada) */
+  get knockOuts() { return this.kills; }
+  /** 3.0: health left, 0..1 (the automatic level-up cards heal first when it is low) */
+  get hpShare() { return this.maxHp > 0 ? Math.max(0, this.hp / this.maxHp) : 1; }
+  /** 3.0: the server rolled the Llave dorada: the next rival knocked out drops it */
+  goldKeyNow() { if (!this.cfg.training) this.goldChance = 1; }
   private rollGoldKey(e: Enemy) {
     if (this.goldChance <= 0 || this.cfg.training || Math.random() >= this.goldChance) return;
     this.goldChance = 0;

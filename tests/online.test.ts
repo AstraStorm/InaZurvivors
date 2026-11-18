@@ -836,16 +836,28 @@ describe('2.11 pass holders (database)', () => {
   it('only the gold key of the season open now counts; anyone can ask and only names come back', async () => {
     const who = [['Oro_T1', '{"season":{"id":"T1","gold":true,"normal":true}}'], ['Normal_T1', '{"season":{"id":"T1","gold":false,"normal":true}}'],
       ['Oro_Viejo', '{"season":{"id":"T0","gold":true}}'], ['Sin_Pase', '{}']];
+    await db.exec(`insert into private.seasons (id, starts_at, ends_at) values ('T0', now() - interval '60 days', now() - interval '30 days') on conflict (id) do nothing`);
     for (const [i, [name, data]] of who.entries()) {
       const id = `00000000-0000-0000-0000-0000000011${i}0`;
       await db.query('insert into auth.users (id, email) values ($1, $2)', [id, `${name}@example.test`]);
       await db.query('insert into public.profiles (id, username) values ($1, $2)', [id, name]);
       await db.query('insert into public.saves (user_id, data) values ($1, $2::jsonb)', [id, data]);
+      // 3.0: the keys live on the server now (what the save says no longer counts)
+      const sea = (JSON.parse(data) as { season?: { id: string; gold?: boolean; normal?: boolean } }).season;
+      if (sea) await db.query('insert into private.season_pass (user_id, season, gold, normal) values ($1, $2, $3, $4)', [id, sea.id, !!sea.gold, !!sea.normal]);
     }
-    await db.exec(`insert into private.seasons (id, starts_at, ends_at) values ('T0', now() - interval '60 days', now() - interval '30 days') on conflict (id) do nothing;
+    await db.query(`insert into auth.users (id, email) values ('00000000-0000-0000-0000-000000001190', 'dice@example.test')`);
+    await db.query(`insert into public.profiles (id, username) values ('00000000-0000-0000-0000-000000001190', 'Solo_Dice')`);
+    await db.query(`insert into public.saves (user_id, data) values ('00000000-0000-0000-0000-000000001190', '{"season":{"id":"T1","gold":true}}'::jsonb)`);
+    await db.exec(`
       update private.seasons set starts_at = now() - interval '1 day', ends_at = now() + interval '1 day' where id = 'T1'`);
     const ask = async (user: string) => (await api(user, `select * from public.pass_holders(array['Oro_T1', 'Normal_T1', 'Oro_Viejo', 'Sin_Pase', 'nadie'])`)).rows;
+    // before 3.0 (private.pass_server) the save still decides, as in 2.11
+    await db.exec(`update private.pass_server set from_at = now() + interval '1 day'`);
+    expect((await api('', `select * from public.pass_holders(array['Solo_Dice', 'Sin_Pase'])`)).rows).toEqual([{ username: 'Solo_Dice' }]);
+    await db.exec(`update private.pass_server set from_at = now() - interval '1 day'`);
     expect(await ask('')).toEqual([{ username: 'Oro_T1' }]); // signed out too (the board sends the names as it got them)
+    expect((await api('', `select * from public.pass_holders(array['Solo_Dice'])`)).rows).toEqual([]); // a save that only says it has the key
     expect(await ask('carla')).toEqual([{ username: 'Oro_T1' }]);
     await db.exec(`update private.seasons set starts_at = now() + interval '1 day', ends_at = now() + interval '30 days' where id = 'T1'`);
     expect(await ask('')).toEqual([]); // between seasons nobody has it
@@ -912,5 +924,163 @@ describe('2.2 Sector Quinto (database)', () => {
     expect(lost.c[0]).toMatchObject({ won: false, tokens: 100, coins: 200000 });
     expect((await api(users[2], `select public.sector_claim() as c`)).rows[0]).toEqual({ c: [] }); // did not play that week
     await expect(api(users[0], `select * from private.sector_members`)).rejects.toThrow(/permission denied/);
+  });
+});
+
+describe('3.0 season pass on the server (forging the key, the EXP and the claims)', () => {
+  const users = ['pase_a', 'pase_b', 'pase_c'];
+  const uuid = (n: number) => `30000000-0000-0000-0000-${String(n).padStart(12, '0')}`;
+  const state = async (u: string) => ((await api(u, 'select public.season_state() as s')).rows[0] as { s: { xp: number; gold: boolean; normal: boolean; claimedNormal: number[]; claimedPremium: number[] } }).s;
+  const saved = async (u: string) => ((await as(u, 'select data, version from public.get_save()')).rows[0] as { data: Record<string, any>; version: number }); // eslint-disable-line @typescript-eslint/no-explicit-any
+  const put = async (u: string, data: unknown) => {
+    await db.query(`update public.saves set updated_at = now() - interval '1 minute' where user_id = $1`, [ids[u]]);
+    const v = (await db.query('select version from public.saves where user_id = $1', [ids[u]])).rows[0] as { version: number } | undefined;
+    await api(u, 'select public.put_save($1::jsonb, $2)', [JSON.stringify(data), v?.version ?? 0]);
+  };
+  const back = (run: string, iv: string) => db.query(`update private.season_runs set started_at = started_at - $2::interval, rolled_at = rolled_at - $2::interval where run_id = $1`, [run, iv]);
+  beforeAll(async () => {
+    await db.exec(`update private.seasons set starts_at = now() - interval '1 day', ends_at = now() + interval '20 days' where id = 'T1'`);
+    await db.exec(`update private.pass_server set from_at = now() - interval '1 day'`);
+    for (const [i, u] of users.entries()) {
+      ids[u] = `00000000-0000-0000-0000-0000000030${i}0`;
+      await db.query('insert into auth.users (id, email) values ($1, $2)', [ids[u], `${u}@example.test`]);
+    }
+  });
+
+  it('the server reward table is seasonPass.ts, level by level', async () => {
+    const { SEASONS } = await import('../src/systems/seasonPass');
+    const rows = (await db.query(`select season, track, level, reward from private.season_rewards order by season, track, level`)).rows as { season: string; track: 'normal' | 'premium'; level: number; reward: unknown }[];
+    const want = SEASONS.flatMap((d) => (['normal', 'premium'] as const).flatMap((t) => d[t].map((r, k) => ({ season: d.id, track: t, level: k + 1, reward: r }))));
+    expect(rows).toEqual(want);
+  });
+
+  it('a forged save (gold key, level 125, every level claimed, pass footballers) keeps none of it', async () => {
+    const all = Array.from({ length: 125 }, (_, k) => k + 1);
+    await put('pase_a', { coins: 100, tokens: 10, season: { id: 'T1', xp: 17500, normal: true, gold: true, claimedNormal: all, claimedPremium: all, goldSeen: true },
+      owned: { 1: { stars: 0, copies: 1 }, 900400: { stars: 0, copies: 17 }, 900401: { stars: 0, copies: 6, spent: 5 } } });
+    const d = (await saved('pase_a')).data;
+    expect(d.season).toEqual({ id: 'T1', xp: 0, normal: false, gold: false, claimedNormal: [], claimedPremium: [], goldSeen: true });
+    expect(Object.keys(d.owned)).toEqual(['1']);
+    expect(await state('pase_a')).toMatchObject({ xp: 0, gold: false, normal: false });
+  });
+
+  it('claims: locked rows, levels not reached and second claims give nothing', async () => {
+    await expect(api('pase_a', `select public.season_claim('premium', array[1])`)).rejects.toThrow(/row_locked/);
+    await expect(api('pase_a', `select public.season_claim('normal', array[1])`)).rejects.toThrow(/row_locked/);
+    await expect(api('pase_a', 'select public.season_buy_normal_key()')).rejects.toThrow(/not_enough_coins/); // the cloud save has 100
+    await put('pase_a', { coins: 20000, tokens: 10, owned: {} });
+    expect(((await api('pase_a', 'select public.season_buy_normal_key() as s')).rows[0] as { s: { normal: boolean } }).s.normal).toBe(true);
+    await db.query(`update private.season_pass set xp = 3 * 140 + 10 where user_id = $1`, [ids.pase_a]); // level 3
+    const got = ((await api('pase_a', `select public.season_claim('normal', array[1, 2, 3, 50, 3]) as c`)).rows[0] as { c: { level: number }[] }).c;
+    expect(got.map((g) => g.level)).toEqual([1, 2, 3]);
+    expect(((await api('pase_a', `select public.season_claim('normal', array[1, 2]) as c`)).rows[0] as { c: unknown[] }).c).toEqual([]);
+    expect((await state('pase_a')).claimedNormal).toEqual([1, 2, 3]);
+  });
+
+  it('the economy cap credits exactly the levels claimed and charges the Llave normal', async () => {
+    // the key took 15.000; a minute passed; levels 1-2 gave 1.000 each, level 3 a footballer (at most 250 back)
+    const before = (await saved('pase_a')).data.coins as number; // the 20.000 written above, already trimmed by the cap
+    await put('pase_a', { coins: 99999999, tokens: 10, owned: {} });
+    const c = (await saved('pase_a')).data.coins as number;
+    expect(c).toBeGreaterThan(before + 16000 + 2000 + 250 - 15000);
+    expect(c).toBeLessThan(before + 16000 + 2000 + 250 - 15000 + 600);
+    await put('pase_a', { coins: 99999999, tokens: 10, owned: {} }); // nothing new claimed: nothing extra
+    expect((await saved('pase_a')).data.coins as number).toBeLessThan(c + 16000 + 600);
+  });
+
+  it('EXP: no run, no EXP; never more than the real time; a newer run stops the older one; a run pays once', async () => {
+    await expect(api('pase_b', `select public.season_run_finish($1, 600, 'X', 100)`, [uuid(1)])).rejects.toThrow(/unknown_run/);
+    await api('pase_b', 'select public.season_run_start($1, false)', [uuid(1)]);
+    await back(uuid(1), '10 minutes');
+    // the client says 4 hours at rank X: the server lived 10 minutes (+30 s)
+    const f = ((await api('pase_b', `select public.season_run_finish($1, 14400, 'X', 100) as f`, [uuid(1)])).rows[0] as { f: { gained: number; xp: number } }).f;
+    expect(f.gained).toBeGreaterThanOrEqual(Math.floor(10.5 * 30 * 2.1) - 1);
+    expect(f.gained).toBeLessThanOrEqual(Math.floor(10.6 * 30 * 2.1));
+    expect(f.xp).toBe(f.gained);
+    // honest: 5 minutes of game in 10 real ones
+    await api('pase_b', 'select public.season_run_start($1, false)', [uuid(2)]);
+    await back(uuid(2), '10 minutes');
+    expect(((await api('pase_b', `select public.season_run_finish($1, 300, 'X', 100) as f`, [uuid(2)])).rows[0] as { f: { gained: number } }).f.gained).toBe(315);
+    expect(((await api('pase_b', `select public.season_run_finish($1, 300, 'X', 100) as f`, [uuid(2)])).rows[0] as { f: { gained: number; duplicate: boolean } }).f).toMatchObject({ gained: 0, duplicate: true });
+    // two runs at once: the first only counts until the second began
+    await api('pase_b', 'select public.season_run_start($1, false)', [uuid(3)]);
+    await back(uuid(3), '1 hour');
+    await api('pase_b', 'select public.season_run_start($1, false)', [uuid(4)]);
+    await db.query(`update private.season_runs set superseded_at = started_at + interval '1 minute' where run_id = $1`, [uuid(3)]);
+    expect(((await api('pase_b', `select public.season_run_finish($1, 3600, 'C', 100) as f`, [uuid(3)])).rows[0] as { f: { gained: number } }).f.gained).toBeLessThanOrEqual(45);
+    // somebody else's run is not yours; a made-up rank is refused
+    await expect(api('pase_c', 'select public.season_run_start($1, false)', [uuid(4)])).rejects.toThrow(/run_taken/);
+    await expect(api('pase_c', `select public.season_run_finish($1, 10, 'Q', 1)`, [uuid(4)])).rejects.toThrow(/invalid_rank/);
+    expect((await state('pase_b')).xp).toBeLessThan(17500);
+  });
+
+  it('the Llave dorada drops on the server only: knock-outs capped by real time, ticks spaced, co-op only in a real room', async () => {
+    await api('pase_c', 'select public.season_run_start($1, true)', [uuid(10)]); // says co-op without a room
+    expect((await db.query('select coop from private.season_runs where run_id = $1', [uuid(10)])).rows[0]).toEqual({ coop: false });
+    expect(((await api('pase_c', 'select public.season_run_tick($1, 1000000) as t', [uuid(10)])).rows[0] as { t: { dropped: boolean } }).t.dropped).toBe(false); // too soon
+    expect((await db.query('select rolled_kills from private.season_runs where run_id = $1', [uuid(10)])).rows[0]).toEqual({ rolled_kills: 0 });
+    await back(uuid(10), '1 minute');
+    await api('pase_c', 'select public.season_run_tick($1, 1000000) as t', [uuid(10)]);
+    const k = ((await db.query('select rolled_kills from private.season_runs where run_id = $1', [uuid(10)])).rows[0] as { rolled_kills: number }).rolled_kills;
+    expect(k).toBeGreaterThan(800);
+    expect(k).toBeLessThanOrEqual(15 * 61); // a million said, 15 a second rolled
+    // a long run: hundreds of thousands of rolls make the drop all but certain
+    await back(uuid(10), '5 hours');
+    await api('pase_c', 'select public.season_run_tick($1, 1000000)', [uuid(10)]); // (the 900 of the first tick already drop it 4 % of the time)
+    expect(await state('pase_c')).toMatchObject({ gold: true });
+    // premium level 1 is Cronus: one copy kept, not the 9 the save says
+    await db.query(`update private.season_pass set xp = 140 where user_id = $1`, [ids.pase_c]);
+    expect(((await api('pase_c', `select public.season_claim('premium', array[1]) as c`)).rows[0] as { c: unknown[] }).c).toEqual([{ track: 'premium', level: 1, reward: { kind: 'jugador', id: 900400 } }]);
+    await put('pase_c', { coins: 0, tokens: 0, owned: { 900400: { stars: 0, copies: 9 } }, season: { id: 'T1', gold: false, xp: 0, goldSeen: false } });
+    const d = (await saved('pase_c')).data;
+    expect(d.owned['900400'].copies).toBe(1);
+    expect(d.season).toMatchObject({ gold: true, xp: 140, claimedPremium: [1], goldSeen: false });
+    expect((await db.query('select player_id from private.gts_banned where player_id in (900400, 900401) order by 1')).rows).toEqual([{ player_id: 900400 }, { player_id: 900401 }]);
+  });
+
+  it('a promo code with the Llave dorada still opens the row', async () => {
+    await db.query(`insert into private.promo_redemptions (user_id, code, result) select $1, code, '{"goldKey": true}'::jsonb from private.promo_codes limit 1`, [ids.pase_b]);
+    expect(await state('pase_b')).toMatchObject({ gold: true });
+  });
+
+  it('before 3.0 nothing changes: the save keeps its pass, the old allowance, the new calls refuse', async () => {
+    await db.exec(`update private.pass_server set from_at = now() + interval '1 hour'`);
+    const id = '00000000-0000-0000-0000-000000003800';
+    ids.antes = id;
+    await db.query('insert into auth.users (id, email) values ($1, $2)', [id, 'antes@example.test']);
+    const sea = { id: 'T1', xp: 700, normal: true, gold: false, claimedNormal: [1, 2], claimedPremium: [] };
+    await put('antes', { coins: 100, tokens: 0, season: sea, owned: { 900400: { stars: 0, copies: 1 } } });
+    const d = (await saved('antes')).data;
+    expect(d.season).toEqual(sea);
+    expect(d.owned['900400']).toBeTruthy();
+    expect((await db.query('select count(*)::int as n from private.season_pass where user_id = $1', [id])).rows[0]).toEqual({ n: 0 });
+    await expect(api('antes', 'select public.season_state()')).rejects.toThrow(/pass_not_yet/);
+    await expect(api('antes', `select public.season_claim('normal', array[3])`)).rejects.toThrow(/pass_not_yet/);
+    await db.exec(`update private.pass_server set from_at = now() - interval '1 day'`);
+  });
+
+  it('at 3.0 each pass starts from what its cloud save held (claims only on open rows and reached levels, never credited again)', async () => {
+    const id = '00000000-0000-0000-0000-000000003900';
+    ids.viejo = id;
+    await db.query('insert into auth.users (id, email) values ($1, $2)', [id, 'viejo@example.test']);
+    await db.query('insert into public.saves (user_id, data) values ($1, $2::jsonb)', [id, JSON.stringify({ season: { id: 'T1', xp: 99999, normal: true, gold: false, claimedNormal: [1, 2, 'x'], claimedPremium: [1] } })]);
+    expect(await state('viejo')).toEqual({ id: 'T1', xp: 17500, normal: true, gold: false, claimedNormal: [1, 2], claimedPremium: [] });
+    expect((await db.query(`select track, level, coins, claimed_at < now() - interval '1 year' as old from private.season_pass_claims where user_id = $1 order by track, level`, [id])).rows)
+      .toEqual([{ track: 'normal', level: 1, coins: 0, old: true }, { track: 'normal', level: 2, coins: 0, old: true }]);
+    // the account from the test above: its Cronus had no server source, so he goes on its next write
+    await put('antes', { coins: 100, tokens: 0, season: { id: 'T1', xp: 700, normal: true }, owned: { 900400: { stars: 0, copies: 1 } } });
+    const d = (await saved('antes')).data;
+    expect(d.owned['900400']).toBeUndefined();
+    expect(d.season).toMatchObject({ xp: 700, normal: true, claimedNormal: [1, 2] });
+  });
+
+  it('the pass tables and helpers are out of the API; signed out, nothing works', async () => {
+    for (const t of ['season_pass', 'season_runs', 'season_pass_claims', 'season_rewards']) {
+      await expect(api('pase_a', `select * from private.${t}`)).rejects.toThrow(/permission denied/);
+    }
+    await expect(api('pase_a', `select private.season_enforce('{}'::jsonb, $1)`, [ids.pase_a])).rejects.toThrow();
+    await expect(api('pase_a', `select private.season_roll($1, $2, 1)`, [uuid(10), ids.pase_a])).rejects.toThrow();
+    await expect(api('', `select public.season_claim('normal', array[1])`)).rejects.toThrow();
+    await expect(api('', `select public.season_run_start($1, false)`, [uuid(20)])).rejects.toThrow();
   });
 });
