@@ -3877,7 +3877,7 @@ update private.seasons set starts_at = '2026-11-12 12:00+01' where id = 'T1';
 -- played 100 and 5.000. Sides are kept even: nobody can join the side that is ahead by more than max(5, 10 %).
 -- Same dates in src/systems/sector.ts. Weeks close lazily (sector_status / sector_claim), like the ranking seasons.
 
-create or replace function private.sector_start() returns timestamptz language sql immutable as $$ select '2026-11-12 12:00+01'::timestamptz $$;
+create or replace function private.sector_start() returns timestamptz language sql immutable as $$ select '2026-11-13 12:00+01'::timestamptz $$;
 create or replace function private.sector_end() returns timestamptz language sql immutable as $$ select '2026-12-12 15:00+01'::timestamptz $$;
 create or replace function private.sector_weeks_n() returns integer language sql immutable as $$ select 4 $$;
 -- the week (0..3) a moment falls in, null outside the event; the last week runs to the end of the season
@@ -4248,5 +4248,331 @@ language sql stable security definer set search_path = public, extensions as $$
   where b.pos <= least(greatest(coalesce(p_limit, 15), 1), 1000)
   order by b.pos;
 $$;
+
+notify pgrst, 'reload schema';
+
+-- ===== 20261112000600_sector_start_today.sql
+-- (author) the Sector Quinto opens with the 2.2 on Thursday 12 November at 12:00 (was 13 November); the weeks still end on Thursdays at 12:00
+create or replace function private.sector_start() returns timestamptz language sql immutable as $$ select '2026-11-12 12:00+01'::timestamptz $$;
+
+-- ===== 20261112000700_sector_sides.sql
+-- 2.2 (author: «que se vea en el ranking el bando, si Sector Quinto o Resistencia»): the side of each of these names, for
+-- a mark next to them on the boards. Names without a side are left out. Sides are public anyway (each week's tally).
+create or replace function private.sector_sides(p_usernames text[]) returns table (username text, side text)
+language sql stable security definer set search_path = public as $$
+  select p.username::text, m.side
+  from public.profiles p
+  join private.sector_members m on m.user_id = p.id
+  where p.username = any (select trim(u)::extensions.citext from unnest(p_usernames[1:60]) u)
+$$;
+alter function private.sector_sides(text[]) set statement_timeout = '5s';
+
+create or replace function public.sector_sides(p_usernames text[]) returns table (username text, side text)
+language sql stable security invoker set search_path = '' as $$ select * from private.sector_sides(p_usernames); $$;
+
+revoke execute on function private.sector_sides(text[]), public.sector_sides(text[]) from public;
+grant execute on function private.sector_sides(text[]), public.sector_sides(text[]) to anon, authenticated;
+
+notify pgrst, 'reload schema';
+
+-- ===== 20261112000800_lobby_info.sql
+-- 2.3 (author: «que en la sala de players salgan tus amigos, el bando, la equipación que llevan, el top 1, 2 y 3 y el
+-- clan»): everything the Sala de jugadores shows of each player in one call, for every name of the room (up to the 1.000
+-- of the leaderboard): the kit they wear, their Sector Quinto side, their clan with its crest, their banner and frame.
+-- All of it is already public one by one (public_profile, sector_sides, clan_of, profile_banners, profile_frames).
+create or replace function private.lobby_info(p_usernames text[])
+returns table (username text, kit text, side text, clan text, crest text, banner text, frame text)
+language sql stable security definer set search_path = public as $$
+  select p.username::text,
+    case when coalesce(s.data->>'kit', '') ~ '^[^<>"''&]{1,64}$' then s.data->>'kit' else '' end,
+    m.side,
+    c.name::text,
+    c.crest,
+    case when coalesce(s.data->'pennants'->>'equipped', '') ~ '^[a-z0-9-]{1,32}$' then s.data->'pennants'->>'equipped' end,
+    case when coalesce(s.data->'pennants'->>'frame', '') ~ '^[a-z0-9-]{1,32}$' then s.data->'pennants'->>'frame' end
+  from public.profiles p
+  left join public.saves s on s.user_id = p.id
+  left join private.sector_members m on m.user_id = p.id
+  left join public.clan_members cm on cm.user_id = p.id
+  left join public.clans c on c.id = cm.clan_id
+  where p.username = any (select trim(u)::extensions.citext from unnest(p_usernames[1:1000]) u)
+$$;
+alter function private.lobby_info(text[]) set statement_timeout = '8s';
+
+create or replace function public.lobby_info(p_usernames text[])
+returns table (username text, kit text, side text, clan text, crest text, banner text, frame text)
+language sql stable security invoker set search_path = '' as $$ select * from private.lobby_info(p_usernames); $$;
+
+revoke execute on function private.lobby_info(text[]), public.lobby_info(text[]) from public;
+grant execute on function private.lobby_info(text[]), public.lobby_info(text[]) to anon, authenticated;
+
+notify pgrst, 'reload schema';
+
+-- ===== 20261112000900_ina303.sql
+-- 2.3 (author): code INA303 for content creators. Their own banner and frame (creador, marco-creador), 1.500 fichas de
+-- evento (the collab banners), 3.000 fichas, 300.000 coins, 9 Fichas EG, the Llave dorada of the season pass
+-- (rewards.gold_key, answered as reward.goldKey; the client opens the premium row of the season open now) and one copy
+-- of each footballer of the Banner de agradecimiento (rewards.players, answered as reward.players: Axel Blaze
+-- Encapuchado, Mikasa, Eren, Armin, Escanor, Meliodas, Ban). Tokens and coins go into promo_redemptions.result as
+-- always, so economy_cap lets them through. Same function as 20261110000300_eg_code.sql otherwise.
+
+create or replace function private.redeem_code(p_code text, p_already_applied boolean) returns jsonb
+language plpgsql security definer set search_path = '' as $$
+declare uid uuid := private.real_user(); c record; pool jsonb; pick integer; res jsonb; inserted integer;
+  odds jsonb; total numeric; x numeric; r text;
+begin
+  select * into c from private.promo_codes where code = upper(trim(p_code)) and active;
+  if not found then return jsonb_build_object('status', 'invalid'); end if;
+  if p_already_applied then
+    insert into private.promo_redemptions (user_id, code, result) values (uid, c.code, jsonb_build_object('guest', true))
+    on conflict do nothing;
+    get diagnostics inserted = row_count;
+    return jsonb_build_object('status', case when inserted = 1 then 'linked' else 'used' end);
+  end if;
+  pool := c.rewards -> 'legendary_pool';
+  odds := c.rewards -> 'rarity_odds';
+  if odds is not null then
+    -- rarity first by its weight (only rarities with footballers), then one of that rarity
+    select sum((value)::numeric) into total from jsonb_each_text(odds) e
+      where jsonb_array_length(coalesce(c.rewards -> 'rarity_pools' -> e.key, '[]')) > 0;
+    x := random() * coalesce(total, 0);
+    for r in select e.key from jsonb_each_text(odds) e
+      where jsonb_array_length(coalesce(c.rewards -> 'rarity_pools' -> e.key, '[]')) > 0 order by (e.value)::numeric desc loop
+      pool := c.rewards -> 'rarity_pools' -> r;
+      x := x - (odds ->> r)::numeric;
+      exit when x < 0;
+    end loop;
+  end if;
+  pick := case when jsonb_array_length(coalesce(pool, '[]')) > 0 then (pool ->> floor(random() * jsonb_array_length(pool))::integer)::integer end;
+  res := jsonb_build_object('tokens', coalesce((c.rewards ->> 'tokens')::integer, 0), 'coins', coalesce((c.rewards ->> 'coins')::integer, 0), 'player', pick,
+    'eventTokens', coalesce((c.rewards ->> 'event_tokens')::integer, 0));
+  if c.rewards ? 'eg_tokens' then res := res || jsonb_build_object('egTokens', (c.rewards ->> 'eg_tokens')::integer); end if;
+  if c.rewards ? 'pennants' then res := res || jsonb_build_object('pennants', c.rewards -> 'pennants'); end if;
+  if c.rewards ? 'players' then res := res || jsonb_build_object('players', c.rewards -> 'players'); end if;
+  if coalesce((c.rewards ->> 'gold_key')::boolean, false) then res := res || jsonb_build_object('goldKey', true); end if;
+  insert into private.promo_redemptions (user_id, code, result) values (uid, c.code, res) on conflict do nothing;
+  get diagnostics inserted = row_count;
+  if inserted = 0 then return jsonb_build_object('status', 'used'); end if;
+  return jsonb_build_object('status', 'ok', 'reward', res);
+end $$;
+
+revoke execute on function private.redeem_code(text, boolean) from public, anon, authenticated;
+grant execute on function private.redeem_code(text, boolean) to authenticated;
+
+insert into private.promo_codes (code, rewards) values ('INA303', jsonb_build_object(
+  'tokens', 3000, 'coins', 300000, 'event_tokens', 1500, 'eg_tokens', 9, 'gold_key', true,
+  'players', jsonb_build_array(1085, 900003, 900002, 900004, 900007, 900006, 900008),
+  'pennants', jsonb_build_array('creador', 'marco-creador')))
+on conflict (code) do update set rewards = excluded.rewards, active = true;
+
+-- ===== 20261112001000_ina483_creator.sql
+-- 2.3 (author: «que estos marcos los obtengan los del otro código, INA483»): INA483 also gives the content creators'
+-- banner and frame (creador, marco-creador). Whoever redeemed it earlier gets them in the client on load
+-- (promo.ts creatorGiftINA483, from save.redeemedCodes).
+update private.promo_codes set rewards = jsonb_set(rewards, '{pennants}', '["inazuma", "marco-inazuma", "creador", "marco-creador"]'::jsonb)
+where code = 'INA483';
+
+-- ===== 20261115000000_coop_capacity.sql
+-- 16.7 (author: «quita la limitación del coop de llegar solo hasta el jefe, que se vuelva infinito, pero que antes de llegar
+-- al límite del servidor pare de ofrecer partidas y avise»). With endless co-op a room no longer costs a fixed ~35 MB of
+-- relay: it costs what it lasts. The host's game reports, once a minute while the match runs, the minute and the megabytes
+-- that went through the TURN relay (0 when the pair talks directly). Those add up per month in private.coop_usage, which
+-- outlives the rooms (swept after a day). Before the free relay allowance (Cloudflare Realtime: 1000 GB a month) or the
+-- room cap of coop_turn_claim runs out, coop_status says «closed»: no new rooms or joins, and the game tells why and when
+-- it opens again. Matches already being played go on (the margin is there for them).
+
+create table if not exists private.coop_usage (
+  month date primary key,
+  relay_mb numeric not null default 0,
+  minutes bigint not null default 0
+);
+revoke all on table private.coop_usage from public, anon, authenticated;
+
+alter table public.coop_rooms add column if not exists last_beat timestamptz;
+alter table public.coop_rooms add column if not exists minutes int not null default 0;
+alter table public.coop_rooms add column if not exists relay_mb numeric not null default 0;
+
+-- the caps, in one place: relay megabytes a month (80% of 1000 GB), turn rooms a month (90% of coop_turn_claim's 8000),
+-- matches at the same time
+create or replace function private.coop_caps(out relay_mb numeric, out turn_rooms bigint, out live bigint)
+language sql immutable set search_path = '' as $$ select 819200::numeric, 7200::bigint, 150::bigint $$;
+
+-- the host, once a minute while the match runs: megabytes relayed since the last beat (0 when direct). Faster beats are
+-- ignored and one beat counts at most 30 MB, so a broken or rigged client can't fill the month by itself.
+create or replace function private.coop_beat(p_code text, p_relay_mb numeric) returns void
+language plpgsql security definer set search_path = public as $$
+declare uid uuid := private.real_user(); c text := upper(trim(p_code)); mb numeric := least(greatest(coalesce(p_relay_mb, 0), 0), 30);
+begin
+  if uid is null then raise exception 'not_signed_in' using errcode = '42501'; end if;
+  update public.coop_rooms set last_beat = now(), minutes = minutes + 1, relay_mb = relay_mb + mb
+  where code = c and host = uid and status = 'conectada' and (last_beat is null or last_beat < now() - interval '50 seconds');
+  if not found then return; end if;
+  insert into private.coop_usage (month, relay_mb, minutes) values (date_trunc('month', now())::date, mb, 1)
+  on conflict (month) do update set relay_mb = private.coop_usage.relay_mb + excluded.relay_mb, minutes = private.coop_usage.minutes + 1;
+end $$;
+
+-- open = new rooms are offered; pct = the fullest of the three budgets; reopens = when the monthly budgets reset
+create or replace function private.coop_status() returns table (open boolean, pct int, reason text, reopens timestamptz)
+language plpgsql stable security definer set search_path = public as $$
+declare caps record; mb numeric; rooms bigint; live bigint; p_relay numeric; p_turn numeric; p_live numeric;
+begin
+  select * into caps from private.coop_caps();
+  select coalesce((select u.relay_mb from private.coop_usage u where u.month = date_trunc('month', now())::date), 0) into mb;
+  select count(distinct l.code) into rooms from private.coop_turn_log l where l.at >= date_trunc('month', now());
+  select count(*) into live from public.coop_rooms r where r.status = 'conectada'
+    and coalesce(r.last_beat, r.connected_at) > now() - interval '3 minutes';
+  p_relay := mb / caps.relay_mb; p_turn := rooms::numeric / caps.turn_rooms; p_live := live::numeric / caps.live;
+  return query select greatest(p_relay, p_turn, p_live) < 1,
+    least(100, floor(100 * greatest(p_relay, p_turn, p_live)))::int,
+    case when p_live >= 1 and p_relay < 1 and p_turn < 1 then 'lleno' when greatest(p_relay, p_turn) >= 1 then 'mensual' else null end,
+    case when p_live >= 1 and p_relay < 1 and p_turn < 1 then now() + interval '10 minutes' else date_trunc('month', now()) + interval '1 month' end;
+end $$;
+
+create or replace function private.coop_check_open() returns void
+language plpgsql stable security definer set search_path = public as $$
+begin
+  if not (select s.open from private.coop_status() s) then raise exception 'coop_capacity' using errcode = '54000'; end if;
+end $$;
+
+-- coop_create / coop_join: same bodies as 20261107000000, plus the capacity check
+create or replace function private.coop_create() returns text
+language plpgsql security definer set search_path = public as $$
+declare uid uuid := private.real_user(); alphabet text := 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; c text; b bytea; i int; tries int := 0;
+begin
+  if uid is null then raise exception 'not_signed_in' using errcode = '42501'; end if;
+  perform private.coop_check_open();
+  delete from public.coop_rooms where created_at < now() - interval '1 day';
+  if (select count(*) from public.coop_rooms where host = uid and created_at > now() - interval '1 day') >= 40 then
+    raise exception 'coop_daily_limit' using errcode = '54000';
+  end if;
+  update public.coop_rooms set status = 'cerrada' where host = uid and status in ('abierta', 'emparejada');
+  loop
+    b := decode(replace(gen_random_uuid()::text, '-', ''), 'hex'); c := '';
+    for i in 0..5 loop c := c || substr(alphabet, get_byte(b, i) % 32 + 1, 1); end loop;
+    exit when not exists (select 1 from public.coop_rooms where code = c);
+    tries := tries + 1;
+    if tries > 8 then raise exception 'no_code' using errcode = '54000'; end if;
+  end loop;
+  insert into public.coop_rooms (code, host, host_name) values (c, uid, (select username::text from public.profiles where id = uid));
+  return c;
+end $$;
+
+create or replace function private.coop_join(p_code text) returns text
+language plpgsql security definer set search_path = public as $$
+declare uid uuid := private.real_user(); r record;
+begin
+  if uid is null then raise exception 'not_signed_in' using errcode = '42501'; end if;
+  perform private.coop_check_open();
+  select * into r from public.coop_rooms where code = upper(trim(p_code)) for update;
+  if r.code is null or r.status = 'cerrada' or r.expires_at < now() then raise exception 'room_not_found' using errcode = 'P0002'; end if;
+  if r.host = uid then raise exception 'own_room' using errcode = '42501'; end if;
+  if r.guest is not null and r.guest <> uid then raise exception 'room_full' using errcode = '54000'; end if;
+  update public.coop_rooms set guest = uid, guest_name = (select username::text from public.profiles where id = uid), status = 'emparejada',
+    offer = case when guest = uid then offer else null end, answer = case when guest = uid then answer else null end
+  where code = r.code;
+  return r.host_name;
+end $$;
+
+create or replace function public.coop_beat(p_code text, p_relay_mb numeric) returns void
+language sql security invoker set search_path = '' as $$ select private.coop_beat(p_code, p_relay_mb); $$;
+create or replace function public.coop_status() returns table (open boolean, pct int, reason text, reopens timestamptz)
+language sql stable security invoker set search_path = '' as $$ select * from private.coop_status(); $$;
+
+revoke execute on function private.coop_caps(), private.coop_beat(text, numeric), private.coop_status(), private.coop_check_open()
+  from public, anon, authenticated;
+grant execute on function private.coop_caps(), private.coop_beat(text, numeric), private.coop_status(), private.coop_check_open() to authenticated;
+revoke execute on function public.coop_beat(text, numeric), public.coop_status() from public, anon;
+grant execute on function public.coop_beat(text, numeric), public.coop_status() to authenticated;
+
+alter function private.coop_beat(text, numeric) set statement_timeout = '5s';
+alter function private.coop_status() set statement_timeout = '5s';
+
+-- ===== 20261117000000_alius_stones.sql
+-- 3.0 Piedra Alius: the cloud save never takes Piedras Alius or transformations the player could not have earned.
+-- Like coins and fichas (20261102000200_save_economy_guard.sql), the client computes everything and the server only cuts
+-- what a forged save adds: the stones can grow at most by what victories can give in the time passed (the game gives at
+-- most 3 a day; the ceiling here is far looser so an honest player is never cut), and every NEW transformation must be paid
+-- with ALIUS_COST stones out of that budget. Extra stones are cut and unpaid transformations dropped (the last ones added);
+-- the write itself is never refused. Keep ALIUS_COST equal to src/data/alius.ts ALIUS_CONFIG.unlockCost.
+--
+-- The previous economy_cap is kept as economy_cap_base and wrapped: a later migration that redefines economy_cap must call
+-- private.alius_cap at its end too.
+
+alter function private.economy_cap(jsonb, jsonb, timestamptz, uuid) rename to economy_cap_base;
+revoke all on function private.economy_cap_base(jsonb, jsonb, timestamptz, uuid) from public, anon, authenticated;
+
+create or replace function private.alius_cap(p_new jsonb, p_old jsonb, p_since timestamptz) returns jsonb
+language plpgsql immutable set search_path = '' as $$
+declare
+  alius_cost constant integer := 10;
+  hours numeric := greatest(0, extract(epoch from (now() - coalesce(p_since, now()))) / 3600);
+  new_s numeric; old_s numeric; budget numeric; paid integer := 0;
+  old_keys text[] := '{}'; keep jsonb := '[]'::jsonb; k text;
+  out jsonb := p_new;
+begin
+  if jsonb_typeof(p_new -> 'alius') <> 'object' then return out; end if;
+  new_s := case when jsonb_typeof(p_new -> 'alius' -> 'stones') = 'number' then greatest(0, (p_new -> 'alius' ->> 'stones')::numeric) else 0 end;
+  old_s := case when jsonb_typeof(p_old -> 'alius' -> 'stones') = 'number' then greatest(0, (p_old -> 'alius' ->> 'stones')::numeric) else 0 end;
+  if jsonb_typeof(p_old -> 'alius' -> 'unlocked') = 'array' then
+    select coalesce(array_agg(x), '{}') into old_keys from jsonb_array_elements_text(p_old -> 'alius' -> 'unlocked') x;
+  end if;
+  -- what this write may hold: the old stones plus what the time passed can give (first copy of an account: a fixed amount)
+  budget := case when p_old is null then 60 else old_s + 6 + hours * 2 end;
+  if new_s > budget then new_s := floor(budget); end if;
+  budget := budget - new_s; -- stones that may have been spent on new transformations
+  if jsonb_typeof(p_new -> 'alius' -> 'unlocked') = 'array' then
+    for k in select x from jsonb_array_elements_text(p_new -> 'alius' -> 'unlocked') x loop
+      if k = any(old_keys) then keep := keep || to_jsonb(k);
+      elsif budget >= alius_cost then keep := keep || to_jsonb(k); budget := budget - alius_cost; paid := paid + 1;
+      end if; -- an unpaid new transformation is dropped
+    end loop;
+    out := jsonb_set(out, '{alius,unlocked}', keep);
+  end if;
+  out := jsonb_set(out, '{alius,stones}', to_jsonb(floor(new_s)::bigint));
+  return out;
+end $$;
+revoke all on function private.alius_cap(jsonb, jsonb, timestamptz) from public, anon, authenticated;
+
+create or replace function private.economy_cap(p_new jsonb, p_old jsonb, p_since timestamptz, p_uid uuid) returns jsonb
+language plpgsql volatile security definer set search_path = '' as $$
+begin
+  return private.alius_cap(private.economy_cap_base(p_new, p_old, p_since, p_uid), p_old, p_since);
+end $$;
+revoke all on function private.economy_cap(jsonb, jsonb, timestamptz, uuid) from public, anon, authenticated;
+
+-- ===== 20261118000000_bigger_coin_prizes.sql
+-- (author: «muchas más monedas de recompensas del clan, rollo lo más alto 600k, del Sector Quinto igual»): weekly clan
+-- prizes 600k / 300k / 150k / 60k coins and Sector Quinto weeks 600k won / 200k lost. Same numbers as src/systems/clans.ts
+-- CLAN_PRIZES and src/systems/sector.ts WIN_PRIZE/LOSE_PRIZE. economy_cap already adds clan_rewards and sector_claims to
+-- what a save may hold, so the bigger prizes pass the guard. Weeks already recorded keep what they were given.
+
+create or replace function private.clan_prize(p_tier text) returns table (coins int, tokens int) language sql immutable set search_path = '' as $$
+  select v.c, v.k from (values ('top1', 600000, 500), ('top3', 300000, 300), ('top8', 150000, 300), ('resto', 60000, 100)) v (t, c, k) where v.t = p_tier
+  union all select 0, 0 where p_tier not in ('top1', 'top3', 'top8', 'resto');
+$$;
+
+create or replace function private.sector_claim() returns jsonb
+language plpgsql volatile security definer set search_path = '' as $$
+declare uid uuid := private.real_user(); mine text; got jsonb := '[]'::jsonb; r record; won boolean;
+begin
+  if uid is null then return got; end if;
+  perform private.sector_close_due();
+  select side into mine from private.sector_members where user_id = uid;
+  if mine is null then return got; end if;
+  for r in select res.week, res.winner from private.sector_results res
+      join private.sector_points p on p.user_id = uid and p.week = res.week and p.points > 0
+      where not exists (select 1 from private.sector_claims c where c.user_id = uid and c.week = res.week) order by res.week loop
+    won := r.winner = mine or r.winner = 'empate';
+    insert into private.sector_claims (user_id, week, side, won, tokens, coins)
+      values (uid, r.week, mine, won, case when won then 300 else 100 end, case when won then 600000 else 200000 end)
+      on conflict do nothing;
+    if found then
+      got := got || jsonb_build_object('week', r.week, 'side', mine, 'won', won, 'winner', r.winner,
+        'tokens', case when won then 300 else 100 end, 'coins', case when won then 600000 else 200000 end);
+    end if;
+  end loop;
+  return got;
+end $$;
+alter function private.sector_claim() set statement_timeout = '10s';
 
 notify pgrst, 'reload schema';
