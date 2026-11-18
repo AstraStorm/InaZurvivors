@@ -799,7 +799,7 @@ describe('clans (1.93)', () => {
     await api('celia', `select public.clan_submit_run('t1', 4000, 900, 20000000, 'X', true)`);
     await db.query(`update public.clan_runs set week = week - 7, day = day - 7`);
     const p = (await api('cleo', 'select week, clan, pos, tier, coins, tokens from public.clan_claim_prizes()')).rows as { clan: string; pos: number; tier: string; coins: number; tokens: number }[];
-    expect(p).toEqual([expect.objectContaining({ clan: 'Rayos Del Sur', pos: 2, tier: 'top3', coins: 50000, tokens: 300 })]);
+    expect(p).toEqual([expect.objectContaining({ clan: 'Rayos Del Sur', pos: 2, tier: 'top3', coins: 300000, tokens: 300 })]);
     expect((await api('cleo', 'select * from public.clan_claim_prizes()')).rows).toEqual([]);
     expect((await api('celia', 'select tier from public.clan_claim_prizes()')).rows).toEqual([{ tier: 'top1' }]);
     expect((await api('cata', 'select * from public.clan_claim_prizes()')).rows).toEqual([]); // did not play
@@ -906,10 +906,10 @@ describe('2.2 Sector Quinto (database)', () => {
     expect(st.s.week).toBe(1);
     expect(st.s.results).toEqual([{ week: 0, winner: 'sector', sector: 1300, resistencia: 400 }]);
     const won = (await api(users[0], `select public.sector_claim() as c`)).rows[0] as { c: { week: number; won: boolean; tokens: number; coins: number }[] };
-    expect(won.c).toEqual([{ week: 0, side: 'sector', won: true, winner: 'sector', tokens: 300, coins: 15000 }]);
+    expect(won.c).toEqual([{ week: 0, side: 'sector', won: true, winner: 'sector', tokens: 300, coins: 600000 }]);
     expect((await api(users[0], `select public.sector_claim() as c`)).rows[0]).toEqual({ c: [] }); // once
     const lost = (await api(users[5], `select public.sector_claim() as c`)).rows[0] as { c: { won: boolean; tokens: number }[] };
-    expect(lost.c[0]).toMatchObject({ won: false, tokens: 100, coins: 5000 });
+    expect(lost.c[0]).toMatchObject({ won: false, tokens: 100, coins: 200000 });
     expect((await api(users[2], `select public.sector_claim() as c`)).rows[0]).toEqual({ c: [] }); // did not play that week
     await expect(api(users[0], `select * from private.sector_members`)).rejects.toThrow(/permission denied/);
   });

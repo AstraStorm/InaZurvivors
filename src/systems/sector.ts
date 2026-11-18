@@ -28,8 +28,9 @@ export const SIDES: Record<SideId, SideDef> = {
   resistencia: { id: 'resistencia', name: 'Resistencia', short: 'Resistencia', color: '#ffb020', frame: 'marco-resistencia', players: [101520, 100805, 101004],
     motto: tr('El fútbol es libre: el viento de la revolución sopla en cada partido.') },
 };
-export const WIN_PRIZE = { tokens: 300, coins: 15000 };
-export const LOSE_PRIZE = { tokens: 100, coins: 5000 };
+// author: «muchas más monedas… del Sector Quinto igual» (same numbers in private.sector_claim)
+export const WIN_PRIZE = { tokens: 300, coins: 600000 };
+export const LOSE_PRIZE = { tokens: 100, coins: 200000 };
 export const REBEL_POINTS = 1.5;
 
 const t0 = () => Date.parse(SECTOR_START), t1 = () => Date.parse(SECTOR_END);

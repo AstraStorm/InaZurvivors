@@ -388,3 +388,25 @@
 /* centred on the screen while the stone falls and they turn; up to its place when the title comes */
 .l30 .l30-ring { margin-top: max(0px, calc(21vh - 40px)); transition: margin-top .8s cubic-bezier(.5, 0, .2, 1); }
 .l30.titled .l30-ring { margin-top: 0; }
+
+/* 3.0: the countdown banner under the menu header (the week before the 25th), then «ya disponible» to the TikTok video */
+.cd30 { display: flex; align-items: center; gap: 12px; width: 100%; box-sizing: border-box; padding: 6px 14px; border-radius: 12px; cursor: pointer; font: inherit; color: #fff; text-decoration: none; text-align: left;
+  background: linear-gradient(100deg, #1a0a3a, #5a2a9a 40%, #8a1a4a 75%, #1a0a3a); background-size: 220% 100%; animation: alSlide 6s linear infinite;
+  border: 1px solid var(--al-pink); box-shadow: 0 0 14px #9a4dff66, inset 0 0 18px #e05cff33; }
+.cd30:hover { filter: brightness(1.12); }
+.cd30-stone { display: flex; flex: none; filter: drop-shadow(0 0 6px #9fff6a); animation: cd30Bob 2.2s ease-in-out infinite; }
+.cd30-tx { display: flex; flex-direction: column; min-width: 0; }
+.cd30-tx small { font-size: 10px; letter-spacing: 2px; color: #ffd8ff; }
+.cd30-tx b { font-size: 15px; text-shadow: 0 0 8px #e05cff, 1px 1px 0 #000; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cd30-clock { display: flex; gap: 6px; margin-left: auto; flex: none; }
+.cd30-clock i { display: flex; flex-direction: column; align-items: center; min-width: 42px; padding: 2px 4px; font-style: normal; border-radius: 8px; background: #0d1030cc; border: 1px solid #e05cff88; }
+.cd30-clock b { font-size: 18px; line-height: 1.1; font-variant-numeric: tabular-nums; color: #fff; text-shadow: 0 0 6px #9a4dff; }
+.cd30-clock small { font-size: 8px; letter-spacing: 1px; text-transform: uppercase; color: #d8c8ff; }
+.cd30-go { margin-left: auto; flex: none; padding: 6px 12px; border-radius: 999px; background: #fff; color: #5a2a9a; font-weight: 800; font-size: 13px; }
+.cd30 ~ .m4-stage { min-height: calc(100vh - 205px); }
+@keyframes cd30Bob { 50% { transform: translateY(-3px) rotate(-6deg); } }
+@media (max-width: 640px) { .cd30 { gap: 8px; padding: 5px 8px; } .cd30-tx b { font-size: 12px; } .cd30-tx small { font-size: 8px; letter-spacing: 1px; }
+  .cd30-clock { gap: 3px; } .cd30-clock i { min-width: 30px; } .cd30-clock b { font-size: 14px; } .cd30-stone svg, .cd30-stone img { width: 26px; height: 26px; } }
+@media (max-width: 400px) { .cd30-tx { display: none; } .cd30-clock { margin: 0 auto; } }
+.l30-btns .l30-tt { display: inline-flex; align-items: center; gap: 8px; background: #000; color: #fff; border: 1px solid #25f4ee; box-shadow: 2px 2px 0 #fe2c55; text-decoration: none; }
+.l30-tt svg { width: 18px; height: 18px; fill: currentColor; }

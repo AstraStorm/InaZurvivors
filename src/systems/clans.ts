@@ -16,12 +16,12 @@ export const CLAN_MAP = 'clan';
 export const CLAN_REWARD_MULT = 1;
 
 export type ClanTier = 'top1' | 'top3' | 'top8' | 'resto';
-/** weekly prizes (the server records coins and fichas for the save's economy cap: same numbers in clan_prize) */
+/** weekly prizes (author: «muchas más monedas, lo más alto 600k») (the server records coins and fichas for the save's economy cap: same numbers in clan_prize) */
 export const CLAN_PRIZES: Record<ClanTier, { label: string; coins: number; tokens: number; /** author: Fichas EG */ eg: number; players: { n: number; odds: Partial<Record<Rarity, number>>; label: string }[] }> = {
-  top1: { label: tr('TOP 1'), coins: 100000, tokens: 500, eg: 12, players: [{ n: 2, odds: { mitico: 85, leyenda: 15 }, label: tr('Mítico o más') }] },
-  top3: { label: tr('TOP 3'), coins: 50000, tokens: 300, eg: 8, players: [{ n: 2, odds: { legendario: 85, mitico: 13, leyenda: 2 }, label: tr('Legendario o más') }] },
-  top8: { label: tr('TOP 8'), coins: 25000, tokens: 300, eg: 5, players: [{ n: 1, odds: { legendario: 85, mitico: 13, leyenda: 2 }, label: tr('Legendario o más') }, { n: 2, odds: { epico: 85, legendario: 13, mitico: 2 }, label: tr('Épico o más') }] },
-  resto: { label: tr('Resto'), coins: 10000, tokens: 100, eg: 2, players: [{ n: 1, odds: { epico: 85, legendario: 13, mitico: 2 }, label: tr('Épico o más') }] },
+  top1: { label: tr('TOP 1'), coins: 600000, tokens: 500, eg: 12, players: [{ n: 2, odds: { mitico: 85, leyenda: 15 }, label: tr('Mítico o más') }] },
+  top3: { label: tr('TOP 3'), coins: 300000, tokens: 300, eg: 8, players: [{ n: 2, odds: { legendario: 85, mitico: 13, leyenda: 2 }, label: tr('Legendario o más') }] },
+  top8: { label: tr('TOP 8'), coins: 150000, tokens: 300, eg: 5, players: [{ n: 1, odds: { legendario: 85, mitico: 13, leyenda: 2 }, label: tr('Legendario o más') }, { n: 2, odds: { epico: 85, legendario: 13, mitico: 2 }, label: tr('Épico o más') }] },
+  resto: { label: tr('Resto'), coins: 60000, tokens: 100, eg: 2, players: [{ n: 1, odds: { epico: 85, legendario: 13, mitico: 2 }, label: tr('Épico o más') }] },
 };
 export const tierOfPos = (pos: number): ClanTier => (pos === 1 ? 'top1' : pos <= 3 ? 'top3' : pos <= 8 ? 'top8' : 'resto');
 

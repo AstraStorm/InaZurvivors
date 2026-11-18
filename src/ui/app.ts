@@ -40,7 +40,7 @@ const TRAIN_TEAM = 5, TRAIN_SLOTS = 4;
 import { CLUB_CHEMISTRY, kitBonus } from '../systems/kitBonus';
 import { squadPotential } from '../systems/synergy';
 import { championsTable, recordTriumph } from '../systems/hallOfFame';
-import { BUILD, CREATOR_GAMES_URL, CURRENT_PUBLIC, NEXT_RELEASE, PUBLIC_RELEASES, PUBLIC_VERSION, releaseByVersion, TIKTOK_PATH, TIKTOK_URL, VERSION_LABEL } from '../data/release';
+import { BUILD, CREATOR_GAMES_URL, CURRENT_PUBLIC, NEXT_RELEASE, PUBLIC_RELEASES, PUBLIC_VERSION, releaseByVersion, TIKTOK_30_URL, TIKTOK_PATH, TIKTOK_URL, VERSION_LABEL } from '../data/release';
 import { allNews, latestNewsId, NEWS_KIND_LABEL, type NewsItem, type NewsKind } from '../data/news';
 /** Fix 1.32: news text: escaped, **bold** allowed */
 const newsText = (t: string) => esc(t).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
@@ -71,7 +71,7 @@ import { cleanTiers, placeIn, tierCount, topicLabel, TIER_COLOR, TIER_MAX, TIER_
 import { CoopLink, type CoopMsg } from '../online/coop';
 import { coopInvite, coopInvitesClaim, coopStatus, type CoopStatus, friendHeartbeat, friendList, friendRemove, friendRequest, friendRespond, lobbyInfo, type FriendRow, type LobbyInfo } from '../online/client';
 import type { CoopRun } from '../game/coopArena';
-import { ALIUS, ALIUS_BY_ID, ALIUS_BY_KEY, ALIUS_CONFIG, ALIUS_EXCLUSIVE, ALIUS_PASSIVES, ALIUS_TEAM, TIER_LABEL, aliusLeftMs, aliusOpen, TIER_SHORT, isAliusId, passiveTextAt, recolourTorsoSkin, type AliusDef, type AliusPassiveId, type AliusTier } from '../data/alius';
+import { ALIUS, ALIUS_BY_ID, ALIUS_BY_KEY, ALIUS_CONFIG, ALIUS_EXCLUSIVE, ALIUS_PASSIVES, ALIUS_OPEN_AT, ALIUS_TEAM, TIER_LABEL, aliusLeftMs, aliusOpen, TIER_SHORT, isAliusId, passiveTextAt, recolourTorsoSkin, type AliusDef, type AliusPassiveId, type AliusTier } from '../data/alius';
 import { aliusRun, aliusStatus, originalOk, resonanceState, unlockedCount, type AliusStatus } from '../systems/alius';
 import { aliusStones, aliusTier, aliusTierUp, awardAliusStones, originalSpares, tierCost, unlockAlius, undoUnlock } from '../systems/aliusSave';
 import { applyCoachPerks, COACH_BY_ID, COACH_PULL_CHANCE, COACHES, coachesOfMachine, rewardCoachesDue, coachRun, PASSIVE_ICON, passiveText as coachPassiveText, type CoachDef } from '../data/coaches';
@@ -1247,7 +1247,7 @@ export class App {
           <button class="m4-tool" data-go="options" title="${tr('Ajustes')}">${uiIcon('cog')}<span>${tr('Ajustes')}</span></button>
           <button class="m4-tool" id="mute" title="${tr('Sonido')}" aria-pressed="${!this.save.settings.muted}">${uiIcon(this.save.settings.muted ? 'soundOff' : 'soundOn')}</button>
           <button class="m4-tool" id="menubug" title="${tr('Reportar un bug')}">${uiIcon('bug')}</button></nav>
-      </header>
+      </header>${this.cd30Html()}
       <div class="m4-stage">
         <section class="m4-left">
           ${this.promoHtml(promo)}
@@ -1307,7 +1307,7 @@ export class App {
     // alerta al entrar x first time»): the current version's, so everyone sees the new one once
     if (this.launchPending()) window.setTimeout(() => { if (this.screenKey === 'menu-mode' && !this.game.scene.isActive('Arena')) this.launch20(); }, 300); // 2.6 showed the Victory Road poster here (vrTeaserPoster)
     // 3.0: until the 25th, the meteor teaser once per browser (after the Sendokai one, which has the menu until it opens)
-    else if (NEXT_RELEASE?.version === '3.0' && !aliusOpen(serverNow()) && !sendokaiUpcoming(serverNow()) && this.save.onboardingDone && this.teaser30Pending()) window.setTimeout(() => { if (this.screenKey === 'menu-mode' && !this.game.scene.isActive('Arena')) this.launch30(true); }, 300);
+    else if (NEXT_RELEASE?.version === '3.0' && !aliusOpen(serverNow()) && !(sendokaiUpcoming(serverNow()) && this.sdTeaserPending()) && this.save.onboardingDone && this.teaser30Pending()) window.setTimeout(() => { if (this.screenKey === 'menu-mode' && !this.game.scene.isActive('Arena')) this.launch30(true); }, 300);
     // 2.0: the Espíritus Guerreros are introduced once per save (no gift: Fichas EG are earned in rank X)
     if (giveKeshinGift(this.save)) {
       this.persist();
@@ -1393,7 +1393,7 @@ export class App {
     document.getElementById('wpclaim')?.addEventListener('click', (e) => { (e.target as HTMLButtonElement).disabled = true; this.claimPassNow(() => this.mainMenu()); });
     if (this.save.tutorial === 'pendiente' && this.save.onboardingDone) window.setTimeout(() => { if (this.screenKey === 'menu-mode') this.tutorial(); }, 400);
     // 2.9 (author: «que avise, próximamente nuevo banner, a la gente que entra»): once per visit while it is still a secret
-    else if (sendokaiUpcoming(serverNow()) && this.save.onboardingDone && !App.sdTeaserShown) window.setTimeout(() => { if (this.screenKey === 'menu-mode') this.sendokaiTeaser(); }, 700);
+    else if (sendokaiUpcoming(serverNow()) && this.save.onboardingDone && this.sdTeaserPending()) window.setTimeout(() => { if (this.screenKey === 'menu-mode') this.sendokaiTeaser(); }, 700);
     // 2.8 (author): the Moneda de Despertar of the 200 registered players, explained once
     else if (this.save.awakenGift200 && !this.save.awakenSeen && this.save.onboardingDone) window.setTimeout(() => { if (this.screenKey === 'menu-mode') this.awakenNotice(); }, 600);
     // 1.75 (author): the thank-you notice, once, while the Banner de agradecimiento is open
@@ -3117,6 +3117,36 @@ export class App {
     box.querySelector('[data-l2news]')!.addEventListener('click', () => close(true));
   }
 
+  /** 3.0 (author: «de mientras que salga un banner de contador»): the week before the 25th, a live countdown under the
+   *  header that opens the teaser; from the 25th, for a week, «ya disponible» and it takes you to the author's TikTok video */
+  private cd30Html() {
+    const now = serverNow(), left = aliusLeftMs(now);
+    if (left > 8 * 86_400_000 || (left === 0 && +now - Date.parse(ALIUS_OPEN_AT) > 7 * 86_400_000)) return '';
+    const inner = `<span class="cd30-stone">${this.stoneIcon(34)}</span><span class="cd30-tx"><small>${left ? tr('PRÓXIMAMENTE · 25 NOV 12:00') : tr('¡YA DISPONIBLE!')}</small><b>${tr('InaZurvivors 3.0 · La Piedra Alius')}</b></span>`;
+    if (!left) return `<a class="cd30 open" href="${TIKTOK_30_URL}" target="_blank" rel="noopener noreferrer">${inner}<span class="cd30-go">${tr('Ver el vídeo')} ▶</span></a>`;
+    window.setTimeout(() => this.cd30Tick(), 0);
+    return `<button class="cd30" id="cd30" type="button">${inner}<span class="cd30-clock" id="cd30left">${this.cd30Parts(left)}</span></button>`;
+  }
+  private cd30Parts(ms: number) {
+    const v = [Math.floor(ms / 86_400_000), Math.floor(ms / 3_600_000) % 24, Math.floor(ms / 60_000) % 60, Math.floor(ms / 1000) % 60];
+    return v.map((n, i) => `<i><b>${String(n).padStart(2, '0')}</b><small>${[tr('días'), tr('horas'), tr('min'), tr('seg')][i]}</small></i>`).join('');
+  }
+  private cd30Tick() {
+    const btn = document.getElementById('cd30');
+    if (!btn || btn.dataset.wired) return;
+    btn.dataset.wired = '1';
+    btn.addEventListener('click', () => this.launch30(true));
+    const t = window.setInterval(() => {
+      const el = document.getElementById('cd30left');
+      if (!el) { window.clearInterval(t); return; }
+      const left = aliusLeftMs(serverNow());
+      if (!left) { window.clearInterval(t); if (this.screenKey === 'menu-mode') this.mainMenu(); return; } // 12:00 on the 25th: the menu opens the 3.0
+      el.innerHTML = this.cd30Parts(left);
+    }, 1000);
+  }
+  private tiktok30Btn() {
+    return `<a class="btn big l30-tt" href="${TIKTOK_30_URL}" target="_blank" rel="noopener noreferrer"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="${TIKTOK_PATH}"/></svg>${tr('Ver el vídeo en TikTok')}</a>`;
+  }
   private teaser30Pending() {
     try { return localStorage.getItem('iz-teaser-3.0') !== '1'; } catch { return false; }
   }
@@ -3150,7 +3180,7 @@ export class App {
         <div class="l30-feats">${rel.features.filter((f) => f.icon !== '🛣️').map((f, i) => `<span style="--i:${i}"><i>${f.icon}</i><b>${esc(f.title)}</b><small>${esc(f.text)}</small></span>`).join('')}</div>
         ${vr.length ? `<div class="l30-vr"><div class="l30-vr-tx"><small>${tr('Y DESPUÉS…')}</small><b>VICTORY ROAD</b><em>${tr('Muy pronto')}</em></div>
           <div class="l30-vr-row">${vr.map((p, i) => `<span style="--i:${i};--rc:${RARITY_COLOR[p.rarity]}">${this.vrMug(p, 60)}</span>`).join('')}</div></div>` : ''}
-        <div class="l30-btns">${soon ? `<button class="btn big al-btn" data-l2go>${tr('¡Nos vemos el 25! ▶')}</button>`
+        <div class="l30-btns">${this.tiktok30Btn()}${soon ? `<button class="btn big al-btn" data-l2go>${tr('¡Nos vemos el 25! ▶')}</button>`
           : `<button class="btn big blue" data-l2news>${tr('Ver todas las novedades')}</button><button class="btn big al-btn" data-l30altar>${tr('Ir al Altar ▶')}</button>`}</div>
       </div>
       <button class="l2-skip" data-l2go>${tr('Saltar')}</button>`;
@@ -5587,10 +5617,12 @@ export class App {
     return src ? `<img class="awk-ic${this.awakenSrc ? '' : ' raw'}" src="${src}" alt="${tr('Moneda de Despertar')}" style="width:${size}px;height:${size}px">` : '<b class="awk-ic">✦</b>';
   }
   /** 2.9: «Próximamente, nuevo banner»: the five as silhouettes (Zak in the middle), the live countdown, never a name */
-  private static sdTeaserShown = false;
+  private sdTeaserPending() { // author: «sigue saltando el pop up de sendokai una vez lo quité»: once per browser, not per visit
+    try { return localStorage.getItem('iz-teaser-sendokai') !== '1'; } catch { return false; }
+  }
   private sendokaiTeaser() {
     if (document.querySelector('.sd-teaser')) return;
-    App.sdTeaserShown = true;
+    try { localStorage.setItem('iz-teaser-sendokai', '1'); } catch { /* private window: it may show again */ }
     const start = Date.parse(SENDOKAI_EVENT.start);
     const when = new Date(start).toLocaleString(locale(), { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' });
     const box = document.createElement('div');

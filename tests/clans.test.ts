@@ -5,10 +5,10 @@ import { newSave } from '../src/systems/save';
 
 describe('clans (1.93)', () => {
   it('prizes per tier as the author asked, and the position decides the tier', () => {
-    expect(CLAN_PRIZES.top1).toMatchObject({ coins: 100000, tokens: 500 }); // 5 ×10
-    expect(CLAN_PRIZES.top3).toMatchObject({ coins: 50000, tokens: 300 });
-    expect(CLAN_PRIZES.top8).toMatchObject({ coins: 25000, tokens: 300 });
-    expect(CLAN_PRIZES.resto).toMatchObject({ coins: 10000, tokens: 100 });
+    expect(CLAN_PRIZES.top1).toMatchObject({ coins: 600000, tokens: 500 });
+    expect(CLAN_PRIZES.top3).toMatchObject({ coins: 300000, tokens: 300 });
+    expect(CLAN_PRIZES.top8).toMatchObject({ coins: 150000, tokens: 300 });
+    expect(CLAN_PRIZES.resto).toMatchObject({ coins: 60000, tokens: 100 });
     expect(CLAN_PRIZES.top1.players).toEqual([expect.objectContaining({ n: 2 })]);
     expect(CLAN_PRIZES.top8.players.map((g) => g.n)).toEqual([1, 2]);
     expect([1, 2, 3, 4, 8, 9, 40].map(tierOfPos)).toEqual(['top1', 'top3', 'top3', 'top8', 'top8', 'resto', 'resto']);

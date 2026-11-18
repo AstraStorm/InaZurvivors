@@ -4419,4 +4419,10 @@ export const EN: Record<string, string> = {
   "Y además": "And also",
   "Y después… **Victory Road**: diez futbolistas nuevos, muy pronto.": "And then… **Victory Road**: ten new footballers, very soon.",
   "▶ Ver la presentación de la 3.0": "▶ Watch the 3.0 presentation",
+  "Ver el vídeo": "Watch the video",
+  "Ver el vídeo en TikTok": "Watch the video on TikTok",
+  "días": "days",
+  "horas": "hours",
+  "min": "min",
+  "seg": "sec",
 };
