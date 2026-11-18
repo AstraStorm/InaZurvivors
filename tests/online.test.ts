@@ -805,7 +805,7 @@ describe('clans (1.93)', () => {
     expect((await api('cata', 'select * from public.clan_claim_prizes()')).rows).toEqual([]); // did not play
     expect(((await api('', 'select name, tier from public.clan_last_week()')).rows)).toEqual([{ name: 'Tormenta Azul', tier: 'top1' }, { name: 'Rayos Del Sur', tier: 'top3' }]);
     const cap = (await db.query(`select private.economy_cap('{"coins": 1000000, "tokens": 100000}'::jsonb, '{"coins": 0, "tokens": 0}'::jsonb, now() - interval '1 hour', $1) as c`, [ids.celia])).rows[0] as { c: { coins: number; tokens: number } };
-    expect(cap.c).toEqual({ coins: 132000, tokens: 3500 }); // 16.000 + 16.000/h and 2.000 + 1.000/h, plus the TOP 1 prize
+    expect(cap.c).toEqual({ coins: 632000, tokens: 3500 }); // 16.000 + 16.000/h and 2.000 + 1.000/h, plus the TOP 1 prize (600.000)
   });
 
   it('the ranking shows the clan of each player (anyone can read it)', async () => {
