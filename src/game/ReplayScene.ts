@@ -14,6 +14,7 @@ import { Fx } from './fx';
 import { drawShot } from './shotReplay';
 import { frameAtTime, spawnOf, type Replay, type ReplayEvent, type SpawnInfo } from './replay';
 import { mapTextureKeys, swapRunTextures } from './runTextures';
+import { capFps } from '../systems/perf';
 
 export interface ReplayTick { t: number; duration: number; hp: number; max: number; playing: boolean; speed: number }
 export interface ReplayInit {
@@ -89,6 +90,7 @@ export class ReplayScene extends Phaser.Scene {
   }
 
   create() {
+    capFps(this.game, 0); // the menu may have capped it (systems/perf.ts)
     const map = this.map();
     const arena = new Arena(this, map, this.cfg.settings.quality);
     arena.build();

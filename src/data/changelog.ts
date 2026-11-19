@@ -15,6 +15,13 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: '17.14', date: '2026-11-19', title: 'Parche de rendimiento en móvil; iconos de Recompensas',
+    features: ['Iconos pixel art del autor en Recompensas (pestañas, misiones, logros, fichas EG/ENT/DUP), el aviso de logro y el evento: tools/gpt_ui.py misiones -> public/art/ui/misiones-iconos.png.',
+      'Modo Duelo en desarrollo (oculto a los jugadores: duel/open.ts DUEL_PUBLIC); sus misiones solo salen con el modo abierto.'],
+    fixes: ['Móvil (autor: «desde móvil el juego me va laggy»): systems/perf.ts detecta pantallas táctiles o equipos modestos (body.lowfx): fuera los brillos que animan `left`, los fondos animados por posición o filtro y los destellos/alas/giros SVG de los marcos dibujados (213 -> 50 animaciones en el menú), y el fondo vivo del menú a 30 fps (las partidas, la sala y la repetición vuelven a la velocidad completa). localStorage iz-fx = alto | bajo lo fuerza.'],
+    visuals: [], balance: [],
+  },
+  {
     version: '17.13', date: '2026-11-18', title: '2.9 Mejoras automáticas; 3.0 programada: pase en el servidor y Desafío del Despertar',
     features: ['Mejoras automáticas (autor: «que puedas elegir prioridad, para la gente que se quede afk»): systems/autoPick.ts, botón AUTO en las cartas y orden en Opciones; curar primero bajo el 35 % de vida.',
       'Notas de la 2.9: premios de clan 600k/300k/150k/60k y Sector Quinto 600k/200k (migración bigger_coin_prizes, ya aplicada).',

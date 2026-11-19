@@ -6,13 +6,16 @@ import { isAliusId } from '../data/alius';
 import type { RunResult } from './economy';
 import type { SaveData } from './save';
 import { tr } from '../i18n/i18n';
+import { duelOpen } from './duel/open';
 
 export type MissionKind = 'partida' | 'diaria' | 'semanal' | 'logro';
 /** counter: lifetime/period sum of a run stat; best: highest value in one run. */
 /** `dupe`: also grants a duplicate of one of your Legendary/Mythic players (ascension material) */
 export interface MissionDef { id: string; kind: MissionKind; label: string; stat: string; goal: number; coins: number; tokens: number; dupe?: boolean;
   /** Fix 1.3: Fichas de entrenamiento (weekly missions and achievements) */
-  train: number }
+  train: number;
+  /** Modo Duelo: Fichas EG */
+  eg?: number }
 
 // Fix 1.13: missions pay 20% fewer coins, like the runs (rounded to 5)
 const M = (id: string, kind: MissionKind, label: string, stat: string, goal: number, coins: number, tokens?: number): MissionDef => ({ id, kind, label, stat, goal, coins: Math.round(coins * 0.8 / 5) * 5, tokens: tokens ?? (kind === 'diaria' ? 4 : kind === 'semanal' ? 12 : kind === 'logro' ? 10 : 4), train: kind === 'semanal' ? 1 : kind === 'logro' ? 2 : 0 }); // Fix 1.3: at the new pull price
@@ -42,6 +45,20 @@ export const MISSIONS: MissionDef[] = [
   L('l_road_facil', tr('Completa Road to Fútbol Frontier en Fácil'), 'road_facil', 1, 300, 1),
   L('l_road_normal', tr('Completa Road to Fútbol Frontier en Normal'), 'road_normal', 1, 600, 2),
   L('l_road_maxima', tr('Completa Road to Fútbol Frontier en Máxima'), 'road_maxima', 1, 1000, 3),
+  // Modo Duelo (counters added when a duel ends, app.ts duelScreen): the weekly ones and the achievements give Fichas EG;
+  // only listed while the mode is open (duel/open.ts)
+  ...(duelOpen() ? [
+  M('d_duelo', 'diaria', tr('Gana un duelo contra la CPU'), 'duel_wins', 1, 80),
+  { ...M('s_duelos', 'semanal', tr('Gana 5 duelos contra la CPU'), 'duel_wins', 5, 300), eg: 2 },
+  { ...L('l_duelo_tut', tr('Completa el tutorial del Modo Duelo'), 'duel_tutorial', 1, 200, 1), eg: 1 },
+  { ...L('l_duelo_1', tr('Gana tu primer duelo contra la CPU'), 'duel_wins', 1, 300, 1), eg: 1 },
+  { ...L('l_duelo_dificil', tr('Gana un duelo en Difícil'), 'duel_wins_dificil', 1, 600, 2), eg: 2 },
+  { ...L('l_duelo_25', tr('Gana 25 duelos contra la CPU'), 'duel_wins', 25, 1000, 2), eg: 3 },
+  { ...L('l_duelo_100', tr('Gana 100 duelos contra la CPU'), 'duel_wins', 100, 3000, 3), eg: 5 },
+  { ...L('l_duelo_ultis', tr('Lanza 30 ultis en duelos'), 'duel_ultis', 30, 400, 1), eg: 1 },
+  { ...L('l_duelo_combos', tr('Lanza 15 técnicas combinadas en duelos'), 'duel_combos', 15, 600, 2), eg: 2 },
+  { ...L('l_duelo_fusion', tr('Fusiona 100 cartas en duelos'), 'duel_merges', 100, 400, 1), eg: 1 },
+  ] : []),
   L('l_road_jaden', tr('Completa Road to Fútbol Frontier en Máxima 10 veces: ¡ficha a Jaden Evans!'), 'road_maxima', 10, 3000, 3),
   // 4.0
   M('d_nivel', 'diaria', tr('Sube 25 niveles (sumando partidas)'), 'levels', 25, 60),
@@ -301,6 +318,7 @@ export function claimMission(s: SaveData, id: string, mult = 1, roster?: { id: n
   s.coins += coins;
   s.tokens += d.tokens;
   s.trainTokens = (s.trainTokens ?? 0) + (d.train ?? 0);
+  if (d.eg) s.egTokens = (s.egTokens ?? 0) + d.eg;
   if (d.dupe && roster) {
     // the owned Legendary/Mythic with the fewest copies: the copy helps the ascension that is furthest away
     const pick = roster.filter((p) => (p.rarity === 'legendario' || p.rarity === 'mitico' || p.rarity === 'leyenda') && s.owned[String(p.id)] && !isAliusId(p.id)) // 3.0: never an Alius mirror

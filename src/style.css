@@ -2146,3 +2146,39 @@ body.reduced-motion .pcard.cc *, body.reduced-motion .pcard.cc .cc-frame { anima
 .dev-games svg { flex: none; width: 18px; height: 18px; fill: currentColor; }
 .dev-games .dg-ext { width: 12px; height: 12px; opacity: .85; }
 .dev-games span { min-width: 0; }
+
+/* Modo Duelo: its banner in the menu, big and in view */
+.m4-duel { position: relative; display: flex; align-items: center; gap: 18px; width: 100%; min-height: 128px; margin: 10px 0 14px; padding: 16px 22px 16px 168px; box-sizing: border-box; border: 3px solid #ffd76a; border-radius: 18px; overflow: hidden; cursor: pointer; text-align: left; color: #fff; background: #0b1440; box-shadow: 0 0 0 2px #0008, 0 10px 30px #000a, 0 0 30px #ffb02055; animation: m4DuelGlow 2.4s ease-in-out infinite; transition: transform .15s; }
+.m4-duel:hover { transform: translateY(-2px) scale(1.01); }
+@keyframes m4DuelGlow { 50% { box-shadow: 0 0 0 2px #0008, 0 10px 30px #000a, 0 0 46px #ffb020aa; } }
+.m4-duel-bg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 50% 35%; filter: brightness(.55) saturate(1.2); }
+.m4-duel::before { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, #060c2aee 0, #060c2a99 45%, #0000 80%); }
+.m4-duel::after { content: ''; position: absolute; inset: 0; background: linear-gradient(115deg, #fff0 35%, #fff4 50%, #fff0 65%) -150% 0 / 250% 100% no-repeat; animation: m4DuelShine 3.2s ease-in-out infinite; pointer-events: none; }
+@keyframes m4DuelShine { 60%, 100% { background-position: 150% 0; } }
+.m4-duel-cards { position: absolute; left: 18px; top: 50%; width: 140px; height: 110px; translate: 0 -50%; }
+.m4-dc { position: absolute; bottom: 0; width: 62px; aspect-ratio: 263 / 360; filter: drop-shadow(0 6px 8px #000c); transition: transform .25s; }
+.m4-dc > img { position: absolute; inset: 0; width: 100%; height: 100%; }
+.m4-dcf { position: absolute; left: 21%; top: 16%; width: 58%; height: 47%; display: grid; place-items: center; overflow: hidden; background: radial-gradient(circle at 50% 38%, #4a74d0, #101a44 75%); }
+.m4-dcf .mug { image-rendering: pixelated; }
+.m4-dc:nth-child(1) { left: 0; transform: rotate(-16deg); }
+.m4-dc:nth-child(2) { left: 38px; bottom: 8px; z-index: 1; }
+.m4-dc:nth-child(3) { left: 76px; transform: rotate(16deg); }
+.m4-duel:hover .m4-dc:nth-child(1) { transform: rotate(-24deg) translateX(-6px); }
+.m4-duel:hover .m4-dc:nth-child(3) { transform: rotate(24deg) translateX(6px); }
+.m4-duel-tx { position: relative; flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.m4-duel-tx em { align-self: flex-start; font-style: normal; font-size: 10px; padding: 3px 8px; border-radius: 99px; background: linear-gradient(#ffcf4a, #e07a10); color: #3a1600; }
+.m4-duel-tx b { font: 900 italic 30px/1 'Arial Black', 'Segoe UI Black', sans-serif; letter-spacing: .05em; color: #ffe9a8; text-shadow: 0 0 14px #ffb020, 0 3px 0 #6a2a00; }
+.m4-duel-tx small { font-family: 'Segoe UI', system-ui, sans-serif; font-size: 14px; color: #dfe7ff; text-shadow: 0 1px 2px #000; }
+.m4-duel-go { position: relative; padding: 10px 18px; border-radius: 12px; background: linear-gradient(#ffb63a, #e0700c); color: #3a1600; font-size: 13px; white-space: nowrap; box-shadow: 0 4px 0 #8a3a00, 0 0 16px #ffb02088; }
+@media (max-width: 640px) {
+  .m4-duel { padding: 14px 14px 14px 112px; min-height: 104px; gap: 10px; }
+  .m4-duel-cards { left: 8px; width: 100px; }
+  .m4-dc { width: 44px; }
+  .m4-dc:nth-child(2) { left: 28px; } .m4-dc:nth-child(3) { left: 56px; }
+  .m4-duel-tx b { font-size: 22px; }
+  .m4-duel-tx small { font-size: 12px; }
+  .m4-duel-go { padding: 8px 10px; }
+}
+
+/* Modo Duelo: a mission that gives Fichas EG */
+.rw-chip.eg { background: linear-gradient(#b46cff, #6a22c8); color: #fff; }

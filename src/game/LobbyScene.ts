@@ -12,6 +12,7 @@ import { Arena } from './MapBuilder';
 import { mapTextureKeys, swapRunTextures } from './runTextures';
 import { Footballer, bodyKey, headKey } from './Footballer';
 import { skinnedTexture } from './skin';
+import { capFps } from '../systems/perf';
 
 type Kit = NonNullable<Manifest['kits']>[string];
 /** 2.3 (author): each one in the kit they wear, friends in green, the top 3 of the ranking with their crown, and the
@@ -78,6 +79,7 @@ export class LobbyScene extends Phaser.Scene {
   }
 
   create() {
+    capFps(this.game, 0); // the menu may have capped it (systems/perf.ts)
     const m = this.cfg.manifest, map = this.map();
     this.arena = new Arena(this, map);
     this.arena.build();

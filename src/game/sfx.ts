@@ -103,6 +103,55 @@ export function sfx(name: 'kick' | 'hit' | 'crit' | 'sweep' | 'boom' | 'pickup' 
   }
 }
 
+/** Modo Duelo: an orb of Garra lights up — a bright blip that climbs with each orb (`i` 0-4); the fifth rings out */
+export function orbSfx(i: number, soft = false) {
+  const f = 760 * 2 ** (i * 2 / 12) * (soft ? 0.8 : 1), k = soft ? 0.5 : 1;
+  tone('triangle', f, f * 1.5, 0.09, 0.09 * k);
+  tone('sine', f * 2, f * 2.2, 0.06, 0.04 * k, 0.02);
+  if (i >= 4) [1, 1.25, 1.5, 2].forEach((m, j) => tone('triangle', f * m, f * m * 1.01, 0.3, 0.06 * k, 0.08 + j * 0.06));
+}
+/** Modo Duelo: the ulti is ready — a rising swell and a chord with a bell on top */
+export function ultiReadySfx() {
+  noise(0.5, 0.12, 3000);
+  tone('sine', 220, 880, 0.45, 0.12);
+  [523, 659, 784, 1046, 1318].forEach((f, i) => tone('triangle', f, f * 1.01, 0.5, 0.07, 0.4 + i * 0.05));
+  tone('sine', 2093, 2093, 0.9, 0.05, 0.55);
+}
+/** Modo Duelo: each element sounds its own way when a technique is cast and when it lands — Fuego roars and crackles,
+ *  Aire gusts and whistles, Montaña rumbles and cracks like rock, Bosque rustles with a wooden knock; `big` (a critical,
+ *  an ulti, a combined technique) adds weight. Neutro keeps the plain hit. */
+export function elementSfx(element: string, when: 'cast' | 'hit', big = false) {
+  const key = `el-${when}`, now = performance.now();
+  if (now - (lastPlayed.get(key) ?? 0) < (when === 'hit' ? 90 : 200)) return;
+  lastPlayed.set(key, now);
+  const v = 0.9 + Math.random() * 0.2, k = big ? 1.35 : 1;
+  switch (element) {
+    case 'Fuego':
+      if (when === 'cast') { noise(0.45, 0.22 * k, 900); tone('sawtooth', 140 * v, 320 * v, 0.4, 0.08); }
+      else { noise(0.28, 0.32 * k, 1600); tone('sawtooth', 320 * v, 90, 0.25, 0.1 * k); }
+      for (let i = 0; i < (big ? 7 : 4); i++) noise(0.02, 0.22, 4200, 0.03 + Math.random() * 0.3); // crackle
+      break;
+    case 'Aire':
+      if (when === 'cast') { tone('sine', 500 * v, 1500 * v, 0.45, 0.07); noise(0.5, 0.18 * k, 2600); }
+      else { noise(0.3, 0.28 * k, 3200); tone('sine', 1400 * v, 400 * v, 0.22, 0.08 * k); }
+      if (big) [1318, 1760, 2093].forEach((f, i) => tone('triangle', f, f, 0.25, 0.05, 0.08 + i * 0.06)); // chimes
+      break;
+    case 'Montaña':
+      if (when === 'cast') { noise(0.6, 0.3 * k, 260); tone('sine', 70, 45, 0.55, 0.22); }
+      else { noise(0.14, 0.4 * k, 900); tone('square', 150 * v, 55, 0.2, 0.14 * k); noise(0.5, 0.25 * k, 220, 0.05); }
+      if (big) tone('sine', 52, 30, 0.8, 0.3, 0.05); // the ground answers
+      break;
+    case 'Bosque':
+      if (when === 'cast') for (let i = 0; i < 6; i++) noise(0.05, 0.12, 5000, i * 0.05 + Math.random() * 0.03); // leaves
+      else { tone('triangle', 560 * v, 300 * v, 0.12, 0.14 * k); noise(0.12, 0.2 * k, 2200); }
+      tone('triangle', 1800 * v, 2600 * v, 0.06, 0.04, when === 'cast' ? 0.2 : 0.1); // a chirp
+      if (big) tone('triangle', 2400 * v, 3200 * v, 0.05, 0.04, 0.22);
+      break;
+    default:
+      if (when === 'hit') tone('square', 420 * v, 160 * v, 0.06, 0.08);
+  }
+}
+
 // ---------------------------------------------------------------------------------------------------------------
 // 2.1 (author: «más épico», and by affinity): the awakening of a warrior spirit. Four beats: a rising drone with a noise
 // riser, a deep impact, a sustained fanfare chord with bells, and the element's own texture — Fuego crackles on a

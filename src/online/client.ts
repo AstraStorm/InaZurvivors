@@ -212,6 +212,9 @@ export const seasonRunFinish = (runId: string, timeSec: number, rank: string, ki
 export const seasonClaimLevels = (track: 'normal' | 'premium', levels: number[]) =>
   rpc<{ track: 'normal' | 'premium'; level: number; reward: SeasonReward }[]>('season_claim', { p_track: track, p_levels: levels });
 export const seasonBuyNormalKey = () => rpc<ServerSeasonState>('season_buy_normal_key', {});
+/** Modo Duelo: a match against the CPU opens on the server and closes once; a win of a real match pays its coins */
+export const duelStart = (level: 'facil' | 'normal' | 'dificil') => rpc<string>('duel_start', { p_level: level });
+export const duelFinish = (run: string, won: boolean) => rpc<{ coins: number; left: number; why: 'paid' | 'lost' | 'short' | 'cap' | 'closed' }>('duel_finish', { p_run: run, p_won: won });
 
 export const putCloudSave = (data: unknown, expected: number) => rpc<number>('put_save', { p_data: data, p_expected: expected });
 export interface CloudSave { data: unknown; version: number; updated_at: string }

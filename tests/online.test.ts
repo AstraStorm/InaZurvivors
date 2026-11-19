@@ -1084,3 +1084,67 @@ describe('3.0 season pass on the server (forging the key, the EXP and the claims
     await expect(api('', `select public.season_run_start($1, false)`, [uuid(20)])).rejects.toThrow();
   });
 });
+
+describe('Modo Duelo: the 30.000 coins of a CPU win, paid by the server', () => {
+  const users = ['duel_a', 'duel_b'];
+  const saved = async (u: string) => ((await as(u, 'select data from public.get_save()')).rows[0] as { data: Record<string, any> }).data; // eslint-disable-line @typescript-eslint/no-explicit-any
+  const put = async (u: string, data: unknown) => {
+    await db.query(`update public.saves set updated_at = now() - interval '1 minute' where user_id = $1`, [ids[u]]);
+    const v = (await db.query('select version from public.saves where user_id = $1', [ids[u]])).rows[0] as { version: number } | undefined;
+    await api(u, 'select public.put_save($1::jsonb, $2)', [JSON.stringify(data), v?.version ?? 0]);
+  };
+  const start = async (u: string, level = 'normal') => ((await api(u, 'select public.duel_start($1) as id', [level])).rows[0] as { id: string }).id;
+  const finish = async (u: string, run: string, won: boolean) => ((await api(u, 'select public.duel_finish($1, $2) as r', [run, won])).rows[0] as { r: { coins: number; left: number; why: string } }).r;
+  const played = (run: string, iv = '3 minutes') => db.query(`update private.duel_runs set started_at = started_at - $2::interval where id = $1`, [run, iv]);
+  beforeAll(async () => {
+    for (const [i, u] of users.entries()) {
+      ids[u] = `00000000-0000-0000-0000-0000000040${i}0`;
+      await db.query('insert into auth.users (id, email) values ($1, $2)', [ids[u], `${u}@example.test`]);
+    }
+  });
+
+  it('a win of a real match pays 30.000 once; too short, lost, twice or someone else\'s pays nothing', async () => {
+    const fast = await start('duel_a');
+    expect(await finish('duel_a', fast, true)).toMatchObject({ coins: 0, why: 'short' });
+    const lost = await start('duel_a');
+    await played(lost);
+    expect(await finish('duel_a', lost, false)).toMatchObject({ coins: 0, why: 'lost' });
+    const run = await start('duel_a');
+    await played(run);
+    expect(await finish('duel_b', run, true)).toMatchObject({ coins: 0 }); // not duel_b's
+    expect(await finish('duel_a', run, true)).toMatchObject({ coins: 30000, why: 'paid', left: 9 });
+    expect(await finish('duel_a', run, true)).toMatchObject({ coins: 0, why: 'closed' });
+  });
+  it('a new match closes the open one without pay', async () => {
+    const a = await start('duel_a');
+    await played(a);
+    await start('duel_a');
+    expect(await finish('duel_a', a, true)).toMatchObject({ coins: 0, why: 'closed' });
+  });
+  it('ten paid wins a day at most', async () => {
+    for (let k = 0; k < 9; k++) { const r = await start('duel_b'); await played(r); expect((await finish('duel_b', r, true)).coins).toBe(30000); }
+    const r = await start('duel_b');
+    await played(r);
+    expect((await finish('duel_b', r, true)).coins).toBe(30000);
+    const over = await start('duel_b');
+    await played(over);
+    expect(await finish('duel_b', over, true)).toMatchObject({ coins: 0, why: 'cap', left: 0 });
+  });
+  it('the economy cap lets the save keep the coins the server paid, and no more', async () => {
+    // the wins of the tests above are older than this save (put dates the previous write a minute back)
+    await db.query(`update private.duel_runs set paid_at = paid_at - interval '1 hour', started_at = started_at - interval '1 hour' where user_id = $1`, [ids.duel_a]);
+    await put('duel_a', { coins: 1000, tokens: 10, owned: {} });
+    const before = (await saved('duel_a')).coins as number;
+    const r = await start('duel_a');
+    await played(r);
+    expect((await finish('duel_a', r, true)).coins).toBe(30000);
+    await put('duel_a', { coins: 99999999, tokens: 10, owned: {} });
+    const c = (await saved('duel_a')).coins as number;
+    expect(c).toBeGreaterThan(before + 30000 + 16000 - 100);
+    expect(c).toBeLessThan(before + 30000 + 16000 + 600);
+  });
+  it('without an account there is no duel to start or finish', async () => {
+    await expect(api('', `select public.duel_start('normal')`)).rejects.toThrow();
+    await expect(api('', `select public.duel_finish($1, true)`, ['00000000-0000-0000-0000-000000000000'])).rejects.toThrow();
+  });
+});

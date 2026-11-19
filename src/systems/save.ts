@@ -113,6 +113,8 @@ export interface SaveData {
   sector?: { side?: 'sector' | 'resistencia' | null; introSeen?: boolean; weekSeen?: number; claimed?: number[] };
   /** v1.65: profile banners owned and the one shown (pennants.ts) */
   pennants?: { owned: string[]; equipped?: string; frame?: string };
+  /** 3.x: Modo Duelo — tutorial won, matches won against the CPU (ui/duelHub.ts) */
+  duel?: { tutorial?: boolean; wins?: number; /** a guest's paid wins of the day (an account's are counted by the server) */ day?: string; paid?: number };
   /** pre-2.0: coaches owned and the one on the bench (coaches.ts) */
   coaches?: { owned: string[]; bench?: string };
   /** pre-2.0: Road to Fútbol Frontier — the road in progress and the clears per difficulty (road.ts) */

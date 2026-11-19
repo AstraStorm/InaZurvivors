@@ -8,6 +8,7 @@ import { Arena } from './MapBuilder';
 import { Footballer, bodyKey, headKey } from './Footballer';
 import { skinnedTexture } from './skin';
 import { mapTextureKeys, swapRunTextures } from './runTextures';
+import { capFps } from '../systems/perf';
 
 /** `kit`: the equipped kit's body sheets; absent = Raimon */
 export interface MenuInit { manifest: Manifest; players: RosterEntry[]; kit?: NonNullable<Manifest['kits']>[string] | null }
@@ -56,6 +57,10 @@ export class MenuScene extends Phaser.Scene {
     const pitch = map.blueprint!.pitches[0];
     const cx = (pitch[0] + pitch[2] / 2) * 32, cy = (pitch[1] + pitch[3] / 2) * 32;
     this.cameras.main.setBounds(0, 0, this.arena.widthPx, this.arena.heightPx).setZoom(1.25).centerOn(cx, cy);
+    // on phones the background behind the menu is drawn at 30 fps (systems/perf.ts); a run gets the full rate back
+    capFps(this.game, 30);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => capFps(this.game, 0));
+    this.events.once(Phaser.Scenes.Events.SLEEP, () => capFps(this.game, 0));
     this.cfg.players.slice(0, 8).forEach((p, i) => {
       const body = m.bodies[p.body] ?? m.bodies.field!;
       // same rule as in a run: the squad wears the equipped kit (keepers its keeper kit when there is one)

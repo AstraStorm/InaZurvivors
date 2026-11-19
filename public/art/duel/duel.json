@@ -1,0 +1,61 @@
+{
+ "pieces": {
+  "marco-legendario": "marco-legendario.webp",
+  "marco-mitico": "marco-mitico.webp",
+  "marco-leyenda": "marco-leyenda.webp",
+  "carta-r1": "carta-r1.webp",
+  "carta-r2": "carta-r2.webp",
+  "carta-r3": "carta-r3.webp",
+  "carta-ulti": "carta-ulti.webp",
+  "carta-reverso": "carta-reverso.webp",
+  "carta-combinada": "carta-combinada.webp",
+  "tipo-ataque": "tipo-ataque.webp",
+  "tipo-area": "tipo-area.webp",
+  "tipo-debilitar": "tipo-debilitar.webp",
+  "tipo-mejora": "tipo-mejora.webp",
+  "tipo-recuperacion": "tipo-recuperacion.webp",
+  "tipo-postura": "tipo-postura.webp",
+  "tipo-especial": "tipo-especial.webp",
+  "tipo-combinada": "tipo-combinada.webp",
+  "estado-quemadura": "estado-quemadura.webp",
+  "estado-congelado": "estado-congelado.webp",
+  "estado-electrizado": "estado-electrizado.webp",
+  "estado-aturdido": "estado-aturdido.webp",
+  "estado-vendaval": "estado-vendaval.webp",
+  "estado-sellada": "estado-sellada.webp",
+  "estado-provocar": "estado-provocar.webp",
+  "estado-escudo": "estado-escudo.webp",
+  "circulo": "circulo.webp",
+  "circulo-rival": "circulo-rival.webp",
+  "circulo-aliado": "circulo-aliado.webp",
+  "boton-turno": "boton-turno.webp",
+  "aro-turno": "aro-turno.webp",
+  "peana": "peana.webp",
+  "garra-vacio": "garra-vacio.webp",
+  "garra-lleno": "garra-lleno.webp"
+ },
+ "anims": {
+  "reloj": {
+   "file": "anim-reloj.webp",
+   "frames": 30,
+   "w": 96,
+   "h": 104
+  },
+  "fusion": {
+   "file": "anim-fusion.webp",
+   "frames": 13,
+   "w": 96,
+   "h": 98
+  },
+  "garra": {
+   "file": "anim-garra.webp",
+   "frames": 16,
+   "w": 96,
+   "h": 97
+  }
+ },
+ "boards": {
+  "mesa-horizontal": "mesa-horizontal.webp",
+  "mesa-vertical": "mesa-vertical.webp"
+ }
+}

@@ -1687,3 +1687,23 @@ body.drag-aura-no .squad-row .aura-mini { opacity: .45; }
 .rk4-l.rk4-z { padding: 3px; } .rk4.on .rk4-l.rk4-z { background: radial-gradient(circle, #fff 0 35%, #ffd0d6 70%, #ff2a45); }
 .rk4-l.rk4-z .z-emblem { filter: drop-shadow(1px 2px 0 #0007); } .rk4.on .rk4-l.rk4-z .z-emblem { animation: zBob 2.4s ease-in-out infinite; }
 .z-emblem.z-inl { display: inline-block; width: 1.3em; height: 1.3em; vertical-align: -0.3em; }
+
+/* 3.0: the rewards screen's pixel art (public/art/ui/misiones-iconos.png, 20 cells; app.ts MISSION_ART) */
+.mart.mis { background-size: 2000% 100%; background-position: calc(var(--mi) * 100% / 19) 0; }
+.rw-ic .mart.mis { width: 128%; height: 128%; margin: -14%; filter: drop-shadow(0 2px 0 #0009); }
+.rw-card.reclamadas .rw-ic .mart.mis { filter: drop-shadow(0 2px 0 #0009) saturate(.7); }
+.rw-hero-ic .mart.mis { width: 118%; height: 118%; margin: -9%; }
+.rw-tab .m4-ic.rw-tic { background: none; box-shadow: none; overflow: visible; }
+.rw-tab .m4-ic.rw-tic::after { display: none; }
+.rw-tab .m4-ic.rw-tic .mart.mis { width: 140%; height: 140%; margin: -20%; transition: transform .15s cubic-bezier(.2, 1.6, .4, 1); }
+.rw-tab:hover .m4-ic.rw-tic .mart.mis, .rw-tab.on .m4-ic.rw-tic .mart.mis { transform: scale(1.12) rotate(-6deg); }
+.rw-chip .mart.mis { display: inline-block; width: 18px; height: 18px; margin: -4px 2px -4px -4px; vertical-align: middle; }
+.ach-medal .mart.mis { width: 120%; height: 120%; margin: -10%; }
+.m5-big.m5-mis .mart.mis { display: block; width: 84px; height: 84px; }
+
+/* Parche de rendimiento (systems/perf.ts): on phones the decorations that repaint every frame stop — shines moved with
+   `left`, backgrounds animated by position or filter, and the drawn frames' SVG sparkles, wings, spins and glows */
+body.lowfx .frame.fr-art *, body.lowfx .fr-spin, body.lowfx .pnr-shine-art, body.lowfx .m5-shine, body.lowfx .pn-ribbon,
+body.lowfx .cd30, body.lowfx .m5-bg, body.lowfx .pna-anim { animation: none !important; }
+body.lowfx .frame.fr-art .fa-img { filter: drop-shadow(0 0 3px var(--ac)); }
+body.lowfx .pnr-shine-art, body.lowfx .m5-shine { display: none; }

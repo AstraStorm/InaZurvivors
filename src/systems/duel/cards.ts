@@ -1,0 +1,201 @@
+/**
+ * Modo Duelo (author: «un modo como el nanatsu, pero que se vea en partida como el hearthstone»): the closed list of 50
+ * footballers, each with 2 technique cards and 1 ulti, as the rules engine reads them (rules.ts). The design lives in the
+ * author's doc «InaZurvivors — Modo Duelo: reglamento»; every technique here is one the footballer has in the game
+ * (tests/duel.test.ts checks it against the manifest).
+ */
+import type { Rarity } from '../../data/manifest';
+
+export type CardKind = 'ataque' | 'area' | 'debilitar' | 'mejora' | 'recuperacion' | 'postura' | 'especial';
+export type StatusId = 'quemadura' | 'congelado' | 'electrizado' | 'aturdido' | 'provocar';
+export type Cond = 'targetHasStatus' | 'targetFrozen' | 'targetElectrified' | 'targetGK' | 'targetLowestHp' | 'lastEnemy'
+  | 'targetTaunt' | 'selfHpBelow50' | 'selfHpAbove70' | 'firstCard' | 'lastAction' | 'fwCardsInHand2';
+export type Per = 'ownCardsInHand' | 'groupCardsInHand' | 'r3InHand' | 'alliesAlive' | 'ownCardsUsedThisTurn';
+
+/** one effect; `min` = the lowest rank it works at (default 1) */
+export type Fx = { min?: 1 | 2 | 3 } & (
+  | { do: 'status'; s: StatusId; turns?: number; sure?: boolean }
+  | { do: 'gale' } // the target's side gets 1 card less next turn
+  | { do: 'pierce'; pct: number } | { do: 'ignoreStance' } | { do: 'ignoreTaunt' } | { do: 'ignoreDef' }
+  | { do: 'bonusIf'; cond: Cond; pct: number } | { do: 'bonusPer'; per: Per; pct: number }
+  | { do: 'critBonus'; pct: number } | { do: 'critSure' } | { do: 'hits'; n: number; each: number } | { do: 'randomHits'; n: number }
+  | { do: 'repeatOnCrit' } | { do: 'selfDamage'; pct: number } | { do: 'actionOnKo' } | { do: 'alwaysAdvantage' }
+  | { do: 'rankDown'; who: 'target' | 'eachEnemy' | 'allOfTarget'; n?: number } | { do: 'seal'; n: number } | { do: 'destroy'; minRank: number }
+  | { do: 'stealGauge'; n: number; each?: boolean } | { do: 'decoys'; n: number } | { do: 'faceDown' } | { do: 'enemyActions'; n: number }
+  | { do: 'shield'; who: 'all' | 'ally' | 'self'; pct: [number, number, number] } | { do: 'heal'; who: 'all' | 'ally' | 'self'; pct: [number, number, number] }
+  | { do: 'block'; who: 'ally' | 'team'; n: [number, number, number]; reflect?: number; rankDownAttacker?: boolean; gaugeSelf?: number }
+  | { do: 'dodge'; n: [number, number, number]; stealGauge?: number; gaugeSelf?: number }
+  | { do: 'counter'; mult: number; guardsTaunt?: boolean } | { do: 'reflect'; pct: number; burn?: boolean } | { do: 'endure' }
+  | { do: 'reduce'; scope: 'area' | 'all'; pct: number } | { do: 'mine'; mult: number } | { do: 'statusGuard' } | { do: 'immune' }
+  | { do: 'cleanse' } | { do: 'taunt'; turns: [number, number, number]; defPct?: number }
+  | { do: 'buff'; who: 'team' | 'self'; stat: 'atk'; pct: [number, number, number]; turns?: number }
+  | { do: 'debuff'; stat: 'atk' | 'def' | 'atkdef'; pct: number; turns?: number; area?: boolean }
+  | { do: 'vulnerable'; pct: number } | { do: 'noHeal' } | { do: 'blind'; pct: number }
+  | { do: 'rankUp'; which: 'other' | 'random' | 'right' | 'allOwn' | 'allMine'; n?: number; players?: number[] }
+  | { do: 'createCard'; rank: number } | { do: 'freeMoves'; n: number } | { do: 'freeSwap' } | { do: 'extraAction'; n: number }
+  | { do: 'chooseNext'; n: number } | { do: 'gaugeSelf'; n: number } | { do: 'gaugeAllies'; n: number } | { do: 'gaugeTo'; pid: number; n: number }
+  | { do: 'peekSeal' } | { do: 'mergeBoost' } | { do: 'cardsSealedUse' } | { do: 'selfStun' }
+);
+
+export interface CardSpec { tech: string; kind: CardKind; fx: Fx[]; mult?: [number, number, number] }
+export interface UltiSpec { tech: string; area?: boolean; mult: number; fx: Fx[] }
+export type DuelGroup = 'Inazuma Japan' | 'Royal Academy' | 'Alius y Zeus' | 'Selecciones' | 'Raimon GO' | 'Protocolo Omega'
+  | 'Héroes de la historia' | 'Zero y Zan' | 'Ares y Orion';
+export interface DuelPlayer { id: number; group: DuelGroup; cards: [CardSpec, CardSpec]; ulti: UltiSpec; mixiMax?: boolean; family?: number }
+
+const c = (tech: string, kind: CardKind, ...fx: Fx[]): CardSpec => ({ tech, kind, fx });
+const u = (tech: string, mult: number, ...fx: Fx[]): UltiSpec => ({ tech, mult, fx });
+const ua = (tech: string, mult: number, ...fx: Fx[]): UltiSpec => ({ tech, mult, area: true, fx });
+const P = (id: number, group: DuelGroup, a: CardSpec, b: CardSpec, ulti: UltiSpec, extra: Partial<DuelPlayer> = {}): DuelPlayer => ({ id, group, cards: [a, b], ulti, ...extra });
+
+export const DUEL_PLAYERS: DuelPlayer[] = [
+  P(1, 'Inazuma Japan', c('Mano mágica', 'postura', { do: 'block', who: 'ally', n: [1, 1, 1] }, { do: 'block', who: 'ally', n: [1, 1, 1], reflect: 50, min: 3 }),
+    c('Superpuño invencible', 'debilitar', { do: 'rankDown', who: 'target' }), u('Mano celestial', 0, { do: 'shield', who: 'all', pct: [30, 30, 30] }, { do: 'taunt', turns: [2, 2, 2] })),
+  P(10, 'Inazuma Japan', c('Tornado de fuego', 'ataque', { do: 'bonusPer', per: 'ownCardsInHand', pct: 15 }),
+    c('Trampolín relámpago', 'ataque', { do: 'status', s: 'electrizado', min: 2 }), ua('Tormenta de fuego', 3, { do: 'status', s: 'quemadura' })),
+  P(29, 'Royal Academy', c('Espejismo de balón', 'especial', { do: 'rankUp', which: 'other' }),
+    c('Corte giratorio', 'debilitar', { do: 'debuff', stat: 'def', pct: 20 }), u('Empuje trillizo', 5, { do: 'gaugeAllies', n: 1 })),
+  P(1513, 'Inazuma Japan', c('Regate aurora', 'postura', { do: 'dodge', n: [1, 1, 2] }),
+    c('Chut congelante', 'ataque', { do: 'status', s: 'congelado', min: 3 }), u('Ventisca eterna', 5, { do: 'status', s: 'congelado' }) /* ×2 on a frozen rival: the general «rompe el hielo» */),
+  P(2, 'Inazuma Japan', c('Entrada huracán', 'especial', { do: 'stealGauge', n: 1 }, { do: 'stealGauge', n: 1, min: 3 }),
+    c('Defensa múltiple', 'postura', { do: 'reduce', scope: 'area', pct: 30 }), u('Pájaro de fuego', 5, { do: 'ignoreStance' })),
+  P(3, 'Inazuma Japan', c('El muro', 'postura', { do: 'taunt', turns: [1, 2, 3], defPct: 30 }),
+    c('Regate topo', 'debilitar', { do: 'status', s: 'aturdido', min: 2 }), ua('Presa', 2, { do: 'debuff', stat: 'atk', pct: 40 })),
+  P(1567, 'Inazuma Japan', c('Remate tsunami', 'area', { do: 'rankDown', who: 'eachEnemy', min: 3 }),
+    c('Bloqueo ballena', 'postura', { do: 'counter', mult: 1.5, guardsTaunt: true }), ua('Gran tifón', 3, { do: 'gale' })),
+  P(1541, 'Royal Academy', c('Engaño yoyó', 'debilitar', { do: 'seal', n: 1 }, { do: 'seal', n: 1, min: 3 }),
+    c('Barrido defensivo', 'area', { do: 'bonusIf', cond: 'targetHasStatus', pct: 50 }), u('Coz 2', 5, { do: 'status', s: 'aturdido' })),
+  P(1532, 'Royal Academy', c('Escudo de fuerza total', 'recuperacion', { do: 'shield', who: 'all', pct: [15, 25, 40] }),
+    c('Destrozataladros', 'postura', { do: 'block', who: 'team', n: [1, 1, 1], rankDownAttacker: true }), u('Colmillo de pantera', 4, { do: 'taunt', turns: [2, 2, 2] })),
+  P(1542, 'Royal Academy', c('Pingüino emp. n.º 2', 'ataque', { do: 'bonusPer', per: 'groupCardsInHand', pct: 20 }),
+    c('Avance flamígero', 'ataque', { do: 'ignoreStance' }), u('Pingüino emp. n.º 1', 6, { do: 'selfDamage', pct: 10 })),
+  P(157, 'Alius y Zeus', c('Hora celestial', 'especial', { do: 'seal', n: 1 }, { do: 'seal', n: 1, min: 2 }, { do: 'enemyActions', n: 1, min: 3 }),
+    c('Sabiduría divina', 'ataque', { do: 'gaugeSelf', n: 1 }), u('Disparo sagrado', 5, { do: 'ignoreDef' })),
+  P(101722, 'Alius y Zeus', c('Lluvia de meteoros', 'area', { do: 'randomHits', n: 3 }),
+    c('Cañón de meteoritos', 'ataque', { do: 'pierce', pct: 30, min: 2 }), u('Descenso estelar', 5, { do: 'rankUp', which: 'allOwn' })),
+  P(1370, 'Alius y Zeus', c('Bomba géiser', 'area', { do: 'gale', min: 2 }),
+    c('Hora celestial', 'especial', { do: 'rankDown', who: 'eachEnemy' }), u('Balón Iceberg', 5, { do: 'status', s: 'congelado', sure: true })),
+  P(1371, 'Alius y Zeus', c('Pantalla ígnea', 'postura', { do: 'reflect', pct: 30, burn: true }),
+    c('Remolino ígneo', 'area', { do: 'bonusIf', cond: 'targetFrozen', pct: 60 }, { do: 'status', s: 'quemadura' }), u('Llamarada atómica', 5, { do: 'status', s: 'quemadura', turns: 3 })),
+  P(1548, 'Inazuma Japan', c('Mano mágica', 'postura', { do: 'block', who: 'ally', n: [1, 1, 1] }),
+    c('Paipay gigante', 'debilitar', { do: 'gale' }), u('Manos infinitas', 0, { do: 'shield', who: 'all', pct: [35, 35, 35] }, { do: 'immune' })),
+  P(1024, 'Selecciones', c('Espejismo de balón', 'especial', { do: 'freeMoves', n: 2 }),
+    c('Baile de llamas', 'debilitar', { do: 'status', s: 'quemadura', min: 2 }), u('Fénix', 4, { do: 'heal', who: 'self', pct: [20, 20, 20] })),
+  P(101719, 'Inazuma Japan', c('Remate del tigre', 'ataque', { do: 'bonusIf', cond: 'fwCardsInHand2', pct: 25 }),
+    c('Cortafuegos', 'postura', { do: 'statusGuard' }), u('Colmillo retorcido', 5, { do: 'rankDown', who: 'allOfTarget' })),
+  P(101894, 'Selecciones', c('Mano espiritual', 'recuperacion', { do: 'heal', who: 'ally', pct: [15, 25, 40] }),
+    c('Ataque cortante', 'debilitar', { do: 'debuff', stat: 'atk', pct: 25 }), u('Mano celestial X', 0, { do: 'shield', who: 'all', pct: [40, 40, 40] }, { do: 'taunt', turns: [2, 2, 2] })),
+  P(100773, 'Selecciones', c('Bimano celestial', 'postura', { do: 'block', who: 'team', n: [2, 2, 2] }),
+    c('Bloque de hielo', 'ataque', { do: 'status', s: 'congelado', min: 2 }), u('Mano celestial X', 0, { do: 'shield', who: 'all', pct: [50, 50, 50] }, { do: 'gaugeAllies', n: 2 })),
+  P(101855, 'Selecciones', c('Himno de Atenea', 'mejora', { do: 'buff', who: 'team', stat: 'atk', pct: [20, 30, 45] }),
+    c('Espada de Odín', 'ataque', { do: 'pierce', pct: 30 }), u('Disparo doble', 0, { do: 'hits', n: 2, each: 3 })),
+  P(101838, 'Selecciones', c('Ultra lunar', 'especial', { do: 'createCard', rank: 2 }),
+    c('Leopardo de la ventisca', 'ataque', { do: 'status', s: 'congelado', min: 3 }), u('Remate Pegaso', 5, { do: 'extraAction', n: 1 })),
+  P(101791, 'Selecciones', c('Ataque de paladín', 'ataque', { do: 'bonusIf', cond: 'targetGK', pct: 30 }),
+    c('Viento celestial', 'area', { do: 'gale', min: 2 }), u('Excalibur', 5, { do: 'ignoreTaunt' }, { do: 'bonusIf', cond: 'selfHpAbove70', pct: 50 })),
+  P(101775, 'Selecciones', c('Rizo de dragón', 'ataque', { do: 'pierce', pct: 25, min: 2 }),
+    c('Tiro Torre de Osaka', 'ataque', { do: 'bonusIf', cond: 'lastAction', pct: 30 }), ua('Dragón terrestre', 3, { do: 'status', s: 'aturdido' })),
+  P(101871, 'Selecciones', c('Golpe de samba', 'ataque', { do: 'rankUp', which: 'right' }),
+    c('Regate supersónico', 'postura', { do: 'dodge', n: [1, 1, 1] }), u('Súper elástica', 4, { do: 'gaugeAllies', n: 1 })),
+  P(100538, 'Raimon GO', c('Brisa deslizante', 'especial', { do: 'freeMoves', n: 1 }, { do: 'mergeBoost' }),
+    c('Túnel tornado', 'postura', { do: 'dodge', n: [1, 1, 1], stealGauge: 1 }), ua('Tormenta, tornado, huracán', 3, { do: 'rankUp', which: 'allMine' }), { family: 100538 }),
+  P(100562, 'Raimon GO', c('Avance chispeante', 'ataque', { do: 'status', s: 'electrizado', min: 2 }),
+    c('Aguijón letal', 'ataque', { do: 'critSure', min: 3 }), u('Tiro sobrenatural', 5, { do: 'bonusPer', per: 'ownCardsUsedThisTurn', pct: 30 }), { family: 100562 }),
+  P(100728, 'Raimon GO', c('Mano celestial V', 'postura', { do: 'block', who: 'ally', n: [1, 1, 2] }),
+    c('Manos infinitas', 'recuperacion', { do: 'shield', who: 'all', pct: [12, 20, 32] }), u('Cohete al espacio', 4, { do: 'taunt', turns: [1, 1, 1] })),
+  P(100580, 'Raimon GO', c('Taconazo parkour', 'ataque', { do: 'ignoreTaunt' }),
+    c('Patín aéreo', 'postura', { do: 'dodge', n: [1, 1, 1] }), u('Remate celestial', 5, { do: 'bonusIf', cond: 'lastEnemy', pct: 100 })),
+  P(100427, 'Raimon GO', c('Pasos aéreos', 'postura', { do: 'dodge', n: [1, 1, 1], gaugeSelf: 1 }),
+    c('Proyectil de ozono', 'area', { do: 'debuff', stat: 'def', pct: 15, area: true }), u('Despliegue de señuelos', 0, { do: 'decoys', n: 2 }, { do: 'seal', n: 2 })),
+  P(100944, 'Zero y Zan', c('Ciclón blanco', 'area', { do: 'gale', min: 2 }),
+    c('Regate supersónico', 'postura', { do: 'dodge', n: [1, 1, 1] }), u('Rizo de dragón', 5, { do: 'gaugeTo', pid: 100303, n: 2 })),
+  P(100303, 'Zero y Zan', c('Ceniza negra', 'debilitar', { do: 'noHeal' }),
+    c('Salto dimensional', 'especial', { do: 'freeSwap' }), ua('El ojo del huracán', 3, { do: 'stealGauge', n: 1, each: true })),
+  P(100242, 'Zero y Zan', c('Caída planetaria', 'area', { do: 'status', s: 'aturdido', min: 3 }),
+    c('Salto explosivo', 'ataque', { do: 'bonusIf', cond: 'selfHpBelow50', pct: 40 }), u('Golpe cataclismo', 6, { do: 'selfStun' }), { family: 100242 }),
+  P(102307, 'Protocolo Omega', c('Barrena voladora', 'ataque', { do: 'pierce', pct: 25, min: 2 }),
+    c('Disparo doble', 'ataque', { do: 'hits', n: 2, each: 0.6 }), u('Ataque Omega', 5, { do: 'rankUp', which: 'allOwn', players: [101572, 100487] })),
+  P(101572, 'Protocolo Omega', c('Tiro rotativo', 'ataque', { do: 'repeatOnCrit' }),
+    c('Mina terrestre', 'postura', { do: 'mine', mult: 1.5 }), u('Gol gaussiano', 5, { do: 'pierce', pct: 40 })),
+  P(100487, 'Protocolo Omega', c('Círculo de hielo', 'debilitar', { do: 'status', s: 'congelado', min: 3 }),
+    c('Formateo de disco', 'especial', { do: 'cleanse' }, { do: 'rankDown', who: 'target' }), ua('Giro atómico', 3)),
+  P(100739, 'Raimon GO', c('Luz cegadora', 'debilitar', { do: 'blind', pct: 50 }),
+    c('Avance chispeante', 'ataque', { do: 'status', s: 'electrizado', min: 2 }), ua('Tormenta solar', 3, { do: 'status', s: 'quemadura' })),
+  P(101308, 'Ares y Orion', c('Polvo de estrellas azul', 'especial', { do: 'rankUp', which: 'random', n: 2 }),
+    c('Cruz del sur', 'postura', { do: 'reduce', scope: 'all', pct: 20 }), ua('Tormenta estelar', 3, { do: 'bonusPer', per: 'r3InHand', pct: 20 })),
+  P(100405, 'Raimon GO', c('Niebla mística', 'debilitar', { do: 'faceDown' }),
+    c('Trance melódico', 'recuperacion', { do: 'heal', who: 'all', pct: [10, 16, 25] }), u('Cruz del sur', 0, { do: 'shield', who: 'all', pct: [30, 30, 30] }, { do: 'cleanse' })),
+  P(102185, 'Raimon GO', c('Manos liberadas', 'postura', { do: 'block', who: 'team', n: [1, 1, 1], gaugeSelf: 1 }),
+    c('Barrera de Gaia', 'recuperacion', { do: 'shield', who: 'ally', pct: [25, 40, 60] }), u('Mano celestial X', 0, { do: 'shield', who: 'all', pct: [40, 40, 40] }, { do: 'reflect', pct: 30 })),
+  P(101505, 'Héroes de la historia', c('Himno de Atenea', 'mejora', { do: 'buff', who: 'team', stat: 'atk', pct: [20, 30, 45] }),
+    c('Espada de Odín', 'ataque', { do: 'pierce', pct: 30 }), u('Espada real', 5, { do: 'bonusIf', cond: 'targetTaunt', pct: 100 })),
+  P(100382, 'Héroes de la historia', c('Furia de los elementos', 'ataque', { do: 'alwaysAdvantage' }),
+    c('Dragón ascendente', 'mejora', { do: 'buff', who: 'self', stat: 'atk', pct: [25, 40, 60] }), u('Impulso efímero', 4, { do: 'bonusIf', cond: 'firstCard', pct: 50 })),
+  P(101488, 'Héroes de la historia', c('Rapto divino', 'especial', { do: 'peekSeal' }),
+    c('Hora celestial', 'debilitar', { do: 'debuff', stat: 'atkdef', pct: 20 }), ua('Tormenta eléctrica', 3, { do: 'bonusIf', cond: 'targetElectrified', pct: 100 }, { do: 'status', s: 'electrizado' })),
+  P(101520, 'Raimon GO', c('Espada real', 'ataque', { do: 'pierce', pct: 50 }),
+    c('Túnel tornado', 'postura', { do: 'dodge', n: [1, 1, 1], stealGauge: 1 }), ua('Tormenta, tornado, huracán', 4, { do: 'rankUp', which: 'allMine' }), { mixiMax: true, family: 100538 }),
+  P(101004, 'Raimon GO', c('Katana crisantemo', 'ataque', { do: 'critBonus', pct: 30 }),
+    c('Chut ancestral', 'ataque', { do: 'ignoreStance', min: 2 }), u('Tiro sobrenatural', 6, { do: 'gaugeSelf', n: 0 }), { mixiMax: true, family: 100562 }),
+  P(100952, 'Zero y Zan', c('Estrella de roca', 'area', { do: 'status', s: 'aturdido', min: 2 }),
+    c('Corte diabólico', 'debilitar', { do: 'vulnerable', pct: 20 }), ua('Golpe cataclismo', 4), { mixiMax: true, family: 100242 }),
+  P(100797, 'Raimon GO', c('Círculo de hielo', 'debilitar', { do: 'status', s: 'congelado', min: 3 }),
+    c('Abrazo del oso', 'postura', { do: 'endure' }), u('Furia de oso', 5, { do: 'status', s: 'aturdido' })),
+  P(101504, 'Ares y Orion', c('Entrada relámpago', 'ataque', { do: 'status', s: 'electrizado', min: 2 }),
+    c('Luz cegadora', 'debilitar', { do: 'blind', pct: 50 }), u('Amanecer detonante', 5, { do: 'bonusPer', per: 'alliesAlive', pct: 15 })),
+  P(100979, 'Ares y Orion', c('Pingüino aéreo', 'ataque', { do: 'ignoreTaunt', min: 2 }),
+    c('Tiburón de las profundidades', 'ataque', { do: 'bonusIf', cond: 'targetLowestHp', pct: 50 }, { do: 'actionOnKo' }), u('Pingüino perfecto', 5, { do: 'ignoreStance' })),
+  P(100905, 'Ares y Orion', c('Proyectil de ozono', 'debilitar', { do: 'debuff', stat: 'def', pct: 20 }),
+    c('Golpe de la luna creciente', 'ataque', { do: 'rankDown', who: 'target', min: 2 }), u('Lanza real', 5, { do: 'chooseNext', n: 2 })),
+  P(100907, 'Ares y Orion', c('Zigzag veloz', 'ataque', { do: 'hits', n: 2, each: 0.6 }),
+    c('Ataque meteorito', 'area', { do: 'bonusIf', cond: 'firstCard', pct: 0 }), u('El detonador', 5, { do: 'destroy', minRank: 2 })),
+];
+export const DUEL_BY_ID = new Map(DUEL_PLAYERS.map((p) => [p.id, p]));
+
+/** Kira Hiroto's Ataque meteorito: +30 % with Haizaki on the pitch (the one pairing the generic conditions don't cover) */
+export const ALLY_ON_FIELD_BONUS: Record<string, { ally: number; pct: number }> = { '100907:1': { ally: 100979, pct: 30 } };
+
+/** the game's combined techniques among the 50 (combos.ts): their cards side by side fuse into the combo */
+export const DUEL_COMBOS: { name: string; players: number[] }[] = [
+  { name: 'Campo de fuerza', players: [29, 1541] }, { name: 'Cometa legendario', players: [29, 10] },
+  { name: 'Combo cósmico', players: [101722, 100907] }, { name: 'El huracán', players: [2, 1513] },
+  { name: 'Frente frío', players: [1513, 100797] }, { name: 'Fuego cruzado', players: [10, 1513] },
+  { name: 'Gran explosión', players: [100944, 100562] }, { name: 'La Aurora', players: [157, 100303] },
+  { name: 'La Aurora', players: [101722, 1513] }, { name: 'Pingüinos de luz y sombra', players: [100979, 100907] },
+  { name: 'Súper relámpago', players: [1, 10] }, { name: 'Tormenta del tigre', players: [10, 101719] },
+  { name: 'Tornado dirección doble', players: [100538, 100562] }, { name: 'Ventisca de fuego', players: [1371, 1370] },
+  { name: 'Zero Magnum', players: [100944, 100303] },
+  { name: 'La Tierra', players: [1, 10, 1513] }, { name: 'Big Bang', players: [101722, 29, 1513] },
+  { name: 'Fuego total', players: [101722, 101719, 10] }, { name: 'Remate caótico', players: [157, 1371, 1370] },
+  { name: 'Ruptura relámpago', players: [29, 1, 10] }, { name: 'Tiro a reacción', players: [1, 10, 101719] },
+  { name: 'Último recurso', players: [100905, 100979, 101504] },
+];
+
+/** the 5 coaches and their match passive (rules.ts applies them); `group` = whose players make it worth 50 % more */
+export const DUEL_COACHES = [
+  { id: 'hillman', groups: ['Inazuma Japan', 'Raimon GO'] as DuelGroup[] },
+  { id: 'ray-dark', groups: ['Royal Academy'] as DuelGroup[] },
+  { id: 'travis', groups: ['Inazuma Japan'] as DuelGroup[] },
+  { id: 'david-evans', groups: ['Selecciones'] as DuelGroup[] },
+  { id: 'mister-d', groups: ['Selecciones'] as DuelGroup[] },
+] as const;
+export type CoachId = (typeof DUEL_COACHES)[number]['id'];
+
+/** stats as the doc's formulas give them (rarity, position, the technique powers that set the duplicates apart) */
+export interface DuelStats { hp: number; atk: number; def: number; crit: number; critDmg: number; pierce: number; res: number }
+const RAR_MULT: Partial<Record<Rarity, number>> = { legendario: 1.26, mitico: 1.36, leyenda: 1.48 };
+const ROLE: Record<string, [number, number, number]> = { GK: [0.8, 1.25, 1.15], DF: [0.9, 1.15, 1.05], MF: [1, 1, 1], FW: [1.15, 0.9, 0.95] };
+const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
+export function duelStats(p: { rarity: Rarity; position: string; stats: Record<string, number>; techniques: { type: string; power?: number }[] }): DuelStats {
+  const s = p.stats, m = RAR_MULT[p.rarity] ?? 1.26, [a, d, h] = ROLE[p.position] ?? ROLE.MF;
+  const best = (...ty: string[]) => Math.max(...p.techniques.filter((t) => ty.includes(t.type)).map((t) => t.power ?? 0), 0) || 60;
+  return {
+    hp: Math.round(Math.round((s.stamina + s.guts) * 12 * m * h) * (0.9 + 0.1 * best('regate', 'defensa', 'parada') / 100)),
+    atk: Math.round(Math.round((s.kick + 0.4 * s.body) * 3 * m * a) * (0.85 + 0.15 * best('tiro') / 100)),
+    def: Math.round(Math.round((s.guard + 0.5 * s.body) * 2 * m * d) * (0.85 + 0.15 * best('defensa', 'parada') / 100)),
+    crit: Math.round(clamp(5 + (s.control - 40) * 0.3 + (best('regate') - 80) / 8, 5, 30)),
+    critDmg: Math.round(clamp(150 + (s.guts - 40) * 1.2, 150, 200)),
+    pierce: Math.round(clamp((s.speed - 40) * 0.25, 0, 20)),
+    res: Math.round(clamp(((s.guts + s.guard) / 2 - 40) * 0.3, 0, 25)),
+  };
+}

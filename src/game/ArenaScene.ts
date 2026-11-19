@@ -91,6 +91,7 @@ import type { Elem, SectorRun } from '../systems/sector';
 import { tr } from '../i18n/i18n';
 import { tTech } from '../i18n/data';
 import { HAPTIC } from './haptics';
+import { capFps } from '../systems/perf';
 
 export interface HudTech { name: string; type: Technique['type']; level: number; evolution: string; cd: number; /** v1.5: inherited from the Aura */ aura?: boolean; /** v1.7: combined technique that needs this one higher */ combo?: string; /** 1.83: the level it needs */ comboNeed?: number }
 export interface HudMember { id: number; techs: (HudTech | null)[]; /** v1.5 */ aura?: { id: number; name: string } | null }
@@ -765,6 +766,7 @@ export class ArenaScene extends Phaser.Scene {
   }
 
   create() {
+    capFps(this.game, 0); // the menu may have capped it (systems/perf.ts)
     const { map, settings } = this.cfg;
     this.game.events.once(Phaser.Core.Events.POST_RENDER, () => this.cfg.hooks.ready?.()); // the loading screen goes once the pitch is drawn
     this.arena = new Arena(this, map, settings.quality);

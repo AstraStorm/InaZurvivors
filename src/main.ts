@@ -43,6 +43,7 @@ import { loadSave, storeSave } from './systems/save';
 import { mudanzaNotice, mudanzaToast, takeMudanza } from './systems/mudanza';
 import { App } from './ui/app';
 import { tr } from './i18n/i18n';
+import { applyLowFx } from './systems/perf';
 
 // keeps the last crash so a run that stops unexpectedly can be diagnosed
 const remember = (m: unknown) => { try { localStorage.setItem('ie-survivors-last-error', `${new Date().toISOString()} ${String(m)}`); } catch { /* storage full */ } };
@@ -112,6 +113,10 @@ async function boot() {
   // new profiles start empty: their first 5 footballers come from the one-time onboarding draft
   const moved = await takeMudanza(); // 2026-11-10: a guest's save brought from the old address (before it is loaded)
   const save = loadSave([], null);
+  // Modo Duelo (dev only, still in the works): ?qa=duel opens its rulebook over the game
+  if (import.meta.env.DEV && new URLSearchParams(location.search).get('qa') === 'duel') {
+    window.setTimeout(() => { void import('./ui/duelBook').then((m) => m.openDuelBook()); }, 1500);
+  }
   // 2.0 (dev only): ?qa=eg opens a QA club with every Espíritu Guerrero holder; never on localhost, where the author's save lives
   if (import.meta.env.DEV && new URLSearchParams(location.search).get('qa') === 'eg' && location.hostname !== 'localhost') {
     const { KESHINS } = await import('./systems/keshin');
@@ -134,6 +139,7 @@ async function boot() {
   }
   storeSave(save);
 
+  applyLowFx(); // phones: light effects (systems/perf.ts)
   const game = new Phaser.Game({
     type: Phaser.AUTO,
     parent: 'game',
@@ -150,6 +156,14 @@ async function boot() {
   const app = new App(game, manifest, save, mugs.frames, icons.frames);
   await app.start();
   progress(1, tr('¡Listo!'));
+  // Modo Duelo (dev only, still in the works): ?qa=duelmatch plays the tutorial match
+  if (import.meta.env.DEV && new URLSearchParams(location.search).get('qa') === 'duelmatch') {
+    const byId = new Map(manifest.roster.map((p) => [p.id, p]));
+    void import('./ui/duelMatch').then((m) => (m.setDuelDigits(manifest.ui?.digits), m).openDuelMatch({
+      byId: byId as never, mug: (pid, size) => app.mug(pid, size), name: (pid) => byId.get(pid)?.nickname ?? byId.get(pid)?.name ?? '?',
+      rarity: (pid) => byId.get(pid)?.rarity ?? 'legendario', coachArt: (id) => manifest.coaches?.find((c) => c.id === id)?.texture ?? '',
+    }, { tutorial: true }));
+  }
   const screen = document.getElementById('boot');
   screen?.classList.add('gone');
   window.setTimeout(() => screen?.remove(), 400);

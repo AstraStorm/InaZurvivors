@@ -1,5 +1,7 @@
 /** HTML/CSS front-end: onboarding, main menu, captain/map select, collection, gacha (IE3 capsule machine), upgrades,
  *  options, profile, HUD, level-up, pause and results. */
+import { artUrl as duelArt } from './duelArt';
+import { duelOpen } from '../systems/duel/open';
 import type Phaser from 'phaser';
 import { rankMark, zEmblem } from './rankZ';
 import type { Manifest, MapInfo, Rarity, RosterEntry, Technique } from '../data/manifest';
@@ -13,7 +15,7 @@ import { applyReward, codePlayer, creatorGiftINA483, hasRedeemed, INA483_ODDS, n
 import { LOSE_PRIZE, matchDecree, paySectorPrize, REBEL_ENEMY_HP, REBEL_POINTS, SECTOR_START, sectorOf, sectorOpen, sectorRun, sectorWeek, sectorWeekEnd, SIDES, weeklyDecree, WIN_PRIZE, type MatchDecree, type SectorRun, type SideId } from '../systems/sector';
 import { activeSeason, addRunXp, adoptServerSeason, buyNormalKey, payLevel, canClaim as canClaimLevel, claimable, claimLevel, daysTo, giveGoldKey, goldKeyChance, levelOf, levelProgress, rowOpen, seasonEnd, seasonOf, seasonStart, upcomingSeason,
   GOLD_KEY_CHANCE, GOLD_KEY_COOP, LEVEL_XP, LEVELS, PASS_SERVER_AT, MULTI_FICHAS, NORMAL_KEY_PRICE, RANK_PRIZES, RANK_XP, SEASONS, XP_PER_MIN, passPlayersHidden, payRankPrize, type Granted, type SeasonDef, type SeasonReward, type SeasonTrack } from '../systems/seasonPass';
-import { claimSeasonRewards } from '../online/client';
+import { claimSeasonRewards, duelFinish, duelStart } from '../online/client';
 import { clearRoad, compensateJaden202, compensateJaden3, jadenProgress, JADEN_EVERY, JADEN_FIRST, JADEN_ID, ROAD_BY_ID, ROAD_DIFFS, ROAD_SQUAD, roadEligible, roadMatchSec, roadOf, type RoadDiff } from '../systems/road';
 import { BANNERS, BANNER_ORDER, bannerPool, bannerPrice, eraOf, featured, featuredMachine, FEATURED_BOOST, perPlayerOdds, rarityOdds, teamChoices, type BannerId } from '../systems/banners';
 import { exportSave, importSave, remapIds, remapTechSlots, storeSave, type SaveData, type ParticleLevel, type Rank } from '../systems/save';
@@ -1263,6 +1265,10 @@ export class App {
               <span class="m4-faces">${squad.length ? this.teamFaces(squad) : uiIcon('team')}</span></button>
           </div>
           <div class="m4-next-mob">${this.menuNext(squad, pending, claims, pass.available, 'm4nextm')}</div>
+          ${duelOpen() ? `<button class="m4-duel" data-go="duel"><img class="m4-duel-bg" src="${duelArt('mesa-horizontal')}" alt="">
+            <span class="m4-duel-cards"><span class="m4-dc"><span class="m4-dcf">${this.mug(1, 40)}</span><img src="${duelArt('carta-r2')}" alt=""></span><span class="m4-dc"><span class="m4-dcf">${this.mug(10, 40)}</span><img src="${duelArt('carta-ulti')}" alt=""></span><span class="m4-dc"><img src="${duelArt('carta-reverso')}" alt=""></span></span>
+            <span class="m4-duel-tx"><em>${tr('NUEVO')}</em><b>${tr('MODO DUELO')}</b><small>${this.save.duel?.tutorial ? tr('Contra la CPU · {n} victorias', { n: this.save.duel.wins ?? 0 }) : tr('Cartas al estilo Grand Cross con tus futbolistas')}</small></span>
+            <span class="m4-duel-go">${this.save.duel?.tutorial ? tr('¡Jugar!') : tr('Tutorial')} ›</span></button>` : ''}
           ${group('g-rew', 'gift', tr('PREMIOS DE HOY'), tile('missions', 'missions', tr('MISIONES'), pending ? tr('¡{n} por recoger!', { n: pending }) : tr('Objetivos con premio'), pending, !!pending)
             + tile('pass', 'ticket', tr('PASE SEMANAL'), pass.available ? tr('¡Recompensa lista!') : tr('Un premio cada día'), pass.available ? 1 : 0, pass.available)
             + (seasonNow ? (() => { const st = seasonOf(this.save, seasonNow), n = claimable(st, 'normal').length + claimable(st, 'premium').length;
@@ -1340,6 +1346,7 @@ export class App {
       if (go === 'coaches') this.coachesScreen(); // pre-2.0
       if (go === 'alius') { if (aliusOpen(serverNow())) this.aliusAltar(); else this.launch30(true); } // 3.0: before the 25th, its teaser
       if (go === 'keshin') this.keshinScreen(); // 2.0
+      if (go === 'duel') this.duelScreen(); // Modo Duelo
       if (go === 'road') this.roadScreen();
       if (go === 'tierlist') this.tierlistScreen(); // 1.9
       if (go === 'clan') void this.clanScreen(); // 1.93
@@ -1491,7 +1498,7 @@ export class App {
     const b = featuredMachine(now); // (author) and its good rarities are likelier today (banners.FEATURED_BOOST)
     slides.push({ kicker: tr('MÁQUINA DESTACADA DE HOY'), title: BANNERS[b].label, text: BANNERS[b].tagline, cta: tr('¡A fichar!'), color: BANNERS[b].color, tag: tr('HOY'),
       art: art(featured(bannerPool(this.m.roster, b), 3).map((p) => p.id)), act: () => { this.gachaBanner = b; this.gacha(); } });
-    if (eventActive(now)) slides.push({ kicker: tr('EVENTO'), title: tr('Banners de leyenda'), text: tr('Banners y marcos de perfil por tiempo limitado.'), cta: tr('Ver el evento'), color: '#ffd84a', tag: tr('EVENTO'), art: `<span class="m5-big">${uiIcon('gift')}</span>`, act: () => this.pennantEvent() });
+    if (eventActive(now)) slides.push({ kicker: tr('EVENTO'), title: tr('Banners de leyenda'), text: tr('Banners y marcos de perfil por tiempo limitado.'), cta: tr('Ver el evento'), color: '#ffd84a', tag: tr('EVENTO'), art: `<span class="m5-big m5-mis">${this.misArt('event')}</span>`, act: () => this.pennantEvent() });
     if (this.byId.has(JADEN_ID)) slides.push({ kicker: tr('MODO DESAFÍO'), title: tr('Road to Fútbol Frontier'), text: tr('Gana en Máxima y llévate a Jaden Evans.'), cta: tr('Jugar el camino'), color: '#ff8a2a', tag: tr('EXCLUSIVO'),
       art: art([JADEN_ID], 160), act: () => this.roadScreen() });
     slides.push({ kicker: tr('NUEVO · CLANES'), title: tr('Juegos del Clan'), text: this.save.clanSeen ? tr('{clanSeenName}: 1 partida al día en la Colina de los Cerezos. Premios cada lunes.', { clanSeenName: this.save.clanSeen.name }) : tr('Funda o únete a un clan, jugad 1 partida al día cada uno y ganad premios cada semana.'),
@@ -2556,6 +2563,55 @@ export class App {
   private benchCoach(): CoachDef | undefined {
     const id = this.save.coaches?.bench;
     return id && this.save.coaches?.owned.includes(id) ? COACH_BY_ID.get(id) : undefined;
+  }
+  /** Modo Duelo: its screen (ui/duelHub.ts), with your collection; winning the tutorial and the matches is saved */
+  private duelScreen() {
+    const byId = new Map(this.m.roster.map((p) => [p.id, p]));
+    void import('./duelHub').then(({ openDuelHub }) => openDuelHub({
+      byId: byId as never, mug: (pid, size) => this.mug(pid, size), name: (pid) => byId.get(pid)?.nickname ?? byId.get(pid)?.name ?? '?',
+      rarity: (pid) => byId.get(pid)?.rarity ?? 'legendario', coachArt: (id) => this.coachTex(id),
+      owned: Object.keys(this.save.owned).map(Number), coaches: this.save.coaches?.owned ?? [], benchCoach: this.save.coaches?.bench,
+      progress: { ...this.save.duel },
+      finished: (won, tutorial) => {
+        const d = (this.save.duel ??= {});
+        if (tutorial && won) d.tutorial = true;
+        if (!tutorial && won) d.wins = (d.wins ?? 0) + 1;
+        this.persist();
+      },
+      // with an account the server opens the match and pays it (systems: duel_runs); without one, a guest's own daily cap
+      begin: (level) => (onlineConfigured() && signedIn() ? duelStart(level) : Promise.resolve(null)),
+      pay: async (won, tutorial, stats, ticket, level) => {
+        const d = (this.save.duel ??= {});
+        addCounter(this.save, 'duel_merges', stats.merges);
+        addCounter(this.save, 'duel_combos', stats.combos);
+        addCounter(this.save, 'duel_ultis', stats.ultis);
+        if (tutorial) {
+          if (won && !this.save.missions.counters.duel_tutorial) addCounter(this.save, 'duel_tutorial', 1);
+          this.persist();
+          return null;
+        }
+        if (won) { addCounter(this.save, 'duel_wins', 1); if (level) addCounter(this.save, `duel_wins_${level}`, 1); }
+        let coins = 0, note = '';
+        if (ticket) {
+          const r = await duelFinish(ticket, won).catch(() => null);
+          coins = r?.coins ?? 0;
+          if (won && !r) note = tr('Sin conexión: esta victoria no da monedas.');
+          else if (won && r?.why === 'cap') note = tr('Ya has cobrado las 10 victorias de hoy.');
+          else if (won && r?.why === 'short') note = tr('Partida demasiado corta para cobrar.');
+          else if (coins && r) note = tr('Te quedan {n} victorias con premio hoy.', { n: r.left });
+        } else if (won && onlineConfigured() && signedIn()) note = tr('Sin conexión: esta victoria no da monedas.');
+        else if (won) {
+          const today = dayKey(serverNow());
+          if (d.day !== today) { d.day = today; d.paid = 0; }
+          if ((d.paid ?? 0) < 10) { coins = 30000; d.paid = (d.paid ?? 0) + 1; note = tr('Te quedan {n} victorias con premio hoy.', { n: 10 - d.paid }); }
+          else note = tr('Ya has cobrado las 10 victorias de hoy.');
+        }
+        this.save.coins += coins;
+        this.persist();
+        return { coins, note };
+      },
+      close: () => { if (this.screenKey === 'menu-mode') this.mainMenu(); },
+    }));
   }
   private coachTex(id: string) { return this.m.coaches?.find((c) => c.id === id)?.texture ?? ''; }
   /** a coach's portrait in a frame of his rarity; locked = a silhouette */
@@ -5521,6 +5577,23 @@ export class App {
     if (i < 0) return '';
     return `<i class="mart${cls ? ` ${cls}` : ''}" style="--mi:${i};background-image:url(art/ui/menu-iconos.png)" aria-hidden="true"></i>`;
   }
+  /** 3.0: the rewards screen's art (the author's strip cut by tools/gpt_ui.py misiones into public/art/ui/misiones-iconos.png,
+   *  20 cells of 128 px in this order) */
+  private static readonly MISSION_ART = ['daily', 'weekly', 'match', 'trophy', 'ready', 'claimed', 'combat', 'collection', 'progression',
+    'auras', 'duel', 'duelwin', 'fusion', 'ulti', 'combo', 'eg', 'train', 'dupe', 'event', 'medals'] as const;
+  private misArt(name: (typeof App.MISSION_ART)[number], cls = '') {
+    return `<i class="mart mis${cls ? ` ${cls}` : ''}" style="--mi:${App.MISSION_ART.indexOf(name)};background-image:url(art/ui/misiones-iconos.png)" aria-hidden="true"></i>`;
+  }
+  /** a mission's own picture: the duel ones by what they count, achievements by their category, the rest by their tab */
+  private missionArt(d: (typeof MISSIONS)[number], cat: string | null): (typeof App.MISSION_ART)[number] {
+    if (/duelo_ultis/.test(d.id)) return 'ulti';
+    if (/duelo_combos/.test(d.id)) return 'combo';
+    if (/duelo_fusion/.test(d.id)) return 'fusion';
+    if (/^l_duelo_(1|25|100|dificil)$/.test(d.id)) return 'duelwin';
+    if (/duelo/.test(d.id)) return 'duel';
+    if (cat) return ({ aura: 'auras', col: 'collection', prog: 'progression', comb: 'combat' } as const)[cat as 'aura'] ?? 'trophy';
+    return d.kind === 'diaria' ? 'daily' : d.kind === 'semanal' ? 'weekly' : 'match';
+  }
   /** 16.7: the Mi Equipo emblems (ForgeGUI pixel art, one sheet public/art/team/iconos.png of 84 px cells) */
   private tmIcon(name: 'combo' | 'whistle' | 'chemistry' | 'medal' | 'resonance' | string, cls = '') {
     const i = ['combo', 'whistle', 'chemistry', 'medal', 'resonance'].indexOf(name);
@@ -5832,7 +5905,7 @@ export class App {
     const tier = tokens >= 50 ? 'g' : tokens >= 20 ? 's' : 'b';
     const el = document.createElement('button');
     el.className = `ach-pop t-${tier}`;
-    el.innerHTML = `<span class="ach-medal">🏆</span><span class="ach-tx"><small>${tr('¡LOGRO CONSEGUIDO!')}</small><b>${esc(labels[0])}</b>${labels.length > 1 ? `<em>${tr('y {x1} más · recógelos en Recompensas', { x1: labels.length - 1 })}</em>` : `<em>${tr('Recógelo en Recompensas')}</em>`}</span><i class="ach-shine"></i>`;
+    el.innerHTML = `<span class="ach-medal">${this.misArt('trophy')}</span><span class="ach-tx"><small>${tr('¡LOGRO CONSEGUIDO!')}</small><b>${esc(labels[0])}</b>${labels.length > 1 ? `<em>${tr('y {x1} más · recógelos en Recompensas', { x1: labels.length - 1 })}</em>` : `<em>${tr('Recógelo en Recompensas')}</em>`}</span><i class="ach-shine"></i>`;
     el.addEventListener('click', () => { el.remove(); this.missions('logro'); });
     document.body.appendChild(el);
     sfx('legend');
@@ -7517,7 +7590,6 @@ export class App {
     const sumCoins = ready.reduce((n, d) => n + Math.round(d.coins * mult), 0), sumTokens = ready.reduce((n, d) => n + d.tokens, 0);
     const list = MISSIONS.filter((d) => d.kind === kind && (filter === 'todas' || state(d) === filter))
       .sort((x, y) => ['disponibles', 'pendientes', 'reclamadas'].indexOf(state(x)) - ['disponibles', 'pendientes', 'reclamadas'].indexOf(state(y)));
-    const icon = TABS.find((t) => t[0] === kind)![2];
     const rows = list.map((d, i) => {
       const p = Math.min(d.goal, missionProgress(this.save, d)), st = state(d), pc = Math.round(p / d.goal * 100);
       // v1.5: achievements show their category and a medal of their tier (bronze 10, silver 20, gold 50 fichas)
@@ -7525,19 +7597,19 @@ export class App {
         : /^g_|niveles|combos/.test(d.id) ? ['prog', tr('▲ PROGRESIÓN')] : ['comb', '⚔ COMBATE'];
       const tier = d.kind !== 'logro' ? '' : d.tokens >= 50 ? ' tier-g' : d.tokens >= 20 ? ' tier-s' : ' tier-b';
       return `<div class="rw-card ${st}${tier}" data-mid="${d.id}" style="--d:${Math.min(i, 12) * 35}ms;--w:${pc}%"><i class="rw-shine"></i>
-        <span class="rw-ic">${cat ? `<span class="rw-medal">${st === 'disponibles' ? '🏆' : cat[1].slice(0, 1)}</span>` : uiIcon(st === 'disponibles' ? 'gift' : icon)}</span>
+        <span class="rw-ic">${this.misArt(st === 'reclamadas' ? 'claimed' : st === 'disponibles' && !cat ? 'ready' : this.missionArt(d, cat && cat[0]))}</span>
         <div class="rw-body">${cat ? `<small class="rw-cat c-${cat[0]}">${cat[1]}</small>` : ''}<b>${esc(d.label)}</b><div class="rw-bar"><i></i><span>${p.toLocaleString(locale())} / ${d.goal.toLocaleString(locale())}</span></div></div>
-        <div class="rw-rew"><span class="rw-chip c">${Math.round(d.coins * mult)}</span>${d.tokens ? `<span class="rw-chip t">${d.tokens}</span>` : ''}${d.train ? `<span class="rw-chip tr" title="${tr('Fichas de entrenamiento')}">${tr('+{train} ENT', { train: d.train })}</span>` : ''}${d.dupe ? `<span class="rw-chip dp" title="${tr('Duplicado de uno de tus Legendarios o Míticos')}">${tr('+1 DUP')}</span>` : ''}</div>
+        <div class="rw-rew"><span class="rw-chip c">${Math.round(d.coins * mult)}</span>${d.tokens ? `<span class="rw-chip t">${d.tokens}</span>` : ''}${d.train ? `<span class="rw-chip tr" title="${tr('Fichas de entrenamiento')}">${this.misArt('train')}${tr('+{train} ENT', { train: d.train })}</span>` : ''}${d.eg ? `<span class="rw-chip eg" title="${tr('Fichas EG')}">${this.misArt('eg')}${tr('+{n} EG', { n: d.eg })}</span>` : ''}${d.dupe ? `<span class="rw-chip dp" title="${tr('Duplicado de uno de tus Legendarios o Míticos')}">${this.misArt('dupe')}${tr('+1 DUP')}</span>` : ''}</div>
         ${st === 'disponibles' ? `<button class="rw-btn" data-claim="${d.id}">${tr('¡RECLAMAR!')}</button>` : st === 'reclamadas' ? '<span class="rw-done">✔ COBRADA</span>' : `<span class="rw-pc">${pc}%</span>`}
         <span class="rw-stamp">${tr('¡COBRADA!')}</span></div>`;
     }).join('') || `<div class="rw-empty">${tr('{x1}Nada en esta lista.', { x1: uiIcon('target') })}</div>`;
     this.show(`<div class="screen rw-screen">${this.titlebar(tr('Recompensas'), tr('Menú'))}
-      <div class="rw-hero${ready.length ? ' hot' : ''}"><span class="rw-hero-ic">${uiIcon('gift')}</span>
+      <div class="rw-hero${ready.length ? ' hot' : ''}"><span class="rw-hero-ic">${this.misArt(ready.length ? 'ready' : 'claimed')}</span>
         <div class="rw-hero-tx"><small>${tr('MISIONES Y LOGROS')}</small><b>${ready.length ? (ready.length === 1 ? tr('¡1 recompensa lista!') : tr('¡{n} recompensas listas!', { n: ready.length })) : tr('Todo cobrado')}</b>
           <div class="rw-sum">${ready.length ? `<span class="rw-chip c big">${sumCoins}</span><span class="rw-chip t big">${sumTokens}</span>` : `<span class="note">${tr('Juega partidas para completar más misiones.')}</span>`}</div></div>
         <button class="rw-all" id="claimall" ${ready.length ? '' : 'disabled'}><i class="m4-shine"></i>${tr('RECLAMAR TODO{x1}', { x1: ready.length ? `<em>${ready.length}</em>` : '' })}</button></div>
-      <div class="rw-tabs" id="tabs">${TABS.map(([k, l, ic, sub]) => { const all = MISSIONS.filter((d) => d.kind === k), done = all.filter((d) => isClaimed(this.save, d)).length;
-        return `<button data-k="${k}" class="rw-tab${k === kind ? ' on' : ''}"><span class="m4-ic">${uiIcon(ic)}</span><span class="rw-tab-tx"><b>${l}</b><small>${sub}</small><i style="--p:${Math.round(done / Math.max(1, all.length) * 100)}%"></i></span>${pend(k) ? `<span class="m4-badge">${pend(k)}</span>` : ''}</button>`; }).join('')}</div>
+      <div class="rw-tabs" id="tabs">${TABS.map(([k, l, , sub]) => { const all = MISSIONS.filter((d) => d.kind === k), done = all.filter((d) => isClaimed(this.save, d)).length;
+        return `<button data-k="${k}" class="rw-tab${k === kind ? ' on' : ''}"><span class="m4-ic rw-tic">${this.misArt(({ diaria: 'daily', semanal: 'weekly', partida: 'match', logro: 'trophy' } as const)[k])}</span><span class="rw-tab-tx"><b>${l}</b><small>${sub}</small><i style="--p:${Math.round(done / Math.max(1, all.length) * 100)}%"></i></span>${pend(k) ? `<span class="m4-badge">${pend(k)}</span>` : ''}</button>`; }).join('')}</div>
       <div class="rk-chips rw-filter" id="mfilter">${[['todas', tr('Todas')], ['disponibles', tr('Para cobrar')], ['pendientes', tr('En curso')], ['reclamadas', tr('Cobradas')]].map(([k, l]) => `<button data-f="${k}" class="rk-chip${k === filter ? ' on' : ''}">${l}</button>`).join('')}</div>
       <div class="rw-list">${rows}</div></div>`);
     this.on('[data-back]', 'click', () => this.mainMenu());
