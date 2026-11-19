@@ -3467,7 +3467,7 @@ export class App {
         </div>
         <div class="ldu-head"><div class="l30-logo lg-host">${this.artLogo(true)}</div>
           <div class="ldu-seal"><small>3.0 · ${tr('PARTE 2')}</small><b>${tr('MODO DUELO')}</b></div>
-          <div class="l30-date">${open ? `<b>${tr('¡YA DISPONIBLE!')}</b>` : `<small>${tr('PRÓXIMAMENTE')}</small><b>${tr('Muy pronto')}</b>`}</div></div>
+          <div class="l30-date">${open ? `<b>${tr('¡YA DISPONIBLE!')}</b>` : `<small>${tr('PRÓXIMAMENTE')}</small><b>${tr('25 DE NOVIEMBRE · 12:00')}</b>`}</div></div>
         <div class="ldu-techs">${tech('carta-r1', 10, 'R1', 0)}<i>+</i>${tech('carta-r1', 10, 'R1', 1)}<i>→</i>${tech('carta-r2', 10, 'R2', 2)}<i>→</i>${tech('carta-r3', 10, 'R3', 3)}<i>·</i>${tech('carta-ulti', 1, 'ULTI', 4)}</div>
         <div class="l30-feats ldu-feats">${feats.map(([ic, t, x], i) => `<span style="--i:${i}"><i>${ic}</i><b>${esc(t)}</b><small>${esc(x)}</small></span>`).join('')}</div>
         <div class="l30-btns ldu-btns">${TIKTOK_DUEL_URL ? `<a class="btn big l30-tt" href="${TIKTOK_DUEL_URL}" target="_blank" rel="noopener noreferrer"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="${TIKTOK_PATH}"/></svg>${tr('Ver el vídeo en TikTok')}</a>` : ''}
