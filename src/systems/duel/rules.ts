@@ -8,7 +8,7 @@
  * cards side by side. The gauge (5 segments) fills with every card used and every fusion; full, the ulti comes into the
  * hand. Whoever knocks out the 4 rivals wins.
  */
-import { ALLY_ON_FIELD_BONUS, DUEL_BY_ID, DUEL_COACHES, DUEL_COMBOS, duelStats, type CardKind, type CardSpec, type CoachId, type Cond, type DuelGroup,
+import { ALLY_ON_FIELD_BONUS, DUEL_BY_ID, sameFamily, DUEL_COACHES, DUEL_COMBOS, duelStats, type CardKind, type CardSpec, type CoachId, type Cond, type DuelGroup,
   type DuelStats, type Fx, type Per, type StatusId } from './cards';
 
 export type Side = 0 | 1;
@@ -44,6 +44,9 @@ export interface SideState {
   nextCardsMinus: number; nextActionsMinus: number; nextExtra: number; faceDown: boolean; immune: number; statusGuard: boolean;
   reduce: { area: number; all: number }; mergedThisTurn: boolean; mergeBoost: boolean; usedThisTurn: Record<number, number>; cardsThisTurn: number;
   critThisTurn: boolean; hillman: number; groups: Partial<Record<DuelGroup, number>>; elemBonus: number; coachBoost: boolean;
+  /** story bosses (story.ts): actions and cards more each turn; their shields never pass `shieldCap` of their PV (two
+   *  goalkeepers with extra actions stacked them for ever) */
+  boss?: { actions: number; cards: number; shieldCap: number };
 }
 export type Ev =
   | { t: 'turn'; side: Side; turn: number } | { t: 'deal'; side: Side; cards: number } | { t: 'merge'; side: Side; card: number; rank: number; owner: number; idx: Card['idx'] }
@@ -51,7 +54,7 @@ export type Ev =
   | { t: 'hit'; from: number; to: number; dmg: number; crit: boolean; elem: number; broke?: boolean }
   | { t: 'miss'; from: number; to: number; why: 'dodge' | 'block' | 'blind' }
   | { t: 'heal'; to: number; hp: number } | { t: 'shield'; to: number; amount: number } | { t: 'status'; to: number; s: StatusId; turns: number }
-  | { t: 'resist'; to: number; s: StatusId } | { t: 'ko'; uid: number } | { t: 'enter'; uid: number; slot: number }
+  | { t: 'resist'; to: number; s: StatusId } | { t: 'dispel'; to: number } | { t: 'ko'; uid: number } | { t: 'enter'; uid: number; slot: number }
   | { t: 'ulti'; uid: number } | { t: 'cards'; side: Side; what: string } | { t: 'win'; side: Side };
 
 export interface DuelState {
@@ -61,7 +64,7 @@ export interface DuelState {
 }
 
 export interface UnitCfg { pid: number; stats: DuelStats; element: Element; position: string; bonusPct?: number; spirit?: boolean }
-export interface TeamCfg { units: UnitCfg[]; coach: CoachId | null }
+export interface TeamCfg { units: UnitCfg[]; coach: CoachId | null; boss?: { actions: number; cards: number; shieldCap?: number } }
 
 // ---- randomness (mulberry32 on the state, so a copy of the state replays the same luck)
 function rand(s: DuelState): number {
@@ -115,6 +118,7 @@ export function createDuel(teams: [TeamCfg, TeamCfg], seed: number, first: Side 
       faceDown: false, immune: 0, statusGuard: false, reduce: { area: 0, all: 0 }, mergedThisTurn: false, mergeBoost: false, usedThisTurn: {}, cardsThisTurn: 0,
       critThisTurn: false, hillman: 0, groups, elemBonus: allSame ? 15 : Math.max(...els.values()) >= 3 ? 10 : 0,
       coachBoost: !!coach && units.filter((u) => (coach.groups as readonly string[]).includes(u.group)).length >= 2,
+      ...(t.boss ? { boss: { shieldCap: 0.5, ...t.boss } } : {}),
     };
     if (groups['Ares y Orion']! >= 3) for (const u of units) u.gauge = Math.max(u.gauge, 2);
     if (coachOf(ss, 'david-evans')) for (const u of units) if (u.position === 'GK') u.gauge = Math.max(u.gauge, 2);
@@ -178,7 +182,7 @@ export function startTurn(s: DuelState, first = false) {
   deal(s, ss);
   for (const u of standing(ss)) if (u.status.congelado) { u.status.congelado--; if (!u.status.congelado) delete u.status.congelado; }
   const n = onPitch(ss).length;
-  ss.actions = Math.max(1, (n >= 3 ? 3 : n) - ss.nextActionsMinus) - (first && s.turn === 1 ? 1 : 0); // the side that opens plays 2
+  ss.actions = Math.max(1, (n >= 3 ? 3 : n) - ss.nextActionsMinus) - (first && s.turn === 1 ? 1 : 0) + (ss.boss?.actions ?? 0); // the side that opens plays 2
   ss.nextActionsMinus = 0;
   ss.faceDown = false;
 }
@@ -209,8 +213,10 @@ function deal(s: DuelState, ss: SideState) {
     for (const d of script) { const u = ss.units.find((x) => x.pid === d.pid && x.slot >= 0); if (u) fresh.push(newCard(s, u.uid, d.idx, d.rank ?? 1)); }
   } else {
     const can = onPitch(ss).filter((u) => !u.status.congelado);
-    for (const u of can) for (let k = 0; k < 2; k++) fresh.push(newCard(s, u.uid, rand(s) < 0.5 ? 0 : 1));
-    for (let k = 0; k < 1 + ss.nextExtra; k++) {
+    // each side's first hand is 1 card per starter and 1 at random (author); later turns 2 per starter and 1 at random
+    const per = s.turn === 1 ? 1 : 2;
+    for (const u of can) for (let k = 0; k < per; k++) fresh.push(newCard(s, u.uid, rand(s) < 0.5 ? 0 : 1));
+    for (let k = 0; k < 1 + ss.nextExtra + (ss.boss?.cards ?? 0); k++) {
       const u = pick(s, can);
       if (u) fresh.push(newCard(s, u.uid, rand(s) < 0.5 ? 0 : 1, k === 0 && groupOn(ss, 'Inazuma Japan') ? 2 : 1));
     }
@@ -408,7 +414,7 @@ function play(s: DuelState, ss: SideState, card: Card, target: number | undefine
       case 'decoys': { const fs = s.sides[foe(u.side)]; for (let k = 0; k < f.n; k++) fs.hand.splice(Math.floor(rand(s) * (fs.hand.length + 1)), 0, { ...newCard(s, onPitch(fs)[0]?.uid ?? fs.units[0].uid, 0), decoy: true }); break; }
       case 'faceDown': s.sides[foe(u.side)].faceDown = true; break;
       case 'enemyActions': s.sides[foe(u.side)].nextActionsMinus += f.n; break;
-      case 'shield': { const amt = Math.round(u.maxHp * f.pct[rank - 1] / 100 * (coachOf(ss, 'david-evans') ? 1 + 0.3 * coachK(ss) : 1)); for (const t of f.who === 'all' ? onPitch(ss) : f.who === 'self' ? [u] : [ally()]) if (t) { t.shield += amt; s.log.push({ t: 'shield', to: t.uid, amount: amt }); } break; }
+      case 'shield': { const amt = Math.round(u.maxHp * f.pct[rank - 1] / 100 * (coachOf(ss, 'david-evans') ? 1 + 0.3 * coachK(ss) : 1)); for (const t of f.who === 'all' ? onPitch(ss) : f.who === 'self' ? [u] : [ally()]) if (t) { t.shield = ss.boss ? Math.min(t.shield + amt, Math.round(t.maxHp * ss.boss.shieldCap)) : t.shield + amt; s.log.push({ t: 'shield', to: t.uid, amount: amt }); } break; }
       case 'heal': for (const t of f.who === 'all' ? onPitch(ss) : f.who === 'self' ? [u] : [ally()]) if (t && !t.noHeal) { const hp = Math.round(t.maxHp * f.pct[rank - 1] / 100); t.hp = Math.min(t.maxHp, t.hp + hp); s.log.push({ t: 'heal', to: t.uid, hp }); } break;
       case 'block': { const t = f.who === 'team' ? u : ally(); t?.stances.push({ kind: 'block', who: f.who, ward: t.uid, n: f.n[rank - 1], reflect: f.reflect, rankDownAttacker: f.rankDownAttacker, gaugeSelf: f.gaugeSelf, owner: u.uid }); break; }
       case 'dodge': u.stances.push({ kind: 'dodge', n: f.n[rank - 1], stealGauge: f.stealGauge, gaugeSelf: f.gaugeSelf, owner: u.uid }); break;
@@ -419,6 +425,8 @@ function play(s: DuelState, ss: SideState, card: Card, target: number | undefine
       case 'reduce': ss.reduce[f.scope] = Math.max(ss.reduce[f.scope], f.pct); break;
       case 'statusGuard': ss.statusGuard = true; break;
       case 'immune': ss.immune = 1; break;
+      // Nanatsu's «disipar»: the rival loses what helps him (his buffs, his stances, his shield)
+      case 'dispel': { const t = tgtEnemy(); if (t) { t.mods = t.mods.filter((m) => m.pct < 0); t.stances = []; t.shield = 0; s.log.push({ t: 'dispel', to: t.uid }); } break; }
       case 'cleanse': if (has(c, 'shield') || has(c, 'heal')) for (const t of onPitch(ss)) t.status = {}; else { const t = tgtEnemy(); if (t) t.mods = t.mods.filter((m) => m.pct < 0); } break;
       case 'taunt': u.status.provocar = f.turns[rank - 1] + 1; if (f.defPct) u.mods.push({ stat: 'def', pct: f.defPct, turns: f.turns[rank - 1] + 1 }); s.log.push({ t: 'status', to: u.uid, s: 'provocar', turns: f.turns[rank - 1] }); break;
       case 'buff': { const turns = (f.turns ?? 2) + (groupOn(ss, 'Héroes de la historia') ? 1 : 0) + 1; for (const t of f.who === 'team' ? onPitch(ss) : [u]) t.mods.push({ stat: f.stat, pct: f.pct[rank - 1], turns }); break; }
@@ -444,7 +452,9 @@ function play(s: DuelState, ss: SideState, card: Card, target: number | undefine
   // the Debilitar of a Royal Academy side of 3+ also lowers a card of its target
   if (spec.kind === 'debilitar' && rank >= 2 && groupOn(ss, 'Royal Academy')) rankDown(c, 'target', tgtEnemy());
   if (has(c, 'selfDamage')) damageRaw(s, u, Math.round(u.maxHp * get(c, 'selfDamage')[0].pct / 100), null);
-  if (card.idx === 'u') u.gauge = 0; else if (card.idx !== 'c') gauge(u, 1);
+  // a card gives as many segments as its stars (a fused card charges the ulti faster, as in Grand Cross); the tutorial's
+  // lessons were written for one per card
+  if (card.idx === 'u') u.gauge = 0; else if (card.idx !== 'c') gauge(u, s.tutorial ? 1 : card.rank);
   if (c.kos && has(c, 'actionOnKo')) ss.actions++;
   // statuses that come with a damaging card land on what it hit (aim() again: the first living target)
   if (mult > 0) for (const f of get(c, 'status')) {
@@ -505,6 +515,7 @@ function hit(c: Ctx, a: Unit, t: Unit, mult: number) {
   const ts = s.sides[t.side];
   const ignoreStance = has(c, 'ignoreStance');
   if (!ignoreStance) {
+    // a dodge evades one hit: against a multi-hit card, the first misses and the rest land (author)
     const dodge = t.stances.find((x) => x.kind === 'dodge') as Extract<Stance, { kind: 'dodge' }> | undefined;
     if (dodge) {
       if (--dodge.n <= 0) t.stances.splice(t.stances.indexOf(dodge as never), 1);
@@ -635,6 +646,7 @@ export const cloneDuel = (s: DuelState): DuelState => structuredClone(s);
 /** a team from the roster: 4 footballers (3 starters + the bench, in that order), the coach and their collection bonus */
 export function teamOf(byId: Map<number, { id: number; rarity: string; position: string; element: string; stats: Record<string, number>; techniques: { type: string; power?: number }[] }>,
   pids: number[], coach: CoachId | null, bonus: (pid: number) => number = () => 0): TeamCfg {
+  if (sameFamily(pids)) throw new Error('two forms of the same footballer in one team');
   return {
     coach,
     units: pids.map((pid) => {

@@ -18,15 +18,27 @@ function hand(s: DuelState, side: 0 | 1, cards: [number, 0 | 1 | 'u', 1 | 2 | 3]
 const pidOf = (s: DuelState, uid: number) => unit(s, uid).pid;
 
 describe('Modo Duelo: the rules engine', () => {
-  it('the opening side gets 7 cards (2 per starter + 1) and only 2 actions; Ray Dark takes one card from the other side', () => {
+  it('a dodge evades one hit: against a multi-hit card the first misses and the rest land', () => {
+    const s = duel(7, RAIMON, [100907, 1542, 1541, 2]);
+    const shawn = s.sides[0].units.find((u) => u.pid === 1513)!;
+    const [dodge] = hand(s, 0, [[1513, 0, 1]]);
+    act(s, 0, { do: 'use', card: dodge.id });
+    act(s, 0, { do: 'end' });
+    const hp = shawn.hp, n = s.log.length;
+    const [zig] = hand(s, 1, [[100907, 0, 1]]);
+    act(s, 1, { do: 'use', card: zig.id, target: shawn.uid });
+    expect(shawn.hp).toBeLessThan(hp);
+    expect(s.log.slice(n).filter((e) => e.t === 'miss' && e.to === shawn.uid)).toHaveLength(1);
+  });
+  it('the first hand is 1 card per starter + 1 (4) and the opening side has only 2 actions; Ray Dark takes one card from the other side', () => {
     const s = duel();
     expect(s.active).toBe(0);
-    // 7 minus Ray Dark's «Juego sucio» (equal cards dealt side by side then fuse at once, as in Grand Cross)
-    expect(s.log.find((e) => e.t === 'deal' && e.side === 0)).toMatchObject({ cards: 6 });
+    // 4 minus Ray Dark's «Juego sucio»
+    expect(s.log.find((e) => e.t === 'deal' && e.side === 0)).toMatchObject({ cards: 3 });
     expect(s.sides[0].actions).toBe(2);
     act(s, 0, { do: 'end' });
     expect(s.active).toBe(1);
-    expect(s.log.filter((e) => e.t === 'deal' && e.side === 1).at(-1)).toMatchObject({ cards: 7 });
+    expect(s.log.filter((e) => e.t === 'deal' && e.side === 1).at(-1)).toMatchObject({ cards: 4 });
     expect(s.sides[1].actions).toBe(3);
   });
   it('the same seed and the same actions give the same match', () => {
@@ -126,5 +138,17 @@ describe('Modo Duelo: the rules engine', () => {
     act(s, 0, { do: 'end' });
     cpuTurn(s, 'dificil', () => 0.5);
     expect(s.sides[0].units.every((u) => u.slot >= 0)).toBe(true);
+  });
+});
+
+describe('Modo Duelo: one form of each footballer per team', () => {
+  it('a footballer and his Mixi Max form are the same player', async () => {
+    const { familyOf, sameFamily } = await import('../src/systems/duel/cards');
+    expect(familyOf(101520)).toBe(familyOf(100538)); // Arion + Arthur / Arion
+    expect(sameFamily([100538, 101520, 10, 1])).toBe(true);
+    expect(sameFamily([100538, 10, 1, 29])).toBe(false);
+  });
+  it('a team with both forms is refused', () => {
+    expect(() => teamOf(new Map(), [100538, 101520, 10, 1], null)).toThrow(/two forms/);
   });
 });

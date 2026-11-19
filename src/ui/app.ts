@@ -1,7 +1,8 @@
 /** HTML/CSS front-end: onboarding, main menu, captain/map select, collection, gacha (IE3 capsule machine), upgrades,
  *  options, profile, HUD, level-up, pause and results. */
 import { artUrl as duelArt } from './duelArt';
-import { duelOpen } from '../systems/duel/open';
+import { duelOpen, setDuelAdmin } from '../systems/duel/open';
+import { DUEL_BY_ID } from '../systems/duel/cards';
 import type Phaser from 'phaser';
 import { rankMark, zEmblem } from './rankZ';
 import type { Manifest, MapInfo, Rarity, RosterEntry, Technique } from '../data/manifest';
@@ -15,7 +16,7 @@ import { applyReward, codePlayer, creatorGiftINA483, hasRedeemed, INA483_ODDS, n
 import { LOSE_PRIZE, matchDecree, paySectorPrize, REBEL_ENEMY_HP, REBEL_POINTS, SECTOR_START, sectorOf, sectorOpen, sectorRun, sectorWeek, sectorWeekEnd, SIDES, weeklyDecree, WIN_PRIZE, type MatchDecree, type SectorRun, type SideId } from '../systems/sector';
 import { activeSeason, addRunXp, adoptServerSeason, buyNormalKey, payLevel, canClaim as canClaimLevel, claimable, claimLevel, daysTo, giveGoldKey, goldKeyChance, levelOf, levelProgress, rowOpen, seasonEnd, seasonOf, seasonStart, upcomingSeason,
   GOLD_KEY_CHANCE, GOLD_KEY_COOP, LEVEL_XP, LEVELS, PASS_SERVER_AT, MULTI_FICHAS, NORMAL_KEY_PRICE, RANK_PRIZES, RANK_XP, SEASONS, XP_PER_MIN, passPlayersHidden, payRankPrize, type Granted, type SeasonDef, type SeasonReward, type SeasonTrack } from '../systems/seasonPass';
-import { claimSeasonRewards, duelFinish, duelStart } from '../online/client';
+import { claimSeasonRewards, duelFinish, duelPvpEnd, duelPvpJoin, duelPvpLeave, duelPvpMove, duelPvpPoll, duelPvpSync, duelRanking, duelStart, type PvpPlate } from '../online/client';
 import { clearRoad, compensateJaden202, compensateJaden3, jadenProgress, JADEN_EVERY, JADEN_FIRST, JADEN_ID, ROAD_BY_ID, ROAD_DIFFS, ROAD_SQUAD, roadEligible, roadMatchSec, roadOf, type RoadDiff } from '../systems/road';
 import { BANNERS, BANNER_ORDER, bannerPool, bannerPrice, eraOf, featured, featuredMachine, FEATURED_BOOST, perPlayerOdds, rarityOdds, teamChoices, type BannerId } from '../systems/banners';
 import { exportSave, importSave, remapIds, remapTechSlots, storeSave, type SaveData, type ParticleLevel, type Rank } from '../systems/save';
@@ -42,7 +43,7 @@ const TRAIN_TEAM = 5, TRAIN_SLOTS = 4;
 import { CLUB_CHEMISTRY, kitBonus } from '../systems/kitBonus';
 import { squadPotential } from '../systems/synergy';
 import { championsTable, recordTriumph } from '../systems/hallOfFame';
-import { BUILD, CREATOR_GAMES_URL, CURRENT_PUBLIC, NEXT_RELEASE, PUBLIC_RELEASES, PUBLIC_VERSION, releaseByVersion, TIKTOK_30_URL, TIKTOK_PATH, TIKTOK_URL, VERSION_LABEL } from '../data/release';
+import { BUILD, CREATOR_GAMES_URL, CURRENT_PUBLIC, NEXT_RELEASE, PUBLIC_RELEASES, PUBLIC_VERSION, releaseByVersion, TIKTOK_30_URL, TIKTOK_DUEL_URL, TIKTOK_PATH, TIKTOK_URL, VERSION_LABEL } from '../data/release';
 import { allNews, latestNewsId, NEWS_KIND_LABEL, type NewsItem, type NewsKind } from '../data/news';
 /** Fix 1.32: news text: escaped, **bold** allowed */
 const newsText = (t: string) => esc(t).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
@@ -82,7 +83,7 @@ import { applyGtsLedger, canLeave, gtsBanned, gtsError, gtsSlots, gtsSpare, type
 import { fmtNum, getLang, LANGS, locale, resolveLang, setLang, tr, type Lang } from '../i18n/i18n';
 import { tEl, tTech } from '../i18n/data';
 import { buzz, HAPTIC, setHaptics } from '../game/haptics';
-import { accountId, adminBugReports, adminMetrics, adminPlayerStats, adminUpdateBug, amIAdmin, consumeAuthRedirect, deleteAccount, deleteMyBugReports, deleteShot, myBugReports, notifyBug, shotUrl, submitBugReport, uploadShot, getCloudSave, leaderboard, seasonBuyNormalKey, seasonClaimLevels, seasonRunFinish, seasonRunStart, seasonRunTick, seasonState, myPosition, passHolders, sectorSides, profileBanners, profileFrames, sectorClaim, sectorCredit, sectorJoin, sectorStatus, type SectorPrize, type SectorStatus, publicProfile, type PublicProfile, myProfile, onlineConfigured, putCloudSave, reserveUsername, resetMyProgress, signedEmail, signedIn, signInWithGoogle, signOut, submitScore, usernameAvailable, type BoardQuery, type BoardRow, type BugFilter, type BugRow, type CloudSave } from '../online/client';
+import { accountId, adminBugReports, adminDuelMetrics, adminMetrics, adminPlayerStats, adminUpdateBug, amIAdmin, consumeAuthRedirect, deleteAccount, deleteMyBugReports, deleteShot, myBugReports, notifyBug, shotUrl, submitBugReport, uploadShot, getCloudSave, leaderboard, seasonBuyNormalKey, seasonClaimLevels, seasonRunFinish, seasonRunStart, seasonRunTick, seasonState, myPosition, passHolders, sectorSides, profileBanners, profileFrames, sectorClaim, sectorCredit, sectorJoin, sectorStatus, type SectorPrize, type SectorStatus, publicProfile, type PublicProfile, myProfile, onlineConfigured, putCloudSave, reserveUsername, resetMyProgress, signedEmail, signedIn, signInWithGoogle, signOut, submitScore, usernameAvailable, type BoardQuery, type BoardRow, type BugFilter, type BugRow, type CloudSave } from '../online/client';
 import { backup, linkPlan, progressOf, summarize, type SaveSummary } from '../online/cloudSync';
 import { epochOf, freshProgress, resetSummary } from '../systems/resetProgress';
 import { scoreOf, localBoard, mapMult, recordBest } from '../systems/leaderboard';
@@ -355,6 +356,8 @@ export class App {
       if (ret?.error) window.setTimeout(() => this.toast(tr('No se pudo entrar con Google: {error}', { error: ret.error }), 5000), 600);
       // Fix 1.32: the game never waits long for the server: after 6 s it opens and the account resolves in the background
       if (signedIn()) {
+        // admins get into the Modo Duelo before the 3.0 (duel/open.ts): the menu is drawn again when the answer comes
+        void amIAdmin().then((yes) => { if (!yes || duelOpen()) return; setDuelAdmin(true); if (this.screenKey === 'menu-mode') this.mainMenu(); }).catch(() => undefined);
         const acct = this.resolveAccount();
         after = await Promise.race([acct, new Promise<null>((ok) => window.setTimeout(() => ok(null), 6000))]);
         if (!after) void acct.then((fn) => fn?.()).catch(() => undefined);
@@ -815,6 +818,11 @@ export class App {
     return `<span class="elem" style="--ec:${ELEMENT_COLOR[e] ?? '#ccc'}">${elementIcon(e, 12)}${esc(e)}</span>`;
   }
   private show(html: string, cls = '') {
+    // the Modo Duelo slid the menu away and paused it (duelNav.leaveMenu): with no duel screen left, it comes back
+    if (!document.querySelector('.dh:not(.dn-out), .dt:not(.dn-out), .dbo:not(.dn-out), .dm')) {
+      this.root.classList.remove('dn-hid');
+      for (const a of this.root.getAnimations()) if (a.id === 'duel-under') a.cancel();
+    }
     document.getElementById('notibar')?.remove(); // 1.88: the report notifications live on the menu only
     // refreshing the same screen must not replay entrances, lose the scroll or restart CSS animations
     const key = /<h2>(.*?)<\/h2>/.exec(html)?.[1] ?? cls;
@@ -1958,17 +1966,19 @@ export class App {
     setMusicContext('menu');
     const draft = this.save.tierDraft ?? { topic: 'general', tiers: {} };
     const tiers = cleanTiers(draft.tiers, (id) => this.byId.has(id));
-    const topic = TIER_TOPICS.find((t) => t.id === draft.topic) ?? TIER_TOPICS[0];
+    // the Modo Duelo's topic only while the mode is open
+    const topics = TIER_TOPICS.filter((t) => !t.duel || duelOpen());
+    const topic = topics.find((t) => t.id === draft.topic) ?? topics[0];
     const placed = new Set(TIERS.flatMap((k) => tiers[k] ?? []));
     const q = this.tierQuery.trim().toLowerCase();
     const owned = new Set(this.unlockedRoster().map((p) => p.id));
-    const pool = this.m.roster.filter((p) => !placed.has(p.id) && (!topic.pos || p.position === topic.pos) && (!this.tierOwnedOnly || owned.has(p.id))
+    const pool = this.m.roster.filter((p) => !placed.has(p.id) && (!topic.pos || p.position === topic.pos) && (!topic.duel || DUEL_BY_ID.has(p.id)) && (!this.tierOwnedOnly || owned.has(p.id))
       && (!q || p.name.toLowerCase().includes(q))).sort((a, b) => Number(owned.has(b.id)) - Number(owned.has(a.id)) || this.meanOf(b) - this.meanOf(a)).slice(0, 80);
     const n = tierCount(tiers);
     const online = onlineConfigured() && signedIn();
     const body = this.tierTab === 'comunidad'
       ? `<div class="panel"><h3>${tr('{x1}Tierlists de la comunidad', { x1: uiIcon('crown') })} <small>${tr('las últimas publicadas')}</small></h3><div id="tlfeed" class="tl-feed">${onlineConfigured() ? '<div class="note">Cargando…</div>' : `<div class="note">${tr('Disponible con el servicio online.')}</div>`}</div></div>`
-      : `<div class="panel tl-editor"><div class="tl-topics">${TIER_TOPICS.map((t) => `<button class="pill${t.id === topic.id ? ' on' : ''}" data-ttopic="${t.id}">${esc(t.label)}</button>`).join('')}</div>
+      : `<div class="panel tl-editor"><div class="tl-topics">${topics.map((t) => `<button class="pill${t.id === topic.id ? ' on' : ''}" data-ttopic="${t.id}">${esc(t.label)}</button>`).join('')}</div>
           <div class="tl-shot" id="tlshot"><div class="tl-card-head"><b>${esc(topic.label)}</b><small>${tr('de <b>{profileName}</b> · {n}/{TIER_MAX}', { profileName: esc(this.save.profile.name), n, TIER_MAX })}</small></div>${this.tierBoard(tiers, 44, true)}</div>
           <div class="cp-actions"><button class="btn big" id="tlpub" ${n >= TIER_MIN ? '' : 'disabled'}>${n >= TIER_MIN ? tr('Publicar para todos ▶') : tr('Coloca al menos {TIER_MIN}', { TIER_MIN })}</button><button class="btn blue" id="tlclear" ${n ? '' : 'disabled'}>${tr('Vaciar')}</button></div>
           ${online ? '' : `<p class="note">${tr('Para publicarla conéctate con tu cuenta (Perfil). Mientras, se guarda aquí.')}</p>`}</div>
@@ -2570,8 +2580,41 @@ export class App {
     void import('./duelHub').then(({ openDuelHub }) => openDuelHub({
       byId: byId as never, mug: (pid, size) => this.mug(pid, size), name: (pid) => byId.get(pid)?.nickname ?? byId.get(pid)?.name ?? '?',
       rarity: (pid) => byId.get(pid)?.rarity ?? 'legendario', coachArt: (id) => this.coachTex(id),
+      // your plate in the match: profile icon in its frame and the name on your banner (the rival's comes with the online)
+      plate: (side) => {
+        if (side !== 0) return '';
+        const name = this.save.onlineName ?? this.save.profile.name, pn = equippedPennant(this.save)?.id;
+        return `<span class="dmp-ic">${this.framed(this.profileIcon(38), equippedFrame(this.save)?.id, true)}</span><span class="dmp-tx${pn ? ' rb' : ''}">${pn ? pennantRibbon(pn) : ''}<b class="dmp-name${this.goldName(name)}">${esc(name)}</b><small>${esc(tr('Tú'))}</small></span>`;
+      },
       owned: Object.keys(this.save.owned).map(Number), coaches: this.save.coaches?.owned ?? [], benchCoach: this.save.coaches?.bench,
       progress: { ...this.save.duel },
+      team: this.save.duel?.team,
+      saveTeam: (t) => { (this.save.duel ??= {}).team = t; this.persist(); },
+      storyCleared: (id) => { const d = (this.save.duel ??= {}); if (!(d.story ??= []).includes(id)) d.story.push(id); addCounter(this.save, 'duel_story', 1); this.persist(); },
+      card: (pid) => { const p = this.byId.get(pid); return p ? this.pcard(p) : ''; },
+      ranking: (week) => (onlineConfigured() ? duelRanking(week) : Promise.resolve(null)),
+      // online duels need the service and an account with its name
+      pvp: onlineConfigured() && signedIn() && this.save.onlineName ? {
+        join: duelPvpJoin, poll: duelPvpPoll, leave: duelPvpLeave, move: duelPvpMove, sync: duelPvpSync, end: duelPvpEnd,
+        me: (): PvpPlate => ({ name: this.save.onlineName ?? this.save.profile.name, icon: this.save.profile.icon ?? null, frame: equippedFrame(this.save)?.id ?? null, pennant: equippedPennant(this.save)?.id ?? null }),
+        // a player's plate from what the server keeps (the rival's: whatever they sent is only drawn if it exists)
+        plate: (p: PvpPlate, you: boolean) => {
+          const name = String(p?.name ?? '?').slice(0, 24), pn = typeof p?.pennant === 'string' ? p.pennant : null;
+          let ribbon = '';
+          try { ribbon = pn ? pennantRibbon(pn) : ''; } catch { ribbon = ''; }
+          const ic = p?.icon && typeof p.icon === 'object' && ['emblem', 'player', 'coach'].includes(p.icon.kind) ? { kind: p.icon.kind, id: Number(p.icon.id) } : null;
+          return `<span class="dmp-ic">${this.framed(this.profileIcon(38, ic), typeof p?.frame === 'string' ? p.frame : null, true)}</span><span class="dmp-tx${ribbon ? ' rb' : ''}">${ribbon}<b class="dmp-name${this.goldName(name)}">${esc(name)}</b><small>${esc(you ? tr('Tú') : tr('Rival'))}</small></span>`;
+        },
+      } : undefined,
+      // the tier lists are the players' own: the duel's topic of the community tier lists
+      makeTierlist: () => {
+        document.querySelectorAll('.dh, .dbo, .dbo-tip').forEach((e) => e.remove());
+        const d = this.save.tierDraft;
+        this.save.tierDraft = d?.topic === 'duelo' ? d : { topic: 'duelo', tiers: {} };
+        this.tierTab = 'crear';
+        this.tierlistScreen();
+      },
+      me: this.save.onlineName ?? this.save.profile.name,
       finished: (won, tutorial) => {
         const d = (this.save.duel ??= {});
         if (tutorial && won) d.tutorial = true;
@@ -2579,7 +2622,7 @@ export class App {
         this.persist();
       },
       // with an account the server opens the match and pays it (systems: duel_runs); without one, a guest's own daily cap
-      begin: (level) => (onlineConfigured() && signedIn() ? duelStart(level) : Promise.resolve(null)),
+      begin: (level, info) => (onlineConfigured() && signedIn() ? duelStart(level, info) : Promise.resolve(null)),
       pay: async (won, tutorial, stats, ticket, level) => {
         const d = (this.save.duel ??= {});
         addCounter(this.save, 'duel_merges', stats.merges);
@@ -2593,7 +2636,7 @@ export class App {
         if (won) { addCounter(this.save, 'duel_wins', 1); if (level) addCounter(this.save, `duel_wins_${level}`, 1); }
         let coins = 0, note = '';
         if (ticket) {
-          const r = await duelFinish(ticket, won).catch(() => null);
+          const r = await duelFinish(ticket, won, stats).catch(() => null);
           coins = r?.coins ?? 0;
           if (won && !r) note = tr('Sin conexión: esta victoria no da monedas.');
           else if (won && r?.why === 'cap') note = tr('Ya has cobrado las 10 victorias de hoy.');
@@ -2611,6 +2654,7 @@ export class App {
         return { coins, note };
       },
       close: () => { if (this.screenKey === 'menu-mode') this.mainMenu(); },
+      under: this.root,
     }));
   }
   private coachTex(id: string) { return this.m.coaches?.find((c) => c.id === id)?.texture ?? ''; }
@@ -3242,6 +3286,9 @@ export class App {
         <div class="l30-feats">${rel.features.filter((f) => f.icon !== '🛣️').map((f, i) => `<span style="--i:${i}"><i>${f.icon}</i><b>${esc(f.title)}</b><small>${esc(f.text)}</small></span>`).join('')}</div>
         ${vr.length ? `<div class="l30-vr"><div class="l30-vr-tx"><small>${tr('Y DESPUÉS…')}</small><b>VICTORY ROAD</b><em>${tr('Muy pronto')}</em></div>
           <div class="l30-vr-row">${vr.map((p, i) => `<span style="--i:${i};--rc:${RARITY_COLOR[p.rarity]}">${this.vrMug(p, 60)}</span>`).join('')}</div></div>` : ''}
+        <button class="l30-p2" type="button" data-l30p2><img class="l30-p2-bg" src="${duelArt('mesa-horizontal')}" alt="">
+          <span class="l30-p2-tx"><small>${tr('PARTE 2')}</small><b>${tr('MODO DUELO')}</b><em>${tr('Ver la presentación ▶')}</em></span>
+          <span class="l30-p2-cards">${[10, 157, 1].map((pid, i) => `<span class="m4-dc"><span class="m4-dcf">${this.mug(pid, 40)}</span><img src="${duelArt(['carta-r3', 'carta-ulti', 'carta-r2'][i])}" alt=""></span>`).join('')}</span></button>
         <div class="l30-btns">${this.tiktok30Btn()}${soon ? `<button class="btn big al-btn" data-l2go>${tr('¡Nos vemos el 25! ▶')}</button>`
           : `<button class="btn big blue" data-l2news>${tr('Ver todas las novedades')}</button><button class="btn big al-btn" data-l30altar>${tr('Ir al Altar ▶')}</button>`}</div>
       </div>
@@ -3379,6 +3426,130 @@ export class App {
     box.querySelectorAll('[data-l2go]').forEach((b) => b.addEventListener('click', () => close()));
     box.querySelector('[data-l2news]')?.addEventListener('click', () => close(() => this.devlog('version-3.0')));
     box.querySelector('[data-l30altar]')?.addEventListener('click', () => close(() => this.aliusAltar()));
+    box.querySelector('[data-l30p2]')?.addEventListener('click', () => close(() => this.launchDuel()));
+  }
+
+  /**
+   * 3.0 part 2 (author: «añádelo como en la carátula de bienvenida de la Alius y que sea la parte 2… que se vea el modo
+   * duelo y se presente guay»): the Modo Duelo's presentation, opened from the 3.0 one. A deck in the middle deals three
+   * cards to each side, they turn into two trios (Raimon and the Alius / Zeus), clash with a VS, and the «Parte 2 · Modo
+   * Duelo» seal comes with the mode's news; a button to the duel once it is open.
+   */
+  private launchDuel() {
+    if (document.querySelector('.ldu')) return;
+    try { localStorage.setItem('iz-launch-duelo', '1'); } catch { /* private window */ }
+    const open = duelOpen(), lite = this.save.settings.particles === 'desactivado';
+    const FR: Record<string, string> = { leyenda: 'marco-leyenda', mitico: 'marco-mitico' };
+    const card = (pid: number, side: 0 | 1, i: number) => {
+      const p = this.byId.get(pid), name = p?.nickname ?? p?.name ?? '';
+      return `<div class="ldu-c s${side}" style="--i:${i};--k:${side ? i : 2 - i}"><div class="ldu-flip">
+        <img class="ldu-back" src="${duelArt('carta-reverso')}" alt="">
+        <div class="ldu-front"><span class="ldu-port">${this.mug(pid, 64)}</span><img src="${duelArt(FR[p?.rarity ?? ''] ?? 'marco-legendario')}" alt=""><b>${esc(name)}</b></div></div></div>`;
+    };
+    const tech = (file: string, pid: number, label: string, i: number) =>
+      `<span class="ldu-tc" style="--i:${i}"><span class="m4-dcf">${this.mug(pid, 40)}</span><img src="${duelArt(file)}" alt=""><em>${label}</em></span>`;
+    const feats: [string, string, string][] = [
+      ['🃏', tr('50 futbolistas, 150 cartas'), tr('Cada futbolista trae dos técnicas y su ulti. Monta tu equipo de cuatro con tu colección y un entrenador.')],
+      ['✨', tr('Fusiona tus cartas'), tr('Dos cartas iguales juntas suben de rango: R1 → R2 → R3. Y las de compañeros se combinan en técnicas combinadas.')],
+      ['⚡', tr('Ultis y estados'), tr('Llena la garra para lanzar la ulti. Quemadura, congelado, electrizado, aturdido, provocar…')],
+      ['🌐', tr('Duelos online'), tr('Cola en directo, turnos de 60 s y, si nadie aparece en 1:30, un bot.')],
+      ['🪙', tr('30.000 monedas por victoria'), tr('Hasta 10 victorias al día contra la CPU, misiones con Fichas EG y ranking semanal.')],
+    ];
+    const box = document.createElement('div');
+    box.className = `ldu${lite ? ' lite' : ''}`;
+    box.innerHTML = `<img class="ldu-table" src="${duelArt('mesa-vertical')}" alt=""><i class="ldu-glow"></i><canvas class="l30-fx"></canvas><i class="ldu-flash"></i>
+      <div class="ldu-main">
+        <div class="ldu-arena">
+          <div class="ldu-deck"><img src="${duelArt('carta-reverso')}" alt=""><img src="${duelArt('carta-reverso')}" alt=""><img src="${duelArt('carta-reverso')}" alt=""></div>
+          <div class="ldu-side s0">${[10, 1, 1513].map((pid, i) => card(pid, 0, i)).join('')}</div>
+          <div class="ldu-vs"><b>VS</b></div>
+          <div class="ldu-side s1">${[157, 101722, 1371].map((pid, i) => card(pid, 1, i)).join('')}</div>
+        </div>
+        <div class="ldu-head"><div class="l30-logo lg-host">${this.artLogo(true)}</div>
+          <div class="ldu-seal"><small>3.0 · ${tr('PARTE 2')}</small><b>${tr('MODO DUELO')}</b></div>
+          <div class="l30-date">${open ? `<b>${tr('¡YA DISPONIBLE!')}</b>` : `<small>${tr('PRÓXIMAMENTE')}</small><b>${tr('Muy pronto')}</b>`}</div></div>
+        <div class="ldu-techs">${tech('carta-r1', 10, 'R1', 0)}<i>+</i>${tech('carta-r1', 10, 'R1', 1)}<i>→</i>${tech('carta-r2', 10, 'R2', 2)}<i>→</i>${tech('carta-r3', 10, 'R3', 3)}<i>·</i>${tech('carta-ulti', 1, 'ULTI', 4)}</div>
+        <div class="l30-feats ldu-feats">${feats.map(([ic, t, x], i) => `<span style="--i:${i}"><i>${ic}</i><b>${esc(t)}</b><small>${esc(x)}</small></span>`).join('')}</div>
+        <div class="l30-btns ldu-btns">${TIKTOK_DUEL_URL ? `<a class="btn big l30-tt" href="${TIKTOK_DUEL_URL}" target="_blank" rel="noopener noreferrer"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="${TIKTOK_PATH}"/></svg>${tr('Ver el vídeo en TikTok')}</a>` : ''}
+          <button class="btn big blue" data-ldu1>${tr('◀ Parte 1: La Piedra Alius')}</button>
+          ${open ? `<button class="btn big ldu-go" data-ldugo>${tr('¡A duelear! ▶')}</button>` : `<button class="btn big ldu-go" data-l2go>${tr('¡Nos vemos pronto! ▶')}</button>`}</div>
+      </div>
+      <button class="l2-skip" data-l2go>${tr('Saltar')}</button>`;
+    document.body.appendChild(box);
+    setMusicContext('duel');
+
+    // sparks and the clash: the same kind of canvas as the 3.0 one
+    const cv = box.querySelector<HTMLCanvasElement>('.l30-fx')!, g = cv.getContext('2d')!;
+    const fit = () => { const d = Math.min(2, window.devicePixelRatio || 1); cv.width = window.innerWidth * d; cv.height = window.innerHeight * d; g.setTransform(d, 0, 0, d, 0, 0); };
+    fit();
+    window.addEventListener('resize', fit);
+    type Spark = { x: number; y: number; vx: number; vy: number; life: number; max: number; size: number; c: string };
+    const sparks: Spark[] = [], waves: { x: number; y: number; t: number; c: string }[] = [];
+    const burst = (x: number, y: number, n: number, speed: number, cols: string[]) => {
+      for (let k = 0; k < (lite ? Math.ceil(n / 4) : n); k++) {
+        const a = Math.random() * Math.PI * 2, v = speed * (0.3 + Math.random() * 0.7), max = 0.5 + Math.random() * 0.8;
+        sparks.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: max, max, size: 2 + Math.random() * 4, c: cols[(Math.random() * cols.length) | 0] });
+      }
+    };
+    const at = (el: Element | null) => { const r = el?.getBoundingClientRect(); return r ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : { x: window.innerWidth / 2, y: window.innerHeight / 3 }; };
+    const BLUE = ['#5ad8ff', '#9fe9ff', '#ffffff', '#2f8cff'], RED = ['#ff7a2a', '#ffc35a', '#ffffff', '#ff3d3d'];
+    const T_DEAL = 0.5, T_FLIP = 1.45, T_CLASH = 2.35, T_TITLE = 3.1;
+    const t0 = performance.now();
+    let last = t0, step = 0;
+    const frame = (now: number) => {
+      if (!box.isConnected) return;
+      const t = (now - t0) / 1000, dt = Math.min(0.05, (now - last) / 1000), W = window.innerWidth, H = window.innerHeight;
+      last = now;
+      if (step === 0 && t >= T_DEAL) { step = 1; box.classList.add('deal'); sfx('whoosh'); [0, 1, 2, 3, 4, 5].forEach((k) => window.setTimeout(() => sfx('click', 1.2), k * 90)); }
+      if (step === 1 && t >= T_FLIP) {
+        step = 2; box.classList.add('flip'); sfx('reveal');
+        box.querySelectorAll('.ldu-c').forEach((c, i) => window.setTimeout(() => { const p = at(c); burst(p.x, p.y, 18, 300, c.classList.contains('s0') ? BLUE : RED); }, 120 + (i % 3) * 90));
+      }
+      if (step === 2 && t >= T_CLASH) {
+        step = 3; box.classList.add('clash'); sfx('boom'); sfx('thunder');
+        const v = at(box.querySelector('.ldu-vs'));
+        burst(v.x, v.y, 70, 900, BLUE); burst(v.x, v.y, 70, 900, RED);
+        waves.push({ ...v, t, c: '#5ad8ff' }, { ...v, t: t + 0.1, c: '#ff7a2a' }, { ...v, t: t + 0.22, c: '#fff3b0' });
+      }
+      if (step === 3 && t >= T_TITLE) { step = 4; box.classList.add('titled'); sfx('legend'); if (!lite) confetti(60); }
+      g.clearRect(0, 0, W, H);
+      g.globalCompositeOperation = 'lighter';
+      if (step >= 3 && !lite && Math.random() < 0.5) { const v = at(box.querySelector('.ldu-vs')); burst(v.x + (Math.random() - 0.5) * 50, v.y, 1, 120, Math.random() < 0.5 ? BLUE : RED); }
+      for (let k = waves.length - 1; k >= 0; k--) {
+        const r = waves[k], a = (t - r.t) / 0.8;
+        if (a < 0) continue;
+        if (a >= 1) { waves.splice(k, 1); continue; }
+        g.strokeStyle = r.c; g.globalAlpha = 1 - a; g.lineWidth = 12 * (1 - a) + 1;
+        g.beginPath(); g.ellipse(r.x, r.y, a * Math.max(W, H) * 0.6, a * Math.max(W, H) * 0.25, 0, 0, Math.PI * 2); g.stroke();
+      }
+      for (let k = sparks.length - 1; k >= 0; k--) {
+        const p = sparks[k];
+        p.life -= dt;
+        if (p.life <= 0) { sparks.splice(k, 1); continue; }
+        p.vy += 260 * dt; p.vx *= 0.985; p.vy *= 0.985; p.x += p.vx * dt; p.y += p.vy * dt;
+        g.globalAlpha = p.life / p.max; g.fillStyle = p.c;
+        g.beginPath(); g.arc(p.x, p.y, p.size * (0.4 + 0.6 * p.life / p.max), 0, Math.PI * 2); g.fill();
+      }
+      g.globalAlpha = 1;
+      g.globalCompositeOperation = 'source-over';
+      requestAnimationFrame(frame);
+    };
+    requestAnimationFrame(frame);
+
+    let closed = false;
+    const close = (then?: () => void) => {
+      if (closed) return; closed = true;
+      document.removeEventListener('keydown', onKey);
+      window.removeEventListener('resize', fit);
+      box.classList.add('out');
+      window.setTimeout(() => { box.remove(); if (!then || then !== go) setMusicContext('menu'); then?.(); }, 420);
+    };
+    const go = () => this.duelScreen();
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') close(); };
+    document.addEventListener('keydown', onKey);
+    box.querySelectorAll('[data-l2go]').forEach((b) => b.addEventListener('click', () => close()));
+    box.querySelector('[data-ldugo]')?.addEventListener('click', () => close(go));
+    box.querySelector('[data-ldu1]')?.addEventListener('click', () => close(() => this.launch30()));
   }
 
 
@@ -4768,11 +4939,12 @@ export class App {
   }
 
   /** Fix 1.41: how many people play (accounts only: guests never reach the server). The server refuses non-admins. */
-  private async adminPlayers(tab: 'players' | 'metrics' | 'replays' = 'players', days = 30) {
-    this.show(`<div class="screen">${this.titlebar(tr('Panel de jugadores'), 'Ajustes')}<div class="panel"><div class="seg" id="aptabs"><button data-t="players" class="${tab === 'players' ? 'on' : ''}">${tr('Jugadores')}</button><button data-t="metrics" class="${tab === 'metrics' ? 'on' : ''}">${tr('Métricas')}</button><button data-t="replays" class="${tab === 'replays' ? 'on' : ''}">${tr('Repeticiones')}</button></div><div id="aplist" class="note">${tr('Cargando…')}</div></div></div>`);
+  private async adminPlayers(tab: 'players' | 'metrics' | 'duel' | 'replays' = 'players', days = 30) {
+    this.show(`<div class="screen">${this.titlebar(tr('Panel de jugadores'), 'Ajustes')}<div class="panel"><div class="seg" id="aptabs"><button data-t="players" class="${tab === 'players' ? 'on' : ''}">${tr('Jugadores')}</button><button data-t="metrics" class="${tab === 'metrics' ? 'on' : ''}">${tr('Métricas')}</button><button data-t="duel" class="${tab === 'duel' ? 'on' : ''}">Duelo</button><button data-t="replays" class="${tab === 'replays' ? 'on' : ''}">${tr('Repeticiones')}</button></div><div id="aplist" class="note">${tr('Cargando…')}</div></div></div>`);
     this.on('[data-back]', 'click', () => this.options());
-    this.on('#aptabs button', 'click', (_e, el) => { void this.adminPlayers(el.dataset.t as 'players' | 'metrics' | 'replays', days); });
+    this.on('#aptabs button', 'click', (_e, el) => { void this.adminPlayers(el.dataset.t as 'players' | 'metrics' | 'duel' | 'replays', days); });
     if (tab === 'metrics') return this.adminMetricsView(days);
+    if (tab === 'duel') return this.adminDuelView(days);
     if (tab === 'replays') return this.adminReplaysView();
     const box = document.getElementById('aplist')!;
     const ago = (iso: string | null) => {
@@ -5409,6 +5581,48 @@ export class App {
         <h4>${tr('Comunidad')}</h4><div class="ap-tiles">${tile(n(m.social.friendships), 'amistades')}${tile(n(m.social.clans), 'clanes')}${tile(n(m.social.clan_members), tr('miembros de clan'))}${tile(n(m.social.coop_7d), tr('partidas co-op (7 días)'))}${tile(n(m.social.tierlists), 'tierlists')}${tile(n(m.social.bugs_open), 'bugs abiertos')}${tile(n(m.social.ideas_open), 'ideas pendientes')}</div>
         <p class="note">${tr('Partidas por día, horas, arenas, rangos y capitanes salen de las partidas enviadas al ranking (solo cuentas con sesión; los invitados no cuentan). Arenas, rangos y capitanes son de todo el historial.')}</p>`;
       this.on('#mtdays button', 'click', (_e, el) => { void this.adminPlayers('metrics', Number(el.dataset.d)); });
+    } catch (e) { box.textContent = /forbidden/.test((e as Error).message) ? tr('No tienes permiso para ver este panel.') : tr('No se pudo cargar: {x1}', { x1: (e as Error).message }); }
+  }
+
+  /** 3.0 Métricas del Modo Duelo (author: «pj más usados, victorias y eso»): matches against the CPU and online, the
+   *  footballers and coaches most used with their win share, the levels, the story chapters and how online matches end.
+   *  Admins also get into the mode from here before it opens (duel/open.ts). Admin-only text, in Spanish. */
+  private async adminDuelView(days: number) {
+    const box = document.getElementById('aplist')!;
+    try {
+      const m = await adminDuelMetrics(days);
+      if (!document.getElementById('aplist')) return;
+      const n = (v: number) => Number(v ?? 0).toLocaleString(locale());
+      const pct = (a: number, b: number) => (b ? `${Math.round((a / b) * 100)} %` : '—');
+      const tile = (v: string, t: string) => `<div class="ap-tile"><b>${v}</b><span>${t}</span></div>`;
+      const name = (pid: number) => this.byId.get(pid)?.nickname ?? this.byId.get(pid)?.name ?? `#${pid}`;
+      const rows = (items: { label: string; n: number; sub: string }[]) => {
+        const max = Math.max(1, ...items.map((x) => x.n));
+        return items.length ? `<div class="mt-rows">${items.map((x) => `<div class="mt-row"><span>${esc(x.label)}</span><div><i style="width:${(x.n / max) * 100}%"></i></div><b>${n(x.n)} <small>${esc(x.sub)}</small></b></div>`).join('')}</div>` : '<p class="note">Sin datos todavía.</p>';
+      };
+      const max = Math.max(1, ...m.daily.map((d) => d.cpu + d.pvp)), step = Math.max(1, Math.ceil(m.daily.length / 8));
+      const cols = `<div class="mt-cols">${m.daily.map((d, i) => `<div class="mt-col" title="${esc(`${d.day}: ${d.cpu} contra la CPU · ${d.pvp} online · ${d.players} jugadores`)}"><i style="height:${Math.round(((d.cpu + d.pvp) / max) * 100)}%"></i><small>${(m.daily.length - 1 - i) % step === 0 ? `${d.day.slice(8)}/${d.day.slice(5, 7)}` : ''}</small></div>`).join('')}</div>`;
+      const LV: Record<string, string> = { facil: 'Fácil', normal: 'Normal', dificil: 'Difícil' };
+      const REASON: Record<string, string> = { win: 'Partida terminada', surrender: 'Rendición', gone: 'Rival desconectado' };
+      const COACH = (id: string) => COACH_BY_ID.get(id)?.name ?? id;
+      const t = m.totals, open = Date.now() >= Date.parse(m.opens_at);
+      const top = [...m.players_top], best = top.filter((p) => p.n >= 10).sort((a, b) => b.wins / b.n - a.wins / a.n);
+      const STORY = await import('../systems/duel/story').then((x) => x.STORY_CHAPTERS).catch(() => []);
+      box.className = '';
+      box.innerHTML = `<div class="seg small" id="mtdays">${[7, 30, 90].map((d) => `<button data-d="${d}" class="${d === days ? 'on' : ''}">${d} días</button>`).join('')}</div>
+        <p class="note">${open ? 'El Modo Duelo está abierto para todos.' : `El Modo Duelo abre para todos el ${new Date(m.opens_at).toLocaleString(locale())}. Hasta entonces solo entran los admins.`}
+          <button class="btn small" id="adduel">⚔️ Entrar al Modo Duelo</button></p>
+        <div class="ap-tiles">${tile(n(t.cpu), 'duelos contra la CPU')}${tile(pct(t.cpu_wins, t.cpu), `ganados (${n(t.cpu_wins)})`)}${tile(n(t.players), 'jugadores distintos')}${tile(n(t.pvp), 'duelos online')}${tile(n(t.pvp_players), 'jugadores online')}${tile(n(t.coins), 'monedas pagadas')}${tile(t.turns_avg == null ? '—' : String(t.turns_avg), 'turnos de media')}${tile(n(t.merges), 'fusiones')}${tile(n(t.combos), 'combinadas')}${tile(n(t.ultis), 'ultis')}</div>
+        <h4>Duelos por día <small>(CPU + online)</small></h4>${cols}
+        <div class="mt-split"><div><h4>Futbolistas más usados <small>(CPU: tu equipo · online: los dos)</small></h4>${rows(top.slice(0, 15).map((p) => ({ label: name(p.id), n: p.n, sub: `${pct(p.wins, p.n)} gana · ${p.cpu} CPU / ${p.pvp} online` })))}</div>
+        <div><h4>Los que más ganan <small>(10+ duelos)</small></h4>${rows(best.slice(0, 15).map((p) => ({ label: name(p.id), n: p.wins, sub: `de ${p.n} · ${pct(p.wins, p.n)}` })))}</div></div>
+        <div class="mt-split"><div><h4>Dificultad contra la CPU</h4>${rows(m.levels.map((x) => ({ label: LV[x.level] ?? x.level, n: x.n, sub: `${pct(x.wins, x.n)} ganados` })))}</div>
+        <div><h4>Entrenadores</h4>${rows(m.coaches.map((x) => ({ label: COACH(x.id), n: x.n, sub: `${pct(x.wins, x.n)} gana` })))}</div>
+        <div><h4>Cómo acaban los online</h4>${rows(m.pvp_end.map((x) => ({ label: REASON[x.reason] ?? x.reason, n: x.n, sub: pct(x.n, t.pvp) })))}</div></div>
+        <h4>Modo historia</h4>${rows(m.story.map((x) => ({ label: `${x.chapter} · ${STORY.find((c) => c.id === x.chapter)?.title ?? ''}`, n: x.players, sub: `jugadores lo superan · ${x.n} intentos · ${pct(x.wins, x.n)} ganados` })))}
+        <p class="note">Solo cuentan los duelos de cuentas con sesión (los invitados no llegan al servidor). Los equipos y estadísticas se guardan desde la 3.0; los duelos online, desde que se terminan.</p>`;
+      this.on('#mtdays button', 'click', (_e, el) => { void this.adminPlayers('duel', Number(el.dataset.d)); });
+      this.on('#adduel', 'click', () => { setDuelAdmin(true); this.mainMenu(); this.duelScreen(); });
     } catch (e) { box.textContent = /forbidden/.test((e as Error).message) ? tr('No tienes permiso para ver este panel.') : tr('No se pudo cargar: {x1}', { x1: (e as Error).message }); }
   }
 

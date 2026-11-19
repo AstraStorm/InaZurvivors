@@ -12,6 +12,8 @@ export const RELEASED = true; // (author) 2.0: the «pre» phase is over
 export const TIKTOK_URL = 'https://www.tiktok.com/@aastra.__';
 /** 3.0: the author's launch video */
 export const TIKTOK_30_URL = 'https://www.tiktok.com/@aastra.__/video/7709273900152065302';
+/** 3.0 part 2: the author's Modo Duelo video ('' until it is up: its button stays hidden) */
+export const TIKTOK_DUEL_URL = '';
 /** the author's other games (informative only: no donations or payments inside InaZurvivors) */
 export const CREATOR_GAMES_URL = 'https://astrastorm.itch.io/';
 /** Simple Icons "TikTok" glyph (CC0), used only as a link to the author's profile. */

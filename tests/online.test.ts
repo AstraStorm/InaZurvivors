@@ -7,7 +7,7 @@ import { scoreOf } from '../src/systems/leaderboard';
 import path from 'node:path';
 import { PGlite } from '@electric-sql/pglite';
 import { citext } from '@electric-sql/pglite/contrib/citext';
-import { beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { validateUsername } from '../src/systems/username';
 
 const migrations = path.resolve(__dirname, '..', 'supabase', 'migrations');
@@ -669,6 +669,8 @@ describe('tier lists (1.9)', () => {
     for (const bad of [{ S: [1, 1, 2] }, { X: [1, 2, 3] }, { S: [1, 2] }, { S: [1.5, 2, 3] }, { S: ['1', 2, 3] }, { S: Array.from({ length: 31 }, (_, i) => i + 1) }])
       await expect(api('tomas', `select public.submit_tierlist('general', $1::jsonb)`, [JSON.stringify(bad)])).rejects.toThrow(/invalid_tiers/);
     await expect(api('tomas', `select public.submit_tierlist('memes', $1::jsonb)`, [JSON.stringify({ S: [1, 2, 3] })])).rejects.toThrow();
+    // the Modo Duelo's topic
+    await api('tomas', `select public.submit_tierlist('duelo', $1::jsonb)`, [JSON.stringify({ S: [1, 2, 3] })]);
     await expect(api('sinnombre', `select public.submit_tierlist('general', $1::jsonb)`, [JSON.stringify({ S: [1, 2, 3] })])).rejects.toThrow(/no_username/);
     await expect(api('', `select public.submit_tierlist('general', $1::jsonb)`, [JSON.stringify({ S: [1, 2, 3] })])).rejects.toThrow(/permission denied/);
     await expect(api('tina', 'select * from public.tierlists')).rejects.toThrow();
@@ -1085,6 +1087,25 @@ describe('3.0 season pass on the server (forging the key, the EXP and the claims
   });
 });
 
+describe('Modo Duelo: closed until the 3.0 except for admins', () => {
+  beforeAll(async () => {
+    for (const [i, u] of ['gate_a', 'gate_admin'].entries()) {
+      ids[u] = `00000000-0000-0000-0000-0000000041${i}0`;
+      await db.query('insert into auth.users (id, email) values ($1, $2)', [ids[u], `${u}@example.test`]);
+    }
+    await db.query('insert into private.admins (user_id) values ($1)', [ids.gate_admin]);
+    await db.query(`create or replace function private.duel_opens_at() returns timestamptz language sql immutable set search_path = '' as $f$ select now() + interval '1 day' $f$`);
+  });
+  afterAll(async () => {
+    await db.query(`create or replace function private.duel_opens_at() returns timestamptz language sql immutable set search_path = '' as $f$ select timestamptz '2000-01-01 00:00:00+00' $f$`);
+  });
+  it('a player cannot start a match nor queue online before it opens; an admin can', async () => {
+    await expect(api('gate_a', `select public.duel_start('normal')`)).rejects.toThrow(/duel_not_open/);
+    await expect(api('gate_a', `select public.duel_pvp_join('{"units":[]}'::jsonb, '{}'::jsonb)`)).rejects.toThrow();
+    expect(((await api('gate_admin', `select public.duel_start('normal') as id`)).rows[0] as { id: string }).id).toBeTruthy();
+  });
+});
+
 describe('Modo Duelo: the 30.000 coins of a CPU win, paid by the server', () => {
   const users = ['duel_a', 'duel_b'];
   const saved = async (u: string) => ((await as(u, 'select data from public.get_save()')).rows[0] as { data: Record<string, any> }).data; // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -1130,6 +1151,11 @@ describe('Modo Duelo: the 30.000 coins of a CPU win, paid by the server', () => 
     await played(over);
     expect(await finish('duel_b', over, true)).toMatchObject({ coins: 0, why: 'cap', left: 0 });
   });
+  it('the duel ranking counts the server\'s wins that lasted a minute (paid or over the cap), most first', async () => {
+    for (const u of users) await db.query('insert into public.profiles (id, username) values ($1, $2) on conflict (id) do nothing', [ids[u], u]);
+    const rows = (await api('duel_a', 'select * from public.duel_ranking(false, 10)')).rows as { pos: number; username: string; wins: number }[];
+    expect(rows.map((r) => [String(r.username), Number(r.wins), Number(r.pos)])).toEqual([['duel_b', 11, 1], ['duel_a', 1, 2]]);
+  });
   it('the economy cap lets the save keep the coins the server paid, and no more', async () => {
     // the wins of the tests above are older than this save (put dates the previous write a minute back)
     await db.query(`update private.duel_runs set paid_at = paid_at - interval '1 hour', started_at = started_at - interval '1 hour' where user_id = $1`, [ids.duel_a]);
@@ -1146,5 +1172,57 @@ describe('Modo Duelo: the 30.000 coins of a CPU win, paid by the server', () => 
   it('without an account there is no duel to start or finish', async () => {
     await expect(api('', `select public.duel_start('normal')`)).rejects.toThrow();
     await expect(api('', `select public.duel_finish($1, true)`, ['00000000-0000-0000-0000-000000000000'])).rejects.toThrow();
+  });
+  it('the admin duel metrics: the teams and stats a match keeps, footballers by use and the story chapters', async () => {
+    const r = ((await api('duel_a', `select public.duel_start('dificil', '[1,10,29,2]'::jsonb, 'hillman', '[157]'::jsonb, '1-3') as id`)).rows[0] as { id: string }).id;
+    await played(r);
+    await api('duel_a', 'select public.duel_finish($1, true, $2::jsonb)', [r, JSON.stringify({ turns: 7, merges: 3, combos: 1, ultis: 2 })]);
+    const bad = ((await api('duel_a', `select public.duel_start('normal', '["x",2]'::jsonb, 'hillman', null, 'drop table') as id`)).rows[0] as { id: string }).id;
+    const row = (await db.query('select team, chapter from private.duel_runs where id = $1', [bad])).rows[0] as { team: number[] | null; chapter: string | null };
+    expect(row).toEqual({ team: null, chapter: null });
+    await expect(api('duel_a', 'select public.admin_duel_metrics(30)')).rejects.toThrow();
+    await db.query('insert into private.admins (user_id) values ($1) on conflict do nothing', [ids.duel_b]);
+    const m = ((await api('duel_b', 'select public.admin_duel_metrics(30) as m')).rows[0] as { m: any }).m; // eslint-disable-line @typescript-eslint/no-explicit-any
+    expect(m.story).toEqual([{ chapter: '1-3', n: 1, wins: 1, players: 1 }]);
+    expect(m.players_top.find((p: { id: number }) => p.id === 29)).toMatchObject({ n: 1, wins: 1, cpu: 1, pvp: 0 });
+    expect(m.totals).toMatchObject({ merges: 3, combos: 1, ultis: 2 });
+    expect(m.coaches.find((c: { id: string }) => c.id === 'hillman')).toMatchObject({ n: 1, wins: 1 });
+  });
+});
+
+describe('Modo Duelo online: queue, pairing and the turns relayed in order', () => {
+  const users = ['pvp_a', 'pvp_b', 'pvp_c'];
+  const j = async (u: string, sql: string, args: unknown[] = []) => ((await api(u, sql, args)).rows[0] as { r: Record<string, any> }).r; // eslint-disable-line @typescript-eslint/no-explicit-any
+  beforeAll(async () => {
+    for (const [i, u] of users.entries()) {
+      ids[u] = `00000000-0000-0000-0000-0000000050${i}0`;
+      await db.query('insert into auth.users (id, email) values ($1, $2)', [ids[u], `${u}@example.test`]);
+      await db.query('insert into public.profiles (id, username) values ($1, $2)', [ids[u], u]);
+    }
+  });
+  it('the first waits, the second is paired with them; turns go in order and only from whose turn it is', async () => {
+    const team = (n: number) => JSON.stringify({ units: [{ pid: n }], coach: null }), plate = (u: string) => JSON.stringify({ name: u });
+    expect(await j('pvp_a', 'select public.duel_pvp_join($1::jsonb, $2::jsonb) as r', [team(1), plate('pvp_a')])).toMatchObject({ status: 'waiting', waiting: 1 });
+    const b = await j('pvp_b', 'select public.duel_pvp_join($1::jsonb, $2::jsonb) as r', [team(2), plate('pvp_b')]);
+    expect(b).toMatchObject({ status: 'matched', side: 1 });
+    const a = await j('pvp_a', 'select public.duel_pvp_poll() as r');
+    expect(a).toMatchObject({ status: 'matched', side: 0, match: b.match, seed: b.seed, first: b.first });
+    expect(a.teams).toEqual([{ units: [{ pid: 1 }], coach: null }, { units: [{ pid: 2 }], coach: null }]);
+    // someone else can't see or play it
+    await expect(api('pvp_c', 'select public.duel_pvp_sync($1, 0)', [b.match])).rejects.toThrow(/no_match/);
+    const opener = b.first === 0 ? 'pvp_a' : 'pvp_b', other = opener === 'pvp_a' ? 'pvp_b' : 'pvp_a';
+    await expect(api(other, 'select public.duel_pvp_move($1, 0, $2::jsonb)', [b.match, '[]'])).rejects.toThrow(/out_of_turn/);
+    await api(opener, 'select public.duel_pvp_move($1, 0, $2::jsonb)', [b.match, JSON.stringify([{ do: 'end' }])]);
+    await api(opener, 'select public.duel_pvp_move($1, 0, $2::jsonb)', [b.match, JSON.stringify([{ do: 'end' }])]); // a retry is fine
+    await expect(api(opener, 'select public.duel_pvp_move($1, 1, $2::jsonb)', [b.match, '[]'])).rejects.toThrow(/out_of_turn/);
+    const s = await j(other, 'select public.duel_pvp_sync($1, 0) as r', [b.match]);
+    expect(s.moves).toEqual([{ n: 0, side: b.first, actions: [{ do: 'end' }] }]);
+    // leaving the rival «gone» needs them really gone; a surrender ends it
+    expect(await j(other, 'select public.duel_pvp_end($1, $2::smallint, $3) as r', [b.match, opener === 'pvp_a' ? 1 : 0, 'gone'])).toMatchObject({ status: 'live' });
+    expect(await j(opener, 'select public.duel_pvp_end($1, $2::smallint, $3) as r', [b.match, opener === 'pvp_a' ? 1 : 0, 'surrender'])).toMatchObject({ status: 'done' });
+    await expect(api(other, 'select public.duel_pvp_move($1, 1, $2::jsonb)', [b.match, '[]'])).rejects.toThrow(/match_over/);
+  });
+  it('without an account there is no queue', async () => {
+    await expect(api('', 'select public.duel_pvp_poll()')).rejects.toThrow();
   });
 });

@@ -3,7 +3,7 @@
  * score: mode, harmony, tempo and motif differ per track, so it is the same piece every time it plays.
  */
 import { tr } from '../i18n/i18n';
-export type MusicContext = 'menu' | 'map' | 'gacha' | 'collection' | 'run' | 'run2' | 'boss';
+export type MusicContext = 'menu' | 'map' | 'gacha' | 'collection' | 'run' | 'run2' | 'boss' | 'duel' | 'duelmenu';
 export type Part = 'lead' | 'harmony' | 'bass' | 'kick' | 'snare' | 'hat';
 export interface NoteEvent { step: number; len: number; part: Part; freq: number }
 
@@ -33,11 +33,13 @@ export const COMPOSITIONS: Composition[] = [
   C('prorroga', 'Prorroga', 170, 55, DORIAN, [0, 5, 3, 6], 101, 'square', 2),
   C('rival', tr('El rival final'), 176, 52, MINOR, [0, 1, 5, 4], 113, 'sawtooth', 2),
   C('penaltis', tr('Tanda de penaltis'), 168, 59, MINOR, [0, 5, 1, 4], 127, 'square', 2),
+  C('duelo', 'Duelo de cartas', 162, 55, MINOR, [0, 5, 6, 4], 139, 'sawtooth', 2),
+  C('mesa', 'Mesa de duelo', 112, 60, DORIAN, [0, 3, 5, 4], 151, 'square', 1),
 ];
 
 export const PLAYLISTS: Record<MusicContext, string[]> = {
   menu: ['saque', 'vestuario'], map: ['pizarra'], gacha: ['capsulas'], collection: ['album'],
-  run: ['banda', 'contra', 'tiki'], run2: ['remontada', 'prorroga'], boss: ['rival', 'penaltis'],
+  run: ['banda', 'contra', 'tiki'], run2: ['remontada', 'prorroga'], boss: ['rival', 'penaltis'], duel: ['duelo'], duelmenu: ['mesa'],
 };
 
 /** Random track of a pool, never the one that just played (unless it is the only one). */

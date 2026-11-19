@@ -10,14 +10,16 @@ export type Tier = (typeof TIERS)[number];
 export type Tiers = Partial<Record<Tier, number[]>>;
 export const TIER_COLOR: Record<Tier, string> = { S: '#ff4f6a', A: '#ff9a3a', B: '#ffd84a', C: '#7dff9a', D: '#4fb3ff' };
 
-export type TierTopic = 'general' | 'delanteros' | 'medios' | 'defensas' | 'porteros' | 'favoritos';
-export const TIER_TOPICS: { id: TierTopic; label: string; pos: RosterEntry['position'] | null }[] = [
+export type TierTopic = 'general' | 'delanteros' | 'medios' | 'defensas' | 'porteros' | 'favoritos' | 'duelo';
+/** `duel`: only the Modo Duelo's 50 (shown while the mode is open) */
+export const TIER_TOPICS: { id: TierTopic; label: string; pos: RosterEntry['position'] | null; duel?: true }[] = [
   { id: 'general', label: tr('Los mejores'), pos: null },
   { id: 'delanteros', label: tr('Delanteros'), pos: 'FW' },
   { id: 'medios', label: tr('Centrocampistas'), pos: 'MF' },
   { id: 'defensas', label: tr('Defensas'), pos: 'DF' },
   { id: 'porteros', label: tr('Porteros'), pos: 'GK' },
   { id: 'favoritos', label: tr('Mis favoritos'), pos: null },
+  { id: 'duelo', label: tr('Modo Duelo'), pos: null, duel: true },
 ];
 export const topicLabel = (t: string) => TIER_TOPICS.find((x) => x.id === t)?.label ?? 'Tierlist';
 

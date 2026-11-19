@@ -5381,3 +5381,376 @@ begin
   return out;
 end $$;
 revoke all on function private.economy_cap_base(jsonb, jsonb, timestamptz, uuid) from public, anon, authenticated;
+
+-- ===== 20261121000000_duel_ranking.sql
+-- Modo Duelo: the ranking of wins against the CPU (author: «que haya un nuevo ranking del duel»). This week's (Madrid,
+-- from Monday 00:00) or of all time. The wins are the server's own (private.duel_runs, opened and closed by duel_start
+-- and duel_finish), so no browser can add any; only wins that lasted the minute count, as for the coins.
+create or replace function public.duel_ranking(p_week boolean default true, p_limit integer default 50)
+returns table (pos bigint, username extensions.citext, avatar text, crest text, wins bigint)
+language sql stable security definer set search_path = '' as $$
+  with w as (
+    select d.user_id, count(*) as wins
+    from private.duel_runs d
+    where d.won and d.finished_at - d.started_at >= interval '60 seconds'
+      and (not coalesce(p_week, true) or d.finished_at >= (date_trunc('week', now() at time zone 'Europe/Madrid') at time zone 'Europe/Madrid'))
+    group by d.user_id)
+  select rank() over (order by w.wins desc) as pos, p.username, p.avatar, p.crest, w.wins
+  from w join public.profiles p on p.id = w.user_id
+  order by w.wins desc, p.username
+  limit least(greatest(coalesce(p_limit, 50), 1), 100);
+$$;
+alter function public.duel_ranking(boolean, integer) set statement_timeout = '5s';
+revoke all on function public.duel_ranking(boolean, integer) from public;
+grant execute on function public.duel_ranking(boolean, integer) to anon, authenticated;
+
+-- ===== 20261121000100_tierlist_duel_topic.sql
+-- Modo Duelo (author: «las tierlists eran para que las hagan ellos»): the community tier lists get the duel's topic, with
+-- only the mode's footballers (the client offers just them; the ids are checked as for every topic by valid_tiers).
+alter table public.tierlists drop constraint if exists tierlists_topic_check;
+alter table public.tierlists add constraint tierlists_topic_check
+  check (topic in ('general', 'delanteros', 'medios', 'defensas', 'porteros', 'favoritos', 'duelo'));
+
+-- ===== 20261122000000_duel_pvp.sql
+-- Modo Duelo online (author: «aplica el online»: a waiting list with how many are looking, a bot after 1:30, a 60 s turn
+-- timer). Each player runs the match on their own engine with themselves as side 0 (src/systems/duel/pvp.ts): the
+-- server only pairs them, keeps both teams, the seed and who opens, and relays each turn's actions in order.
+--   · duel_pvp_join puts you in the queue (your team and your plate) and pairs you with whoever waited longest;
+--     duel_pvp_poll says how many are looking and, once paired, the match; duel_pvp_leave takes you out.
+--   · duel_pvp_move adds a whole turn of yours (turn n is the opener's when n is even); duel_pvp_sync gives the turns from
+--     n on and how long ago the rival was last seen (a heartbeat: each sync marks you seen).
+--   · duel_pvp_end closes it once: a win, a surrender, or the rival gone for more than 60 s.
+-- No coins or ranking for now: the teams travel from the browsers, so a match is only as honest as both players.
+
+create table if not exists private.duel_queue (
+  user_id uuid primary key references auth.users (id) on delete cascade,
+  team jsonb not null,
+  plate jsonb not null,
+  joined_at timestamptz not null default now(),
+  seen_at timestamptz not null default now(),
+  match_id uuid
+);
+create table if not exists private.duel_matches (
+  id uuid primary key default gen_random_uuid(),
+  a uuid not null references auth.users (id) on delete cascade,
+  b uuid not null references auth.users (id) on delete cascade,
+  a_team jsonb not null, b_team jsonb not null,
+  a_plate jsonb not null, b_plate jsonb not null,
+  seed integer not null,
+  first smallint not null check (first in (0, 1)),
+  status text not null default 'live' check (status in ('live', 'done')),
+  winner smallint check (winner in (0, 1)),
+  reason text,
+  created_at timestamptz not null default now(),
+  a_seen timestamptz not null default now(),
+  b_seen timestamptz not null default now()
+);
+create index if not exists duel_matches_a on private.duel_matches (a, created_at desc);
+create index if not exists duel_matches_b on private.duel_matches (b, created_at desc);
+create table if not exists private.duel_moves (
+  match_id uuid not null references private.duel_matches (id) on delete cascade,
+  n integer not null,
+  side smallint not null,
+  actions jsonb not null,
+  created_at timestamptz not null default now(),
+  primary key (match_id, n)
+);
+alter table private.duel_queue enable row level security;
+alter table private.duel_matches enable row level security;
+alter table private.duel_moves enable row level security;
+revoke all on private.duel_queue, private.duel_matches, private.duel_moves from public, anon, authenticated;
+
+/** the match as one of its players sees it (side 0 = a, 1 = b) */
+create or replace function private.duel_pvp_view(m private.duel_matches, uid uuid) returns jsonb
+language sql stable set search_path = '' as $$
+  select jsonb_build_object('status', 'matched', 'match', m.id, 'side', case when m.a = uid then 0 else 1 end, 'seed', m.seed, 'first', m.first,
+    'teams', jsonb_build_array(m.a_team, m.b_team), 'plates', jsonb_build_array(m.a_plate, m.b_plate), 'live', m.status = 'live');
+$$;
+
+/** pairs you with whoever has waited longest (or says how many are waiting) */
+create or replace function private.duel_pvp_pair(uid uuid) returns jsonb
+language plpgsql volatile security definer set search_path = '' as $$
+declare me private.duel_queue; o private.duel_queue; m private.duel_matches; waiting integer;
+begin
+  select * into me from private.duel_queue where user_id = uid for update;
+  if not found then return jsonb_build_object('status', 'out'); end if;
+  if me.match_id is not null then
+    select * into m from private.duel_matches where id = me.match_id;
+    if found then return private.duel_pvp_view(m, uid); end if;
+  end if;
+  select * into o from private.duel_queue
+    where user_id <> uid and match_id is null and seen_at > now() - interval '15 seconds'
+    order by joined_at limit 1 for update skip locked;
+  if found then
+    insert into private.duel_matches (a, b, a_team, b_team, a_plate, b_plate, seed, first)
+      values (o.user_id, uid, o.team, me.team, o.plate, me.plate, floor(random() * 2147483647)::integer, floor(random() * 2)::smallint)
+      returning * into m;
+    update private.duel_queue set match_id = m.id where user_id in (uid, o.user_id);
+    return private.duel_pvp_view(m, uid);
+  end if;
+  select count(*) into waiting from private.duel_queue where match_id is null and seen_at > now() - interval '15 seconds';
+  return jsonb_build_object('status', 'waiting', 'waiting', waiting,
+    'playing', (select count(*) * 2 from private.duel_matches where status = 'live' and greatest(a_seen, b_seen) > now() - interval '60 seconds'));
+end $$;
+
+create or replace function public.duel_pvp_join(p_team jsonb, p_plate jsonb) returns jsonb
+language plpgsql volatile security definer set search_path = '' as $$
+declare uid uuid := private.real_user();
+begin
+  if uid is null then raise exception 'not_signed_in' using errcode = '28000'; end if;
+  if not exists (select 1 from public.profiles where id = uid) then raise exception 'no_username' using errcode = '42501'; end if;
+  if jsonb_typeof(p_team) <> 'object' or jsonb_typeof(p_plate) <> 'object' or octet_length(p_team::text) > 12000 or octet_length(p_plate::text) > 2000 then
+    raise exception 'bad_team' using errcode = '22023';
+  end if;
+  delete from private.duel_queue where seen_at < now() - interval '1 hour';
+  delete from private.duel_matches where created_at < now() - interval '2 days';
+  insert into private.duel_queue (user_id, team, plate) values (uid, p_team, p_plate)
+    on conflict (user_id) do update set team = excluded.team, plate = excluded.plate, joined_at = now(), seen_at = now(), match_id = null;
+  return private.duel_pvp_pair(uid);
+end $$;
+
+create or replace function public.duel_pvp_poll() returns jsonb
+language plpgsql volatile security definer set search_path = '' as $$
+declare uid uuid := private.real_user();
+begin
+  if uid is null then raise exception 'not_signed_in' using errcode = '28000'; end if;
+  update private.duel_queue set seen_at = now() where user_id = uid;
+  return private.duel_pvp_pair(uid);
+end $$;
+
+create or replace function public.duel_pvp_leave() returns void
+language sql volatile security definer set search_path = '' as $$
+  delete from private.duel_queue where user_id = private.real_user() and match_id is null;
+$$;
+
+create or replace function public.duel_pvp_move(p_match uuid, p_n integer, p_actions jsonb) returns void
+language plpgsql volatile security definer set search_path = '' as $$
+declare uid uuid := private.real_user(); m private.duel_matches; my_side smallint; next_n integer;
+begin
+  if uid is null then raise exception 'not_signed_in' using errcode = '28000'; end if;
+  select * into m from private.duel_matches where id = p_match and (a = uid or b = uid) for update;
+  if not found then raise exception 'no_match' using errcode = '22023'; end if;
+  my_side := case when m.a = uid then 0 else 1 end;
+  if jsonb_typeof(p_actions) <> 'array' or jsonb_array_length(p_actions) > 40 then raise exception 'bad_actions' using errcode = '22023'; end if;
+  -- a turn sent twice (a retry) is fine; one out of order or out of turn is not
+  if exists (select 1 from private.duel_moves where match_id = m.id and n = p_n and duel_moves.side = my_side) then return; end if;
+  if m.status <> 'live' then raise exception 'match_over' using errcode = '22023'; end if;
+  select count(*) into next_n from private.duel_moves where match_id = m.id;
+  if p_n <> next_n or (m.first + p_n) % 2 <> my_side then raise exception 'out_of_turn' using errcode = '22023'; end if;
+  insert into private.duel_moves (match_id, n, side, actions) values (m.id, p_n, my_side, p_actions);
+  if my_side = 0 then update private.duel_matches set a_seen = now() where id = m.id; else update private.duel_matches set b_seen = now() where id = m.id; end if;
+end $$;
+
+create or replace function public.duel_pvp_sync(p_match uuid, p_from integer) returns jsonb
+language plpgsql volatile security definer set search_path = '' as $$
+declare uid uuid := private.real_user(); m private.duel_matches; my_side smallint;
+begin
+  if uid is null then raise exception 'not_signed_in' using errcode = '28000'; end if;
+  select * into m from private.duel_matches where id = p_match and (a = uid or b = uid);
+  if not found then raise exception 'no_match' using errcode = '22023'; end if;
+  my_side := case when m.a = uid then 0 else 1 end;
+  if my_side = 0 then update private.duel_matches set a_seen = now() where id = m.id; else update private.duel_matches set b_seen = now() where id = m.id; end if;
+  return jsonb_build_object(
+    'moves', coalesce((select jsonb_agg(jsonb_build_object('n', n, 'side', mv.side, 'actions', actions) order by n) from private.duel_moves mv where match_id = m.id and n >= p_from), '[]'::jsonb),
+    'rival_seen', extract(epoch from now() - case when my_side = 0 then m.b_seen else m.a_seen end)::integer,
+    'status', m.status, 'winner', m.winner, 'reason', m.reason);
+end $$;
+
+create or replace function public.duel_pvp_end(p_match uuid, p_winner smallint, p_reason text) returns jsonb
+language plpgsql volatile security definer set search_path = '' as $$
+declare uid uuid := private.real_user(); m private.duel_matches; my_side smallint;
+begin
+  if uid is null then raise exception 'not_signed_in' using errcode = '28000'; end if;
+  select * into m from private.duel_matches where id = p_match and (a = uid or b = uid) for update;
+  if not found then raise exception 'no_match' using errcode = '22023'; end if;
+  my_side := case when m.a = uid then 0 else 1 end;
+  if m.status = 'live' and p_winner in (0, 1) and p_reason in ('win', 'surrender', 'gone') then
+    -- a surrender can only lose; leaving the rival gone needs the rival really gone
+    if p_reason = 'surrender' and p_winner = my_side then return jsonb_build_object('status', m.status); end if;
+    if p_reason = 'gone' and (p_winner <> my_side or (case when my_side = 0 then m.b_seen else m.a_seen end) > now() - interval '60 seconds') then
+      return jsonb_build_object('status', m.status);
+    end if;
+    update private.duel_matches set status = 'done', winner = p_winner, reason = p_reason where id = m.id;
+    delete from private.duel_queue where match_id = m.id;
+    return jsonb_build_object('status', 'done', 'winner', p_winner);
+  end if;
+  return jsonb_build_object('status', m.status, 'winner', m.winner);
+end $$;
+
+revoke all on function private.duel_pvp_view(private.duel_matches, uuid) from public, anon, authenticated;
+revoke all on function private.duel_pvp_pair(uuid) from public, anon, authenticated;
+revoke all on function public.duel_pvp_join(jsonb, jsonb), public.duel_pvp_poll(), public.duel_pvp_leave(),
+  public.duel_pvp_move(uuid, integer, jsonb), public.duel_pvp_sync(uuid, integer), public.duel_pvp_end(uuid, smallint, text) from public, anon;
+grant execute on function public.duel_pvp_join(jsonb, jsonb), public.duel_pvp_poll(), public.duel_pvp_leave(),
+  public.duel_pvp_move(uuid, integer, jsonb), public.duel_pvp_sync(uuid, integer), public.duel_pvp_end(uuid, smallint, text) to authenticated;
+
+-- ===== 20261123000000_duel_metrics.sql
+-- Modo Duelo: opens with the 3.0 and the admin panel gets its metrics (author: «el duelo sale con la 3.0, pero yo, desde
+-- el panel mío de admin, puedo entrar ya. Añade a las métricas y prepáralas para el modo duelo, pj más usados, victorias y eso»).
+--   · Before private.duel_opens_at() only admins can open a match against the CPU or join the online queue (a trigger on
+--     their tables, so the RPCs keep their bodies).
+--   · duel_start also keeps your team, coach, the rival's and the story chapter; duel_finish the turns, fusions, combined
+--     techniques and ultis. The old one-argument calls still work (the new arguments have defaults).
+--   · Online matches are deleted after two days, so each finished one is copied to private.duel_pvp_log (teams, winner, reason).
+--   · admin_duel_metrics(days): matches and players per day, wins per level, the most used footballers and coaches with
+--     their win share (CPU and online), the story chapters cleared, and how online matches end.
+
+create or replace function private.duel_opens_at() returns timestamptz language sql immutable set search_path = '' as $$
+  select timestamptz '2026-11-25 12:00:00+01' $$;
+
+create or replace function private.duel_gate() returns trigger language plpgsql security definer set search_path = '' as $$
+begin
+  if now() < private.duel_opens_at() and not private.is_admin() then raise exception 'duel_not_open' using errcode = 'P0001'; end if;
+  return new;
+end $$;
+drop trigger if exists duel_runs_gate on private.duel_runs;
+create trigger duel_runs_gate before insert on private.duel_runs for each row execute function private.duel_gate();
+drop trigger if exists duel_queue_gate on private.duel_queue;
+create trigger duel_queue_gate before insert on private.duel_queue for each row execute function private.duel_gate();
+
+alter table private.duel_runs
+  add column if not exists team integer[],
+  add column if not exists coach text,
+  add column if not exists rival integer[],
+  add column if not exists chapter text,
+  add column if not exists turns integer,
+  add column if not exists merges integer,
+  add column if not exists combos integer,
+  add column if not exists ultis integer;
+create index if not exists duel_runs_started on private.duel_runs (started_at);
+
+-- a list of footballer ids from what a client sent: at most 4 integers
+create or replace function private.duel_pids(p jsonb) returns integer[] language sql immutable set search_path = '' as $$
+  select case when jsonb_typeof(p) = 'array' and jsonb_array_length(p) between 1 and 4
+    and not exists (select 1 from jsonb_array_elements(p) e where jsonb_typeof(e) <> 'number')
+    then (select array_agg((e #>> '{}')::numeric::integer) from jsonb_array_elements(p) e) end $$;
+
+drop function if exists public.duel_start(text);
+create or replace function public.duel_start(p_level text, p_team jsonb default null, p_coach text default null, p_rival jsonb default null, p_chapter text default null) returns uuid
+language plpgsql volatile security definer set search_path = '' as $$
+declare uid uuid := private.real_user(); rid uuid;
+begin
+  if uid is null then raise exception 'not_signed_in' using errcode = '28000'; end if;
+  if p_level not in ('facil', 'normal', 'dificil') then raise exception 'bad_level' using errcode = '22023'; end if;
+  -- a match at a time is enough: the ones left open are closed without pay
+  update private.duel_runs set finished_at = now(), won = false where user_id = uid and finished_at is null;
+  insert into private.duel_runs (user_id, level, team, coach, rival, chapter)
+    values (uid, p_level, private.duel_pids(p_team), left(p_coach, 24), private.duel_pids(p_rival), case when p_chapter ~ '^[0-9]-[0-9]$' then p_chapter end)
+    returning id into rid;
+  return rid;
+end $$;
+
+drop function if exists public.duel_finish(uuid, boolean);
+create or replace function public.duel_finish(p_run uuid, p_won boolean, p_stats jsonb default null) returns jsonb
+language plpgsql volatile security definer set search_path = '' as $$
+declare uid uuid := private.real_user(); r private.duel_runs; today integer; pay integer := 0;
+  n_ jsonb := case when jsonb_typeof(p_stats) = 'object' then p_stats else '{}'::jsonb end;
+begin
+  if uid is null then raise exception 'not_signed_in' using errcode = '28000'; end if;
+  select * into r from private.duel_runs where id = p_run and user_id = uid for update;
+  if not found or r.finished_at is not null then return jsonb_build_object('coins', 0, 'left', 0, 'why', 'closed'); end if;
+  select count(*) into today from private.duel_runs
+    where user_id = uid and paid_at is not null and (paid_at at time zone 'Europe/Madrid')::date = (now() at time zone 'Europe/Madrid')::date;
+  if coalesce(p_won, false) and now() - r.started_at >= interval '60 seconds' and today < 10 then pay := 30000; end if;
+  update private.duel_runs set finished_at = now(), won = coalesce(p_won, false), coins = pay, paid_at = case when pay > 0 then now() end,
+    turns = least(99, greatest(0, (case when jsonb_typeof(n_->'turns') = 'number' then (n_->>'turns')::numeric end)::integer)),
+    merges = least(999, greatest(0, (case when jsonb_typeof(n_->'merges') = 'number' then (n_->>'merges')::numeric end)::integer)),
+    combos = least(99, greatest(0, (case when jsonb_typeof(n_->'combos') = 'number' then (n_->>'combos')::numeric end)::integer)),
+    ultis = least(99, greatest(0, (case when jsonb_typeof(n_->'ultis') = 'number' then (n_->>'ultis')::numeric end)::integer))
+    where id = r.id;
+  return jsonb_build_object('coins', pay, 'left', greatest(0, 10 - today - (case when pay > 0 then 1 else 0 end)),
+    'why', case when pay > 0 then 'paid' when not coalesce(p_won, false) then 'lost' when today >= 10 then 'cap' else 'short' end);
+end $$;
+revoke all on function public.duel_start(text, jsonb, text, jsonb, text) from public, anon;
+revoke all on function public.duel_finish(uuid, boolean, jsonb) from public, anon;
+grant execute on function public.duel_start(text, jsonb, text, jsonb, text) to authenticated;
+grant execute on function public.duel_finish(uuid, boolean, jsonb) to authenticated;
+
+-- the finished online matches, kept for the metrics
+create table if not exists private.duel_pvp_log (
+  match_id uuid primary key,
+  created_at timestamptz not null,
+  ended_at timestamptz not null default now(),
+  a uuid, b uuid, a_team integer[], b_team integer[], a_coach text, b_coach text,
+  winner smallint, reason text
+);
+alter table private.duel_pvp_log enable row level security;
+revoke all on private.duel_pvp_log from public, anon, authenticated;
+create index if not exists duel_pvp_log_ended on private.duel_pvp_log (ended_at);
+
+create or replace function private.duel_team_pids(t jsonb) returns integer[] language sql immutable set search_path = '' as $$
+  select array_agg((u->>'pid')::numeric::integer) from jsonb_array_elements(case when jsonb_typeof(t->'units') = 'array' then t->'units' else '[]'::jsonb end) u
+  where jsonb_typeof(u->'pid') = 'number' $$;
+
+create or replace function private.duel_pvp_logged() returns trigger language plpgsql security definer set search_path = '' as $$
+begin
+  if new.status = 'done' and old.status is distinct from 'done' then
+    insert into private.duel_pvp_log (match_id, created_at, a, b, a_team, b_team, a_coach, b_coach, winner, reason)
+      values (new.id, new.created_at, new.a, new.b, private.duel_team_pids(new.a_team), private.duel_team_pids(new.b_team),
+        left(new.a_team->>'coach', 24), left(new.b_team->>'coach', 24), new.winner, left(new.reason, 16))
+      on conflict (match_id) do nothing;
+  end if;
+  return new;
+end $$;
+drop trigger if exists duel_matches_log on private.duel_matches;
+create trigger duel_matches_log after update on private.duel_matches for each row execute function private.duel_pvp_logged();
+
+create or replace function private.admin_duel_metrics(p_days integer default 30) returns jsonb
+language plpgsql stable security definer set search_path = '' as $$
+declare
+  d integer := least(greatest(coalesce(p_days, 30), 7), 90);
+  today date := (now() at time zone 'Europe/Madrid')::date;
+  since timestamptz := now() - make_interval(days => d);
+  out jsonb;
+begin
+  if not private.is_admin() then raise exception 'forbidden' using errcode = '42501'; end if;
+  with runs as (select * from private.duel_runs where started_at > since and finished_at is not null),
+  pvp as (select * from private.duel_pvp_log where ended_at > since),
+  -- every footballer in a finished match: CPU (yours only) and online (both sides)
+  uses as (
+    select p as pid, won, 'cpu' as kind from runs, unnest(team) p where team is not null
+    union all select p, winner = 0, 'pvp' from pvp, unnest(a_team) p where winner is not null
+    union all select p, winner = 1, 'pvp' from pvp, unnest(b_team) p where winner is not null),
+  coaches as (
+    select coach, won from runs where coach is not null
+    union all select a_coach, winner = 0 from pvp where a_coach is not null and winner is not null
+    union all select b_coach, winner = 1 from pvp where b_coach is not null and winner is not null)
+  select jsonb_build_object(
+    'days', d,
+    'opens_at', private.duel_opens_at(),
+    'totals', jsonb_build_object(
+      'cpu', (select count(*) from runs), 'cpu_wins', (select count(*) filter (where won) from runs),
+      'players', (select count(distinct user_id) from runs),
+      'coins', (select coalesce(sum(coins), 0) from runs),
+      'pvp', (select count(*) from pvp), 'pvp_players', (select count(distinct u) from pvp, lateral (values (pvp.a), (pvp.b)) v(u)),
+      'merges', (select coalesce(sum(merges), 0) from runs), 'combos', (select coalesce(sum(combos), 0) from runs), 'ultis', (select coalesce(sum(ultis), 0) from runs),
+      'turns_avg', (select round(avg(turns)::numeric, 1) from runs where turns is not null)),
+    'daily', (select jsonb_agg(jsonb_build_object('day', x.day,
+        'cpu', (select count(*) from runs r where (r.started_at at time zone 'Europe/Madrid')::date = x.day),
+        'players', (select count(distinct user_id) from runs r where (r.started_at at time zone 'Europe/Madrid')::date = x.day),
+        'pvp', (select count(*) from pvp p where (p.ended_at at time zone 'Europe/Madrid')::date = x.day)) order by x.day)
+      from (select generate_series(today - (d - 1), today, interval '1 day')::date as day) x),
+    'levels', coalesce((select jsonb_agg(jsonb_build_object('level', level, 'n', n, 'wins', w) order by array_position(array['facil','normal','dificil'], level))
+      from (select level, count(*) n, count(*) filter (where won) w from runs where chapter is null group by level) z), '[]'::jsonb),
+    'players_top', coalesce((select jsonb_agg(jsonb_build_object('id', pid, 'n', n, 'wins', w, 'cpu', c, 'pvp', v) order by n desc)
+      from (select pid, count(*) n, count(*) filter (where won) w, count(*) filter (where kind = 'cpu') c, count(*) filter (where kind = 'pvp') v
+        from uses group by pid order by n desc limit 50) z), '[]'::jsonb),
+    'coaches', coalesce((select jsonb_agg(jsonb_build_object('id', coach, 'n', n, 'wins', w) order by n desc)
+      from (select coach, count(*) n, count(*) filter (where won) w from coaches group by coach) z), '[]'::jsonb),
+    'story', coalesce((select jsonb_agg(jsonb_build_object('chapter', chapter, 'n', n, 'wins', w, 'players', p) order by chapter)
+      from (select chapter, count(*) n, count(*) filter (where won) w, count(distinct user_id) filter (where won) p from runs where chapter is not null group by chapter) z), '[]'::jsonb),
+    'pvp_end', coalesce((select jsonb_agg(jsonb_build_object('reason', reason, 'n', n) order by n desc)
+      from (select coalesce(reason, '?') reason, count(*) n from pvp group by 1) z), '[]'::jsonb)
+  ) into out;
+  return out;
+end $$;
+alter function private.admin_duel_metrics(integer) set statement_timeout = '8s';
+
+create or replace function public.admin_duel_metrics(p_days integer default 30) returns jsonb
+language sql stable security invoker set search_path = '' as $$ select private.admin_duel_metrics(p_days); $$;
+
+revoke all on function private.duel_gate(), private.duel_pvp_logged(), private.duel_pids(jsonb), private.duel_team_pids(jsonb), private.duel_opens_at() from public, anon, authenticated;
+revoke execute on function private.admin_duel_metrics(integer), public.admin_duel_metrics(integer) from public, anon, authenticated;
+grant execute on function private.admin_duel_metrics(integer), public.admin_duel_metrics(integer) to authenticated;
+
+notify pgrst, 'reload schema';

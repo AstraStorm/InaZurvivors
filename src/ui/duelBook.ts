@@ -3,12 +3,24 @@
  * rulebook as a real book. Two pages side by side on wide screens (each leaf turns over the spine, front and back), one
  * page at a time on phones. A leather cover with a light sweep, stacked page edges that grow and shrink as you read,
  * a dog-ear that invites the next turn, sparkles and a whoosh on every turn, page content popping in, an index and
- * coloured bookmarks to jump to each chapter. Arrows, the page edges, swipes and ← → turn the pages; Esc or ✕ closes it.
+ * coloured bookmarks to jump to each chapter. Arrows, the page edges and ← → turn the pages, or take a page and drag it;
+ * Esc or ✕ closes it.
  * The art is the author's (public/art/duel, tools/duel_assets.py).
  */
 import { tr } from '../i18n/i18n';
 import { sfx } from '../game/sfx';
 import { ART, ART_V } from './duelArt';
+import { techInfo } from './duelText';
+import { duelStats } from '../systems/duel/cards';
+
+/** what the book needs from the game to fill its cards with real footballers (without it, the cards show their art only) */
+export interface BookHost {
+  mug(pid: number, size: number): string;
+  name(pid: number): string;
+  byId: Map<number, { element?: string } & Parameters<typeof duelStats>[0]>;
+}
+// the footballers of the examples: Axel, Shawn, Mark and Aiden
+const AXEL = 10, SHAWN = 1513, MARK = 1, AIDEN = 100797;
 
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!));
 const img = (file: string, cls = '', alt = '') => `<img class="db-img ${cls}" src="${ART}${file}.webp?v=${ART_V}" alt="${esc(alt)}" draggable="false">`;
@@ -23,7 +35,7 @@ const PARTS = (): { name: string; icon: string; color: string }[] => [
   { name: tr('Estrategia'), icon: 'tipo-combinada', color: '#5cdc6a' },
 ];
 
-function content(): { pages: string[]; chapters: Chapter[] } {
+function content(h?: BookHost): { pages: string[]; chapters: Chapter[] } {
   const types: [string, string, string][] = [
     ['ataque', tr('Ataque'), tr('Daño a 1 rival')], ['area', tr('Área'), tr('Daño a todos los rivales')],
     ['debilitar', tr('Debilitar'), tr('Golpe flojo y un efecto negativo')], ['mejora', tr('Mejora'), tr('Sube el ATQ propio o del equipo')],
@@ -37,12 +49,55 @@ function content(): { pages: string[]; chapters: Chapter[] } {
     ['provocar', tr('Provocar'), tr('Los ataques a 1 rival van a él')], ['escudo', tr('Escudo'), tr('Absorbe daño antes que los PV')],
   ];
   const chapters: Chapter[] = [
-    { title: tr('El duelo'), page: 2, part: 0 }, { title: tr('La mesa'), page: 3, part: 0 }, { title: tr('Tu mano'), page: 4, part: 1 },
-    { title: tr('Fusión'), page: 5, part: 1 }, { title: tr('Tipos de carta'), page: 6, part: 1 }, { title: tr('Garra y ulti'), page: 7, part: 2 },
-    { title: tr('Estados'), page: 8, part: 2 }, { title: tr('Sinergias'), page: 9, part: 3 }, { title: tr('Banquillo y entrenador'), page: 10, part: 3 },
+    { title: tr('El duelo'), page: 2, part: 0 }, { title: tr('La mesa'), page: 3, part: 0 }, { title: tr('Las estadísticas'), page: 4, part: 0 },
+    { title: tr('Tu mano'), page: 5, part: 1 }, { title: tr('Las estrellas'), page: 6, part: 1 }, { title: tr('Fusión'), page: 7, part: 1 },
+    { title: tr('Tipos de carta'), page: 8, part: 1 }, { title: tr('El daño'), page: 9, part: 2 }, { title: tr('Garra y ulti'), page: 10, part: 2 },
+    { title: tr('Estados'), page: 11, part: 2 }, { title: tr('Sinergias'), page: 12, part: 3 }, { title: tr('Banquillo y entrenador'), page: 13, part: 3 },
   ];
   const parts = PARTS();
   const ch = (i: number) => head(i + 1, chapters[i].title);
+  const has = (pid: number) => !!h?.byId.has(pid);
+  const nm = (pid: number) => (h && has(pid) ? esc(h.name(pid)) : '');
+  /** a card of the match, filled: the footballer's face, the frame of its stars, its type icon, the technique and its
+   *  multiplier at those stars (only the frame without the game's data) */
+  const card = (pid: number, idx: 0 | 1 | 'u', rank: 1 | 2 | 3, cls = '') => {
+    if (!h || !has(pid)) return img(idx === 'u' ? 'carta-ulti' : `carta-r${rank}`, `db-card ${cls}`);
+    const t = techInfo(pid, idx), ulti = idx === 'u';
+    const mult = ulti ? t.mults[0] : t.mults[Math.min(t.mults.length, rank) - 1];
+    const icon = ulti ? (t.area ? 'tipo-area' : 'tipo-ataque') : `tipo-${t.kind}`;
+    const lw = Math.max(...t.tech.split(/\s+/).map((w) => w.length));
+    return `<span class="db-mc ${cls}"><span class="db-mcf">${h.mug(pid, 60)}</span>${img(ulti ? 'carta-ulti' : `carta-r${rank}`, 'db-mcfr')}${img(icon, 'db-mci')}
+      <span class="db-mct" style="--lw:${lw}">${esc(t.tech)}</span>${mult ? `<span class="db-mcm">×${mult}</span>` : ''}</span>`;
+  };
+  // the stats chapter: Axel's real ones, each with what it does
+  const st = h && has(AXEL) ? duelStats(h.byId.get(AXEL)!) : null;
+  const statRows: [string, string, string][] = [
+    ['hp', tr('PV'), tr('Su vida. A 0 cae fuera de combate y entra el suplente.')],
+    ['atk', tr('ATQ'), tr('La fuerza de sus cartas: cada golpe es ATQ × el multiplicador de la carta.')],
+    ['def', tr('DEF'), tr('Frena los golpes que recibe: con 1000 de DEF recibe la mitad.')],
+    ['crit', tr('Crít.'), tr('Probabilidad de que un golpe suyo sea crítico.')],
+    ['critDmg', tr('D. crít.'), tr('Cuánto pega un crítico: 150 % es ×1,5.')],
+    ['pierce', tr('Perf.'), tr('Parte de la DEF rival que se salta.')],
+    ['res', tr('Res.'), tr('Probabilidad de librarse de un estado negativo.')],
+  ];
+  const statVal = (k: string) => (st ? `${(st as unknown as Record<string, number>)[k]}${['crit', 'critDmg', 'pierce', 'res'].includes(k) ? '%' : ''}` : '');
+  // the damage chapter: Axel's first technique at ★★ against Mark, worked out
+  const dmgEx = (() => {
+    if (!h || !has(AXEL) || !has(MARK)) return '';
+    const a = duelStats(h.byId.get(AXEL)!), m = duelStats(h.byId.get(MARK)!), t = techInfo(AXEL, 0);
+    const mult = t.mults[Math.min(1, t.mults.length - 1)] ?? 1;
+    const ea = h.byId.get(AXEL)!.element ?? '', em = h.byId.get(MARK)!.element ?? '';
+    const BEATS: Record<string, string> = { 'Montaña': 'Fuego', 'Fuego': 'Bosque', 'Bosque': 'Aire', 'Aire': 'Montaña' };
+    const el = BEATS[ea] === em ? 1.3 : BEATS[em] === ea ? 0.8 : 1;
+    const raw = a.atk * mult, after = raw * 1000 / (1000 + m.def), fin = Math.round(after * el);
+    return `<div class="db-ex"><div class="db-exc">${card(AXEL, 0, 2)}<b>→</b><span class="db-exm">${h.mug(MARK, 64)}<small>${nm(MARK)}</small></span></div>
+      <ol class="db-calc"><li>${tr('{a}: ATQ {atk} × {m} ({t} ★★) = {r}', { a: nm(AXEL), atk: a.atk, m: mult, t: esc(t.tech), r: Math.round(raw) })}</li>
+      <li>${tr('DEF de {b} ({def}): × 1000 / (1000 + {def}) = {r}', { b: nm(MARK), def: m.def, r: Math.round(after) })}</li>
+      <li>${el === 1 ? tr('Elementos sin ventaja: × 1') : el > 1 ? tr('Ventaja de elemento: × 1,3') : tr('Desventaja de elemento ({e1} contra {e2}): × 0,8', { e1: esc(tr(ea)), e2: esc(tr(em)) })}</li>
+      <li><b>${tr('Le quita unos {n} PV', { n: fin })}</b> ${tr('(×1,5 o más si es crítico)')}</li></ol></div>`;
+  })();
+  // the stars chapter: one technique at ★, ★★ and ★★★
+  const ice = h && has(AIDEN) ? techInfo(AIDEN, 0) : null;
   const pages = [
     // the cover is one giant card: the card back as the hard cover, the title on a gold plate, a light sweep
     `<div class="db-cover db-cardcover"><span class="db-bigcard">${img('carta-reverso')}<i class="db-shine"></i></span>
@@ -50,35 +105,49 @@ function content(): { pages: string[]; chapters: Chapter[] } {
     `<div class="db-head"><small>InaZurvivors</small><h2>${tr('Índice')}</h2><i class="db-rule"></i></div><ol class="db-index">${chapters.map((c, i) =>
       `<li data-go="${c.page}" style="--c:${parts[c.part].color}"><b>${i + 1}</b><span>${c.title}</span><i></i><em>${c.page + 1}</em></li>`).join('')}</ol>`,
     `${ch(0)}<p class="db-lead">${tr('Dos equipos de 3 titulares y 1 suplente se enfrentan por turnos. Gana quien deja fuera de combate a los 4 rivales.')}</p>
-     <div class="db-row db-fan">${img('marco-legendario', 'db-frame')}${img('marco-mitico', 'db-frame')}${img('marco-leyenda', 'db-frame')}</div>
-     <p class="db-note">${tr('Juegan 50 futbolistas conocidos, Legendarios o más, que tengas en tu colección. Lo que tengas subido les da hasta un +20 %.')}</p>`,
-    `${ch(1)}<div class="db-shot">${img('mesa-horizontal', 'db-board')}</div>
+     <div class="db-row db-fan">${has(AXEL) ? `${card(MARK, 0, 1)}${card(AXEL, 0, 2)}${card(SHAWN, 0, 3)}` : `${img('marco-legendario', 'db-frame')}${img('marco-mitico', 'db-frame')}${img('marco-leyenda', 'db-frame')}`}</div>
+     <p class="db-note">${tr('Juegan 50 futbolistas conocidos, Legendarios o más, que tengas en tu colección. Lo que tengas subido les da hasta un +20 %. Solo una forma de cada uno por equipo.')}</p>`,
+    `${ch(1)}<div class="db-shot">${img('mesa-horizontal', 'db-tableimg')}</div>
      <ul><li>${tr('Arriba, el rival; abajo, tu equipo: 3 círculos de titulares y el banquillo a la derecha.')}</li>
      <li>${tr('En la peana, tu entrenador: no juega, pero da una pasiva toda la partida.')}</li>
      <li>${tr('En la bandeja de abajo, tu mano de cartas.')}</li></ul>`,
-    `${ch(2)}<div class="db-row db-fan">${img('carta-r1', 'db-card')}${img('carta-r1', 'db-card')}${img('carta-r2', 'db-card')}</div>
+    `${ch(2)}<div class="db-stats">${st && h ? `<span class="db-sm">${h.mug(AXEL, 72)}<small>${nm(AXEL)}</small></span>` : ''}<div class="db-st">${statRows.map(([k, n, d]) =>
+      `<div class="db-str ${k}"><b>${n}</b>${st ? `<em>${statVal(k)}</em>` : ''}<span>${d}</span></div>`).join('')}</div></div>
+     <p class="db-note">${tr('Salen de las estadísticas del futbolista en el juego, su rareza y su posición: los delanteros pegan más, los defensas y porteros aguantan más.')}</p>`,
+    `${ch(3)}<div class="db-row db-fan">${card(AXEL, 0, 1)}${card(AXEL, 1, 1)}${card(SHAWN, 0, 2)}</div>
      <ul><li>${tr('Cada turno recibes 2 cartas por titular y 1 más al azar, hasta 7.')}</li>
+     <li>${tr('Cada futbolista tiene 2 técnicas: sus cartas son esas dos, con su cara.')}</li>
      <li>${tr('Tienes 3 acciones: usar una carta, moverla de sitio o usar una ulti.')}</li>
      <li>${tr('Las cartas que no uses se quedan para el turno siguiente.')}</li></ul>`,
-    `${ch(3)}<div class="db-row db-fuse">${img('carta-r1', 'db-card')}<b>+</b>${img('carta-r1', 'db-card')}<b>=</b>${img('carta-r2', 'db-card db-glow')}</div>
+    `${ch(4)}<div class="db-row db-stars">${card(AIDEN, 0, 1)}${card(AIDEN, 0, 2)}${card(AIDEN, 0, 3, 'db-glow')}</div>
+     <ul><li>${tr('Una carta tiene 1, 2 o 3 estrellas: más estrellas, más multiplicador.')}${ice ? ` ${tr('{t} de {n}: ★ ×{a}, ★★ ×{b}, ★★★ ×{c}.', { t: esc(ice.tech), n: nm(AIDEN), a: ice.mults[0], b: ice.mults[1] ?? ice.mults[0], c: ice.mults[2] ?? ice.mults[0] })}` : ''}</li>
+     <li>${tr('Algunos efectos solo salen con ★★ o ★★★ (en la carta pone «★★+» o «★★★+»).')}${ice?.lines.some((l) => l.min >= 3) ? ` ${tr('Aquí, congelar al rival solo con ★★★.')}` : ''}</li>
+     <li>${tr('Usar una carta llena la Garra de su futbolista tantos segmentos como estrellas tenga.')}</li>
+     <li>${tr('Las de 3 estrellas son las más fuertes, pero no se pueden fusionar más.')}</li></ul>`,
+    `${ch(5)}<div class="db-row db-fuse">${card(AXEL, 0, 1)}<b>+</b>${card(AXEL, 0, 1)}<b>=</b>${card(AXEL, 0, 2, 'db-glow')}</div>
      <div class="db-center"><i class="db-fuse-anim" aria-hidden="true"></i></div>
      <ul><li>${tr('Dos cartas iguales juntas se fusionan solas: ★ + ★ = ★★, y ★★ + ★★ = ★★★.')}</li>
-     <li>${tr('Si usas la carta que separa a dos iguales, se juntan gratis.')}</li></ul>`,
-    `${ch(4)}<div class="db-grid">${types.map(([k, n, d]) => `<div class="db-gi">${img(`tipo-${k}`, 'db-icon', n)}<b>${n}</b><small>${d}</small></div>`).join('')}</div>`,
-    `${ch(5)}<div class="db-fx-gauge" aria-hidden="true"><span class="orbs">${'<i class="db-orb"></i>'.repeat(5)}</span><i class="bu"></i>${img('carta-ulti', 'ul')}</div>
-     <ul><li>${tr('Cada carta que usa un futbolista le da 1 segmento de Garra, y cada fusión otro más.')}</li>
-     <li>${tr('Con 5 segmentos, su ulti entra en tu mano: su técnica más fuerte.')}</li></ul>`,
-    `${ch(6)}<div class="db-list">${states.map(([k, n, d]) => `<div class="db-li">${img(`estado-${k}`, 'db-badge', n)}<span><b>${n}</b> ${d}</span></div>`).join('')}</div>`,
-    `${ch(7)}${img('carta-combinada', 'db-card db-float db-glow')}
+     <li>${tr('Si usas la carta que separa a dos iguales, se juntan gratis.')}</li>
+     <li>${tr('Cada fusión da además 1 segmento de Garra.')}</li></ul>`,
+    `${ch(6)}<div class="db-grid">${types.map(([k, n, d]) => `<div class="db-gi">${img(`tipo-${k}`, 'db-icon', n)}<b>${n}</b><small>${d}</small></div>`).join('')}</div>`,
+    `${ch(7)}${dmgEx}
+     <ul><li>${tr('Elementos: Montaña gana a Fuego, Fuego a Bosque, Bosque a Aire y Aire a Montaña. Con ventaja ×1,3; con desventaja ×0,8.')}</li>
+     <li>${tr('El golpe varía un ±5 % al azar.')}</li></ul>`,
+    `${ch(8)}<div class="db-fx-gauge" aria-hidden="true"><span class="orbs">${'<i class="db-orb"></i>'.repeat(5)}</span><i class="bu"></i>${has(AXEL) ? card(AXEL, 'u', 3, 'ul') : img('carta-ulti', 'ul')}</div>
+     <ul><li>${tr('Cada carta que usa un futbolista le da tantos segmentos de Garra como estrellas tiene (★ 1, ★★ 2, ★★★ 3), y cada fusión otro más.')}</li>
+     <li>${tr('Con 5 segmentos, su ulti entra en tu mano: su técnica más fuerte.')}</li>
+     <li>${tr('Algunas cartas cargan la Garra de otros o anulan las mejoras y posturas del rival.')}</li></ul>`,
+    `${ch(9)}<div class="db-list">${states.map(([k, n, d]) => `<div class="db-li">${img(`estado-${k}`, 'db-badge', n)}<span><b>${n}</b> ${d}</span></div>`).join('')}</div>`,
+    `${ch(10)}${has(AXEL) && has(SHAWN) ? `<span class="db-float db-combo">${img('carta-combinada', 'db-mcfr')}<span class="db-cmugs">${h!.mug(AXEL, 40)}${h!.mug(SHAWN, 40)}</span></span>` : img('carta-combinada', 'db-card db-float db-glow')}
      <ul><li>${tr('Combinadas: las cartas de Axel y Shawn juntas se funden en Fuego cruzado. Mark, Axel y Shawn en fila hacen La Tierra.')}</li>
      <li>${tr('Uno prepara y otro remata: Shawn congela y Claude rompe el hielo; Jack provoca y Hurley contraataca.')}</li>
      <li>${tr('Grupos: 3 futbolistas del mismo grupo (Inazuma Japan, Royal Academy…) activan su efecto.')}</li></ul>`,
-    `${ch(8)}<div class="db-row">${img('peana', 'db-ped')}${img('circulo', 'db-circle')}</div>
+    `${ch(11)}<div class="db-row">${img('peana', 'db-ped')}${img('circulo', 'db-circle')}</div>
      <ul><li>${tr('Cuando cae un titular, entra tu suplente.')}</li>
      <li>${tr('Una vez por partida puedes hacer un cambio voluntario.')}</li>
      <li>${tr('Si 2 de tus futbolistas son del equipo del entrenador, su pasiva vale un 50 % más.')}</li></ul>`,
     `<div class="db-cover db-end"><i class="db-shine"></i><span class="db-corner tl"></span><span class="db-corner tr"></span><span class="db-corner bl"></span><span class="db-corner br"></span>
-      <div class="db-cover-card">${img('carta-r3')}</div><h1>${tr('¡A jugar!')}</h1><p>${tr('Tu primer duelo es un tutorial con el Raimon.')}</p></div>`,
+      <div class="db-cover-card">${has(AXEL) ? card(AXEL, 'u', 3) : img('carta-r3')}</div><h1>${tr('¡A jugar!')}</h1><p>${tr('Tu primer duelo es un tutorial con el Raimon.')}</p></div>`,
   ];
   return { pages, chapters };
 }
@@ -108,27 +177,35 @@ function style() {
 .db-leaf{position:absolute;top:0;left:50%;width:50%;height:100%;transform-style:preserve-3d;transform-origin:left center;transition:transform .9s cubic-bezier(.45,.05,.3,1)}
 .db-one .db-leaf{left:0;width:100%}
 .db-leaf.on{transform:rotateY(-180deg)}
+.db-book{touch-action:pan-y}.db-face{cursor:grab}.db-book.grabbing,.db-book.grabbing *{cursor:grabbing!important;user-select:none}
+.db-curl{position:absolute;top:0;left:50%;width:50%;height:100%;transform-style:preserve-3d;pointer-events:none}
+.db-one .db-curl{left:0;width:100%}
+.db-cs{position:absolute;top:0;left:100%;width:100%;height:100%;transform-style:preserve-3d;transform-origin:left center}
+.db-curl>.db-cs{width:calc(100% / 18)}
+.db-csk{position:absolute;inset:0 -2px 0 0;overflow:hidden;backface-visibility:hidden;-webkit-backface-visibility:hidden}
+.db-csk.b{inset:0 0 0 -2px;transform:rotateY(180deg)}
+.db-csk>.db-face{transform:none!important;backface-visibility:visible}
+.db-csk>.db-face>*{opacity:1!important;animation:none!important}
+.db-csh{position:absolute;inset:0;pointer-events:none}
 .db-face{position:absolute;inset:0;backface-visibility:hidden;-webkit-backface-visibility:hidden;overflow:hidden;padding:5.5% 6.5% 9%;box-sizing:border-box;
   background:radial-gradient(ellipse at 70% 20%,#fffaf0,#f6ecd4 55%,#e9dab4),#f6ecd4;color:#2a2016;font:600 clamp(11px,1.22vw,15px)/1.42 'Segoe UI',system-ui,sans-serif;
   border-radius:0 12px 12px 0;box-shadow:inset 14px 0 22px -12px #6b4f1f99,inset 0 0 0 2px #c9a84f55,inset 0 0 0 7px #f6ecd4,inset 0 0 0 8px #d4a01755}
 .db-face.b{transform:rotateY(180deg);border-radius:12px 0 0 12px;box-shadow:inset -14px 0 22px -12px #6b4f1f99,inset 0 0 0 2px #c9a84f55,inset 0 0 0 7px #f6ecd4,inset 0 0 0 8px #d4a01755}
 .db-one .db-face{border-radius:12px}
 .db-face::after{content:'';position:absolute;inset:0;pointer-events:none;opacity:0;background:linear-gradient(90deg,#fff0 20%,#fff6 45%,#0005 75%,#000a);transition:opacity .45s}
-.db-leaf.turning .db-face::after{opacity:1}
+.db-leaf.turning .db-face::after{opacity:1;background:linear-gradient(90deg,#0000 0%,#fff5 18%,#0000 32%,#0004 50%,#0009 66%,#0000 100%) 0 0/300% 100%;animation:dbBend var(--td,.9s) cubic-bezier(.4,.1,.3,1)}
+@keyframes dbBend{from{background-position:100% 0}to{background-position:0 0}}
+/* the corner lifts before the page turns */
 .db-face>*{opacity:0}
 .db-face.show>*{animation:dbPop .55s cubic-bezier(.2,1.5,.4,1) both;animation-delay:calc(var(--i,0) * 90ms + 120ms)}
 @keyframes dbPop{from{opacity:0;transform:translateY(14px) scale(.94)}to{opacity:1;transform:none}}
-.db-face>.db-pg,.db-face>.db-ear,.db-face>.db-cover{opacity:1;animation:none}
+.db-face>.db-pg,.db-face>.db-cover{opacity:1;animation:none}
 .db-head small{display:block;font-size:.72em;letter-spacing:.18em;text-transform:uppercase;color:#a07a2a}
 .db-head h2{margin:.15em 0 0;font:1.05em/1.3 'Press Start 2P',monospace;color:#0f2a5c;text-shadow:0 2px 0 #ffd23f66}
 .db-rule{display:block;height:4px;margin:.45em 0 .7em;border-radius:2px;background:linear-gradient(90deg,#d4a017,#ffe48a 40%,#d4a01700)}
 .db-face ul{margin:.6em 0 0;padding-left:1.25em}.db-face li{margin:.38em 0}.db-face li::marker{color:#d4a017}
 .db-lead{font-size:1.06em}
 .db-face .db-pg{position:absolute;bottom:3%;right:6.5%;font:.62em 'Press Start 2P',monospace;color:#a07a2a}.db-face.b .db-pg{right:auto;left:6.5%}
-.db-ear{position:absolute;right:0;bottom:0;width:13%;aspect-ratio:1;cursor:pointer;background:linear-gradient(135deg,#0000 50%,#d9c38f 50%,#fff8e6 75%,#efe0b8);
-  border-top-left-radius:4px;box-shadow:-3px -3px 6px #0002;animation:dbEar 1.8s ease-in-out infinite;z-index:3}
-@keyframes dbEar{50%{width:16%}}
-.db-one .db-ear{display:none}
 .db-face>.db-cover{position:absolute;inset:0;margin:0}
 .db-coverleaf .db-face.f{inset:-2.2% -2.4% -2.2% 0;padding:0;border-radius:4px 16px 16px 4px;overflow:hidden}
 .db-board{position:absolute;top:-2.2%;bottom:-2.2%;z-index:0;pointer-events:none;
@@ -144,7 +221,7 @@ function style() {
 .db-cover{position:relative;height:100%;margin:-6% -7.5%;padding:9%;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;overflow:hidden;
   background:radial-gradient(circle at 50% 30%,#2357b0,#0b2152 55%,#050f2a),#0b2152;color:#ffe9a8;
   box-shadow:inset 0 0 0 7px #d4a017,inset 0 0 0 10px #071636,inset 0 0 0 12px #ffe48a,inset 0 0 60px #000a}
-.db-cover::before{content:'';position:absolute;inset:0;opacity:.18;background:repeating-radial-gradient(circle at 30% 40%,#fff 0 1px,#0000 1px 4px)}
+.db-cover::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 60% 40% at 50% 28%,#4fb3ff33,#0000 70%),radial-gradient(ellipse 80% 30% at 50% 100%,#ffd23f1f,#0000 70%)}
 .db-shine{position:absolute;inset:-30%;background:linear-gradient(115deg,#fff0 42%,#fff5 50%,#fff0 58%);animation:dbShine 3.6s ease-in-out infinite}
 @keyframes dbShine{0%,30%{transform:translateX(-60%)}70%,100%{transform:translateX(60%)}}
 .db-corner{position:absolute;width:15%;aspect-ratio:1;border:4px solid #ffd23f;filter:drop-shadow(0 0 6px #ffb020)}
@@ -157,7 +234,8 @@ function style() {
 @keyframes dbBlink{50%{opacity:.35}}
 .db-cardcover{padding:6% 8% 7%;justify-content:space-between}
 .db-bigcard{position:relative;display:block;width:62%;margin-top:2%;perspective:700px;overflow:hidden;border-radius:6%;animation:dbBig 5s ease-in-out infinite;transform-style:preserve-3d}
-.db-bigcard img{width:100%;filter:drop-shadow(0 0 26px #4fb3ffbb)}
+.db-bigcard img{width:100%;display:block}
+.db-cardcover>.db-bigcard{filter:drop-shadow(0 0 18px #4fb3ff99)}
 .db-bigcard .db-shine{inset:-40%}
 @keyframes dbBig{0%,100%{transform:rotateY(-12deg) rotateX(4deg) translateY(0)}50%{transform:rotateY(12deg) rotateX(-4deg) translateY(-8px)}}
 .db-plate{position:relative;padding:.6em 1.2em .7em;border-radius:12px;background:linear-gradient(180deg,#ffe48a,#d4a017 55%,#9a6a00);box-shadow:0 4px 0 #5b3a00,0 0 24px #ffb02088,inset 0 2px 0 #fff8}
@@ -179,7 +257,35 @@ function style() {
 .db-fan .db-img:nth-child(1){transform:rotate(-7deg) translateY(4px)}.db-fan .db-img:nth-child(3){transform:rotate(7deg) translateY(4px)}
 .db-fan .db-img:hover{transform:translateY(-6px) scale(1.08)}
 .db-frame{width:28%}.db-card{width:22%}
-.db-shot{border-radius:10px;overflow:hidden;box-shadow:0 6px 14px #0006,0 0 0 3px #d4a017}.db-board{width:100%}
+/* a card of the match, filled (face, frame, type icon, technique, multiplier); sized by its own width */
+.db-mc{position:relative;display:block;width:24%;aspect-ratio:263/360;flex:none;container-type:inline-size;filter:drop-shadow(0 4px 6px #0006);transition:transform .25s cubic-bezier(.2,1.6,.4,1)}
+.db-mc:hover{transform:translateY(-4px) scale(1.07) rotate(-2deg)}
+.db-mc .db-img{position:absolute;max-width:none;transition:none}.db-mc .db-img:hover{transform:none;filter:none}
+.db-mcf{position:absolute;left:21%;top:16%;width:58%;height:47%;display:flex;justify-content:center;align-items:center;overflow:hidden;background:radial-gradient(circle at 50% 38%,#4a74d0,#101a44 75%)}
+.db-mcf>*,.db-sm>:first-child,.db-exm>:first-child,.db-cmugs>*{flex:none;margin:0!important;image-rendering:pixelated}
+.db-mc .db-mcfr{inset:0;width:100%;height:100%}
+.db-mc .db-mci{left:12%;top:9%;width:26%;z-index:2}
+.db-mct{position:absolute;left:13%;right:13%;top:61%;min-height:18%;display:grid;place-items:center;text-align:center;line-height:1.05;--k:min(1,calc(9.5 / var(--lw,1)));font:900 calc(11.5cqw * var(--k)) 'Segoe UI',sans-serif;color:#fff;text-shadow:0 1px 0 #000,0 0 3px #000;background:linear-gradient(#0000,#08103ad0 22%,#08103af0 78%,#0000)}
+.db-mcm{position:absolute;right:17%;top:15%;padding:0 3cqw;border-radius:4cqw;background:#000c;color:#ffe08a;font:900 9.5cqw 'Segoe UI',sans-serif;z-index:2}
+.db-fan .db-mc:nth-child(1){transform:rotate(-7deg) translateY(4px)}.db-fan .db-mc:nth-child(3){transform:rotate(7deg) translateY(4px)}
+.db-fx-gauge .db-mc.ul{width:22%}
+.db-stars .db-mc:nth-child(2){width:26%}.db-stars .db-mc:nth-child(3){width:28%}
+.db-cover-card .db-mc{width:100%;animation:dbSwing 4s ease-in-out infinite}
+.db-combo{position:relative;display:block;aspect-ratio:263/360}.db-combo .db-mcfr{position:absolute;inset:0;width:100%;height:100%}
+.db-cmugs{position:absolute;left:18%;right:18%;top:18%;height:42%;display:flex;justify-content:center;align-items:center;overflow:hidden;background:radial-gradient(circle at 50% 38%,#4a74d0,#101a44 75%)}.db-cmugs>*+*{margin-left:-20%!important}
+.db-stats{display:flex;gap:.7em;align-items:flex-start}
+.db-sm{flex:none;display:flex;flex-direction:column;align-items:center;gap:.2em;padding:.3em;border-radius:10px;background:#0f2a5c;box-shadow:0 0 0 3px #d4a017}.db-sm small{color:#ffe9a8;font-weight:900;font-size:.75em}
+.db-st{flex:1;display:grid;gap:.22em}
+.db-str{display:grid;grid-template-columns:4.2em 3.4em 1fr;align-items:center;gap:.4em;font-size:.86em;line-height:1.2}
+.db-str b{padding:.1em .3em;border-radius:6px;background:#0f2a5c;color:#ffe9a8;text-align:center;font-size:.9em}
+.db-str.hp b{background:#1f8a44;color:#fff}.db-str.atk b{background:#b8400f;color:#fff}
+.db-str em{font-style:normal;font-weight:900;color:#0f2a5c;text-align:right}
+.db-str span{color:#5a4626}
+.db-ex{display:flex;flex-direction:column;gap:.4em}
+.db-exc{display:flex;align-items:center;justify-content:center;gap:5%}.db-exc .db-mc{width:22%}.db-exc>b{font-size:1.6em;color:#b8400f}
+.db-exm{display:flex;flex-direction:column;align-items:center;gap:.2em;padding:.3em;border-radius:10px;background:#0f2a5c;box-shadow:0 0 0 3px #d4a017}.db-exm small{color:#ffe9a8;font-weight:900;font-size:.75em}
+.db-calc{margin:0;padding-left:1.4em;display:grid;gap:.15em;font-size:.88em}.db-calc b{color:#b8400f}
+.db-shot{border-radius:10px;overflow:hidden;box-shadow:0 6px 14px #0006,0 0 0 3px #d4a017}.db-tableimg{width:100%}
 .db-fuse b{font:1.4em 'Press Start 2P',monospace;color:#0f2a5c}
 .db-center{display:flex;justify-content:center;align-items:center;gap:6%;margin:.5em 0}
 .db-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.55em .6em}
@@ -235,17 +341,17 @@ function style() {
 .db-hit{position:absolute;top:0;bottom:0;width:10%;z-index:500;cursor:pointer}.db-hit.l{left:0}.db-hit.r{right:0}
 .db-spark{position:absolute;width:8px;height:8px;border-radius:50%;background:#fff6c8;box-shadow:0 0 10px #ffd23f,0 0 4px #fff;pointer-events:none;z-index:700;animation:dbSpark .8s ease-out forwards}
 @keyframes dbSpark{to{transform:translate(var(--x),var(--y)) scale(.2);opacity:0}}
-@media (prefers-reduced-motion:reduce){.db-leaf,.db-book{transition-duration:.01s}.db-fuse-anim,.db-fx-gauge *,.db-cover em,.db-cover-card img,.db-shine,.db-icon,.db-mote,.db-wrap::before,.db-ear,.db-btn{animation:none!important}.db-face.show>*{animation-duration:.01s}}
+@media (prefers-reduced-motion:reduce){.db-leaf,.db-book{transition-duration:.01s}.db-fuse-anim,.db-fx-gauge *,.db-cover em,.db-cover-card img,.db-shine,.db-icon,.db-mote,.db-wrap::before,.db-btn{animation:none!important}.db-face.show>*{animation-duration:.01s}}
 `;
   document.head.appendChild(s);
 }
 
 /** opens the rulebook over whatever is on screen; resolves when it is closed */
-export function openDuelBook(): Promise<void> {
+export function openDuelBook(h?: BookHost): Promise<void> {
   style();
   return new Promise((resolve) => {
     const one = window.innerWidth < 760;
-    const { pages: pg, chapters } = content();
+    const { pages: pg, chapters } = content(h);
     const parts = PARTS();
     const wrap = document.createElement('div');
     wrap.className = `db-wrap${one ? ' db-one' : ''}`;
@@ -254,7 +360,7 @@ export function openDuelBook(): Promise<void> {
     // wide: leaf i = page 2i (front, right) + page 2i+1 (back, left); phone: one page per leaf, its back plain paper
     const leaves = one ? pg.map((p) => [p, '']) : Array.from({ length: Math.ceil(pg.length / 2) }, (_, i) => [pg[2 * i], pg[2 * i + 1] ?? '']);
     const pageNo = (i: number, side: 0 | 1) => (one ? i : 2 * i + side);
-    const face = (html: string, p: number, back: boolean) => `<div class="db-face ${back ? 'b' : 'f'}" data-p="${p}">${html}${html && p > 0 && p < pg.length - 1 ? `<span class="db-pg">${p + 1}</span>` : ''}${!back && p > 0 && p < pg.length - 2 ? '<span class="db-ear"></span>' : ''}</div>`;
+    const face = (html: string, p: number, back: boolean) => `<div class="db-face ${back ? 'b' : 'f'}" data-p="${p}">${html}${html && p > 0 && p < pg.length - 1 ? `<span class="db-pg">${p + 1}</span>` : ''}</div>`;
     const motes = Array.from({ length: 22 }, (_, i) => `<i class="db-mote" style="left:${(i * 37) % 100}%;--s:${2 + (i % 4)}px;--d:${9 + (i % 7)}s;--dl:-${(i * 1.3) % 12}s;--x:${((i % 5) - 2) * 30}px"></i>`).join('');
     wrap.innerHTML = `${motes}<button class="db-x" aria-label="${esc(tr('Cerrar'))}">✕</button><div class="db-stage"><div class="db-book"><i class="db-board l"></i><i class="db-board r"></i><i class="db-spine"></i>${leaves.map(([f, b], i) =>
       `<div class="db-leaf${i === 0 ? ' db-coverleaf' : ''}" style="z-index:${leaves.length - i}">${face(f, pageNo(i, 0), false)}${face(b, one ? -1 : pageNo(i, 1), true)}</div>`).join('')}
@@ -316,32 +422,179 @@ export function openDuelBook(): Promise<void> {
       window.setTimeout(() => flash.remove(), 1400);
     };
     let busy = false;
+    /** the page folds like paper as it turns (author: «quiero que se pliegue la página»). While it turns, the leaf is
+     *  drawn as a chain of N narrow strips, each hinged to the one before: the first turns on the spine and each joint
+     *  bends a little more towards the free edge, so the sheet curls from its corner and lands flat. Every strip carries
+     *  its slice of both faces and darkens or shines with its own angle. The real leaf stays hidden until it lands. */
+    const N = 18;
+    /** the fold of a leaf: `set(p)` draws it at p (0 = where it lies, 1 = turned over) going `d`; `end()` takes it away */
+    const fold = (el: HTMLElement, d: 1 | -1) => {
+      const f = el.querySelector<HTMLElement>(':scope > .db-face.f')!, bk = el.querySelector<HTMLElement>(':scope > .db-face.b')!;
+      const box = document.createElement('div');
+      box.className = 'db-curl';
+      box.style.zIndex = '450';
+      const strips: HTMLElement[] = [], shades: HTMLElement[] = [];
+      let parent: HTMLElement = box;
+      for (let i = 0; i < N; i++) {
+        const st = document.createElement('div');
+        st.className = 'db-cs';
+        if (i === 0) st.style.left = '0';
+        const skin = (face: HTMLElement, back: boolean) => {
+          const sk = document.createElement('div');
+          sk.className = `db-csk${back ? ' b' : ''}`;
+          const c = face.cloneNode(true) as HTMLElement;
+          c.classList.add('show');
+          c.style.left = back ? `calc(2px - ${N - 1 - i} * (100% - 2px))` : `calc(${-i} * (100% - 2px))`;
+          c.style.width = `calc(${N} * (100% - 2px))`;
+          c.style.right = 'auto';
+          c.style.padding = getComputedStyle(face).padding; // its % padding would count from the narrow strip
+          const sh = document.createElement('i');
+          sh.className = 'db-csh';
+          sk.append(c, sh);
+          shades.push(sh);
+          return sk;
+        };
+        st.append(skin(f, false), skin(bk, true));
+        parent.appendChild(st);
+        strips.push(st);
+        parent = st;
+      }
+      el.parentElement!.appendChild(box);
+      el.style.visibility = 'hidden';
+      const wsum = (N * (N - 1)) / 2;
+      const set = (p: number) => {
+        const e = p < 0.5 ? 4 * p * p * p : 1 - (-2 * p + 2) ** 3 / 2;
+        const base = d > 0 ? -180 * e : -180 * (1 - e);
+        // the curl: strongest halfway, more at the free edge; the edge leads the way the page goes
+        const bend = -d * 150 * Math.sin(Math.PI * Math.min(1, p * 1.05)) ** 1.2;
+        // the angle of the sheet at each strip and at each joint (the shade is smooth across the joints)
+        const ang: number[] = [];
+        let acc = base;
+        for (let i = 0; i < N; i++) {
+          const r = i === 0 ? base : (bend * i) / wsum;
+          if (i > 0) acc += r;
+          ang.push(acc);
+          strips[i].style.transform = `rotateY(${r}deg)`;
+        }
+        // light: flat to the viewer is bright, edge-on is dark
+        const dark = (deg: number) => Math.min(0.5, (1 - Math.abs(Math.cos((deg * Math.PI) / 180))) * 0.55).toFixed(3);
+        for (let i = 0; i < N; i++) {
+          const l = dark(i === 0 ? ang[0] : (ang[i - 1] + ang[i]) / 2), r = dark(i === N - 1 ? ang[i] : (ang[i] + ang[i + 1]) / 2);
+          shades[2 * i].style.background = `linear-gradient(90deg,rgba(58,42,16,${l}),rgba(58,42,16,${r}))`;
+          shades[2 * i + 1].style.background = `linear-gradient(90deg,rgba(58,42,16,${r}),rgba(58,42,16,${l}))`;
+        }
+      };
+      const end = () => { el.style.visibility = ''; box.remove(); };
+      set(0);
+      return { set, end };
+    };
+    /** plays a fold from p0 to p1 over ms */
+    const play = (fd: ReturnType<typeof fold>, p0: number, p1: number, ms: number) => new Promise<void>((done) => {
+      const t0 = performance.now();
+      const frame = (now: number) => {
+        // dev only: window.__curlP holds the fold at a given point, to look at it
+        const hold = import.meta.env.DEV ? (window as unknown as { __curlP?: number }).__curlP : undefined;
+        const k = Math.min(1, (now - t0) / Math.max(1, ms));
+        fd.set(hold ?? p0 + (p1 - p0) * k);
+        if (k < 1 || hold !== undefined) requestAnimationFrame(frame); else done();
+      };
+      requestAnimationFrame(frame);
+    });
+    /** the start of a turn: the leaf on top, the pages that will show under it already drawn, those showing kept */
+    const begin = (d: 1 | -1, ms: number) => {
+      const el = els[d > 0 ? at : at - 1];
+      busy = true;
+      el.style.zIndex = '400';
+      el.style.setProperty('--td', `${ms}ms`);
+      const cover = el.classList.contains('db-coverleaf');
+      // the hard cover swings stiff; paper pages fold (the leaf itself jumps to its place, hidden, under the fold)
+      el.style.transitionDuration = cover ? `${ms}ms` : '0s';
+      el.classList.add('turning');
+      const was = [...wrap.querySelectorAll<HTMLElement>('.db-face.show')];
+      at += d;
+      draw();
+      for (const x of was) x.classList.add('show');
+      return { el, cover };
+    };
+    /** the end of a turn (or of a drag let go): pages and leaves where they belong */
+    const finish = (el: HTMLElement) => {
+      draw();
+      el.classList.remove('turning');
+      els.forEach((x, i) => { x.style.zIndex = String(i < at ? i + 1 : els.length - i); x.style.transitionDuration = ''; });
+      busy = false;
+      if (at >= max) sfx('legend');
+    };
     const turn = (d: 1 | -1, quick = false) => {
       const next = at + d;
       if (next < 0 || next > max || busy) return false;
-      const el = els[d > 0 ? at : next];
+      const el0 = els[d > 0 ? at : next];
+      const cover = el0.classList.contains('db-coverleaf');
+      const ms = quick ? 350 : cover ? 1300 : 950;
       busy = true;
-      el.style.zIndex = '400';
-      const cover = el.classList.contains('db-coverleaf');
-      el.style.transitionDuration = quick ? '.35s' : cover ? '1.3s' : '';
-      el.classList.add('turning');
-      sfx('whoosh', quick ? 1.4 : cover ? 0.7 : 0.9 + Math.random() * 0.2);
-      if (cover && d > 0) opening(); else sparks(d > 0);
-      at = next;
-      draw();
       window.setTimeout(() => {
-        el.classList.remove('turning');
-        els.forEach((x, i) => { x.style.zIndex = String(i < at ? i + 1 : els.length - i); x.style.transitionDuration = ''; });
-        busy = false;
-        if (at >= max) sfx('legend');
-      }, quick ? 360 : cover ? 1300 : 900);
+        const { el } = begin(d, ms);
+        sfx('whoosh', quick ? 1.4 : cover ? 0.7 : 0.9 + Math.random() * 0.2);
+        if (cover && d > 0) opening(); else sparks(d > 0);
+        if (cover) { window.setTimeout(() => finish(el), ms + 10); return; }
+        const fd = fold(el, d);
+        void play(fd, 0, 1, ms).then(() => { fd.end(); finish(el); });
+      }, 0);
       return true;
     };
+    /** taking the page by hand (author: «poder coger la página y pasarla yo»): press on a page and drag it towards the
+     *  spine; it folds under the pointer, and let go past a third (or with a flick) it turns over, otherwise it falls back */
+    let grab: { x0: number; t0: number; d: 1 | -1; w: number; el?: HTMLElement; fd?: ReturnType<typeof fold>; p: number; v: number; lx: number; lt: number } | null = null;
+    let dragged = false;
+    book.addEventListener('pointerdown', (e) => {
+      if (busy || e.button !== 0 || (e.target as HTMLElement).closest('button, [data-go], .db-mark')) return;
+      const r = book.getBoundingClientRect(), rightHalf = one || e.clientX > r.left + r.width / 2;
+      const d: 1 | -1 = one ? (e.clientX > r.left + r.width / 2 ? 1 : -1) : rightHalf ? 1 : -1;
+      const next = at + d;
+      if (next < 0 || next > max || els[d > 0 ? at : next].classList.contains('db-coverleaf')) return;
+      grab = { x0: e.clientX, t0: performance.now(), d, w: one ? r.width : r.width / 2, p: 0, v: 0, lx: e.clientX, lt: performance.now() };
+      dragged = false;
+    });
+    window.addEventListener('pointermove', (e) => {
+      if (!grab || !wrap.isConnected) return;
+      const dx = (e.clientX - grab.x0) * -grab.d;
+      if (!grab.fd) {
+        if (dx < 8) return;
+        // it starts to fold
+        const { el } = begin(grab.d, 600);
+        grab.el = el;
+        grab.fd = fold(el, grab.d);
+        book.classList.add('grabbing');
+        sfx('whoosh', 1.2);
+        dragged = true;
+      }
+      grab.p = Math.max(0, Math.min(1, dx / (grab.w * 1.7)));
+      const now = performance.now();
+      grab.v = ((e.clientX - grab.lx) * -grab.d) / Math.max(1, now - grab.lt);
+      grab.lx = e.clientX; grab.lt = now;
+      grab.fd.set(grab.p);
+    });
+    const release = () => {
+      const g = grab;
+      grab = null;
+      book.classList.remove('grabbing');
+      if (!g?.fd || !g.el) return;
+      const go = g.p > 0.33 || g.v > 0.6;
+      const el = g.el, fd = g.fd;
+      void play(fd, g.p, go ? 1 : 0, (go ? 1 - g.p : g.p) * 700 + 80).then(() => {
+        fd.end();
+        if (go) { sparks(g.d > 0); sfx('whoosh', 0.9); } else at -= g.d;
+        finish(el);
+      });
+    };
+    window.addEventListener('pointerup', release);
+    window.addEventListener('pointercancel', release);
+    // a drag is not a click on the page edges
+    book.addEventListener('click', (e) => { if (dragged) { e.stopPropagation(); e.preventDefault(); dragged = false; } }, true);
     /** to a page by quick turns, one after another */
     const go = (page: number) => {
       const target = one ? page : page % 2 ? (page + 1) / 2 : page / 2;
       sfx('click');
-      const step = () => { if (at !== target && turn(target > at ? 1 : -1, true)) window.setTimeout(step, 380); };
+      const step = () => { if (at !== target && turn(target > at ? 1 : -1, true)) window.setTimeout(step, 390); };
       step();
     };
     const close = () => { window.removeEventListener('keydown', key, true); sfx('click'); wrap.style.animation = 'dbIn .3s reverse forwards'; window.setTimeout(() => { wrap.remove(); resolve(); }, 280); };
@@ -354,13 +607,9 @@ export function openDuelBook(): Promise<void> {
     wrap.querySelector('.db-prev')!.addEventListener('click', () => turn(-1));
     wrap.querySelector('.db-hit.r')!.addEventListener('click', () => turn(1));
     wrap.querySelector('.db-hit.l')!.addEventListener('click', () => turn(-1));
-    wrap.querySelectorAll('.db-ear').forEach((e) => e.addEventListener('click', (ev) => { ev.stopPropagation(); turn(1); }));
     wrap.querySelectorAll<HTMLElement>('[data-go]').forEach((li) => li.addEventListener('click', () => go(Number(li.dataset.go))));
     wrap.querySelectorAll<HTMLElement>('.db-mark').forEach((m) => m.addEventListener('click', () => go(chapters.find((c) => c.part === Number(m.dataset.part))!.page)));
     wrap.querySelector('.db-x')!.addEventListener('click', close);
-    let x0 = 0;
-    book.addEventListener('touchstart', (e) => { x0 = e.touches[0].clientX; }, { passive: true });
-    book.addEventListener('touchend', (e) => { const dx = e.changedTouches[0].clientX - x0; if (Math.abs(dx) > 40) turn(dx < 0 ? 1 : -1); });
     // the gauge page: orb k plays its 16 frames from tick 10·k, all five full at tick 50, a burst, then it starts again
     const orbs = [...wrap.querySelectorAll<HTMLElement>('.db-fx-gauge .db-orb')], gauge = wrap.querySelector<HTMLElement>('.db-fx-gauge');
     let tick = 0;

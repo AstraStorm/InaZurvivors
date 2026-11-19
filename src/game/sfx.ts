@@ -110,6 +110,13 @@ export function orbSfx(i: number, soft = false) {
   tone('sine', f * 2, f * 2.2, 0.06, 0.04 * k, 0.02);
   if (i >= 4) [1, 1.25, 1.5, 2].forEach((m, j) => tone('triangle', f * m, f * m * 1.01, 0.3, 0.06 * k, 0.08 + j * 0.06));
 }
+/** Modo Duelo: the ice breaks — a sharp crack, a glassy tinkle of shards and the fall */
+export function iceBreakSfx() {
+  noise(0.06, 0.55, 6000);
+  tone('square', 2600, 900, 0.08, 0.08);
+  [2093, 2637, 3136, 2349, 2794].forEach((f, i) => tone('triangle', f, f * 0.97, 0.18, 0.05, 0.04 + i * 0.035));
+  noise(0.45, 0.22, 3200, 0.06);
+}
 /** Modo Duelo: the ulti is ready — a rising swell and a chord with a bell on top */
 export function ultiReadySfx() {
   noise(0.5, 0.12, 3000);

@@ -213,8 +213,24 @@ export const seasonClaimLevels = (track: 'normal' | 'premium', levels: number[])
   rpc<{ track: 'normal' | 'premium'; level: number; reward: SeasonReward }[]>('season_claim', { p_track: track, p_levels: levels });
 export const seasonBuyNormalKey = () => rpc<ServerSeasonState>('season_buy_normal_key', {});
 /** Modo Duelo: a match against the CPU opens on the server and closes once; a win of a real match pays its coins */
-export const duelStart = (level: 'facil' | 'normal' | 'dificil') => rpc<string>('duel_start', { p_level: level });
-export const duelFinish = (run: string, won: boolean) => rpc<{ coins: number; left: number; why: 'paid' | 'lost' | 'short' | 'cap' | 'closed' }>('duel_finish', { p_run: run, p_won: won });
+/** a match against the CPU: its level, and for the metrics your team, coach, the rival's team and the story chapter */
+export const duelStart = (level: 'facil' | 'normal' | 'dificil', info: { team?: number[]; coach?: string | null; rival?: number[]; chapter?: string } = {}) =>
+  rpc<string>('duel_start', { p_level: level, p_team: info.team ?? null, p_coach: info.coach ?? null, p_rival: info.rival ?? null, p_chapter: info.chapter ?? null });
+export const duelFinish = (run: string, won: boolean, stats?: { turns: number; merges: number; combos: number; ultis: number }) =>
+  rpc<{ coins: number; left: number; why: 'paid' | 'lost' | 'short' | 'cap' | 'closed' }>('duel_finish', { p_run: run, p_won: won, p_stats: stats ?? null });
+/** 3.0 Métricas del Modo Duelo (admins only) */
+export interface AdminDuelMetrics {
+  days: number; opens_at: string;
+  totals: { cpu: number; cpu_wins: number; players: number; coins: number; pvp: number; pvp_players: number; merges: number; combos: number; ultis: number; turns_avg: number | null };
+  daily: { day: string; cpu: number; players: number; pvp: number }[];
+  levels: { level: string; n: number; wins: number }[];
+  players_top: { id: number; n: number; wins: number; cpu: number; pvp: number }[];
+  coaches: { id: string; n: number; wins: number }[];
+  story: { chapter: string; n: number; wins: number; players: number }[];
+  pvp_end: { reason: string; n: number }[];
+}
+export const adminDuelMetrics = (days = 30) => rpc<AdminDuelMetrics>('admin_duel_metrics', { p_days: days });
+export const duelRanking = (week: boolean) => rpc<{ pos: number; username: string; avatar: string; crest: string; wins: number }[]>('duel_ranking', { p_week: week, p_limit: 50 }, false);
 
 export const putCloudSave = (data: unknown, expected: number) => rpc<number>('put_save', { p_data: data, p_expected: expected });
 export interface CloudSave { data: unknown; version: number; updated_at: string }
@@ -420,3 +436,16 @@ export const friendRemove = (username: string) => rpc<null>('friend_remove', { p
 export const friendHeartbeat = () => rpc<null>('friend_heartbeat', {});
 export const coopInvite = (username: string, code: string) => rpc<null>('coop_invite', { p_username: username, p_code: code });
 export const coopInvitesClaim = () => rpc<{ from_name: string; code: string; created_at: string }[]>('coop_invites_claim', {});
+
+// ---- Modo Duelo online (migration 20261122000000_duel_pvp.sql)
+export interface PvpMatch { status: 'matched'; match: string; side: 0 | 1; seed: number; first: 0 | 1; teams: [unknown, unknown]; plates: [PvpPlate, PvpPlate]; live: boolean }
+export interface PvpPlate { name: string; icon?: { kind: 'emblem' | 'player' | 'coach'; id: number } | null; frame?: string | null; pennant?: string | null }
+export type PvpQueue = PvpMatch | { status: 'waiting'; waiting: number; playing: number } | { status: 'out' };
+export interface PvpTurn { n: number; side: 0 | 1; actions: unknown[] }
+export const duelPvpJoin = (team: unknown, plate: PvpPlate) => rpc<PvpQueue>('duel_pvp_join', { p_team: team, p_plate: plate });
+export const duelPvpPoll = () => rpc<PvpQueue>('duel_pvp_poll', {});
+export const duelPvpLeave = () => rpc<void>('duel_pvp_leave', {});
+export const duelPvpMove = (match: string, n: number, actions: unknown[]) => rpc<void>('duel_pvp_move', { p_match: match, p_n: n, p_actions: actions });
+export const duelPvpSync = (match: string, from: number) =>
+  rpc<{ moves: PvpTurn[]; rival_seen: number; status: 'live' | 'done'; winner: 0 | 1 | null; reason: string | null }>('duel_pvp_sync', { p_match: match, p_from: from });
+export const duelPvpEnd = (match: string, winner: 0 | 1, reason: 'win' | 'surrender' | 'gone') => rpc<{ status: string; winner?: number }>('duel_pvp_end', { p_match: match, p_winner: winner, p_reason: reason });

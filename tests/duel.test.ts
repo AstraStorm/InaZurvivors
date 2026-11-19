@@ -30,7 +30,49 @@ describe('Modo Duelo: the 50 footballers', () => {
     for (const c of DUEL_COMBOS) for (const id of c.players) expect(DUEL_BY_ID.has(id), `${c.name}: ${id}`).toBe(true);
   });
   it('stats as the doc says (Axel Blaze: 1723 PV, 459 ATQ, 207 DEF)', () => {
-    expect(duelStats(byId.get(10)! as never)).toMatchObject({ hp: 1723, atk: 459, def: 207 });
-    expect(duelStats(byId.get(100773)! as never)).toMatchObject({ hp: 3125, atk: 338, def: 453 });
+    // the doc's formula, before the balance multiplier (DUEL_TUNE): checked without the footballer's id
+    const raw = (id: number) => duelStats({ ...(byId.get(id)! as object), id: undefined } as never);
+    expect(raw(10)).toMatchObject({ hp: 1723, atk: 459, def: 207 });
+    expect(raw(100773)).toMatchObject({ hp: 3125, atk: 338, def: 453 });
+  });
+});
+
+describe('Modo Duelo: the story mode', async () => {
+  const { STORY, STORY_CHAPTERS, storyOpen, storyTeams } = await import('../src/systems/duel/story');
+  const dicts = await Promise.all(['en', 'fr', 'it', 'de', 'ca', 'pt'].map((l) => import(`../src/i18n/${l}.ts`).then((m) => Object.values(m)[0] as Record<string, string>)));
+  it('three seasons (3, 4 and 3 chapters), every team made of the mode\'s footballers and ready for the engine', () => {
+    expect(STORY.map((s) => s.chapters.length)).toEqual([3, 4, 3]);
+    for (const c of STORY_CHAPTERS) {
+      for (const pid of [...c.you, ...c.foe, ...(c.joins ?? [])]) expect(DUEL_BY_ID.has(pid), `${c.id}: ${pid}`).toBe(true);
+      expect(c.you).toHaveLength(4);
+      for (const j of c.joins ?? []) expect(c.you, `${c.id}`).toContain(j);
+      const [a, b] = storyTeams(byId as never, c);
+      expect(a.units).toHaveLength(4);
+      expect(b.units.length).toBe(c.foe.length);
+      for (const l of [...c.intro, ...c.outro]) if (typeof l.who === 'number') expect([...c.you, ...c.foe], `${c.id}: ${l.text}`).toContain(l.who);
+    }
+  });
+  it('a chapter opens when the one before is won', () => {
+    expect(storyOpen([], '1-1')).toBe(true);
+    expect(storyOpen([], '1-2')).toBe(false);
+    expect(storyOpen(['1-1'], '1-2')).toBe(true);
+    expect(storyOpen(['1-1', '1-2', '1-3'], '2-1')).toBe(true);
+  });
+  it('every text of the story has its translation in every language', () => {
+    const texts = STORY.flatMap((s) => [s.title, s.sub, ...s.chapters.flatMap((c) => [c.title, ...c.intro.map((l) => l.text), ...c.outro.map((l) => l.text)])]);
+    for (const d of dicts) expect(texts.filter((t) => d[t] === undefined)).toEqual([]);
+  });
+});
+
+describe('Modo Duelo: story bosses', async () => {
+  const { createDuel, teamOf } = await import('../src/systems/duel/rules');
+  it('a boss gets its extra actions and cards each turn, and its shields stop at the cap', () => {
+    const plain = createDuel([teamOf(byId as never, [1, 10, 29, 2], 'hillman'), teamOf(byId as never, [157], null)], 5, 1);
+    const boss = createDuel([teamOf(byId as never, [1, 10, 29, 2], 'hillman'), { ...teamOf(byId as never, [157], null), boss: { actions: 2, cards: 3 } }], 5, 1);
+    expect(boss.sides[1].actions).toBe(plain.sides[1].actions + 2);
+    // equal cards fuse as they come, so the cards dealt are counted by weight (an R2 is two R1, an R3 four)
+    const weight = (h: { rank: number; idx: unknown }[]) => h.filter((c) => c.idx !== 'u').reduce((a, c) => a + 2 ** (c.rank - 1), 0);
+    expect(weight(boss.sides[1].hand)).toBe(weight(plain.sides[1].hand) + 3);
+    expect(boss.sides[1].boss?.shieldCap).toBe(0.5);
   });
 });

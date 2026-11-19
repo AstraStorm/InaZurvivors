@@ -114,7 +114,11 @@ export interface SaveData {
   /** v1.65: profile banners owned and the one shown (pennants.ts) */
   pennants?: { owned: string[]; equipped?: string; frame?: string };
   /** 3.x: Modo Duelo — tutorial won, matches won against the CPU (ui/duelHub.ts) */
-  duel?: { tutorial?: boolean; wins?: number; /** a guest's paid wins of the day (an account's are counted by the server) */ day?: string; paid?: number };
+  duel?: { tutorial?: boolean; wins?: number; /** a guest's paid wins of the day (an account's are counted by the server) */ day?: string; paid?: number;
+    /** the team set in the duel's team editor: three starters + the bench, and the coach */
+    team?: { pids: number[]; coach: string | null };
+    /** 3.0: the story mode's chapters won (duel/story.ts ids, «1-1»…) */
+    story?: string[] };
   /** pre-2.0: coaches owned and the one on the bench (coaches.ts) */
   coaches?: { owned: string[]; bench?: string };
   /** pre-2.0: Road to Fútbol Frontier — the road in progress and the clears per difficulty (road.ts) */

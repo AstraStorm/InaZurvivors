@@ -58,6 +58,10 @@ export const MISSIONS: MissionDef[] = [
   { ...L('l_duelo_ultis', tr('Lanza 30 ultis en duelos'), 'duel_ultis', 30, 400, 1), eg: 1 },
   { ...L('l_duelo_combos', tr('Lanza 15 técnicas combinadas en duelos'), 'duel_combos', 15, 600, 2), eg: 2 },
   { ...L('l_duelo_fusion', tr('Fusiona 100 cartas en duelos'), 'duel_merges', 100, 400, 1), eg: 1 },
+  // the story mode (duel/story.ts): each chapter won the first time counts once (3, 4 and 3 per season)
+  { ...L('l_hist_1', tr('Completa la Temporada 1 del modo historia'), 'duel_story', 3, 800, 1), eg: 2 },
+  { ...L('l_hist_2', tr('Completa la Temporada 2 del modo historia'), 'duel_story', 7, 1500, 2), eg: 3 },
+  { ...L('l_hist_3', tr('Completa la Temporada 3 del modo historia'), 'duel_story', 10, 3000, 3), eg: 5 },
   ] : []),
   L('l_road_jaden', tr('Completa Road to Fútbol Frontier en Máxima 10 veces: ¡ficha a Jaden Evans!'), 'road_maxima', 10, 3000, 3),
   // 4.0

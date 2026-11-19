@@ -14,11 +14,13 @@
  * In the tutorial Hillman talks from his pedestal and the card, rival and button of each lesson glow.
  */
 import { tr } from '../i18n/i18n';
-import { elementSfx, orbSfx, sfx, ultiReadySfx } from '../game/sfx';
+import { elementSfx, iceBreakSfx, orbSfx, sfx, ultiReadySfx } from '../game/sfx';
+import { setMusicContext } from '../game/music';
 import { COACH_BY_ID } from '../data/coaches';
 import { artUrl } from './duelArt';
 import { elementIcon } from './elements';
 import { cardInfo } from './duelText';
+import { LOW_FX } from '../systems/perf';
 import { DUEL_MATCH_CSS as CSS_TEXT } from './duelMatchCss';
 import { GAUGE_MAX, act, cloneDuel, createDuel, illegal, onPitch, specOf, teamOf, unit, type Action, type Card, type DuelState, type Ev, type Side, type TeamCfg, type Unit } from '../systems/duel/rules';
 import { cpuAction, type CpuLevel } from '../systems/duel/cpu';
@@ -33,12 +35,33 @@ export interface DuelHost {
   /** a coach's portrait (url) */
   coachArt(id: string): string;
   done?(won: boolean, tutorial: boolean): void;
+  /** a player's plate: profile icon in its frame and the name on its banner. Side 0 is you; side 1 only online ('' or
+   *  nothing: the match draws the CPU's, with its coach) */
+  plate?(side: Side): string;
   /** what the match pays (asked when it ends; the result shows it): coins, or why there are none */
   reward?(won: boolean, tutorial: boolean, stats: DuelSummary): Promise<{ coins: number; note?: string } | null>;
 }
 /** what you did in a match, for the missions */
-export interface DuelSummary { merges: number; combos: number; ultis: number }
-export type DuelSetup = { tutorial: true } | { tutorial?: false; teams: [TeamCfg, TeamCfg]; level: CpuLevel; seed?: number };
+export interface DuelSummary { merges: number; combos: number; ultis: number; turns: number }
+export type DuelSetup = { tutorial: true } | { tutorial?: false; teams: [TeamCfg, TeamCfg]; level: CpuLevel; seed?: number; first?: Side; remote?: DuelRemote;
+  /** a chapter of the story mode (duelStory.ts): the rival's team name on its plate; a boss's footballers glow */
+  story?: { rival: string } };
+/** an online rival instead of the CPU (src/ui/duelOnline.ts): your turns go to it, its turns come from it, both already
+ *  seen from your side (you are side 0 on your engine and on theirs they are) */
+export interface DuelRemote {
+  /** the rival's plate (html) */
+  plate: string;
+  /** your turn's actions, sent as soon as you play them */
+  send(actions: Action[]): void;
+  /** the rival's next turn; null when the rival is gone (left or out of time for too long: you win) */
+  next(): Promise<Action[] | null>;
+  /** the match is over (won: yours) */
+  end(won: boolean): void;
+  /** you leave a live match: it counts as surrendering */
+  surrender(): void;
+}
+/** seconds for a turn online (author: «importante lo del timer»): when they run out, what you lined up is played */
+export const TURN_SECONDS = 60;
 
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!));
 const img = (file: string, cls = '') => `<img class="${cls}" src="${artUrl(file)}" alt="" draggable="false">`;
@@ -54,20 +77,21 @@ const EL_FX: Record<string, string> = { Fuego: '#ff7a2a', Aire: '#5ad8ff', Bosqu
 /** where everything is on each table (% of the stage); unit widths in cqw */
 interface Layout {
   board: string; v: boolean; slots: Record<Side, [number, number][]>; coach: Record<Side, [number, number]>; unitW: Record<Side, number>;
-  center: [number, number]; queue: [number, number]; rqueue: [number, number]; play: [number, number]; bubble: [number, number]; info: [number, number]; cast: [number, number];
+  center: [number, number]; queue: [number, number]; rqueue: [number, number]; plate: Record<Side, [number, number] | null>; play: [number, number]; bubble: [number, number]; info: [number, number]; cast: Record<Side, [number, number]>;
 }
 const LAYOUTS: Record<'h' | 'v', Layout> = {
   h: {
     board: 'mesa-horizontal', v: false,
-    slots: { 0: [[30.5, 52.5], [50.5, 52.5], [71.5, 52.5], [91, 53]], 1: [[34, 25.5], [50, 25.5], [66.5, 25.5], [81, 26]] },
-    coach: { 0: [10, 45], 1: [18.5, 18] }, unitW: { 0: 11.5, 1: 9.4 },
-    center: [5, 9], queue: [18.5, 83.5], rqueue: [87, 8], play: [84, 83.5], bubble: [2.5, 59], info: [79, 12], cast: [63, 81],
+    // the rival a little lower and smaller: their cards were touching the top edge (author: «el límite arriba se ve muy pegado»)
+    slots: { 0: [[30.5, 53], [50.5, 53], [71.5, 53], [91, 53.5]], 1: [[34, 28], [50, 28], [66.5, 28], [81, 28.5]] },
+    coach: { 0: [10, 45], 1: [18.5, 20] }, unitW: { 0: 11.5, 1: 8.8 },
+    center: [5, 9], queue: [18.5, 83.5], rqueue: [75, 6.5], plate: { 0: [19.5, 5.5], 1: [89, 5.5] }, play: [84, 83.5], bubble: [2.5, 59], info: [79, 12], cast: { 0: [10.5, 50], 1: [89.5, 46] },
   },
   v: {
     board: 'mesa-vertical', v: true,
     slots: { 0: [[26, 57], [50, 57], [74, 57], [92.5, 54]], 1: [[27, 29], [50, 29], [73, 29], [91, 21]] },
     coach: { 0: [7.5, 49], 1: [8.5, 21] }, unitW: { 0: 22, 1: 18 },
-    center: [50, 43], queue: [26, 73.5], rqueue: [80, 11], play: [79, 73.5], bubble: [3, 63], info: [50, 42], cast: [60, 87],
+    center: [50, 43], queue: [26, 73.5], rqueue: [80, 12.5], plate: { 0: null, 1: [27, 4.5] }, play: [79, 73.5], bubble: [3, 63], info: [50, 42], cast: { 0: [24, 9], 1: [76, 9] },
   },
 };
 const FRAME: Record<string, string> = { leyenda: 'marco-leyenda', mitico: 'marco-mitico' };
@@ -94,8 +118,11 @@ interface Queued { a: Action; card: Card }
 export function openDuelMatch(host: DuelHost, setup: DuelSetup) {
   document.querySelector('.dm')?.remove();
   const tutorial = !!setup.tutorial;
-  const s: DuelState = setup.tutorial ? createTutorial(host.byId) : createDuel(setup.teams, setup.seed ?? (Math.random() * 2 ** 31) | 0, Math.random() < 0.5 ? 0 : 1);
+  const s: DuelState = setup.tutorial ? createTutorial(host.byId) : createDuel(setup.teams, setup.seed ?? (Math.random() * 2 ** 31) | 0, setup.first ?? (Math.random() < 0.5 ? 0 : 1));
   const level: CpuLevel = setup.tutorial ? 'facil' : setup.level;
+  const remote = setup.tutorial ? undefined : setup.remote;
+  const story = setup.tutorial ? undefined : setup.story;
+  const boss = !setup.tutorial && !!setup.teams[1].boss;
   // the tutorial's rival always plays the same way (its lessons were tested with these rolls)
   const roll = tutorial ? () => 0.9 : Math.random;
   const steps = tutorial ? tutorialSteps() : [];
@@ -108,7 +135,26 @@ export function openDuelMatch(host: DuelHost, setup: DuelSetup) {
   let planning = false;
   /** the boxes of the turn being played (yours or the rival's) and which one is playing now */
   let playing: { side: Side; list: Queued[]; now: number } | null = null;
-  function startPlanning() { plan = cloneDuel(s); queue = []; planning = s.active === 0 && s.winner < 0; }
+  function startPlanning() { plan = cloneDuel(s); queue = []; planning = s.active === 0 && s.winner < 0; if (remote && planning) clock(TURN_SECONDS); }
+  // the turn's clock online: shown at the top, it plays what you lined up when it runs out
+  let deadline = 0, clockTimer = 0;
+  function clock(secs: number) {
+    deadline = performance.now() + secs * 1000;
+    window.clearInterval(clockTimer);
+    const el = root.querySelector<HTMLElement>('.dm-clock')!;
+    el.hidden = false;
+    const tick = () => {
+      if (closed) { window.clearInterval(clockTimer); return; }
+      const left = Math.max(0, Math.ceil((deadline - performance.now()) / 1000)), mineNow = s.active === 0;
+      el.innerHTML = `<b>${left}</b><small>${mineNow ? tr('Tu turno') : tr('Turno rival')}</small>`;
+      el.classList.toggle('rival', !mineNow);
+      el.classList.toggle('low', mineNow && left <= 10);
+      el.style.setProperty('--k', String(left / secs));
+      if (mineNow && left === 0 && planning && !busy) void playTurn();
+    };
+    tick();
+    clockTimer = window.setInterval(tick, 250);
+  }
   /** the plan again from the real match, without the actions that no longer fit (a target that would already be out aims anew) */
   function replan() {
     plan = cloneDuel(s);
@@ -124,14 +170,14 @@ export function openDuelMatch(host: DuelHost, setup: DuelSetup) {
 
   const root = document.createElement('div');
   root.className = 'dm';
-  root.innerHTML = `<style>${CSS_TEXT}</style><img class="dm-bg" alt="" draggable="false"><aside class="dm-side l"></aside><aside class="dm-side r"></aside><div class="dm-stage"><div class="dm-cam"><img class="dm-table" alt="" draggable="false">
-    <div class="dm-coaches"></div><div class="dm-center"></div><div class="dm-units"></div></div>
-    <div class="dm-rq"></div><div class="dm-speed"></div>
+  root.innerHTML = `<style>${CSS_TEXT}</style><img class="dm-bg" alt="" draggable="false"><aside class="dm-side l"></aside><aside class="dm-side r"></aside><div class="dm-stage"><div class="dm-cam"><img class="dm-table" alt="" draggable="false"><i class="dm-spot a"></i><i class="dm-spot b"></i>
+    <div class="dm-coaches"></div><div class="dm-center"></div><div class="dm-units"></div><div class="dm-fx cam"></div></div>
+    <div class="dm-rq"></div><div class="dm-plate s0"></div><div class="dm-plate s1"></div><div class="dm-speed"></div>
     <svg class="dm-aim"><defs><linearGradient id="dmAimBody" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="var(--ac)" stop-opacity="0"/><stop offset=".25" stop-color="var(--ac)" stop-opacity=".85"/><stop offset="1" stop-color="var(--ac)"/></linearGradient></defs><path class="dm-aim-trail"/><path class="dm-aim-body"/><g class="dm-aim-dots">${'<path vector-effect="non-scaling-stroke" d="M-.7 -1L.6 0L-.7 1L-.25 0Z"/>'.repeat(AIM_N)}</g><g class="dm-aim-ring"><circle r="1"/><path d="M0 -1.45V-.75M0 1.45V.75M-1.45 0H-.75M1.45 0H.75"/></g><path class="dm-aim-head" vector-effect="non-scaling-stroke" d="M1.15 0L-.85 -1.05L-.35 0L-.85 1.05Z"/></svg>
     <div class="dm-tray"><div class="dm-hand"></div></div><svg class="dm-links"></svg><div class="dm-q"></div>
     <button class="dm-play" type="button">${img('boton-turno')}<span></span></button>
     <div class="dm-bubble" hidden></div><div class="dm-info" hidden></div><div class="dm-fx"></div><div class="dm-banner"></div></div>
-    <button class="dm-x" type="button" aria-label="${tr('Salir')}">✕</button>`;
+    <button class="dm-x" type="button" aria-label="${tr('Salir')}">✕</button><div class="dm-clock" hidden></div>`;
   document.body.appendChild(root);
   const stage = root.querySelector<HTMLElement>('.dm-stage')!;
   const $ = <T extends HTMLElement>(q: string) => stage.querySelector<T>(q)!;
@@ -140,10 +186,14 @@ export function openDuelMatch(host: DuelHost, setup: DuelSetup) {
   let L: Layout = LAYOUTS.h;
   /** PV as shown while the events of an action play (the state already has the final ones) */
   const hpView = new Map<number, number>();
+  /** when the opening's drop began (its phase survives redraws) */
+  let introAt = 0;
   /** the Garra each footballer had when last drawn (the new orbs pop) */
   const gaugeSeen = new Map<number, number>();
 
-  const close = () => { closed = true; window.clearInterval(flashTimer); root.remove(); window.removeEventListener('resize', onResize); };
+  // the duel has its own theme (IE2's M201); leaving puts the menu's back
+  setMusicContext('duel');
+  const close = () => { setMusicContext('menu'); closed = true; window.clearInterval(flashTimer); root.remove(); window.removeEventListener('resize', onResize); };
   function crowdFlash(n = 1) {
     for (let i = 0; i < n; i++) {
       const f = document.createElement('i');
@@ -154,11 +204,28 @@ export function openDuelMatch(host: DuelHost, setup: DuelSetup) {
     }
   }
   const flashTimer = window.setInterval(() => { if (!document.hidden && Math.random() < 0.55) crowdFlash(1 + (Math.random() < 0.2 ? 2 : 0)); }, 700);
-  root.querySelector('.dm-x')!.addEventListener('click', () => { sfx('click'); close(); host.done?.(false, tutorial); });
+  root.querySelector('.dm-x')!.addEventListener('click', () => { sfx('click'); if (remote && s.winner < 0) remote.surrender(); close(); host.done?.(false, tutorial); });
+  /** the CPU's plate: its coach's portrait and «CPU · level» (the tutorial's rival is the Royal Academy for practice) */
+  function cpuPlate() {
+    if (remote) return remote.plate;
+    const id = s.sides[1].coach, art = id ? host.coachArt(id) : '';
+    const lv = story ? story.rival : tutorial ? 'Royal Academy' : ({ facil: tr('Fácil'), normal: tr('Normal'), dificil: tr('Difícil') } as Record<string, string>)[level] ?? level;
+    return `<span class="dmp-ic cpu">${art ? `<img src="${art}" alt="" draggable="false">` : story ? host.mug(s.sides[1].units[0].pid, 38) : '🤖'}</span><span class="dmp-tx"><b class="dmp-name"><span>${'CPU'}</span></b><small>${esc(lv)}</small></span>`;
+  }
+  function plates() {
+    for (const side of [0, 1] as Side[]) {
+      const el = $(`.dm-plate.s${side}`), at_ = L.plate[side];
+      el.hidden = !at_;
+      if (!at_) continue;
+      el.style.cssText = `left:${at_[0]}%;top:${at_[1]}%`;
+      if (!el.innerHTML) el.innerHTML = host.plate?.(side) || (side === 1 ? cpuPlate() : '');
+    }
+  }
   function layout() {
     const v = window.innerWidth / window.innerHeight < 0.9;
     L = LAYOUTS[v ? 'v' : 'h'];
     stage.classList.toggle('v', v);
+    plates();
     const t = $<HTMLImageElement>('.dm-table');
     if (!t.src.includes(L.board)) { t.src = artUrl(L.board); root.querySelector<HTMLImageElement>('.dm-bg')!.src = artUrl(L.board); }
   }
@@ -178,17 +245,19 @@ export function openDuelMatch(host: DuelHost, setup: DuelSetup) {
       + (u.stances.length ? `<span class="dm-st">${img('tipo-postura')}</span>` : '');
     const gauge = Array.from({ length: GAUGE_MAX }, (_, i) => `<span class="dm-g${i < u.gauge ? ' on' : ''}" style="left:${FR.orbX + i * FR.orbStep}%">${img(i < u.gauge ? 'garra-lleno' : 'garra-vacio')}</span>`).join('');
     const name = host.name(u.pid);
-    return `<div class="dm-unit s${side}${bench ? ' bench' : ''}${u.gauge >= GAUGE_MAX ? ' full' : ''}" data-uid="${u.uid}" style="left:${x}%;top:${y}%;--w:${w}cqw;--i:${(u.uid * 0.37) % 1}">
+    const sts = Object.entries(u.status).filter(([, n]) => n).map(([id]) => ` st-${id}`).join('')
+      + [...new Set(u.stances.map((x) => ` ps-${x.kind}`))].join('') + (u.shield > 0 ? ' sh' : '');
+    return `<div class="dm-unit s${side}${bench ? ' bench' : ''}${boss && side === 1 ? ' boss' : ''}${u.gauge >= GAUGE_MAX ? ' full' : ''}${sts}" data-uid="${u.uid}" style="left:${x}%;top:${y}%;--w:${w}cqw;--i:${(u.uid * 0.37) % 1}">
       <div class="dm-sts">${st}</div>
       <div class="dm-card">
-        <span class="dm-tring"></span><div class="dm-port">${host.mug(u.pid, px(w * FR.portW / 100))}</div>
+        <span class="dm-tring"></span>${/st-/.test(sts) ? '<span class="dm-stfx"><i></i><i></i><i></i></span>' : ''}<div class="dm-port">${host.mug(u.pid, px(w * FR.portW / 100))}</div>
         ${img(FRAME[host.rarity(u.pid)] ?? 'marco-legendario', 'dm-frame')}
         <span class="dm-el" title="${esc(tr(u.element))}">${elementIcon(u.element, px(w * 0.12))}</span>
         ${gauge}
         <span class="dm-nm" style="--n:${Math.max(6, name.length)}">${esc(name)}</span>
         <span class="dm-hpn" style="--d:${String(Math.round(hp)).length}">${izNum(Math.round(hp))}</span><span class="dm-atk" style="--d:${String(u.base.atk).length}">${izNum(u.base.atk, 'morado')}</span>
       </div>
-      <div class="dm-life${k <= 0.25 ? ' low' : ''}" style="--p:${k * 100}%;--c:${lifeColor(k)}"><span class="hrt">♥</span><span class="bar"><span class="lag"></span><span class="cur"></span><span class="tick"></span></span><b>${izNum(Math.round(hp))}</b>${u.shield > 0 ? `<em>+${u.shield}</em>` : ''}</div>
+      <div class="dm-life${k <= 0.25 ? ' low' : ''}${u.shield > 0 ? ' shielded' : ''}" style="--p:${k * 100}%;--s:${Math.min(100 - k * 100, (u.shield / u.maxHp) * 100)}%;--c:${lifeColor(k)}"><span class="hrt">♥</span><span class="bar"><span class="lag"></span><span class="cur"></span><span class="shd"></span><span class="tick"></span><i class="gloss"></i></span><b>${izNum(Math.round(hp))}<small>/${u.maxHp}</small></b>${u.shield > 0 ? `<em>🛡${u.shield}</em>` : ''}</div>
       <div class="dm-pv"></div></div>`;
   }
   /** a card of the hand; `w` its width in cqw (sizes the faces) */
@@ -213,6 +282,11 @@ export function openDuelMatch(host: DuelHost, setup: DuelSetup) {
     const me = s.sides[0], them = s.sides[1], mine = planning && !busy;
     const T = lesson(), hintCard = mine && tutorial ? tutorialCard(plan, T) : undefined, hintTarget = mine && tutorial ? tutorialTarget(plan, T) : undefined;
     $('.dm-units').innerHTML = [...them.units, ...me.units].filter((u) => u.slot >= 0).map(unitHtml).join('');
+    // looping effects (the ulti's aura) take their phase from one clock, so drawing the table again does not restart them
+    // and the footballers' drop of the opening goes on from where it was (each redraw used to start it again: little hops)
+    const nowMs = performance.now();
+    $('.dm-units').style.setProperty('--ph', `${-Math.round(nowMs)}ms`);
+    $('.dm-units').style.setProperty('--ia', `${-Math.round(nowMs - introAt)}ms`);
     for (const u of [...them.units, ...me.units]) {
       const was = gaugeSeen.get(u.uid) ?? u.gauge;
       if (u.gauge > was) {
@@ -396,17 +470,49 @@ export function openDuelMatch(host: DuelHost, setup: DuelSetup) {
     });
     await Promise.all(ghosts);
     el.style.opacity = '';
-    pulse(el, 'merged', 800);
-    const p = { x: ((r.left + r.width / 2 - sr.left) / sr.width) * 100, y: ((r.top + r.height * 0.4 - sr.top) / sr.height) * 100 };
-    particlesAt(p, 'star', '#ffd76a', 14);
-    particlesAt(p, 'spark', '#fff3b0', 10);
+    fuseFx(el, ev.rank);
+  }
+  /** a fusion lands on a card of the hand: a shockwave of the rank's colour, a beam of light, the stars of its new rank
+   *  popping one by one (each one a note higher), a hop of the card; ★★★ also shakes the table and the crowd flashes.
+   *  `combo`: a combined technique formed (violet, bigger) */
+  function fuseFx(el: HTMLElement, rank: number, combo = false) {
+    const sr = stage.getBoundingClientRect(), r = el.getBoundingClientRect();
+    const p = { x: ((r.left + r.width / 2 - sr.left) / sr.width) * 100, y: ((r.top + r.height * 0.42 - sr.top) / sr.height) * 100 };
+    const col = combo ? '#c46aff' : rank >= 3 ? '#ffd23a' : '#8fd0ff';
+    pulse(el, `merged r${combo ? 4 : rank}`, 1100);
+    el.animate([{ scale: '1', translate: '0 0' }, { scale: '1.6', translate: '0 -2.5cqw', offset: 0.3 }, { scale: '1.45', translate: '0 -2cqw', offset: 0.6 }, { scale: '1', translate: '0 0' }], { duration: 950, easing: 'cubic-bezier(.3,1.4,.5,1)', composite: 'add' });
+    // rays of its colour turning behind the card, and the whole screen lit in that colour for a moment
+    const rays = document.createElement('div');
+    rays.className = `dm-fuserays r${combo ? 4 : rank}`;
+    rays.style.cssText = `left:${p.x}%;top:${p.y}%;--c:${col}`;
+    fxLayer.appendChild(rays);
+    window.setTimeout(() => rays.remove(), 1100);
+    const flash = document.createElement('div');
+    flash.className = 'dm-fuseflash';
+    flash.style.setProperty('--c', col);
+    fxLayer.appendChild(flash);
+    window.setTimeout(() => flash.remove(), 700);
+    const ring = document.createElement('div');
+    ring.className = 'dm-fusering';
+    ring.style.cssText = `left:${p.x}%;top:${p.y}%;--c:${col}`;
+    ring.innerHTML = '<i></i><i></i><b></b>';
+    fxLayer.appendChild(ring);
+    window.setTimeout(() => ring.remove(), 1000);
+    particlesAt(p, 'star', combo ? '#e0b0ff' : rank >= 3 ? '#ffd76a' : '#cfeaff', 18 + rank * 8);
+    particlesAt(p, 'spark', '#fff3b0', 14 + rank * 6);
+    shake(rank >= 3 || combo ? 0.7 : 0.35);
     const tag = document.createElement('div');
-    tag.className = 'dm-float rank';
-    tag.style.cssText = `left:${p.x}%;top:${p.y - 6}%`;
-    tag.textContent = '★'.repeat(ev.rank);
+    tag.className = `dm-float rank r${combo ? 4 : rank}`;
+    tag.style.cssText = `left:${p.x}%;top:${p.y - 13}%`;
+    tag.innerHTML = combo ? `<span style="--k:0">${esc(tr('¡Combinada!'))}</span>` : `<em>${esc(tr('¡Fusión!'))}</em>${Array.from({ length: rank }, (_, i) => `<span style="--k:${i}">★</span>`).join('')}`;
     fxLayer.appendChild(tag);
-    window.setTimeout(() => tag.remove(), 1500);
-    sfx('powerup', 1 + ev.rank * 0.1);
+    window.setTimeout(() => tag.remove(), 1600);
+    if (combo) { sfx('legend'); crowdFlash(10); shake(0.8); }
+    else {
+      for (let i = 0; i < rank; i++) window.setTimeout(() => { if (!closed) orbSfx(i + 1); }, 90 + i * 120);
+      if (rank >= 3) { window.setTimeout(() => { if (!closed) { sfx('powerup', 1.3); shake(0.6); crowdFlash(8); } }, 90 + rank * 120); }
+      else sfx('powerup', 1.1);
+    }
   }
 
   /** a combined technique formed as the cards were dealt: first the fusions it took in (each pair of cards coming
@@ -442,12 +548,8 @@ export function openDuelMatch(host: DuelHost, setup: DuelSetup) {
     // 2. the fused cards fly into the combined technique
     await Promise.all(fused.map(({ g, x }) => g.animate([{ translate: `${x}px 0`, scale: '1' }, { translate: `0 ${w * 0.35}px`, scale: '.7', opacity: 0 }], { duration: 380, easing: 'cubic-bezier(.6,0,.6,1)', fill: 'forwards' }).finished.then(() => g.remove(), () => g.remove())));
     el.style.opacity = '';
-    pulse(el, 'merged', 900);
-    const p = { x: ((r.left + w / 2 - sr.left) / sr.width) * 100, y: ((r.top + r.height * 0.4 - sr.top) / sr.height) * 100 };
-    particlesAt(p, 'star', '#ffd76a', 18);
-    particlesAt(p, 'spark', '#fff3b0', 16);
+    fuseFx(el, 3, true);
     banner(cardTech(ev.name), 'combo s0', 1400);
-    sfx('legend');
     await wait(500);
   }
 
@@ -517,20 +619,43 @@ export function openDuelMatch(host: DuelHost, setup: DuelSetup) {
   }
 
   // ---- effects
-  const fxLayer = $('.dm-fx');
-  function at(el: Element, fy = 0.4) {
-    const r = el.getBoundingClientRect(), sr = stage.getBoundingClientRect();
-    return { x: ((r.left + r.width / 2 - sr.left) / sr.width) * 100, y: ((r.top + r.height * fy - sr.top) / sr.height) * 100 };
+  /** a card effect on a hand: the hand it touches shines and says what happened */
+  function cardsFx(side: Side, what: string) {
+    const txt = ({ rankUp: tr('¡Rango arriba!'), rankDown: tr('Rango abajo'), seal: tr('¡Carta sellada!'), destroy: tr('¡Carta destruida!') } as Record<string, string>)[what];
+    if (!txt) return;
+    const good = what === 'rankUp';
+    const host_ = side === 0 ? $('.dm-hand') : $('.dm-rq');
+    const r = host_.getBoundingClientRect(), sr = stage.getBoundingClientRect();
+    const p = { x: ((r.left + r.width / 2 - sr.left) / sr.width) * 100, y: ((r.top + r.height * 0.3 - sr.top) / sr.height) * 100 };
+    const f = document.createElement('div');
+    f.className = `dm-float cardsfx ${good ? 'up' : 'down'}`;
+    f.style.cssText = `left:${p.x}%;top:${p.y}%`;
+    f.textContent = txt;
+    fxLayer.appendChild(f);
+    window.setTimeout(() => f.remove(), 1600);
+    particlesAt(p, good ? 'star' : 'spark', good ? '#ffd76a' : '#c46aff', 14);
+    pulse(host_, good ? 'cards-up' : 'cards-down', 700);
+    sfx(good ? 'powerup' : 'error', good ? 1.2 : 0.8);
   }
+  /** two layers of effects: the screen's (the technique's card, the hand) and the table's, inside the camera, so what
+   *  happens on a footballer stays on him while the camera closes in or shakes */
+  const fxLayer = stage.querySelector<HTMLElement>(':scope > .dm-fx')!, camFx = stage.querySelector<HTMLElement>('.dm-cam > .dm-fx')!;
+  /** a point of an element in the camera's own % (the camera may be zoomed and moving: its box scales with it) */
+  function atCam(el: Element, fy = 0.4) {
+    const r = el.getBoundingClientRect(), cr = cam.getBoundingClientRect();
+    return { x: ((r.left + r.width / 2 - cr.left) / cr.width) * 100, y: ((r.top + r.height * fy - cr.top) / cr.height) * 100 };
+  }
+  /** the centre of a footballer's card (not of the whole unit, which also has his life bar and statuses) */
+  const cardOf = (el: HTMLElement) => el.querySelector('.dm-card') ?? el;
   const unitEl = (uid: number) => stage.querySelector<HTMLElement>(`.dm-unit[data-uid="${uid}"]`);
   function float(uid: number, text: string, cls: string, delay = 0) {
     const el = unitEl(uid);
     if (!el) return;
-    const p = at(el, 0.3), f = document.createElement('div');
+    const p = atCam(el, 0.3), f = document.createElement('div');
     f.className = `dm-float ${cls}`;
     f.style.cssText = `left:${p.x + (Math.random() - 0.5) * 3}%;top:${p.y}%;animation-delay:${delay}ms`;
     f.innerHTML = text;
-    fxLayer.appendChild(f);
+    camFx.appendChild(f);
     window.setTimeout(() => f.remove(), 1600 + delay);
   }
   function pulse(el: Element | null, cls: string, ms = 450) {
@@ -540,23 +665,24 @@ export function openDuelMatch(host: DuelHost, setup: DuelSetup) {
     window.setTimeout(() => el.classList.remove(...cs), ms);
   }
   /** a burst of little lights: sparks out of a blow, green crosses rising from a heal, flames, ice, lightning */
-  type PtKind = 'spark' | 'heal' | 'shield' | 'burn' | 'ice' | 'zap' | 'ko' | 'power' | 'leaf' | 'rock' | 'star';
+  type PtKind = 'spark' | 'heal' | 'shield' | 'burn' | 'ice' | 'zap' | 'ko' | 'power' | 'leaf' | 'rock' | 'star' | 'arrow';
   function particles(uid: number, kind: PtKind, color = '#fff', n = 14) {
     const el = unitEl(uid);
-    if (el) particlesAt(at(el, kind === 'heal' ? 0.7 : 0.4), kind, color, n);
+    if (el) particlesAt(atCam(cardOf(el), kind === 'heal' ? 0.8 : 0.5), kind, color, n, camFx);
   }
-  function particlesAt(p: { x: number; y: number }, kind: PtKind, color = '#fff', n = 14) {
+  function particlesAt(p: { x: number; y: number }, kind: PtKind, color = '#fff', n = 14, layer: HTMLElement = fxLayer) {
     for (let i = 0; i < n; i++) {
       const d = document.createElement('i');
       const ang = Math.random() * Math.PI * 2, dist = (kind === 'spark' || kind === 'ko' || kind === 'rock' || kind === 'leaf' ? 4 + Math.random() * 8 : 2 + Math.random() * 4) * U();
-      const rise = kind === 'heal' || kind === 'burn';
+      const rise = kind === 'heal' || kind === 'burn' || kind === 'arrow';
       const dx = rise ? (Math.random() - 0.5) * 6 * U() : Math.cos(ang) * dist;
       const dy = rise ? -(4 + Math.random() * 7) * U() : Math.sin(ang) * dist + (kind === 'rock' || kind === 'leaf' ? 3 * U() : 0);
       d.className = `dm-pt ${kind}`;
       d.style.cssText = `left:${p.x + (kind === 'heal' ? (Math.random() - 0.5) * 6 : 0)}%;top:${p.y}%;--dx:${dx}px;--dy:${dy}px;--c:${color};--s:${0.5 + Math.random()};animation-delay:${Math.random() * (kind === 'heal' ? 350 : 60)}ms`;
       if (kind === 'heal') d.textContent = '+';
       if (kind === 'star') d.textContent = '★';
-      fxLayer.appendChild(d);
+      if (kind === 'arrow') d.textContent = color === '#6aff8a' ? '▲' : '▼';
+      layer.appendChild(d);
       window.setTimeout(() => d.remove(), 1300);
     }
   }
@@ -576,6 +702,8 @@ export function openDuelMatch(host: DuelHost, setup: DuelSetup) {
     life.style.setProperty('--c', lifeColor(k));
     life.classList.toggle('low', k <= 0.25);
     pulse(life, hp < from ? 'hit' : 'up', 500);
+    if (hp < from) chips(life, from / u.maxHp, Math.max(0, hp / u.maxHp), lifeColor(Math.max(0, hp / u.maxHp)));
+    if (u.side === 0 && hp > 0 && hp <= u.maxHp * 0.25 && from > u.maxHp * 0.25) { heartbeat(); pulse(el, 'danger', 1400); }
     const b = life.querySelector('b')!, n2 = el.querySelector('.dm-hpn')!, t0 = performance.now();
     const step = (t: number) => {
       const q = Math.min(1, (t - t0) / 450), v = Math.max(0, Math.round(from + (hp - from) * (1 - (1 - q) ** 3)));
@@ -583,6 +711,26 @@ export function openDuelMatch(host: DuelHost, setup: DuelSetup) {
       if (q < 1) requestAnimationFrame(step);
     };
     requestAnimationFrame(step);
+  }
+  function heartbeat() {
+    sfx('hurt', 0.5);
+    window.setTimeout(() => { if (!closed) sfx('hurt', 0.45); }, 260);
+    stage.classList.add('dangerv'); window.setTimeout(() => stage.classList.remove('dangerv'), 1300);
+  }
+  /** pieces of the life bar break off between the old and the new value */
+  function chips(life: HTMLElement, k0: number, k1: number, color: string) {
+    const bar = life.querySelector<HTMLElement>('.bar');
+    if (!bar) return;
+    const r = bar.getBoundingClientRect(), sr = cam.getBoundingClientRect();
+    const n = Math.min(10, 2 + Math.round((k0 - k1) * 16));
+    for (let i = 0; i < n; i++) {
+      const d = document.createElement('i');
+      const k = k1 + (k0 - k1) * Math.random();
+      d.className = 'dm-chip';
+      d.style.cssText = `left:${((r.left + r.width * k - sr.left) / sr.width) * 100}%;top:${((r.top + r.height / 2 - sr.top) / sr.height) * 100}%;--c:${color};--dx:${(Math.random() - 0.3) * 5 * U()}px;--dy:${-(1 + Math.random() * 3) * U()}px;--r:${(Math.random() - 0.5) * 540}deg;animation-delay:${Math.random() * 80}ms`;
+      camFx.appendChild(d);
+      window.setTimeout(() => d.remove(), 900);
+    }
   }
   function banner(text: string, cls = '', ms = 1100) {
     const b = $('.dm-banner');
@@ -610,11 +758,30 @@ export function openDuelMatch(host: DuelHost, setup: DuelSetup) {
     const who = membersOf(ev.card);
     const c = document.createElement('div');
     c.className = `dm-cast s${ev.side}${big ? ' big' : ''}`;
-    c.style.cssText = `left:${L.cast[0]}%;top:${L.cast[1]}%`;
-    c.innerHTML = cardHtml(s, ev.card, (big ? 12.5 : 10.5) * (L.v ? 1.8 : 1)) + `<div class="dm-cname"><small>${esc(who.map((m) => host.name(unit(s, m).pid)).join(' + '))}</small><span>${esc(cardInfo(s, ev.card, host.name).tech)}</span></div>`;
-    fxLayer.appendChild(c);
+    // yours comes in on the left, the rival's on the right; under it, what the technique does
+    c.style.cssText = `left:${L.cast[ev.side][0]}%;top:${L.cast[ev.side][1]}%`;
+    const ci = cardInfo(s, ev.card, host.name), eff = [ci.base, ...ci.lines.filter((l) => l.on).map((l) => l.text)].filter(Boolean).slice(0, 3);
+    c.innerHTML = cardHtml(s, ev.card, (big ? 9.5 : 8.5) * (L.v ? 1.8 : 1)) + `<div class="dm-cname"><small>${esc(who.map((m) => host.name(unit(s, m).pid)).join(' + '))}</small><span>${esc(ci.tech)}</span></div>`
+      + (eff.length ? `<div class="dm-ceff">${eff.map((t) => `<p>${esc(t)}</p>`).join('')}</div>` : '');
+    // on a wide screen it goes over the side panel of its side (nothing there matters during a scene): the table stays clear
+    const panel = root.querySelector<HTMLElement>(`.dm-side.${ev.side === 0 ? 'l' : 'r'}`);
+    if (panel && !panel.hidden && panel.offsetWidth >= 160) {
+      const pr = panel.getBoundingClientRect();
+      c.classList.add('out');
+      // big enough to read (author: «no se ven casi las cartas de los que atacan»): wider than the panel if need be, and
+      // kept inside the window
+      const w = Math.max(pr.width - 12, Math.min(stage.clientWidth * 0.2, 380)), cx = Math.max(w / 2 + 8, Math.min(window.innerWidth - w / 2 - 8, pr.left + pr.width / 2));
+      c.style.cssText = `left:${cx}px;top:${pr.top + pr.height / 2}px;--u:${stage.clientWidth / 100}px;width:${w}px`;
+      panel.classList.add('casting');
+      root.appendChild(c);
+    } else fxLayer.appendChild(c);
+    const box = stage.querySelector<HTMLElement>(ev.side === 0 ? '.dm-q .dm-box.now' : '.dm-rq .dm-box.now');
+    if (box) {
+      const b = box.getBoundingClientRect(), r = c.getBoundingClientRect();
+      c.animate([{ translate: `${b.left + b.width / 2 - (r.left + r.width / 2)}px ${b.top + b.height / 2 - (r.top + r.height / 2)}px`, scale: String(Math.max(0.2, b.width / r.width)) }, { translate: '0 0', scale: '1' }], { duration: 380, easing: 'cubic-bezier(.2,1.2,.4,1)' });
+    }
     focus([...who, ...also]);
-    for (const m of who) { unitEl(m)?.classList.add('acting'); particles(m, 'power', EL_FX[unit(s, m).element] ?? '#fff', 10); }
+    for (const m of who) { unitEl(m)?.classList.add('acting'); particles(m, 'power', EL_FX[unit(s, m).element] ?? '#fff', 10); auraBurst(m, big ? 1900 : 1150, big ? 1.4 : 1); }
     sfx(big ? 'legend' : 'whoosh');
     elementSfx(unit(s, ev.card.owner).element, 'cast', big);
     if (big) {
@@ -632,6 +799,7 @@ export function openDuelMatch(host: DuelHost, setup: DuelSetup) {
   }
   async function castOut(c: HTMLElement, ev: Extract<Ev, { t: 'use' }>) {
     c.classList.add('go');
+    root.querySelectorAll('.dm-side.casting').forEach((p) => p.classList.remove('casting'));
     for (const m of membersOf(ev.card)) unitEl(m)?.classList.remove('acting');
     stage.classList.remove('ultimate');
     focus(null);
@@ -641,11 +809,11 @@ export function openDuelMatch(host: DuelHost, setup: DuelSetup) {
   function impact(uid: number, color: string, crit = false, power = 0.6) {
     const el = unitEl(uid);
     if (!el) return;
-    const p = at(el), f = document.createElement('div');
+    const p = atCam(cardOf(el), 0.5), f = document.createElement('div');
     f.className = `dm-impact${crit ? ' crit' : ''}`;
     f.style.cssText = `left:${p.x}%;top:${p.y}%;--c:${color}`;
     f.innerHTML = '<svg viewBox="0 0 100 100"><path d="M58 2L30 52h18L38 98l36-58H54z"/></svg><span class="slash"></span>';
-    fxLayer.appendChild(f);
+    camFx.appendChild(f);
     window.setTimeout(() => f.remove(), 700);
     particles(uid, 'spark', color, crit ? 22 : 14);
     shake(crit ? power + 0.8 : power);
@@ -659,18 +827,64 @@ export function openDuelMatch(host: DuelHost, setup: DuelSetup) {
   function gaugeFull(uid: number) {
     const el = unitEl(uid);
     if (!el) return;
-    const u = unit(s, uid), gold = u.side === 0 ? '#ffd23a' : '#8fd0ff', p = at(el, 0.5);
+    const u = unit(s, uid), gold = u.side === 0 ? '#ffd23a' : '#8fd0ff', p = atCam(cardOf(el), 0.5);
     const fx = document.createElement('div');
     fx.className = `dm-ultifx s${u.side}`;
     fx.style.cssText = `left:${p.x}%;top:${p.y}%`;
     fx.innerHTML = '<i class="pillar"></i><i class="ring"></i><i class="ring r2"></i>';
-    fxLayer.appendChild(fx);
+    camFx.appendChild(fx);
     window.setTimeout(() => fx.remove(), 1400);
     pulse(el, 'ultiup', 1300);
     particles(uid, 'star', gold, 22);
     particles(uid, 'power', gold, 16);
     float(uid, tr('¡Ulti lista!'), `ultiready s${u.side}`, 120);
     if (u.side === 0) { ultiReadySfx(); crowdFlash(6); punch(1); } else sfx('powerup', 0.7);
+  }
+  /** the ice around a frozen card breaks: white cracks run from the blow, then it bursts into shards that fall */
+  function shatter(uid: number) {
+    const el = unitEl(uid);
+    if (!el) return;
+    const card = cardOf(el), pp = atCam(card, 0.5), cr = card.getBoundingClientRect(), kr = cam.getBoundingClientRect();
+    const w = (cr.width / kr.width) * 100, h = (cr.height / kr.height) * 100, cw = cam.clientWidth, ch = cam.clientHeight;
+    const f = document.createElement('div');
+    f.className = 'dm-shatter';
+    f.style.cssText = `left:${pp.x}%;top:${pp.y}%;width:${w}%;height:${h}%`;
+    // the cracks: from the centre out to the edges, each one bending twice
+    const cracks = Array.from({ length: 7 }, (_, i) => {
+      const a = (i / 7) * Math.PI * 2 + Math.random() * 0.5, r1 = 18 + Math.random() * 12, r2 = 34 + Math.random() * 14, r3 = 55;
+      const pt = (r: number, j: number) => `${50 + Math.cos(a + j) * r} ${50 + Math.sin(a + j) * r * 1.3}`;
+      return `M50 50 L${pt(r1, 0.15)} L${pt(r2, -0.12)} L${pt(r3, 0.08)}`;
+    }).join(' ');
+    f.innerHTML = `<svg viewBox="0 0 100 100" preserveAspectRatio="none"><path d="${cracks}"/></svg>`;
+    camFx.appendChild(f);
+    pulse(el, 'freeze', 160);
+    iceBreakSfx();
+    window.setTimeout(() => {
+      if (closed) return;
+      f.querySelector('svg')?.remove();
+      el.classList.remove('st-congelado');
+      el.querySelector('.dm-stfx')?.remove();
+      frost.delete(uid);
+      // the shards: triangles of ice thrown out from the card, spinning and falling
+      const pxW = (w / 100) * cw, pxH = (h / 100) * ch;
+      for (let i = 0; i < (LOW_FX ? 9 : 16); i++) {
+        const b = document.createElement('b'), sz = pxW * (0.16 + Math.random() * 0.2);
+        const p = Array.from({ length: 3 }, () => `${Math.random() * 100}% ${Math.random() * 100}%`).join(',');
+        b.style.cssText = `width:${sz}px;height:${sz}px;margin:${-sz / 2}px;clip-path:polygon(${p})`;
+        f.appendChild(b);
+        const ang = Math.random() * Math.PI * 2, d = pxW * (0.5 + Math.random() * 0.9);
+        const sx = (Math.random() - 0.5) * pxW * 0.7, sy = (Math.random() - 0.5) * pxH * 0.7;
+        const ex = sx + Math.cos(ang) * d, ey = sy + Math.sin(ang) * d * 0.7, rot = (Math.random() - 0.5) * 720;
+        b.animate([
+          { transform: `translate(${sx}px,${sy}px) rotate(0deg)`, opacity: 1 },
+          { transform: `translate(${ex}px,${ey}px) rotate(${rot * 0.6}deg)`, opacity: 1, offset: 0.45 },
+          { transform: `translate(${ex * 1.15}px,${ey + pxH * 0.9}px) rotate(${rot}deg)`, opacity: 0 },
+        ], { duration: 650 + Math.random() * 350, easing: 'cubic-bezier(.2,.7,.5,1)' });
+      }
+      particles(uid, 'ice', '#e6fbff', 20);
+      shake(1.2);
+      window.setTimeout(() => f.remove(), 1100);
+    }, 170);
   }
   function vignette(color: string) {
     const v = document.createElement('div');
@@ -683,33 +897,33 @@ export function openDuelMatch(host: DuelHost, setup: DuelSetup) {
   function elementBurst(uid: number, element: string, big: boolean) {
     const el = unitEl(uid);
     if (!el) return;
-    const p = at(el), n = big ? 1.6 : 1;
-    if (element === 'Fuego') { particlesAt(p, 'burn', '#ff8a2a', Math.round(18 * n)); particlesAt(p, 'burn', '#ffd23a', Math.round(8 * n)); }
-    else if (element === 'Bosque') particlesAt(p, 'leaf', '#6aff5a', Math.round(16 * n));
-    else if (element === 'Montaña') particlesAt(p, 'rock', '#c08a4a', Math.round(14 * n));
+    const p = atCam(cardOf(el), 0.5), n = big ? 1.6 : 1;
+    if (element === 'Fuego') { particlesAt(p, 'burn', '#ff8a2a', Math.round(18 * n), camFx); particlesAt(p, 'burn', '#ffd23a', Math.round(8 * n), camFx); }
+    else if (element === 'Bosque') particlesAt(p, 'leaf', '#6aff5a', Math.round(16 * n), camFx);
+    else if (element === 'Montaña') particlesAt(p, 'rock', '#c08a4a', Math.round(14 * n), camFx);
     const f = document.createElement('div');
     f.className = `dm-elfx el-${element === 'Montaña' ? 'Montana' : element}`;
     f.style.cssText = `left:${p.x}%;top:${p.y}%`;
     f.innerHTML = '<span></span><span></span><span></span>';
-    fxLayer.appendChild(f);
+    camFx.appendChild(f);
     window.setTimeout(() => f.remove(), 900);
   }
   /** the ball, kicked from `from` to `to` with a trail of the kicker's element (resolves when it arrives) */
   async function shot(from: HTMLElement, to: HTMLElement, color: string, big: boolean) {
-    const a = at(from, 0.75), b = at(to, 0.4);
+    const a = atCam(from, 0.75), b = atCam(cardOf(to), 0.5);
     const ball = document.createElement('div');
     ball.className = `dm-ball${big ? ' big' : ''}`;
-    const sr0 = stage.getBoundingClientRect();
+    const sr0 = cam.getBoundingClientRect();
     ball.style.cssText = `left:${a.x}%;top:${a.y}%;--c:${color};--ang:${Math.atan2((b.y - a.y) * sr0.height, (b.x - a.x) * sr0.width)}rad`;
     ball.innerHTML = '<i class="dm-tail"></i>';
-    fxLayer.appendChild(ball);
+    camFx.appendChild(ball);
     sfx('kick', 1.2);
     const dur = 230, t0 = performance.now();
     await new Promise<void>((done) => {
       const step = (t: number) => {
         const q = Math.min(1, (t - t0) / dur), x = a.x + (b.x - a.x) * q, y = a.y + (b.y - a.y) * q - Math.sin(q * Math.PI) * 4;
         ball.style.left = `${x}%`; ball.style.top = `${y}%`; ball.style.setProperty('--spin', `${q * 720}deg`);
-        particlesAt({ x, y }, 'power', color, 2);
+        particlesAt({ x, y }, 'power', color, 2, camFx);
         if (q < 1) requestAnimationFrame(step); else done();
       };
       requestAnimationFrame(step);
@@ -752,6 +966,21 @@ export function openDuelMatch(host: DuelHost, setup: DuelSetup) {
     elementSfx(element, 'hit', crit || froms.length > 1 || power > 1.2);
     punch(crit ? 2 : 1);
   }
+  /** a card that hits nobody (a buff, a stance, a heal, a special): a hop, a ring of his element and rising lights */
+  async function selfCast(who: number[], color: string) {
+    for (const m of who) {
+      const el = unitEl(m);
+      if (!el) continue;
+      el.animate([{ translate: '0 0' }, { translate: `0 ${-2.2 * U()}px`, offset: 0.4 }, { translate: '0 0' }], { duration: 520, easing: 'cubic-bezier(.3,0,.3,1)' });
+      const pp = atCam(cardOf(el), 0.55), w = document.createElement('div');
+      w.className = 'dm-wave self'; w.style.cssText = `left:${pp.x}%;top:${pp.y}%;--c:${color}`;
+      camFx.appendChild(w); window.setTimeout(() => w.remove(), 750);
+      particles(m, 'power', color, 14);
+      particles(m, 'star', '#fff3b0', 6);
+    }
+    sfx('powerup', 0.9);
+    await wait(460);
+  }
   async function slam(from: number[], tos: number[], color: string) {
     for (const f of from) {
       const a = unitEl(f);
@@ -769,47 +998,91 @@ export function openDuelMatch(host: DuelHost, setup: DuelSetup) {
     if (a) {
       const w = document.createElement('div');
       w.className = 'dm-wave';
-      const p = at(a);
+      const p = atCam(cardOf(a), 0.5);
       w.style.cssText = `left:${p.x}%;top:${p.y}%;--c:${color}`;
-      fxLayer.appendChild(w);
+      camFx.appendChild(w);
       window.setTimeout(() => w.remove(), 750);
     }
     for (const t of tos) { impact(t, color, false, 0.9); elementBurst(t, unit(s, from[0]).element, false); await wait(80); }
     punch(1.5);
   }
   /** the effect of one event of the log */
-  async function one(ev: Ev) {
+  async function one(ev: Ev, last = false) {
     switch (ev.t) {
       case 'hit': {
         const u = unit(s, ev.to);
         setHp(ev.to, (hpView.get(ev.to) ?? u.hp) - ev.dmg);
-        pulse(unitEl(ev.to), ev.crit ? 'hurt crit' : 'hurt', 480);
+        pulse(unitEl(ev.to), ev.crit ? 'dm-hurt crit' : 'dm-hurt', 480);
         if (ev.dmg > unit(s, ev.to).maxHp * 0.25) particles(ev.to, 'star', '#ffe14a', 8);
+        if (ev.crit) { const el = unitEl(ev.to); if (el) { const pp = atCam(cardOf(el), 0.5), x = document.createElement('div'); x.className = 'dm-slashx'; x.style.cssText = `left:${pp.x}%;top:${pp.y}%`; x.innerHTML = '<i></i><i></i>'; camFx.appendChild(x); window.setTimeout(() => x.remove(), 700); } }
         sfx(ev.crit ? 'crit' : 'hit');
         float(ev.to, `${ev.crit ? `<small>${tr('¡Crítico!')}</small>` : ''}${izNum(`-${ev.dmg}`, ev.crit ? 'morado' : 'naranja')}`, ev.crit ? 'dmg crit' : 'dmg');
-        if (ev.broke) { float(ev.to, tr('¡Hielo roto!'), 'note ice', 140); particles(ev.to, 'ice', '#bff4ff', 18); }
+        if (ev.broke) { float(ev.to, tr('¡Hielo roto!'), 'note ice', 140); shatter(ev.to); }
         else if (ev.elem > 1) float(ev.to, tr('¡Eficaz!'), 'note good', 140);
         else if (ev.elem < 1) float(ev.to, tr('Poco eficaz'), 'note bad', 140);
         await wait(210);
         break;
       }
-      case 'miss': float(ev.to, ev.why === 'dodge' ? tr('Esquiva') : ev.why === 'block' ? tr('Bloqueado') : tr('Fallo'), 'note'); pulse(unitEl(ev.to), ev.why === 'dodge' ? 'dodge' : 'shielded', 600); sfx('sweep'); await wait(320); break;
+      case 'miss': {
+        float(ev.to, ev.why === 'dodge' ? tr('Esquiva') : ev.why === 'block' ? tr('Bloqueado') : tr('Fallo'), 'note');
+        pulse(unitEl(ev.to), ev.why === 'dodge' ? 'dodge' : 'shielded', 600);
+        const el = unitEl(ev.to);
+        if (el && ev.why === 'block') {
+          const pp = atCam(cardOf(el), 0.5), sh = document.createElement('div');
+          sh.className = 'dm-shieldfx';
+          // the shield takes the card's shape (a bit bigger), so it sits right over it
+          const cr = cardOf(el).getBoundingClientRect(), kr = cam.getBoundingClientRect();
+          sh.style.cssText = `left:${pp.x}%;top:${pp.y}%;width:${(cr.width / kr.width) * 128}%;height:${(cr.height / kr.height) * 112}%`;
+          camFx.appendChild(sh); window.setTimeout(() => sh.remove(), 800);
+          particles(ev.to, 'shield', '#bfe8ff', 14); sfx('magnet', 1.6);
+        } else if (el && ev.why === 'dodge') {
+          const g = el.querySelector('.dm-card')!.cloneNode(true) as HTMLElement;
+          g.classList.add('dm-after'); el.appendChild(g); window.setTimeout(() => g.remove(), 600);
+          const pp = atCam(cardOf(el), 0.5), sl = document.createElement('div');
+          sl.className = 'dm-dodgefx'; sl.style.cssText = `left:${pp.x}%;top:${pp.y}%`; sl.innerHTML = '<i></i><i></i><i></i><i></i>';
+          camFx.appendChild(sl); window.setTimeout(() => sl.remove(), 600);
+          sfx('whoosh', 1.5);
+        } else sfx('sweep');
+        await wait(320);
+        break;
+      }
       case 'heal': setHp(ev.to, (hpView.get(ev.to) ?? 0) + ev.hp); float(ev.to, izNum(`+${ev.hp}`, 'naranja', 'green'), 'heal'); pulse(unitEl(ev.to), 'healed', 900); particles(ev.to, 'heal', '#7dff9a', 16); sfx('pickup'); await wait(260); break;
       case 'shield': float(ev.to, `${img('estado-escudo')}+${ev.amount}`, 'shield'); pulse(unitEl(ev.to), 'shielded', 800); particles(ev.to, 'shield', '#8fd8ff', 12); sfx('magnet', 1.3); await wait(220); break;
       case 'status': {
         float(ev.to, `${img(STATUS_FILE[ev.s])}${esc(STATUS_NAME()[ev.s] ?? ev.s)}`, `status st-${ev.s}`);
+        { const el = unitEl(ev.to); if (el && STATUS_FILE[ev.s]) { const pp = atCam(cardOf(el), 0.5), sl = document.createElement('div'); sl.className = 'dm-stslam'; sl.style.cssText = `left:${pp.x}%;top:${pp.y}%`; sl.innerHTML = img(STATUS_FILE[ev.s]); camFx.appendChild(sl); window.setTimeout(() => sl.remove(), 900); } }
         const k = ev.s === 'quemadura' ? 'burn' : ev.s === 'congelado' ? 'ice' : ev.s === 'electrizado' ? 'zap' : 'spark';
         particles(ev.to, k, ({ burn: '#ff8a2a', ice: '#bff4ff', zap: '#7fe8ff', spark: '#ffe08a' } as Record<string, string>)[k], 14);
         pulse(unitEl(ev.to), `got-${ev.s}`, 900);
+        { const el = unitEl(ev.to); if (el) {
+          if (ev.s === 'congelado') { const pp = atCam(cardOf(el), 0.5), ring = document.createElement('div'); ring.className = 'dm-icering'; ring.style.cssText = `left:${pp.x}%;top:${pp.y}%`; camFx.appendChild(ring); window.setTimeout(() => ring.remove(), 700); }
+          else if (ev.s === 'quemadura') elementBurst(ev.to, 'Fuego', true);
+          else if (ev.s === 'electrizado') zapBoost.set(ev.to, performance.now() + 900);
+        } }
         sfx(ev.s === 'electrizado' ? 'zap' : ev.s === 'congelado' ? 'sweep' : 'magnet');
         await wait(280);
         break;
       }
       case 'resist': float(ev.to, tr('Resiste'), 'note'); await wait(200); break;
+      case 'dispel': {
+        // what helped him breaks: a purple flash, the shards of his barrier and the words
+        const el = unitEl(ev.to);
+        float(ev.to, tr('¡Efectos anulados!'), 'note bad');
+        if (el) { el.classList.remove('ps-block', 'ps-dodge', 'ps-counter', 'ps-reflect', 'sh'); pulse(el, 'debuffed', 800); }
+        particles(ev.to, 'spark', '#c46aff', 20); particles(ev.to, 'star', '#e0b0ff', 10);
+        sfx('error', 0.6); sfx('sweep');
+        await wait(360);
+        break;
+      }
       case 'ko': {
         const el = unitEl(ev.uid);
         el?.classList.add('koing');
         root.classList.add('flash', 'slowmo');
+        if (last) {
+          // the blow that ends the match: everything stops on him
+          focus([ev.uid]); root.classList.add('finale'); sfx('thunder'); crowdFlash(24);
+          await wait(700);
+        }
         await wait(260);
         float(ev.uid, tr('K.O.'), 'kostamp');
         particles(ev.uid, 'ko', '#ffffff', 26);
@@ -818,7 +1091,8 @@ export function openDuelMatch(host: DuelHost, setup: DuelSetup) {
         window.setTimeout(() => root.classList.remove('flash', 'slowmo'), 380);
         await wait(380);
         el?.classList.add('ko');
-        await wait(620);
+        await wait(last ? 1100 : 620);
+        if (last) { root.classList.remove('finale'); focus(null); }
         break;
       }
       default: break;
@@ -839,7 +1113,12 @@ export function openDuelMatch(host: DuelHost, setup: DuelSetup) {
       const dmg = blows.reduce((a, e) => a + (e.t === 'hit' ? e.dmg : 0), 0), maxHp = targets.length ? unit(s, targets[0]).maxHp : 1;
       if (targets.length === 1) await lunge(who, targets[0], blows.some((e) => e.t === 'hit' && e.crit), color, 0.4 + Math.min(1.2, dmg / maxHp * 2.5), unit(s, ev.card.owner).element);
       else if (targets.length > 1) await slam(who, targets, color);
-      for (const e of group) { if (closed) return; await one(e); }
+      else await selfCast(who, color);
+      const lastKo = s.winner >= 0 ? group.filter((e) => e.t === 'ko').pop() : undefined;
+      for (const e of group) { if (closed) return; await one(e, e === lastKo); }
+      if (showExtras()) await wait(420);
+      const nHits = group.filter((e) => e.t === 'hit' && unit(s, e.to).side !== ev.side).length;
+      if (nHits >= 3) banner(tr('{n} golpes', { n: nHits }), `hits s${ev.side}`, 900);
       await wait(340);
       await castOut(c, ev);
       k = j;
@@ -862,9 +1141,14 @@ export function openDuelMatch(host: DuelHost, setup: DuelSetup) {
           if (card) { pulse(card, 'ultiin', 1200); const r = card.getBoundingClientRect(), sr = stage.getBoundingClientRect(); particlesAt({ x: ((r.left + r.width / 2 - sr.left) / sr.width) * 100, y: ((r.top + r.height * 0.4 - sr.top) / sr.height) * 100 }, 'star', '#ffd23a', 18); }
         }
       }
-      else if (ev.t === 'enter') { pulse(unitEl(ev.uid), 'enter', 800); sfx('whoosh', 1.2); }
+      else if (ev.t === 'enter') {
+        pulse(unitEl(ev.uid), 'dm-enter', 800); sfx('whoosh', 1.2);
+        const u = unit(s, ev.uid);
+        window.setTimeout(() => { if (closed) return; elementBurst(ev.uid, u.element, true); particles(ev.uid, 'power', EL_FX[u.element] ?? '#fff', 14); float(ev.uid, tr('¡Entra!'), `ultiready s${u.side}`); sfx('boom'); shake(0.8); }, 320);
+      }
       else if (ev.t === 'deal') dealt = true;
-      else if (ev.t === 'turn') { banner(ev.side === 0 ? tr('¡Tu turno!') : tr('Turno rival'), `turn s${ev.side}`, 1250); sfx(ev.side === 0 ? 'reveal' : 'whoosh', 0.9); }
+      else if (ev.t === 'cards') cardsFx(ev.side, ev.what);
+      else if (ev.t === 'turn') { pulse($('.dm-center'), 'flip', 700); banner(ev.side === 0 ? tr('¡Tu turno!') : tr('Turno rival'), `turn s${ev.side}`, 1250); sfx(ev.side === 0 ? 'reveal' : 'whoosh', 0.9); }
     }
     if (dealt) sfx('reveal');
     if (entry.length) {
@@ -912,19 +1196,38 @@ export function openDuelMatch(host: DuelHost, setup: DuelSetup) {
         g.animate([{ translate: '0 0', scale: '1', opacity: 1 }, { translate: `${ir.left - o.r.left}px ${ir.top - o.r.top - 10}px`, scale: '.9', opacity: 1, offset: 0.75 }, { translate: `${ir.left - o.r.left}px ${ir.top - o.r.top}px`, scale: '.6', opacity: 0 }], { duration: 360, easing: 'cubic-bezier(.5,0,.6,1)' }).finished.then(() => g.remove(), () => g.remove());
       }
       await wait(300);
-      pulse(into, 'merged', 800);
-      const p = { x: ((ir.left + ir.width / 2 - sr.left) / sr.width) * 100, y: ((ir.top + ir.height * 0.4 - sr.top) / sr.height) * 100 };
-      particlesAt(p, 'star', '#ffd76a', 14);
-      particlesAt(p, 'spark', '#fff3b0', 12);
-      const tag = document.createElement('div');
-      tag.className = 'dm-float rank';
-      tag.style.cssText = `left:${p.x}%;top:${p.y - 6}%`;
-      tag.textContent = ev.t === 'merge' ? '★'.repeat(ev.rank) : cardTech(ev.name);
-      fxLayer.appendChild(tag);
-      window.setTimeout(() => tag.remove(), 1500);
-      if (ev.t === 'combo') { banner(cardTech(ev.name), 'combo s0', 1300); sfx('legend'); } else sfx('powerup', 1 + ev.rank * 0.1);
+      fuseFx(into, ev.t === 'merge' ? ev.rank : 3, ev.t === 'combo');
+      if (ev.t === 'combo') banner(cardTech(ev.name), 'combo s0', 1300);
       await wait(250);
     }
+  }
+  /** buffs, debuffs and stances an action gave (they have no event): shown at the end of its scene */
+  let extras = new Map<number, { mods: { stat: string; pct: number }[]; stance: boolean }>();
+  const STAT_NAME = (): Record<string, string> => ({ atk: tr('ATQ'), def: tr('DEF'), crit: tr('Crít.'), vuln: tr('Daño recibido') });
+  function showExtras() {
+    let i = 0;
+    for (const [uid, x] of extras) {
+      const u = unit(s, uid), el = unitEl(uid);
+      if (!el) continue;
+      for (const m of x.mods) {
+        // a debuff of «damage taken» going up is bad news too
+        const good = m.stat === 'vuln' ? m.pct < 0 : m.pct > 0;
+        float(uid, `${good ? '▲' : '▼'} ${esc(STAT_NAME()[m.stat] ?? m.stat)} ${m.pct > 0 ? '+' : ''}${m.pct}%`, `mod ${good ? 'up' : 'down'}`, i * 120);
+        particles(uid, 'arrow', good ? '#6aff8a' : '#c46aff', 10);
+        pulse(el, good ? 'buffed' : 'debuffed', 800);
+        i++;
+      }
+      if (x.stance) {
+        float(uid, tr('Postura'), 'mod stance', i * 120);
+        const pp = atCam(cardOf(el), 0.5), a = document.createElement('div');
+        a.className = `dm-stancefx s${u.side}`; a.style.cssText = `left:${pp.x}%;top:${pp.y}%`;
+        camFx.appendChild(a); window.setTimeout(() => a.remove(), 1000);
+        i++;
+      }
+    }
+    if (i) sfx('powerup', 1.1);
+    extras = new Map();
+    return i;
   }
   async function run(side: Side, a: Action) {
     const n = s.log.length;
@@ -935,6 +1238,15 @@ export function openDuelMatch(host: DuelHost, setup: DuelSetup) {
     const evs = s.log.slice(n);
     // the table as it was (the state already moved on) while the blows land
     const now = s.sides;
+    extras = new Map();
+    // (the end of a turn ages every buff by a turn: that is not a new one)
+    if (a.do !== 'end') for (const u of [...now[0].units, ...now[1].units]) {
+      const b = before[u.side].units.find((x) => x.uid === u.uid);
+      if (!b || u.hp <= 0) continue;
+      const mods = u.mods.filter((m) => !b.mods.some((o) => o.stat === m.stat && o.pct === m.pct && o.turns === m.turns));
+      const stance = u.stances.length > b.stances.length;
+      if (mods.length || stance) extras.set(u.uid, { mods, stance });
+    }
     s.sides = before;
     for (const u of [...before[0].units, ...before[1].units]) hpView.set(u.uid, Math.max(0, u.hp));
     // (an effect that fails never stops the match: the state is put back and the game goes on)
@@ -955,6 +1267,7 @@ export function openDuelMatch(host: DuelHost, setup: DuelSetup) {
     busy = true; planning = false; picked = null; hoverCard = null;
     const list = queue;
     queue = [];
+    remote?.send(list.map((q) => q.a));
     if (tutorial && T?.expect.do === 'end') step++;
     playing = { side: 0, list, now: 0 };
     render();
@@ -975,8 +1288,16 @@ export function openDuelMatch(host: DuelHost, setup: DuelSetup) {
   async function rivalTurn() {
     while (!closed && s.active === 1 && s.winner < 0) {
       const sim = cloneDuel(s), list: Queued[] = [];
-      for (let k = 0; k < 12 && sim.active === 1 && sim.winner < 0; k++) {
-        const a = cpuAction(sim, level, roll);
+      // online: the rival's turn as it comes (its clock runs meanwhile)
+      let theirs: Action[] | null = null;
+      if (remote) {
+        clock(TURN_SECONDS);
+        theirs = await remote.next();
+        if (closed) return;
+        if (!theirs) { s.winner = 0; s.log.push({ t: 'win', side: 0 }); banner(tr('El rival se ha ido'), 'note', 1600); break; }
+      }
+      for (let k = 0; k < (theirs ? theirs.length : 12) && sim.active === 1 && sim.winner < 0; k++) {
+        const a = theirs ? theirs[k] : cpuAction(sim, level, roll);
         if (a.do === 'end') break;
         const card = a.do === 'swap' ? undefined : sim.sides[1].hand.find((c) => c.id === a.card);
         if (act(sim, 1, a)) break;
@@ -1053,13 +1374,32 @@ export function openDuelMatch(host: DuelHost, setup: DuelSetup) {
     end.innerHTML = `<div><h2>${won ? tr('¡Victoria!') : tr('Derrota')}</h2>${tutorial && won ? `<p><b>${tr('¡Tutorial completado!')}</b>${tr('Ya conoces lo básico del Modo Duelo.')}</p>` : ''}<p class="dm-prize"></p><button type="button">${tr('Continuar')}</button></div>`;
     stage.appendChild(end);
     if (won) confetti(); else stage.classList.add('lost');
-    for (const u of s.sides[won ? 0 : 1].units) if (u.hp > 0) unitEl(u.uid)?.classList.add('cheer');
+    // the winners celebrate: in the order they stand, each jumps (squashing on landing), the first jump with a spin
+    s.sides[won ? 0 : 1].units.filter((u) => u.hp > 0 && u.slot >= 0).sort((a, b) => a.slot - b.slot).forEach((u, i) => {
+      const card = unitEl(u.uid)?.querySelector<HTMLElement>('.dm-card');
+      if (!card) return;
+      const up = -3.2 * U();
+      card.style.animation = 'none';
+      const jump = (spin: boolean) => card.animate([
+        { transform: 'translateY(0) scale(1,1) rotateY(0deg)' },
+        { transform: 'translateY(0) scale(1.12,.86) rotateY(0deg)', offset: 0.14 },
+        { transform: `translateY(${up}px) scale(.94,1.1) rotateY(${spin ? 180 : 0}deg)`, offset: 0.45, easing: 'cubic-bezier(.3,0,.7,1)' },
+        { transform: `translateY(0) scale(1.1,.9) rotateY(${spin ? 360 : 0}deg)`, offset: 0.78 },
+        { transform: 'translateY(0) scale(1,1) rotateY(360deg)' },
+      ], { duration: 900, easing: 'cubic-bezier(.3,0,.3,1)' });
+      window.setTimeout(async () => {
+        if (closed) return;
+        await jump(true).finished.catch(() => undefined);
+        for (let k = 0; k < 40 && !closed && card.isConnected; k++) { await wait(260); await jump(false).finished.catch(() => undefined); }
+      }, 250 + i * 160);
+    });
     crowdFlash(won ? 18 : 4);
     // what it pays (the server answers for a win against the CPU)
     const mine = s.log.filter((e) => ('side' in e && e.side === 0));
-    const stats: DuelSummary = { merges: mine.filter((e) => e.t === 'merge').length, combos: mine.filter((e) => e.t === 'combo').length, ultis: mine.filter((e) => e.t === 'use' && e.card.idx === 'u').length };
+    const stats: DuelSummary = { merges: mine.filter((e) => e.t === 'merge').length, combos: mine.filter((e) => e.t === 'combo').length, ultis: mine.filter((e) => e.t === 'use' && e.card.idx === 'u').length, turns: s.turn };
     const prize = end.querySelector<HTMLElement>('.dm-prize')!;
-    if (host.reward) {
+    if (remote) { window.clearInterval(clockTimer); root.querySelector<HTMLElement>('.dm-clock')!.hidden = true; remote.end(won); }
+    if (host.reward && !remote) {
       prize.textContent = '…';
       void host.reward(won, tutorial, stats).then((r) => {
         if (!r || (!r.coins && !r.note)) { prize.remove(); return; }
@@ -1133,7 +1473,8 @@ export function openDuelMatch(host: DuelHost, setup: DuelSetup) {
     const sr = stage.getBoundingClientRect(), r = cel.getBoundingClientRect();
     aimSvg.setAttribute('viewBox', `0 0 ${sr.width} ${sr.height}`);
     let x1 = x - sr.left, y1 = y - sr.top;
-    if (target) { const t = (target.querySelector('.dm-life') ?? target).getBoundingClientRect(); x1 = t.left + t.width / 2 - sr.left; y1 = t.bottom + U() * 0.3 - sr.top; }
+    // locked on a footballer, it points at his face (the centre of the portrait in his frame)
+    if (target) { const t = (target.querySelector('.dm-port') ?? target).getBoundingClientRect(); x1 = t.left + t.width / 2 - sr.left; y1 = t.top + t.height * 0.55 - sr.top; }
     const x0 = r.left + r.width / 2 - sr.left, y0 = r.top + r.height * 0.2 - sr.top;
     if (y1 > y0 - 10) return off();
     // the control point below the target: the arrow rises from the card and arrives from underneath, never over the top
@@ -1146,13 +1487,19 @@ export function openDuelMatch(host: DuelHost, setup: DuelSetup) {
     if (!aimAt.raf) { aimAt.t = 0; aimAt.raf = requestAnimationFrame(drawArrow); }
   }
   let sway = 0, lastX = 0;
+  /** where a hand card sits in the layout, without its hover lift, lean or the room made for a dragged card */
+  const layoutBox = (el: HTMLElement) => {
+    const pr = (el.offsetParent as HTMLElement | null)?.getBoundingClientRect() ?? { left: 0, top: 0 };
+    return { left: pr.left + el.offsetLeft, top: pr.top + el.offsetTop, width: el.offsetWidth, height: el.offsetHeight };
+  };
+  const clamp = (v: number) => Math.max(-0.5, Math.min(0.5, v));
   let drag: { id: number; el: HTMLElement; x0: number; y0: number; moved: boolean; mode: 'hand' | 'aim' | 'play' | null; to: number; centers: number[]; preview: string } | null = null;
   let suppressClick = false;
   stage.addEventListener('pointerdown', (e) => {
     const hc = (e.target as HTMLElement).closest<HTMLElement>('.dm-hand .dm-hc');
     if (!hc || busy || !planning || e.button > 0) return;
     const cards = [...stage.querySelectorAll<HTMLElement>('.dm-hand .dm-hc')];
-    drag = { id: Number(hc.dataset.cid), el: hc, x0: e.clientX, y0: e.clientY, moved: false, mode: null, to: cards.indexOf(hc), centers: cards.map((c) => { const r = c.getBoundingClientRect(); return r.left + r.width / 2; }), preview: '' };
+    drag = { id: Number(hc.dataset.cid), el: hc, x0: e.clientX, y0: e.clientY, moved: false, mode: null, to: cards.indexOf(hc), centers: cards.map((c) => { const r = layoutBox(c); return r.left + r.width / 2; }), preview: '' };
     hc.setPointerCapture(e.pointerId);
   });
   stage.addEventListener('pointermove', (e) => {
@@ -1160,8 +1507,12 @@ export function openDuelMatch(host: DuelHost, setup: DuelSetup) {
       // the card under the pointer leans towards it (and its shine follows)
       const hov = (e.target as HTMLElement).closest<HTMLElement>('.dm-hand .dm-hc');
       if (hov) {
-        const r = hov.getBoundingClientRect(), fx = (e.clientX - r.left) / r.width - 0.5, fy = (e.clientY - r.top) / r.height - 0.5;
-        hov.style.setProperty('--tx', `${fx * 22}deg`); hov.style.setProperty('--ty', `${-fy * 16}deg`); hov.style.setProperty('--mx', `${(fx + 0.5) * 100}%`);
+        // measured on the card's place in the hand, not on the card already leaning, lifted and scaled (that fed back
+        // on itself and the card shook), and eased towards the pointer
+        const box = layoutBox(hov), fx = clamp((e.clientX - box.left) / box.width - 0.5), fy = clamp((e.clientY - box.top) / box.height - 0.5);
+        const ox = Number(hov.dataset.fx ?? 0), oy = Number(hov.dataset.fy ?? 0), nx = ox + (fx - ox) * 0.35, ny = oy + (fy - oy) * 0.35;
+        hov.dataset.fx = String(nx); hov.dataset.fy = String(ny);
+        hov.style.setProperty('--tx', `${nx * 18}deg`); hov.style.setProperty('--ty', `${-ny * 12}deg`); hov.style.setProperty('--mx', `${(nx + 0.5) * 100}%`);
       }
       // a picked card (tapped) aims at the pointer
       const pc = picked !== null && planning && !busy ? plan.sides[0].hand.find((c) => c.id === picked) : undefined;
@@ -1183,7 +1534,7 @@ export function openDuelMatch(host: DuelHost, setup: DuelSetup) {
     else {
       drag.el.style.translate = `${dx}px ${dy}px`; arrow(null, e.clientX, e.clientY, null);
       // it sways with the movement, like a card held by a corner
-      sway = sway * 0.7 + Math.max(-16, Math.min(16, (e.clientX - lastX) * 0.9)) * 0.3;
+      sway = sway * 0.85 + Math.max(-9, Math.min(9, (e.clientX - lastX) * 0.5)) * 0.15;
       drag.el.style.rotate = `${sway}deg`;
     }
     lastX = e.clientX;
@@ -1281,13 +1632,341 @@ export function openDuelMatch(host: DuelHost, setup: DuelSetup) {
     if (picked !== null || benchPick !== null) { picked = null; benchPick = null; render(); }
   });
 
+  /** the opening: both starting lines slide in from the sides, VS slams between them, then the footballers drop in */
+  async function intro() {
+    const faces = (side: Side) => s.sides[side].units.filter((u) => u.slot >= 0 && u.slot <= 2).map((u, i) => `<span style="--k:${i}">${host.mug(u.pid, px(L.v ? 15 : 8.5))}</span>`).join('');
+    const coach = (side: Side) => { const id = s.sides[side].coach; return id ? COACH_BY_ID.get(id)?.name ?? '' : ''; };
+    const v = document.createElement('div');
+    v.className = 'dm-vs';
+    // each side comes in with its player's plate (profile, frame, banner, name; the CPU with its coach) and its starters
+    const plateOf = (side: Side) => host.plate?.(side) || (side === 1 ? cpuPlate() : `<span class="dmp-tx"><b class="dmp-name">${esc(tr('Tu equipo'))}</b></span>`);
+    v.innerHTML = `<div class="dm-vs-side s0"><div class="dm-plate s0 vs">${plateOf(0)}</div><div class="faces">${faces(0)}</div><small>${esc(coach(0))}</small></div>
+      <div class="dm-vs-x"><span>VS</span></div>
+      <div class="dm-vs-side s1"><div class="dm-plate s1 vs">${plateOf(1)}</div><div class="faces">${faces(1)}</div><small>${esc(coach(1))}</small></div>`;
+    stage.appendChild(v);
+    sfx('whoosh');
+    await wait(520);
+    sfx('boom'); shake(1.5); crowdFlash(12); root.classList.add('flash'); window.setTimeout(() => root.classList.remove('flash'), 450);
+    await wait(1250);
+    v.classList.add('out');
+    introAt = performance.now();
+    stage.classList.add('intro');
+    $('.dm-units').style.setProperty('--ia', '0ms');
+    sfx('whoosh', 1.3);
+    await wait(420);
+    v.remove();
+    window.setTimeout(() => stage.classList.remove('intro'), 1200);
+  }
+
+  // ---- the ulti's aura: flames of ki on a canvas behind the footballers whose Garra is full. One loop draws them all,
+  // where their cards are this very frame, so it follows the camera and never restarts when the table is drawn again.
+  const auraCv = document.createElement('canvas');
+  auraCv.className = 'dm-auracv';
+  cam.insertBefore(auraCv, cam.querySelector('.dm-units'));
+  const actx = auraCv.getContext('2d')!;
+  /** white core, the side's colour, its deep edge (yours gold, the rival's blue) */
+  const AURA: Record<Side, [string, string, string]> = { 0: ['255,250,225', '255,200,60', '255,110,20'], 1: ['230,248,255', '110,200,255', '40,95,255'] };
+  /** a short aura in the colours of his element while he casts: uid -> until when (ms) and how strong */
+  const EL_AURA: Record<string, [string, string, string]> = {
+    Fuego: ['255,240,220', '255,140,40', '220,50,10'], Aire: ['235,255,255', '120,230,255', '30,140,220'],
+    Bosque: ['240,255,230', '130,255,110', '30,160,40'], Montaña: ['255,245,225', '235,175,80', '150,85,20'], Neutro: ['255,255,255', '205,165,255', '120,70,220'],
+  };
+  const bursts = new Map<number, { until: number; k: number; cols: [string, string, string] }>();
+  function auraBurst(uid: number, ms: number, k = 1) {
+    bursts.set(uid, { until: performance.now() + ms, k, cols: EL_AURA[unit(s, uid).element] ?? EL_AURA.Neutro });
+  }
+  const sparks: { x: number; y: number; vx: number; vy: number; life: number; max: number; side: Side; cols?: [string, string, string] }[] = [];
+  let auraLast = 0;
+  // over the footballers: frost and lightning
+  const stCv = document.createElement('canvas');
+  stCv.className = 'dm-stcv';
+  cam.querySelector('.dm-units')!.after(stCv);
+  const sctx = stCv.getContext('2d')!;
+  /** the frost of each frozen card: its branches (in the card's own 0-1 space) and since when it grows */
+  const frost = new Map<number, { t0: number; br: { x: number; y: number; a: number; len: number; kids: { at: number; a: number; len: number }[] }[] }>();
+  const flakes: { x: number; y: number; vx: number; vy: number; life: number; max: number; s: number }[] = [];
+  const zapBoost = new Map<number, number>();
+  const FIRE: [string, string, string] = ['255,240,200', '255,140,30', '220,45,0'];
+  function frostOf(uid: number, now: number) {
+    let f = frost.get(uid);
+    if (!f) {
+      const br = Array.from({ length: LOW_FX ? 10 : 18 }, (_, i) => {
+        // a seed on the edge (going round it), pointing inwards with some spread
+        const q = (i + Math.random() * 0.6) / (LOW_FX ? 10 : 18) * 4, side = Math.floor(q), u = q - side;
+        const [x, y] = side === 0 ? [u, 0] : side === 1 ? [1, u] : side === 2 ? [1 - u, 1] : [0, 1 - u];
+        const a = Math.atan2(0.5 - y, 0.5 - x) + (Math.random() - 0.5) * 0.9;
+        return { x, y, a, len: 0.12 + Math.random() * 0.2, kids: [0.35, 0.65].map((at) => ({ at, a: (Math.random() < 0.5 ? -1 : 1) * (0.5 + Math.random() * 0.5), len: 0.35 + Math.random() * 0.3 })) };
+      });
+      f = { t0: now, br };
+      frost.set(uid, f);
+    }
+    return f;
+  }
+  function flames(ctx: CanvasRenderingContext2D, x0: number, y0: number, w: number, h: number, cols: [string, string, string], t: number, seed: number, scale: number, n: number) {
+    const cx = x0 + w / 2, [c0, c1, c2] = cols;
+    for (let pass = 0; pass < 2; pass++) {
+      for (let i = 0; i < n; i++) {
+        const u = (i / (n - 1)) * 2 - 1, au = Math.abs(u);
+        const flick = 0.7 + 0.3 * Math.sin(t * (7 + (i % 5)) + i * 1.9 + seed) * Math.sin(t * 3.1 + i);
+        const bx = cx + u * w * 0.55, by = y0 + h * (0.99 - 0.6 * au * au);
+        const len = h * (0.3 + 0.48 * au) * flick * (pass ? 0.62 : 1) * scale;
+        const wd = w * (pass ? 0.06 : 0.12) * (1 - 0.35 * au);
+        const sway = Math.sin(t * 5.3 + i * 0.8 + seed) * w * 0.05 + u * w * 0.1;
+        const lg = ctx.createLinearGradient(bx, by, bx + sway, by - len);
+        if (pass) { lg.addColorStop(0, `rgba(${c0},.7)`); lg.addColorStop(0.5, `rgba(${c0},.35)`); lg.addColorStop(1, `rgba(${c1},0)`); }
+        else { lg.addColorStop(0, `rgba(${c1},.55)`); lg.addColorStop(0.45, `rgba(${c2},.4)`); lg.addColorStop(1, `rgba(${c2},0)`); }
+        ctx.fillStyle = lg;
+        ctx.beginPath();
+        ctx.moveTo(bx - wd, by);
+        ctx.quadraticCurveTo(bx - wd * 0.7 + sway * 0.4, by - len * 0.55, bx + sway, by - len);
+        ctx.quadraticCurveTo(bx + wd * 0.7 + sway * 0.4, by - len * 0.55, bx + wd, by);
+        ctx.closePath();
+        ctx.fill();
+      }
+    }
+  }
+  /** a point on the edge of a box, `q` going round it (0-4) */
+  const edge = (x0: number, y0: number, w: number, h: number, q: number): [number, number] => {
+    q = ((q % 4) + 4) % 4;
+    const side = Math.floor(q), u = q - side;
+    return side === 0 ? [x0 + u * w, y0] : side === 1 ? [x0 + w, y0 + u * h] : side === 2 ? [x0 + (1 - u) * w, y0 + h] : [x0, y0 + (1 - u) * h];
+  };
+  function statusFrame(now: number, dt: number, dpr: number, cr: DOMRect) {
+    const W = auraCv.width, H = auraCv.height, kx = W / cr.width, ky = H / cr.height, t = now / 1000;
+    if (stCv.width !== W || stCv.height !== H) { stCv.width = W; stCv.height = H; }
+    sctx.clearRect(0, 0, W, H);
+    for (const [uid, until] of zapBoost) if (until < now) zapBoost.delete(uid);
+    const seen = new Set<number>();
+    for (const el of stage.querySelectorAll<HTMLElement>('.dm-unit:not(.ko):not(.koing)')) {
+      const uid = Number(el.dataset.uid), cl = el.classList;
+      const burn = cl.contains('st-quemadura'), ice = cl.contains('st-congelado'), zap = cl.contains('st-electrizado') || zapBoost.has(uid);
+      const block = cl.contains('ps-block'), dodge = cl.contains('ps-dodge'), counter = cl.contains('ps-counter'), mirror = cl.contains('ps-reflect'), shield = cl.contains('sh');
+      if (!burn && !ice && !zap && !block && !dodge && !counter && !mirror && !shield) continue;
+      const r = cardOf(el).getBoundingClientRect();
+      // the visible frame is narrower than the card's box (the frame art has transparent sides)
+      const x0 = (r.left - cr.left) * kx + r.width * kx * 0.16, y0 = (r.top - cr.top) * ky, w = r.width * kx * 0.68, h = r.height * ky;
+      const cx = x0 + w / 2, cy = y0 + h / 2;
+      if (shield) {
+        // a shield: a blue bubble around him, breathing
+        const k = 0.75 + 0.25 * Math.sin(t * 3 + uid);
+        const g = sctx.createRadialGradient(cx, cy, Math.min(w, h) * 0.3, cx, cy, Math.max(w, h) * 0.62);
+        g.addColorStop(0, 'rgba(120,200,255,0)'); g.addColorStop(0.7, `rgba(120,200,255,${0.2 * k})`); g.addColorStop(1, `rgba(200,240,255,${0.7 * k})`);
+        sctx.fillStyle = g; sctx.beginPath(); sctx.ellipse(cx, cy, w * 0.82, h * 0.6, 0, 0, Math.PI * 2); sctx.fill();
+        sctx.strokeStyle = `rgba(210,245,255,${0.6 + 0.3 * k})`; sctx.lineWidth = 2 * dpr; sctx.shadowColor = '#4fb3ff'; sctx.shadowBlur = 12 * dpr;
+        sctx.stroke(); sctx.shadowBlur = 0;
+        // a glint running round the bubble
+        const ga = t * 1.8 + uid;
+        sctx.strokeStyle = 'rgba(255,255,255,.9)'; sctx.lineWidth = 3 * dpr; sctx.lineCap = 'round';
+        sctx.beginPath(); sctx.ellipse(cx, cy, w * 0.82, h * 0.6, 0, ga, ga + 0.35); sctx.stroke();
+      }
+      if (block) {
+        // blocking: a barrier of energy hexagons in front of the card, a band of light running down it
+        const R = w * 0.11, band = ((t * 0.6 + uid * 0.13) % 1.4) - 0.2;
+        sctx.save();
+        sctx.beginPath(); sctx.roundRect(x0 - w * 0.04, y0 - h * 0.02, w * 1.08, h * 1.04, w * 0.1); sctx.clip();
+        sctx.lineWidth = 1.1 * dpr;
+        for (let row = 0, y = y0; y < y0 + h + R; row++, y += R * 1.5) {
+          for (let x = x0 + (row % 2 ? R * 0.87 : 0); x < x0 + w + R; x += R * 1.73) {
+            const near = Math.max(0, 1 - Math.abs((y - y0) / h - band) * 4);
+            sctx.strokeStyle = `rgba(150,220,255,${0.18 + 0.6 * near})`;
+            sctx.fillStyle = `rgba(110,190,255,${0.05 + 0.18 * near})`;
+            sctx.beginPath();
+            for (let a = 0; a < 6; a++) { const an = Math.PI / 6 + (a * Math.PI) / 3; sctx[a ? 'lineTo' : 'moveTo'](x + Math.cos(an) * R * 0.92, y + Math.sin(an) * R * 0.92); }
+            sctx.closePath(); sctx.fill(); sctx.stroke();
+          }
+        }
+        sctx.restore();
+        sctx.strokeStyle = 'rgba(170,230,255,.9)'; sctx.lineWidth = 2 * dpr; sctx.shadowColor = '#4fb3ff'; sctx.shadowBlur = 10 * dpr;
+        sctx.beginPath(); sctx.roundRect(x0 - w * 0.04, y0 - h * 0.02, w * 1.08, h * 1.04, w * 0.1); sctx.stroke(); sctx.shadowBlur = 0;
+      }
+      if (dodge) {
+        // dodging: crescents of wind circle him, ready to slip away
+        sctx.lineCap = 'round'; sctx.shadowColor = '#bff4ff'; sctx.shadowBlur = 6 * dpr;
+        for (let i = 0; i < 3; i++) {
+          const a = t * 3.2 + (i * Math.PI * 2) / 3 + uid;
+          sctx.strokeStyle = `rgba(225,255,250,${0.75 - i * 0.12})`; sctx.lineWidth = (3 - i * 0.6) * dpr;
+          sctx.beginPath(); sctx.ellipse(cx, cy, w * 0.78, h * 0.58, 0, a, a + 0.9); sctx.stroke();
+        }
+        sctx.shadowBlur = 0;
+      }
+      if (counter) {
+        // countering: red spikes all round, pulsing out, ready to strike back
+        const n = 16, pulseK = 0.5 + 0.5 * Math.sin(t * 6 + uid);
+        sctx.fillStyle = 'rgba(255,90,60,.8)'; sctx.shadowColor = '#ff2a2a'; sctx.shadowBlur = 8 * dpr;
+        for (let i = 0; i < n; i++) {
+          const a = (i / n) * Math.PI * 2, ex = cx + Math.cos(a) * w * 0.62, ey = cy + Math.sin(a) * h * 0.55, L = w * (0.1 + 0.08 * pulseK);
+          const tx = cx + Math.cos(a) * (w * 0.62 + L), ty = cy + Math.sin(a) * (h * 0.55 + L), nx = -Math.sin(a) * w * 0.04, ny = Math.cos(a) * w * 0.04;
+          sctx.beginPath(); sctx.moveTo(ex + nx, ey + ny); sctx.lineTo(tx, ty); sctx.lineTo(ex - nx, ey - ny); sctx.closePath(); sctx.fill();
+        }
+        sctx.shadowBlur = 0;
+      }
+      if (mirror) {
+        // reflecting: a golden mirror shine sweeps across the card, a golden edge
+        const q = ((t * 0.7 + uid * 0.2) % 1.6) - 0.3;
+        sctx.save();
+        sctx.beginPath(); sctx.roundRect(x0, y0, w, h, w * 0.08); sctx.clip();
+        const lg = sctx.createLinearGradient(x0 + w * (q - 0.3), y0, x0 + w * (q + 0.3), y0 + h);
+        lg.addColorStop(0, 'rgba(255,240,180,0)'); lg.addColorStop(0.5, 'rgba(255,245,200,.55)'); lg.addColorStop(1, 'rgba(255,240,180,0)');
+        sctx.fillStyle = lg; sctx.fillRect(x0, y0, w, h);
+        sctx.restore();
+        sctx.strokeStyle = 'rgba(255,210,90,.85)'; sctx.lineWidth = 2 * dpr; sctx.shadowColor = '#ffb020'; sctx.shadowBlur = 10 * dpr;
+        sctx.beginPath(); sctx.roundRect(x0 - w * 0.03, y0 - h * 0.015, w * 1.06, h * 1.03, w * 0.09); sctx.stroke(); sctx.shadowBlur = 0;
+      }
+      if (burn) {
+        // burning: real flames around him (behind the card) and embers rising off it
+        actx.globalCompositeOperation = 'lighter';
+        flames(actx, x0, y0, w, h, FIRE, t, uid * 2.3, 0.55, LOW_FX ? 10 : 18);
+        if (Math.random() < 0.5) sparks.push({ x: x0 + Math.random() * w, y: y0 + h * (0.5 + Math.random() * 0.5), vx: (Math.random() - 0.5) * 20 * dpr, vy: -(50 + Math.random() * 80) * dpr, life: 0, max: 0.6 + Math.random() * 0.6, side: 0, cols: FIRE });
+      }
+      if (ice) {
+        // frozen: frost branches grow in from the edges (half a second), then glint; snowflakes drift down
+        seen.add(uid);
+        const f = frostOf(uid, now), grow = Math.min(1, (now - f.t0) / 550);
+        sctx.save();
+        sctx.lineCap = 'round';
+        sctx.shadowColor = '#8fd8ff'; sctx.shadowBlur = 6 * dpr;
+        f.br.forEach((b, i) => {
+          const glint = 0.55 + 0.45 * Math.sin(t * 2.2 + i * 1.7);
+          sctx.strokeStyle = `rgba(235,250,255,${0.85 * glint + 0.15})`;
+          sctx.lineWidth = 1.5 * dpr;
+          const L = b.len * grow * Math.min(w, h), sx = x0 + b.x * w, sy = y0 + b.y * h, ex = sx + Math.cos(b.a) * L, ey = sy + Math.sin(b.a) * L;
+          sctx.beginPath(); sctx.moveTo(sx, sy); sctx.lineTo(ex, ey);
+          for (const k of b.kids) {
+            const kx0 = sx + (ex - sx) * k.at, ky0 = sy + (ey - sy) * k.at, kl = L * k.len;
+            sctx.moveTo(kx0, ky0); sctx.lineTo(kx0 + Math.cos(b.a + k.a) * kl, ky0 + Math.sin(b.a + k.a) * kl);
+          }
+          sctx.stroke();
+          // a star of light where a branch ends, now and then
+          if (glint > 0.95) { sctx.fillStyle = '#fff'; sctx.beginPath(); sctx.arc(ex, ey, 2.2 * dpr, 0, Math.PI * 2); sctx.fill(); }
+        });
+        sctx.restore();
+        if (Math.random() < (LOW_FX ? 0.12 : 0.3)) flakes.push({ x: x0 + Math.random() * w, y: y0 - h * 0.05, vx: (Math.random() - 0.5) * 12 * dpr, vy: (18 + Math.random() * 22) * dpr, life: 0, max: 1.4 + Math.random(), s: (1 + Math.random() * 1.6) * dpr });
+      }
+      if (zap) {
+        // electrified: arcs jump along the edge of the card, white-hot inside a blue glow
+        const tries = zapBoost.has(uid) ? 3 : 1;
+        for (let k = 0; k < tries; k++) {
+          if (Math.random() > (zapBoost.has(uid) ? 0.8 : 0.32)) continue;
+          const q = Math.random() * 4, q2 = q + 0.25 + Math.random() * 0.5;
+          const [ax, ay] = edge(x0 - w * 0.03, y0 - h * 0.02, w * 1.06, h * 1.04, q), [bx, by] = edge(x0 - w * 0.03, y0 - h * 0.02, w * 1.06, h * 1.04, q2);
+          const pts: [number, number][] = [[ax, ay]], segs = 7, nx = -(by - ay), ny = bx - ax, nl = Math.hypot(nx, ny) || 1;
+          for (let j = 1; j < segs; j++) { const u = j / segs, off = (Math.random() - 0.5) * w * 0.18; pts.push([ax + (bx - ax) * u + (nx / nl) * off, ay + (by - ay) * u + (ny / nl) * off]); }
+          pts.push([bx, by]);
+          for (const [lw, col, blur] of [[4 * dpr, 'rgba(90,190,255,.55)', 14 * dpr], [1.4 * dpr, 'rgba(240,252,255,.95)', 4 * dpr]] as [number, string, number][]) {
+            sctx.strokeStyle = col; sctx.lineWidth = lw; sctx.shadowColor = '#3fa8ff'; sctx.shadowBlur = blur;
+            sctx.beginPath(); sctx.moveTo(pts[0][0], pts[0][1]); for (const [x, y] of pts.slice(1)) sctx.lineTo(x, y); sctx.stroke();
+          }
+          sctx.shadowBlur = 0;
+        }
+      }
+    }
+    for (const uid of [...frost.keys()]) if (!seen.has(uid)) frost.delete(uid);
+    for (let i = flakes.length - 1; i >= 0; i--) {
+      const p = flakes[i];
+      p.life += dt; p.x += (p.vx + Math.sin(p.life * 3 + i) * 8 * dpr) * dt; p.y += p.vy * dt;
+      if (p.life >= p.max) { flakes.splice(i, 1); continue; }
+      const k = Math.min(1, (p.max - p.life) * 2);
+      sctx.fillStyle = `rgba(240,252,255,${0.85 * k})`;
+      sctx.beginPath(); sctx.arc(p.x, p.y, p.s, 0, Math.PI * 2); sctx.fill();
+    }
+    return seen.size > 0 || flakes.length > 0;
+  }
+  function auraFrame(now: number) {
+    if (closed) return;
+    requestAnimationFrame(auraFrame);
+    const dt = Math.min(0.05, (now - (auraLast || now)) / 1000);
+    auraLast = now;
+    const dpr = Math.min(LOW_FX ? 1 : 2, window.devicePixelRatio || 1);
+    const W = Math.round(cam.clientWidth * dpr), H = Math.round(cam.clientHeight * dpr);
+    if (auraCv.width !== W || auraCv.height !== H) { auraCv.width = W; auraCv.height = H; }
+    actx.globalCompositeOperation = 'source-over';
+    actx.clearRect(0, 0, W, H);
+    for (const [uid, b] of bursts) if (b.until < now) bursts.delete(uid);
+    const units = [...stage.querySelectorAll<HTMLElement>('.dm-unit.full:not(.ko):not(.koing)')];
+    for (const uid of bursts.keys()) { const e = unitEl(uid); if (e && !units.includes(e)) units.push(e); }
+    const cr = cam.getBoundingClientRect(), kx = W / cr.width, ky = H / cr.height, t = now / 1000;
+    statusFrame(now, dt, dpr, cr);
+    actx.globalCompositeOperation = 'lighter';
+    for (const el of units) {
+      const side: Side = el.classList.contains('s1') ? 1 : 0, burst = bursts.get(Number(el.dataset.uid));
+      // a burst (casting) wins over the ulti's aura and grows with it, fading out at its end
+      const bk = burst ? burst.k * Math.min(1, (burst.until - now) / 250) : 1;
+      const [c0, c1, c2] = burst ? burst.cols : AURA[side];
+      const r = cardOf(el).getBoundingClientRect();
+      const x0 = (r.left - cr.left) * kx, y0 = (r.top - cr.top) * ky, w = r.width * kx, h = r.height * ky, cx = x0 + w / 2, grow = burst ? 1 + 0.4 * bk : 1;
+      const seed = Number(el.dataset.uid) * 1.7, beat = (0.8 + 0.2 * Math.sin(t * 4.2 + seed)) * (burst ? 0.6 + 0.6 * bk : 1);
+      // the glow around him, breathing
+      const g = actx.createRadialGradient(cx, y0 + h * 0.5, w * 0.25, cx, y0 + h * 0.5, w * 1.15);
+      g.addColorStop(0, `rgba(${c1},${0.32 * beat})`); g.addColorStop(0.55, `rgba(${c2},${0.16 * beat})`); g.addColorStop(1, `rgba(${c2},0)`);
+      actx.fillStyle = g;
+      actx.beginPath(); actx.ellipse(cx, y0 + h * 0.5, w * 1.15, h * 0.78, 0, 0, Math.PI * 2); actx.fill();
+      // tongues of flame along the sides and under him, leaning out and up; the side ones rise past his head
+      const n = LOW_FX ? 14 : 26;
+      for (let pass = 0; pass < 2; pass++) {
+        for (let i = 0; i < n; i++) {
+          const u = (i / (n - 1)) * 2 - 1, au = Math.abs(u);
+          const flick = 0.7 + 0.3 * Math.sin(t * (7 + (i % 5)) + i * 1.9 + seed) * Math.sin(t * 3.1 + i);
+          const bx = cx + u * w * 0.55, by = y0 + h * (0.99 - 0.6 * au * au);
+          const len = h * (0.3 + 0.48 * au) * flick * (pass ? 0.62 : 1) * grow;
+          const wd = w * (pass ? 0.06 : 0.12) * (1 - 0.35 * au);
+          const sway = Math.sin(t * 5.3 + i * 0.8 + seed) * w * 0.05 + u * w * 0.1;
+          const lg = actx.createLinearGradient(bx, by, bx + sway, by - len);
+          if (pass) { lg.addColorStop(0, `rgba(${c0},.7)`); lg.addColorStop(0.5, `rgba(${c0},.35)`); lg.addColorStop(1, `rgba(${c1},0)`); }
+          else { lg.addColorStop(0, `rgba(${c1},.55)`); lg.addColorStop(0.45, `rgba(${c2},.4)`); lg.addColorStop(1, `rgba(${c2},0)`); }
+          actx.fillStyle = lg;
+          actx.beginPath();
+          actx.moveTo(bx - wd, by);
+          actx.quadraticCurveTo(bx - wd * 0.7 + sway * 0.4, by - len * 0.55, bx + sway, by - len);
+          actx.quadraticCurveTo(bx + wd * 0.7 + sway * 0.4, by - len * 0.55, bx + wd, by);
+          actx.closePath();
+          actx.fill();
+        }
+      }
+      // sparks rise off him
+      if (Math.random() < (LOW_FX ? 0.35 : burst ? 1 : 0.8)) sparks.push({ x: cx + (Math.random() - 0.5) * w * 1.15, y: y0 + h * (0.35 + Math.random() * 0.65), vx: (Math.random() - 0.5) * 30 * dpr, vy: -(70 + Math.random() * 110) * dpr * (burst ? 1.5 : 1), life: 0, max: 0.5 + Math.random() * 0.6, side, cols: burst?.cols });
+      // now and then a crackle of lightning runs up his side
+      const ph = (t * 1000 + seed * 431) % 1900;
+      if (ph < 110) {
+        const left = Math.floor((t * 1000 + seed * 431) / 1900) % 2 === 0;
+        let x = left ? x0 - w * 0.04 : x0 + w * 1.04, y = y0 + h * 0.92;
+        actx.strokeStyle = `rgba(${c0},.95)`; actx.lineWidth = 1.6 * dpr; actx.shadowColor = `rgb(${c1})`; actx.shadowBlur = 8 * dpr;
+        actx.beginPath(); actx.moveTo(x, y);
+        for (let k = 0; k < 7; k++) { x += (Math.random() - 0.5) * w * 0.14 + (left ? -1 : 1) * w * 0.01; y -= h * 0.13; actx.lineTo(x, y); }
+        actx.stroke(); actx.shadowBlur = 0;
+      }
+    }
+    for (let i = sparks.length - 1; i >= 0; i--) {
+      const p = sparks[i];
+      p.life += dt; p.x += p.vx * dt; p.y += p.vy * dt;
+      if (p.life >= p.max) { sparks.splice(i, 1); continue; }
+      const k = 1 - p.life / p.max, [c0, c1] = p.cols ?? AURA[p.side];
+      actx.fillStyle = `rgba(${c0},${0.9 * k})`;
+      actx.beginPath(); actx.arc(p.x, p.y, (1.2 + 1.3 * k) * dpr, 0, Math.PI * 2); actx.fill();
+      actx.fillStyle = `rgba(${c1},${0.3 * k})`;
+      actx.beginPath(); actx.arc(p.x, p.y, (3 + 3 * k) * dpr, 0, Math.PI * 2); actx.fill();
+    }
+  }
+  requestAnimationFrame(auraFrame);
+  // (dev only) QA hook to see the effects without waiting for them in a match
+  // (dev only) QA hook to see the effects without waiting for them in a match; `plan`/`play`/`ready` let a director
+  // (the TikTok recordings) play your turns through the same path as the hand
+  if (import.meta.env.DEV) (window as unknown as Record<string, unknown>).__duelFx = { shatter, gaugeFull, fuseFx, state: s,
+    plan: plan_, play: playTurn, planned: () => plan, ready: () => planning && !busy && !closed, replan: () => { startPlanning(); render(); }, banner };
+
   // ---- go
   layout();
   if (s.active === 0) startPlanning();
+  busy = true;
   render();
-  sfx('reveal');
-  banner(tutorial ? tr('Tutorial') : s.active === 0 ? tr('Tu turno') : tr('Turno rival'), 'turn s0', 1200);
-  if (s.active === 1) { busy = true; void rivalTurn(); }
+  void (async () => {
+    try { await intro(); } catch (e) { console.error(e); }
+    if (closed) return;
+    busy = false;
+    render();
+    sfx('reveal');
+    banner(tutorial ? tr('Tutorial') : s.active === 0 ? tr('¡Tu turno!') : tr('Turno rival'), `turn s${s.active}`, 1250);
+    if (s.active === 1) { busy = true; void rivalTurn(); }
+  })();
   return { state: s, close };
 }
 

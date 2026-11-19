@@ -5,7 +5,7 @@
 import { tr } from '../i18n/i18n';
 import { tTech } from '../i18n/data';
 import type { Cond, Fx, Per } from '../systems/duel/cards';
-import { specOf, unit, type Card, type DuelState } from '../systems/duel/rules';
+import { specOf, unit, type Card, type DuelState, type Unit } from '../systems/duel/rules';
 
 const COND = (): Record<Cond, string> => ({
   targetHasStatus: tr('el rival tiene un estado'), targetFrozen: tr('el rival está congelado'), targetElectrified: tr('el rival está electrizado'),
@@ -59,6 +59,7 @@ function fxText(f: Fx, rank: number): string {
     case 'statusGuard': return tr('Protege al equipo del próximo estado.');
     case 'immune': return tr('El equipo es inmune a los estados un turno.');
     case 'cleanse': return tr('Quita los estados del equipo.');
+    case 'dispel': return tr('Anula al rival sus mejoras, posturas y escudo.');
     case 'taunt': return tr('Provoca durante {n} turnos.', { n: r(f.turns) }) + (f.defPct ? ` ${tr('+{p} % de DEF.', { p: f.defPct })}` : '');
     case 'buff': return f.who === 'team' ? tr('Sube el ATQ del equipo un {p} %.', { p: r(f.pct) }) : tr('Sube su ATQ un {p} %.', { p: r(f.pct) });
     case 'debuff': {
@@ -96,4 +97,13 @@ export function cardInfo(s: DuelState, c: Card, names: (pid: number) => string):
   else if (mult && (sp.kind === 'area' || sp.kind === 'ulti')) base = tr('Daño ×{m} a todos los rivales.', { m: mult });
   const lines = sp.fx.map((f) => ({ text: fxText(f, rank), min: f.min ?? 1, on: (f.min ?? 1) <= rank })).filter((l) => l.text);
   return { tech: tTech(sp.tech), kind: sp.kind, mult, base, lines };
+}
+
+/** a footballer's technique out of a match (the team editor's tooltip): `idx` 0/1 its cards, 'u' its ulti; the
+ *  multiplier of each rank and every effect with the rank it needs */
+export function techInfo(pid: number, idx: 0 | 1 | 'u'): CardInfo & { mults: number[]; area: boolean } {
+  const sp = specOf({ id: 0, owner: 0, idx, rank: 3 } as Card, { pid } as Unit);
+  const rank = 3;
+  const lines = sp.fx.map((f) => ({ text: fxText(f, rank), min: idx === 'u' ? 1 : f.min ?? 1, on: true })).filter((l) => l.text);
+  return { tech: tTech(sp.tech), kind: sp.kind, mult: sp.mult[0] || null, mults: sp.mult.filter(Boolean), base: '', lines, area: sp.area };
 }

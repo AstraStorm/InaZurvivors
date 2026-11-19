@@ -27,7 +27,7 @@ export type Fx = { min?: 1 | 2 | 3 } & (
   | { do: 'dodge'; n: [number, number, number]; stealGauge?: number; gaugeSelf?: number }
   | { do: 'counter'; mult: number; guardsTaunt?: boolean } | { do: 'reflect'; pct: number; burn?: boolean } | { do: 'endure' }
   | { do: 'reduce'; scope: 'area' | 'all'; pct: number } | { do: 'mine'; mult: number } | { do: 'statusGuard' } | { do: 'immune' }
-  | { do: 'cleanse' } | { do: 'taunt'; turns: [number, number, number]; defPct?: number }
+  | { do: 'cleanse' } | { do: 'dispel' } | { do: 'taunt'; turns: [number, number, number]; defPct?: number }
   | { do: 'buff'; who: 'team' | 'self'; stat: 'atk'; pct: [number, number, number]; turns?: number }
   | { do: 'debuff'; stat: 'atk' | 'def' | 'atkdef'; pct: number; turns?: number; area?: boolean }
   | { do: 'vulnerable'; pct: number } | { do: 'noHeal' } | { do: 'blind'; pct: number }
@@ -57,8 +57,9 @@ export const DUEL_PLAYERS: DuelPlayer[] = [
     c('Corte giratorio', 'debilitar', { do: 'debuff', stat: 'def', pct: 20 }), u('Empuje trillizo', 5, { do: 'gaugeAllies', n: 1 })),
   P(1513, 'Inazuma Japan', c('Regate aurora', 'postura', { do: 'dodge', n: [1, 1, 2] }),
     c('Chut congelante', 'ataque', { do: 'status', s: 'congelado', min: 3 }), u('Ventisca eterna', 5, { do: 'status', s: 'congelado' }) /* ×2 on a frozen rival: the general «rompe el hielo» */),
-  P(2, 'Inazuma Japan', c('Entrada huracán', 'especial', { do: 'stealGauge', n: 1 }, { do: 'stealGauge', n: 1, min: 3 }),
-    c('Defensa múltiple', 'postura', { do: 'reduce', scope: 'area', pct: 30 }), u('Pájaro de fuego', 5, { do: 'ignoreStance' })),
+  // Nathan (balance 2026-11-19: 38 % even at the stats cap; his kit did no damage): the tackle now hits and steals
+  P(2, 'Inazuma Japan', c('Entrada huracán', 'ataque', { do: 'stealGauge', n: 1 }, { do: 'stealGauge', n: 1, min: 3 }),
+    c('Defensa múltiple', 'postura', { do: 'reduce', scope: 'all', pct: 30 }), u('Pájaro de fuego', 5, { do: 'ignoreStance' }, { do: 'gaugeAllies', n: 1 })),
   P(3, 'Inazuma Japan', c('El muro', 'postura', { do: 'taunt', turns: [1, 2, 3], defPct: 30 }),
     c('Regate topo', 'debilitar', { do: 'status', s: 'aturdido', min: 2 }), ua('Presa', 2, { do: 'debuff', stat: 'atk', pct: 40 })),
   P(1567, 'Inazuma Japan', c('Remate tsunami', 'area', { do: 'rankDown', who: 'eachEnemy', min: 3 }),
@@ -118,7 +119,7 @@ export const DUEL_PLAYERS: DuelPlayer[] = [
   P(101572, 'Protocolo Omega', c('Tiro rotativo', 'ataque', { do: 'repeatOnCrit' }),
     c('Mina terrestre', 'postura', { do: 'mine', mult: 1.5 }), u('Gol gaussiano', 5, { do: 'pierce', pct: 40 })),
   P(100487, 'Protocolo Omega', c('Círculo de hielo', 'debilitar', { do: 'status', s: 'congelado', min: 3 }),
-    c('Formateo de disco', 'especial', { do: 'cleanse' }, { do: 'rankDown', who: 'target' }), ua('Giro atómico', 3)),
+    c('Formateo de disco', 'especial', { do: 'dispel' }, { do: 'rankDown', who: 'target' }), ua('Giro atómico', 3)),
   P(100739, 'Raimon GO', c('Luz cegadora', 'debilitar', { do: 'blind', pct: 50 }),
     c('Avance chispeante', 'ataque', { do: 'status', s: 'electrizado', min: 2 }), ua('Tormenta solar', 3, { do: 'status', s: 'quemadura' })),
   P(101308, 'Ares y Orion', c('Polvo de estrellas azul', 'especial', { do: 'rankUp', which: 'random', n: 2 }),
@@ -151,6 +152,9 @@ export const DUEL_PLAYERS: DuelPlayer[] = [
     c('Ataque meteorito', 'area', { do: 'bonusIf', cond: 'firstCard', pct: 0 }), u('El detonador', 5, { do: 'destroy', minRank: 2 })),
 ];
 export const DUEL_BY_ID = new Map(DUEL_PLAYERS.map((p) => [p.id, p]));
+/** a footballer and his Mixi Max form are the same player: a team takes only one of them (author) */
+export const familyOf = (id: number) => DUEL_BY_ID.get(id)?.family ?? id;
+export function sameFamily(pids: number[]) { const f = pids.map(familyOf); return new Set(f).size !== f.length; }
 
 /** Kira Hiroto's Ataque meteorito: +30 % with Haizaki on the pitch (the one pairing the generic conditions don't cover) */
 export const ALLY_ON_FIELD_BONUS: Record<string, { ally: number; pct: number }> = { '100907:1': { ally: 100979, pct: 30 } };
@@ -186,8 +190,12 @@ export interface DuelStats { hp: number; atk: number; def: number; crit: number;
 const RAR_MULT: Partial<Record<Rarity, number>> = { legendario: 1.26, mitico: 1.36, leyenda: 1.48 };
 const ROLE: Record<string, [number, number, number]> = { GK: [0.8, 1.25, 1.15], DF: [0.9, 1.15, 1.05], MF: [1, 1, 1], FW: [1.15, 0.9, 0.95] };
 const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
-export function duelStats(p: { rarity: Rarity; position: string; stats: Record<string, number>; techniques: { type: string; power?: number }[] }): DuelStats {
-  const s = p.stats, m = RAR_MULT[p.rarity] ?? 1.26, [a, d, h] = ROLE[p.position] ?? ROLE.MF;
+/** balance: PV, ATQ and DEF of each footballer are multiplied by this. First by hand (author: «equilibra los mixi max y
+ *  los de tier C»), then (2026-11-19) by tools/duel_balance.ts, 6 rounds of 4200 CPU «difícil» matches towards a 50 %
+ *  win share for everyone: the spread went from 36-71 % to 45-57 % (Nathan's kit was changed instead, see above) */
+export const DUEL_TUNE: Record<number, number> = {1: 1.352, 2: 1.387, 3: 1.666, 10: 0.885, 29: 1.604, 157: 0.929, 1024: 1.53, 1370: 0.842, 1371: 0.699, 1513: 1.083, 1532: 0.901, 1541: 0.891, 1542: 0.917, 1548: 1.77, 1567: 1.083, 100242: 0.674, 100303: 1.239, 100382: 0.953, 100405: 1.872, 100427: 1.033, 100487: 1.416, 100538: 1.694, 100562: 0.808, 100580: 1.06, 100728: 1.049, 100739: 0.88, 100773: 0.693, 100797: 1.434, 100905: 1.086, 100907: 0.874, 100944: 0.848, 100952: 0.641, 100979: 0.79, 101004: 0.665, 101308: 1.685, 101488: 1.31, 101504: 0.902, 101505: 0.975, 101520: 0.711, 101572: 1.03, 101719: 1.02, 101722: 0.769, 101775: 0.882, 101791: 0.862, 101838: 1.171, 101855: 1.03, 101871: 0.976, 101894: 0.986, 102185: 1.148, 102307: 0.921};
+export function duelStats(p: { id?: number; rarity: Rarity; position: string; stats: Record<string, number>; techniques: { type: string; power?: number }[] }): DuelStats {
+  const s = p.stats, k = (p.id !== undefined ? DUEL_TUNE[p.id] : undefined) ?? 1, m = (RAR_MULT[p.rarity] ?? 1.26) * k, [a, d, h] = ROLE[p.position] ?? ROLE.MF;
   const best = (...ty: string[]) => Math.max(...p.techniques.filter((t) => ty.includes(t.type)).map((t) => t.power ?? 0), 0) || 60;
   return {
     hp: Math.round(Math.round((s.stamina + s.guts) * 12 * m * h) * (0.9 + 0.1 * best('regate', 'defensa', 'parada') / 100)),
