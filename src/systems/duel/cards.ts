@@ -120,6 +120,10 @@ export const DUEL_PASSIVE: Record<number, Passive[]> = {
   100979: [{ do: 'lifesteal', pct: 10 }, { do: 'critDmg', pct: 15 }], // Haizaki
   100905: [{ do: 'enemyUltiGauge', n: 2 }], // Nosaka: reads the rival
   100907: [{ do: 'crit', pct: 15 }], // Kira
+  // the story's own rivals
+  1406: [{ do: 'firstCard', pct: 20 }, { do: 'critDmg', pct: 20 }], // Xene: the captain of Génesis
+  1405: [{ do: 'execute', pct: 20, below: 40 }, { do: 'crit', pct: 8 }], // Bellatrix
+  1396: [{ do: 'thorns', pct: 10 }, { do: 'teamDef', pct: 5 }], // Nero: the dimensional wall
 };
 /** a footballer's passive parts (empty: none) */
 export const passivesOf = (pid: number): Passive[] => DUEL_PASSIVE[pid] ?? [];
@@ -244,7 +248,17 @@ export const DUEL_PLAYERS: DuelPlayer[] = [
   P(100907, 'Ares y Orion', c('Zigzag veloz', 'ataque', { do: 'hits', n: 2, each: 0.6 }),
     c('Ataque meteorito', 'area', { do: 'bonusIf', cond: 'firstCard', pct: 0 }), u('El detonador', 5, { do: 'destroy', minRank: 2 })),
 ];
-export const DUEL_BY_ID = new Map(DUEL_PLAYERS.map((p) => [p.id, p]));
+/** rivals of the story only (not in your teams, the tier list or the balance): Génesis as it was (author: «en la
+ *  temporada 2, en el Génesis han de estar Xene, Bellatrix y Nero»), with kits of their own techniques in the game */
+export const DUEL_STORY_ONLY: DuelPlayer[] = [
+  P(1406, 'Alius y Zeus', c('Cañón de meteoritos', 'ataque', { do: 'bonusIf', cond: 'targetLowestHp', pct: 30 }),
+    c('Flash de fotones', 'postura', { do: 'dodge', n: [1, 1, 2] }), u('Supernova', 6, { do: 'critBonus', pct: 25 }), { family: 101722 }), // Xene is Xavier
+  P(1405, 'Alius y Zeus', c('Astro remate', 'ataque', { do: 'status', s: 'electrizado', min: 2 }),
+    c('Lluvia de meteoros', 'area'), u('Pingüino espacial', 5, { do: 'pierce', pct: 30 })),
+  P(1396, 'Alius y Zeus', c('Muro dimensional', 'postura', { do: 'block', who: 'team', n: [1, 1, 2] }),
+    c('Espiral distorsión', 'postura', { do: 'reflect', pct: 30 }), u('Constelación estelar', 0, { do: 'shield', who: 'all', pct: [30, 30, 30] }, { do: 'taunt', turns: [2, 2, 2] })),
+];
+export const DUEL_BY_ID = new Map([...DUEL_PLAYERS, ...DUEL_STORY_ONLY].map((p) => [p.id, p]));
 /** a footballer and his Mixi Max form are the same player: a team takes only one of them (author) */
 export const familyOf = (id: number) => DUEL_BY_ID.get(id)?.family ?? id;
 export function sameFamily(pids: number[]) { const f = pids.map(familyOf); return new Set(f).size !== f.length; }
@@ -281,21 +295,27 @@ export type CoachId = (typeof DUEL_COACHES)[number]['id'];
 /** stats as the doc's formulas give them (rarity, position, the technique powers that set the duplicates apart) */
 export interface DuelStats { hp: number; atk: number; def: number; crit: number; critDmg: number; pierce: number; res: number }
 const RAR_MULT: Partial<Record<Rarity, number>> = { legendario: 1.26, mitico: 1.36, leyenda: 1.48 };
-const ROLE: Record<string, [number, number, number]> = { GK: [0.8, 1.25, 1.15], DF: [0.9, 1.15, 1.05], MF: [1, 1, 1], FW: [1.15, 0.9, 0.95] };
+// [ATQ, DEF, PV] by position; the PV close together (author: «¿por qué hay jugadores como Axel con tan poca vida?»: a
+// forward had 0.95 and a goalkeeper 1.15, more than twice the PV between them after the balance)
+const ROLE: Record<string, [number, number, number]> = { GK: [0.8, 1.25, 1.05], DF: [0.9, 1.15, 1.05], MF: [1, 1, 1], FW: [1.15, 0.9, 1] };
 const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
 /** balance: PV, ATQ and DEF of each footballer are multiplied by this. First by hand (author: «equilibra los mixi max y
  *  los de tier C»), then (2026-11-19) by tools/duel_balance.ts, 6 rounds of 4200 CPU «difícil» matches towards a 50 %
  *  win share for everyone: the spread went from 36-71 % to 45-57 % (Nathan's kit was changed instead, see above);
  *  2026-11-20 again with the passives on and King / Samford Royal in (6 rounds of 4200): 43-57 %; and again with
  *  the passives remade (each his own, none tied to team mates) */
-export const DUEL_TUNE: Record<number, number> = {1: 1.288, 2: 1.218, 3: 1.732, 10: 0.824, 20: 1.579, 29: 1.348, 30: 1.357, 157: 0.892, 1024: 1.636, 1370: 0.949, 1371: 0.703, 1513: 1.231, 1532: 0.908, 1541: 0.866, 1542: 0.878, 1548: 1.788, 1567: 1.031, 100242: 0.614, 100303: 1.207, 100382: 0.902, 100405: 1.785, 100427: 1.028, 100487: 1.365, 100538: 1.365, 100562: 0.777, 100580: 1.026, 100728: 1.097, 100739: 0.872, 100773: 0.753, 100797: 1.468, 100905: 1.011, 100907: 0.793, 100944: 0.91, 100952: 0.633, 100979: 0.777, 101004: 0.602, 101308: 1.338, 101488: 1.125, 101504: 0.95, 101505: 0.952, 101520: 0.728, 101572: 1.063, 101719: 1.028, 101722: 0.8, 101775: 0.851, 101791: 0.862, 101838: 1.145, 101855: 1.061, 101871: 0.995, 101894: 1.088, 102185: 1.291, 102307: 0.907};
+export const DUEL_TUNE: Record<number, number> = {1: 1.496, 2: 1.221, 3: 2.095, 10: 0.74, 20: 2.2, 29: 1.567, 30: 1.54, 157: 0.761, 1024: 1.855, 1370: 0.82, 1371: 0.581, 1513: 1.139, 1532: 0.837, 1541: 0.909, 1542: 0.713, 1548: 2.2, 1567: 0.954, 100242: 0.566, 100303: 1.006, 100382: 0.769, 100405: 2.2, 100427: 1.194, 100487: 1.192, 100538: 1.793, 100562: 0.781, 100580: 0.935, 100728: 1.261, 100739: 0.858, 100773: 0.58, 100797: 1.823, 100905: 1.156, 100907: 0.704, 100944: 0.729, 100952: 0.488, 100979: 0.674, 101004: 0.486, 101308: 1.425, 101488: 0.991, 101504: 0.93, 101505: 0.882, 101520: 0.584, 101572: 1.168, 101719: 0.924, 101722: 0.708, 101775: 0.865, 101791: 0.736, 101838: 1.059, 101855: 0.981, 101871: 1.017, 101894: 1.144, 102185: 1.905, 102307: 0.754};
 export function duelStats(p: { id?: number; rarity: Rarity; position: string; stats: Record<string, number>; techniques: { type: string; power?: number }[] }): DuelStats {
+  // the balance multiplier works in full on ATQ and DEF and half on PV: weak kits were made up for with huge PV bars
+  // (author: «no sé por qué King tiene tanta vida»: 3697 PV, after a ×1.58)
   const s = p.stats, k = (p.id !== undefined ? DUEL_TUNE[p.id] : undefined) ?? 1, m = (RAR_MULT[p.rarity] ?? 1.26) * k, [a, d, h] = ROLE[p.position] ?? ROLE.MF;
+  // never less PV (a footballer too strong loses ATQ and DEF instead), and never more than +15 %
+  const mHp = (RAR_MULT[p.rarity] ?? 1.26) * Math.min(1.15, Math.max(1, 1 + (k - 1) * 0.5));
   const best = (...ty: string[]) => Math.max(...p.techniques.filter((t) => ty.includes(t.type)).map((t) => t.power ?? 0), 0) || 60;
   // a passive of stats is part of them (the tooltips show it too)
   const pp = (k: 'atk' | 'def' | 'hp' | 'crit' | 'critDmg' | 'resist') => (p.id !== undefined ? passivesOf(p.id).reduce((x, q) => x + (q.do === k ? q.pct : 0), 0) : 0);
   return {
-    hp: Math.round(Math.round((s.stamina + s.guts) * 12 * m * h) * (0.9 + 0.1 * best('regate', 'defensa', 'parada') / 100) * (1 + pp('hp') / 100)),
+    hp: Math.round(Math.round((s.stamina + s.guts) * 12 * mHp * h) * (0.9 + 0.1 * best('regate', 'defensa', 'parada') / 100) * (1 + pp('hp') / 100)),
     atk: Math.round(Math.round((s.kick + 0.4 * s.body) * 3 * m * a) * (0.85 + 0.15 * best('tiro') / 100) * (1 + pp('atk') / 100)),
     def: Math.round(Math.round((s.guard + 0.5 * s.body) * 2 * m * d) * (0.85 + 0.15 * best('defensa', 'parada') / 100) * (1 + pp('def') / 100)),
     crit: Math.round(clamp(5 + (s.control - 40) * 0.3 + (best('regate') - 80) / 8, 5, 30)) + pp('crit'),

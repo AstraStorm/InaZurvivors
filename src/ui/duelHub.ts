@@ -37,7 +37,10 @@ export interface DuelHubHost extends Omit<DuelHost, 'done'> {
   team?: { pids: number[]; coach: string | null };
   saveTeam?(t: { pids: number[]; coach: string | null }): void;
   /** the duel ranking (wins against the CPU): this week's or of all time; null without the online service */
-  ranking?(week: boolean): Promise<{ pos: number; username: string; wins: number }[] | null>;
+  ranking?(week: boolean): Promise<{ pos: number; username: string; avatar?: string; wins: number }[] | null>;
+  /** the rows' faces as on the game's other boards (author: «hazme el ranking bien con los banners»): loads their
+   *  banners, frames and golden names, then draws each one's profile icon in its frame, its banner and its name */
+  rankPlates?(names: string[]): Promise<(name: string, avatar?: string) => { face: string; ribbon: string; nameCls: string; clan: string }>;
   /** online (signed in): the server's queue and match calls (src/online/client.ts) and how plates are drawn */
   pvp?: {
     join(team: unknown, plate: import('../online/client').PvpPlate): Promise<import('../online/client').PvpQueue>;

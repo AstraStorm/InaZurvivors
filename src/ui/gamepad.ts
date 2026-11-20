@@ -52,8 +52,13 @@ export function initGamepad(onPause: () => void) {
   let nextMove = 0;
   let seen = '';
   const stuck = new Set<number>();
-  const loop = () => {
+  let lastPoll = 0;
+  const loop = (t: number) => {
     requestAnimationFrame(loop);
+    // 30 polls a second are plenty for a pad (it polled at the screen's rate, 144 a second on a gaming monitor, also
+    // under the duel where it does nothing)
+    if (t - lastPoll < 32 || document.hidden) return;
+    lastPoll = t;
     const p = firstPad();
     if (!p) return;
     // a button already down when the pad appears counts as held: it has to be released before it can press anything

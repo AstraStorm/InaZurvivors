@@ -105,7 +105,7 @@ const CSS_RAW = `
 .dm-life.hit{animation:dmLifeHit .5s}
 .dm-life.hit .hrt{animation:dmBeat .5s}
 .dm-life.up{animation:dmLifeUp .5s}
-@keyframes dmLow{50%{box-shadow:0 .25cqw .6cqw #000c,0 0 1.2cqw #ff3030}}
+@keyframes dmLow{50%{opacity:.82}}
 @keyframes dmLifeHit{20%{translate:-.3cqw 0;filter:brightness(1.8) saturate(2)}40%{translate:.3cqw 0}60%{translate:-.15cqw 0}}
 @keyframes dmLifeUp{40%{filter:brightness(1.5) drop-shadow(0 0 .8cqw #6aff8a)}}
 @keyframes dmBeat{30%{scale:1.35}}
@@ -188,7 +188,7 @@ const CSS_RAW = `
 .dm-q>div{display:flex;gap:.5cqw}
 .dm-box{position:relative;width:4.3cqw;aspect-ratio:263/360;border-radius:.6cqw;cursor:pointer}
 .dm-box.empty{border:.18cqw dashed #ffd76a88;background:radial-gradient(#ffd76a1c,#0000 70%);cursor:default;display:grid;place-items:center;animation:dmEmpty 1.6s ease-in-out infinite;box-sizing:border-box}
-@keyframes dmEmpty{50%{border-color:#ffd76add}}
+@keyframes dmEmpty{50%{opacity:.55}}
 .dm-box>b{position:absolute;left:50%;top:-.4cqw;transform:translate(-50%,-50%);width:1.5cqw;height:1.5cqw;border-radius:50%;display:grid;place-items:center;background:linear-gradient(#ffd76a,#c07a10);color:#3a1600;font-size:.9cqw;font-weight:900;z-index:3;box-shadow:0 1px 3px #000}
 .dm-box.empty>b{position:static;transform:none;background:#ffd76a33;color:#ffe9a8}
 .dm-box .dm-hc{width:100%!important;margin:0;transform:none;cursor:pointer}
@@ -199,7 +199,7 @@ const CSS_RAW = `
 .dm-box .dm-tgt .mug{image-rendering:pixelated}
 .dm-box .dm-mvic{position:absolute;inset:0;display:grid;place-items:center;font-style:normal;font-size:2cqw;color:#fff;text-shadow:0 0 .5cqw #000;z-index:3}
 .dm-box.now{animation:dmNow .6s ease-in-out infinite;z-index:4}
-@keyframes dmNow{50%{scale:1.15;filter:drop-shadow(0 0 .8cqw #ffd76a)}}
+@keyframes dmNow{50%{scale:1.15}}
 .dm-box.done{opacity:.35;filter:grayscale(1)}
 .dm-rq .dm-box{width:3.4cqw;cursor:default;animation:dmPop .3s cubic-bezier(.2,1.6,.4,1)}
 .dm-rq .dm-box .dm-htech{font-size:calc(.36cqw * var(--k))}
@@ -235,7 +235,7 @@ const CSS_RAW = `
 @keyframes dmDeal{from{transform:translate(30cqw,-14cqw) rotate(30deg) scale(.35);opacity:0}}
 .dm-hc.merged{animation:dmMerged .9s}
 @keyframes dmMerged{30%{filter:brightness(1.8) drop-shadow(0 0 1.5cqw #ffd76a)}}
-.dm-hc.ulti:not(.willfuse)::after,.dm-hc.combo:not(.willfuse)::after{content:'';position:absolute;inset:6% 8%;border-radius:.6cqw;background:linear-gradient(115deg,#fff0 35%,#fffa 50%,#fff0 65%) -150% 0/250% 100% no-repeat;mix-blend-mode:overlay;animation:dmShine 2.4s ease-in-out infinite;pointer-events:none;z-index:3}
+.dm-hc.ulti:not(.willfuse)::after,.dm-hc.combo:not(.willfuse)::after{content:'';position:absolute;inset:6% 8%;border-radius:.6cqw;background:linear-gradient(115deg,#fff0 35%,#fffa 50%,#fff0 65%) -150% 0/250% 100% no-repeat;animation:dmShine 2.4s ease-in-out 1 both;pointer-events:none;z-index:3}
 @keyframes dmShine{60%,100%{background-position:150% 0}}
 .dm-hface{position:absolute;left:21%;top:16%;width:58%;height:47%;display:flex;justify-content:center;align-items:center;overflow:hidden;background:radial-gradient(circle at 50% 38%,#4a74d0,#101a44 75%)}
 .dm-hface .mug{display:block;image-rendering:pixelated;flex:none}
@@ -277,7 +277,7 @@ const CSS_RAW = `
 .dm-play:hover:not(:disabled){transform:translate(-50%,-50%) scale(1.06)}
 .dm-play:disabled{filter:grayscale(.85) brightness(.6);cursor:default}
 .dm-play.glow:not(:disabled),.dm-play.hint:not(:disabled){animation:dmBtnEnd 1s ease-in-out infinite}
-@keyframes dmBtnEnd{50%{filter:brightness(1.3) drop-shadow(0 0 1.2cqw #ffd76a);transform:translate(-50%,-50%) scale(1.08)}}
+@keyframes dmBtnEnd{50%{transform:translate(-50%,-50%) scale(1.08)}}
 /* Hillman and the info panel */
 .dm-bubble{position:absolute;width:22cqw;padding:.9cqw 1.1cqw;border-radius:1.2cqw;background:#fffaf0;color:#2b1b0c;font-size:1.05cqw;line-height:1.3;box-shadow:0 .4cqw 1.4cqw #000a;border:.2cqw solid #ffd76a;z-index:8;animation:dmBubble .35s cubic-bezier(.2,1.4,.4,1)}
 .dm-bubble::before{content:'';position:absolute;left:3.5cqw;top:-1cqw;border:.6cqw solid transparent;border-bottom:.6cqw solid #ffd76a;border-top:0}
@@ -318,7 +318,7 @@ const CSS_RAW = `
 .dm-float.status{font-size:1.15cqw;margin-top:-3.2cqw;font-style:normal}
 @keyframes dmFloat{0%{opacity:0;transform:translate(-50%,-10%) scale(.4)}12%{opacity:1;transform:translate(-50%,-70%) scale(1.25)}28%{transform:translate(-50%,-75%) scale(1)}100%{opacity:0;transform:translate(-50%,-190%)}}
 @keyframes dmFloatCrit{0%{opacity:0;transform:translate(-50%,-10%) scale(.3) rotate(-12deg)}12%{opacity:1;transform:translate(-50%,-75%) scale(1.5) rotate(4deg)}30%{transform:translate(-50%,-80%) scale(1.1) rotate(0)}100%{opacity:0;transform:translate(-50%,-200%)}}
-.dm-pt{position:absolute;width:calc(.55cqw*var(--s));height:calc(.55cqw*var(--s));border-radius:50%;background:var(--c);box-shadow:0 0 .6cqw var(--c),0 0 .2cqw #fff;translate:-50% -50%;animation:dmPt .75s cubic-bezier(.1,.8,.3,1) forwards}
+.dm-pt{position:absolute;width:calc(.9cqw*var(--s));height:calc(.9cqw*var(--s));border-radius:50%;background:radial-gradient(circle,#fff 0 18%,var(--c) 32%,transparent 70%);translate:-50% -50%;animation:dmPt .75s cubic-bezier(.1,.8,.3,1) forwards}
 .dm-pt.spark{width:calc(1.1cqw*var(--s));height:calc(.22cqw*var(--s));border-radius:.2cqw;background:linear-gradient(90deg,#fff,var(--c))}
 .dm-pt.heal{width:auto;height:auto;background:none;box-shadow:none;color:var(--c);font-style:normal;font-weight:900;font-size:calc(1.4cqw*var(--s));text-shadow:0 0 .5cqw var(--c);animation:dmRise 1.1s ease-out forwards}
 .dm-pt.burn{animation:dmRise .9s ease-out forwards;border-radius:50% 50% 50% 0}
@@ -491,7 +491,7 @@ const CSS_RAW = `
 /* ---- juice 2 */
 .dm-hshine{position:absolute;inset:3% 4%;border-radius:7%;pointer-events:none;z-index:3;opacity:0;background:linear-gradient(105deg,#fff0 32%,#ffffff2a 46%,#ffffff55 50%,#ffffff2a 54%,#fff0 68%);background-size:300% 100%;background-position:calc(100% - var(--mx,50%)) 0;transition:opacity .2s}
 .dm-hand .dm-hc:hover .dm-hshine{opacity:1}
-.dm-hc.ulti .dm-hshine,.dm-hc.combo .dm-hshine{opacity:.55;animation:dmShineRun 2.4s linear infinite}
+.dm-hc.ulti .dm-hshine,.dm-hc.combo .dm-hshine{opacity:.55;animation:dmShineRun 2.4s linear 1}
 @keyframes dmShineRun{from{background-position:200% 0}to{background-position:-100% 0}}
 .dm-hand .dm-hc.drag{transition:transform .15s,filter .2s,rotate .08s linear}
 .dm-g.gain{animation:dmOrbGain .7s cubic-bezier(.2,1.8,.4,1) backwards;animation-delay:var(--gd,0ms)}
@@ -739,5 +739,10 @@ body.lowfx .dm-spot{display:none}
 .dm-info p.pas b{margin-right:.4cqw;padding:0 .35cqw;border-radius:.35cqw;background:#c49aff;color:#2a0a4a;font-size:.85em;text-transform:uppercase;letter-spacing:.05em}
 .dm-orbfly{position:fixed;z-index:40;width:calc(var(--u,1vw)*1.6);aspect-ratio:1;border-radius:50%;pointer-events:none;background:radial-gradient(circle at 35% 35%,#fff,#9fe0ff 35%,#2f7bff 70%,#0b3a9a);box-shadow:0 0 calc(var(--u,1vw)*1) #4fb3ff,0 0 calc(var(--u,1vw)*.3) #fff}
 .dm-orbfly.s1{background:radial-gradient(circle at 35% 35%,#fff,#ffd6e0 35%,#ff4f7a 70%,#9a0b2a);box-shadow:0 0 calc(var(--u,1vw)*1) #ff4f7a,0 0 calc(var(--u,1vw)*.3) #fff}
+.dm-mod{display:flex;align-items:center;justify-content:center;gap:1px;height:calc(var(--w)*.22);width:auto!important;min-width:calc(var(--w)*.26);padding:0 calc(var(--w)*.03);border-radius:calc(var(--w)*.06);border:calc(var(--w)*.012) solid #fff;font-weight:900;color:#fff;box-shadow:0 calc(var(--w)*.01) calc(var(--w)*.03) #000a}
+.dm-mod.good{background:linear-gradient(#3fd07a,#137a3a)}.dm-mod.bad{background:linear-gradient(#ff5a6a,#9a1024)}
+.dm-mod em{font-style:normal;font-size:calc(var(--w)*.085)}.dm-mod i{font-style:normal;font-size:calc(var(--w)*.09)}
+.dm-mod b{position:static!important;font-size:calc(var(--w)*.09);margin-left:1px}
+.dm-info p.mod.good{color:#7dff9a}.dm-info p.mod.bad{color:#ff8a9a}
 `;
 export const DUEL_MATCH_CSS = CSS_RAW.replace(/(-?\d*\.?\d+)cqw/g, 'calc(var(--u)*$1)');

@@ -170,7 +170,7 @@ export function openDuelMatch(host: DuelHost, setup: DuelSetup) {
     for (const q of queue) {
       const card = plan.sides[0].hand.find((c) => c.id === (q.a as { card: number }).card);
       let a = q.a, why = act(plan, 0, a);
-      if (why === 'bad_target' && a.do === 'use') { a = { ...a, target: undefined }; why = act(plan, 0, a); }
+      if (why === 'bad_target' && a.do === 'use') why = act(plan, 0, { ...a, target: undefined }); // (it keeps your choice)
       if (!why && card) kept.push({ a, card: structuredClone(card) });
     }
     queue = kept;
@@ -261,15 +261,28 @@ export function openDuelMatch(host: DuelHost, setup: DuelSetup) {
    *  (what your plan does to them is not shown before it is played, author: «se sigue viendo el daño que hago y si lo
    *  dejo KO, eso no lo quiero ver»). -1: not drawn */
   const slotView = (u: Unit): number => (planning && queue.length && u.side === 0 ? unit(plan, u.uid).slot : u.slot);
-  /** the Garra shown: while you plan, what your fusions and cards have charged already (author: «deberían subir orbes
-   *  por cada juntada, aunque se junten solas») */
-  const gaugeOf = (u: Unit) => (planning || playing?.side === 0 ? unit(plan, u.uid).gauge : u.gauge); // (and while your plan plays: it is that)
+  /** the Garra shown: while you plan, the orbs your moves and fusions in the hand have charged (author: «deberían subir
+   *  orbes por cada juntada»), but not those of the cards you line up: those come when the card is really used, as the
+   *  turn plays (author: «uso el Tornado de fuego de Axel y cuando lo usa me da el orbe») */
+  let movesKey = '', movesState: DuelState | null = null;
+  const movesView = () => {
+    const key = `${s.log.length}#${queue.map((q) => JSON.stringify(q.a)).join('|')}`;
+    if (key !== movesKey || !movesState) {
+      movesKey = key; movesState = cloneDuel(s);
+      for (const q of queue) if (q.a.do === 'move') act(movesState, 0, q.a);
+    }
+    return movesState;
+  };
+  const gaugeOf = (u: Unit) => (planning && u.side === 0 ? unit(movesView(), u.uid).gauge : u.gauge);
   function unitHtml(u: Unit) {
     const side = u.side, slot = slotView(u), bench = slot === 3, [x, y] = L.slots[side][slot], incoming = slot !== u.slot && u.slot === 3;
     const w = L.unitW[side] * (bench ? 0.72 : 1);
     const hp = hpView.get(u.uid) ?? Math.max(0, u.hp), k = hp / u.maxHp;
     // while you plan: what your lined-up actions leave him with (the plan is the match itself, played on a copy)
     const st = Object.entries(u.status).filter(([, n]) => n).map(([id, n]) => `<span class="dm-st" title="${esc(STATUS_NAME()[id] ?? id)}">${img(STATUS_FILE[id])}<b>${n}</b></span>`).join('')
+      // stats raised or lowered: which one, up or down (green good, red bad) and how many times (author: «que se vea un
+      // logo de cuál stat y cuántas veces; si pasas la mano por encima, cuánto porcentaje»: the panel says it)
+      + modsOf(u).map((m) => `<span class="dm-st dm-mod ${m.good ? 'good' : 'bad'}" title="${esc(STAT_NAME()[m.stat] ?? m.stat)} ${m.pct > 0 ? '+' : ''}${m.pct} %"><em>${esc(STAT_SHORT()[m.stat] ?? m.stat)}</em><i>${m.pct > 0 ? '▲' : '▼'}</i>${m.n > 1 ? `<b>${m.n}</b>` : ''}</span>`).join('')
       + (u.shield > 0 ? `<span class="dm-st">${img('estado-escudo')}<b>${u.shield}</b></span>` : '')
       + (u.stances.length ? `<span class="dm-st">${img('tipo-postura')}</span>` : '');
     // the orbs are lit afterwards, in place (paintOrbs): in the markup, each new orb drew his whole card anew and it blinked
@@ -534,9 +547,15 @@ export function openDuelMatch(host: DuelHost, setup: DuelSetup) {
   function fuseHints(st: DuelState, hand: Card[], on: boolean) {
     const svg = stage.querySelector<SVGSVGElement>('.dm-links')!;
     svg.innerHTML = '';
+    // the marks of the last drawing go first: the hand's cards are kept between drawings now, and a pair that no longer
+    // was kept its glow and its «¡Fusión!» (author: «las flechas de fusionar cartas se buguean, indicándote que puedes
+    // cuando no puedes»)
+    for (const el of stage.querySelectorAll('.dm-hand .fusepair')) el.classList.remove('fusepair');
+    for (const el of stage.querySelectorAll('.dm-hand .dm-fkey')) el.remove();
     if (!on) return;
     const pairs: [number, number][] = [];
-    for (let i = 0; i + 2 < hand.length; i++) if (canFuse(st, hand[i], hand[i + 2]) && !canFuse(st, hand[i], hand[i + 1])) pairs.push([i, i + 2]);
+    // only when the card in the middle can be used now (sealed, a decoy, its footballer stunned, no actions left: no)
+    for (let i = 0; i + 2 < hand.length; i++) if (canFuse(st, hand[i], hand[i + 2]) && !canFuse(st, hand[i], hand[i + 1]) && !illegal(st, 0, { do: 'use', card: hand[i + 1].id })) pairs.push([i, i + 2]);
     if (!pairs.length) return;
     const els = [...stage.querySelectorAll<HTMLElement>('.dm-hand .dm-hc')];
     for (const [a, b] of pairs) {
@@ -672,31 +691,9 @@ export function openDuelMatch(host: DuelHost, setup: DuelSetup) {
       el.classList.toggle('aim', ok);
       el.classList.toggle('dim', to !== null && !ok && slotView(u) <= 2);
       const pv = el.querySelector<HTMLElement>('.dm-pv')!;
-      pv.innerHTML = ok && pc ? preview(pc, u.uid) : '';
+      pv.innerHTML = ''; // nothing under the targets: not the damage, not the KO, not the element (author)
     }
   }
-  /** what a card would do to this target (played on a copy of the plan; a critical is shown as a normal blow) */
-  function preview(c: Card, uid: number) {
-    const sim = cloneDuel(plan), n = sim.log.length;
-    if (act(sim, 0, { do: 'use', card: c.id, target: uid })) return '';
-    const evs = sim.log.slice(n);
-    const hits = evs.filter((e): e is Extract<Ev, { t: 'hit' }> => e.t === 'hit' && unit(sim, e.to).side === 1);
-    const out: string[] = [];
-    if (hits.length) {
-      // who it lands on and how well, but not how much nor whether he falls (author: «el daño que hago y si lo dejo KO,
-      // eso no lo quiero ver»)
-      const h = hits.find((e) => e.to === uid) ?? hits[0];
-      if (h.to !== uid) out.push(`<span class="redir">${img('estado-provocar')}${esc(host.name(unit(s, h.to).pid))}</span>`);
-      if (h.elem > 1) out.push(`<span class="good">▲ ${tr('Eficaz')}</span>`); else if (h.elem < 1) out.push(`<span class="bad">▼ ${tr('Poco eficaz')}</span>`);
-    }
-    const heal = evs.filter((e): e is Extract<Ev, { t: 'heal' }> => e.t === 'heal' && e.to === uid).reduce((a, e) => a + e.hp, 0);
-    const shield = evs.filter((e): e is Extract<Ev, { t: 'shield' }> => e.t === 'shield' && e.to === uid).reduce((a, e) => a + e.amount, 0);
-    if (heal) out.push(`<b class="heal">${izNum(`+${heal}`, 'naranja', 'green')}</b>`);
-    if (shield) out.push(`<b class="shield">${img('estado-escudo')}+${shield}</b>`);
-    for (const e of evs) if (e.t === 'status' && e.to === uid) out.push(`<span class="st">${img(STATUS_FILE[e.s])}</span>`);
-    return out.join('');
-  }
-
   /** the panel with what the card under the pointer (or the picked one) does, or the footballer's numbers */
   function info() {
     const box = $('.dm-info');
@@ -725,6 +722,7 @@ export function openDuelMatch(host: DuelHost, setup: DuelSetup) {
       const b = hu.base;
       box.innerHTML = `<div class="dm-ih">${elementIcon(hu.element, Math.round(U() * 2.4))}<div><b>${esc(host.name(hu.pid))}</b><small>${esc(tr(hu.element))} · ${esc(hu.position)}</small></div></div>`
         + `<div class="dm-stats"><span>♥ ${Math.max(0, hu.hp)}/${hu.maxHp}</span><span>${tr('ATQ')} ${b.atk}</span><span>${tr('DEF')} ${b.def}</span><span>${tr('Crít.')} ${b.crit} %</span><span>${tr('Daño crít.')} ${b.critDmg} %</span><span>${tr('Garra')} ${hu.gauge}/${GAUGE_MAX}</span></div>`
+        + modsOf(hu).map((m) => `<p class="mod ${m.good ? 'good' : 'bad'}">${m.pct > 0 ? '▲' : '▼'} ${esc(STAT_NAME()[m.stat] ?? m.stat)} ${m.pct > 0 ? '+' : ''}${m.pct} %${m.n > 1 ? ` (×${m.n})` : ''} · ${tr('{n} turnos', { n: Math.max(1, m.turns - 1) })}</p>`).join('')
         + (passiveText(hu.pid) ? `<p class="pas"><b>${tr('Pasiva')}</b> ${esc(passiveText(hu.pid))}</p>` : '')
         + Object.entries(hu.status).filter(([, n]) => n).map(([id, n]) => `<p>${img(STATUS_FILE[id], 'ic')} ${esc(STATUS_NAME()[id] ?? id)} · ${tr('{n} turnos', { n: n! })}</p>`).join('');
       box.hidden = false;
@@ -788,6 +786,9 @@ export function openDuelMatch(host: DuelHost, setup: DuelSetup) {
     if (el) particlesAt(atCam(cardOf(el), kind === 'heal' ? 0.8 : 0.5), kind, color, n, camFx);
   }
   function particlesAt(p: { x: number; y: number }, kind: PtKind, color = '#fff', n = 14, layer: HTMLElement = fxLayer) {
+    // each one is an element of the page with its own animation: fewer of them (a blow made dozens, and recomputing
+    // their styles took a quarter of the time while the turn played)
+    n = Math.max(1, Math.round(n * (LOW_FX ? 0.35 : 0.6)));
     for (let i = 0; i < n; i++) {
       const d = document.createElement('i');
       const ang = Math.random() * Math.PI * 2, dist = (kind === 'spark' || kind === 'ko' || kind === 'rock' || kind === 'leaf' ? 4 + Math.random() * 8 : 2 + Math.random() * 4) * U();
@@ -1347,7 +1348,7 @@ export function openDuelMatch(host: DuelHost, setup: DuelSetup) {
       await wait(330);
       fuseFx(into, ev.t === 'merge' ? ev.rank : 3, ev.t === 'combo');
       // a fusion that climbed one more rank says why (★ + ★ giving ★★★ looked like a bug)
-      if (ev.t === 'merge' && ev.boost) banner(ev.boost === 'travis' ? tr('¡Táctica de Travis! La primera fusión del turno sube un rango más.') : tr('¡Fusión potenciada! Sube un rango más.'), 'combo s0', 1600);
+      if (ev.t === 'merge' && ev.boost) banner(ev.boost === 'travis' ? tr('¡Táctica de Travis! La primera fusión del turno da un orbe más.') : tr('¡Fusión potenciada! Sube un rango más.'), 'combo s0', 1600);
       if (ev.t === 'combo') banner(cardTech(ev.name), 'combo s0', 1300);
       await wait(250);
     }
@@ -1355,6 +1356,13 @@ export function openDuelMatch(host: DuelHost, setup: DuelSetup) {
   /** buffs, debuffs and stances an action gave (they have no event): shown at the end of its scene */
   let extras = new Map<number, { mods: { stat: string; pct: number }[]; stance: boolean }>();
   const STAT_NAME = (): Record<string, string> => ({ atk: tr('ATQ'), def: tr('DEF'), crit: tr('Crít.'), vuln: tr('Daño recibido') });
+  const STAT_SHORT = (): Record<string, string> => ({ atk: tr('ATQ'), def: tr('DEF'), crit: tr('Crít.'), vuln: tr('Recibe') });
+  /** a footballer's raised / lowered stats, one per stat: the total, how many raises or drops, and whether it helps him */
+  function modsOf(u: Unit) {
+    const by = new Map<string, { stat: string; pct: number; n: number; turns: number }>();
+    for (const m of u.mods) { const x = by.get(m.stat) ?? { stat: m.stat, pct: 0, n: 0, turns: 0 }; x.pct += m.pct; x.n++; x.turns = Math.max(x.turns, m.turns); by.set(m.stat, x); }
+    return [...by.values()].filter((x) => x.pct !== 0).map((x) => ({ ...x, good: x.stat === 'vuln' ? x.pct < 0 : x.pct > 0 }));
+  }
   function showExtras() {
     let i = 0;
     for (const [uid, x] of extras) {
@@ -1484,16 +1492,33 @@ export function openDuelMatch(host: DuelHost, setup: DuelSetup) {
       a = { ...a, target: tutorialTarget(plan, T)?.uid ?? (T.expect.target === undefined ? onPitch(plan.sides[0])[0]?.uid : undefined) };
     }
     if (tutorial && !tutorialAllows(plan, T, a)) { sfx('error'); pulse($('.dm-bubble'), 'nope', 500); return false; }
+    // the action keeps the rival you chose even when your plan has him down already (author: «poder atacar aunque el
+    // juego calcule que muera»): the plan plays it on another, the box shows yours, and if he really is down when the
+    // turn plays, it goes to another then (run)
+    const chosen = a;
     let why = illegal(plan, 0, a);
     if (why === 'bad_target' && a.do === 'use') { a = { ...a, target: undefined }; why = illegal(plan, 0, a); }
+    // your plan would already win: you may still line up what you like (author: «me ha de dejar atacar aunque el juego
+    // calcule que yo gane»; refusing it also told you the match was won). The card leaves the plan's hand; when the turn
+    // plays, whatever comes after the win is not played
+    if (why === 'over' && a.do === 'use' && plan.sides[0].actions > 0) {
+      const c = plan.sides[0].hand.find((x) => x.id === a.card);
+      if (c) {
+        plan.sides[0].hand = plan.sides[0].hand.filter((x) => x !== c);
+        plan.sides[0].actions--;
+        queue.push({ a, card: structuredClone(c) });
+        picked = null; sfx('whoosh', 1.3); render();
+        return true;
+      }
+    }
     if (why) { sfx('error'); banner(why === 'stunned' ? tr('Aturdido') : why === 'no_actions' ? tr('No te quedan acciones') : why === 'sealed' ? tr('Sellada') : tr('No se puede'), 'note', 900); return false; }
     const card = plan.sides[0].hand.find((c) => c.id === (a as { card: number }).card)!;
     const fromEl = stage.querySelector<HTMLElement>(`.dm-hand .dm-hc[data-cid="${card.id}"]`);
     const fromRect = fromEl?.getBoundingClientRect();
-    if (fromRect) orbFrom.set(card.owner, fromRect);
+    if (fromRect && a.do === 'move') orbFrom.set(card.owner, fromRect); // (a card used gives its orb when it plays: from him)
     const n = plan.log.length, snap = snapHand();
     act(plan, 0, a);
-    queue.push({ a, card: structuredClone(card) });
+    queue.push({ a: chosen.do === 'use' && chosen.target !== undefined ? chosen : a, card: structuredClone(card) });
     if (tutorial && T && T.expect.do !== 'free') step++;
     picked = null;
     render();
@@ -1624,6 +1649,8 @@ export function openDuelMatch(host: DuelHost, setup: DuelSetup) {
     if (target && !target.classList.contains('lock')) { target.classList.add('lock'); sfx('hover'); }
     const off = () => { aimAt.on = false; aimAt.on = false; aimSvg.classList.remove('on'); };
     if (!cel || to === null) return off();
+    // a picked card (not dragged) points only at a target under the pointer, never off into the void
+    if (!drag && !target) return off();
     const sr = stage.getBoundingClientRect(), r = cel.getBoundingClientRect();
     aimSvg.setAttribute('viewBox', `0 0 ${sr.width} ${sr.height}`);
     let x1 = x - sr.left, y1 = y - sr.top;
@@ -1910,7 +1937,7 @@ export function openDuelMatch(host: DuelHost, setup: DuelSetup) {
       if (shield) {
         // a shield: a pane of blue glass that hugs the card (author: the old bubble around him «así es horrible»), its
         // edge breathing and a glint running round it
-        const k = 0.75 + 0.25 * Math.sin(t * 3 + uid), px0 = x0 - w * 0.05, py0 = y0 - h * 0.025, pw = w * 1.1, ph = h * 1.05, rr = w * 0.1;
+        const k = 0.75 + 0.25 * Math.sin(t * 3 + uid), px0 = x0 - w * 0.02, py0 = y0 + h * 0.07, pw = w * 1.04, ph = h * 0.88, rr = w * 0.08; // the frame's own body (the card box has the gem above and the stats below)
         sctx.save();
         sctx.beginPath(); sctx.roundRect(px0, py0, pw, ph, rr);
         const g = sctx.createLinearGradient(px0, py0, px0 + pw, py0 + ph);
@@ -2040,11 +2067,22 @@ export function openDuelMatch(host: DuelHost, setup: DuelSetup) {
   function auraFrame(now: number) {
     if (closed) return;
     requestAnimationFrame(auraFrame);
-    // 60 fps at most (a 144 Hz screen drew the flames 144 times a second) and nothing at all with the tab hidden
-    if (document.hidden || now - auraLast < 15) return;
+    // 60 fps while something is cast or flying, 30 for the auras at rest (a 144 Hz screen drew the flames 144 times a
+    // second), nothing with the tab hidden
+    if (document.hidden || now - auraLast < (bursts.size || sparks.length > 30 ? 15 : 31)) return;
+    // nothing to draw (no full Garra, no status, no stance, no shield, nothing flying): no measuring at all. Reading
+    // the cards' boxes every frame made the browser recompute the whole page's styles 60 times a second while idle
+    if (!bursts.size && !sparks.length && !flakes.length && !stage.querySelector('.dm-unit.full, .dm-unit.sh, .dm-unit[class*=" st-"], .dm-unit[class*=" ps-"]')) {
+      if (auraDirty) { actx.clearRect(0, 0, auraCv.width, auraCv.height); auraDirty = false; }
+      if (stDirty) { sctx.clearRect(0, 0, stCv.width, stCv.height); stDirty = false; }
+      auraLast = now;
+      return;
+    }
     const dt = Math.min(0.05, (now - (auraLast || now)) / 1000);
     auraLast = now;
-    const dpr = Math.min(LOW_FX ? 1 : 2, window.devicePixelRatio || 1);
+    // the screen's own pixels at most: soft flames and glows need no more, and a full-screen canvas at 2× was sent to the
+    // GPU again every frame
+    const dpr = 1;
     const W = Math.round(cam.clientWidth * dpr), H = Math.round(cam.clientHeight * dpr);
     if (auraCv.width !== W || auraCv.height !== H) { auraCv.width = W; auraCv.height = H; }
     actx.globalCompositeOperation = 'source-over';

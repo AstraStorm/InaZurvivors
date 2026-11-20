@@ -168,7 +168,8 @@ export function openDuelTeam(h: DuelTeamHost, start: DuelTeam, save: (t: DuelTea
   el.addEventListener('click', (e) => {
     if (dragged) { dragged = false; return; } // the end of a drag is not a tap
     const t = e.target as HTMLElement;
-    if (t.closest('.dt-back')) { sfx('whoosh'); close(); return; }
+    // leaving keeps the team (author: «cuando crees tu equipo que al salir se guarde sin tener que darle»), if it is whole
+    if (t.closest('.dt-back')) { sfx('whoosh'); if (slots.every((x) => x !== null)) save({ pids: slots as number[], coach }); close(); return; }
     if (t.closest('.dt-save')) {
       if (slots.some((x) => x === null)) return;
       sfx('buy'); save({ pids: slots as number[], coach }); close(); return;

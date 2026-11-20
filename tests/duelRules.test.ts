@@ -84,7 +84,7 @@ describe('Modo Duelo: the rules engine', () => {
     expect(hit.dmg).toBeGreaterThan(expected * 0.94);
     expect(hit.dmg).toBeLessThan(expected * 1.06);
   });
-  it('a starter knocked out leaves with his cards and the bench comes in', () => {
+  it('a starter knocked out leaves with his cards, and the bench comes in when the turn of his side starts', () => {
     const s = duel();
     const king = s.sides[1].units[0];
     hand(s, 1, [[1532, 0, 1], [1542, 0, 1]]);
@@ -93,7 +93,9 @@ describe('Modo Duelo: the rules engine', () => {
     act(s, 0, { do: 'use', card: c.id, target: king.uid });
     expect(king.slot).toBe(-1);
     expect(s.sides[1].hand.every((x) => x.owner !== king.uid)).toBe(true);
-    expect(s.sides[1].units[3].slot).toBe(0); // Nathan enters
+    expect(s.sides[1].units[3].slot).toBe(3); // Nathan waits on the bench while this turn lasts
+    act(s, 0, { do: 'end' });
+    expect(s.sides[1].units[3].slot).toBe(0); // and enters when his side's turn starts
   });
   it('a full gauge brings the ulti first into the hand, and using it empties the gauge', () => {
     const s = duel();

@@ -85,10 +85,13 @@ const io = typeof IntersectionObserver !== 'undefined'
   : null;
 let lastDraw = 0;
 function loop(t: number) {
+  // the page is searched only when a drawing is due (it was searched every frame), and not at all under the duel's
+  // screens, which cover these little players
+  if (t - lastDraw < 80 || document.hidden) { requestAnimationFrame(loop); return; }
+  lastDraw = t;
   const list = document.querySelectorAll<HTMLCanvasElement>('canvas.char');
   if (!list.length) { running = false; visible.clear(); return; }
-  if (t - lastDraw >= 80) {
-    lastDraw = t;
+  if (!document.querySelector('.dm, .dh, .dt, .l30, .ldu')) {
     list.forEach((c) => {
       if (io && !seen.has(c)) { seen.add(c); io.observe(c); }
       if (!io || visible.has(c)) render(c, t);

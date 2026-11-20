@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { DUEL_BY_ID, DUEL_COMBOS, DUEL_PLAYERS, duelStats } from '../src/systems/duel/cards';
+import { DUEL_BY_ID, DUEL_COMBOS, DUEL_PLAYERS, DUEL_STORY_ONLY, duelStats } from '../src/systems/duel/cards';
 
 const manifest = JSON.parse(fs.readFileSync(path.resolve(__dirname, '..', 'public', 'generated', 'manifest.json'), 'utf-8')) as {
   roster: { id: number; name: string; rarity: string; position: string; exclusive?: string; stats: Record<string, number>; techniques: { name: string; type: string; power?: number }[] }[];
@@ -20,8 +20,8 @@ describe('Modo Duelo: the 52 footballers', () => {
       expect(p!.exclusive, p!.name).toBeFalsy();
     }
   });
-  it('every card is a technique that footballer really has', () => {
-    for (const d of DUEL_PLAYERS) {
+  it('every card is a technique that footballer really has (the story-only rivals too)', () => {
+    for (const d of [...DUEL_PLAYERS, ...DUEL_STORY_ONLY]) {
       const own = new Set(byId.get(d.id)!.techniques.map((t) => norm(t.name)));
       for (const t of [...d.cards.map((c) => c.tech), d.ulti.tech]) expect(own.has(norm(t)), `${byId.get(d.id)!.name}: ${t}`).toBe(true);
     }
@@ -29,11 +29,11 @@ describe('Modo Duelo: the 52 footballers', () => {
   it('combined techniques only name footballers of the list', () => {
     for (const c of DUEL_COMBOS) for (const id of c.players) expect(DUEL_BY_ID.has(id), `${c.name}: ${id}`).toBe(true);
   });
-  it('stats as the doc says (Axel Blaze: 1723 PV, 459 ATQ, 207 DEF)', () => {
+  it('stats as the doc says (Axel Blaze: 1813 PV, 459 ATQ, 207 DEF; the PV by position close together since 2026-11-20)', () => {
     // the doc's formula, before the balance multiplier (DUEL_TUNE): checked without the footballer's id
     const raw = (id: number) => duelStats({ ...(byId.get(id)! as object), id: undefined } as never);
-    expect(raw(10)).toMatchObject({ hp: 1723, atk: 459, def: 207 });
-    expect(raw(100773)).toMatchObject({ hp: 3125, atk: 338, def: 453 });
+    expect(raw(10)).toMatchObject({ hp: 1813, atk: 459, def: 207 });
+    expect(raw(100773)).toMatchObject({ hp: 2853, atk: 338, def: 453 });
   });
 });
 

@@ -162,7 +162,7 @@ function play(h: StoryHost, c: StoryChapter, back: (from: HTMLElement) => void) 
         };
         if (won) scene(h, c, c.outro, reopen, reopen); else reopen();
       },
-    }, { teams, level: c.level, story: { rival: c.rival } });
+    }, { teams, level: c.level, story: { rival: c.rival }, first: 0 }); // in the story you always open (author: Génesis went first and wiped you out)
   });
 }
 

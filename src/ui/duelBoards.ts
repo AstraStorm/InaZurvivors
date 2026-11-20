@@ -79,8 +79,13 @@ export function openDuelRanking(h: DuelHubHost, back: (from: HTMLElement) => voi
     if (!rows) { list.innerHTML = `<p class="dbo-sub">${tr('El ranking necesita conexión y una cuenta. Las victorias contra la CPU cuentan cuando las paga el servidor.')}</p>`; return; }
     if (!rows.length) { list.innerHTML = `<p class="dbo-sub">${tr('Todavía nadie ha ganado esta semana. ¡Sé el primero!')}</p>`; return; }
     const me = (h.me ?? '').toLowerCase();
-    list.innerHTML = rows.map((r, i) => `<div class="dbo-rank${r.pos <= 3 ? ` top t${r.pos}` : ''}${String(r.username).toLowerCase() === me ? ' me' : ''}" style="--k:${i}">
-      <b class="dbo-pos">${r.pos <= 3 ? ['🥇', '🥈', '🥉'][r.pos - 1] : r.pos}</b><span class="dbo-name">${esc(String(r.username))}</span><span class="dbo-wins"><b>${Number(r.wins)}</b> ${tr('victorias')}</span></div>`).join('');
+    // each one as on the game's other boards: his icon in his frame, his banner behind, his name (golden with the key)
+    const plate = await (h.rankPlates?.(rows.map((r) => String(r.username))) ?? Promise.resolve(null)).catch(() => null);
+    list.innerHTML = rows.map((r, i) => {
+      const p = plate?.(String(r.username), r.avatar);
+      return `<div class="dbo-rank${r.pos <= 3 ? ` top t${r.pos}` : ''}${String(r.username).toLowerCase() === me ? ' me' : ''}${p?.ribbon ? ' has-pn' : ''}" style="--k:${i}">${p?.ribbon ?? ''}
+      <b class="dbo-pos">${r.pos <= 3 ? ['🥇', '🥈', '🥉'][r.pos - 1] : r.pos}</b>${p ? `<span class="dbo-face">${p.face}</span>` : ''}<span class="dbo-name"><b class="${p?.nameCls ?? ''}">${esc(String(r.username))}</b>${p?.clan ?? ''}</span><span class="dbo-wins"><b>${Number(r.wins)}</b> ${tr('victorias')}</span></div>`;
+    }).join('');
   };
   el.querySelector('.dbo-chips')!.addEventListener('click', (e) => {
     const b = (e.target as HTMLElement).closest<HTMLElement>('[data-week]');
@@ -126,12 +131,17 @@ const CSS = `
 .dbo-tip p{margin:2px 0}
 .dbo-tip i{font-style:normal;color:#ffd23a;font-weight:900}
 .dbo-list{display:flex;flex-direction:column;gap:6px}
-.dbo-rank{display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:12px;background:#13245e;border:1px solid #4fb3ff44;animation:dbP .35s cubic-bezier(.2,1.4,.4,1) backwards;animation-delay:calc(var(--k) * .03s)}
+.dbo-rank{position:relative;overflow:hidden;display:flex;align-items:center;gap:12px;min-height:56px;padding:8px 14px;border-radius:12px;background:#13245e;border:1px solid #4fb3ff44;animation:dbP .35s cubic-bezier(.2,1.4,.4,1) backwards;animation-delay:calc(var(--k) * .03s)}
+.dbo-rank>*:not(.pn-ribbon){position:relative;z-index:1}
+.dbo-rank.has-pn .pn-ribbon{opacity:.55}
+.dbo-face{flex:none;display:grid;place-items:center;width:46px;height:46px}
+.dbo-name{display:flex;align-items:center;gap:8px;min-width:0}
+.dbo-name b{font-weight:900;font-size:15px;text-shadow:0 1px 2px #000}
 .dbo-rank.top{background:linear-gradient(90deg,#3a2a10,#13245e);border-color:#ffd76a}
 .dbo-rank.t1{box-shadow:0 0 18px #ffb02066}
 .dbo-rank.me{outline:2px solid #7dff9a}
 .dbo-pos{width:40px;text-align:center;font:900 italic 20px 'Arial Black',sans-serif;color:#ffe9a8}
-.dbo-name{flex:1;font-weight:900;font-size:15px}
+.dbo-name{flex:1}
 .dbo-wins{color:#cfe0ff;font-size:12px}
 .dbo-wins b{font:900 italic 18px 'Arial Black',sans-serif;color:#ffe14a}
 `;

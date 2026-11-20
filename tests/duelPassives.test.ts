@@ -50,7 +50,7 @@ describe('Modo Duelo: passives', () => {
   it("Erik's second wind: the first time under half PV he heals and gets a shield, once", () => {
     const s = duel([10, 1513, 2, 3], [1024, 29, 1541, 1532]);
     const erik = s.sides[1].units.find((u) => u.pid === 1024)!;
-    erik.shield = 0; erik.hp = Math.round(erik.maxHp * 0.55);
+    erik.shield = 0; erik.hp = erik.maxHp; // full: the blow takes him under half without knocking him out
     const [a] = hand(s, 0, [[10, 0, 2]]);
     act(s, 0, { do: 'use', card: a.id, target: erik.uid });
     expect(s.log.some((e) => e.t === 'passive' && e.uid === erik.uid && e.what === 'secondWind')).toBe(true);
@@ -87,6 +87,29 @@ describe('Modo Duelo: passives', () => {
     };
     // the same target (Jack) with David in goal, and with another goalkeeper of no aura
     expect(hitOn([100773, 3, 2, 1513])).toBeLessThan(hitOn([1548, 3, 2, 1513]));
+  });
+  it('two ★ always make a ★★, with the coach Travis too (his first fusion of the turn gives an orb instead)', () => {
+    for (const coach of [null, 'travis'] as const) {
+      const s = createDuel([teamOf(byId, [10, 1, 1513, 2], coach), teamOf(byId, [29, 1541, 1532, 1542], null)], 4, 0);
+      const ss = s.sides[0], axel = ss.units[0];
+      ss.mergedThisTurn = false; axel.gauge = 0;
+      const [, , c] = hand(s, 0, [[10, 0, 1], [1, 0, 1], [10, 0, 1]]);
+      act(s, 0, { do: 'move', card: c.id, to: 1 });
+      expect(ss.hand.find((x) => x.owner === axel.uid)!.rank, String(coach)).toBe(2);
+      // the move and the fusion give an orb each; Travis 2 more here (four of his Inazuma Japan: his passive +50 %)
+      expect(axel.gauge, String(coach)).toBe(coach ? 4 : 2);
+    }
+  });
+  it('a full Garra gains nothing more until the ulti is used, and then it empties', () => {
+    const s = duel([10, 1, 1513, 2], [29, 1541, 1532, 1542]);
+    const axel = s.sides[0].units.find((u) => u.pid === 10)!;
+    axel.gauge = 5;
+    const [a, , c, ult] = hand(s, 0, [[10, 0, 2], [1, 1, 1], [10, 1, 1], [10, 'u', 1]]);
+    act(s, 0, { do: 'use', card: a.id });
+    act(s, 0, { do: 'move', card: c.id, to: 0 });
+    expect(axel.gauge).toBe(5);
+    act(s, 0, { do: 'use', card: ult.id });
+    expect(axel.gauge).toBe(0);
   });
   it('Gazelle is immune to being frozen', () => {
     const s = duel([1513, 10, 2, 3], [1370, 29, 1541, 1532]);

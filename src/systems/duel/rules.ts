@@ -40,6 +40,8 @@ export interface Unit {
   /** his passive's state (cards.ts DUEL_PASSIVE): last stand spent, second wind spent, ATK stacks from his cards, rage
    *  stacks from fallen mates, cards he has used */
   stood?: boolean; winded?: boolean; pstack?: number; rage?: number; uses?: number;
+  /** the element of each of his techniques (UnitCfg.techEl) */
+  techEl?: Record<string, Element>;
 }
 export interface Card { id: number; owner: number; idx: 0 | 1 | 'u' | 'c'; rank: 1 | 2 | 3; sealed?: boolean; decoy?: boolean; combo?: { name: string; members: number[] } }
 export interface SideState {
@@ -53,7 +55,7 @@ export interface SideState {
 }
 export type Ev =
   | { t: 'turn'; side: Side; turn: number } | { t: 'deal'; side: Side; cards: number }
-  /** `boost`: it climbed one more rank (the coach Travis's first fusion of the turn, or a card's «fusión potenciada») */
+  /** `boost`: the coach Travis's first fusion of the turn (an orb more) or a card's «fusión potenciada» (a rank more) */
   | { t: 'merge'; side: Side; card: number; rank: number; owner: number; idx: Card['idx']; boost?: 'travis' | 'card' }
   | { t: 'combo'; side: Side; name: string } | { t: 'use'; side: Side; card: Card; spec: string; target?: number }
   | { t: 'hit'; from: number; to: number; dmg: number; crit: boolean; elem: number; broke?: boolean }
@@ -73,7 +75,10 @@ export interface DuelState {
   tutorial?: { deals: { pid: number; idx: 0 | 1; rank?: 1 | 2 | 3 }[][]; dealt: number; kos?: Record<number, number>; gauges?: Record<number, Record<number, number>> };
 }
 
-export interface UnitCfg { pid: number; stats: DuelStats; element: Element; position: string; bonusPct?: number; spirit?: boolean }
+/** `techEl`: the element of each of his techniques (by techKey), from the game's data */
+export interface UnitCfg { pid: number; stats: DuelStats; element: Element; position: string; bonusPct?: number; spirit?: boolean; techEl?: Record<string, Element> }
+/** a technique's name as a key (the cards write «Pingüino emp. n.º 2», the game «Pingüino emp. n.~2») */
+export const techKey = (s: string) => s.toLowerCase().replace(/[^a-z0-9áéíóúüñ]/g, '');
 export interface TeamCfg { units: UnitCfg[]; coach: CoachId | null; boss?: { actions: number; cards: number; shieldCap?: number } }
 
 // ---- randomness (mulberry32 on the state, so a copy of the state replays the same luck)
@@ -116,7 +121,7 @@ export function createDuel(teams: [TeamCfg, TeamCfg], seed: number, first: Side 
       return { uid: side * 16 + i, pid: c.pid, side: side as Side, slot: i < 3 ? i : 3, hp: base.hp, maxHp: base.hp, base, element: c.element,
         position: c.position, group: p.group, family: p.family ?? p.id,
         gauge: Math.min(GAUGE_MAX - 1, (p.mixiMax ? 2 : 0) + (passive(c.pid, 'gaugeStart')?.n ?? 0)), shield: 0, status: {}, mods: [], stances: [],
-        blind: 0, noHeal: 0, ultiReady: false, spirit: c.spirit };
+        blind: 0, noHeal: 0, ultiReady: false, spirit: c.spirit, ...(c.techEl ? { techEl: c.techEl } : {}) };
     });
     const groups: Partial<Record<DuelGroup, number>> = {};
     for (const u of units) groups[u.group] = (groups[u.group] ?? 0) + 1;
@@ -251,10 +256,11 @@ function deal(s: DuelState, ss: SideState) {
     const can = onPitch(ss).filter((u) => !u.status.congelado);
     const size = Math.min(HAND_MAX, can.length ? 2 * can.length + 1 + ss.nextExtra + (ss.boss?.cards ?? 0) - ss.nextCardsMinus : 0);
     for (let round = 0; ss.hand.length < size && round < 12; round++) {
-      // each round: as many as are missing, spread over the starters, then they settle (and fuse)
+      // each round: as many as are missing, each one of a starter at random (author: «que las cartas que se obtengan
+      // al principio sean aleatorias, no siguiendo el patrón»), then they settle (and fuse)
       const fresh: Card[] = [];
       for (let k = 0, n = size - ss.hand.length; k < n; k++) {
-        const u = round === 0 && k < can.length * 2 ? can[k % can.length] : pick(s, can)!;
+        const u = pick(s, can)!;
         fresh.push(newCard(s, u.uid, rand(s) < 0.5 ? 0 : 1, round === 0 && k === 0 && groupOn(ss, 'Inazuma Japan') ? 2 : 1));
       }
       if (groupOn(ss, 'Protocolo Omega')) fresh.sort((a, b) => a.owner - b.owner || Number(a.idx) - Number(b.idx));
@@ -278,7 +284,9 @@ function settle(s: DuelState, ss: SideState) {
       const a = ss.hand[i], b = ss.hand[i + 1];
       if (a.idx === 'u' || a.idx === 'c' || a.decoy || b.decoy || a.sealed || b.sealed || a.idx !== b.idx || a.rank !== b.rank || a.rank >= 3 || fam(a) !== fam(b)) continue;
       let rank = a.rank + 1, boost: 'travis' | 'card' | undefined;
-      if (!ss.mergedThisTurn && coachOf(ss, 'travis')) { rank++; boost = 'travis'; } // Táctica: the first fusion of each turn climbs one more
+      // Táctica: the first fusion of each turn gives its footballer an orb more (it used to climb a rank more, and ★ + ★
+      // giving ★★★ looked like a bug: author «se siguen juntando dos de bronce en una de oro»)
+      if (!ss.mergedThisTurn && coachOf(ss, 'travis')) { gauge(unit(s, a.owner), ss.coachBoost ? 2 : 1); boost = 'travis'; }
       if (ss.mergeBoost) { rank++; ss.mergeBoost = false; boost = 'card'; }
       ss.mergedThisTurn = true;
       a.rank = Math.min(3, rank) as 1 | 2 | 3;
@@ -336,7 +344,8 @@ function checkKos(s: DuelState) {
       s.log.push({ t: 'ko', uid: u.uid });
       if (coachOf(ss, 'hillman')) ss.hillman = Math.min(2, ss.hillman + 1);
       for (const o of standing(ss)) { const rg = passive(o.pid, 'allyKoRage'); if (rg && o.uid !== u.uid) { o.rage = (o.rage ?? 0) + 1; gauge(o, rg.n); s.log.push({ t: 'passive', uid: o.uid, what: 'rage' }); } }
-      benchIn(s, ss);
+      // the bench does not come in now: it takes the empty place when his side's next turn starts (startTurn), once the
+      // turn is over (author: «que salga el del banquillo acabado el turno»)
     }
     if (ss.units.every((u) => u.slot < 0)) { s.winner = foe(ss.units[0].side); s.log.push({ t: 'win', side: s.winner }); return; }
   }
@@ -497,9 +506,8 @@ function play(s: DuelState, ss: SideState, card: Card, target: number | undefine
   // the Debilitar of a Royal Academy side of 3+ also lowers a card of its target
   if (spec.kind === 'debilitar' && rank >= 2 && groupOn(ss, 'Royal Academy')) rankDown(c, 'target', tgtEnemy());
   if (has(c, 'selfDamage')) damageRaw(s, u, Math.round(u.maxHp * get(c, 'selfDamage')[0].pct / 100), null);
-  // a card gives as many segments as its stars (a fused card charges the ulti faster, as in Grand Cross); the tutorial's
-  // lessons were written for one per card
-  if (card.idx === 'u') u.gauge = 0; else if (card.idx !== 'c') gauge(u, s.tutorial ? 1 : card.rank);
+  // a card gives one orb whatever its stars (author: «por mucho que la carta sea de oro, solo da 1 orbe»)
+  if (card.idx === 'u') u.gauge = 0; else if (card.idx !== 'c') gauge(u, 1);
   // passives after the card: his ulti's status on what it hit, his ATK stack
   const us = card.idx === 'u' ? passive(u.pid, 'ultiStatus') : undefined;
   if (us && mult > 0) for (const t of spec.area ? onPitch(s.sides[foe(u.side)]) : [aim(s, u, target, has(c, 'ignoreTaunt'))].filter(Boolean) as Unit[]) giveStatus(c, t, us.s, undefined, true);
@@ -621,8 +629,12 @@ function damage(c: Ctx, a: Unit, t: Unit, mult: number, main: boolean): number {
   if (fx.some((f) => f.do === 'ignoreDef')) pierce = 1;
   const def = defOf(s, t) * (1 - Math.min(1, pierce));
   let dmg = atkOf(s, a) * mult * 1000 / (1000 + def);
-  const elem = fx.some((f) => f.do === 'alwaysAdvantage') || BEATS[a.element] === t.element ? 1.3 : BEATS[t.element] === a.element ? 0.8 : 1;
+  // the affinity goes by the technique (author: «como el Victory Road, importa técnica y jugador»): its element against
+  // the target's, and 10 % more when it is the footballer's own element; a counter or a combined technique goes by him
+  const te = main && c.card.idx !== 'c' ? a.techEl?.[techKey(c.spec.tech)] ?? a.element : a.element;
+  const elem = fx.some((f) => f.do === 'alwaysAdvantage') || BEATS[te] === t.element ? 1.3 : BEATS[t.element] === te ? 0.8 : 1;
   dmg *= elem;
+  if (main && te === a.element && te !== 'Neutro') dmg *= 1.1;
   let crit = a.base.crit + fx.filter((f) => f.do === 'critBonus').reduce((x, f) => x + (f as { pct: number }).pct, 0);
   if (coachOf(as, 'mister-d')) crit += 12 * coachK(as);
   const isCrit = (main && (fx.some((f) => f.do === 'critSure') || !!c.third)) || rand(s) * 100 < crit;
@@ -746,7 +758,10 @@ export function teamOf(byId: Map<number, { id: number; rarity: string; position:
     units: pids.map((pid) => {
       const p = byId.get(pid);
       if (!p) throw new Error(`unknown footballer ${pid}`);
-      return { pid, stats: duelStats(p as never), element: p.element as Element, position: p.position, bonusPct: bonus(pid) };
+      // the element of each technique: the affinities go by the technique, as in Victory Road (author)
+      const techEl: Record<string, Element> = {};
+      for (const t of p.techniques as { name?: string; element?: string | null }[]) if (t.name) techEl[techKey(t.name)] = (t.element || 'Neutro') as Element;
+      return { pid, stats: duelStats(p as never), element: p.element as Element, position: p.position, bonusPct: bonus(pid), techEl };
     }),
   };
 }

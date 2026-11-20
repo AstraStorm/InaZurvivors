@@ -2609,6 +2609,10 @@ export class App {
       storyCleared: (id) => { const d = (this.save.duel ??= {}); if (!(d.story ??= []).includes(id)) d.story.push(id); addCounter(this.save, 'duel_story', 1); this.persist(); },
       card: (pid) => { const p = this.byId.get(pid); return p ? this.pcard(p) : ''; },
       ranking: (week) => (onlineConfigured() ? duelRanking(week) : Promise.resolve(null)),
+      rankPlates: async (names) => {
+        await this.loadFlags(names);
+        return (name, avatar) => ({ face: this.framed(this.profileIcon(40, this.iconFrom(avatar ?? '')), this.frameOf(name), true), ribbon: this.flagMini(name), nameCls: this.goldName(name).trim(), clan: this.clanBadge(name) });
+      },
       // online duels need the service and an account with its name
       pvp: onlineConfigured() && signedIn() && this.save.onlineName ? {
         join: duelPvpJoin, poll: duelPvpPoll, leave: duelPvpLeave, move: duelPvpMove, sync: duelPvpSync, end: duelPvpEnd,

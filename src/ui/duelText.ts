@@ -169,7 +169,7 @@ export function coachText(id: string, boosted = false): string {
   switch (id) {
     case 'hillman': return tr('Por cada compañero tuyo K.O., tu equipo gana ATQ +{n} % (hasta 2 veces).', { n: 10 * k });
     case 'ray-dark': return tr('Juego sucio: la primera mano del rival tiene 1 carta menos, y tus cartas que bajan la DEF la bajan {n} puntos más.', { n: 10 * k });
-    case 'travis': return tr('Táctica: la primera fusión de cada turno sube un rango más (★ + ★ = ★★★).');
+    case 'travis': return tr('Táctica: la primera fusión de cada turno da {n} orbe más de Garra a su jugador.', { n: boosted ? 2 : 1 });
     case 'david-evans': return tr('Tus porteros empiezan con 2 orbes y tus escudos protegen un {n} % más.', { n: 30 * k });
     case 'mister-d': return tr('Tu equipo tiene DEF −{d} % y probabilidad de crítico +{c}.', { d: 8 * k, c: 12 * k });
     default: return '';

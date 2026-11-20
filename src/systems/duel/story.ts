@@ -23,8 +23,9 @@ export interface StoryChapter {
   foe: number[]; foeCoach: CoachId | null; level: CpuLevel;
   /** the rival's HP / ATK / DEF multiplier */
   k: number;
-  /** a boss: actions and cards more each turn */
-  boss?: { actions: number; cards: number; shieldCap?: number };
+  /** a boss: actions and cards more each turn; `hp` / `atk` multiply his PV and ATQ on top of `k` (a long final that
+   *  is not decided in three turns: author «Byron solo con 3k de vida se hace en 3 turnos») */
+  boss?: { actions: number; cards: number; shieldCap?: number; hp?: number; atk?: number };
   intro: StoryLine[]; outro: StoryLine[];
 }
 export interface StorySeason { n: 1 | 2 | 3; title: string; sub: string; c1: string; c2: string; chapters: StoryChapter[] }
@@ -35,7 +36,7 @@ export const STORY: StorySeason[] = [
     chapters: [
       {
         id: '1-1', title: 'El desafío de la Royal', rival: 'Royal Academy', you: [1, 10, 2, 3], youCoach: 'hillman',
-        foe: [29, 30, 20], foeCoach: 'ray-dark', level: 'facil', k: 1.21,
+        foe: [29, 30, 20], foeCoach: 'ray-dark', level: 'facil', k: 1.53,
         intro: [
           { who: 'hillman', text: 'La Royal Academy ha retado al Raimon. Si perdemos, cierran el club de fútbol.' },
           { who: 1, text: '¡Pues no vamos a perder! ¡Somos un equipo!' },
@@ -49,7 +50,7 @@ export const STORY: StorySeason[] = [
       },
       {
         id: '1-2', title: 'Final regional: la Royal Academy', rival: 'Royal Academy', you: [1, 10, 2, 3], youCoach: 'hillman',
-        foe: [29, 30, 20], foeCoach: 'ray-dark', level: 'normal', k: 1.44,
+        foe: [29, 30, 20], foeCoach: 'ray-dark', level: 'normal', k: 1.75,
         intro: [
           { who: 'ray-dark', text: 'Esta vez no habrá sorpresas. La Royal Academy no pierde nunca.' },
           { who: 29, text: 'Mark... Sé lo que ha hecho Ray Dark. Hoy jugaremos limpio. Y aun así te ganaré.' },
@@ -62,7 +63,7 @@ export const STORY: StorySeason[] = [
       },
       {
         id: '1-3', title: 'Final: el dios del Zeus', rival: 'Zeus', you: [1, 10, 29, 3], youCoach: 'hillman', joins: [29],
-        foe: [157], foeCoach: 'ray-dark', level: 'dificil', k: 2.0, boss: { actions: 1, cards: 3 },
+        foe: [157], foeCoach: 'ray-dark', level: 'dificil', k: 1.9, boss: { actions: 1, cards: 3, shieldCap: 0.3, hp: 2.4, atk: 0.8 },
         intro: [
           { who: 29, text: 'El Zeus ha destrozado a la Royal. Déjame jugar con vosotros, Mark.' },
           { who: 157, text: 'Soy Byron Love. Los mortales no deberían pisar el campo de un dios.' },
@@ -82,7 +83,7 @@ export const STORY: StorySeason[] = [
     chapters: [
       {
         id: '2-1', title: 'Diamond Dust', rival: 'Diamond Dust', you: [1, 1513, 29, 2], youCoach: 'hillman', joins: [1513],
-        foe: [1370, 100797], foeCoach: null, level: 'normal', k: 1.21, boss: { actions: 1, cards: 1 },
+        foe: [1370, 100797], foeCoach: null, level: 'normal', k: 1.51, boss: { actions: 1, cards: 1 },
         intro: [
           { who: 1, text: 'Axel se ha ido... pero tenemos a un nuevo delantero: ¡Shawn Froste!' },
           { who: 1370, text: 'Somos Diamond Dust, de la Academia Alius. Vuestro planeta se congelará.' },
@@ -111,7 +112,7 @@ export const STORY: StorySeason[] = [
       },
       {
         id: '2-3', title: 'Chaos', rival: 'Chaos', you: [1, 1513, 1548, 29], youCoach: 'hillman', joins: [1548],
-        foe: [1371, 1370], foeCoach: null, level: 'normal', k: 1.29, boss: { actions: 1, cards: 2 },
+        foe: [1371, 1370], foeCoach: null, level: 'normal', k: 1.22, boss: { actions: 1, cards: 2 },
         intro: [
           { who: 1371, text: 'Prominence y Diamond Dust, juntos. Somos Chaos.' },
           { who: 1370, text: 'Fuego y hielo. No aguantaréis nuestra Ventisca de fuego.' },
@@ -125,16 +126,16 @@ export const STORY: StorySeason[] = [
       },
       {
         id: '2-4', title: 'Génesis', rival: 'Génesis', you: [1, 10, 1513, 29], youCoach: 'hillman', joins: [10],
-        foe: [101722, 1371, 1370], foeCoach: null, level: 'dificil', k: 1.23, boss: { actions: 0, cards: 2 },
+        foe: [1406, 1405, 1396], foeCoach: null, level: 'dificil', k: 1.44, boss: { actions: 0, cards: 2 },
         intro: [
           { who: 10, text: 'Siento haber tardado. He vuelto para quedarme.' },
-          { who: 101722, text: 'Soy Xavier Foster, capitán de Génesis. Somos lo más alto de la Academia Alius.' },
-          { who: 101722, text: 'La Piedra Alius nos ha hecho imparables. ¿Qué podéis hacer contra eso?' },
+          { who: 1406, text: 'Soy Xene, capitán de Génesis. Somos lo más alto de la Academia Alius.' },
+          { who: 1405, text: 'La Piedra Alius nos ha hecho imparables. ¿Qué podéis hacer contra eso?' },
           { who: 1, text: '¡Axel, Shawn, conmigo! ¡Es la hora de La Tierra!' },
         ],
         outro: [
-          { who: 101722, text: 'La Tierra... Así que eso se siente al jugar de verdad en equipo.' },
-          { who: 1, text: '¡Se acabó la invasión! Buen fútbol, Xavier. ¡Volveremos a jugar!' },
+          { who: 1406, text: 'La Tierra... Así que eso se siente al jugar de verdad en equipo.' },
+          { who: 1, text: '¡Se acabó la invasión! Buen fútbol, Xene. ¡Volveremos a jugar!' },
         ],
       },
     ],
@@ -144,7 +145,7 @@ export const STORY: StorySeason[] = [
     chapters: [
       {
         id: '3-1', title: 'Asia: Fire Dragon', rival: 'Fire Dragon', you: [1, 10, 1513, 1567], youCoach: 'travis', joins: [1567],
-        foe: [101775, 157, 1371, 1370], foeCoach: null, level: 'normal', k: 0.89,
+        foe: [101775, 157, 1371, 1370], foeCoach: null, level: 'normal', k: 1.09,
         intro: [
           { who: 'travis', text: 'Soy vuestro seleccionador. Para ir al mundial, hay que ganar a Corea: el Fire Dragon.' },
           { who: 101775, text: 'Byron, Claude, Bryce... ¡El Fire Dragon tiene a los mejores de vuestro país!' },
@@ -158,7 +159,7 @@ export const STORY: StorySeason[] = [
       },
       {
         id: '3-2', title: 'Las estrellas de Liocott', rival: 'Estrellas de Liocott', you: [1, 10, 101719, 1567], youCoach: 'travis', joins: [101719],
-        foe: [1024, 101838, 101855, 101791], foeCoach: 'mister-d', level: 'dificil', k: 0.86,
+        foe: [1024, 101838, 101855, 101791], foeCoach: 'mister-d', level: 'dificil', k: 0.97,
         intro: [
           { who: 1024, text: '¡Mark! Cuánto tiempo. Unicorn, Orpheus y Knights of Queen, juntos en un partido de exhibición.' },
           { who: 101855, text: 'La Orpheus siempre juega con elegancia. Hoy no será distinto.' },
@@ -203,6 +204,10 @@ export function storyTeams(byId: Parameters<typeof teamOf>[0], ch: StoryChapter)
   const mine = teamOf(byId, ch.you, ch.youCoach);
   const foe = teamOf(byId, ch.foe, ch.foeCoach);
   for (const u of foe.units) u.stats = { ...u.stats, hp: Math.round(u.stats.hp * ch.k), atk: Math.round(u.stats.atk * Math.sqrt(ch.k)), def: Math.round(u.stats.def * Math.sqrt(ch.k)) };
-  if (ch.boss) foe.boss = ch.boss;
+  if (ch.boss) {
+    const { hp = 1, atk = 1, ...boss } = ch.boss;
+    for (const u of foe.units) u.stats = { ...u.stats, hp: Math.round(u.stats.hp * hp), atk: Math.round(u.stats.atk * atk) };
+    foe.boss = boss;
+  }
   return [mine, foe];
 }
