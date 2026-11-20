@@ -30,35 +30,45 @@ describe('Modo Duelo: the rules engine', () => {
     expect(shawn.hp).toBeLessThan(hp);
     expect(s.log.slice(n).filter((e) => e.t === 'miss' && e.to === shawn.uid)).toHaveLength(1);
   });
-  it('the first hand is 1 card per starter + 1 (4) and the opening side has only 2 actions; Ray Dark takes one card from the other side', () => {
+  it('every turn the hand fills up to 2 per starter + 1 (7), fusions made up for; the opening side plays 3 too; Ray Dark takes one card from the other side', () => {
     const s = duel();
     expect(s.active).toBe(0);
-    // 4 minus Ray Dark's «Juego sucio»
-    expect(s.log.find((e) => e.t === 'deal' && e.side === 0)).toMatchObject({ cards: 3 });
-    expect(s.sides[0].actions).toBe(2);
+    const cards = (side: 0 | 1) => s.sides[side].hand.filter((c) => c.idx !== 'u').length;
+    // 7 minus Ray Dark's «Juego sucio»
+    expect(cards(0)).toBe(6);
+    expect(s.sides[0].actions).toBe(3);
     act(s, 0, { do: 'end' });
     expect(s.active).toBe(1);
-    expect(s.log.filter((e) => e.t === 'deal' && e.side === 1).at(-1)).toMatchObject({ cards: 4 });
+    expect(cards(1)).toBe(7);
     expect(s.sides[1].actions).toBe(3);
   });
   it('the same seed and the same actions give the same match', () => {
     const run = () => { const s = duel(42); for (let k = 0; k < 10 && s.winner < 0; k++) cpuTurn(s, 'dificil', () => 0.5); return JSON.stringify(s.sides.map((x) => x.units.map((u) => u.hp))); };
     expect(run()).toBe(run());
   });
-  it('two equal cards side by side fuse when one is moved next to the other, and the fusion fills the gauge', () => {
+  it('two equal cards side by side fuse when one is moved next to the other: the move and the fusion each fill the gauge', () => {
     const s = duel();
     const [a, , c] = hand(s, 0, [[1513, 0, 1], [1, 0, 1], [1513, 0, 1]]); // Shawn, Mark, Shawn (no combined technique between them)
     const shawn = unit(s, a.owner), g = shawn.gauge;
     expect(act(s, 0, { do: 'move', card: c.id, to: 1 })).toBeNull();
     expect(s.sides[0].hand.map((x) => [pidOf(s, x.owner), x.rank])).toEqual([[1513, 2], [1, 1]]);
+    expect(shawn.gauge).toBe(g + 2);
+  });
+  it('moving a card charges its footballer one orb even when nothing fuses', () => {
+    const s = duel();
+    const [a] = hand(s, 0, [[1513, 0, 1], [1, 0, 1], [10, 1, 1]]);
+    const shawn = unit(s, a.owner), g = shawn.gauge;
+    expect(act(s, 0, { do: 'move', card: a.id, to: 2 })).toBeNull();
+    expect(s.sides[0].hand.map((x) => pidOf(s, x.owner))).toEqual([1, 10, 1513]);
     expect(shawn.gauge).toBe(g + 1);
   });
   it('using the card between two equal ones fuses them for free', () => {
     const s = duel();
     const [, mid] = hand(s, 0, [[10, 1, 1], [1, 0, 1], [10, 1, 1]]);
+    const actions = s.sides[0].actions;
     act(s, 0, { do: 'use', card: mid.id });
     expect(s.sides[0].hand.map((x) => [pidOf(s, x.owner), x.idx, x.rank])).toEqual([[10, 1, 2]]);
-    expect(s.sides[0].actions).toBe(1);
+    expect(s.sides[0].actions).toBe(actions - 1);
   });
   it('damage follows the formula: ATQ × card × 1000/(1000+DEF) × element, ±5 %', () => {
     const s = duel();
@@ -68,7 +78,9 @@ describe('Modo Duelo: the rules engine', () => {
     act(s, 0, { do: 'use', card: c.id, target: target.uid });
     const hit = s.log.find((e) => e.t === 'hit' && e.to === target.uid) as { dmg: number; elem: number };
     const groupBonus = 1.08; // Mark, Axel and Shawn are 3 of Inazuma Japan
-    const expected = axel.base.atk * groupBonus * 1.5 * 1000 / (1000 + target.base.def * (1 - axel.base.pierce / 100)) * hit.elem;
+    // passives: Axel's first card of the turn +25 %; King (Redux) on the pitch, his mates take 8 % less
+    const passives = 1.25 * 0.92;
+    const expected = axel.base.atk * groupBonus * 1.5 * 1000 / (1000 + target.base.def * (1 - axel.base.pierce / 100)) * hit.elem * passives;
     expect(hit.dmg).toBeGreaterThan(expected * 0.94);
     expect(hit.dmg).toBeLessThan(expected * 1.06);
   });

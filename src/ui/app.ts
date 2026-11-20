@@ -849,6 +849,20 @@ export class App {
     if (covered && loop.running) loop.sleep();
     else if (!covered && !loop.running) loop.wake();
   }
+  /** the duel's screens cover the whole game but live outside the menu's root: while any is open the game loop sleeps
+   *  (the menu pitch kept drawing under the match at the screen's full rate; the author's Twitch broadcast froze) */
+  private duelWatch?: MutationObserver;
+  private duelSlept = false;
+  private sleepUnderDuel() {
+    const check = () => {
+      const loop = this.game.loop;
+      if (document.querySelector('.dh, .dm, .dt, .dbo, .dq, .dst, .dsc, .dsv, .dsd, .db-wrap')) { if (loop.running) { loop.sleep(); this.duelSlept = true; } return; }
+      if (this.duelSlept && !loop.running && !this.root.querySelector(':scope > .screen') && !this.game.scene.isActive('Arena')) loop.wake();
+      this.duelSlept = false;
+    };
+    if (!this.duelWatch) { this.duelWatch = new MutationObserver(check); this.duelWatch.observe(document.body, { childList: true }); }
+    queueMicrotask(check);
+  }
   /** 2.7: the «?» of the titlebar explains its screen; the first visit explains it on its own (once per screen, until tipsOff) */
   private helpWired = false;
   private screenTip() {
@@ -2576,6 +2590,7 @@ export class App {
   }
   /** Modo Duelo: its screen (ui/duelHub.ts), with your collection; winning the tutorial and the matches is saved */
   private duelScreen() {
+    this.sleepUnderDuel();
     const byId = new Map(this.m.roster.map((p) => [p.id, p]));
     void import('./duelHub').then(({ openDuelHub }) => openDuelHub({
       byId: byId as never, mug: (pid, size) => this.mug(pid, size), name: (pid) => byId.get(pid)?.nickname ?? byId.get(pid)?.name ?? '?',

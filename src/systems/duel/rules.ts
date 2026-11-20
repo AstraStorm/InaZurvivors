@@ -8,7 +8,7 @@
  * cards side by side. The gauge (5 segments) fills with every card used and every fusion; full, the ulti comes into the
  * hand. Whoever knocks out the 4 rivals wins.
  */
-import { ALLY_ON_FIELD_BONUS, DUEL_BY_ID, sameFamily, DUEL_COACHES, DUEL_COMBOS, duelStats, type CardKind, type CardSpec, type CoachId, type Cond, type DuelGroup,
+import { ALLY_ON_FIELD_BONUS, DUEL_BY_ID, passiveOf, sameFamily, DUEL_COACHES, DUEL_COMBOS, duelStats, type CardKind, type CardSpec, type CoachId, type Cond, type DuelGroup,
   type DuelStats, type Fx, type Per, type StatusId } from './cards';
 
 export type Side = 0 | 1;
@@ -37,6 +37,8 @@ export interface Unit {
   hp: number; maxHp: number; base: DuelStats; element: Element; position: string; group: DuelGroup; family: number;
   gauge: number; shield: number; status: Partial<Record<StatusId, number>>; mods: Mod[]; stances: (Stance & { owner: number })[];
   blind: number; noHeal: number; ultiReady: boolean; spirit?: boolean; spiritOn?: boolean;
+  /** his last-stand passive is spent */
+  stood?: boolean;
 }
 export interface Card { id: number; owner: number; idx: 0 | 1 | 'u' | 'c'; rank: 1 | 2 | 3; sealed?: boolean; decoy?: boolean; combo?: { name: string; members: number[] } }
 export interface SideState {
@@ -53,6 +55,11 @@ export type Ev =
   | { t: 'combo'; side: Side; name: string } | { t: 'use'; side: Side; card: Card; spec: string; target?: number }
   | { t: 'hit'; from: number; to: number; dmg: number; crit: boolean; elem: number; broke?: boolean }
   | { t: 'miss'; from: number; to: number; why: 'dodge' | 'block' | 'blind' }
+  /** a blow that ignores stances went through one that was guarding its target (the screen says so: a block that does
+   *  nothing looked like a bug, author «pongo la mano mágica y la atraviesan») */
+  | { t: 'pierce'; to: number }
+  /** a passive that shows (cards.ts DUEL_PASSIVE): the last stand that kept him up */
+  | { t: 'passive'; uid: number; what: 'lastStand' }
   | { t: 'heal'; to: number; hp: number } | { t: 'shield'; to: number; amount: number } | { t: 'status'; to: number; s: StatusId; turns: number }
   | { t: 'resist'; to: number; s: StatusId } | { t: 'dispel'; to: number } | { t: 'ko'; uid: number } | { t: 'enter'; uid: number; slot: number }
   | { t: 'ulti'; uid: number } | { t: 'cards'; side: Side; what: string } | { t: 'win'; side: Side };
@@ -104,7 +111,8 @@ export function createDuel(teams: [TeamCfg, TeamCfg], seed: number, first: Side 
       const k = 1 + Math.min(20, Math.max(0, c.bonusPct ?? 0)) / 100;
       const base = { ...c.stats, hp: Math.round(c.stats.hp * k), atk: Math.round(c.stats.atk * k), def: Math.round(c.stats.def * k) };
       return { uid: side * 16 + i, pid: c.pid, side: side as Side, slot: i < 3 ? i : 3, hp: base.hp, maxHp: base.hp, base, element: c.element,
-        position: c.position, group: p.group, family: p.family ?? p.id, gauge: p.mixiMax ? 2 : 0, shield: 0, status: {}, mods: [], stances: [],
+        position: c.position, group: p.group, family: p.family ?? p.id,
+        gauge: Math.min(GAUGE_MAX - 1, (p.mixiMax ? 2 : 0) + (passiveOf(c.pid)?.do === 'gaugeStart' ? (passiveOf(c.pid) as { n: number }).n : 0)), shield: 0, status: {}, mods: [], stances: [],
         blind: 0, noHeal: 0, ultiReady: false, spirit: c.spirit };
     });
     const groups: Partial<Record<DuelGroup, number>> = {};
@@ -141,6 +149,8 @@ function atkOf(s: DuelState, u: Unit): number {
   if (Object.values(ss.groups).some((n) => n! >= 4)) k *= 1.15;
   k *= 1 + (ss.hillman * 10 * coachK(ss)) / 100;
   if (u.spiritOn) k *= 1.25;
+  // passives: a team mate on the pitch who raises his mates' ATK
+  for (const o of onPitch(ss)) { const p = passiveOf(o.pid); if (o.uid !== u.uid && p?.do === 'teamAtk') k *= 1 + p.pct / 100; }
   return u.base.atk * k;
 }
 function defOf(s: DuelState, u: Unit): number {
@@ -179,10 +189,21 @@ export function startTurn(s: DuelState, first = false) {
   }
   // the bench fills an empty place
   benchIn(s, ss);
+  // passives of every turn (Garra before the deal, so a gauge they fill brings its ulti now)
+  for (const u of onPitch(ss)) {
+    const p = passiveOf(u.pid);
+    if (p?.do === 'turnHeal' && !u.noHeal && u.hp < u.maxHp) { const hp = Math.min(u.maxHp - u.hp, Math.round(u.maxHp * p.pct / 100)); u.hp += hp; s.log.push({ t: 'heal', to: u.uid, hp }); }
+    if (p?.do === 'turnShield') { const amt = Math.round(u.maxHp * p.pct / 100); u.shield = ss.boss ? Math.min(u.shield + amt, Math.round(u.maxHp * ss.boss.shieldCap)) : u.shield + amt; s.log.push({ t: 'shield', to: u.uid, amount: amt }); }
+    if (p?.do === 'turnGauge') gauge(u, p.n);
+  }
   deal(s, ss);
+  for (const u of onPitch(ss)) if (passiveOf(u.pid)?.do === 'rankStart') {
+    const x = pick(s, ss.hand.filter((c) => c.owner === u.uid && c.rank < 3 && c.idx !== 'u' && c.idx !== 'c' && !c.decoy));
+    if (x) { x.rank = (x.rank + 1) as 2 | 3; s.log.push({ t: 'cards', side: u.side, what: 'rankUp' }); settle(s, ss); }
+  }
   for (const u of standing(ss)) if (u.status.congelado) { u.status.congelado--; if (!u.status.congelado) delete u.status.congelado; }
   const n = onPitch(ss).length;
-  ss.actions = Math.max(1, (n >= 3 ? 3 : n) - ss.nextActionsMinus) - (first && s.turn === 1 ? 1 : 0) + (ss.boss?.actions ?? 0); // the side that opens plays 2
+  ss.actions = Math.max(1, (n >= 3 ? 3 : n) - ss.nextActionsMinus) + (ss.boss?.actions ?? 0); // the side that opens plays 3 too (author)
   ss.nextActionsMinus = 0;
   ss.faceDown = false;
 }
@@ -211,20 +232,27 @@ function deal(s: DuelState, ss: SideState) {
   const script = s.tutorial && s.active === 0 ? s.tutorial.deals[s.tutorial.dealt++] : undefined;
   if (script) {
     for (const d of script) { const u = ss.units.find((x) => x.pid === d.pid && x.slot >= 0); if (u) fresh.push(newCard(s, u.uid, d.idx, d.rank ?? 1)); }
+    for (const c of fresh) if (ss.hand.length < HAND_MAX) ss.hand.push(c);
   } else {
+    // like Grand Cross (author: «siempre he de tener en la mano las cartas máximas al empezar turno, aunque se junten»):
+    // the hand fills up to its size every turn, also the first one, and the cards that fuse as they come in are made
+    // up for. Its size is 2 per starter who can play and 1 more (7 with three, 5 with two, 3 with one), give or take
+    // the cards some effects add or take away
     const can = onPitch(ss).filter((u) => !u.status.congelado);
-    // each side's first hand is 1 card per starter and 1 at random (author); later turns 2 per starter and 1 at random
-    const per = s.turn === 1 ? 1 : 2;
-    for (const u of can) for (let k = 0; k < per; k++) fresh.push(newCard(s, u.uid, rand(s) < 0.5 ? 0 : 1));
-    for (let k = 0; k < 1 + ss.nextExtra + (ss.boss?.cards ?? 0); k++) {
-      const u = pick(s, can);
-      if (u) fresh.push(newCard(s, u.uid, rand(s) < 0.5 ? 0 : 1, k === 0 && groupOn(ss, 'Inazuma Japan') ? 2 : 1));
+    const size = Math.min(HAND_MAX, can.length ? 2 * can.length + 1 + ss.nextExtra + (ss.boss?.cards ?? 0) - ss.nextCardsMinus : 0);
+    for (let round = 0; ss.hand.length < size && round < 12; round++) {
+      // each round: as many as are missing, spread over the starters, then they settle (and fuse)
+      const fresh: Card[] = [];
+      for (let k = 0, n = size - ss.hand.length; k < n; k++) {
+        const u = round === 0 && k < can.length * 2 ? can[k % can.length] : pick(s, can)!;
+        fresh.push(newCard(s, u.uid, rand(s) < 0.5 ? 0 : 1, round === 0 && k === 0 && groupOn(ss, 'Inazuma Japan') ? 2 : 1));
+      }
+      if (groupOn(ss, 'Protocolo Omega')) fresh.sort((a, b) => a.owner - b.owner || Number(a.idx) - Number(b.idx));
+      ss.hand.push(...fresh);
+      settle(s, ss);
     }
-    for (let k = 0; k < ss.nextCardsMinus && fresh.length; k++) fresh.pop();
-    if (groupOn(ss, 'Protocolo Omega')) fresh.sort((a, b) => a.owner - b.owner || Number(a.idx) - Number(b.idx));
   }
   ss.nextCardsMinus = 0; ss.nextExtra = 0;
-  for (const c of fresh) if (ss.hand.length < HAND_MAX) ss.hand.push(c);
   // full gauges: the ulti comes in first (beyond the 7)
   for (const u of onPitch(ss)) if (u.gauge >= GAUGE_MAX && !ss.hand.some((c) => c.idx === 'u' && c.owner === u.uid)) { ss.hand.unshift(newCard(s, u.uid, 'u')); s.log.push({ t: 'ulti', uid: u.uid }); }
   s.log.push({ t: 'deal', side: s.active, cards: ss.hand.length - before });
@@ -358,6 +386,9 @@ export function act(s: DuelState, side: Side, a: Action): string | null {
     if (ss.freeMoves > 0) ss.freeMoves--; else ss.actions--;
     const [c] = ss.hand.splice(i, 1);
     ss.hand.splice(a.to, 0, c);
+    // moving a card charges its footballer's Garra by one, fusion or not (author: «cuando mueves cartas, aunque no se
+    // junten, dan orbes»); a fusion it makes adds its own
+    if (c.idx !== 'u' && c.idx !== 'c' && !c.decoy) gauge(unit(s, c.owner), 1);
     settle(s, ss);
     return null;
   }
@@ -514,6 +545,7 @@ function hit(c: Ctx, a: Unit, t: Unit, mult: number) {
   real.blind = 0;
   const ts = s.sides[t.side];
   const ignoreStance = has(c, 'ignoreStance');
+  if (ignoreStance && (t.stances.some((x) => x.kind === 'dodge') || ts.units.some((x) => x.stances.some((st) => st.kind === 'block' && (st.who === 'team' || st.ward === t.uid))))) s.log.push({ t: 'pierce', to: t.uid });
   if (!ignoreStance) {
     // a dodge evades one hit: against a multi-hit card, the first misses and the rest land (author)
     const dodge = t.stances.find((x) => x.kind === 'dodge') as Extract<Stance, { kind: 'dodge' }> | undefined;
@@ -547,7 +579,11 @@ function hit(c: Ctx, a: Unit, t: Unit, mult: number) {
       .find(({ x, st }) => st && x.slot >= 0 && (x === t || (st.guardsTaunt && t.status.provocar)));
     if (counter?.st) { counter.x.stances.splice(counter.x.stances.indexOf(counter.st), 1); damage(c, counter.x, real, counter.st.mult, false); stanceFired(s, ts); }
   }
-  if (t.hp <= 0 && t.slot >= 0) c.kos++;
+  if (t.hp <= 0 && t.slot >= 0) {
+    c.kos++;
+    const p = passiveOf(real.pid);
+    if (p?.do === 'koGauge' && real.slot >= 0) gauge(real, p.n);
+  }
 }
 function stanceFired(s: DuelState, ss: SideState) {
   // Raimon GO of 3+: every stance that fires raises one of its cards
@@ -579,6 +615,16 @@ function damage(c: Ctx, a: Unit, t: Unit, mult: number, main: boolean): number {
   if (extra && onPitch(as).some((x) => x.pid === extra.ally)) dmg *= 1 + extra.pct / 100;
   dmg *= 1 + as.elemBonus / 100;
   dmg *= 1 + modSum(t, 'vuln') / 100;
+  // passives: the attacker's (on his own blows, not on counters) and the target's side
+  const pa = main ? passiveOf(a.pid) : undefined, ra = unit(s, a.uid);
+  if (pa?.do === 'lowHpAtk' && ra.hp < ra.maxHp / 2) dmg *= 1 + pa.pct / 100;
+  if (pa?.do === 'vsStatus' && Object.keys(t.status).some((x) => x !== 'provocar')) dmg *= 1 + pa.pct / 100;
+  if (pa?.do === 'elemPlus' && elem > 1) dmg *= 1 + pa.pct / 100;
+  if (pa?.do === 'ultiPlus' && c.card.idx === 'u') dmg *= 1 + pa.pct / 100;
+  if (pa?.do === 'firstCard' && c.first) dmg *= 1 + pa.pct / 100;
+  const pt = passiveOf(t.pid);
+  if (pt?.do === 'takeLess') dmg *= 1 - pt.pct / 100;
+  for (const o of onPitch(s.sides[t.side])) { const p = passiveOf(o.pid); if (o.uid !== t.uid && p?.do === 'teamDef') dmg *= 1 - p.pct / 100; }
   const ts = s.sides[t.side];
   if (c.spec.area && main) dmg *= 1 - ts.reduce.area / 100;
   dmg *= 1 - ts.reduce.all / 100;
@@ -587,19 +633,24 @@ function damage(c: Ctx, a: Unit, t: Unit, mult: number, main: boolean): number {
   dmg *= 0.95 + rand(s) * 0.1;
   const n = damageRaw(s, t, Math.round(dmg), a);
   s.log.push({ t: 'hit', from: a.uid, to: t.uid, dmg: n, crit: isCrit, elem, broke });
+  // passives after the blow: the attacker drinks a share of it, the target sends a share back
+  if (pa?.do === 'lifesteal' && n > 0 && ra.hp > 0 && ra.slot >= 0 && !ra.noHeal) { const hp = Math.min(ra.maxHp - ra.hp, Math.round(n * pa.pct / 100)); if (hp > 0) { ra.hp += hp; s.log.push({ t: 'heal', to: ra.uid, hp }); } }
+  if (main && pt?.do === 'thorns' && n > 0 && ra.uid !== t.uid && ra.slot >= 0) { const back = damageRaw(s, ra, Math.round(n * pt.pct / 100), t); s.log.push({ t: 'hit', from: t.uid, to: ra.uid, dmg: back, crit: false, elem: 1 }); }
   if (main && isCrit && !as.critThisTurn && groupOn(as, 'Selecciones')) { as.critThisTurn = true; gauge(unit(s, a.uid), 1); }
   if (main && isCrit && c.card.idx === 'u' && c.fx.some((f) => f.do === 'gaugeSelf')) gauge(unit(s, a.uid), 1); // Victor + Okita: every critical of the ulti
   if (main && isCrit && c.fx.some((f) => f.do === 'repeatOnCrit') && t.slot >= 0 && t.hp > 0) { const again = damage({ ...c, fx: c.fx.filter((f) => f.do !== 'repeatOnCrit') }, a, t, mult, true); return n + again; }
   return n;
 }
 /** damage that goes through the shield and the endure stance; returns what reached the PV */
-function damageRaw(_s: DuelState, t: Unit, amount: number, _from: Unit | null): number {
+function damageRaw(s: DuelState, t: Unit, amount: number, _from: Unit | null): number {
   let n = Math.max(0, amount);
   const soak = Math.min(t.shield, n);
   t.shield -= soak; n -= soak;
   if (t.hp - n <= 0) {
     const endure = t.stances.find((x) => x.kind === 'endure');
     if (endure) { t.stances.splice(t.stances.indexOf(endure), 1); n = t.hp - 1; }
+    // his last-stand passive: once a match
+    else if (t.hp > 1 && !t.stood && passiveOf(t.pid)?.do === 'lastStand') { t.stood = true; n = t.hp - 1; s.log.push({ t: 'passive', uid: t.uid, what: 'lastStand' }); }
   }
   t.hp -= n;
   return n;

@@ -9,10 +9,10 @@ const manifest = JSON.parse(fs.readFileSync(path.resolve(__dirname, '..', 'publi
 const byId = new Map(manifest.roster.map((p) => [p.id, p]));
 const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9áéíóúüñ]/g, '');
 
-describe('Modo Duelo: the 50 footballers', () => {
-  it('50 different, Legendario or higher, none exclusive to an event', () => {
-    expect(DUEL_PLAYERS).toHaveLength(50);
-    expect(new Set(DUEL_PLAYERS.map((p) => p.id)).size).toBe(50);
+describe('Modo Duelo: the 52 footballers', () => {
+  it('52 different, Legendario or higher, none exclusive to an event', () => {
+    expect(DUEL_PLAYERS).toHaveLength(52);
+    expect(new Set(DUEL_PLAYERS.map((p) => p.id)).size).toBe(52);
     for (const d of DUEL_PLAYERS) {
       const p = byId.get(d.id);
       expect(p, String(d.id)).toBeTruthy();
@@ -70,9 +70,9 @@ describe('Modo Duelo: story bosses', async () => {
     const plain = createDuel([teamOf(byId as never, [1, 10, 29, 2], 'hillman'), teamOf(byId as never, [157], null)], 5, 1);
     const boss = createDuel([teamOf(byId as never, [1, 10, 29, 2], 'hillman'), { ...teamOf(byId as never, [157], null), boss: { actions: 2, cards: 3 } }], 5, 1);
     expect(boss.sides[1].actions).toBe(plain.sides[1].actions + 2);
-    // equal cards fuse as they come, so the cards dealt are counted by weight (an R2 is two R1, an R3 four)
-    const weight = (h: { rank: number; idx: unknown }[]) => h.filter((c) => c.idx !== 'u').reduce((a, c) => a + 2 ** (c.rank - 1), 0);
-    expect(weight(boss.sides[1].hand)).toBe(weight(plain.sides[1].hand) + 3);
+    // the hand fills up to its size (fusions made up for): the boss's is 3 bigger
+    const cards = (h: { idx: unknown }[]) => h.filter((c) => c.idx !== 'u').length;
+    expect(cards(boss.sides[1].hand)).toBe(cards(plain.sides[1].hand) + 3);
     expect(boss.sides[1].boss?.shieldCap).toBe(0.5);
   });
 });

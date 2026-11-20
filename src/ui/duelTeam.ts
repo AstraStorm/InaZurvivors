@@ -11,7 +11,7 @@ import { COACH_BY_ID } from '../data/coaches';
 import { DUEL_BY_ID, DUEL_COACHES, DUEL_COMBOS, duelStats, familyOf, type CoachId, type DuelGroup } from '../systems/duel/cards';
 import { artUrl } from './duelArt';
 import { elementIcon } from './elements';
-import { techInfo } from './duelText';
+import { techInfo, passiveText } from './duelText';
 import type { DuelHubHost, DuelNav } from './duelHub';
 import { fit, go, zoomOf } from './duelNav';
 
@@ -144,7 +144,8 @@ export function openDuelTeam(h: DuelTeamHost, start: DuelTeam, save: (t: DuelTea
     };
     return `<header><span class="dt-tmug">${h.mug(pid, 52)}</span><span class="dt-tn"><b>${esc(h.name(pid))}</b><small>${elementIcon(elementOf(pid), 14)}${esc(tr(groupOf(pid)))}</small></span>
       <span class="dt-tst"><span class="hp">${tr('PV')} <b>${st.hp}</b></span><span class="atk">${tr('ATQ')} <b>${st.atk}</b></span></span></header>
-      <div class="dt-tcards">${part(0)}${part(1)}${part('u')}</div>`;
+      <div class="dt-tcards">${part(0)}${part(1)}${part('u')}</div>
+      ${passiveText(pid) ? `<p class="dt-pas"><b>${tr('Pasiva')}</b>${esc(passiveText(pid))}</p>` : ''}`;
   }
   let tipFor = 0;
   el.addEventListener('pointerover', (e) => {
@@ -308,6 +309,8 @@ const CSS = `${DUEL_STATS_CSS}
 .dt-tst span{padding:1px 7px;border-radius:6px;font-size:10px;font-weight:900;color:#fff;text-align:right}
 .dt-tst b{font:900 italic 13px 'Arial Black',sans-serif}
 .dt-tst .hp{background:linear-gradient(#2fbf62,#0f6a32)}.dt-tst .atk{background:linear-gradient(#ff7a3a,#a3260a)}
+.dt-pas{margin:8px 10px 0;padding:6px 9px;border-radius:9px;background:linear-gradient(90deg,#5a2a9a66,#2a1a5a44);border:1px solid #c49aff88;font-size:12.5px;line-height:1.3;color:#f0e6ff}
+.dt-pas b{display:inline-block;margin-right:6px;padding:0 6px;border-radius:6px;background:#c49aff;color:#2a0a4a;font-size:11px;letter-spacing:.06em;text-transform:uppercase}
 .dt-tcards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;padding:8px 10px 0;align-items:start}
 .dt-tt{display:flex;flex-direction:column;align-items:center;gap:4px;min-width:0}
 .dt-mc{position:relative;width:100%;aspect-ratio:263/360;container-type:inline-size;filter:drop-shadow(0 4px 6px #000c);animation:dtMc .35s cubic-bezier(.2,1.5,.4,1) backwards}

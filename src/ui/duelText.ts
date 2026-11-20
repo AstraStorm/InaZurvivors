@@ -4,7 +4,7 @@
  */
 import { tr } from '../i18n/i18n';
 import { tTech } from '../i18n/data';
-import type { Cond, Fx, Per } from '../systems/duel/cards';
+import { passiveOf, type Cond, type Fx, type Passive, type Per } from '../systems/duel/cards';
 import { specOf, unit, type Card, type DuelState, type Unit } from '../systems/duel/rules';
 
 const COND = (): Record<Cond, string> => ({
@@ -106,4 +106,35 @@ export function techInfo(pid: number, idx: 0 | 1 | 'u'): CardInfo & { mults: num
   const rank = 3;
   const lines = sp.fx.map((f) => ({ text: fxText(f, rank), min: idx === 'u' ? 1 : f.min ?? 1, on: true })).filter((l) => l.text);
   return { tech: tTech(sp.tech), kind: sp.kind, mult: sp.mult[0] || null, mults: sp.mult.filter(Boolean), base: '', lines, area: sp.area };
+}
+
+/** a footballer's passive, in words (empty: none) */
+export function passiveText(pid: number): string {
+  const p: Passive | undefined = passiveOf(pid);
+  if (!p) return '';
+  switch (p.do) {
+    case 'atk': return tr('ATQ +{n} %.', { n: p.pct });
+    case 'def': return tr('DEF +{n} %.', { n: p.pct });
+    case 'hp': return tr('PV +{n} %.', { n: p.pct });
+    case 'crit': return tr('Probabilidad de crítico +{n} %.', { n: p.pct });
+    case 'critDmg': return tr('Daño crítico +{n} %.', { n: p.pct });
+    case 'resist': return tr('Resistencia a estados +{n} %.', { n: p.pct });
+    case 'gaugeStart': return tr('Empieza el partido con {n} orbes de Garra.', { n: p.n });
+    case 'turnGauge': return tr('Al empezar cada turno tuyo, gana {n} orbe de Garra.', { n: p.n });
+    case 'koGauge': return tr('Cuando deja K.O. a un rival, gana {n} orbes de Garra.', { n: p.n });
+    case 'turnHeal': return tr('Al empezar cada turno tuyo, recupera un {n} % de sus PV.', { n: p.pct });
+    case 'turnShield': return tr('Al empezar cada turno tuyo, gana un escudo del {n} % de sus PV.', { n: p.pct });
+    case 'takeLess': return tr('Recibe un {n} % menos de daño.', { n: p.pct });
+    case 'teamDef': return tr('Mientras está en el campo, sus compañeros reciben un {n} % menos de daño.', { n: p.pct });
+    case 'teamAtk': return tr('Mientras está en el campo, sus compañeros tienen ATQ +{n} %.', { n: p.pct });
+    case 'lowHpAtk': return tr('Con menos de la mitad de PV, hace un {n} % más de daño.', { n: p.pct });
+    case 'vsStatus': return tr('Hace un {n} % más de daño a rivales con un estado alterado.', { n: p.pct });
+    case 'elemPlus': return tr('Con ventaja de elemento, hace un {n} % más de daño.', { n: p.pct });
+    case 'ultiPlus': return tr('Su ulti hace un {n} % más de daño.', { n: p.pct });
+    case 'firstCard': return tr('La primera carta de cada turno hace un {n} % más de daño.', { n: p.pct });
+    case 'lifesteal': return tr('Recupera el {n} % del daño que hace.', { n: p.pct });
+    case 'thorns': return tr('Devuelve al atacante el {n} % del daño que recibe.', { n: p.pct });
+    case 'lastStand': return tr('Una vez por partido, aguanta con 1 PV un golpe que lo dejaría K.O.');
+    case 'rankStart': return tr('Al empezar cada turno tuyo, sube de rango una de sus cartas.');
+  }
 }

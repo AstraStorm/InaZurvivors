@@ -75,7 +75,7 @@ const CSS_RAW = `
 .dm-g{position:absolute;top:79.8%;width:9.6%;aspect-ratio:1}
 .dm-g img{width:100%;height:100%}
 .dm-unit.full .dm-g.on{animation:dmOrb 1s ease-in-out infinite}
-@keyframes dmOrb{50%{filter:brightness(1.5) drop-shadow(0 0 .4cqw #ffb020)}}
+@keyframes dmOrb{50%{scale:1.18;opacity:.8}}
 .dm-nm{position:absolute;left:23%;width:54%;top:62.6%;height:7%;display:flex;align-items:center;justify-content:center;font-family:'Arial Black','Segoe UI Black','Segoe UI',sans-serif;font-weight:900;text-transform:uppercase;letter-spacing:.02em;white-space:nowrap;overflow:visible;line-height:1;font-size:min(calc(var(--w)*.105),calc(var(--w)*.6/var(--n)));color:#3d1c04;text-shadow:0 1px 0 #fff,0 0 calc(var(--w)*.03) #fff8;z-index:2}
 .dm-hpn,.dm-atk{position:absolute;top:72.6%;height:5.4%;display:grid;place-items:center;line-height:1}
 .dm-hpn .iz-num,.dm-atk .iz-num{--nh:min(calc(var(--w)*.1),calc(var(--w)*.26/var(--d)));font-style:normal;-webkit-text-stroke:calc(var(--nh)*.14) #fff;text-shadow:none}
@@ -92,10 +92,10 @@ const CSS_RAW = `
 .dm-life .bar>span{position:absolute;left:0;top:0;bottom:0;width:var(--p);border-radius:99px}
 .dm-life .lag{background:linear-gradient(#ffd0c0,#ff4a2a 55%,#a3140a);transition:width .7s ease-in .55s}
 .dm-life .cur{background:linear-gradient(#ffffff90,#fff0 45%,#0003),var(--c);transition:width .35s cubic-bezier(.2,.8,.3,1),background-color .3s;box-shadow:inset 0 0 .3cqw #fff8}
-.dm-life .cur::after{content:'';position:absolute;inset:0;background:repeating-linear-gradient(115deg,#fff0 0 .7cqw,#ffffff60 .7cqw .9cqw,#fff0 .9cqw 2.2cqw);background-size:200% 100%;animation:dmVolt 1.3s linear infinite;mix-blend-mode:overlay}
+.dm-life .cur::after{content:'';position:absolute;inset:0;background:repeating-linear-gradient(115deg,#fff0 0 .7cqw,#ffffff60 .7cqw .9cqw,#fff0 .9cqw 2.2cqw);opacity:.55}
 .dm-life .cur::before{content:'';position:absolute;right:-.15cqw;top:-25%;bottom:-25%;width:.6cqw;border-radius:50%;background:radial-gradient(#fff,#bff6ff 40%,#fff0 70%);animation:dmSpark .3s steps(2) infinite;z-index:1}
 .dm-life .bar>.tick{width:100%;border-radius:0;background:repeating-linear-gradient(90deg,#0000 0 calc(10% - 1px),#0006 calc(10% - 1px) 10%);pointer-events:none}
-@keyframes dmVolt{to{background-position:-2.2cqw 0}}
+/* (the stripes stay still: sliding the background repainted the eight bars every frame, a load on streams) */
 @keyframes dmSpark{50%{opacity:.35;transform:scaleY(.6)}}
 .dm-life .hrt{position:absolute;left:-7%;top:50%;width:calc(var(--w)*.27);aspect-ratio:1;transform:translateY(-50%);border-radius:50%;display:grid;place-items:center;background:radial-gradient(circle at 35% 30%,#ff9a9a,#e01b2e 55%,#7a0010);box-shadow:0 0 0 calc(var(--w)*.018) #f3d57a,0 .15cqw .4cqw #000c;color:#fff;font-size:calc(var(--w)*.15);line-height:1;z-index:2;text-shadow:0 1px 1px #0008}
 .dm-life b{position:absolute;inset:0 0 0 9%;display:grid;place-items:center;z-index:2;--nh:calc(var(--w)*.135)}
@@ -126,10 +126,10 @@ const CSS_RAW = `
 @keyframes dmSpin{to{rotate:360deg}}
 .dm-pv{position:absolute;left:50%;top:-2%;transform:translate(-50%,-100%);display:flex;flex-wrap:wrap;justify-content:center;gap:.2cqw;width:150%;pointer-events:none;z-index:6}
 .dm-pv:empty{display:none}
-.dm-pv>*{padding:.1cqw .45cqw;border-radius:.6cqw;background:#0b1440e8;border:.12cqw solid #fff4;color:#fff;font-weight:900;font-size:.95cqw;white-space:nowrap;display:flex;align-items:center;gap:.2cqw;animation:dmPop .25s cubic-bezier(.2,1.6,.4,1)}
-.dm-pv img{width:1.2cqw}
-.dm-pv .iz-num{--nh:1.3cqw;-webkit-text-stroke-color:#5a0010}
-.dm-pv .dmg{font-size:1.25cqw;color:#ff6a6a;background:#2a0710ee;border-color:#ff6a6a88}
+.dm-pv>*{padding:.15cqw .6cqw;border-radius:.7cqw;background:#0b1440f0;border:.14cqw solid #fff6;color:#fff;font-weight:900;font-size:1.3cqw;box-shadow:0 .3cqw .6cqw #000a;white-space:nowrap;display:flex;align-items:center;gap:.2cqw;animation:dmPop .25s cubic-bezier(.2,1.6,.4,1)}
+.dm-pv img{width:1.6cqw}
+.dm-pv .iz-num{--nh:2.1cqw;-webkit-text-stroke-color:#5a0010}
+.dm-pv .dmg{font-size:1.8cqw;color:#ff6a6a;background:#2a0710ee;border-color:#ff6a6a88}
 .dm-pv .heal{font-size:1.2cqw;color:#7dff9a}.dm-pv .shield{color:#9fe0ff}
 .dm-pv .good{color:#ffc23a}.dm-pv .bad{color:#9ab}
 .dm-pv .ko{background:#c4102a;border-color:#fff;letter-spacing:.08em}
@@ -234,7 +234,7 @@ const CSS_RAW = `
 .dm-hc.dealt{animation:dmDeal .5s cubic-bezier(.2,1.3,.4,1) backwards;animation-delay:var(--d)}
 @keyframes dmDeal{from{transform:translate(30cqw,-14cqw) rotate(30deg) scale(.35);opacity:0}}
 .dm-hc.merged{animation:dmMerged .9s}
-@keyframes dmMerged{30%{transform:translateY(-3cqw) scale(1.32);filter:brightness(1.8) drop-shadow(0 0 1.5cqw #ffd76a)}}
+@keyframes dmMerged{30%{filter:brightness(1.8) drop-shadow(0 0 1.5cqw #ffd76a)}}
 .dm-hc.ulti:not(.willfuse)::after,.dm-hc.combo:not(.willfuse)::after{content:'';position:absolute;inset:6% 8%;border-radius:.6cqw;background:linear-gradient(115deg,#fff0 35%,#fffa 50%,#fff0 65%) -150% 0/250% 100% no-repeat;mix-blend-mode:overlay;animation:dmShine 2.4s ease-in-out infinite;pointer-events:none;z-index:3}
 @keyframes dmShine{60%,100%{background-position:150% 0}}
 .dm-hface{position:absolute;left:21%;top:16%;width:58%;height:47%;display:flex;justify-content:center;align-items:center;overflow:hidden;background:radial-gradient(circle at 50% 38%,#4a74d0,#101a44 75%)}
@@ -372,7 +372,18 @@ const CSS_RAW = `
 .dm-cast.s1 .dm-hc{transform:rotate(4deg);filter:drop-shadow(0 0 1.2cqw #4fb3ff99) drop-shadow(0 1cqw 1.4cqw #000)}
 .dm-cast.big .dm-hc{width:12.5cqw;filter:drop-shadow(0 0 2.2cqw #ffb020) drop-shadow(0 1cqw 1.4cqw #000)}
 .dm-stage.v .dm-cast .dm-hc{width:13cqw}.dm-stage.v .dm-cast.big .dm-hc{width:14.5cqw}
-.dm-cast .dm-htech{display:none}
+/* the card that is played shows its technique like in the hand: hidden, the frame's window for the name stayed empty and
+   showed the table through it (author: «sale vacío y se ve mal») */
+.dm-cast .dm-htech{font-size:calc(1.28cqw * var(--k))}
+.dm-cast.out .dm-htech{font-size:calc(1.75cqw * var(--k))}
+/* its entrance: it turns over as it arrives, a gleam crosses it, then the name band slides in under it */
+.dm-cast .dm-hc{animation:dmCastFlip .55s cubic-bezier(.2,1.25,.4,1) backwards}
+.dm-cast .dm-hshine{opacity:1;animation:dmShineRun .8s ease-out .3s 1 backwards}
+.dm-cast .dm-cname{animation:dmCname .42s cubic-bezier(.2,1.3,.4,1) .16s backwards}
+.dm-cast.s1 .dm-cname{animation-name:dmCnameR}
+@keyframes dmCastFlip{from{transform:perspective(40cqw) rotateY(110deg) scale(.75);filter:brightness(2.4) drop-shadow(0 0 2cqw #fff)}}
+@keyframes dmCname{from{translate:-35% 0;opacity:0}}
+@keyframes dmCnameR{from{translate:35% 0;opacity:0}}
 .dm-cast .dm-hmult{font-size:1.5cqw}
 .dm-cname{position:relative;margin-top:-2.2cqw;width:21cqw;padding:.5cqw 1cqw .6cqw;box-sizing:border-box;transform:skewX(-12deg) rotate(-3deg);background:linear-gradient(90deg,#0000,#c4560bf2 10%,#ffb020f2 50%,#c4560bf2 90%,#0000);border-top:.2cqw solid #fff3c4;border-bottom:.2cqw solid #fff3c4;text-align:center;white-space:normal;animation:dmName .5s cubic-bezier(.2,1.3,.4,1) .08s backwards}
 .dm-cast.s1 .dm-cname{transform:skewX(12deg) rotate(3deg);background:linear-gradient(90deg,#0000,#173a9af2 10%,#3f8cffe8 50%,#173a9af2 90%,#0000);border-color:#cfe7ff}
@@ -435,10 +446,8 @@ const CSS_RAW = `
 @keyframes dmIdle{50%{translate:0 -.35cqw}}
 .dm-stage.scene .dm-unit:not(.acting) .dm-card{animation-play-state:paused}
 .dm-auracv{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:1}
-.dm-unit.full .dm-card{animation:dmIdle 3.2s ease-in-out infinite,dmAuraGlow 1.6s ease-in-out infinite;animation-delay:calc(var(--i) * -3.2s + var(--ph,0ms)),var(--ph,0ms)}
-.dm-unit.s1.full .dm-card{animation-name:dmIdle,dmAuraGlowB}
-@keyframes dmAuraGlow{0%,100%{filter:drop-shadow(0 0 .25cqw #fff3b0) drop-shadow(0 0 .7cqw #ffc93a) drop-shadow(0 .5cqw .6cqw #000b)}50%{filter:drop-shadow(0 0 .35cqw #fff) drop-shadow(0 0 1.4cqw #ffb020) drop-shadow(0 .5cqw .6cqw #000b)}}
-@keyframes dmAuraGlowB{0%,100%{filter:drop-shadow(0 0 .25cqw #e0f4ff) drop-shadow(0 0 .7cqw #4fb3ff) drop-shadow(0 .5cqw .6cqw #000b)}50%{filter:drop-shadow(0 0 .35cqw #fff) drop-shadow(0 0 1.4cqw #3f8cff) drop-shadow(0 .5cqw .6cqw #000b)}}
+.dm-unit.full .dm-card{filter:drop-shadow(0 0 .3cqw #fff3b0) drop-shadow(0 0 1cqw #ffc93a) drop-shadow(0 .5cqw .6cqw #000b)}
+.dm-unit.s1.full .dm-card{filter:drop-shadow(0 0 .3cqw #e0f4ff) drop-shadow(0 0 1cqw #4fb3ff) drop-shadow(0 .5cqw .6cqw #000b)}
 .dm-unit.dm-hurt .dm-card{animation:dmWhite .24s}
 @keyframes dmWhite{0%,45%{filter:brightness(2.6) saturate(.25) drop-shadow(0 .5cqw .6cqw #000b)}}
 /* K.O.: white, a stamp, and he falls */
@@ -487,8 +496,10 @@ const CSS_RAW = `
 .dm-hand .dm-hc.drag{transition:transform .15s,filter .2s,rotate .08s linear}
 .dm-g.gain{animation:dmOrbGain .7s cubic-bezier(.2,1.8,.4,1) backwards;animation-delay:var(--gd,0ms)}
 @keyframes dmOrbGain{0%{scale:0;filter:brightness(4) drop-shadow(0 0 1cqw #fff)}50%{scale:1.7;filter:brightness(2) drop-shadow(0 0 .8cqw #ffd76a)}}
-.dm-ball{rotate:var(--spin,0deg)}
-.dm-tail{position:absolute;right:50%;top:50%;width:7cqw;height:65%;translate:0 -50%;transform-origin:100% 50%;rotate:calc(var(--ang) - var(--spin,0deg));border-radius:50% 0 0 50%;background:linear-gradient(90deg,#0000,var(--c) 70%,#fff);filter:blur(.25cqw);opacity:.9;z-index:-1}
+/* the ball's patch spins; the ball itself only flies, so its tail stays pointed back along the shot */
+.dm-ball::before{animation:dmBallSpin .16s linear infinite}
+@keyframes dmBallSpin{to{rotate:360deg}}
+.dm-tail{position:absolute;right:50%;top:50%;width:7cqw;height:65%;translate:0 -50%;transform-origin:100% 50%;rotate:var(--ang);border-radius:50% 0 0 50%;background:linear-gradient(90deg,#0000,var(--c) 70%,#fff);filter:blur(.25cqw);opacity:.9;z-index:-1}
 .dm-ball.big .dm-tail{width:11cqw;height:80%}
 .dm-vig{position:absolute;inset:0;z-index:13;pointer-events:none;background:radial-gradient(ellipse at 50% 50%,#0000 45%,var(--c) 130%);animation:dmVig .6s ease-out forwards;mix-blend-mode:screen}
 @keyframes dmVig{0%{opacity:0}15%{opacity:1}100%{opacity:0}}
@@ -587,7 +598,7 @@ const CSS_RAW = `
 .dm-center.flip{animation:dmFlip .7s cubic-bezier(.3,1.3,.5,1)}
 @keyframes dmFlip{0%{transform:translate(-50%,-50%) rotateY(0) scale(1)}50%{transform:translate(-50%,-50%) rotateY(180deg) scale(1.35)}100%{transform:translate(-50%,-50%) rotateY(360deg) scale(1)}}
 /* searchlights sweep over the stands */
-.dm-spot{position:absolute;top:-30%;width:22%;height:90%;pointer-events:none;z-index:1;transform-origin:50% 0;background:linear-gradient(#fff0,#fff2 30%,#fff0 90%);clip-path:polygon(45% 0,55% 0,100% 100%,0 100%);filter:blur(.6cqw);mix-blend-mode:screen;animation:dmSpot 9s ease-in-out infinite}
+.dm-spot{position:absolute;top:-30%;width:22%;height:90%;pointer-events:none;z-index:1;transform-origin:50% 0;background:linear-gradient(#fff0,#fff2 30%,#fff0 90%);clip-path:polygon(45% 0,55% 0,100% 100%,0 100%);filter:blur(.6cqw);opacity:.35;will-change:rotate,opacity;animation:dmSpot 9s ease-in-out infinite}
 .dm-spot.a{left:12%;animation-delay:-2s}
 .dm-spot.b{right:12%;animation-direction:reverse;animation-delay:-6s}
 @keyframes dmSpot{0%,100%{rotate:-28deg;opacity:.35}50%{rotate:28deg;opacity:.7}}
@@ -667,9 +678,9 @@ body.lowfx .dm-spot{display:none}
 .dm-hc.merged.r2{animation-name:dmMergedB}
 .dm-hc.merged.r3{animation-name:dmMergedG}
 .dm-hc.merged.r4{animation-name:dmMergedV}
-@keyframes dmMergedB{30%{transform:translateY(-3cqw) scale(1.25);filter:brightness(1.8) drop-shadow(0 0 1.5cqw #4fb3ff)}}
-@keyframes dmMergedG{30%{transform:translateY(-3.5cqw) scale(1.32);filter:brightness(2) drop-shadow(0 0 2cqw #ffb020) drop-shadow(0 0 .6cqw #fff)}}
-@keyframes dmMergedV{30%{transform:translateY(-3.5cqw) scale(1.35);filter:brightness(1.9) drop-shadow(0 0 2cqw #c46aff) drop-shadow(0 0 .6cqw #fff)}}
+@keyframes dmMergedB{30%{filter:brightness(1.8) drop-shadow(0 0 1.5cqw #4fb3ff)}}
+@keyframes dmMergedG{30%{filter:brightness(2) drop-shadow(0 0 2cqw #ffb020) drop-shadow(0 0 .6cqw #fff)}}
+@keyframes dmMergedV{30%{filter:brightness(1.9) drop-shadow(0 0 2cqw #c46aff) drop-shadow(0 0 .6cqw #fff)}}
 .dm-hand .dm-hc:hover::before{content:'';position:absolute;left:-4%;right:-4%;top:0;bottom:-34%;z-index:-1}
 /* life bars, better (author: «mejora las barras de vida y cómo se muestran»): the lost part stays a moment as a red trail,
    a shield shows as a blue stretch after the life, the maximum next to the number, gloss on top, and low life glows red */
@@ -710,5 +721,21 @@ body.lowfx .dm-spot{display:none}
 .dm-aim.locked .dm-aim-ring circle{display:inline;stroke-width:.1;stroke-dasharray:.42 .2;filter:drop-shadow(0 0 .08px var(--ac))}
 .dm-aim.locked .dm-aim-ring path{stroke:var(--ah);stroke-width:.16;animation:dmRet .7s ease-in-out infinite;transform-origin:0 0}
 @keyframes dmRet{50%{transform:scale(1.18)}}
+/* ---- while you plan: what your lined-up actions take off each footballer (striped), and KO if he already falls */
+.dm-life.planned .bar>.cur{width:var(--q)}
+.dm-life .bar>.pl{left:var(--q);width:calc(var(--p) - var(--q));border-radius:0;opacity:0;background:repeating-linear-gradient(115deg,#ff5a5a 0 .35cqw,#ffd0d0 .35cqw .6cqw)}
+.dm-life.planned .bar>.pl{opacity:1;animation:dmPlanBlink .8s ease-in-out infinite alternate}
+@keyframes dmPlanBlink{to{opacity:.45}}
+.dm-pd{position:absolute;right:-6%;top:-70%;padding:0 .4cqw;border-radius:99px;font-style:normal;font-weight:900;font-size:calc(var(--w)*.11);color:#fff;background:linear-gradient(#ff6a6a,#b3101f);box-shadow:0 .15cqw .4cqw #000b;z-index:3;animation:dmPop .25s cubic-bezier(.2,1.6,.4,1)}
+.dm-unit.doomed .dm-card{filter:grayscale(.75) brightness(.65) drop-shadow(0 .5cqw .6cqw #000b)}
+.dm-doom{position:absolute;left:50%;top:38%;translate:-50% -50%;rotate:-12deg;z-index:7;pointer-events:none;padding:.1cqw .9cqw;border:.3cqw solid #fff;border-radius:.8cqw;background:#c4102ae8;color:#fff;font-weight:900;font-size:calc(var(--w)*.2);letter-spacing:.08em;box-shadow:0 0 1cqw #ff2a3a;animation:dmPop .3s cubic-bezier(.2,1.6,.4,1)}
+.dm-pv .left{color:#ffe9a8}
+.dm-unit.s1 .dm-pv{top:auto;bottom:-3%;transform:translate(-50%,100%)}
+.dm-spd{position:absolute;top:12px;right:64px;width:44px;height:44px;border-radius:50%;border:2px solid #ffd76a;background:#0b1440cc;color:#ffd76a;font:900 15px/1 inherit;cursor:pointer;z-index:30;transition:background .2s,color .2s,scale .15s}
+.dm-spd:hover{scale:1.08}.dm-spd.on{background:linear-gradient(#ffcf4a,#e07a10);color:#3a1600;box-shadow:0 0 12px #ffb020}
+.dm-unit.incoming::after{content:'';position:absolute;inset:-4% 6%;border-radius:1cqw;border:.25cqw dashed #ffd76acc;pointer-events:none;animation:dmEmpty 1.2s ease-in-out infinite}
+.dm-unit.leaving{pointer-events:none;transition:opacity .4s ease-in,scale .4s ease-in,rotate .4s ease-in;opacity:0;scale:.7;rotate:-10deg;filter:grayscale(1) brightness(1.6)}
+.dm-info p.pas{margin-top:.4cqw;padding:.3cqw .5cqw;border-radius:.5cqw;background:#5a2a9a55;border:.1cqw solid #c49aff88;color:#f0e6ff}
+.dm-info p.pas b{margin-right:.4cqw;padding:0 .35cqw;border-radius:.35cqw;background:#c49aff;color:#2a0a4a;font-size:.85em;text-transform:uppercase;letter-spacing:.05em}
 `;
 export const DUEL_MATCH_CSS = CSS_RAW.replace(/(-?\d*\.?\d+)cqw/g, 'calc(var(--u)*$1)');

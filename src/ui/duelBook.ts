@@ -11,7 +11,7 @@ import { tr } from '../i18n/i18n';
 import { sfx } from '../game/sfx';
 import { ART, ART_V } from './duelArt';
 import { techInfo } from './duelText';
-import { duelStats } from '../systems/duel/cards';
+import { DUEL_PLAYERS, duelStats } from '../systems/duel/cards';
 
 /** what the book needs from the game to fill its cards with real footballers (without it, the cards show their art only) */
 export interface BookHost {
@@ -106,7 +106,7 @@ function content(h?: BookHost): { pages: string[]; chapters: Chapter[] } {
       `<li data-go="${c.page}" style="--c:${parts[c.part].color}"><b>${i + 1}</b><span>${c.title}</span><i></i><em>${c.page + 1}</em></li>`).join('')}</ol>`,
     `${ch(0)}<p class="db-lead">${tr('Dos equipos de 3 titulares y 1 suplente se enfrentan por turnos. Gana quien deja fuera de combate a los 4 rivales.')}</p>
      <div class="db-row db-fan">${has(AXEL) ? `${card(MARK, 0, 1)}${card(AXEL, 0, 2)}${card(SHAWN, 0, 3)}` : `${img('marco-legendario', 'db-frame')}${img('marco-mitico', 'db-frame')}${img('marco-leyenda', 'db-frame')}`}</div>
-     <p class="db-note">${tr('Juegan 50 futbolistas conocidos, Legendarios o más, que tengas en tu colección. Lo que tengas subido les da hasta un +20 %. Solo una forma de cada uno por equipo.')}</p>`,
+     <p class="db-note">${tr('Juegan {n} futbolistas conocidos, Legendarios o más, que tengas en tu colección. Lo que tengas subido les da hasta un +20 %. Solo una forma de cada uno por equipo.', { n: DUEL_PLAYERS.length })}</p>`,
     `${ch(1)}<div class="db-shot">${img('mesa-horizontal', 'db-tableimg')}</div>
      <ul><li>${tr('Arriba, el rival; abajo, tu equipo: 3 círculos de titulares y el banquillo a la derecha.')}</li>
      <li>${tr('En la peana, tu entrenador: no juega, pero da una pasiva toda la partida.')}</li>

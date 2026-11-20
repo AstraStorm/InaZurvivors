@@ -127,7 +127,7 @@ export function openDuelHub(h: DuelHubHost, nav?: DuelNav) {
             ? `<button class="dh-tile" data-m="online" style="--c1:#7a3fc4;--c2:#2a0a5a"><img class="dh-art" src="${artUrl('tipo-combinada')}" alt=""><b>${tr('Online')}</b><small>${tr('Contra otros jugadores · 60 s por turno')}</small><i class="dh-tshine"></i></button>`
             : `<div class="dh-tile locked" style="--c1:#7a3fc4;--c2:#2a0a5a"><img class="dh-art" src="${artUrl('tipo-combinada')}" alt=""><b>${tr('Online')}</b><small>${!h.pvp ? tr('Conéctate con tu cuenta para jugar') : tr('Completa el tutorial para desbloquearlo')}</small><em class="lock">🔒</em></div>`}
           <button class="dh-tile" data-m="ranking" style="--c1:#ffb020;--c2:#7a4a00"><img class="dh-art" src="${artUrl('tipo-postura')}" alt=""><b>${tr('Ranking')}</b><small>${tr('Las victorias de la semana')}</small><i class="dh-tshine"></i></button>
-          <button class="dh-tile" data-m="tiers" style="--c1:#1f8fc0;--c2:#0a2a6a"><img class="dh-art" src="${artUrl('tipo-area')}" alt=""><b>${tr('Tier list')}</b><small>${tr('Los 50, de mejor a peor')}</small><i class="dh-tshine"></i></button>
+          <button class="dh-tile" data-m="tiers" style="--c1:#1f8fc0;--c2:#0a2a6a"><img class="dh-art" src="${artUrl('tipo-area')}" alt=""><b>${tr('Tier list')}</b><small>${tr('Los {n}, de mejor a peor', { n: DUEL_PLAYERS.length })}</small><i class="dh-tshine"></i></button>
           <button class="dh-tile" data-m="book" style="--c1:#c04a8a;--c2:#4a0a3a"><img class="dh-art" src="${artUrl('tipo-especial')}" alt=""><b>${tr('Reglamento')}</b><small>${tr('Todas las reglas, con ejemplos')}</small><i class="dh-tshine"></i></button>
         </section>
       </div>
