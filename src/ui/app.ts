@@ -112,6 +112,7 @@ import { egAwaken, sfx, setVolume } from '../game/sfx';
 import { firstPad, moveKey } from '../game/controls';
 import { setEgArt } from '../game/fxKeshin';
 import { currentTrack, initMusic, setMusicContext, setMusicSource, setMusicVolume, musicUnlocked } from '../game/music';
+import { LOW_FX } from '../systems/perf';
 
 type Frames = Record<string, { frame: { x: number; y: number; w: number; h: number }; sheet?: number }>;
 
@@ -856,7 +857,7 @@ export class App {
   private sleepUnderDuel() {
     const check = () => {
       const loop = this.game.loop;
-      if (document.querySelector('.dh, .dm, .dt, .dbo, .dq, .dst, .dsc, .dsv, .dsd, .db-wrap')) { if (loop.running) { loop.sleep(); this.duelSlept = true; } return; }
+      if (document.querySelector('.dh, .dm, .dt, .dbo, .dq, .dst, .dsc, .dsv, .dsd, .db-wrap, .l30, .ldu')) { if (loop.running) { loop.sleep(); this.duelSlept = true; } return; }
       if (this.duelSlept && !loop.running && !this.root.querySelector(':scope > .screen') && !this.game.scene.isActive('Arena')) loop.wake();
       this.duelSlept = false;
     };
@@ -3286,6 +3287,7 @@ export class App {
   private launch30(soon = !aliusOpen(serverNow())) {
     try { localStorage.setItem(soon ? 'iz-teaser-3.0' : 'iz-launch-3.0', '1'); } catch { /* private window: it may show again */ }
     if (document.querySelector('.l30')) return;
+    this.sleepUnderDuel(); // the game loop sleeps under it too
     const rel = releaseByVersion('3.0')!;
     const vr = [...(this.m.vrTeaser ?? [])].sort((a, b) => RARITY_ORDER.indexOf(b.rarity) - RARITY_ORDER.indexOf(a.rarity)).slice(0, 6);
     const lite = this.save.settings.particles === 'desactivado';
@@ -3316,9 +3318,12 @@ export class App {
 
     // the meteor, the shockwave, the beams to each footballer and the embers: one canvas over the sky, under the cards
     const cv = box.querySelector<HTMLCanvasElement>('.l30-fx')!, g = cv.getContext('2d')!;
-    const fit = () => { const d = Math.min(2, window.devicePixelRatio || 1); cv.width = window.innerWidth * d; cv.height = window.innerHeight * d; g.setTransform(d, 0, 0, d, 0, 0); };
+    // at most 1.5× the screen's pixels (1 on modest devices): at 2× a full-window canvas of glowing bolts lagged the
+    // whole intro (author: «va lagueadísima»)
+    const fit = () => { const d = Math.min(LOW_FX ? 1 : 1.5, window.devicePixelRatio || 1); cv.width = window.innerWidth * d; cv.height = window.innerHeight * d; g.setTransform(d, 0, 0, d, 0, 0); };
     fit();
     window.addEventListener('resize', fit);
+    let pos: { c: { x: number; y: number }; who: { x: number; y: number }[] } | null = null;
     const img = new Image();
     img.src = this.m.alius?._piedra?.head ?? '';
     const centre = (el: Element | null) => { const r = el?.getBoundingClientRect(); return r ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : { x: window.innerWidth / 2, y: window.innerHeight / 3 }; };
@@ -3334,17 +3339,21 @@ export class App {
         w.style.setProperty('--s', `${sz}px`);
         angles[i] = (a + Math.PI / 2 + Math.PI * 2) % (Math.PI * 2) + (outer ? 0.001 : 0);
       });
+      pos = null;
     };
     layout();
     window.addEventListener('resize', layout);
+    // where the stone and each footballer are, measured once (and again after a resize), not 30 times a frame
+    const where = () => (pos ??= { c: centre(core), who: whos.map((w) => centre(w.querySelector('.l30-pic'))) });
     // one after another, sweeping round from the top (inner and outer together), 0.1 s apart
     const T_FIRST = 2.0, STEP = 0.1, turnAt: number[] = [];
     [...whos.keys()].sort((x, y) => angles[x] - angles[y]).forEach((i, rank) => { turnAt[i] = T_FIRST + rank * STEP; });
     const COLS = ['#f2dcff', '#c08aff', '#9a4dff', '#6f2bd9', '#5ee0ff'];
     type Spark = { x: number; y: number; vx: number; vy: number; life: number; max: number; size: number; c: string; grav: number };
     const sparks: Spark[] = [], rings: { x: number; y: number; t: number; c: string }[] = [];
+    const MAX_SPARKS = lite || LOW_FX ? 250 : 600;
     const spark = (x: number, y: number, n: number, speed: number, grav = 0, size = 3) => {
-      for (let k = 0; k < (lite ? Math.ceil(n / 4) : n); k++) {
+      for (let k = 0; k < (lite ? Math.ceil(n / 4) : n) && sparks.length < MAX_SPARKS; k++) {
         const a = Math.random() * Math.PI * 2, v = speed * (0.3 + Math.random() * 0.7), max = 0.5 + Math.random() * 0.9;
         sparks.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: max, max, size: size * (0.5 + Math.random()), c: COLS[(Math.random() * COLS.length) | 0], grav });
       }
@@ -3364,14 +3373,14 @@ export class App {
       last = now;
       g.clearRect(0, 0, W, H);
       g.globalCompositeOperation = 'lighter';
-      const c = centre(core);
+      const c = where().c;
       if (t < T_HIT) { // the fall: from the top right corner, faster and faster, with a tail of fire
         const k = t / T_HIT, e = k * k, sx = W * 0.92, sy = -90, x = sx + (c.x - sx) * e, y = sy + (c.y - sy) * e;
         const halo = g.createRadialGradient(x, y, 0, x, y, 90 + k * 50);
         halo.addColorStop(0, '#f3e2ffcc'); halo.addColorStop(0.35, '#a05cffaa'); halo.addColorStop(1, '#5a1fb000');
         g.fillStyle = halo; g.beginPath(); g.arc(x, y, 90 + k * 50, 0, Math.PI * 2); g.fill();
         const dx = c.x - sx, dy = c.y - sy, dl = Math.hypot(dx, dy);
-        for (let k2 = 0; k2 < (lite ? 2 : 7); k2++) sparks.push({ x: x + (Math.random() - 0.5) * 22, y: y + (Math.random() - 0.5) * 22, vx: -dx / dl * (180 + Math.random() * 260) + (Math.random() - 0.5) * 90, vy: -dy / dl * (180 + Math.random() * 260) + (Math.random() - 0.5) * 90, life: 0.6, max: 0.6, size: 4 + Math.random() * 6, c: COLS[(Math.random() * 4) | 0], grav: 0 });
+        for (let k2 = 0; k2 < (lite ? 2 : 7) && sparks.length < MAX_SPARKS; k2++) sparks.push({ x: x + (Math.random() - 0.5) * 22, y: y + (Math.random() - 0.5) * 22, vx: -dx / dl * (180 + Math.random() * 260) + (Math.random() - 0.5) * 90, vy: -dy / dl * (180 + Math.random() * 260) + (Math.random() - 0.5) * 90, life: 0.6, max: 0.6, size: 4 + Math.random() * 6, c: COLS[(Math.random() * 4) | 0], grav: 0 });
         if (img.complete && img.naturalWidth) {
           g.globalCompositeOperation = 'source-over';
           const h = 46 + k * 40, w = h * img.naturalWidth / img.naturalHeight;
@@ -3388,11 +3397,11 @@ export class App {
       // the footballers, one after another: a bolt from the stone, a flash, and the Alius takes his place
       turnAt.forEach((tt, i) => {
         const who = whos[i];
-        if (!who || t < tt - 0.3 || t > tt + 0.15) return;
-        const p = centre(who.querySelector('.l30-pic'));
-        g.shadowColor = '#b06bff'; g.shadowBlur = 24;
-        bolt(c, p, 7, '#9a4dffcc'); bolt(c, p, 2.5, '#ffffff');
-        g.shadowBlur = 0;
+        if (!who || t < tt - 0.3) return;
+        const p = where().who[i];
+        // the bolt while his moment lasts; the glow is a wide faint stroke (shadowBlur was the costliest thing drawn)
+        if (t <= tt + 0.15) { bolt(c, p, 16, '#9a4dff40'); bolt(c, p, 7, '#9a4dffcc'); bolt(c, p, 2.5, '#ffffff'); }
+        // he turns even if a slow frame skipped his moment (some used to stay as they were)
         if (t >= tt && !who.classList.contains('on')) {
           who.classList.add('on');
           sfx('zap');
@@ -3402,7 +3411,7 @@ export class App {
         }
       });
       if (!titled && t >= T_TITLE) { titled = true; box.classList.add('titled'); sfx('reveal'); if (!lite) confetti(70); }
-      if (hit && !lite && Math.random() < 0.6) sparks.push({ x: c.x + (Math.random() - 0.5) * 60, y: c.y + 20, vx: (Math.random() - 0.5) * 40, vy: -60 - Math.random() * 90, life: 1.6, max: 1.6, size: 2 + Math.random() * 3, c: COLS[(Math.random() * 4) | 0], grav: -10 });
+      if (hit && !lite && sparks.length < MAX_SPARKS && Math.random() < 0.6) sparks.push({ x: c.x + (Math.random() - 0.5) * 60, y: c.y + 20, vx: (Math.random() - 0.5) * 40, vy: -60 - Math.random() * 90, life: 1.6, max: 1.6, size: 2 + Math.random() * 3, c: COLS[(Math.random() * 4) | 0], grav: -10 });
       for (let k = rings.length - 1; k >= 0; k--) { // shockwaves
         const r = rings[k], a = (t - r.t) / 0.9;
         if (a < 0) continue;
@@ -3452,6 +3461,7 @@ export class App {
    */
   private launchDuel() {
     if (document.querySelector('.ldu')) return;
+    this.sleepUnderDuel(); // the game loop sleeps under it too
     try { localStorage.setItem('iz-launch-duelo', '1'); } catch { /* private window */ }
     const open = duelOpen(), lite = this.save.settings.particles === 'desactivado';
     const FR: Record<string, string> = { leyenda: 'marco-leyenda', mitico: 'marco-mitico' };
@@ -3495,7 +3505,9 @@ export class App {
 
     // sparks and the clash: the same kind of canvas as the 3.0 one
     const cv = box.querySelector<HTMLCanvasElement>('.l30-fx')!, g = cv.getContext('2d')!;
-    const fit = () => { const d = Math.min(2, window.devicePixelRatio || 1); cv.width = window.innerWidth * d; cv.height = window.innerHeight * d; g.setTransform(d, 0, 0, d, 0, 0); };
+    // at most 1.5× the screen's pixels (1 on modest devices): at 2× a full-window canvas of glowing bolts lagged the
+    // whole intro (author: «va lagueadísima»)
+    const fit = () => { const d = Math.min(LOW_FX ? 1 : 1.5, window.devicePixelRatio || 1); cv.width = window.innerWidth * d; cv.height = window.innerHeight * d; g.setTransform(d, 0, 0, d, 0, 0); };
     fit();
     window.addEventListener('resize', fit);
     type Spark = { x: number; y: number; vx: number; vy: number; life: number; max: number; size: number; c: string };

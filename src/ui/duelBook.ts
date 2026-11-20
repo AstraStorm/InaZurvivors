@@ -10,7 +10,7 @@
 import { tr } from '../i18n/i18n';
 import { sfx } from '../game/sfx';
 import { ART, ART_V } from './duelArt';
-import { techInfo } from './duelText';
+import { pctOf, techInfo } from './duelText';
 import { DUEL_PLAYERS, duelStats } from '../systems/duel/cards';
 
 /** what the book needs from the game to fill its cards with real footballers (without it, the cards show their art only) */
@@ -67,7 +67,7 @@ function content(h?: BookHost): { pages: string[]; chapters: Chapter[] } {
     const icon = ulti ? (t.area ? 'tipo-area' : 'tipo-ataque') : `tipo-${t.kind}`;
     const lw = Math.max(...t.tech.split(/\s+/).map((w) => w.length));
     return `<span class="db-mc ${cls}"><span class="db-mcf">${h.mug(pid, 60)}</span>${img(ulti ? 'carta-ulti' : `carta-r${rank}`, 'db-mcfr')}${img(icon, 'db-mci')}
-      <span class="db-mct" style="--lw:${lw}">${esc(t.tech)}</span>${mult ? `<span class="db-mcm">×${mult}</span>` : ''}</span>`;
+      <span class="db-mct" style="--lw:${lw}">${esc(t.tech)}</span>${mult ? `<span class="db-mcm">${pctOf(mult)}</span>` : ''}</span>`;
   };
   // the stats chapter: Axel's real ones, each with what it does
   const st = h && has(AXEL) ? duelStats(h.byId.get(AXEL)!) : null;
@@ -120,7 +120,7 @@ function content(h?: BookHost): { pages: string[]; chapters: Chapter[] } {
      <li>${tr('Tienes 3 acciones: usar una carta, moverla de sitio o usar una ulti.')}</li>
      <li>${tr('Las cartas que no uses se quedan para el turno siguiente.')}</li></ul>`,
     `${ch(4)}<div class="db-row db-stars">${card(AIDEN, 0, 1)}${card(AIDEN, 0, 2)}${card(AIDEN, 0, 3, 'db-glow')}</div>
-     <ul><li>${tr('Una carta tiene 1, 2 o 3 estrellas: más estrellas, más multiplicador.')}${ice ? ` ${tr('{t} de {n}: ★ ×{a}, ★★ ×{b}, ★★★ ×{c}.', { t: esc(ice.tech), n: nm(AIDEN), a: ice.mults[0], b: ice.mults[1] ?? ice.mults[0], c: ice.mults[2] ?? ice.mults[0] })}` : ''}</li>
+     <ul><li>${tr('Una carta tiene 1, 2 o 3 estrellas: más estrellas, más multiplicador.')}${ice ? ` ${tr('{t} de {n}: ★ {a}, ★★ {b}, ★★★ {c} de daño.', { t: esc(ice.tech), n: nm(AIDEN), a: pctOf(ice.mults[0]), b: pctOf(ice.mults[1] ?? ice.mults[0]), c: pctOf(ice.mults[2] ?? ice.mults[0]) })}` : ''}</li>
      <li>${tr('Algunos efectos solo salen con ★★ o ★★★ (en la carta pone «★★+» o «★★★+»).')}${ice?.lines.some((l) => l.min >= 3) ? ` ${tr('Aquí, congelar al rival solo con ★★★.')}` : ''}</li>
      <li>${tr('Usar una carta llena la Garra de su futbolista tantos segmentos como estrellas tenga.')}</li>
      <li>${tr('Las de 3 estrellas son las más fuertes, pero no se pueden fusionar más.')}</li></ul>`,

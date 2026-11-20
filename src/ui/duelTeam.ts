@@ -11,7 +11,7 @@ import { COACH_BY_ID } from '../data/coaches';
 import { DUEL_BY_ID, DUEL_COACHES, DUEL_COMBOS, duelStats, familyOf, type CoachId, type DuelGroup } from '../systems/duel/cards';
 import { artUrl } from './duelArt';
 import { elementIcon } from './elements';
-import { techInfo, passiveText } from './duelText';
+import { techInfo, passiveText, coachText, pctOf } from './duelText';
 import type { DuelHubHost, DuelNav } from './duelHub';
 import { fit, go, zoomOf } from './duelNav';
 
@@ -88,6 +88,8 @@ export function openDuelTeam(h: DuelTeamHost, start: DuelTeam, save: (t: DuelTea
     if (coachDef && team.filter((p) => (coachDef.groups as readonly DuelGroup[]).includes(groupOf(p))).length >= 2) chips.push(`<span class="dt-syn co"><b>${esc(COACH_BY_ID.get(coach!)?.name ?? coach!)}</b><small>${tr('pasiva +50 %')}</small></span>`);
     return chips.join('') || `<span class="dt-none">${tr('Junta futbolistas del mismo grupo o elemento para activar sinergias.')}</span>`;
   }
+  /** the coach's passive is worth 50 % more with 2+ footballers of his groups */
+  const coachBoosted = (team: number[]) => { const d = coach ? DUEL_COACHES.find((c) => c.id === coach) : null; return !!d && team.filter((p) => (d.groups as readonly DuelGroup[]).includes(groupOf(p))).length >= 2; };
   function render() {
     const team = slots.filter((x): x is number => x !== null);
     const fams = new Map(team.map((p) => [familyOf(p), p]));
@@ -107,7 +109,8 @@ export function openDuelTeam(h: DuelTeamHost, start: DuelTeam, save: (t: DuelTea
           <div class="dt-slot coach${coachOpen ? ' sel' : ''}" data-coach><small class="dt-lbl">${tr('Entrenador')}</small>
             <div class="dt-coach">${coachArt ? `<img src="${coachArt}" alt="">` : '<i>📋</i>'}<b>${esc(coach ? COACH_BY_ID.get(coach)?.name ?? coach : tr('Sin entrenador'))}</b></div></div>
         </div>
-        ${coachOpen ? `<div class="dt-coaches">${[null, ...coaches].map((c) => `<button type="button" data-pick-coach="${c ?? ''}" class="${c === coach ? 'on' : ''}">${c && h.coachArt(c) ? `<img src="${h.coachArt(c)}" alt="">` : '<i>📋</i>'}<span>${esc(c ? COACH_BY_ID.get(c)?.name ?? c : tr('Sin entrenador'))}</span></button>`).join('')}</div>` : ''}
+        ${coachOpen ? `<div class="dt-coaches">${[null, ...coaches].map((c) => `<button type="button" data-pick-coach="${c ?? ''}" class="${c === coach ? 'on' : ''}">${c && h.coachArt(c) ? `<img src="${h.coachArt(c)}" alt="">` : '<i>📋</i>'}<span>${esc(c ? COACH_BY_ID.get(c)?.name ?? c : tr('Sin entrenador'))}${c ? `<small>${esc(coachText(c))}</small>` : ''}</span></button>`).join('')}</div>` : ''}
+        ${coach && !coachOpen ? `<p class="dt-cpas"><b>${esc(COACH_BY_ID.get(coach)?.name ?? coach)}</b>${esc(coachText(coach, coachBoosted(team)))}${coachBoosted(team) ? ` <em>${tr('(+50 % por tener 2 o más de su grupo)')}</em>` : ''}</p>` : ''}
         <div class="dt-syns">${synergies()}</div>
         <div class="dt-filter">${['', ...EL_ORDER].map((e) => `<button type="button" data-f="${e}" class="${filter === e ? 'on' : ''}">${e ? elementIcon(e, 16) + esc(tr(e)) : tr('Todos')}</button>`).join('')}<span class="dt-count">${tr('{n} futbolistas', { n: own.length })}</span></div>
         <div class="dt-grid">${list.map((pid) => {
@@ -131,13 +134,13 @@ export function openDuelTeam(h: DuelTeamHost, start: DuelTeam, save: (t: DuelTea
       const t = techInfo(pid, idx), ulti = idx === 'u', kind = ulti ? 'ulti' : t.kind;
       const icon = ulti ? (t.area ? 'tipo-area' : 'tipo-ataque') : `tipo-${t.kind}`;
       const mults = ulti
-        ? (t.mults.length ? `<span class="m u">×${t.mults[0]}${t.area ? ` · ${tr('a todos')}` : ''}</span>` : '')
-        : t.mults.map((m, i) => `<span class="m"><i>${'★'.repeat(i + 1)}</i>×${m}</span>`).join('') + (t.area ? `<span class="m a">${tr('a todos')}</span>` : '');
+        ? (t.mults.length ? `<span class="m u">${pctOf(t.mults[0])}${t.area ? ` · ${tr('a todos')}` : ''}</span>` : '')
+        : t.mults.map((m, i) => `<span class="m"><i>${'★'.repeat(i + 1)}</i>${pctOf(m)}</span>`).join('') + (t.area ? `<span class="m a">${tr('a todos')}</span>` : '');
       const top = ulti ? t.mults[0] : t.mults[t.mults.length - 1];
       const lw = Math.max(...t.tech.split(/\s+/).map((w) => w.length));
       return `<div class="dt-tt${ulti ? ' ulti' : ''}" style="--kc:${KIND_COL[kind] ?? '#4fb3ff'}">
         <div class="dt-mc"><span class="dt-mcf">${h.mug(pid, 62)}</span><img class="dt-mcfr" src="${artUrl(ulti ? 'carta-ulti' : 'carta-r3')}" alt=""><img class="dt-mci" src="${artUrl(icon)}" alt="">
-          <span class="dt-mct" style="--lw:${lw}">${esc(t.tech)}</span>${top ? `<span class="dt-mcm">×${top}</span>` : ''}${ulti ? '<i class="dt-mcs"></i>' : ''}</div>
+          <span class="dt-mct" style="--lw:${lw}">${esc(t.tech)}</span>${top ? `<span class="dt-mcm">${pctOf(top)}</span>` : ''}${ulti ? '<i class="dt-mcs"></i>' : ''}</div>
         <em class="dt-kind">${esc(KIND()[kind] ?? kind)}</em>
         ${mults ? `<div class="dt-ttm">${mults}</div>` : ''}
         ${t.lines.map((l) => `<p>${l.min > 1 ? `<i>${'★'.repeat(l.min)}+</i>` : '<i class="d">✦</i>'}${esc(l.text)}</p>`).join('')}</div>`;
@@ -163,6 +166,7 @@ export function openDuelTeam(h: DuelTeamHost, start: DuelTeam, save: (t: DuelTea
   el.addEventListener('pointerleave', () => { tip.hidden = true; tipFor = 0; });
   const close = () => { tip.remove(); back(el); };
   el.addEventListener('click', (e) => {
+    if (dragged) { dragged = false; return; } // the end of a drag is not a tap
     const t = e.target as HTMLElement;
     if (t.closest('.dt-back')) { sfx('whoosh'); close(); return; }
     if (t.closest('.dt-save')) {
@@ -202,6 +206,58 @@ export function openDuelTeam(h: DuelTeamHost, start: DuelTeam, save: (t: DuelTea
       pop(`.dt-slot[data-slot="${placed}"] .dt-card`);
     }
   });
+  // ---- drag a footballer from the list or from a place onto a place (author: «que me deje arrastrar a los personajes en
+  // mi equipo»): from the list it takes that place (another form of him elsewhere in the team is refused), between two
+  // places they swap
+  let drag: { pid: number; from: number | null; x0: number; y0: number; ghost: HTMLElement | null; src: HTMLElement } | null = null, dragged = false;
+  const slotAt = (x: number, y: number) => (document.elementFromPoint(x, y) as HTMLElement | null)?.closest<HTMLElement>('.dt-form [data-slot]') ?? null;
+  el.addEventListener('pointerdown', (e) => {
+    if (e.button !== 0 || (e.target as HTMLElement).closest('[data-out]')) return;
+    const t = e.target as HTMLElement, pick = t.closest<HTMLElement>('.dt-grid [data-pid]'), slotEl = t.closest<HTMLElement>('.dt-form [data-slot]');
+    const pid = pick ? Number(pick.dataset.pid) : slotEl ? slots[Number(slotEl.dataset.slot)] : null;
+    if (pid === null || pid === undefined || pick?.classList.contains('lock')) return;
+    const src = (pick ?? slotEl)!.querySelector<HTMLElement>('.dt-card') ?? (pick ?? slotEl)!;
+    drag = { pid, from: pick ? null : Number(slotEl!.dataset.slot), x0: e.clientX, y0: e.clientY, ghost: null, src };
+  });
+  el.addEventListener('pointermove', (e) => {
+    if (!drag) return;
+    if (!drag.ghost) {
+      if (Math.hypot(e.clientX - drag.x0, e.clientY - drag.y0) < 7) return;
+      const r = drag.src.getBoundingClientRect(), g = drag.src.cloneNode(true) as HTMLElement;
+      g.className += ' dt-ghost';
+      g.style.cssText = `position:fixed;left:${r.left}px;top:${r.top}px;width:${r.width}px;height:${r.height}px;margin:0;z-index:9200;pointer-events:none`;
+      document.body.appendChild(g);
+      drag.ghost = g; drag.src.classList.add('dt-dragsrc'); tip.hidden = true;
+      try { el.setPointerCapture(e.pointerId); } catch { /* the pointer is gone */ }
+      sfx('pickup');
+    }
+    drag.ghost.style.translate = `${e.clientX - drag.x0}px ${e.clientY - drag.y0}px`;
+    const over = slotAt(e.clientX, e.clientY);
+    for (const s2 of el.querySelectorAll('.dt-form .dt-slot.drop')) if (s2 !== over) s2.classList.remove('drop');
+    over?.classList.add('drop');
+  });
+  const endDrag = (e: PointerEvent) => {
+    const d = drag;
+    drag = null;
+    if (!d?.ghost) return;
+    dragged = true;
+    d.ghost.remove(); d.src.classList.remove('dt-dragsrc');
+    for (const s2 of el.querySelectorAll('.dt-form .dt-slot.drop')) s2.classList.remove('drop');
+    const over = slotAt(e.clientX, e.clientY);
+    if (!over) return;
+    const to = Number(over.dataset.slot);
+    if (d.from !== null) { [slots[d.from], slots[to]] = [slots[to], slots[d.from]]; }
+    else {
+      const at = slots.indexOf(d.pid);
+      if (at >= 0) [slots[at], slots[to]] = [slots[to], slots[at]];
+      else if (slots.some((x, i) => x !== null && i !== to && familyOf(x) === familyOf(d.pid))) { sfx('error'); return; }
+      else slots[to] = d.pid;
+    }
+    sel = slots.indexOf(null) >= 0 ? slots.indexOf(null) : to;
+    sfx('pickup'); render(); pop(`.dt-slot[data-slot="${to}"] .dt-card`);
+  };
+  el.addEventListener('pointerup', endDrag);
+  el.addEventListener('pointercancel', () => { if (drag?.ghost) { drag.ghost.remove(); drag.src.classList.remove('dt-dragsrc'); } drag = null; });
   function pop(q: string) {
     for (const c of el.querySelectorAll<HTMLElement>(q)) c.animate([{ transform: 'scale(.6)', filter: 'brightness(2)' }, { transform: 'scale(1.08)', offset: 0.6 }, { transform: 'scale(1)', filter: 'none' }], { duration: 380, easing: 'cubic-bezier(.2,1.5,.4,1)' });
   }
@@ -267,6 +323,16 @@ const CSS = `${DUEL_STATS_CSS}
 .dt-coaches button.on{border-color:#ffd76a;box-shadow:0 0 10px #ffb02088}
 .dt-coaches img{width:30px;height:30px;border-radius:50%;object-fit:cover}
 .dt-coaches i{font-style:normal;font-size:20px}
+.dt-coaches button{align-items:flex-start;text-align:left;max-width:300px;border-radius:14px}
+.dt-coaches span{display:flex;flex-direction:column;gap:2px}
+.dt-coaches small{font-weight:600;font-size:11px;line-height:1.3;color:#cfe0ff}
+.dt-ghost{opacity:.92;transform:scale(1.06) rotate(-3deg);filter:drop-shadow(0 12px 18px #000c);transition:none}
+.dt-dragsrc{opacity:.35}
+.dt-form .dt-slot.drop{outline:3px solid #ffd76a;outline-offset:3px;box-shadow:0 0 22px #ffb020aa}
+.dt-form .dt-slot{touch-action:none}
+.dt-cpas{margin:6px 0 0;padding:7px 10px;border-radius:10px;background:linear-gradient(90deg,#5a3a0a66,#2a1a0644);border:1px solid #ffd76a88;font-size:12.5px;line-height:1.35;color:#fff3d6}
+.dt-cpas b{margin-right:8px;color:#ffd76a}
+.dt-cpas em{color:#9fe0ff;font-style:normal}
 .dt-syns{display:flex;gap:6px;flex-wrap:wrap;min-height:30px}
 .dt-syn{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;font-size:12px;background:#13245e;border:1px solid #4fb3ff66;animation:dtSyn .35s cubic-bezier(.2,1.5,.4,1)}
 .dt-syn small{color:#ffe9a8;font-weight:700}

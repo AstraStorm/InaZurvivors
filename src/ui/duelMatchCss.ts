@@ -737,5 +737,7 @@ body.lowfx .dm-spot{display:none}
 .dm-unit.leaving{pointer-events:none;transition:opacity .4s ease-in,scale .4s ease-in,rotate .4s ease-in;opacity:0;scale:.7;rotate:-10deg;filter:grayscale(1) brightness(1.6)}
 .dm-info p.pas{margin-top:.4cqw;padding:.3cqw .5cqw;border-radius:.5cqw;background:#5a2a9a55;border:.1cqw solid #c49aff88;color:#f0e6ff}
 .dm-info p.pas b{margin-right:.4cqw;padding:0 .35cqw;border-radius:.35cqw;background:#c49aff;color:#2a0a4a;font-size:.85em;text-transform:uppercase;letter-spacing:.05em}
+.dm-orbfly{position:fixed;z-index:40;width:calc(var(--u,1vw)*1.6);aspect-ratio:1;border-radius:50%;pointer-events:none;background:radial-gradient(circle at 35% 35%,#fff,#9fe0ff 35%,#2f7bff 70%,#0b3a9a);box-shadow:0 0 calc(var(--u,1vw)*1) #4fb3ff,0 0 calc(var(--u,1vw)*.3) #fff}
+.dm-orbfly.s1{background:radial-gradient(circle at 35% 35%,#fff,#ffd6e0 35%,#ff4f7a 70%,#9a0b2a);box-shadow:0 0 calc(var(--u,1vw)*1) #ff4f7a,0 0 calc(var(--u,1vw)*.3) #fff}
 `;
 export const DUEL_MATCH_CSS = CSS_RAW.replace(/(-?\d*\.?\d+)cqw/g, 'calc(var(--u)*$1)');

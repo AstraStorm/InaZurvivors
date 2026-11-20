@@ -3,8 +3,11 @@
  * need more stars than the card has are listed too, marked with the stars they need.
  */
 import { tr } from '../i18n/i18n';
+
+/** a card's multiplier as the share of ATQ it deals (author: «si es un x1 que ponga 100 % del daño, si quita x5, 500 %») */
+export const pctOf = (m: number) => `${Math.round(m * 100)}%`;
 import { tTech } from '../i18n/data';
-import { passiveOf, type Cond, type Fx, type Passive, type Per } from '../systems/duel/cards';
+import { passivesOf, type Cond, type Fx, type Passive, type Per } from '../systems/duel/cards';
 import { specOf, unit, type Card, type DuelState, type Unit } from '../systems/duel/rules';
 
 const COND = (): Record<Cond, string> => ({
@@ -34,7 +37,7 @@ function fxText(f: Fx, rank: number): string {
     case 'bonusPer': return tr('+{p} % de daño por {c}.', { p: f.pct, c: PER()[f.per] });
     case 'critBonus': return tr('+{p} % de probabilidad de crítico.', { p: f.pct });
     case 'critSure': return tr('Siempre es crítico.');
-    case 'hits': return tr('{n} golpes de ×{m}.', { n: f.n, m: f.each });
+    case 'hits': return tr('{n} golpes del {p} de daño.', { n: f.n, p: pctOf(f.each) });
     case 'randomHits': return tr('{n} golpes a rivales al azar.', { n: f.n });
     case 'repeatOnCrit': return tr('Si es crítico, golpea otra vez.');
     case 'selfDamage': return tr('Le cuesta un {p} % de sus PV.', { p: f.pct });
@@ -51,11 +54,11 @@ function fxText(f: Fx, rank: number): string {
     case 'heal': return tr('Cura un {p} % de PV {w}.', { p: r(f.pct), w: WHO(f.who) });
     case 'block': return tr('Bloquea los próximos {n} ataques ({w}).', { n: r(f.n), w: WHO(f.who) }) + (f.reflect ? ` ${tr('Devuelve un {p} %.', { p: f.reflect })}` : '');
     case 'dodge': return tr('Esquiva los próximos {n} ataques.', { n: r(f.n) });
-    case 'counter': return tr('Contraataca con ×{m} cuando le golpean.', { m: f.mult });
+    case 'counter': return tr('Contraataca con un {p} de daño cuando le golpean.', { p: pctOf(f.mult) });
     case 'reflect': return tr('Devuelve un {p} % del daño recibido.', { p: f.pct });
     case 'endure': return tr('Aguanta con 1 PV un golpe que lo lesionaría.');
     case 'reduce': return f.scope === 'area' ? tr('El equipo recibe un {p} % menos de daño de área.', { p: f.pct }) : tr('El equipo recibe un {p} % menos de daño.', { p: f.pct });
-    case 'mine': return tr('Trampa: el próximo rival que ataque recibe ×{m}.', { m: f.mult });
+    case 'mine': return tr('Trampa: el próximo rival que ataque recibe un {p} de daño.', { p: pctOf(f.mult) });
     case 'statusGuard': return tr('Protege al equipo del próximo estado.');
     case 'immune': return tr('El equipo es inmune a los estados un turno.');
     case 'cleanse': return tr('Quita los estados del equipo.');
@@ -92,9 +95,9 @@ export function cardInfo(s: DuelState, c: Card, names: (pid: number) => string):
   const rank = c.idx === 'u' || c.idx === 'c' ? 3 : c.rank;
   const mult = sp.mult[Math.min(sp.mult.length - 1, rank - 1)] || null;
   let base = '';
-  if (sp.kind === 'combo') base = tr('Técnica combinada: daño ×{m} con el ATQ medio de {who}.', { m: mult ?? 0, who: c.combo!.members.map((m) => names(unit(s, m).pid)).join(' + ') });
-  else if (mult && (sp.kind === 'ataque' || sp.kind === 'debilitar' || (sp.kind === 'ulti' && !sp.area))) base = tr('Daño ×{m} a un rival.', { m: mult });
-  else if (mult && (sp.kind === 'area' || sp.kind === 'ulti')) base = tr('Daño ×{m} a todos los rivales.', { m: mult });
+  if (sp.kind === 'combo') base = tr('Técnica combinada: {p} de daño con el ATQ medio de {who}.', { p: pctOf(mult ?? 0), who: c.combo!.members.map((m) => names(unit(s, m).pid)).join(' + ') });
+  else if (mult && (sp.kind === 'ataque' || sp.kind === 'debilitar' || (sp.kind === 'ulti' && !sp.area))) base = tr('{p} de daño a un rival.', { p: pctOf(mult) });
+  else if (mult && (sp.kind === 'area' || sp.kind === 'ulti')) base = tr('{p} de daño a todos los rivales.', { p: pctOf(mult) });
   const lines = sp.fx.map((f) => ({ text: fxText(f, rank), min: f.min ?? 1, on: (f.min ?? 1) <= rank })).filter((l) => l.text);
   return { tech: tTech(sp.tech), kind: sp.kind, mult, base, lines };
 }
@@ -108,10 +111,8 @@ export function techInfo(pid: number, idx: 0 | 1 | 'u'): CardInfo & { mults: num
   return { tech: tTech(sp.tech), kind: sp.kind, mult: sp.mult[0] || null, mults: sp.mult.filter(Boolean), base: '', lines, area: sp.area };
 }
 
-/** a footballer's passive, in words (empty: none) */
-export function passiveText(pid: number): string {
-  const p: Passive | undefined = passiveOf(pid);
-  if (!p) return '';
+/** one part of a footballer's passive, in words */
+function passivePart(p: Passive): string {
   switch (p.do) {
     case 'atk': return tr('ATQ +{n} %.', { n: p.pct });
     case 'def': return tr('DEF +{n} %.', { n: p.pct });
@@ -122,19 +123,55 @@ export function passiveText(pid: number): string {
     case 'gaugeStart': return tr('Empieza el partido con {n} orbes de Garra.', { n: p.n });
     case 'turnGauge': return tr('Al empezar cada turno tuyo, gana {n} orbe de Garra.', { n: p.n });
     case 'koGauge': return tr('Cuando deja K.O. a un rival, gana {n} orbes de Garra.', { n: p.n });
+    case 'enemyUltiGauge': return tr('Cada vez que un rival usa su ulti, gana {n} orbes de Garra.', { n: p.n });
     case 'turnHeal': return tr('Al empezar cada turno tuyo, recupera un {n} % de sus PV.', { n: p.pct });
     case 'turnShield': return tr('Al empezar cada turno tuyo, gana un escudo del {n} % de sus PV.', { n: p.pct });
+    case 'benchHeal': return tr('En el banquillo, recupera un {n} % de sus PV cada turno tuyo.', { n: p.pct });
     case 'takeLess': return tr('Recibe un {n} % menos de daño.', { n: p.pct });
+    case 'areaLess': return tr('Recibe un {n} % menos de daño de las cartas de área.', { n: p.pct });
     case 'teamDef': return tr('Mientras está en el campo, sus compañeros reciben un {n} % menos de daño.', { n: p.pct });
+    case 'guardian': return tr('Mientras está en el campo, el compañero con menos PV recibe un {n} % menos de daño.', { n: p.pct });
     case 'teamAtk': return tr('Mientras está en el campo, sus compañeros tienen ATQ +{n} %.', { n: p.pct });
     case 'lowHpAtk': return tr('Con menos de la mitad de PV, hace un {n} % más de daño.', { n: p.pct });
     case 'vsStatus': return tr('Hace un {n} % más de daño a rivales con un estado alterado.', { n: p.pct });
     case 'elemPlus': return tr('Con ventaja de elemento, hace un {n} % más de daño.', { n: p.pct });
     case 'ultiPlus': return tr('Su ulti hace un {n} % más de daño.', { n: p.pct });
     case 'firstCard': return tr('La primera carta de cada turno hace un {n} % más de daño.', { n: p.pct });
+    case 'vsGK': return tr('Hace un {n} % más de daño a los porteros.', { n: p.pct });
+    case 'shieldBreaker': return tr('Hace un {n} % más de daño a rivales con escudo.', { n: p.pct });
+    case 'execute': return tr('Hace un {n} % más de daño a rivales con menos del {b} % de sus PV.', { n: p.pct, b: p.below });
     case 'lifesteal': return tr('Recupera el {n} % del daño que hace.', { n: p.pct });
     case 'thorns': return tr('Devuelve al atacante el {n} % del daño que recibe.', { n: p.pct });
+    case 'koHealTeam': return tr('Cuando deja K.O. a un rival, su equipo recupera un {n} % de sus PV.', { n: p.pct });
+    case 'stackAtk': return tr('Cada carta que usa le da ATQ +{n} % para todo el partido (hasta {m} veces).', { n: p.pct, m: p.max });
+    case 'allyKoRage': return tr('Cuando cae un compañero, gana ATQ +{n} % para todo el partido y {g} orbes de Garra.', { n: p.pct, g: p.n });
+    case 'secondWind': return p.shield
+      ? tr('La primera vez que baja de la mitad de PV, recupera un {h} % y gana un escudo del {s} %.', { h: p.heal, s: p.shield })
+      : tr('La primera vez que baja de la mitad de PV, recupera un {h} % de sus PV.', { h: p.heal });
+    case 'ultiStatus': return tr('Su ulti también aplica {s}.', { s: STATUS()[p.s] ?? p.s });
+    case 'statusImmune': return tr('Inmune a {s}.', { s: STATUS()[p.s] ?? p.s });
+    case 'cleanseTurn': return tr('Al empezar cada turno tuyo, se quita los estados alterados.');
+    case 'doubleStatus': return tr('Los estados que aplica duran 1 turno más.');
+    case 'critSteal': return tr('Sus críticos le roban {n} orbe de Garra al rival.', { n: p.n });
+    case 'everyThird': return tr('Cada tercera carta que usa es un crítico seguro.');
     case 'lastStand': return tr('Una vez por partido, aguanta con 1 PV un golpe que lo dejaría K.O.');
     case 'rankStart': return tr('Al empezar cada turno tuyo, sube de rango una de sus cartas.');
+  }
+}
+/** a footballer's passive, in words (empty: none) */
+export function passiveText(pid: number): string {
+  return passivesOf(pid).map(passivePart).join(' ');
+}
+
+/** a coach's passive in words (rules.ts applies them; with 2+ footballers of his groups they are worth 50 % more) */
+export function coachText(id: string, boosted = false): string {
+  const k = boosted ? 1.5 : 1;
+  switch (id) {
+    case 'hillman': return tr('Por cada compañero tuyo K.O., tu equipo gana ATQ +{n} % (hasta 2 veces).', { n: 10 * k });
+    case 'ray-dark': return tr('Juego sucio: la primera mano del rival tiene 1 carta menos, y tus cartas que bajan la DEF la bajan {n} puntos más.', { n: 10 * k });
+    case 'travis': return tr('Táctica: la primera fusión de cada turno sube un rango más (★ + ★ = ★★★).');
+    case 'david-evans': return tr('Tus porteros empiezan con 2 orbes y tus escudos protegen un {n} % más.', { n: 30 * k });
+    case 'mister-d': return tr('Tu equipo tiene DEF −{d} % y probabilidad de crítico +{c}.', { d: 8 * k, c: 12 * k });
+    default: return '';
   }
 }

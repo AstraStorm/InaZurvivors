@@ -45,74 +45,88 @@ export interface DuelPlayer { id: number; group: DuelGroup; cards: [CardSpec, Ca
 
 /**
  * Passives (author: «añádeles pasivas a cada una de las cartas, basándote en las que hay en Grand Cross y
- * balanceándolas»): one per footballer, always on while he plays, of the kinds Grand Cross heroes have: stats of his
- * own, something every turn, damage taken or dealt in some case, a team aura, a last stand. rules.ts applies them;
- * tools/duel_balance.ts then evened the footballers out with them on.
+ * balanceándolas»; then «cúrratelas, que sean un poco más complejas algunas y que no se repitan a no ser que sea la
+ * misma forma de personaje»): each footballer has his own, made of one or two parts, always on while he plays, of the
+ * kinds Grand Cross heroes have: stats, something every turn, a trigger (a K.O., a fall below half PV, a rival's ulti),
+ * a team aura, a last stand. None needs particular team mates (author: «que no se tenga que depender de jugadores»).
+ * Only the forms of one character (Arion, Victor, Zanark) share theirs. rules.ts applies them; tools/duel_balance.ts
+ * then evened the footballers out with them on.
  */
 export type Passive =
   | { do: 'atk' | 'def' | 'hp' | 'crit' | 'critDmg' | 'resist'; pct: number } // his own stats (crit / resist: points)
-  | { do: 'gaugeStart' | 'turnGauge' | 'koGauge'; n: number } // Garra: at the start / every turn of his side / per K.O.
-  | { do: 'turnHeal' | 'turnShield'; pct: number } // every turn of his side, a share of his PV
-  | { do: 'takeLess' | 'teamDef' | 'teamAtk'; pct: number } // damage taken (his / his team mates') and his mates' ATK
-  | { do: 'lowHpAtk' | 'vsStatus' | 'elemPlus' | 'ultiPlus' | 'firstCard'; pct: number } // damage dealt in some case
-  | { do: 'lifesteal' | 'thorns'; pct: number } // a share of the damage he deals back to him / he takes back to the attacker
-  | { do: 'lastStand' } // once a match, a blow that would knock him out leaves him with 1 PV
-  | { do: 'rankStart' }; // every turn of his side, one of his cards climbs a rank
-export const DUEL_PASSIVE: Record<number, Passive> = {
-  1: { do: 'lastStand' }, // Mark: never gives up
-  10: { do: 'firstCard', pct: 25 }, // Axel: the striker who opens the scoring
-  29: { do: 'rankStart' }, // Jude: the strategist
-  1513: { do: 'vsStatus', pct: 25 }, // Shawn: the frozen ones break
-  2: { do: 'crit', pct: 12 }, // Nathan: speed
-  3: { do: 'takeLess', pct: 12 }, // Jack: the wall
-  1567: { do: 'thorns', pct: 15 }, // Hurley: the wave comes back
-  1541: { do: 'koGauge', n: 2 }, // Caleb: ruthless
-  1532: { do: 'teamDef', pct: 8 }, // King (Redux): the forbidden goalkeeper covers them
-  1542: { do: 'lowHpAtk', pct: 30 }, // Samford (Redux): forbidden techniques, at any price
-  20: { do: 'turnShield', pct: 6 }, // King: Escudo de fuerza
-  30: { do: 'teamAtk', pct: 6 }, // Samford: the Emperor Penguin is played together
-  157: { do: 'gaugeStart', n: 2 }, // Byron: the Néctar de los Dioses
-  101722: { do: 'ultiPlus', pct: 25 }, // Xavier: Descenso estelar
-  1370: { do: 'elemPlus', pct: 20 }, // Gazelle
-  1371: { do: 'critDmg', pct: 25 }, // Torch: the flame
-  1548: { do: 'hp', pct: 15 }, // Darren
-  1024: { do: 'turnHeal', pct: 5 }, // Erik: back from the injury
-  101719: { do: 'atk', pct: 10 }, // Austin
-  101894: { do: 'def', pct: 15 }, // Helio
-  100773: { do: 'teamDef', pct: 8 }, // David: the legend in goal
-  101855: { do: 'teamAtk', pct: 6 }, // Bianchi: Himno de Atenea
-  101838: { do: 'crit', pct: 12 }, // Krueger
-  101791: { do: 'ultiPlus', pct: 25 }, // Partinus: Excalibur
-  101775: { do: 'elemPlus', pct: 20 }, // Choi: the dragon
-  101871: { do: 'lifesteal', pct: 15 }, // Robingo: samba
-  100538: { do: 'turnGauge', n: 1 }, // Arion: the wind
-  100562: { do: 'koGauge', n: 2 }, // Victor
-  100728: { do: 'hp', pct: 15 }, // JP
-  100580: { do: 'firstCard', pct: 25 }, // Falco
-  100427: { do: 'rankStart' }, // Fei
-  100944: { do: 'critDmg', pct: 25 }, // Bailong
-  100303: { do: 'vsStatus', pct: 25 }, // Tezcat
-  100242: { do: 'lowHpAtk', pct: 30 }, // Zanark
-  102307: { do: 'atk', pct: 10 }, // Beta
-  101572: { do: 'thorns', pct: 15 }, // Alpha
-  100487: { do: 'resist', pct: 30 }, // Gamma
-  100739: { do: 'elemPlus', pct: 20 }, // Sol: the sun
-  101308: { do: 'gaugeStart', n: 2 }, // Ichihoshi
-  100405: { do: 'turnHeal', pct: 5 }, // Gabi: Trance melódico
-  102185: { do: 'turnShield', pct: 6 }, // Sam
-  101505: { do: 'teamAtk', pct: 6 }, // Arthur: the king's army
-  100382: { do: 'ultiPlus', pct: 25 }, // Nobunaga
-  101488: { do: 'rankStart' }, // Zhuge: the strategist
-  101520: { do: 'turnGauge', n: 1 }, // Arion Miximax
-  101004: { do: 'koGauge', n: 2 }, // Victor Miximax
-  100952: { do: 'takeLess', pct: 10 }, // Zanark Miximax
-  100797: { do: 'atk', pct: 10 }, // Aiden
-  101504: { do: 'firstCard', pct: 25 }, // Asuto
-  100979: { do: 'lifesteal', pct: 15 }, // Haizaki
-  100905: { do: 'rankStart' }, // Nosaka: the strategist
-  100907: { do: 'crit', pct: 12 }, // Kira
+  | { do: 'gaugeStart' | 'turnGauge' | 'koGauge' | 'enemyUltiGauge'; n: number } // Garra: at the start / every turn / per K.O. / when a rival uses his ulti
+  | { do: 'turnHeal' | 'turnShield' | 'benchHeal'; pct: number } // every turn of his side (benchHeal: while on the bench)
+  | { do: 'takeLess' | 'areaLess' | 'teamDef' | 'guardian' | 'teamAtk'; pct: number } // damage taken; his mates' ATK
+  | { do: 'lowHpAtk' | 'vsStatus' | 'elemPlus' | 'ultiPlus' | 'firstCard' | 'vsGK' | 'shieldBreaker'; pct: number } // damage dealt in some case
+  | { do: 'execute'; pct: number; below: number } // more damage to a rival under `below` % of his PV
+  | { do: 'lifesteal' | 'thorns' | 'koHealTeam'; pct: number } // a share back to him / to the attacker; his team healed when he knocks one out
+  | { do: 'stackAtk'; pct: number; max: number } // every card he uses: ATK up for the match, up to `max` times
+  | { do: 'allyKoRage'; pct: number; n: number } // a team mate falls: ATK up for the match and orbs
+  | { do: 'secondWind'; heal: number; shield: number } // the first time he falls under half his PV
+  | { do: 'ultiStatus'; s: StatusId } // his ulti also leaves this status on what it hits
+  | { do: 'statusImmune'; s: StatusId } | { do: 'cleanseTurn' } | { do: 'doubleStatus' } // a status he never takes / shaken off every turn / his last a turn more
+  | { do: 'critSteal'; n: number } | { do: 'everyThird' } // his criticals steal orbs / every third card of his is a sure critical
+  | { do: 'lastStand' } | { do: 'rankStart' }; // once a match a blow leaves him at 1 PV / every turn one of his cards climbs a rank
+export const DUEL_PASSIVE: Record<number, Passive[]> = {
+  1: [{ do: 'lastStand' }, { do: 'teamDef', pct: 5 }], // Mark: the captain never gives up, and covers them all
+  10: [{ do: 'firstCard', pct: 25 }, { do: 'ultiStatus', s: 'quemadura' }], // Axel: opens the scoring; Tormenta de fuego burns
+  29: [{ do: 'rankStart' }, { do: 'shieldBreaker', pct: 20 }], // Jude: the playmaker reads the defence
+  1513: [{ do: 'ultiStatus', s: 'congelado' }, { do: 'vsStatus', pct: 20 }], // Shawn: Ventisca eterna freezes, then he breaks them
+  2: [{ do: 'everyThird' }], // Nathan: speed finds the gap every third card
+  3: [{ do: 'takeLess', pct: 10 }, { do: 'areaLess', pct: 25 }], // Jack: the wall
+  1567: [{ do: 'thorns', pct: 15 }], // Hurley: the wave comes back
+  1541: [{ do: 'koGauge', n: 2 }, { do: 'critSteal', n: 1 }], // Caleb: ruthless
+  1532: [{ do: 'teamDef', pct: 8 }, { do: 'statusImmune', s: 'aturdido' }], // King (Redux): the forbidden wall does not flinch
+  1542: [{ do: 'lowHpAtk', pct: 35 }], // Samford (Redux): forbidden techniques, at any price
+  20: [{ do: 'turnShield', pct: 7 }], // King: Escudo de fuerza
+  30: [{ do: 'atk', pct: 6 }, { do: 'execute', pct: 20, below: 50 }], // Samford: the Emperor Penguin finishes them
+  157: [{ do: 'gaugeStart', n: 2 }, { do: 'secondWind', heal: 15, shield: 0 }], // Byron: the Néctar de los Dioses
+  101722: [{ do: 'ultiPlus', pct: 25 }, { do: 'enemyUltiGauge', n: 1 }], // Xavier: Descenso estelar; he answers every ulti
+  1370: [{ do: 'elemPlus', pct: 20 }, { do: 'statusImmune', s: 'congelado' }], // Gazelle: ice does not stop him
+  1371: [{ do: 'critDmg', pct: 25 }, { do: 'statusImmune', s: 'quemadura' }], // Torch: fire does not burn him
+  1548: [{ do: 'hp', pct: 15 }, { do: 'benchHeal', pct: 8 }], // Darren
+  1024: [{ do: 'secondWind', heal: 20, shield: 10 }], // Erik: back from the injury
+  101719: [{ do: 'execute', pct: 30, below: 35 }], // Austin: the tiger finishes them
+  101894: [{ do: 'def', pct: 15 }, { do: 'cleanseTurn' }], // Helio
+  100773: [{ do: 'guardian', pct: 15 }, { do: 'hp', pct: 8 }], // David: the legend in goal covers the weakest
+  101855: [{ do: 'teamAtk', pct: 6 }], // Bianchi: Himno de Atenea
+  101838: [{ do: 'crit', pct: 12 }, { do: 'critDmg', pct: 15 }], // Krueger
+  101791: [{ do: 'ultiPlus', pct: 30 }], // Partinus: Excalibur
+  101775: [{ do: 'vsGK', pct: 30 }, { do: 'elemPlus', pct: 10 }], // Choi: the dragon goes for the goal
+  101871: [{ do: 'lifesteal', pct: 15 }], // Robingo: samba
+  100538: [{ do: 'stackAtk', pct: 4, max: 5 }], // Arion: the wind builds up
+  101520: [{ do: 'stackAtk', pct: 6, max: 5 }], // Arion Miximax: the same wind, stronger
+  100562: [{ do: 'critSteal', n: 1 }, { do: 'koGauge', n: 1 }], // Victor
+  101004: [{ do: 'critSteal', n: 1 }, { do: 'koGauge', n: 2 }], // Victor Miximax: the same, stronger
+  100728: [{ do: 'turnShield', pct: 4 }, { do: 'resist', pct: 20 }], // JP
+  100580: [{ do: 'firstCard', pct: 30 }], // Falco
+  100427: [{ do: 'doubleStatus' }, { do: 'gaugeStart', n: 1 }], // Fei: his tricks last longer
+  100944: [{ do: 'critDmg', pct: 30 }], // Bailong
+  100303: [{ do: 'vsStatus', pct: 30 }], // Tezcat
+  100242: [{ do: 'lowHpAtk', pct: 25 }, { do: 'allyKoRage', pct: 15, n: 1 }], // Zanark: rage
+  100952: [{ do: 'lowHpAtk', pct: 25 }, { do: 'allyKoRage', pct: 20, n: 1 }], // Zanark Miximax: the same rage, stronger
+  102307: [{ do: 'atk', pct: 12 }], // Beta
+  101572: [{ do: 'resist', pct: 40 }], // Alpha: no emotions
+  100487: [{ do: 'shieldBreaker', pct: 40 }], // Gamma
+  100739: [{ do: 'elemPlus', pct: 30 }], // Sol: the sun
+  101308: [{ do: 'gaugeStart', n: 2 }], // Ichihoshi
+  100405: [{ do: 'turnHeal', pct: 4 }], // Gabi: Trance melódico
+  102185: [{ do: 'areaLess', pct: 30 }, { do: 'def', pct: 8 }], // Sam
+  101505: [{ do: 'teamAtk', pct: 5 }, { do: 'takeLess', pct: 5 }], // Arthur: the king leads from the front
+  100382: [{ do: 'allyKoRage', pct: 15, n: 2 }], // Nobunaga
+  101488: [{ do: 'turnGauge', n: 1 }], // Zhuge: the strategist charges every turn
+  100797: [{ do: 'ultiStatus', s: 'aturdido' }], // Aiden: Furia de oso
+  101504: [{ do: 'koHealTeam', pct: 10 }], // Asuto
+  100979: [{ do: 'lifesteal', pct: 10 }, { do: 'critDmg', pct: 15 }], // Haizaki
+  100905: [{ do: 'enemyUltiGauge', n: 2 }], // Nosaka: reads the rival
+  100907: [{ do: 'crit', pct: 15 }], // Kira
 };
-export const passiveOf = (pid: number): Passive | undefined => DUEL_PASSIVE[pid];
+/** a footballer's passive parts (empty: none) */
+export const passivesOf = (pid: number): Passive[] => DUEL_PASSIVE[pid] ?? [];
+/** the part of this kind of his passive, if he has one */
+export type PassivePart<K extends Passive['do']> = Passive extends infer P ? P extends { do: infer D } ? K extends D ? Omit<P, 'do'> & { do: K } : never : never : never;
+export const passive = <K extends Passive['do']>(pid: number, k: K): PassivePart<K> | undefined =>
+  passivesOf(pid).find((p) => p.do === k) as PassivePart<K> | undefined;
 
 const c = (tech: string, kind: CardKind, ...fx: Fx[]): CardSpec => ({ tech, kind, fx });
 const u = (tech: string, mult: number, ...fx: Fx[]): UltiSpec => ({ tech, mult, fx });
@@ -272,13 +286,14 @@ const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
 /** balance: PV, ATQ and DEF of each footballer are multiplied by this. First by hand (author: «equilibra los mixi max y
  *  los de tier C»), then (2026-11-19) by tools/duel_balance.ts, 6 rounds of 4200 CPU «difícil» matches towards a 50 %
  *  win share for everyone: the spread went from 36-71 % to 45-57 % (Nathan's kit was changed instead, see above);
- *  2026-11-20 again with the passives on and King / Samford Royal in (6 rounds of 4200): 43-57 % */
-export const DUEL_TUNE: Record<number, number> = {1: 1.352, 2: 1.265, 3: 1.677, 10: 0.801, 20: 1.488, 29: 1.474, 30: 1.357, 157: 0.892, 1024: 1.636, 1370: 0.915, 1371: 0.703, 1513: 1.185, 1532: 0.882, 1541: 0.898, 1542: 0.897, 1548: 1.788, 1567: 1.019, 100242: 0.715, 100303: 1.207, 100405: 1.872, 100427: 0.962, 100487: 1.425, 100538: 1.063, 100562: 0.792, 100580: 1.028, 100728: 1.013, 100739: 0.906, 100773: 0.734, 100797: 1.438, 100905: 0.92, 100907: 0.841, 100944: 0.91, 100952: 0.715, 100979: 0.781, 101004: 0.635, 101308: 1.346, 101488: 1.285, 101504: 0.933, 101505: 0.975, 101520: 0.663, 101572: 1.008, 101719: 0.987, 101722: 0.822, 101775: 0.795, 101791: 0.862, 101838: 1.145, 101855: 0.995, 101871: 0.995, 101894: 1.088, 102185: 1.225, 102307: 0.947};
+ *  2026-11-20 again with the passives on and King / Samford Royal in (6 rounds of 4200): 43-57 %; and again with
+ *  the passives remade (each his own, none tied to team mates) */
+export const DUEL_TUNE: Record<number, number> = {1: 1.288, 2: 1.218, 3: 1.732, 10: 0.824, 20: 1.579, 29: 1.348, 30: 1.357, 157: 0.892, 1024: 1.636, 1370: 0.949, 1371: 0.703, 1513: 1.231, 1532: 0.908, 1541: 0.866, 1542: 0.878, 1548: 1.788, 1567: 1.031, 100242: 0.614, 100303: 1.207, 100382: 0.902, 100405: 1.785, 100427: 1.028, 100487: 1.365, 100538: 1.365, 100562: 0.777, 100580: 1.026, 100728: 1.097, 100739: 0.872, 100773: 0.753, 100797: 1.468, 100905: 1.011, 100907: 0.793, 100944: 0.91, 100952: 0.633, 100979: 0.777, 101004: 0.602, 101308: 1.338, 101488: 1.125, 101504: 0.95, 101505: 0.952, 101520: 0.728, 101572: 1.063, 101719: 1.028, 101722: 0.8, 101775: 0.851, 101791: 0.862, 101838: 1.145, 101855: 1.061, 101871: 0.995, 101894: 1.088, 102185: 1.291, 102307: 0.907};
 export function duelStats(p: { id?: number; rarity: Rarity; position: string; stats: Record<string, number>; techniques: { type: string; power?: number }[] }): DuelStats {
   const s = p.stats, k = (p.id !== undefined ? DUEL_TUNE[p.id] : undefined) ?? 1, m = (RAR_MULT[p.rarity] ?? 1.26) * k, [a, d, h] = ROLE[p.position] ?? ROLE.MF;
   const best = (...ty: string[]) => Math.max(...p.techniques.filter((t) => ty.includes(t.type)).map((t) => t.power ?? 0), 0) || 60;
   // a passive of stats is part of them (the tooltips show it too)
-  const ps = p.id !== undefined ? DUEL_PASSIVE[p.id] : undefined, pp = (k: Passive['do']) => (ps?.do === k && 'pct' in ps ? ps.pct : 0);
+  const pp = (k: 'atk' | 'def' | 'hp' | 'crit' | 'critDmg' | 'resist') => (p.id !== undefined ? passivesOf(p.id).reduce((x, q) => x + (q.do === k ? q.pct : 0), 0) : 0);
   return {
     hp: Math.round(Math.round((s.stamina + s.guts) * 12 * m * h) * (0.9 + 0.1 * best('regate', 'defensa', 'parada') / 100) * (1 + pp('hp') / 100)),
     atk: Math.round(Math.round((s.kick + 0.4 * s.body) * 3 * m * a) * (0.85 + 0.15 * best('tiro') / 100) * (1 + pp('atk') / 100)),

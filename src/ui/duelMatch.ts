@@ -19,7 +19,7 @@ import { setMusicContext } from '../game/music';
 import { COACH_BY_ID } from '../data/coaches';
 import { artUrl } from './duelArt';
 import { elementIcon } from './elements';
-import { cardInfo, passiveText } from './duelText';
+import { cardInfo, coachText, passiveText, pctOf } from './duelText';
 import { LOW_FX } from '../systems/perf';
 import { DUEL_MATCH_CSS as CSS_TEXT } from './duelMatchCss';
 import { GAUGE_MAX, act, cloneDuel, createDuel, illegal, onPitch, specOf, teamOf, unit, type Action, type Card, type DuelState, type Ev, type Side, type TeamCfg, type Unit } from '../systems/duel/rules';
@@ -189,6 +189,7 @@ export function openDuelMatch(host: DuelHost, setup: DuelSetup) {
   document.body.appendChild(root);
   const stage = root.querySelector<HTMLElement>('.dm-stage')!;
   const $ = <T extends HTMLElement>(q: string) => stage.querySelector<T>(q)!;
+  let hoverCoach: Side | null = null;
   let busy = false, picked: number | null = null, benchPick: number | null = null, closed = false, hoverCard: number | null = null, hoverUnit: number | null = null;
   let seenCards = new Set<number>();
   let L: Layout = LAYOUTS.h;
@@ -198,6 +199,10 @@ export function openDuelMatch(host: DuelHost, setup: DuelSetup) {
   let introAt = 0;
   /** the Garra each footballer had when last drawn (the new orbs pop) */
   const gaugeSeen = new Map<number, number>();
+  /** the orbs lit on each footballer's card right now (the new ones light up as their orb arrives) */
+  const orbShown = new Map<number, number>();
+  /** where the orbs a footballer is about to get fly from: the card of his you just moved or used */
+  const orbFrom = new Map<number, DOMRect>();
 
   // the duel has its own theme (IE2's M201); leaving puts the menu's back
   setMusicContext('duel');
@@ -252,34 +257,27 @@ export function openDuelMatch(host: DuelHost, setup: DuelSetup) {
   const px = (cqw: number) => Math.max(8, Math.round(stage.clientWidth * cqw / 100));
   /** the stage's own unit (1cqw wide, more on the tall table) in px */
   const U = () => stage.clientWidth / 100 * (L.v ? 1.8 : 1);
-  /** where a footballer stands on the table: while you plan, where your lined-up actions leave him (a rival you knock
-   *  out gives his place to the bench at once, as the rules do: author «el del banquillo no entra hasta el final de
-   *  turno»); one who falls is no longer drawn. -1: not drawn */
-  function slotView(u: Unit): number {
-    if (!planning || !queue.length) return u.slot;
-    const p = unit(plan, u.uid);
-    // one your plan knocks out leaves the table (author: «que no se vea cuando está KO»)
-    return p.slot;
-  }
+  /** where a footballer stands on the table: yours, where your lined-up swaps leave them; the rivals, where they are
+   *  (what your plan does to them is not shown before it is played, author: «se sigue viendo el daño que hago y si lo
+   *  dejo KO, eso no lo quiero ver»). -1: not drawn */
+  const slotView = (u: Unit): number => (planning && queue.length && u.side === 0 ? unit(plan, u.uid).slot : u.slot);
   /** the Garra shown: while you plan, what your fusions and cards have charged already (author: «deberían subir orbes
    *  por cada juntada, aunque se junten solas») */
-  const gaugeOf = (u: Unit) => (planning ? unit(plan, u.uid).gauge : u.gauge);
+  const gaugeOf = (u: Unit) => (planning || playing?.side === 0 ? unit(plan, u.uid).gauge : u.gauge); // (and while your plan plays: it is that)
   function unitHtml(u: Unit) {
-    const gv = gaugeOf(u);
     const side = u.side, slot = slotView(u), bench = slot === 3, [x, y] = L.slots[side][slot], incoming = slot !== u.slot && u.slot === 3;
     const w = L.unitW[side] * (bench ? 0.72 : 1);
     const hp = hpView.get(u.uid) ?? Math.max(0, u.hp), k = hp / u.maxHp;
     // while you plan: what your lined-up actions leave him with (the plan is the match itself, played on a copy)
-    const pu = planning && queue.length && !hpView.has(u.uid) ? unit(plan, u.uid) : undefined;
-    const ph = pu && pu.hp < hp ? Math.max(0, pu.hp) : null, doomed = ph !== null && (ph <= 0 || pu!.slot < 0);
     const st = Object.entries(u.status).filter(([, n]) => n).map(([id, n]) => `<span class="dm-st" title="${esc(STATUS_NAME()[id] ?? id)}">${img(STATUS_FILE[id])}<b>${n}</b></span>`).join('')
       + (u.shield > 0 ? `<span class="dm-st">${img('estado-escudo')}<b>${u.shield}</b></span>` : '')
       + (u.stances.length ? `<span class="dm-st">${img('tipo-postura')}</span>` : '');
-    const gauge = Array.from({ length: GAUGE_MAX }, (_, i) => `<span class="dm-g${i < gv ? ' on' : ''}" style="left:${FR.orbX + i * FR.orbStep}%">${img(i < gv ? 'garra-lleno' : 'garra-vacio')}</span>`).join('');
+    // the orbs are lit afterwards, in place (paintOrbs): in the markup, each new orb drew his whole card anew and it blinked
+    const gauge = Array.from({ length: GAUGE_MAX }, (_, i) => `<span class="dm-g" style="left:${FR.orbX + i * FR.orbStep}%">${img('garra-vacio')}</span>`).join('');
     const name = host.name(u.pid);
     const sts = Object.entries(u.status).filter(([, n]) => n).map(([id]) => ` st-${id}`).join('')
       + [...new Set(u.stances.map((x) => ` ps-${x.kind}`))].join('') + (u.shield > 0 ? ' sh' : '');
-    return `<div class="dm-unit s${side}${bench ? ' bench' : ''}${boss && side === 1 ? ' boss' : ''}${gv >= GAUGE_MAX ? ' full' : ''}${doomed ? ' doomed' : ''}${incoming ? ' incoming' : ''}${sts}" data-uid="${u.uid}" style="left:${x}%;top:${y}%;--w:${w}cqw;--i:${(u.uid * 0.37) % 1}">
+    return `<div class="dm-unit s${side}${bench ? ' bench' : ''}${boss && side === 1 ? ' boss' : ''}${incoming ? ' incoming' : ''}${sts}" data-uid="${u.uid}" style="left:${x}%;top:${y}%;--w:${w}cqw;--i:${(u.uid * 0.37) % 1}">
       <div class="dm-sts">${st}</div>
       <div class="dm-card">
         <span class="dm-tring"></span>${/st-/.test(sts) ? '<span class="dm-stfx"><i></i><i></i><i></i></span>' : ''}<div class="dm-port">${host.mug(u.pid, px(w * FR.portW / 100))}</div>
@@ -289,8 +287,7 @@ export function openDuelMatch(host: DuelHost, setup: DuelSetup) {
         <span class="dm-nm" style="--n:${Math.max(6, name.length)}">${esc(name)}</span>
         <span class="dm-hpn" style="--d:${String(Math.round(hp)).length}">${izNum(Math.round(hp))}</span><span class="dm-atk" style="--d:${String(u.base.atk).length}">${izNum(u.base.atk, 'morado')}</span>
       </div>
-      ${doomed ? `<span class="dm-doom">KO</span>` : ''}
-      <div class="dm-life${k <= 0.25 ? ' low' : ''}${u.shield > 0 ? ' shielded' : ''}${ph !== null ? ' planned' : ''}" style="--p:${k * 100}%;--q:${((ph ?? hp) / u.maxHp) * 100}%;--s:${Math.min(100 - k * 100, (u.shield / u.maxHp) * 100)}%;--c:${lifeColor(k)}"><span class="hrt">♥</span><span class="bar"><span class="lag"></span><span class="cur"></span><span class="pl"></span><span class="shd"></span><span class="tick"></span><i class="gloss"></i></span><b>${izNum(Math.round(ph ?? hp))}<small>/${u.maxHp}</small></b>${ph !== null && !doomed ? `<i class="dm-pd">-${Math.round(hp - ph)}</i>` : ''}${u.shield > 0 ? `<em>🛡${u.shield}</em>` : ''}</div>
+      <div class="dm-life${k <= 0.25 ? ' low' : ''}${u.shield > 0 ? ' shielded' : ''}" style="--p:${k * 100}%;--s:${Math.min(100 - k * 100, (u.shield / u.maxHp) * 100)}%;--c:${lifeColor(k)}"><span class="hrt">♥</span><span class="bar"><span class="lag"></span><span class="cur"></span><span class="shd"></span><span class="tick"></span><i class="gloss"></i></span><b>${izNum(Math.round(hp))}<small>/${u.maxHp}</small></b>${u.shield > 0 ? `<em>🛡${u.shield}</em>` : ''}</div>
       <div class="dm-pv"></div></div>`;
   }
   /** a card of the hand; `w` its width in cqw (sizes the faces) */
@@ -304,10 +301,49 @@ export function openDuelMatch(host: DuelHost, setup: DuelSetup) {
     return `<div class="dm-hc${c.sealed ? ' sealed' : ''}${c.idx === 'u' ? ' ulti' : ''}${c.idx === 'c' ? ' combo' : ''}" data-cid="${c.id}">
       <div class="dm-hface">${faces.map((p) => host.mug(p, px(fw))).join('')}</div>
       ${img(frame, 'dm-hframe')}${img(iconOf(c, u), 'dm-hicon')}<i class="dm-hshine"></i>
-      <span class="dm-htech" style="--lw:${Math.max(...tech.split(/\s+/).map((w) => w.length))}">${esc(tech)}</span>${mult ? `<span class="dm-hmult">×${mult}</span>` : ''}
+      <span class="dm-htech" style="--lw:${Math.max(...tech.split(/\s+/).map((w) => w.length))}">${esc(tech)}</span>${mult ? `<span class="dm-hmult">${pctOf(mult)}</span>` : ''}
       ${c.sealed ? img('estado-sellada', 'dm-hseal') : ''}</div>`;
   }
   const handW = () => (L.v ? 15 : 9.6);
+  /** lights a footballer's orbs as many as have landed */
+  function paintOrbs(uid: number) {
+    const el = unitEl(uid), n = orbShown.get(uid) ?? 0;
+    if (!el) return;
+    el.querySelectorAll<HTMLElement>('.dm-g').forEach((o, i) => {
+      o.classList.toggle('on', i < n);
+      const im = o.querySelector('img'), want = artUrl(i < n ? 'garra-lleno' : 'garra-vacio');
+      if (im && im.getAttribute('src') !== want) im.setAttribute('src', want);
+    });
+    el.classList.toggle('full', n >= GAUGE_MAX);
+  }
+  /** a blue orb flies to the place of orb `i` on his card, then that orb pops */
+  function flyOrb(u: Unit, i: number, from?: DOMRect) {
+    if (closed) return;
+    const land = () => {
+      if (closed) return;
+      orbShown.set(u.uid, Math.max(orbShown.get(u.uid) ?? 0, i + 1));
+      paintOrbs(u.uid);
+      const o = unitEl(u.uid)?.querySelectorAll<HTMLElement>('.dm-g')[i];
+      if (o) { o.classList.remove('gain'); void o.offsetWidth; o.classList.add('gain'); }
+      orbSfx(i, u.side === 1);
+      if (i + 1 >= GAUGE_MAX) window.setTimeout(() => { if (!closed) gaugeFull(u.uid); }, 140);
+    };
+    const target = unitEl(u.uid)?.querySelectorAll<HTMLElement>('.dm-g')[i];
+    if (!target) { land(); return; }
+    const t = target.getBoundingClientRect(), card = cardOf(unitEl(u.uid)!).getBoundingClientRect();
+    const a = from ? { x: from.left + from.width / 2, y: from.top + from.height * 0.4 } : { x: card.left + card.width / 2, y: card.top + card.height * 0.45 };
+    const b = { x: t.left + t.width / 2, y: t.top + t.height / 2 };
+    const orb = document.createElement('i');
+    orb.className = `dm-orbfly${u.side === 1 ? ' s1' : ''}`;
+    orb.style.cssText = `left:${a.x}px;top:${a.y}px`;
+    root.appendChild(orb);
+    const dx = b.x - a.x, dy = b.y - a.y, lift = -Math.min(120, Math.hypot(dx, dy) * 0.35);
+    orb.animate([
+      { transform: 'translate(-50%,-50%) scale(.4)', opacity: 0 },
+      { transform: `translate(calc(-50% + ${dx * 0.5}px), calc(-50% + ${dy * 0.5 + lift}px)) scale(1.15)`, opacity: 1, offset: 0.5 },
+      { transform: `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px)) scale(.7)`, opacity: 1 },
+    ], { duration: (from ? 460 : 300) / speed, easing: 'cubic-bezier(.45,0,.55,1)' }).finished.then(() => { orb.remove(); land(); }, () => { orb.remove(); land(); });
+  }
   /** the markup each card of the hand / footballer on the table was made from */
   const madeFrom = new WeakMap<Element, string>();
   /** a list of elements as it should be, keeping the ones whose markup did not change. Rebuilt every time, a picked
@@ -348,17 +384,18 @@ export function openDuelMatch(host: DuelHost, setup: DuelSetup) {
     const nowMs = performance.now();
     $('.dm-units').style.setProperty('--ph', `${-Math.round(nowMs)}ms`);
     $('.dm-units').style.setProperty('--ia', `${-Math.round(nowMs - introAt)}ms`);
+    // the Garra: each orb won flies in (a blue orb from the card that gave it, or from his own card) and lights up
+    // when it lands; the footballer's card itself does nothing (author: «haz que se acerque un orbe azul a la zona de
+    // orbes y salga la animación del orbe, pero que no haga nada la carta»)
     for (const u of [...them.units, ...me.units]) {
       const g = gaugeOf(u), was = gaugeSeen.get(u.uid) ?? g;
       if (g > was) {
-        stage.querySelectorAll<HTMLElement>(`.dm-unit[data-uid="${u.uid}"] .dm-g`).forEach((orb, i) => {
-          if (i < was || i >= g) return;
-          orb.classList.add('gain'); orb.style.setProperty('--gd', `${(i - was) * 110}ms`);
-          window.setTimeout(() => { if (!closed) orbSfx(i, u.side === 1); }, (i - was) * 110);
-        });
-        if (g >= GAUGE_MAX && was < GAUGE_MAX) window.setTimeout(() => { if (!closed) gaugeFull(u.uid); }, (g - was) * 110 + 120);
-      }
+        const from = orbFrom.get(u.uid);
+        orbFrom.delete(u.uid);
+        for (let i = was; i < g; i++) window.setTimeout(() => flyOrb(u, i, from), (i - was) * 130);
+      } else if (g < was || !orbShown.has(u.uid)) orbShown.set(u.uid, g);
       gaugeSeen.set(u.uid, g);
+      paintOrbs(u.uid);
     }
     const hand = (planning || playing?.side === 0 ? plan : s).sides[0].hand;
     syncHand(hand.map((c) => [c.id, cardHtml(planning || playing?.side === 0 ? plan : s, c, handW())]));
@@ -629,7 +666,8 @@ export function openDuelMatch(host: DuelHost, setup: DuelSetup) {
     stage.classList.toggle('aiming', to !== null);
     stage.classList.toggle('aim-ally', to === 0);
     for (const el of stage.querySelectorAll<HTMLElement>('.dm-unit')) {
-      const u = unit(s, Number(el.dataset.uid)), pu = unit(plan, u.uid);
+      // a rival as he is now (your plan's blows are not shown); your own as your plan leaves them
+      const u = unit(s, Number(el.dataset.uid)), pu = u.side === 0 ? unit(plan, u.uid) : u;
       const ok = to !== null && u.side === to && pu.slot >= 0 && pu.slot <= 2 && pu.hp > 0;
       el.classList.toggle('aim', ok);
       el.classList.toggle('dim', to !== null && !ok && slotView(u) <= 2);
@@ -641,17 +679,15 @@ export function openDuelMatch(host: DuelHost, setup: DuelSetup) {
   function preview(c: Card, uid: number) {
     const sim = cloneDuel(plan), n = sim.log.length;
     if (act(sim, 0, { do: 'use', card: c.id, target: uid })) return '';
-    const evs = sim.log.slice(n), atk = unit(sim, c.owner);
+    const evs = sim.log.slice(n);
     const hits = evs.filter((e): e is Extract<Ev, { t: 'hit' }> => e.t === 'hit' && unit(sim, e.to).side === 1);
     const out: string[] = [];
     if (hits.length) {
+      // who it lands on and how well, but not how much nor whether he falls (author: «el daño que hago y si lo dejo KO,
+      // eso no lo quiero ver»)
       const h = hits.find((e) => e.to === uid) ?? hits[0];
-      const dmg = hits.filter((e) => e.to === h.to).reduce((a, e) => a + (e.crit ? e.dmg / (atk.base.critDmg / 100) : e.dmg), 0);
-      out.push(`<b class="dmg">${izNum(`-${Math.round(dmg / 10) * 10}`)}</b>`);
       if (h.to !== uid) out.push(`<span class="redir">${img('estado-provocar')}${esc(host.name(unit(s, h.to).pid))}</span>`);
       if (h.elem > 1) out.push(`<span class="good">▲ ${tr('Eficaz')}</span>`); else if (h.elem < 1) out.push(`<span class="bad">▼ ${tr('Poco eficaz')}</span>`);
-      if (unit(sim, h.to).hp <= 0 && unit(plan, h.to).hp > 0) out.push(`<span class="ko">KO</span>`);
-      else out.push(`<span class="left">${tr('Quedan {n}', { n: Math.max(0, unit(sim, h.to).hp) })}</span>`);
     }
     const heal = evs.filter((e): e is Extract<Ev, { t: 'heal' }> => e.t === 'heal' && e.to === uid).reduce((a, e) => a + e.hp, 0);
     const shield = evs.filter((e): e is Extract<Ev, { t: 'shield' }> => e.t === 'shield' && e.to === uid).reduce((a, e) => a + e.amount, 0);
@@ -673,6 +709,14 @@ export function openDuelMatch(host: DuelHost, setup: DuelSetup) {
       box.innerHTML = `<div class="dm-ih">${img(iconOf(c, u))}<div><b>${esc(ci.tech)}</b><small>${esc(KIND_NAME()[ci.kind] ?? ci.kind)} · ${esc(host.name(u.pid))}${c.idx === 'u' || c.idx === 'c' ? '' : ` · ${'★'.repeat(c.rank)}`}</small></div></div>`
         + (ci.base ? `<p class="base">${esc(ci.base)}</p>` : '')
         + ci.lines.map((l) => `<p class="${l.on ? '' : 'off'}">${l.on ? '' : `<em>${'★'.repeat(l.min)}</em> `}${esc(l.text)}</p>`).join('');
+      box.hidden = false;
+      return;
+    }
+    // a coach: his passive (worth 50 % more with 2+ footballers of his groups)
+    const hc = hoverCoach !== null ? s.sides[hoverCoach] : undefined;
+    if (hc?.coach && !stage.classList.contains('scene')) {
+      box.innerHTML = `<div class="dm-ih"><div><b>${esc(COACH_BY_ID.get(hc.coach)?.name ?? hc.coach)}</b><small>${tr('Entrenador')}</small></div></div>`
+        + `<p class="pas"><b>${tr('Pasiva')}</b> ${esc(coachText(hc.coach, hc.coachBoost))}</p>` + (hc.coachBoost ? `<p>${tr('(+50 % por tener 2 o más de su grupo)')}</p>` : '');
       box.hidden = false;
       return;
     }
@@ -1102,8 +1146,8 @@ export function openDuelMatch(host: DuelHost, setup: DuelSetup) {
         break;
       }
       case 'passive': {
-        // his last stand: he stays up with 1 PV
-        float(ev.uid, tr('¡Aguanta!'), 'mod up');
+        // a passive that triggers: his last stand (1 PV), his second wind, his rage for a fallen mate
+        float(ev.uid, ev.what === 'lastStand' ? tr('¡Aguanta!') : ev.what === 'secondWind' ? tr('¡Segundo aliento!') : tr('¡Furia!'), 'mod up');
         const el = unitEl(ev.uid);
         if (el) { pulse(el, 'buffed', 800); particles(ev.uid, 'star', '#ffd76a', 18); }
         sfx('levelup', 1.2);
@@ -1302,6 +1346,8 @@ export function openDuelMatch(host: DuelHost, setup: DuelSetup) {
       into.animate([{ rotate: '0deg' }, { rotate: `${fromX < ir.left ? -5 : 5}deg`, offset: 0.7 }, { rotate: '0deg' }], { duration: 380, easing: 'ease-in-out', composite: 'add' });
       await wait(330);
       fuseFx(into, ev.t === 'merge' ? ev.rank : 3, ev.t === 'combo');
+      // a fusion that climbed one more rank says why (★ + ★ giving ★★★ looked like a bug)
+      if (ev.t === 'merge' && ev.boost) banner(ev.boost === 'travis' ? tr('¡Táctica de Travis! La primera fusión del turno sube un rango más.') : tr('¡Fusión potenciada! Sube un rango más.'), 'combo s0', 1600);
       if (ev.t === 'combo') banner(cardTech(ev.name), 'combo s0', 1300);
       await wait(250);
     }
@@ -1338,7 +1384,9 @@ export function openDuelMatch(host: DuelHost, setup: DuelSetup) {
     const n = s.log.length;
     const before = structuredClone(s.sides);
     if (a.do === 'use') before[side].hand = before[side].hand.filter((c) => c.id !== a.card);
-    const why = act(s, side, a);
+    let why = act(s, side, a);
+    // a target an earlier blow already knocked out: the card goes to another rival instead of being lost
+    if (why === 'bad_target' && a.do === 'use') why = act(s, side, { ...a, target: undefined });
     if (why) return why;
     const evs = s.log.slice(n);
     // the table as it was (the state already moved on) while the blows land
@@ -1442,6 +1490,7 @@ export function openDuelMatch(host: DuelHost, setup: DuelSetup) {
     const card = plan.sides[0].hand.find((c) => c.id === (a as { card: number }).card)!;
     const fromEl = stage.querySelector<HTMLElement>(`.dm-hand .dm-hc[data-cid="${card.id}"]`);
     const fromRect = fromEl?.getBoundingClientRect();
+    if (fromRect) orbFrom.set(card.owner, fromRect);
     const n = plan.log.length, snap = snapHand();
     act(plan, 0, a);
     queue.push({ a, card: structuredClone(card) });
@@ -1694,9 +1743,10 @@ export function openDuelMatch(host: DuelHost, setup: DuelSetup) {
     const cid = hc ? Number(hc.dataset.cid ?? hc.querySelector<HTMLElement>('.dm-hc')?.dataset.cid) : null;
     const ue = t.closest<HTMLElement>('.dm-unit');
     const uid = ue ? Number(ue.dataset.uid) : null;
-    if (cid !== hoverCard || uid !== hoverUnit) { hoverCard = Number.isFinite(cid) ? cid : null; hoverUnit = uid; info(); }
+    const co = t.closest<HTMLElement>('.dm-coach'), cs = co ? (co.classList.contains('s1') ? 1 : 0) : null;
+    if (cid !== hoverCard || uid !== hoverUnit || cs !== hoverCoach) { hoverCard = Number.isFinite(cid) ? cid : null; hoverUnit = uid; hoverCoach = cs; info(); }
   });
-  stage.addEventListener('pointerleave', () => { hoverCard = null; hoverUnit = null; info(); });
+  stage.addEventListener('pointerleave', () => { hoverCard = null; hoverUnit = null; hoverCoach = null; info(); });
 
   // ---- taps
   stage.addEventListener('click', (e) => {
