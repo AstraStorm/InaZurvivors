@@ -29,9 +29,10 @@ export function applyLowFx() {
   if (LOW_FX) document.body.classList.add('lowfx');
 }
 
-/** caps (or frees, with 0) the game's frame rate; used while the menu's background is the only thing Phaser draws */
+/** caps (or frees, with 0) the game's frame rate; used while the menu's background is the only thing Phaser draws.
+ *  On every device, not only modest ones (author: «siempre que abro el juego el stream de Twitch se pausa»): the menu
+ *  pitch drew at the screen's full rate (144 Hz on a gaming monitor) and fought the video beside it for the GPU */
 export function capFps(game: Phaser.Game, fps: number) {
-  if (!LOW_FX) return;
   const loop = game.loop as Phaser.Core.TimeStep & { _limitRate: number };
   loop.fpsLimit = fps;
   loop.hasFpsLimit = fps > 0;
